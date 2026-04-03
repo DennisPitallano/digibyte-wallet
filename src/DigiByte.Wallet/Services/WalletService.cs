@@ -252,18 +252,20 @@ public class WalletService : IWalletService
         return balance;
     }
 
-    public Task<string> GetReceivingAddressAsync()
+    public Task<string> GetReceivingAddressAsync(string format = "default")
     {
         EnsureUnlocked();
+        var type = format == "legacy" ? ScriptPubKeyType.Legacy : ScriptPubKeyType.Segwit;
+
         if (_singleKey != null)
         {
-            // For WIF imports, show Legacy address first (matches source wallet like Guardia)
-            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, EffectiveNetwork);
+            var defaultType = format == "default" ? ScriptPubKeyType.Legacy : type;
+            var addr = _singleKey.PubKey.GetAddress(defaultType, EffectiveNetwork);
             return Task.FromResult(addr.ToString());
         }
         var index = _activeWallet!.NextReceivingIndex;
         var key = _hd!.DeriveReceivingKey(index);
-        var address = _hd.GetAddress(key);
+        var address = _hd.GetAddress(key, format == "default" ? ScriptPubKeyType.Segwit : type);
         return Task.FromResult(address.ToString());
     }
 

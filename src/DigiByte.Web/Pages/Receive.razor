@@ -8,6 +8,18 @@
 <div class="flex flex-col items-center gap-5">
     <h2 class="text-xl font-bold text-slate-900 dark:text-white self-start slide-up">Receive DigiByte</h2>
 
+    @* Address format selector *@
+    <div class="slide-up-delay-1 flex bg-slate-100 dark:bg-dgb-900 rounded-xl p-1 gap-0.5 w-full">
+        <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(addressFormat == "legacy" ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                @onclick="SetLegacy">
+            Legacy (D...)
+        </button>
+        <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(addressFormat == "segwit" ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                @onclick="SetSegwit">
+            SegWit (dgb1...)
+        </button>
+    </div>
+
     @if (address != null)
     {
         <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-6 shadow-sm flex flex-col items-center gap-4 w-full card-hover">
@@ -32,9 +44,12 @@
             </div>
         </div>
 
-        <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium transition-colors slide-up-delay-3" @onclick="GenerateNewAddress">
-            Generate new address
-        </button>
+        @if (!isWifWallet)
+        {
+            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium transition-colors slide-up-delay-3" @onclick="GenerateNewAddress">
+                Generate new address
+            </button>
+        }
     }
     else
     {
@@ -50,10 +65,32 @@
     private string? qrDataUrl;
     private bool copied;
     private int addressIndex;
+    private string addressFormat = "legacy";
+    private bool isWifWallet;
 
-    protected override async Task OnInitializedAsync() { await GenerateAddress(); }
+    protected override async Task OnInitializedAsync()
+    {
+        isWifWallet = WalletService.ActiveWallet?.WalletType == "privatekey";
+        // Default to segwit for HD wallets, legacy for WIF
+        addressFormat = isWifWallet ? "legacy" : "segwit";
+        await GenerateAddress();
+    }
 
-    private async Task GenerateAddress() { address = await WalletService.GetReceivingAddressAsync(); GenerateQrCode(); }
+    private async Task GenerateAddress()
+    {
+        address = await WalletService.GetReceivingAddressAsync(addressFormat);
+        GenerateQrCode();
+    }
+
+    private async Task SetLegacy() => await SetFormat("legacy");
+    private async Task SetSegwit() => await SetFormat("segwit");
+
+    private async Task SetFormat(string format)
+    {
+        if (format == addressFormat) return;
+        addressFormat = format;
+        await GenerateAddress();
+    }
 
     private void GenerateQrCode()
     {
@@ -89,11 +126,8 @@
         {
             address = addresses[0].Address;
             GenerateQrCode();
-            // Persist the new index so it's used as default next time
             if (WalletService.ActiveWallet != null)
-            {
                 WalletService.ActiveWallet.NextReceivingIndex = addressIndex;
-            }
         }
     }
 }

@@ -9,7 +9,7 @@ public interface IWalletService
     Task<bool> UnlockWalletAsync(string walletId, string pin);
     Task LockWalletAsync();
     Task<WalletBalance> GetBalanceAsync();
-    Task<string> GetReceivingAddressAsync();
+    Task<string> GetReceivingAddressAsync(string format = "default");
     Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null);
     Task<List<TransactionRecord>> GetTransactionHistoryAsync(int skip = 0, int take = 50);
     Task<List<Contact>> GetContactsAsync();
