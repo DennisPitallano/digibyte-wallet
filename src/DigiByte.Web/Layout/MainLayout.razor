@@ -1,13 +1,38 @@
 @inherits LayoutComponentBase
 @inject ThemeService Theme
+@inject NavigationManager Nav
 
 <ToastContainer />
 
-<div class="flex flex-col h-dvh max-w-[480px] mx-auto relative bg-slate-50 dark:bg-dgb-950 overflow-hidden">
-    <main class="flex-1 overflow-y-auto px-4 pt-4 pb-24 scroll-smooth">
+<div class="flex flex-col h-dvh max-w-[480px] mx-auto relative bg-slate-50 dark:bg-dgb-950">
+    <main class="flex-1 overflow-y-auto px-4 pt-4 @(ShowNav ? "pb-24" : "pb-4") scroll-smooth">
         <div class="page-enter">
             @Body
         </div>
     </main>
-    <NavMenu />
+    @if (ShowNav)
+    {
+        <NavMenu />
+    }
 </div>
+
+<div id="modal-root"></div>
+
+@code {
+    private static readonly string[] HiddenNavPaths = ["/welcome", "/create-wallet", "/recover-wallet", "/unlock"];
+
+    private bool ShowNav
+    {
+        get
+        {
+            var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLower();
+            if (string.IsNullOrEmpty(path)) path = "/";
+            return !HiddenNavPaths.Contains(path);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += (_, _) => InvokeAsync(StateHasChanged);
+    }
+}

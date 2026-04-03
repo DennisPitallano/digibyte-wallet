@@ -120,6 +120,20 @@ public class WalletService : IWalletService
         return true;
     }
 
+    public async Task<string[]?> GetSeedPhraseAsync(string walletId, string pin)
+    {
+        var encryptedSeed = await _keyStore.GetSeedAsync(walletId);
+        if (encryptedSeed == null)
+            return null;
+
+        var decrypted = await _crypto.DecryptAsync(encryptedSeed, pin);
+        if (decrypted == null)
+            return null;
+
+        var mnemonicWords = System.Text.Encoding.UTF8.GetString(decrypted);
+        return mnemonicWords.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    }
+
     public Task LockWalletAsync()
     {
         _hd = null;

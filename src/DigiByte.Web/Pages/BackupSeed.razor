@@ -81,7 +81,6 @@
             if (walletId == null) { error = "No wallet found"; return; }
 
             // Try to unlock with the PIN to verify it's correct
-            // (wallet is already unlocked, but we verify the PIN matches)
             var success = await WalletService.UnlockWalletAsync(walletId, pin);
             if (!success)
             {
@@ -91,17 +90,16 @@
                 return;
             }
 
-            // Get the seed words from the mnemonic
-            // We need to decrypt the seed from storage
-            var keyStore = WalletService.GetType().GetField("_walletStore",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            // For now, show a message that this feature needs the mnemonic stored separately
-            // In production, we'd store the encrypted mnemonic and decrypt it here
+            // Decrypt and retrieve the actual seed phrase
+            var words = await WalletService.GetSeedPhraseAsync(walletId, pin);
+            if (words == null || words.Length == 0)
+            {
+                error = "Failed to retrieve seed phrase";
+                return;
+            }
+
             isVerified = true;
-            seedWords = ["Feature", "coming", "soon", "—", "the", "encrypted",
-                         "mnemonic", "needs", "to", "be", "stored", "separately",
-                         "from", "the", "HD", "key", "to", "enable",
-                         "backup", "viewing", "after", "wallet", "creation", "phase"];
+            seedWords = words;
         }
         catch (Exception ex) { error = ex.Message; }
         finally { isVerifying = false; }

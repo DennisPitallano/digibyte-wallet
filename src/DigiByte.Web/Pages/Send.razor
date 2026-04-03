@@ -81,11 +81,23 @@
         <div class="flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all">
             <input type="number" @bind="amount" step="0.00000001" min="0" placeholder="0.00" inputmode="decimal"
                    class="flex-1 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
-            <span class="pr-4 text-sm font-bold text-dgb-500">@(AppState.IsSimpleMode ? AppState.FiatCurrency : "DGB")</span>
+            <button type="button" @onclick="ToggleAmountMode"
+                    class="flex items-center gap-1 mr-2 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-dgb-800 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect">
+                <span class="text-sm font-bold text-dgb-500">@(isAmountInFiat ? AppState.FiatCurrency : "DGB")</span>
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+            </button>
         </div>
         <p class="text-xs text-slate-400 dark:text-slate-500">
-            @if (AppState.IsSimpleMode) { <span>~ @amountDgb.ToString("N8") DGB</span> }
-            else { <span>~ $@amountFiat.ToString("N2") @AppState.FiatCurrency</span> }
+            @if (isAmountInFiat)
+            {
+                <span>~ @amountDgb.ToString("N8") DGB</span>
+            }
+            else
+            {
+                <span>~ $@amountFiat.ToString("N2") @AppState.FiatCurrency</span>
+            }
         </p>
     </div>
 
@@ -129,8 +141,8 @@
     @* Confirm Modal — centered card *@
     @if (showConfirm)
     {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200] px-4 backdrop-enter" @onclick="() => { if (!isSending) showConfirm = false; }">
-            <div class="w-full max-w-[380px] bg-white dark:bg-dgb-900 rounded-3xl p-6 flex flex-col gap-5 shadow-2xl scale-in" @onclick:stopPropagation="true">
+        <div class="modal-overlay" @onclick="() => { if (!isSending) showConfirm = false; }">
+            <div class="modal-card flex flex-col gap-5" @onclick:stopPropagation="true">
                 @* Header *@
                 <div class="flex flex-col items-center gap-2">
                     <div class="w-12 h-12 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
@@ -201,6 +213,24 @@
     }
 
     @* QR Scanner *@
+    @* Success overlay *@
+    @if (sentTxId != null)
+    {
+        <div class="modal-overlay" style="flex-direction:column; gap:1rem;">
+            <div class="flex flex-col items-center gap-4">
+                <div class="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center check-pop shadow-lg shadow-green-500/30">
+                    <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                </div>
+                <div class="text-center fade-in">
+                    <h3 class="text-xl font-bold text-white">Sent!</h3>
+                    <p class="text-sm text-white/70 mt-1">@amountDgb.ToString("N4") DGB sent successfully</p>
+                </div>
+            </div>
+        </div>
+    }
+
     <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 </div>
 </AuthGuard>
@@ -216,6 +246,7 @@
     private bool isSending;
     private bool showContactPicker;
     private bool showScanner;
+    private bool isAmountInFiat = true;
     private List<Contact> contactList = [];
 
     // Advanced fee control
@@ -223,8 +254,26 @@
     private int customFeeRate = 5;
     private decimal estimatedFee = 0.0001m;
 
-    private decimal amountDgb => AppState.IsSimpleMode ? amount / 0.01m : amount;
-    private decimal amountFiat => AppState.IsSimpleMode ? amount : amount * 0.01m;
+    // TODO: replace 0.01 with real DGB price from API
+    private const decimal DgbPriceUsd = 0.004m;
+    private decimal amountDgb => isAmountInFiat ? (DgbPriceUsd > 0 ? amount / DgbPriceUsd : 0) : amount;
+    private decimal amountFiat => isAmountInFiat ? amount : amount * DgbPriceUsd;
+
+    private void ToggleAmountMode()
+    {
+        // Convert the current amount to the other unit
+        if (isAmountInFiat && amount > 0)
+        {
+            // Switching from fiat to DGB — convert current fiat to DGB
+            amount = Math.Round(amountDgb, 8);
+        }
+        else if (!isAmountInFiat && amount > 0)
+        {
+            // Switching from DGB to fiat — convert current DGB to fiat
+            amount = Math.Round(amountFiat, 2);
+        }
+        isAmountInFiat = !isAmountInFiat;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -290,6 +339,8 @@
         showConfirm = true;
     }
 
+    private string? sentTxId;
+
     private async Task ConfirmSend()
     {
         sendError = null; isSending = true;
@@ -297,14 +348,19 @@
         try
         {
             var txId = await WalletService.SendAsync(destinationAddress, amountDgb, memo);
-            // Navigate to home with success
-            Nav.NavigateTo($"/?sent={Uri.EscapeDataString(txId)}");
+            isSending = false;
+            sentTxId = txId;
+            showConfirm = false;
+            StateHasChanged();
+            // Show success for 2 seconds then go home
+            await Task.Delay(2500);
+            Nav.NavigateTo("/");
         }
         catch (Exception ex)
         {
             sendError = ex.Message;
+            isSending = false;
         }
-        finally { isSending = false; }
     }
 
     private static string TruncateAddress(string addr) => addr.Length <= 16 ? addr : $"{addr[..8]}...{addr[^8..]}";

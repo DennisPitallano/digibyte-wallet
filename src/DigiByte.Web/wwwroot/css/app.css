@@ -20,11 +20,11 @@ a { text-decoration: none; color: inherit; }
 
 /* Page entrance — fade + slide up */
 @keyframes page-enter {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 .page-enter {
-    animation: page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: page-enter 0.3s ease both;
 }
 
 /* Fade in */
@@ -68,8 +68,40 @@ a { text-decoration: none; color: inherit; }
     from { opacity: 0; transform: translateY(100%); }
     to   { opacity: 1; transform: translateY(0); }
 }
-.backdrop-enter { animation: backdrop-in 0.25s ease both; }
+.backdrop-enter { animation: backdrop-in 0.3s ease both; }
 .sheet-enter    { animation: sheet-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Unified modal overlay — covers full viewport regardless of parent container */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 8, 20, 0.75);
+    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    backdrop-filter: blur(16px) saturate(130%);
+    animation: backdrop-in 0.3s ease both;
+}
+.modal-card {
+    width: 100%;
+    max-width: 380px;
+    background: white;
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.05);
+    animation: scale-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.dark .modal-card {
+    background: #0d1526;
+    box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.06);
+}
 
 /* Subtle glow pulse for hero elements */
 @keyframes glow-pulse {
@@ -166,6 +198,48 @@ a { text-decoration: none; color: inherit; }
     scrollbar-width: thin;
     scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
+
+/* ===== Hide nav when modal is open ===== */
+body:has(.modal-overlay) nav {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* ===== Skeleton loading ===== */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.skeleton {
+    background: linear-gradient(90deg,
+        rgba(148,163,184,0.1) 25%,
+        rgba(148,163,184,0.2) 50%,
+        rgba(148,163,184,0.1) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 0.5rem;
+}
+.dark .skeleton {
+    background: linear-gradient(90deg,
+        rgba(100,116,139,0.15) 25%,
+        rgba(100,116,139,0.25) 50%,
+        rgba(100,116,139,0.15) 75%);
+    background-size: 200% 100%;
+}
+
+/* ===== Success animation ===== */
+@keyframes check-pop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.check-pop { animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.fade-in { animation: fade-in 0.3s ease both; }
 
 /* ===== QR Scanner ===== */
 @keyframes scan {

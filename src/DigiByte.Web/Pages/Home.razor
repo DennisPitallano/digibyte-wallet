@@ -38,7 +38,12 @@
                             <div class="w-2.5 h-2.5 border-2 border-dgb-300 border-t-transparent rounded-full animate-spin"></div>
                         }
                     </div>
-                    @if (AppState.IsSimpleMode)
+                    @if (isLoadingBalance && balance.ConfirmedSatoshis == 0)
+                    {
+                        <div class="h-9 w-40 skeleton mt-1 rounded-lg" style="background:rgba(255,255,255,0.1)"></div>
+                        <div class="h-4 w-24 skeleton mt-1.5 rounded" style="background:rgba(255,255,255,0.08)"></div>
+                    }
+                    else if (AppState.IsSimpleMode)
                     {
                         <h1 class="text-3xl font-extrabold mt-0.5 tracking-tight">$@balance.FiatValue.ToString("N2")</h1>
                         <p class="text-xs text-dgb-300 mt-0.5">@balance.TotalDgb.ToString("N8") DGB</p>
@@ -125,7 +130,27 @@
             </div>
 
             @* Transaction List — scrollable *@
-            @if (transactions.Count == 0)
+            @if (isLoadingTx && transactions.Count == 0)
+            {
+                @* Skeleton rows while loading *@
+                <div class="flex flex-col gap-1">
+                    @for (int i = 0; i < 4; i++)
+                    {
+                        <div class="flex items-center gap-3 px-3 py-3 rounded-xl">
+                            <div class="w-8 h-8 rounded-full skeleton"></div>
+                            <div class="flex-1 flex flex-col gap-1.5">
+                                <div class="h-3 w-16 skeleton rounded"></div>
+                                <div class="h-2.5 w-24 skeleton rounded"></div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1.5">
+                                <div class="h-3 w-20 skeleton rounded"></div>
+                                <div class="h-2 w-10 skeleton rounded"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else if (transactions.Count == 0)
             {
                 <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
                     <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
@@ -192,6 +217,8 @@
             }
         </div>
     </div>
+
+    <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 </AuthGuard>
 
 @code {
@@ -254,7 +281,25 @@
     private void OnSend() => Nav.NavigateTo("/send");
     private void OnReceive() => Nav.NavigateTo("/receive");
     private void OnContacts() => Nav.NavigateTo("/contacts");
-    private void OnScan() { }
+    private void OnScan() { showScanner = true; }
+    private bool showScanner;
+
+    private void OnQrScanned(string data)
+    {
+        showScanner = false;
+        // Parse digibyte: URI and navigate to send with pre-filled data
+        var parsed = DigiByte.Wallet.Models.PaymentRequest.FromUri(data);
+        if (parsed != null)
+        {
+            var url = $"/send?address={Uri.EscapeDataString(parsed.Address)}";
+            if (parsed.AmountDgb.HasValue) url += $"&amount={parsed.AmountDgb.Value}";
+            Nav.NavigateTo(url);
+        }
+        else
+        {
+            Nav.NavigateTo($"/send?address={Uri.EscapeDataString(data.Trim())}");
+        }
+    }
     private void SendToContact(Contact c) =>
         Nav.NavigateTo($"/send?address={Uri.EscapeDataString(c.Address)}&name={Uri.EscapeDataString(c.Name)}");
 }

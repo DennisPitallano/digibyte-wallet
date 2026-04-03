@@ -2,7 +2,7 @@
 
 @if (IsOpen)
 {
-    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex flex-col items-center justify-center gap-4 backdrop-enter">
+    <div class="modal-overlay" style="flex-direction:column; gap:1rem;">
         <div class="relative w-[300px] h-[300px] rounded-2xl overflow-hidden bg-black shadow-2xl scale-in">
             <video id="qr-video" class="w-full h-full object-cover" playsinline muted></video>
             @* Scan frame overlay *@
