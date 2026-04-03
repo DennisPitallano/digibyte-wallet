@@ -42,4 +42,10 @@ builder.Services.AddScoped<NfcService>();
 builder.Services.AddSingleton<NotificationService>();
 builder.Services.AddScoped<LocalizationService>();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+
+// Initialize app state from localStorage (persisted preferences)
+var appState = host.Services.GetRequiredService<AppState>();
+await appState.InitializeAsync();
+
+await host.RunAsync();
