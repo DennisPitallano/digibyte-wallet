@@ -81,7 +81,10 @@
                         <span class="text-sm font-bold text-dgb-600 dark:text-dgb-400">@c.Name[..1].ToUpper()</span>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@c.Name</p>
+                        <div class="flex items-center gap-1.5">
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@c.Name</p>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 @GetBadgeClass(c.Address)">@GetFormatLabel(c.Address)</span>
+                        </div>
                         <p class="text-xs font-mono text-slate-400 dark:text-slate-500 truncate">@c.Address</p>
                     </div>
                     <div class="flex gap-1">
@@ -200,6 +203,23 @@
 
     private void SendToContact(Contact c) =>
         Nav.NavigateTo($"/send?address={Uri.EscapeDataString(c.Address)}&name={Uri.EscapeDataString(c.Name)}");
+
+    private static string GetFormatLabel(string addr) => addr switch
+    {
+        _ when addr.StartsWith("dgb1") || addr.StartsWith("dgbt1") || addr.StartsWith("dgbrt1") => "SegWit",
+        _ when addr.StartsWith("S") || addr.StartsWith("s") => "P2SH",
+        _ when addr.StartsWith("D") || addr.StartsWith("t") => "Legacy",
+        _ => ""
+    };
+
+    private static string GetBadgeClass(string addr) => addr switch
+    {
+        _ when addr.StartsWith("dgb1") || addr.StartsWith("dgbt1") || addr.StartsWith("dgbrt1")
+            => "text-blue-500 bg-blue-50 dark:bg-blue-900/20",
+        _ when addr.StartsWith("S") || addr.StartsWith("s")
+            => "text-purple-500 bg-purple-50 dark:bg-purple-900/20",
+        _ => "text-amber-500 bg-amber-50 dark:bg-amber-900/20"
+    };
 
     private void OnQrScanned(string data)
     {
