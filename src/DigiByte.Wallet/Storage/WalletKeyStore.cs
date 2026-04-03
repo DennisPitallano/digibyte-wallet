@@ -55,4 +55,22 @@ public class WalletKeyStore : IKeyStore
     {
         await _storage.SetAsync("active_wallet_id", walletId);
     }
+
+    /// <summary>
+    /// Delete a wallet completely — seed, info, and active ID.
+    /// </summary>
+    public async Task DeleteWalletAsync(string walletId)
+    {
+        await _storage.RemoveAsync(SeedKeyPrefix + walletId);
+        await _storage.RemoveAsync("wallet_info_" + walletId);
+        await _storage.RemoveAsync("active_wallet_id");
+    }
+
+    /// <summary>
+    /// Wipe all wallet data from storage.
+    /// </summary>
+    public async Task ClearAllAsync()
+    {
+        await _storage.ClearAsync();
+    }
 }

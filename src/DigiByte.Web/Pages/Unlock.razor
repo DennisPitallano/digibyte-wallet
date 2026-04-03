@@ -38,7 +38,93 @@
                 <span>Unlock</span>
             }
         </button>
+        @* Forgot PIN link *@
+        <button class="text-xs text-slate-400 hover:text-dgb-500 font-medium mt-2 transition-colors"
+                @onclick="() => showForgotPin = true">
+            Forgot PIN?
+        </button>
     </div>
+
+    @* Forgot PIN expanded section *@
+    @if (showForgotPin)
+    {
+        <div class="w-full max-w-[340px] flex flex-col gap-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 scale-in">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Recovery Options</h3>
+
+            @if (!showSeedInput && !showDeleteConfirm)
+            {
+                <button class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-dgb-950 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors text-left"
+                        @onclick="() => showSeedInput = true">
+                    <div class="w-8 h-8 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Reset PIN with recovery phrase</p>
+                        <p class="text-[10px] text-slate-400">Enter your seed phrase to set a new PIN</p>
+                    </div>
+                </button>
+
+                <button class="flex items-center gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-left"
+                        @onclick="() => showDeleteConfirm = true">
+                    <div class="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-red-600 dark:text-red-400">Delete wallet & start over</p>
+                        <p class="text-[10px] text-red-400 dark:text-red-500">This cannot be undone</p>
+                    </div>
+                </button>
+            }
+
+            @* Seed phrase input for PIN reset *@
+            @if (showSeedInput)
+            {
+                <textarea @bind="seedInput" rows="3" placeholder="Enter your 24-word recovery phrase..."
+                          autocomplete="off" spellcheck="false"
+                          class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 resize-none leading-relaxed"></textarea>
+                @if (resetError != null)
+                {
+                    <p class="text-xs text-red-500 font-medium">@resetError</p>
+                }
+                @if (showNewPin)
+                {
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">New PIN</p>
+                    <PinInput @ref="resetPinInput" ValueChanged="(v) => newPin = v" OnComplete="ConfirmResetPin" Error="@resetError" />
+                }
+                <div class="flex gap-2">
+                    <button class="flex-1 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            @onclick="CancelForgot">Cancel</button>
+                    @if (!showNewPin)
+                    {
+                        <button class="flex-1 py-2 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                @onclick="VerifySeed" disabled="@string.IsNullOrWhiteSpace(seedInput)">Verify</button>
+                    }
+                </div>
+            }
+
+            @* Delete confirmation *@
+            @if (showDeleteConfirm)
+            {
+                <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-3">
+                    <p class="text-xs text-red-600 dark:text-red-400 font-medium leading-relaxed">
+                        This will permanently delete your wallet and all data. If you don't have your recovery phrase, your funds will be lost forever.
+                    </p>
+                </div>
+                <input type="text" @bind="deleteConfirmText" placeholder="Type DELETE to confirm"
+                       class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-red-300 dark:border-red-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none text-center uppercase tracking-widest" />
+                <div class="flex gap-2">
+                    <button class="flex-1 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            @onclick="CancelForgot">Cancel</button>
+                    <button class="flex-1 py-2 bg-red-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                            @onclick="DeleteWallet" disabled="@(deleteConfirmText?.ToUpper() != "DELETE")">Delete Forever</button>
+                </div>
+            }
+        </div>
+    }
 </div>
 
 @code {
@@ -47,6 +133,17 @@
     private string? error;
     private bool isUnlocking;
     private string? walletId;
+
+    // Forgot PIN state
+    private bool showForgotPin;
+    private bool showSeedInput;
+    private bool showDeleteConfirm;
+    private bool showNewPin;
+    private string seedInput = "";
+    private string newPin = "";
+    private string? resetError;
+    private string deleteConfirmText = "";
+    private PinInput? resetPinInput;
 
     protected override async Task OnInitializedAsync()
     {
@@ -81,5 +178,70 @@
         }
         catch (Exception ex) { error = $"Error: {ex.Message}"; }
         finally { isUnlocking = false; }
+    }
+
+    private void CancelForgot()
+    {
+        showForgotPin = false;
+        showSeedInput = false;
+        showDeleteConfirm = false;
+        showNewPin = false;
+        seedInput = "";
+        newPin = "";
+        resetError = null;
+        deleteConfirmText = "";
+    }
+
+    private void VerifySeed()
+    {
+        resetError = null;
+        if (string.IsNullOrWhiteSpace(seedInput)) { resetError = "Enter your recovery phrase."; return; }
+
+        var cleaned = string.Join(' ', seedInput.Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(cleaned)
+            && !DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(seedInput.Trim()))
+        {
+            resetError = "Invalid recovery phrase or private key.";
+            return;
+        }
+
+        showNewPin = true;
+    }
+
+    private async Task ConfirmResetPin()
+    {
+        if (walletId == null || newPin.Length < 6) return;
+        resetError = null;
+
+        var seed = seedInput.Trim();
+        var success = await WalletService.ResetPinAsync(walletId, seed, newPin);
+        if (success)
+        {
+            // Auto-unlock with new PIN
+            WalletService.SetNetworkMode(AppState.NetworkMode);
+            var unlocked = await WalletService.UnlockWalletAsync(walletId, newPin);
+            if (unlocked)
+            {
+                AppState.IsWalletCreated = true;
+                AppState.IsWalletUnlocked = true;
+                AppState.NotifyStateChanged();
+                Nav.NavigateTo("/");
+            }
+        }
+        else
+        {
+            resetError = "Could not verify. Check your recovery phrase.";
+            newPin = "";
+            resetPinInput?.Clear();
+        }
+    }
+
+    private async Task DeleteWallet()
+    {
+        if (deleteConfirmText?.ToUpper() != "DELETE") return;
+        await WalletService.WipeAllDataAsync();
+        AppState.IsWalletCreated = false;
+        AppState.IsWalletUnlocked = false;
+        Nav.NavigateTo("/welcome");
     }
 }

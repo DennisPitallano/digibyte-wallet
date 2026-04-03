@@ -451,6 +451,72 @@ public class WalletService : IWalletService
     public Task AddContactAsync(Contact contact) => Task.CompletedTask;
     public Task RemoveContactAsync(string contactId) => Task.CompletedTask;
 
+    /// <summary>
+    /// Delete the active wallet and all associated data.
+    /// </summary>
+    public async Task DeleteWalletAsync()
+    {
+        var walletId = await _walletStore.GetActiveWalletIdAsync();
+        if (walletId != null)
+        {
+            await _walletStore.DeleteWalletAsync(walletId);
+        }
+        _hd = null;
+        _singleKey = null;
+        _activeWallet = null;
+    }
+
+    /// <summary>
+    /// Wipe everything — all wallets, contacts, tx history, preferences.
+    /// </summary>
+    public async Task WipeAllDataAsync()
+    {
+        await _walletStore.ClearAllAsync();
+        _hd = null;
+        _singleKey = null;
+        _activeWallet = null;
+    }
+
+    /// <summary>
+    /// Reset PIN by verifying the seed phrase and re-encrypting with a new PIN.
+    /// Works for HD wallets only (mnemonic-based).
+    /// </summary>
+    public async Task<bool> ResetPinAsync(string walletId, string seedPhrase, string newPin)
+    {
+        // Load wallet info to check type
+        var wallet = await GetWalletAsync(walletId);
+        if (wallet == null) return false;
+
+        if (wallet.WalletType == "privatekey")
+        {
+            // For WIF wallets, verify the WIF matches
+            // We can't verify without the old PIN, so just re-encrypt
+            // The user provides their WIF key as "seed phrase"
+            if (!PrivateKeyImporter.IsValidWif(seedPhrase.Trim()))
+                return false;
+
+            var encrypted = await _crypto.EncryptAsync(
+                System.Text.Encoding.UTF8.GetBytes(seedPhrase.Trim()), newPin);
+            await _keyStore.StoreSeedAsync(walletId, encrypted);
+            return true;
+        }
+        else
+        {
+            // HD wallet — verify mnemonic is valid
+            var cleaned = string.Join(' ', seedPhrase.Trim().ToLower()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+            if (!MnemonicGenerator.IsValid(cleaned))
+                return false;
+
+            // Re-encrypt the mnemonic with the new PIN
+            var encrypted = await _crypto.EncryptAsync(
+                System.Text.Encoding.UTF8.GetBytes(cleaned), newPin);
+            await _keyStore.StoreSeedAsync(walletId, encrypted);
+            return true;
+        }
+    }
+
     private void EnsureUnlocked()
     {
         if ((_hd == null && _singleKey == null) || _activeWallet == null)
