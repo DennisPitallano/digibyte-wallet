@@ -257,7 +257,8 @@ public class WalletService : IWalletService
         EnsureUnlocked();
         if (_singleKey != null)
         {
-            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, EffectiveNetwork);
+            // For WIF imports, show Legacy address first (matches source wallet like Guardia)
+            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, EffectiveNetwork);
             return Task.FromResult(addr.ToString());
         }
         var index = _activeWallet!.NextReceivingIndex;
@@ -266,13 +267,39 @@ public class WalletService : IWalletService
         return Task.FromResult(address.ToString());
     }
 
+    /// <summary>
+    /// Get all addresses for this wallet. For WIF wallets, returns both Legacy and SegWit.
+    /// </summary>
+    public List<string> GetAllAddresses()
+    {
+        EnsureUnlocked();
+        if (_singleKey != null)
+        {
+            var net = EffectiveNetwork;
+            return [
+                _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, net).ToString(),
+                _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, net).ToString(),
+            ];
+        }
+        var addresses = new List<string>();
+        for (int i = 0; i < 20; i++)
+            addresses.Add(_hd!.GetAddress(_hd.DeriveReceivingKey(i)).ToString());
+        for (int i = 0; i < 10; i++)
+            addresses.Add(_hd!.GetAddress(_hd.DeriveChangeKey(i)).ToString());
+        return addresses;
+    }
+
     public Task<List<(int Index, string Address)>> GetReceivingAddressesAsync(int count, int startIndex = 0)
     {
         EnsureUnlocked();
         if (_singleKey != null)
         {
-            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, EffectiveNetwork).ToString();
-            return Task.FromResult(new List<(int, string)> { (0, addr) });
+            var net = EffectiveNetwork;
+            return Task.FromResult(new List<(int, string)>
+            {
+                (0, _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, net).ToString()),
+                (1, _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, net).ToString()),
+            });
         }
         var addresses = _hd!.DeriveReceivingAddresses(count, startIndex)
             .Select(a => (a.Index, a.Address.ToString()))
@@ -389,15 +416,12 @@ public class WalletService : IWalletService
         var localTxs = await _txTracker.GetAllAsync();
 
         // On mainnet/testnet, also try the Esplora explorer for full history
-        if (_networkMode != "regtest")
+        var effectiveMode = _activeWallet?.WifNetwork ?? _networkMode;
+        if (effectiveMode != "regtest")
         {
             try
             {
-                var ourAddresses = new HashSet<string>();
-                for (int i = 0; i < 20; i++)
-                    ourAddresses.Add(_hd!.GetAddress(_hd.DeriveReceivingKey(i)).ToString());
-                for (int i = 0; i < 10; i++)
-                    ourAddresses.Add(_hd!.GetAddress(_hd.DeriveChangeKey(i)).ToString());
+                var ourAddresses = new HashSet<string>(GetAllAddresses());
 
                 var allTxs = new Dictionary<string, TransactionInfo>();
                 foreach (var addr in ourAddresses)
