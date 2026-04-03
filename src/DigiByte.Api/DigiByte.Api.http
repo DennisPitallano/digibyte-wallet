@@ -1,0 +1,6 @@
+@DigiByte.Api_HostAddress = http://localhost:5007
+
+GET {{DigiByte.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

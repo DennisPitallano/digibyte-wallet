@@ -1,0 +1,59 @@
+@page "/unlock"
+@inject WalletService WalletService
+@inject AppState AppState
+@inject NavigationManager Nav
+
+<PageTitle>Unlock Wallet</PageTitle>
+
+<div class="flex flex-col items-center justify-center min-h-[75vh] gap-8">
+    <div class="flex flex-col items-center gap-3 float-in">
+        <div class="relative">
+            <div class="absolute inset-0 bg-dgb-500/15 rounded-full blur-2xl scale-150 glow-pulse"></div>
+            <DigiLogo Size="72" Class="relative" />
+        </div>
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Welcome back</h2>
+    </div>
+
+    <div class="w-full max-w-[260px] flex flex-col gap-4 slide-up-delay-2">
+        <input type="password" @bind="pin" @bind:event="oninput" @onkeydown="OnKeyDown"
+               placeholder="Enter your PIN" inputmode="numeric" maxlength="20" autofocus
+               class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-center text-lg tracking-[0.3em] text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+        @if (error != null)
+        {
+            <p class="text-sm text-red-500 font-medium text-center fade-in">@error</p>
+        }
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
+                @onclick="UnlockAsync" disabled="@(isUnlocking || string.IsNullOrEmpty(pin))">
+            @(isUnlocking ? "Unlocking..." : "Unlock")
+        </button>
+    </div>
+</div>
+
+@code {
+    private string pin = "";
+    private string? error;
+    private bool isUnlocking;
+    private string? walletId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        walletId = await WalletService.GetActiveWalletIdAsync();
+        if (walletId == null) Nav.NavigateTo("/welcome");
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e) { if (e.Key == "Enter" && !string.IsNullOrEmpty(pin)) await UnlockAsync(); }
+
+    private async Task UnlockAsync()
+    {
+        if (walletId == null) return;
+        error = null; isUnlocking = true;
+        try
+        {
+            var success = await WalletService.UnlockWalletAsync(walletId, pin);
+            if (success) { AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged(); Nav.NavigateTo("/"); }
+            else { error = "Incorrect PIN. Please try again."; pin = ""; }
+        }
+        catch (Exception ex) { error = $"Error: {ex.Message}"; }
+        finally { isUnlocking = false; }
+    }
+}

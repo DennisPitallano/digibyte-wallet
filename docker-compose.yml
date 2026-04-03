@@ -1,0 +1,44 @@
+services:
+  # DigiByte Core testnet node
+  digibyted:
+    build:
+      context: docker/digibyted
+    container_name: dgb-testnet-node
+    ports:
+      - "12025:12025"   # Testnet P2P
+      - "14023:14023"   # Testnet RPC (for direct access)
+    volumes:
+      - dgb-testnet-data:/root/.digibyte
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "digibyte-cli", "-testnet", "-rpcuser=dgbrpc", "-rpcpassword=changeme", "getblockcount"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # DigiByte Node API (wraps RPC into REST)
+  node-api:
+    build:
+      context: .
+      dockerfile: docker/node-api/Dockerfile
+    container_name: dgb-node-api
+    ports:
+      - "5260:5260"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DigiByteNode__Host=digibyted
+      - DigiByteNode__TestnetPort=14023
+      - DigiByteNode__RpcUser=dgbrpc
+      - DigiByteNode__RpcPassword=changeme
+      - DigiByteNode__IsTestnet=true
+      - DigiByteNode__FaucetEnabled=true
+      - DigiByteNode__FaucetMaxAmount=1000
+    depends_on:
+      digibyted:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dgb-testnet-data:
+    name: dgb-testnet-data

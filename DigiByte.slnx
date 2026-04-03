@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DigiByte.Api/DigiByte.Api.csproj" />
+    <Project Path="src/DigiByte.Crypto/DigiByte.Crypto.csproj" />
+    <Project Path="src/DigiByte.NodeApi/DigiByte.NodeApi.csproj" />
+    <Project Path="src/DigiByte.P2P.Shared/DigiByte.P2P.Shared.csproj" />
+    <Project Path="src/DigiByte.Wallet/DigiByte.Wallet.csproj" />
+    <Project Path="src/DigiByte.Web/DigiByte.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DigiByte.Api.Tests/DigiByte.Api.Tests.csproj" />
+    <Project Path="tests/DigiByte.Crypto.Tests/DigiByte.Crypto.Tests.csproj" />
+    <Project Path="tests/DigiByte.NodeApi.Tests/DigiByte.NodeApi.Tests.csproj" />
+    <Project Path="tests/DigiByte.Wallet.Tests/DigiByte.Wallet.Tests.csproj" />
+  </Folder>
+</Solution>

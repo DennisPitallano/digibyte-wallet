@@ -1,0 +1,41 @@
+@inject WalletService WalletService
+@inject AppState AppState
+@inject NavigationManager Nav
+
+@if (isLoading)
+{
+    <div class="loading-state">
+        <p>Loading wallet...</p>
+    </div>
+}
+else if (AppState.IsWalletUnlocked)
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var hasWallet = await WalletService.HasWalletAsync();
+
+        if (!hasWallet)
+        {
+            Nav.NavigateTo("/welcome");
+            return;
+        }
+
+        if (!WalletService.IsUnlocked)
+        {
+            Nav.NavigateTo("/unlock");
+            return;
+        }
+
+        AppState.IsWalletCreated = true;
+        AppState.IsWalletUnlocked = true;
+        isLoading = false;
+    }
+}

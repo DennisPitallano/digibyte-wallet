@@ -1,0 +1,161 @@
+@page "/create-wallet"
+@inject WalletService WalletService
+@inject AppState AppState
+@inject NavigationManager Nav
+
+<PageTitle>Create Wallet</PageTitle>
+
+<div class="flex flex-col gap-5">
+    @* Step Indicator *@
+    <div class="flex items-center justify-center gap-2 mb-2 fade-in">
+        @for (int i = 0; i < 3; i++)
+        {
+            var idx = i;
+            <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(idx <= (int)step ? "bg-dgb-500 w-10" : "bg-slate-200 dark:bg-dgb-800 w-6")"></div>
+        }
+    </div>
+
+    @if (step == Step.GenerateMnemonic)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Recovery Phrase</h2>
+            <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 leading-relaxed bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
+                Write these 24 words down and store them safely. They are the <strong>only</strong> way to recover your wallet.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+            @for (int i = 0; i < words.Length; i++)
+            {
+                var idx = i;
+                <div class="flex items-center gap-1.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-2.5 py-2.5 shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 w-4 text-right">@(idx + 1)</span>
+                    <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">@words[idx]</span>
+                </div>
+            }
+        </div>
+
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect slide-up-delay-2"
+                @onclick="GoToConfirm">
+            I've Written It Down
+        </button>
+    }
+    else if (step == Step.ConfirmMnemonic)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Confirm Recovery Phrase</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter word <strong class="text-dgb-500">#@(confirmWordIndex + 1)</strong> from your recovery phrase</p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <input type="text" @bind="confirmInput" @bind:event="oninput"
+                   placeholder="Enter word #@(confirmWordIndex + 1)" autocomplete="off"
+                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            @if (confirmError != null)
+            {
+                <p class="text-sm text-red-500 font-medium">@confirmError</p>
+            }
+        </div>
+
+        <div class="flex flex-col gap-2 slide-up-delay-2">
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
+                    @onclick="VerifyWord" disabled="@string.IsNullOrWhiteSpace(confirmInput)">
+                @(confirmStep < 2 ? "Next" : "Confirm")
+            </button>
+            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="BackToMnemonic">
+                Show phrase again
+            </button>
+        </div>
+    }
+    else if (step == Step.SetPin)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a PIN to unlock your wallet every time you open the app.</p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <input type="password" @bind="pin" placeholder="Enter PIN (6+ digits)"
+                   inputmode="numeric" maxlength="20"
+                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            <input type="password" @bind="pinConfirm" placeholder="Confirm PIN"
+                   inputmode="numeric" maxlength="20"
+                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            @if (pinError != null)
+            {
+                <p class="text-sm text-red-500 font-medium">@pinError</p>
+            }
+        </div>
+
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-3 flex items-center justify-center gap-2"
+                @onclick="CreateWalletAsync" disabled="@isCreating">
+            @if (isCreating)
+            {
+                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span>Creating...</span>
+            }
+            else
+            {
+                <span>Create Wallet</span>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    private enum Step { GenerateMnemonic, ConfirmMnemonic, SetPin }
+    private Step step = Step.GenerateMnemonic;
+    private string[] words = [];
+    private string mnemonic = "";
+    private int confirmStep;
+    private int confirmWordIndex;
+    private string confirmInput = "";
+    private string? confirmError;
+    private readonly int[] confirmIndices = new int[3];
+    private string pin = "";
+    private string pinConfirm = "";
+    private string? pinError;
+    private bool isCreating;
+
+    protected override void OnInitialized()
+    {
+        var m = DigiByte.Crypto.KeyGeneration.MnemonicGenerator.Generate();
+        mnemonic = m.ToString();
+        words = mnemonic.Split(' ');
+        var rng = new Random();
+        var indices = Enumerable.Range(0, words.Length).OrderBy(_ => rng.Next()).Take(3).OrderBy(i => i).ToArray();
+        Array.Copy(indices, confirmIndices, 3);
+        confirmWordIndex = confirmIndices[0];
+    }
+
+    private void GoToConfirm() { confirmStep = 0; confirmWordIndex = confirmIndices[0]; confirmInput = ""; confirmError = null; step = Step.ConfirmMnemonic; }
+    private void BackToMnemonic() { step = Step.GenerateMnemonic; }
+
+    private void VerifyWord()
+    {
+        if (!string.Equals(confirmInput.Trim(), words[confirmWordIndex], StringComparison.OrdinalIgnoreCase)) { confirmError = "Incorrect word. Please try again."; return; }
+        confirmError = null; confirmInput = ""; confirmStep++;
+        if (confirmStep >= 3) { step = Step.SetPin; } else { confirmWordIndex = confirmIndices[confirmStep]; }
+    }
+
+    private async Task CreateWalletAsync()
+    {
+        pinError = null;
+        if (pin.Length < 6) { pinError = "PIN must be at least 6 characters."; return; }
+        if (pin != pinConfirm) { pinError = "PINs do not match."; return; }
+        isCreating = true;
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            await WalletService.CreateWalletAsync("My Wallet", mnemonic, pin);
+            AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex) { pinError = $"Failed to create wallet: {ex.Message}"; }
+        finally { isCreating = false; }
+    }
+}

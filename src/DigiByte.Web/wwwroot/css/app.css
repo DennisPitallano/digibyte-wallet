@@ -1,0 +1,173 @@
+/* ===== DigiByte Wallet — Light/Dark Theme ===== */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove link underlines from NavLink */
+a { text-decoration: none; color: inherit; }
+
+/* ===== Animations ===== */
+
+/* Page entrance — fade + slide up */
+@keyframes page-enter {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+    animation: page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Fade in */
+@keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.fade-in           { animation: fade-in 0.4s ease both; }
+.fade-in-delay-1   { animation: fade-in 0.4s ease 0.08s both; }
+.fade-in-delay-2   { animation: fade-in 0.4s ease 0.16s both; }
+.fade-in-delay-3   { animation: fade-in 0.4s ease 0.24s both; }
+.fade-in-delay-4   { animation: fade-in 0.4s ease 0.32s both; }
+
+/* Slide up + fade (staggered children) */
+@keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.slide-up           { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.slide-up-delay-1   { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both; }
+.slide-up-delay-2   { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
+.slide-up-delay-3   { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both; }
+.slide-up-delay-4   { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both; }
+.slide-up-delay-5   { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.30s both; }
+
+/* Scale in (for cards) */
+@keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.scale-in           { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.scale-in-delay-1   { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
+.scale-in-delay-2   { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both; }
+
+/* Modal backdrop + sheet */
+@keyframes backdrop-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes sheet-up {
+    from { opacity: 0; transform: translateY(100%); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.backdrop-enter { animation: backdrop-in 0.25s ease both; }
+.sheet-enter    { animation: sheet-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Subtle glow pulse for hero elements */
+@keyframes glow-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50%      { opacity: 0.7; transform: scale(1.05); }
+}
+.glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+
+/* Shimmer for loading states */
+@keyframes shimmer {
+    from { background-position: -200% 0; }
+    to   { background-position: 200% 0; }
+}
+.shimmer {
+    background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Nav icon bounce on tap */
+@keyframes nav-bounce {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(0.85); }
+    70%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+.nav-tap { animation: nav-bounce 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Nav indicator pill */
+@keyframes pill-expand {
+    from { transform: translateX(-50%) scaleX(0); opacity: 0; }
+    to   { transform: translateX(-50%) scaleX(1); opacity: 1; }
+}
+
+/* Floating entrance for hero/logo */
+@keyframes float-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.float-in { animation: float-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Subtle continuous float */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+.float { animation: float 4s ease-in-out infinite; }
+
+/* Button press feedback */
+.press-effect {
+    transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.15s ease;
+}
+.press-effect:active {
+    transform: scale(0.96);
+}
+
+/* Card hover lift */
+.card-hover {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+}
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+/* Success checkmark */
+@keyframes check-pop {
+    0%   { transform: scale(0); opacity: 0; }
+    50%  { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.check-pop { animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ===== Error UI ===== */
+#blazor-error-ui {
+    background: #ef4444;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0,0,0,0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    color: white;
+}
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+.blazor-error-boundary {
+    background: #ef4444;
+    padding: 1rem;
+    color: white;
+    border-radius: 12px;
+}
+.blazor-error-boundary::after {
+    content: "An error has occurred.";
+}

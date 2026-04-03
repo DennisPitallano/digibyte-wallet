@@ -1,0 +1,37 @@
+@page "/welcome"
+@inject NavigationManager Nav
+
+<PageTitle>Welcome</PageTitle>
+
+<div class="flex flex-col items-center justify-center min-h-[80vh] text-center gap-8">
+    <div class="flex flex-col items-center gap-3 float-in">
+        <div class="relative">
+            <div class="absolute inset-0 bg-dgb-500/20 rounded-full blur-2xl scale-150 glow-pulse"></div>
+            <div class="float">
+                <DigiLogo Size="80" Class="relative drop-shadow-xl" />
+            </div>
+        </div>
+        <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
+            Digi<span class="text-dgb-500">Byte</span>
+        </h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 font-medium tracking-wide">
+            Your money. Your keys. Your freedom.
+        </p>
+    </div>
+
+    <div class="flex flex-col gap-3 w-full max-w-[280px]">
+        <button class="slide-up-delay-2 w-full py-3.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all duration-200 press-effect"
+                @onclick="CreateWallet">
+            Create New Wallet
+        </button>
+        <button class="slide-up-delay-3 w-full py-3.5 px-6 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 font-semibold rounded-2xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all duration-200 press-effect"
+                @onclick="RecoverWallet">
+            Recover Existing Wallet
+        </button>
+    </div>
+</div>
+
+@code {
+    private void CreateWallet() => Nav.NavigateTo("/create-wallet");
+    private void RecoverWallet() => Nav.NavigateTo("/recover-wallet");
+}

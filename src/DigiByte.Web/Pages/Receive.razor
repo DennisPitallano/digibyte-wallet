@@ -1,0 +1,88 @@
+@page "/receive"
+@inject WalletService WalletService
+@inject IJSRuntime JS
+
+<PageTitle>Receive DGB</PageTitle>
+
+<div class="flex flex-col items-center gap-5">
+    <h2 class="text-xl font-bold text-slate-900 dark:text-white self-start slide-up">Receive DigiByte</h2>
+
+    @if (address != null)
+    {
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-6 shadow-sm flex flex-col items-center gap-4 w-full card-hover">
+            <div class="bg-white rounded-2xl p-3 shadow-inner">
+                <img src="@qrDataUrl" alt="QR Code" class="w-48 h-48 rounded-lg" />
+            </div>
+
+            <div class="w-full flex flex-col items-center gap-3 fade-in-delay-2">
+                <p class="font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800">
+                    @address
+                </p>
+                <div class="flex gap-2 w-full">
+                    <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect"
+                            @onclick="CopyAddress">
+                        @(copied ? "Copied!" : "Copy Address")
+                    </button>
+                    <button class="py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all press-effect"
+                            @onclick="ShareAddress">
+                        Share
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium transition-colors slide-up-delay-3" @onclick="GenerateNewAddress">
+            Generate new address
+        </button>
+    }
+    else
+    {
+        <div class="flex items-center justify-center h-40">
+            <p class="text-sm text-slate-400">Generating address...</p>
+        </div>
+    }
+</div>
+
+@code {
+    private string? address;
+    private string? qrDataUrl;
+    private bool copied;
+    private int addressIndex;
+
+    protected override async Task OnInitializedAsync() { await GenerateAddress(); }
+
+    private async Task GenerateAddress() { address = await WalletService.GetReceivingAddressAsync(); GenerateQrCode(); }
+
+    private void GenerateQrCode()
+    {
+        if (address == null) return;
+        using var qrGenerator = new QRCoder.QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode($"digibyte:{address}", QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+        var png = qrCode.GetGraphic(10, [0, 35, 82], [255, 255, 255]);
+        qrDataUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
+    }
+
+    private async Task CopyAddress()
+    {
+        if (address == null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", address);
+        copied = true; StateHasChanged();
+        await Task.Delay(2000);
+        copied = false; StateHasChanged();
+    }
+
+    private async Task ShareAddress()
+    {
+        if (address == null) return;
+        try { await JS.InvokeVoidAsync("navigator.share", new { title = "My DigiByte Address", text = address }); }
+        catch { await CopyAddress(); }
+    }
+
+    private async Task GenerateNewAddress()
+    {
+        addressIndex++;
+        var addresses = await WalletService.GetReceivingAddressesAsync(1, addressIndex);
+        if (addresses.Count > 0) { address = addresses[0].Address; GenerateQrCode(); }
+    }
+}

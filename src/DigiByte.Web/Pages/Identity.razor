@@ -1,0 +1,218 @@
+@page "/identity"
+@inject WalletService WalletService
+@inject NavigationManager Nav
+
+<PageTitle>Digi-ID</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">Digi-ID</h2>
+
+    @* How it works *@
+    <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Passwordless Login</h3>
+        <div class="flex flex-col gap-2">
+            <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span class="text-xs font-bold text-dgb-500">1</span>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Website shows a Digi-ID QR code</p>
+            </div>
+            <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span class="text-xs font-bold text-dgb-500">2</span>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">You scan it with your wallet</p>
+            </div>
+            <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span class="text-xs font-bold text-dgb-500">3</span>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Your wallet signs the challenge &mdash; you're logged in!</p>
+            </div>
+        </div>
+    </div>
+
+    @* Scan / Paste URI *@
+    <div class="slide-up-delay-2 flex flex-col gap-3">
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect flex items-center justify-center gap-2"
+                @onclick="ScanDigiId">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+            </svg>
+            Scan Digi-ID QR Code
+        </button>
+
+        <div class="flex items-center gap-3">
+            <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
+            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium">or paste URI</span>
+            <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
+        </div>
+
+        <div class="flex gap-2">
+            <input type="text" @bind="digiIdUri" placeholder="digiid://..."
+                   class="flex-1 px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            <button class="px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                    @onclick="AuthenticateAsync" disabled="@(string.IsNullOrWhiteSpace(digiIdUri) || isAuthenticating)">
+                @(isAuthenticating ? "..." : "Sign")
+            </button>
+        </div>
+
+        @if (parseError != null)
+        {
+            <p class="text-sm text-red-500 font-medium">@parseError</p>
+        }
+    </div>
+
+    @* Auth confirmation *@
+    @if (pendingRequest != null)
+    {
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-dgb-200 dark:border-dgb-700 p-4 flex flex-col gap-3">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                </div>
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Authenticate with</h3>
+            </div>
+            <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2">
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">@pendingRequest.Domain</p>
+                <p class="text-xs font-mono text-slate-400 dark:text-slate-500 mt-0.5 truncate">@pendingRequest.CallbackUrl</p>
+            </div>
+            @if (pendingRequest.IsUnsecure)
+            {
+                <p class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
+                    This site uses HTTP (not secure). Proceed with caution.
+                </p>
+            }
+            <div class="flex gap-2">
+                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        @onclick="CancelAuth">Cancel</button>
+                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                        @onclick="ConfirmAuthAsync" disabled="@isAuthenticating">
+                    @(isAuthenticating ? "Signing..." : "Approve")
+                </button>
+            </div>
+        </div>
+    }
+
+    @* Success *@
+    @if (authSuccess)
+    {
+        <div class="scale-in bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800/30 p-4 text-center">
+            <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center check-pop">
+                <svg class="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+            </div>
+            <p class="text-sm font-semibold text-green-700 dark:text-green-400">Successfully authenticated!</p>
+            <p class="text-xs text-green-600 dark:text-green-500 mt-0.5">@lastAuthDomain</p>
+        </div>
+    }
+
+    @* Recent Authentications *@
+    @if (authHistory.Count > 0)
+    {
+        <div class="slide-up-delay-3">
+            <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Recent Logins</h3>
+            <div class="flex flex-col gap-1.5">
+                @foreach (var entry in authHistory.Take(5))
+                {
+                    <div class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                        <div class="w-8 h-8 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3" />
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-slate-900 dark:text-white truncate">@entry.Domain</p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500">@entry.Timestamp.ToString("MMM d, h:mm tt")</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string digiIdUri = "";
+    private string? parseError;
+    private bool isAuthenticating;
+    private bool authSuccess;
+    private string? lastAuthDomain;
+    private DigiByte.Crypto.DigiId.DigiIdRequest? pendingRequest;
+    private List<AuthHistoryEntry> authHistory = [];
+
+    private void ScanDigiId()
+    {
+        // TODO: Open camera QR scanner via JS interop
+    }
+
+    private async Task AuthenticateAsync()
+    {
+        parseError = null;
+        authSuccess = false;
+
+        var request = DigiByte.Crypto.DigiId.DigiIdService.ParseUri(digiIdUri.Trim());
+        if (request == null)
+        {
+            parseError = "Invalid Digi-ID URI. Expected format: digiid://...";
+            return;
+        }
+
+        pendingRequest = request;
+    }
+
+    private void CancelAuth()
+    {
+        pendingRequest = null;
+    }
+
+    private async Task ConfirmAuthAsync()
+    {
+        if (pendingRequest == null) return;
+        isAuthenticating = true;
+        StateHasChanged();
+
+        try
+        {
+            // Derive a site-specific key
+            var siteIndex = DigiByte.Crypto.DigiId.DigiIdService.DeriveSiteIndex(pendingRequest.Domain);
+            // Use the wallet's HD derivation to get a key at a Digi-ID specific path
+            // For now use index 0 receiving key as placeholder
+            // TODO: derive from m/13'/siteIndex'/0'/0 path
+            var address = await WalletService.GetReceivingAddressAsync();
+
+            // In production: sign the URI and POST to callback
+            // For now, simulate success
+            await Task.Delay(500);
+
+            authHistory.Insert(0, new AuthHistoryEntry
+            {
+                Domain = pendingRequest.Domain,
+                Timestamp = DateTime.Now
+            });
+
+            lastAuthDomain = pendingRequest.Domain;
+            pendingRequest = null;
+            authSuccess = true;
+            digiIdUri = "";
+        }
+        catch (Exception ex)
+        {
+            parseError = ex.Message;
+        }
+        finally
+        {
+            isAuthenticating = false;
+        }
+    }
+
+    private record AuthHistoryEntry
+    {
+        public required string Domain { get; init; }
+        public required DateTime Timestamp { get; init; }
+    }
+}

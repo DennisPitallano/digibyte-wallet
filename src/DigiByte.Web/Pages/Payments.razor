@@ -1,0 +1,178 @@
+@page "/payments"
+@inject PaymentRequestService PaymentService
+@inject WalletService WalletService
+@inject IJSRuntime JS
+
+<PageTitle>Payments</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <div class="flex items-center justify-between slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Payments</h2>
+        <button class="w-9 h-9 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-colors press-effect"
+                @onclick="ShowCreateForm">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+        </button>
+    </div>
+
+    @* Create Payment Request *@
+    @if (showCreate)
+    {
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">New Payment Request</h3>
+            <div class="flex flex-col gap-1">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount (optional)</label>
+                <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl">
+                    <input type="number" @bind="createAmount" step="0.00000001" min="0" placeholder="0.00"
+                           class="flex-1 px-3 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
+                    <span class="pr-3 text-sm font-bold text-dgb-500">DGB</span>
+                </div>
+            </div>
+            <input type="text" @bind="createLabel" placeholder="Label (e.g. Invoice #123)"
+                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+            <input type="text" @bind="createMessage" placeholder="Message (optional)"
+                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+            <div class="flex gap-2">
+                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        @onclick="() => showCreate = false">Cancel</button>
+                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                        @onclick="CreateRequest">Create</button>
+            </div>
+        </div>
+    }
+
+    @* Active request detail *@
+    @if (activeRequest != null)
+    {
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col items-center gap-4">
+            <div class="bg-white rounded-2xl p-3 shadow-inner">
+                <img src="@activeQrUrl" alt="Payment QR" class="w-44 h-44 rounded-lg" />
+            </div>
+            @if (activeRequest.AmountDgb.HasValue)
+            {
+                <p class="text-lg font-bold text-slate-900 dark:text-white">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
+            }
+            @if (!string.IsNullOrEmpty(activeRequest.Label))
+            {
+                <p class="text-sm text-slate-500 dark:text-slate-400">@activeRequest.Label</p>
+            }
+            <p class="font-mono text-xs text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 w-full border border-slate-100 dark:border-dgb-800">
+                @activeRequest.ToUri()
+            </p>
+            <div class="flex gap-2 w-full">
+                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                        @onclick="CopyUri">@(copied ? "Copied!" : "Copy Link")</button>
+                <button class="flex-1 py-2.5 bg-white dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        @onclick="ShareUri">Share</button>
+            </div>
+            <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="() => activeRequest = null">Close</button>
+        </div>
+    }
+
+    @* Request History *@
+    @if (requests.Count == 0 && activeRequest == null)
+    {
+        <div class="scale-in-delay-1 bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200 dark:border-dgb-800 p-8 text-center card-hover">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                <svg class="w-6 h-6 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No payment requests yet</p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Create one to receive DGB with a specific amount</p>
+        </div>
+    }
+    else if (activeRequest == null)
+    {
+        <div class="flex flex-col gap-1.5">
+            @foreach (var req in requests)
+            {
+                var r = req;
+                <button class="slide-up flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 card-hover text-left w-full"
+                        @onclick="() => ShowRequest(r)">
+                    <div class="w-10 h-10 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                            @(r.Label ?? "Payment Request")
+                        </p>
+                        <p class="text-xs text-slate-400 dark:text-slate-500">
+                            @(r.AmountDgb.HasValue ? $"{r.AmountDgb.Value:N4} DGB" : "Any amount") &middot; @r.CreatedAt.ToString("MMM d")
+                        </p>
+                    </div>
+                    <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<PaymentRequest> requests = [];
+    private bool showCreate;
+    private decimal? createAmount;
+    private string createLabel = "";
+    private string createMessage = "";
+    private PaymentRequest? activeRequest;
+    private string? activeQrUrl;
+    private bool copied;
+
+    protected override async Task OnInitializedAsync() =>
+        requests = await PaymentService.GetAllAsync();
+
+    private void ShowCreateForm()
+    {
+        createAmount = null; createLabel = ""; createMessage = "";
+        showCreate = true;
+    }
+
+    private async Task CreateRequest()
+    {
+        var address = await WalletService.GetReceivingAddressAsync();
+        var req = await PaymentService.CreateAsync(
+            address,
+            createAmount > 0 ? createAmount : null,
+            string.IsNullOrWhiteSpace(createLabel) ? null : createLabel,
+            string.IsNullOrWhiteSpace(createMessage) ? null : createMessage);
+        showCreate = false;
+        requests = await PaymentService.GetAllAsync();
+        ShowRequest(req);
+    }
+
+    private void ShowRequest(PaymentRequest req)
+    {
+        activeRequest = req;
+        GenerateQr(req.ToUri());
+    }
+
+    private void GenerateQr(string data)
+    {
+        using var qrGen = new QRCoder.QRCodeGenerator();
+        using var qrData = qrGen.CreateQrCode(data, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qrCode = new QRCoder.PngByteQRCode(qrData);
+        var png = qrCode.GetGraphic(10, [0, 35, 82], [255, 255, 255]);
+        activeQrUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
+    }
+
+    private async Task CopyUri()
+    {
+        if (activeRequest == null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", activeRequest.ToUri());
+        copied = true; StateHasChanged();
+        await Task.Delay(2000);
+        copied = false; StateHasChanged();
+    }
+
+    private async Task ShareUri()
+    {
+        if (activeRequest == null) return;
+        try { await JS.InvokeVoidAsync("navigator.share", new { title = activeRequest.Label ?? "DigiByte Payment", text = activeRequest.ToUri() }); }
+        catch { await CopyUri(); }
+    }
+}

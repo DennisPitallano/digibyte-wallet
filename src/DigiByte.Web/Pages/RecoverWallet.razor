@@ -1,0 +1,120 @@
+@page "/recover-wallet"
+@inject WalletService WalletService
+@inject AppState AppState
+@inject NavigationManager Nav
+
+<PageTitle>Recover Wallet</PageTitle>
+
+<div class="flex flex-col gap-5">
+    @* Step Indicator *@
+    <div class="flex items-center justify-center gap-2 mb-2 fade-in">
+        <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(step == Step.EnterMnemonic ? "bg-dgb-500 w-10" : "bg-dgb-500 w-6")"></div>
+        <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(step == Step.SetPin ? "bg-dgb-500 w-10" : "bg-slate-200 dark:bg-dgb-800 w-6")"></div>
+    </div>
+
+    @if (step == Step.EnterMnemonic)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Recover Your Wallet</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter your 12 or 24-word recovery phrase to restore your wallet.</p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <textarea @bind="mnemonicInput" rows="4"
+                      placeholder="Enter your 24-word recovery phrase separated by spaces..."
+                      autocomplete="off" spellcheck="false"
+                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+            @if (mnemonicError != null)
+            {
+                <p class="text-sm text-red-500 font-medium">@mnemonicError</p>
+            }
+        </div>
+
+        <div class="flex flex-col gap-2 slide-up-delay-2">
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
+                    @onclick="ValidateMnemonic" disabled="@string.IsNullOrWhiteSpace(mnemonicInput)">
+                Continue
+            </button>
+            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="GoBack">Back</button>
+        </div>
+    }
+    else if (step == Step.SetPin)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a PIN to unlock your recovered wallet.</p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <input type="password" @bind="pin" placeholder="Enter PIN (6+ digits)"
+                   inputmode="numeric" maxlength="20"
+                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            <input type="password" @bind="pinConfirm" placeholder="Confirm PIN"
+                   inputmode="numeric" maxlength="20"
+                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            @if (pinError != null)
+            {
+                <p class="text-sm text-red-500 font-medium">@pinError</p>
+            }
+        </div>
+
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-2 flex items-center justify-center gap-2"
+                @onclick="RecoverAsync" disabled="@isRecovering">
+            @if (isRecovering)
+            {
+                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span>Recovering...</span>
+            }
+            else
+            {
+                <span>Recover Wallet</span>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    private enum Step { EnterMnemonic, SetPin }
+    private Step step = Step.EnterMnemonic;
+    private string mnemonicInput = "";
+    private string? mnemonicError;
+    private string pin = "";
+    private string pinConfirm = "";
+    private string? pinError;
+    private bool isRecovering;
+
+    private void GoBack() => Nav.NavigateTo("/welcome");
+
+    private void ValidateMnemonic()
+    {
+        mnemonicError = null;
+        var cleaned = string.Join(' ', mnemonicInput.Trim().ToLower()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var wordCount = cleaned.Split(' ').Length;
+        if (wordCount != 12 && wordCount != 24) { mnemonicError = $"Expected 12 or 24 words, got {wordCount}."; return; }
+        if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(cleaned)) { mnemonicError = "Invalid recovery phrase. Please check your words."; return; }
+        mnemonicInput = cleaned;
+        step = Step.SetPin;
+    }
+
+    private async Task RecoverAsync()
+    {
+        pinError = null;
+        if (pin.Length < 6) { pinError = "PIN must be at least 6 characters."; return; }
+        if (pin != pinConfirm) { pinError = "PINs do not match."; return; }
+        isRecovering = true;
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            await WalletService.CreateWalletAsync("My Wallet", mnemonicInput, pin);
+            AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex) { pinError = $"Failed to recover wallet: {ex.Message}"; }
+        finally { isRecovering = false; }
+    }
+}

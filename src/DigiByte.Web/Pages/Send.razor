@@ -1,0 +1,224 @@
+@page "/send"
+@inject WalletService WalletService
+@inject ContactService ContactService
+@inject AppState AppState
+@inject NavigationManager Nav
+
+<PageTitle>Send DGB</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">Send DigiByte</h2>
+
+    @* Recipient *@
+    <div class="flex flex-col gap-1.5 slide-up-delay-1">
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recipient</label>
+        @if (!string.IsNullOrEmpty(recipientName))
+        {
+            <div class="flex items-center gap-2 bg-dgb-50 dark:bg-dgb-900 border border-dgb-200 dark:border-dgb-700 rounded-xl px-3 py-2.5">
+                <div class="w-7 h-7 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center">
+                    <span class="text-xs font-bold text-dgb-600 dark:text-dgb-400">@recipientName[..1].ToUpper()</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-dgb-700 dark:text-dgb-300">@recipientName</p>
+                    <p class="text-xs font-mono text-dgb-500/70 truncate">@destinationAddress</p>
+                </div>
+                <button class="text-dgb-400 hover:text-dgb-600 p-1" @onclick="ClearRecipient">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="flex gap-2">
+                <input type="text" @bind="destinationAddress" @bind:event="oninput"
+                       placeholder="D... or dgb1... or search contact"
+                       autocomplete="off" spellcheck="false"
+                       class="flex-1 px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                <button class="w-11 h-11 rounded-xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center hover:border-dgb-300 dark:hover:border-dgb-600 transition-all flex-shrink-0"
+                        @onclick="() => showContactPicker = !showContactPicker" title="Choose contact">
+                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                    </svg>
+                </button>
+            </div>
+            @* Contact Picker *@
+            @if (showContactPicker && contactList.Count > 0)
+            {
+                <div class="scale-in bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl max-h-40 overflow-y-auto">
+                    @foreach (var c in contactList)
+                    {
+                        var contact = c;
+                        <button class="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors text-left"
+                                @onclick="() => SelectContact(contact)">
+                            <div class="w-7 h-7 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                                <span class="text-xs font-bold text-dgb-600 dark:text-dgb-400">@contact.Name[..1].ToUpper()</span>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white truncate">@contact.Name</p>
+                                <p class="text-xs font-mono text-slate-400 truncate">@contact.Address</p>
+                            </div>
+                        </button>
+                    }
+                </div>
+            }
+        }
+        @if (addressError != null) { <p class="text-xs text-red-500 font-medium">@addressError</p> }
+    </div>
+
+    @* Amount *@
+    <div class="flex flex-col gap-1.5 slide-up-delay-2">
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</label>
+        <div class="flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all">
+            <input type="number" @bind="amount" step="0.00000001" min="0" placeholder="0.00" inputmode="decimal"
+                   class="flex-1 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
+            <span class="pr-4 text-sm font-bold text-dgb-500">@(AppState.IsSimpleMode ? AppState.FiatCurrency : "DGB")</span>
+        </div>
+        <p class="text-xs text-slate-400 dark:text-slate-500">
+            @if (AppState.IsSimpleMode) { <span>~ @amountDgb.ToString("N8") DGB</span> }
+            else { <span>~ $@amountFiat.ToString("N2") @AppState.FiatCurrency</span> }
+        </p>
+    </div>
+
+    @* Advanced Mode: Fee Control *@
+    @if (!AppState.IsSimpleMode)
+    {
+        <div class="flex flex-col gap-1.5 slide-up-delay-3">
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fee Rate (sat/vB)</label>
+            <div class="flex gap-2">
+                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "low" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
+                        @onclick="SetFeeLow">Slow (1)</button>
+                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "med" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
+                        @onclick="SetFeeMed">Normal (5)</button>
+                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "high" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
+                        @onclick="SetFeeHigh">Fast (20)</button>
+            </div>
+            <input type="number" @bind="customFeeRate" min="1" placeholder="Custom sat/vB"
+                   class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+        </div>
+    }
+
+    @* Memo *@
+    <div class="flex flex-col gap-1.5 slide-up-delay-3">
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Memo (optional)</label>
+        <input type="text" @bind="memo" placeholder="What's this for?"
+               class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+    </div>
+
+    @* Fee Display *@
+    <div class="flex justify-between px-4 py-3 bg-slate-50 dark:bg-dgb-900/50 rounded-xl border border-slate-100 dark:border-dgb-800 slide-up-delay-4">
+        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Fee</span>
+        <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold">~@estimatedFee.ToString("N4") DGB</span>
+    </div>
+
+    <button class="slide-up-delay-5 w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 mt-2"
+            @onclick="PreviewSend"
+            disabled="@(string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)">
+        Review Transaction
+    </button>
+
+    @if (showConfirm)
+    {
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center z-[200] backdrop-enter" @onclick="() => showConfirm = false">
+            <div class="w-full max-w-[480px] bg-white dark:bg-dgb-900 rounded-t-3xl p-6 flex flex-col gap-4 sheet-enter" @onclick:stopPropagation="true">
+                <h3 class="text-lg font-bold text-center text-slate-900 dark:text-white">Confirm Transaction</h3>
+                <div class="flex flex-col divide-y divide-slate-100 dark:divide-dgb-800">
+                    <div class="flex justify-between py-3">
+                        <span class="text-sm text-slate-500 dark:text-slate-400">To</span>
+                        <span class="text-sm font-mono font-medium text-slate-900 dark:text-white">
+                            @if (!string.IsNullOrEmpty(recipientName)) { @recipientName } else { @TruncateAddress(destinationAddress) }
+                        </span>
+                    </div>
+                    <div class="flex justify-between py-3"><span class="text-sm text-slate-500 dark:text-slate-400">Amount</span><span class="text-sm font-semibold text-slate-900 dark:text-white">@amountDgb.ToString("N8") DGB</span></div>
+                    <div class="flex justify-between py-3"><span class="text-sm text-slate-500 dark:text-slate-400">Fee</span><span class="text-sm text-slate-900 dark:text-white">~@estimatedFee.ToString("N4") DGB</span></div>
+                </div>
+                @if (sendError != null) { <p class="text-sm text-red-500 font-medium text-center">@sendError</p> }
+                <div class="flex gap-3">
+                    <button class="flex-1 py-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl press-effect" @onclick="() => showConfirm = false">Cancel</button>
+                    <button class="flex-1 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl transition-all press-effect disabled:opacity-50" @onclick="ConfirmSend" disabled="@isSending">
+                        @(isSending ? "Sending..." : "Confirm")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string destinationAddress = "";
+    private string recipientName = "";
+    private decimal amount;
+    private string memo = "";
+    private string? addressError;
+    private string? sendError;
+    private bool showConfirm;
+    private bool isSending;
+    private bool showContactPicker;
+    private List<Contact> contactList = [];
+
+    // Advanced fee control
+    private string feeLevel = "med";
+    private int customFeeRate = 5;
+    private decimal estimatedFee = 0.0001m;
+
+    private decimal amountDgb => AppState.IsSimpleMode ? amount / 0.01m : amount;
+    private decimal amountFiat => AppState.IsSimpleMode ? amount : amount * 0.01m;
+
+    protected override async Task OnInitializedAsync()
+    {
+        contactList = await ContactService.GetAllAsync();
+
+        // Parse query params from contact navigation
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        if (query["address"] != null) destinationAddress = query["address"]!;
+        if (query["name"] != null) recipientName = query["name"]!;
+    }
+
+    private void SelectContact(Contact c)
+    {
+        destinationAddress = c.Address;
+        recipientName = c.Name;
+        showContactPicker = false;
+    }
+
+    private void ClearRecipient()
+    {
+        destinationAddress = "";
+        recipientName = "";
+    }
+
+    private void SetFeeLow() => SetFee("low", 1);
+    private void SetFeeMed() => SetFee("med", 5);
+    private void SetFeeHigh() => SetFee("high", 20);
+
+    private void SetFee(string level, int rate)
+    {
+        feeLevel = level;
+        customFeeRate = rate;
+        estimatedFee = rate * 0.000068m; // ~68 vbytes * rate
+    }
+
+    private void PreviewSend()
+    {
+        addressError = null;
+        if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(destinationAddress))
+        {
+            addressError = "Invalid DigiByte address.";
+            return;
+        }
+        showConfirm = true;
+    }
+
+    private async Task ConfirmSend()
+    {
+        sendError = null; isSending = true;
+        try { await WalletService.SendAsync(destinationAddress, amountDgb, memo); Nav.NavigateTo("/"); }
+        catch (NotImplementedException) { sendError = "Send is not yet connected to the blockchain. Coming soon!"; }
+        catch (Exception ex) { sendError = ex.Message; }
+        finally { isSending = false; }
+    }
+
+    private static string TruncateAddress(string addr) => addr.Length <= 16 ? addr : $"{addr[..8]}...{addr[^8..]}";
+}

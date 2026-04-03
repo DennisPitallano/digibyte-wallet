@@ -1,0 +1,177 @@
+@page "/contacts"
+@inject ContactService ContactService
+@inject NavigationManager Nav
+
+<PageTitle>Contacts</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <div class="flex items-center justify-between slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Contacts</h2>
+        <button class="w-9 h-9 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-colors press-effect"
+                @onclick="ShowAddForm">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+        </button>
+    </div>
+
+    @* Search *@
+    <div class="slide-up-delay-1">
+        <input type="text" @bind="searchQuery" @bind:event="oninput" @bind:after="SearchContacts"
+               placeholder="Search contacts..."
+               class="w-full px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+    </div>
+
+    @* Add/Edit Form *@
+    @if (showForm)
+    {
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">@(editingContact != null ? "Edit Contact" : "Add Contact")</h3>
+            <input type="text" @bind="formName" placeholder="Name"
+                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+            <input type="text" @bind="formAddress" placeholder="DGB address (D... or dgb1...)"
+                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+            <input type="text" @bind="formNotes" placeholder="Notes (optional)"
+                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+            @if (formError != null)
+            {
+                <p class="text-xs text-red-500 font-medium">@formError</p>
+            }
+            <div class="flex gap-2">
+                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        @onclick="CancelForm">Cancel</button>
+                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                        @onclick="SaveContact" disabled="@(string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formAddress))">
+                    Save
+                </button>
+            </div>
+        </div>
+    }
+
+    @* Contact List *@
+    @if (contacts.Count == 0)
+    {
+        <div class="scale-in-delay-1 bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200 dark:border-dgb-800 p-8 text-center card-hover">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                <svg class="w-6 h-6 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No contacts yet</p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Add contacts to easily send DGB</p>
+        </div>
+    }
+    else
+    {
+        <div class="flex flex-col gap-1.5">
+            @foreach (var contact in contacts)
+            {
+                var c = contact;
+                <div class="slide-up flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 card-hover">
+                    <div class="w-10 h-10 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                        <span class="text-sm font-bold text-dgb-600 dark:text-dgb-400">@c.Name[..1].ToUpper()</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@c.Name</p>
+                        <p class="text-xs font-mono text-slate-400 dark:text-slate-500 truncate">@c.Address</p>
+                    </div>
+                    <div class="flex gap-1">
+                        <button class="w-8 h-8 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center hover:bg-dgb-100 dark:hover:bg-dgb-700 transition-colors"
+                                @onclick="() => SendToContact(c)" title="Send">
+                            <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+                            </svg>
+                        </button>
+                        <button class="w-8 h-8 rounded-lg bg-slate-50 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-dgb-700 transition-colors"
+                                @onclick="() => EditContact(c)" title="Edit">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                            </svg>
+                        </button>
+                        <button class="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                @onclick="() => DeleteContact(c.Id)" title="Delete">
+                            <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Contact> contacts = [];
+    private string searchQuery = "";
+    private bool showForm;
+    private Contact? editingContact;
+    private string formName = "";
+    private string formAddress = "";
+    private string formNotes = "";
+    private string? formError;
+
+    protected override async Task OnInitializedAsync() => await LoadContacts();
+
+    private async Task LoadContacts() =>
+        contacts = await ContactService.GetAllAsync();
+
+    private async Task SearchContacts() =>
+        contacts = await ContactService.SearchAsync(searchQuery);
+
+    private void ShowAddForm()
+    {
+        editingContact = null;
+        formName = ""; formAddress = ""; formNotes = ""; formError = null;
+        showForm = true;
+    }
+
+    private void EditContact(Contact c)
+    {
+        editingContact = c;
+        formName = c.Name; formAddress = c.Address; formNotes = c.Notes ?? ""; formError = null;
+        showForm = true;
+    }
+
+    private void CancelForm() => showForm = false;
+
+    private async Task SaveContact()
+    {
+        formError = null;
+        if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(formAddress))
+        {
+            formError = "Invalid DigiByte address.";
+            return;
+        }
+
+        if (editingContact != null)
+        {
+            editingContact.Name = formName;
+            editingContact.Address = formAddress;
+            editingContact.Notes = string.IsNullOrWhiteSpace(formNotes) ? null : formNotes;
+            await ContactService.UpdateAsync(editingContact);
+        }
+        else
+        {
+            await ContactService.AddAsync(new Contact
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = formName,
+                Address = formAddress,
+                Notes = string.IsNullOrWhiteSpace(formNotes) ? null : formNotes
+            });
+        }
+
+        showForm = false;
+        await LoadContacts();
+    }
+
+    private async Task DeleteContact(string id)
+    {
+        await ContactService.DeleteAsync(id);
+        await LoadContacts();
+    }
+
+    private void SendToContact(Contact c) =>
+        Nav.NavigateTo($"/send?address={Uri.EscapeDataString(c.Address)}&name={Uri.EscapeDataString(c.Name)}");
+}
