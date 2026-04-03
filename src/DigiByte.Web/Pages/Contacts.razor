@@ -124,7 +124,20 @@
     private string formNotes = "";
     private string? formError;
 
-    protected override async Task OnInitializedAsync() => await LoadContacts();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContacts();
+
+        // Check for ?add= query param (from tx detail "Add to Contacts")
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var addAddress = query["add"];
+        if (!string.IsNullOrEmpty(addAddress))
+        {
+            formAddress = addAddress;
+            showForm = true;
+        }
+    }
 
     private async Task LoadContacts() =>
         contacts = await ContactService.GetAllAsync();

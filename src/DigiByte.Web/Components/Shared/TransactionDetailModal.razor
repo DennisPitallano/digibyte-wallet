@@ -55,7 +55,12 @@
                 {
                     <div class="flex justify-between items-start text-xs gap-2">
                         <span class="text-slate-400 dark:text-slate-500 flex-shrink-0">@(IsSent ? "To" : "From")</span>
-                        <span class="font-mono text-slate-700 dark:text-slate-300 break-all text-right text-[10px]">@Tx.CounterpartyAddress</span>
+                        <div class="text-right">
+                            <div class="flex items-center justify-end gap-1 mb-0.5">
+                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full @AddressFormatBadgeClass">@AddressFormatLabel</span>
+                            </div>
+                            <span class="font-mono text-slate-700 dark:text-slate-300 break-all text-[10px]">@Tx.CounterpartyAddress</span>
+                        </div>
                     </div>
                 }
 
@@ -95,7 +100,7 @@
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
                         </svg>
-                        Add to Contacts
+                        Save @(IsSent ? "recipient" : "sender") to Contacts
                     </button>
                 }
 
@@ -113,6 +118,23 @@
 
     private bool copied;
     private bool IsSent => Tx?.Direction == DigiByte.Wallet.Models.TransactionDirection.Sent;
+
+    private string AddressFormatLabel => Tx?.CounterpartyAddress switch
+    {
+        string a when a.StartsWith("dgb1") || a.StartsWith("dgbt1") || a.StartsWith("dgbrt1") => "SegWit",
+        string a when a.StartsWith("S") => "P2SH",
+        string a when a.StartsWith("D") || a.StartsWith("t") => "Legacy",
+        _ => "Address"
+    };
+
+    private string AddressFormatBadgeClass => Tx?.CounterpartyAddress switch
+    {
+        string a when a.StartsWith("dgb1") || a.StartsWith("dgbt1") || a.StartsWith("dgbrt1")
+            => "text-blue-500 bg-blue-50 dark:bg-blue-900/20",
+        string a when a.StartsWith("S")
+            => "text-purple-500 bg-purple-50 dark:bg-purple-900/20",
+        _ => "text-amber-500 bg-amber-50 dark:bg-amber-900/20"
+    };
 
     private async Task CopyTxId()
     {
