@@ -1,6 +1,6 @@
 @inject IJSRuntime JS
 
-<div class="flex justify-center gap-2">
+<div class="flex justify-center gap-2 @(showError ? "animate-shake" : "")">
     @for (int i = 0; i < Length; i++)
     {
         var idx = i;
@@ -9,11 +9,11 @@
                inputmode="numeric"
                pattern="[0-9]"
                autocomplete="off"
-               id="pin-@idx"
+               id="@InputId(idx)"
                value="@GetDigit(idx)"
                class="w-11 h-14 text-center text-xl font-bold rounded-xl border-2 outline-none transition-all duration-200
                       bg-white dark:bg-dgb-900
-                      @(GetDigit(idx) != "" ? "border-dgb-500 dark:border-dgb-400" : "border-slate-200 dark:border-dgb-800")
+                      @(showError ? "border-red-400 dark:border-red-500" : GetDigit(idx) != "" ? "border-dgb-500 dark:border-dgb-400" : "border-slate-200 dark:border-dgb-800")
                       focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20
                       text-slate-900 dark:text-white"
                @oninput="(e) => OnDigitInput(idx, e)"
@@ -30,16 +30,46 @@
 @code {
     [Parameter] public int Length { get; set; } = 6;
     [Parameter] public bool Masked { get; set; } = true;
+    [Parameter] public bool AutoFocus { get; set; } = true;
     [Parameter] public string? Error { get; set; }
     [Parameter] public EventCallback<string> ValueChanged { get; set; }
     [Parameter] public EventCallback OnComplete { get; set; }
 
+    private string _instanceId = Guid.NewGuid().ToString("N")[..6];
     private string[] digits = [];
+    private bool showError;
+    private string? _lastError;
+
+    private string InputId(int idx) => $"pin-{_instanceId}-{idx}";
 
     protected override void OnInitialized()
     {
         digits = new string[Length];
         Array.Fill(digits, "");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && AutoFocus)
+        {
+            await Task.Delay(100); // Let DOM settle
+            await FocusInput(0);
+        }
+
+        // Detect error change → trigger shake + refocus
+        if (Error != _lastError && Error != null)
+        {
+            _lastError = Error;
+            showError = true;
+            StateHasChanged();
+            await Task.Delay(600); // Shake duration
+            showError = false;
+            StateHasChanged();
+        }
+        else if (Error == null)
+        {
+            _lastError = null;
+        }
     }
 
     private string GetDigit(int idx) => idx < digits.Length ? digits[idx] : "";
@@ -106,21 +136,36 @@
 
     private async Task OnFocus(int idx)
     {
-        // Select the content on focus
-        await JS.InvokeVoidAsync("eval", $"document.getElementById('pin-{idx}')?.select()");
+        await JS.InvokeVoidAsync("eval", $"document.getElementById('{InputId(idx)}')?.select()");
     }
 
     private async Task FocusInput(int idx)
     {
-        await JS.InvokeVoidAsync("eval", $"document.getElementById('pin-{idx}')?.focus()");
+        await JS.InvokeVoidAsync("eval", $"document.getElementById('{InputId(idx)}')?.focus()");
     }
 
     /// <summary>
-    /// Reset all digits (call from parent via @ref)
+    /// Reset all digits and refocus first input.
+    /// </summary>
+    public async Task ClearAsync()
+    {
+        Array.Fill(digits, "");
+        StateHasChanged();
+        await Task.Delay(50);
+        await FocusInput(0);
+    }
+
+    /// <summary>
+    /// Sync reset (for use where async isn't available).
     /// </summary>
     public void Clear()
     {
         Array.Fill(digits, "");
         StateHasChanged();
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(50);
+            await FocusInput(0);
+        });
     }
 }
