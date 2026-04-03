@@ -115,10 +115,22 @@ public class BlockchainApiService : IBlockchainService
             var tx = await _http.GetFromJsonAsync<EsploraTx>($"{_baseUrl}/tx/{txId}");
             if (tx == null) return null;
 
+            // Calculate confirmations from block height
+            int confirmations = 0;
+            if (tx.Status?.Confirmed == true && tx.Status.BlockHeight > 0)
+            {
+                try
+                {
+                    var currentHeight = await GetBlockHeightAsync();
+                    confirmations = currentHeight > 0 ? currentHeight - tx.Status.BlockHeight + 1 : 1;
+                }
+                catch { confirmations = 1; }
+            }
+
             return new TransactionInfo
             {
                 TxId = tx.TxId,
-                Confirmations = tx.Status?.Confirmed == true ? (tx.Status.BlockHeight > 0 ? 1 : 0) : 0,
+                Confirmations = confirmations,
                 Timestamp = tx.Status?.BlockTime != null
                     ? DateTimeOffset.FromUnixTimeSeconds(tx.Status.BlockTime.Value).UtcDateTime
                     : DateTime.UtcNow,
@@ -150,10 +162,16 @@ public class BlockchainApiService : IBlockchainService
             var txs = await _http.GetFromJsonAsync<List<EsploraTx>>($"{_baseUrl}/address/{address}/txs");
             if (txs == null) return [];
 
+            // Get current height once for confirmation calculation
+            int currentHeight = 0;
+            try { currentHeight = await GetBlockHeightAsync(); } catch { }
+
             return txs.Skip(skip).Take(take).Select(tx => new TransactionInfo
             {
                 TxId = tx.TxId,
-                Confirmations = tx.Status?.Confirmed == true ? 1 : 0,
+                Confirmations = tx.Status?.Confirmed == true && tx.Status.BlockHeight > 0 && currentHeight > 0
+                    ? currentHeight - tx.Status.BlockHeight + 1
+                    : tx.Status?.Confirmed == true ? 1 : 0,
                 Timestamp = tx.Status?.BlockTime != null
                     ? DateTimeOffset.FromUnixTimeSeconds(tx.Status.BlockTime.Value).UtcDateTime
                     : DateTime.UtcNow,

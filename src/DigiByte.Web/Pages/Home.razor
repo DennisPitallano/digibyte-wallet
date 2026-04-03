@@ -167,8 +167,10 @@
                 <div id="tx-list" class="overflow-y-auto thin-scrollbar flex flex-col gap-0.5 rounded-xl">
                     @foreach (var tx in transactions.Take(50))
                     {
+                        var currentTx = tx;
                         var isSent = tx.Direction == TransactionDirection.Sent;
-                        <div class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40">
+                        <div class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors"
+                             @onclick="() => OpenTxDetail(currentTx)">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @(isSent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
                                 <svg class="w-4 h-4 @(isSent ? "text-red-500" : "text-green-500")" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                                     @if (isSent)
@@ -219,6 +221,9 @@
     </div>
 
     <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
+    <TransactionDetailModal IsOpen="@(selectedTx != null)" Tx="@selectedTx"
+        OnClosed="() => selectedTx = null"
+        OnAddContact="AddCounterpartyToContacts" />
 </AuthGuard>
 
 @code {
@@ -276,6 +281,17 @@
         isLoadingTx = true; StateHasChanged();
         try { transactions = await WalletService.GetTransactionHistoryAsync(); } catch { }
         finally { isLoadingTx = false; StateHasChanged(); }
+    }
+
+    // Transaction detail
+    private TransactionRecord? selectedTx;
+
+    private void OpenTxDetail(TransactionRecord tx) => selectedTx = tx;
+
+    private void AddCounterpartyToContacts(string address)
+    {
+        selectedTx = null;
+        Nav.NavigateTo($"/contacts?add={Uri.EscapeDataString(address)}");
     }
 
     private void OnSend() => Nav.NavigateTo("/send");

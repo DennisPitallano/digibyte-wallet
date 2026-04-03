@@ -1,0 +1,133 @@
+@inject IJSRuntime JS
+
+@if (IsOpen && Tx != null)
+{
+    <div class="modal-overlay" @onclick="Close">
+        <div class="modal-card flex flex-col gap-4" @onclick:stopPropagation="true">
+            @* Header *@
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 @(IsSent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
+                    <svg class="w-5 h-5 @(IsSent ? "text-red-500" : "text-green-500")" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        @if (IsSent)
+                        {
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+                        }
+                        else
+                        {
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
+                        }
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">@(IsSent ? "Sent" : "Received")</h3>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">@Tx.Timestamp.ToString("MMMM d, yyyy h:mm tt")</p>
+                </div>
+            </div>
+
+            @* Amount *@
+            <div class="text-center py-2">
+                <p class="text-2xl font-extrabold @(IsSent ? "text-red-500" : "text-green-500")">
+                    @(IsSent ? "-" : "+")@Tx.AmountDgb.ToString("N4") DGB
+                </p>
+            </div>
+
+            @* Details *@
+            <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 flex flex-col gap-2.5">
+                @* Confirmations *@
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-400 dark:text-slate-500">Status</span>
+                    <span class="font-medium @(Tx.Confirmations > 0 ? "text-green-500" : "text-amber-500")">
+                        @(Tx.Confirmations > 6 ? "Confirmed" : Tx.Confirmations > 0 ? $"{Tx.Confirmations} confirmations" : "Pending")
+                    </span>
+                </div>
+
+                @* Fee *@
+                @if (Tx.FeeSatoshis > 0)
+                {
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400 dark:text-slate-500">Fee</span>
+                        <span class="text-slate-700 dark:text-slate-300">@((Tx.FeeSatoshis / 100_000_000m).ToString("N8")) DGB</span>
+                    </div>
+                }
+
+                @* Counterparty *@
+                @if (!string.IsNullOrEmpty(Tx.CounterpartyAddress))
+                {
+                    <div class="flex justify-between items-start text-xs gap-2">
+                        <span class="text-slate-400 dark:text-slate-500 flex-shrink-0">@(IsSent ? "To" : "From")</span>
+                        <span class="font-mono text-slate-700 dark:text-slate-300 break-all text-right text-[10px]">@Tx.CounterpartyAddress</span>
+                    </div>
+                }
+
+                @* Transaction ID *@
+                <div class="flex justify-between items-start text-xs gap-2">
+                    <span class="text-slate-400 dark:text-slate-500 flex-shrink-0">TX ID</span>
+                    <div class="flex items-center gap-1">
+                        <span class="font-mono text-slate-700 dark:text-slate-300 text-[10px] truncate max-w-[160px]">@Tx.TxId</span>
+                        <button class="text-dgb-500 hover:text-dgb-600 flex-shrink-0 press-effect" @onclick="CopyTxId" title="Copy">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (copied)
+            {
+                <p class="text-xs text-green-500 font-medium text-center fade-in">Transaction ID copied!</p>
+            }
+
+            @* Action buttons *@
+            <div class="flex flex-col gap-2">
+                <a href="https://digiexplorer.info/tx/@Tx.TxId" target="_blank" rel="noopener"
+                   class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl text-center press-effect flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                    View on Explorer
+                </a>
+
+                @if (!string.IsNullOrEmpty(Tx.CounterpartyAddress))
+                {
+                    <button class="w-full py-2.5 bg-white dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect flex items-center justify-center gap-2"
+                            @onclick="AddToContacts">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                        </svg>
+                        Add to Contacts
+                    </button>
+                }
+
+                <button class="w-full py-2.5 text-slate-400 text-sm font-medium" @onclick="Close">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public DigiByte.Wallet.Models.TransactionRecord? Tx { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+    [Parameter] public EventCallback<string> OnAddContact { get; set; }
+
+    private bool copied;
+    private bool IsSent => Tx?.Direction == DigiByte.Wallet.Models.TransactionDirection.Sent;
+
+    private async Task CopyTxId()
+    {
+        if (Tx == null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", Tx.TxId);
+        copied = true; StateHasChanged();
+        await Task.Delay(2000);
+        copied = false; StateHasChanged();
+    }
+
+    private async Task AddToContacts()
+    {
+        if (Tx?.CounterpartyAddress != null)
+            await OnAddContact.InvokeAsync(Tx.CounterpartyAddress);
+    }
+
+    private async Task Close() => await OnClosed.InvokeAsync();
+}
