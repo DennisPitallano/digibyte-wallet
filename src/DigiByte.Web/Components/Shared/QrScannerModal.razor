@@ -1,0 +1,86 @@
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex flex-col items-center justify-center gap-4 backdrop-enter">
+        <div class="relative w-[300px] h-[300px] rounded-2xl overflow-hidden bg-black shadow-2xl scale-in">
+            <video id="qr-video" class="w-full h-full object-cover" playsinline muted></video>
+            @* Scan frame overlay *@
+            <div class="absolute inset-0 pointer-events-none">
+                <div class="absolute inset-8 border-2 border-white/40 rounded-xl"></div>
+                <div class="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-dgb-400 rounded-tl-lg"></div>
+                <div class="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-dgb-400 rounded-tr-lg"></div>
+                <div class="absolute bottom-8 left-8 w-6 h-6 border-b-2 border-l-2 border-dgb-400 rounded-bl-lg"></div>
+                <div class="absolute bottom-8 right-8 w-6 h-6 border-b-2 border-r-2 border-dgb-400 rounded-br-lg"></div>
+                @* Scanning line animation *@
+                <div class="absolute left-8 right-8 h-0.5 bg-gradient-to-r from-transparent via-dgb-400 to-transparent animate-scan"></div>
+            </div>
+            @if (isLoading)
+            {
+                <div class="absolute inset-0 flex items-center justify-center bg-black/60">
+                    <div class="w-8 h-8 border-3 border-dgb-400 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            }
+        </div>
+
+        <p class="text-white/80 text-sm font-medium">Point camera at QR code</p>
+
+        @if (errorMessage != null)
+        {
+            <p class="text-red-400 text-xs font-medium bg-red-900/30 px-3 py-1.5 rounded-lg">@errorMessage</p>
+        }
+
+        <button class="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur transition-colors press-effect"
+                @onclick="Close">
+            Cancel
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<string> OnScanned { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private DotNetObjectReference<QrScannerModal>? objRef;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && objRef == null)
+        {
+            objRef = DotNetObjectReference.Create(this);
+            isLoading = true;
+            errorMessage = null;
+            StateHasChanged();
+
+            await Task.Delay(100); // Let DOM render the video element
+            var success = await JS.InvokeAsync<bool>("qrScanner.start", objRef);
+            isLoading = !success;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnScanResult(string data)
+    {
+        await OnScanned.InvokeAsync(data);
+        await Close();
+    }
+
+    [JSInvokable]
+    public void OnScanError(string error)
+    {
+        errorMessage = error;
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task Close()
+    {
+        await JS.InvokeVoidAsync("qrScanner.stop");
+        objRef?.Dispose();
+        objRef = null;
+        await OnClosed.InvokeAsync();
+    }
+}

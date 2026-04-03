@@ -1,4 +1,4 @@
-# DigiByte Core Testnet Node
+# DigiByte Core Regtest Node (instant mining for development)
 # Downloads pre-built binary from official GitHub releases
 
 FROM ubuntu:22.04
@@ -24,14 +24,14 @@ COPY digibyte.conf /etc/digibyte/digibyte.conf
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Testnet P2P + RPC ports
-EXPOSE 12025 14023
+# Regtest P2P + RPC ports
+EXPOSE 18444 18443
 
 # Persist blockchain data
 VOLUME ["/root/.digibyte"]
 
 # Health check
-HEALTHCHECK --interval=15s --timeout=10s --retries=10 --start-period=60s \
-    CMD digibyte-cli -testnet -rpcuser=dgbrpc -rpcpassword=changeme getblockcount || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=10s \
+    CMD digibyte-cli -regtest -rpcuser=dgbrpc -rpcpassword=changeme getblockcount || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]

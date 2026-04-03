@@ -4,6 +4,7 @@
 
 <PageTitle>Receive DGB</PageTitle>
 
+<AuthGuard>
 <div class="flex flex-col items-center gap-5">
     <h2 class="text-xl font-bold text-slate-900 dark:text-white self-start slide-up">Receive DigiByte</h2>
 
@@ -42,6 +43,7 @@
         </div>
     }
 </div>
+</AuthGuard>
 
 @code {
     private string? address;
@@ -83,6 +85,15 @@
     {
         addressIndex++;
         var addresses = await WalletService.GetReceivingAddressesAsync(1, addressIndex);
-        if (addresses.Count > 0) { address = addresses[0].Address; GenerateQrCode(); }
+        if (addresses.Count > 0)
+        {
+            address = addresses[0].Address;
+            GenerateQrCode();
+            // Persist the new index so it's used as default next time
+            if (WalletService.ActiveWallet != null)
+            {
+                WalletService.ActiveWallet.NextReceivingIndex = addressIndex;
+            }
+        }
     }
 }

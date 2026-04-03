@@ -9,22 +9,25 @@ public class DigiByteNetworkSet : INetworkSet
 
     private readonly Lazy<Network> _mainnet;
     private readonly Lazy<Network> _testnet;
+    private readonly Lazy<Network> _regtest;
 
     public string CryptoCode => "DGB";
 
     public Network Mainnet => _mainnet.Value;
     public Network Testnet => _testnet.Value;
-    public Network Regtest => Testnet;
+    public Network Regtest => _regtest.Value;
 
     private DigiByteNetworkSet()
     {
         _mainnet = new Lazy<Network>(RegisterMainnet);
         _testnet = new Lazy<Network>(RegisterTestnet);
+        _regtest = new Lazy<Network>(RegisterRegtest);
     }
 
     public Network GetNetwork(ChainName chainName)
     {
         if (chainName == ChainName.Testnet) return Testnet;
+        if (chainName == ChainName.Regtest) return Regtest;
         return Mainnet;
     }
 
@@ -107,6 +110,44 @@ public class DigiByteNetworkSet : INetworkSet
         return builder.BuildAndRegister();
     }
 
+    private Network RegisterRegtest()
+    {
+        var genesisHex = BuildGenesisHex();
+
+        var consensus = new Consensus
+        {
+            SubsidyHalvingInterval = 150,
+            MajorityEnforceBlockUpgrade = 51,
+            MajorityRejectBlockOutdated = 75,
+            MajorityWindow = 100,
+            PowTargetTimespan = TimeSpan.FromSeconds(14 * 24 * 60 * 60),
+            PowTargetSpacing = TimeSpan.FromSeconds(15),
+            PowAllowMinDifficultyBlocks = true,
+            PowNoRetargeting = true,
+            SupportSegwit = true,
+        };
+
+        var builder = new NetworkBuilder()
+            .SetConsensus(consensus)
+            .SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, [0x7E])
+            .SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, [0x8C])
+            .SetBase58Bytes(Base58Type.SECRET_KEY, [0xFE])
+            .SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, [0x04, 0x35, 0x87, 0xCF])
+            .SetBase58Bytes(Base58Type.EXT_SECRET_KEY, [0x04, 0x35, 0x83, 0x94])
+            .SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, "dgbrt")
+            .SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, "dgbrt")
+            .SetMagic(0xDAB5BFFA)
+            .SetPort(18444)
+            .SetRPCPort(18443)
+            .SetName("dgb-regtest")
+            .SetChainName(ChainName.Regtest)
+            .SetNetworkSet(this)
+            .AddDNSSeeds(Array.Empty<DNSSeedData>())
+            .SetGenesis(genesisHex);
+
+        return builder.BuildAndRegister();
+    }
+
     private static string BuildGenesisHex()
     {
         return
@@ -130,4 +171,5 @@ public static class DigiByteNetwork
 {
     public static Network Mainnet => DigiByteNetworkSet.Instance.Mainnet;
     public static Network Testnet => DigiByteNetworkSet.Instance.Testnet;
+    public static Network Regtest => DigiByteNetworkSet.Instance.Regtest;
 }

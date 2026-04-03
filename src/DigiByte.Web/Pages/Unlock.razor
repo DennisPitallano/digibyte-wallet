@@ -12,24 +12,37 @@
             <DigiLogo Size="72" Class="relative" />
         </div>
         <h2 class="text-lg font-bold text-slate-900 dark:text-white">Welcome back</h2>
+        <p class="text-sm text-slate-400 dark:text-slate-500">Enter your 6-digit PIN</p>
     </div>
 
-    <div class="w-full max-w-[260px] flex flex-col gap-4 slide-up-delay-2">
-        <input type="password" @bind="pin" @bind:event="oninput" @onkeydown="OnKeyDown"
-               placeholder="Enter your PIN" inputmode="numeric" maxlength="20" autofocus
-               class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-center text-lg tracking-[0.3em] text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-        @if (error != null)
-        {
-            <p class="text-sm text-red-500 font-medium text-center fade-in">@error</p>
-        }
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
-                @onclick="UnlockAsync" disabled="@(isUnlocking || string.IsNullOrEmpty(pin))">
-            @(isUnlocking ? "Unlocking..." : "Unlock")
+    <div class="flex flex-col items-center gap-5 slide-up-delay-2">
+        <PinInput @ref="pinInput"
+                  ValueChanged="OnPinChanged"
+                  OnComplete="UnlockAsync"
+                  Error="@error" />
+
+        <button class="w-full max-w-[280px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
+                @onclick="UnlockAsync" disabled="@(isUnlocking || pin.Length < 6)">
+            @if (isUnlocking)
+            {
+                <span class="flex items-center justify-center gap-2">
+                    <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Unlocking...
+                </span>
+            }
+            else
+            {
+                <span>Unlock</span>
+            }
         </button>
     </div>
 </div>
 
 @code {
+    private PinInput? pinInput;
     private string pin = "";
     private string? error;
     private bool isUnlocking;
@@ -41,17 +54,30 @@
         if (walletId == null) Nav.NavigateTo("/welcome");
     }
 
-    private async Task OnKeyDown(KeyboardEventArgs e) { if (e.Key == "Enter" && !string.IsNullOrEmpty(pin)) await UnlockAsync(); }
+    private void OnPinChanged(string value) => pin = value;
 
     private async Task UnlockAsync()
     {
-        if (walletId == null) return;
+        if (walletId == null || pin.Length < 6 || isUnlocking) return;
         error = null; isUnlocking = true;
+        StateHasChanged();
         try
         {
+            WalletService.SetNetworkMode(AppState.NetworkMode);
             var success = await WalletService.UnlockWalletAsync(walletId, pin);
-            if (success) { AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged(); Nav.NavigateTo("/"); }
-            else { error = "Incorrect PIN. Please try again."; pin = ""; }
+            if (success)
+            {
+                AppState.IsWalletCreated = true;
+                AppState.IsWalletUnlocked = true;
+                AppState.NotifyStateChanged();
+                Nav.NavigateTo("/");
+            }
+            else
+            {
+                error = "Incorrect PIN. Please try again.";
+                pin = "";
+                pinInput?.Clear();
+            }
         }
         catch (Exception ex) { error = $"Error: {ex.Message}"; }
         finally { isUnlocking = false; }

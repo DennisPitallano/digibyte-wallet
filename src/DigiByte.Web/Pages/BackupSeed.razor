@@ -1,0 +1,109 @@
+@page "/backup-seed"
+@inject WalletService WalletService
+@inject AppState AppState
+@inject NavigationManager Nav
+
+<PageTitle>Backup Seed Phrase</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-5">
+    @if (!isVerified)
+    {
+        @* Step 1: Verify PIN *@
+        <div class="flex flex-col items-center gap-5 min-h-[50vh] justify-center">
+            <div class="flex flex-col items-center gap-2 slide-up">
+                <div class="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                    <svg class="w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Verify Your Identity</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 text-center">Enter your PIN to view your recovery phrase</p>
+            </div>
+
+            <div class="flex flex-col items-center gap-4 slide-up-delay-2">
+                <PinInput @ref="pinInput" ValueChanged="(v) => pin = v" OnComplete="VerifyPin" Error="@error" />
+                <button class="w-full max-w-[280px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                        @onclick="VerifyPin" disabled="@(isVerifying || pin.Length < 6)">
+                    @(isVerifying ? "Verifying..." : "Continue")
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* Step 2: Show seed phrase *@
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Recovery Phrase</h2>
+            <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 leading-relaxed bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
+                <strong>Never share</strong> these words with anyone. Anyone with this phrase can steal your funds.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 slide-up-delay-1">
+            @for (int i = 0; i < seedWords.Length; i++)
+            {
+                var idx = i;
+                <div class="flex items-center gap-1.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-2.5 py-2.5 shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 w-4 text-right">@(idx + 1)</span>
+                    <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">@seedWords[idx]</span>
+                </div>
+            }
+        </div>
+
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2"
+                @onclick="GoBack">
+            Done
+        </button>
+    }
+</div>
+</AuthGuard>
+
+@code {
+    private PinInput? pinInput;
+    private string pin = "";
+    private string? error;
+    private bool isVerifying;
+    private bool isVerified;
+    private string[] seedWords = [];
+
+    private void GoBack() => Nav.NavigateTo("/settings");
+
+    private async Task VerifyPin()
+    {
+        if (pin.Length < 6 || isVerifying) return;
+        error = null; isVerifying = true;
+        StateHasChanged();
+
+        try
+        {
+            var walletId = await WalletService.GetActiveWalletIdAsync();
+            if (walletId == null) { error = "No wallet found"; return; }
+
+            // Try to unlock with the PIN to verify it's correct
+            // (wallet is already unlocked, but we verify the PIN matches)
+            var success = await WalletService.UnlockWalletAsync(walletId, pin);
+            if (!success)
+            {
+                error = "Incorrect PIN";
+                pin = "";
+                pinInput?.Clear();
+                return;
+            }
+
+            // Get the seed words from the mnemonic
+            // We need to decrypt the seed from storage
+            var keyStore = WalletService.GetType().GetField("_walletStore",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            // For now, show a message that this feature needs the mnemonic stored separately
+            // In production, we'd store the encrypted mnemonic and decrypt it here
+            isVerified = true;
+            seedWords = ["Feature", "coming", "soon", "—", "the", "encrypted",
+                         "mnemonic", "needs", "to", "be", "stored", "separately",
+                         "from", "the", "HD", "key", "to", "enable",
+                         "backup", "viewing", "after", "wallet", "creation", "phase"];
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { isVerifying = false; }
+    }
+}

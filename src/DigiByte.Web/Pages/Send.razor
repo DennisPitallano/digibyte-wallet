@@ -6,6 +6,7 @@
 
 <PageTitle>Send DGB</PageTitle>
 
+<AuthGuard>
 <div class="flex flex-col gap-4">
     <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">Send DigiByte</h2>
 
@@ -31,13 +32,20 @@
         }
         else
         {
-            <div class="flex gap-2">
+            <div class="flex gap-1.5">
                 <input type="text" @bind="destinationAddress" @bind:event="oninput"
                        placeholder="D... or dgb1... or search contact"
                        autocomplete="off" spellcheck="false"
                        class="flex-1 px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                <button class="w-11 h-11 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0 press-effect"
+                        @onclick="() => showScanner = true" title="Scan QR">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 14.625v2.625m3.375-2.625v2.625" />
+                    </svg>
+                </button>
                 <button class="w-11 h-11 rounded-xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center hover:border-dgb-300 dark:hover:border-dgb-600 transition-all flex-shrink-0"
-                        @onclick="() => showContactPicker = !showContactPicker" title="Choose contact">
+                        @onclick="() => showContactPicker = !showContactPicker" title="Contacts">
                     <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                     </svg>
@@ -118,32 +126,84 @@
         Review Transaction
     </button>
 
+    @* Confirm Modal — centered card *@
     @if (showConfirm)
     {
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center z-[200] backdrop-enter" @onclick="() => showConfirm = false">
-            <div class="w-full max-w-[480px] bg-white dark:bg-dgb-900 rounded-t-3xl p-6 flex flex-col gap-4 sheet-enter" @onclick:stopPropagation="true">
-                <h3 class="text-lg font-bold text-center text-slate-900 dark:text-white">Confirm Transaction</h3>
-                <div class="flex flex-col divide-y divide-slate-100 dark:divide-dgb-800">
-                    <div class="flex justify-between py-3">
-                        <span class="text-sm text-slate-500 dark:text-slate-400">To</span>
-                        <span class="text-sm font-mono font-medium text-slate-900 dark:text-white">
-                            @if (!string.IsNullOrEmpty(recipientName)) { @recipientName } else { @TruncateAddress(destinationAddress) }
-                        </span>
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200] px-4 backdrop-enter" @onclick="() => { if (!isSending) showConfirm = false; }">
+            <div class="w-full max-w-[380px] bg-white dark:bg-dgb-900 rounded-3xl p-6 flex flex-col gap-5 shadow-2xl scale-in" @onclick:stopPropagation="true">
+                @* Header *@
+                <div class="flex flex-col items-center gap-2">
+                    <div class="w-12 h-12 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+                        </svg>
                     </div>
-                    <div class="flex justify-between py-3"><span class="text-sm text-slate-500 dark:text-slate-400">Amount</span><span class="text-sm font-semibold text-slate-900 dark:text-white">@amountDgb.ToString("N8") DGB</span></div>
-                    <div class="flex justify-between py-3"><span class="text-sm text-slate-500 dark:text-slate-400">Fee</span><span class="text-sm text-slate-900 dark:text-white">~@estimatedFee.ToString("N4") DGB</span></div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Confirm Send</h3>
                 </div>
-                @if (sendError != null) { <p class="text-sm text-red-500 font-medium text-center">@sendError</p> }
+
+                @* Details *@
+                <div class="bg-slate-50 dark:bg-dgb-950 rounded-2xl p-4 flex flex-col gap-3">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">To</span>
+                        <div class="text-right">
+                            @if (!string.IsNullOrEmpty(recipientName))
+                            {
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white">@recipientName</p>
+                                <p class="text-[10px] font-mono text-slate-400">@TruncateAddress(destinationAddress)</p>
+                            }
+                            else
+                            {
+                                <p class="text-xs font-mono font-medium text-slate-900 dark:text-white">@TruncateAddress(destinationAddress)</p>
+                            }
+                        </div>
+                    </div>
+                    <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
+                    <div class="flex justify-between">
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Amount</span>
+                        <span class="text-sm font-bold text-slate-900 dark:text-white">@amountDgb.ToString("N8") DGB</span>
+                    </div>
+                    <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
+                    <div class="flex justify-between">
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Network Fee</span>
+                        <span class="text-xs text-slate-600 dark:text-slate-300">~@estimatedFee.ToString("N4") DGB</span>
+                    </div>
+                </div>
+
+                @if (sendError != null)
+                {
+                    <p class="text-xs text-red-500 font-medium text-center bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl">@sendError</p>
+                }
+
+                @* Actions *@
                 <div class="flex gap-3">
-                    <button class="flex-1 py-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl press-effect" @onclick="() => showConfirm = false">Cancel</button>
-                    <button class="flex-1 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl transition-all press-effect disabled:opacity-50" @onclick="ConfirmSend" disabled="@isSending">
-                        @(isSending ? "Sending..." : "Confirm")
+                    <button class="flex-1 py-3 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect"
+                            @onclick="() => showConfirm = false" disabled="@isSending">
+                        Cancel
+                    </button>
+                    <button class="flex-1 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                            @onclick="ConfirmSend" disabled="@isSending">
+                        @if (isSending)
+                        {
+                            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span>Sending...</span>
+                        }
+                        else
+                        {
+                            <span>Send Now</span>
+                        }
                     </button>
                 </div>
             </div>
         </div>
     }
+
+    @* QR Scanner *@
+    <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 </div>
+</AuthGuard>
 
 @code {
     private string destinationAddress = "";
@@ -155,6 +215,7 @@
     private bool showConfirm;
     private bool isSending;
     private bool showContactPicker;
+    private bool showScanner;
     private List<Contact> contactList = [];
 
     // Advanced fee control
@@ -200,6 +261,24 @@
         estimatedFee = rate * 0.000068m; // ~68 vbytes * rate
     }
 
+    private void OnQrScanned(string data)
+    {
+        showScanner = false;
+        // Parse digibyte: URI or raw address
+        var parsed = DigiByte.Wallet.Models.PaymentRequest.FromUri(data);
+        if (parsed != null)
+        {
+            destinationAddress = parsed.Address;
+            if (parsed.AmountDgb.HasValue) amount = parsed.AmountDgb.Value;
+            if (!string.IsNullOrEmpty(parsed.Message)) memo = parsed.Message ?? "";
+        }
+        else
+        {
+            destinationAddress = data.Trim();
+        }
+        StateHasChanged();
+    }
+
     private void PreviewSend()
     {
         addressError = null;
@@ -214,9 +293,17 @@
     private async Task ConfirmSend()
     {
         sendError = null; isSending = true;
-        try { await WalletService.SendAsync(destinationAddress, amountDgb, memo); Nav.NavigateTo("/"); }
-        catch (NotImplementedException) { sendError = "Send is not yet connected to the blockchain. Coming soon!"; }
-        catch (Exception ex) { sendError = ex.Message; }
+        StateHasChanged();
+        try
+        {
+            var txId = await WalletService.SendAsync(destinationAddress, amountDgb, memo);
+            // Navigate to home with success
+            Nav.NavigateTo($"/?sent={Uri.EscapeDataString(txId)}");
+        }
+        catch (Exception ex)
+        {
+            sendError = ex.Message;
+        }
         finally { isSending = false; }
     }
 

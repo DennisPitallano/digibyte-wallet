@@ -143,6 +143,37 @@ a { text-decoration: none; color: inherit; }
 }
 .check-pop { animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ===== Thin Scrollbar ===== */
+.thin-scrollbar::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+}
+.dark .thin-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.3);
+}
+/* Firefox */
+.thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+/* ===== QR Scanner ===== */
+@keyframes scan {
+    0%, 100% { top: 2rem; }
+    50% { top: calc(100% - 2rem); }
+}
+.animate-scan { animation: scan 2s ease-in-out infinite; }
+
 /* ===== Error UI ===== */
 #blazor-error-ui {
     background: #ef4444;

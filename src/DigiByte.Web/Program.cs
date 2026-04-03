@@ -22,9 +22,14 @@ builder.Services.AddScoped<WalletKeyStore>();
 builder.Services.AddScoped<IKeyStore>(sp => sp.GetRequiredService<WalletKeyStore>());
 
 // Wallet & services
+builder.Services.AddScoped<TransactionTracker>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();
+
+// Blockchain service chain: NodeApi → Esplora explorers → Mock demo data
+var nodeApiUrl = builder.Configuration["NodeApiUrl"] ?? "http://localhost:5260";
+builder.Services.AddScoped(sp => new NodeApiBlockchainService(sp.GetRequiredService<HttpClient>(), nodeApiUrl));
 builder.Services.AddScoped<BlockchainApiService>();
 builder.Services.AddScoped<MockBlockchainService>();
 builder.Services.AddScoped<FallbackBlockchainService>();

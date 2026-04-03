@@ -4,8 +4,18 @@
 
 @if (isLoading)
 {
-    <div class="loading-state">
-        <p>Loading wallet...</p>
+    <div class="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div class="relative">
+            <div class="absolute inset-0 bg-dgb-500/20 rounded-full blur-2xl scale-150 glow-pulse"></div>
+            <div class="relative animate-pulse">
+                <DigiLogo Size="56" />
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-1.5 h-1.5 bg-dgb-500 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+            <div class="w-1.5 h-1.5 bg-dgb-500 rounded-full animate-bounce" style="animation-delay: 0.15s"></div>
+            <div class="w-1.5 h-1.5 bg-dgb-500 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
+        </div>
     </div>
 }
 else if (AppState.IsWalletUnlocked)

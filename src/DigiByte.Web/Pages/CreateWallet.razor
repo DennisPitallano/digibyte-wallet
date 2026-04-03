@@ -69,33 +69,39 @@
     }
     else if (step == Step.SetPin)
     {
-        <div class="slide-up">
+        <div class="slide-up text-center">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a PIN to unlock your wallet every time you open the app.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
         </div>
 
-        <div class="flex flex-col gap-3">
-            <input type="password" @bind="pin" placeholder="Enter PIN (6+ digits)"
-                   inputmode="numeric" maxlength="20"
-                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-            <input type="password" @bind="pinConfirm" placeholder="Confirm PIN"
-                   inputmode="numeric" maxlength="20"
-                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-            @if (pinError != null)
+        <div class="flex flex-col gap-4 items-center">
+            @if (!isConfirmingPin)
             {
-                <p class="text-sm text-red-500 font-medium">@pinError</p>
+                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Enter PIN</p>
+                <PinInput @ref="pinInput1" ValueChanged="(v) => pin = v" OnComplete="GoToConfirmPin" Error="@pinError" />
+            }
+            else
+            {
+                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Confirm PIN</p>
+                <PinInput @ref="pinInput2" ValueChanged="(v) => pinConfirm = v" OnComplete="CreateWalletAsync" Error="@pinError" />
+                <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium" @onclick="BackToSetPin">Change PIN</button>
             }
         </div>
 
         <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-3 flex items-center justify-center gap-2"
-                @onclick="CreateWalletAsync" disabled="@isCreating">
+                @onclick="OnPinButtonClick"
+                disabled="@(isCreating || (!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))">
             @if (isCreating)
             {
-                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                 </svg>
                 <span>Creating...</span>
+            }
+            else if (!isConfirmingPin)
+            {
+                <span>Continue</span>
             }
             else
             {
@@ -119,6 +125,9 @@
     private string pinConfirm = "";
     private string? pinError;
     private bool isCreating;
+    private bool isConfirmingPin;
+    private PinInput? pinInput1;
+    private PinInput? pinInput2;
 
     protected override void OnInitialized()
     {
@@ -141,16 +150,40 @@
         if (confirmStep >= 3) { step = Step.SetPin; } else { confirmWordIndex = confirmIndices[confirmStep]; }
     }
 
+    private async Task OnPinButtonClick()
+    {
+        if (isConfirmingPin) await CreateWalletAsync();
+        else GoToConfirmPin();
+    }
+
+    private void GoToConfirmPin()
+    {
+        if (pin.Length < 6) { pinError = "Enter all 6 digits"; return; }
+        pinError = null;
+        pinConfirm = "";
+        isConfirmingPin = true;
+    }
+
+    private void BackToSetPin()
+    {
+        isConfirmingPin = false;
+        pin = "";
+        pinConfirm = "";
+        pinError = null;
+        pinInput1?.Clear();
+    }
+
     private async Task CreateWalletAsync()
     {
         pinError = null;
-        if (pin.Length < 6) { pinError = "PIN must be at least 6 characters."; return; }
-        if (pin != pinConfirm) { pinError = "PINs do not match."; return; }
+        if (pin.Length < 6) { pinError = "Enter all 6 digits"; return; }
+        if (pin != pinConfirm) { pinError = "PINs don't match. Try again."; pinConfirm = ""; pinInput2?.Clear(); return; }
         isCreating = true;
         StateHasChanged();
         await Task.Yield();
         try
         {
+            WalletService.SetNetworkMode(AppState.NetworkMode);
             await WalletService.CreateWalletAsync("My Wallet", mnemonic, pin);
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");

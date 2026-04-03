@@ -1,0 +1,126 @@
+@inject IJSRuntime JS
+
+<div class="flex justify-center gap-2">
+    @for (int i = 0; i < Length; i++)
+    {
+        var idx = i;
+        <input type="@(Masked ? "password" : "text")"
+               maxlength="1"
+               inputmode="numeric"
+               pattern="[0-9]"
+               autocomplete="off"
+               id="pin-@idx"
+               value="@GetDigit(idx)"
+               class="w-11 h-14 text-center text-xl font-bold rounded-xl border-2 outline-none transition-all duration-200
+                      bg-white dark:bg-dgb-900
+                      @(GetDigit(idx) != "" ? "border-dgb-500 dark:border-dgb-400" : "border-slate-200 dark:border-dgb-800")
+                      focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20
+                      text-slate-900 dark:text-white"
+               @oninput="(e) => OnDigitInput(idx, e)"
+               @onkeydown="(e) => OnKeyDown(idx, e)"
+               @onfocus="() => OnFocus(idx)" />
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(Error))
+{
+    <p class="text-sm text-red-500 font-medium text-center mt-2 fade-in">@Error</p>
+}
+
+@code {
+    [Parameter] public int Length { get; set; } = 6;
+    [Parameter] public bool Masked { get; set; } = true;
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public EventCallback OnComplete { get; set; }
+
+    private string[] digits = [];
+
+    protected override void OnInitialized()
+    {
+        digits = new string[Length];
+        Array.Fill(digits, "");
+    }
+
+    private string GetDigit(int idx) => idx < digits.Length ? digits[idx] : "";
+
+    private string GetFullPin() => string.Join("", digits);
+
+    private async Task OnDigitInput(int idx, ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString() ?? "";
+
+        if (val.Length > 1)
+        {
+            // Handle paste — distribute digits across inputs
+            for (int i = 0; i < val.Length && (idx + i) < Length; i++)
+            {
+                if (char.IsDigit(val[i]))
+                    digits[idx + i] = val[i].ToString();
+            }
+            var nextIdx = Math.Min(idx + val.Length, Length - 1);
+            await FocusInput(nextIdx);
+        }
+        else if (val.Length == 1 && char.IsDigit(val[0]))
+        {
+            digits[idx] = val;
+            if (idx < Length - 1)
+                await FocusInput(idx + 1);
+        }
+        else
+        {
+            digits[idx] = "";
+        }
+
+        await ValueChanged.InvokeAsync(GetFullPin());
+
+        if (digits.All(d => d.Length == 1))
+            await OnComplete.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(int idx, KeyboardEventArgs e)
+    {
+        if (e.Key == "Backspace")
+        {
+            if (digits[idx] == "" && idx > 0)
+            {
+                digits[idx - 1] = "";
+                await FocusInput(idx - 1);
+                await ValueChanged.InvokeAsync(GetFullPin());
+            }
+            else
+            {
+                digits[idx] = "";
+                await ValueChanged.InvokeAsync(GetFullPin());
+            }
+        }
+        else if (e.Key == "ArrowLeft" && idx > 0)
+        {
+            await FocusInput(idx - 1);
+        }
+        else if (e.Key == "ArrowRight" && idx < Length - 1)
+        {
+            await FocusInput(idx + 1);
+        }
+    }
+
+    private async Task OnFocus(int idx)
+    {
+        // Select the content on focus
+        await JS.InvokeVoidAsync("eval", $"document.getElementById('pin-{idx}')?.select()");
+    }
+
+    private async Task FocusInput(int idx)
+    {
+        await JS.InvokeVoidAsync("eval", $"document.getElementById('pin-{idx}')?.focus()");
+    }
+
+    /// <summary>
+    /// Reset all digits (call from parent via @ref)
+    /// </summary>
+    public void Clear()
+    {
+        Array.Fill(digits, "");
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,49 @@
+# DigiByte Testnet — connects to real testnet network
+# Usage: docker compose -f docker-compose.testnet.yml up -d
+
+services:
+  # DigiByte Core testnet node (connects to real testnet peers)
+  digibyted:
+    build:
+      context: docker/digibyted
+    container_name: dgb-testnet-node
+    entrypoint: ["/bin/bash", "/etc/digibyte/entrypoint-testnet.sh"]
+    ports:
+      - "12025:12025"   # Testnet P2P (connects to real testnet peers)
+      - "14023:14023"   # Testnet RPC
+    volumes:
+      - dgb-testnet-data:/root/.digibyte
+      - ./docker/digibyted/digibyte-testnet.conf:/etc/digibyte/digibyte-testnet.conf
+      - ./docker/digibyted/entrypoint-testnet.sh:/etc/digibyte/entrypoint-testnet.sh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "digibyte-cli", "-testnet", "-rpcuser=dgbrpc", "-rpcpassword=changeme", "getblockcount"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  # DigiByte Node API (for broadcasting + RPC access)
+  node-api:
+    build:
+      context: .
+      dockerfile: docker/node-api/Dockerfile
+    container_name: dgb-testnet-api
+    ports:
+      - "5260:5260"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DigiByteNode__Host=digibyted
+      - DigiByteNode__TestnetPort=14023
+      - DigiByteNode__RpcUser=dgbrpc
+      - DigiByteNode__RpcPassword=changeme
+      - DigiByteNode__IsTestnet=true
+      - DigiByteNode__FaucetEnabled=false
+    depends_on:
+      digibyted:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dgb-testnet-data:
+    name: dgb-testnet-data

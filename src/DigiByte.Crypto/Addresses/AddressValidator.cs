@@ -11,16 +11,20 @@ public static class AddressValidator
     /// </summary>
     public static bool IsValid(string address, Network? network = null)
     {
-        network ??= DigiByteNetwork.Mainnet;
-        try
+        if (network != null)
         {
-            BitcoinAddress.Create(address, network);
-            return true;
+            try { BitcoinAddress.Create(address, network); return true; }
+            catch { return false; }
         }
-        catch
+
+        // Try all DigiByte networks
+        Network[] networks = [DigiByteNetwork.Mainnet, DigiByteNetwork.Testnet, DigiByteNetwork.Regtest];
+        foreach (var net in networks)
         {
-            return false;
+            try { BitcoinAddress.Create(address, net); return true; }
+            catch { }
         }
+        return false;
     }
 
     /// <summary>
