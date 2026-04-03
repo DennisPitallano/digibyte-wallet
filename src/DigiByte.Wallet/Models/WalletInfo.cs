@@ -14,6 +14,11 @@ public class WalletInfo
     /// "hd" for BIP39/BIP44 mnemonic wallets, "privatekey" for single WIF key import.
     /// </summary>
     public string WalletType { get; set; } = "hd";
+
+    /// <summary>
+    /// For privatekey wallets: the network detected from the WIF prefix ("mainnet", "testnet", "regtest").
+    /// </summary>
+    public string? WifNetwork { get; set; }
 }
 
 public class WalletBalance

@@ -53,7 +53,22 @@ public class WalletService : IWalletService
             apiService.SetNetwork(mode == "testnet");
     }
 
-    public Network CurrentNetworkPublic => CurrentNetwork;
+    public Network CurrentNetworkPublic => EffectiveNetwork;
+
+    /// <summary>
+    /// For privatekey wallets, use the network detected from the WIF key.
+    /// For HD wallets, use the user-selected network.
+    /// </summary>
+    private Network EffectiveNetwork =>
+        _activeWallet?.WalletType == "privatekey" && _activeWallet.WifNetwork != null
+            ? _activeWallet.WifNetwork switch
+            {
+                "mainnet" => DigiByteNetwork.Mainnet,
+                "testnet" => DigiByteNetwork.Testnet,
+                "regtest" => DigiByteNetwork.Regtest,
+                _ => CurrentNetwork,
+            }
+            : CurrentNetwork;
 
     private Network CurrentNetwork => _networkMode switch
     {
@@ -99,21 +114,25 @@ public class WalletService : IWalletService
             System.Text.Encoding.UTF8.GetBytes(wif), pin);
         await _keyStore.StoreSeedAsync(walletId, encrypted);
 
+        // Auto-detect network from the key prefix
+        var detectedNetwork = PrivateKeyImporter.DetectNetwork(wif);
+        if (detectedNetwork == null)
+            throw new InvalidOperationException("Could not detect network from private key.");
+
+        var networkName = detectedNetwork == DigiByteNetwork.Mainnet ? "mainnet"
+            : detectedNetwork == DigiByteNetwork.Testnet ? "testnet" : "regtest";
+
         var wallet = new WalletInfo
         {
             Id = walletId,
             Name = name,
             CreatedAt = DateTime.UtcNow,
             WalletType = "privatekey",
+            WifNetwork = networkName,
         };
 
         await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
         await _walletStore.SetActiveWalletIdAsync(walletId);
-
-        // Parse the WIF — auto-detect network from the key prefix
-        var detectedNetwork = PrivateKeyImporter.DetectNetwork(wif);
-        if (detectedNetwork == null)
-            throw new InvalidOperationException("Could not detect network from private key.");
 
         _singleKey = PrivateKeyImporter.ParseWif(wif, detectedNetwork);
         _hd = null;
@@ -200,9 +219,10 @@ public class WalletService : IWalletService
 
         if (_singleKey != null)
         {
-            // Single-key wallet — only one address
-            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, CurrentNetwork).ToString());
-            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, CurrentNetwork).ToString());
+            // Single-key wallet — check both address formats on the detected network
+            var net = EffectiveNetwork;
+            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, net).ToString());
+            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, net).ToString());
         }
         else
         {
@@ -237,7 +257,7 @@ public class WalletService : IWalletService
         EnsureUnlocked();
         if (_singleKey != null)
         {
-            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, CurrentNetwork);
+            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, EffectiveNetwork);
             return Task.FromResult(addr.ToString());
         }
         var index = _activeWallet!.NextReceivingIndex;
@@ -251,7 +271,7 @@ public class WalletService : IWalletService
         EnsureUnlocked();
         if (_singleKey != null)
         {
-            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, CurrentNetwork).ToString();
+            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, EffectiveNetwork).ToString();
             return Task.FromResult(new List<(int, string)> { (0, addr) });
         }
         var addresses = _hd!.DeriveReceivingAddresses(count, startIndex)
