@@ -110,8 +110,12 @@ public class WalletService : IWalletService
         await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
         await _walletStore.SetActiveWalletIdAsync(walletId);
 
-        // Parse the WIF and store the key in memory
-        _singleKey = PrivateKeyImporter.ParseWif(wif, CurrentNetwork);
+        // Parse the WIF — auto-detect network from the key prefix
+        var detectedNetwork = PrivateKeyImporter.DetectNetwork(wif);
+        if (detectedNetwork == null)
+            throw new InvalidOperationException("Could not detect network from private key.");
+
+        _singleKey = PrivateKeyImporter.ParseWif(wif, detectedNetwork);
         _hd = null;
         _activeWallet = wallet;
 
@@ -151,7 +155,8 @@ public class WalletService : IWalletService
         if (_activeWallet?.WalletType == "privatekey")
         {
             // WIF-imported wallet — single key, no HD derivation
-            _singleKey = PrivateKeyImporter.ParseWif(seedString, CurrentNetwork);
+            var wifNetwork = PrivateKeyImporter.DetectNetwork(seedString) ?? CurrentNetwork;
+            _singleKey = PrivateKeyImporter.ParseWif(seedString, wifNetwork);
             _hd = null;
         }
         else

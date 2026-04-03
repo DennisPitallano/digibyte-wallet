@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(dotnet new:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(dotnet build:*)",
+      "Bash(taskkill //F //IM dotnet.exe)",
+      "Bash(dotnet test:*)",
+      "Bash(docker --version)",
+      "Bash(docker compose:*)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(curl -s http://localhost:5260/api/health)",
+      "Bash(curl -s http://localhost:5260/api/blockchain/height)",
+      "Bash(curl -s http://localhost:5260/api/blockchain/info)"
+    ]
+  }
+}

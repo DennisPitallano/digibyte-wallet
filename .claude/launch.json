@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "digibyte-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/DigiByte.Web/DigiByte.Web.csproj", "--urls", "http://localhost:5251"],
+      "port": 5251
+    },
+    {
+      "name": "digibyte-node-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/DigiByte.NodeApi/DigiByte.NodeApi.csproj", "--urls", "http://localhost:5260"],
+      "port": 5260
+    }
+  ]
+}

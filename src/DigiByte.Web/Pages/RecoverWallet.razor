@@ -197,7 +197,7 @@
         // Show address preview
         try
         {
-            var network = WalletService.CurrentNetworkPublic;
+            var network = DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.DetectNetwork(wifInput.Trim()) ?? WalletService.CurrentNetworkPublic;
             previewAddress = DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.GetAddress(
                 wifInput.Trim(), network, NBitcoin.ScriptPubKeyType.Segwit);
         }
@@ -215,7 +215,7 @@
         {
             if (DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(wifInput))
             {
-                var network = WalletService.CurrentNetworkPublic;
+                var network = DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.DetectNetwork(wifInput.Trim()) ?? WalletService.CurrentNetworkPublic;
                 previewAddress = DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.GetAddress(
                     wifInput, network, NBitcoin.ScriptPubKeyType.Segwit);
             }
