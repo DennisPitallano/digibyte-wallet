@@ -16,10 +16,11 @@ public class WalletService : IWalletService
     private readonly TransactionTracker _txTracker;
 
     private HdKeyDerivation? _hd;
+    private Key? _singleKey; // For WIF-imported wallets (no HD derivation)
     private WalletInfo? _activeWallet;
     private string _networkMode = "testnet";
 
-    public bool IsUnlocked => _hd != null;
+    public bool IsUnlocked => _hd != null || _singleKey != null;
     public WalletInfo? ActiveWallet => _activeWallet;
 
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker)
@@ -51,6 +52,8 @@ public class WalletService : IWalletService
         else if (_blockchain is BlockchainApiService apiService)
             apiService.SetNetwork(mode == "testnet");
     }
+
+    public Network CurrentNetworkPublic => CurrentNetwork;
 
     private Network CurrentNetwork => _networkMode switch
     {
@@ -84,6 +87,37 @@ public class WalletService : IWalletService
         return wallet;
     }
 
+    /// <summary>
+    /// Create a wallet from a single WIF private key (paper wallet / legacy import).
+    /// </summary>
+    public async Task<WalletInfo> CreateWalletFromWifAsync(string name, string wif, string pin)
+    {
+        var walletId = Guid.NewGuid().ToString("N");
+
+        // Encrypt the WIF with PIN (same pattern as mnemonic)
+        var encrypted = await _crypto.EncryptAsync(
+            System.Text.Encoding.UTF8.GetBytes(wif), pin);
+        await _keyStore.StoreSeedAsync(walletId, encrypted);
+
+        var wallet = new WalletInfo
+        {
+            Id = walletId,
+            Name = name,
+            CreatedAt = DateTime.UtcNow,
+            WalletType = "privatekey",
+        };
+
+        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+        await _walletStore.SetActiveWalletIdAsync(walletId);
+
+        // Parse the WIF and store the key in memory
+        _singleKey = PrivateKeyImporter.ParseWif(wif, CurrentNetwork);
+        _hd = null;
+        _activeWallet = wallet;
+
+        return wallet;
+    }
+
     public async Task<WalletInfo?> GetWalletAsync(string walletId)
     {
         var json = await _walletStore.GetWalletInfoAsync(walletId);
@@ -111,11 +145,22 @@ public class WalletService : IWalletService
         if (decrypted == null)
             return false;
 
-        var mnemonicWords = System.Text.Encoding.UTF8.GetString(decrypted);
-        var mnemonic = MnemonicGenerator.FromWords(mnemonicWords);
-
-        _hd = new HdKeyDerivation(mnemonic, network: CurrentNetwork);
         _activeWallet = await GetWalletAsync(walletId);
+        var seedString = System.Text.Encoding.UTF8.GetString(decrypted);
+
+        if (_activeWallet?.WalletType == "privatekey")
+        {
+            // WIF-imported wallet — single key, no HD derivation
+            _singleKey = PrivateKeyImporter.ParseWif(seedString, CurrentNetwork);
+            _hd = null;
+        }
+        else
+        {
+            // Standard HD wallet from mnemonic
+            var mnemonic = MnemonicGenerator.FromWords(seedString);
+            _hd = new HdKeyDerivation(mnemonic, network: CurrentNetwork);
+            _singleKey = null;
+        }
 
         return true;
     }
@@ -137,6 +182,7 @@ public class WalletService : IWalletService
     public Task LockWalletAsync()
     {
         _hd = null;
+        _singleKey = null;
         _activeWallet = null;
         return Task.CompletedTask;
     }
@@ -145,17 +191,27 @@ public class WalletService : IWalletService
     {
         EnsureUnlocked();
 
-        // Scan first 20 receiving + 10 change addresses for balance
         var addresses = new List<string>();
-        for (int i = 0; i < 20; i++)
+
+        if (_singleKey != null)
         {
-            var key = _hd!.DeriveReceivingKey(i);
-            addresses.Add(_hd.GetAddress(key).ToString());
+            // Single-key wallet — only one address
+            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, CurrentNetwork).ToString());
+            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, CurrentNetwork).ToString());
         }
-        for (int i = 0; i < 10; i++)
+        else
         {
-            var key = _hd!.DeriveChangeKey(i);
-            addresses.Add(_hd.GetAddress(key).ToString());
+            // HD wallet — scan 20 receiving + 10 change
+            for (int i = 0; i < 20; i++)
+            {
+                var key = _hd!.DeriveReceivingKey(i);
+                addresses.Add(_hd.GetAddress(key).ToString());
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                var key = _hd!.DeriveChangeKey(i);
+                addresses.Add(_hd.GetAddress(key).ToString());
+            }
         }
 
         var totalSatoshis = await _blockchain.GetBalanceAsync(addresses);
@@ -174,6 +230,11 @@ public class WalletService : IWalletService
     public Task<string> GetReceivingAddressAsync()
     {
         EnsureUnlocked();
+        if (_singleKey != null)
+        {
+            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, CurrentNetwork);
+            return Task.FromResult(addr.ToString());
+        }
         var index = _activeWallet!.NextReceivingIndex;
         var key = _hd!.DeriveReceivingKey(index);
         var address = _hd.GetAddress(key);
@@ -183,6 +244,11 @@ public class WalletService : IWalletService
     public Task<List<(int Index, string Address)>> GetReceivingAddressesAsync(int count, int startIndex = 0)
     {
         EnsureUnlocked();
+        if (_singleKey != null)
+        {
+            var addr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, CurrentNetwork).ToString();
+            return Task.FromResult(new List<(int, string)> { (0, addr) });
+        }
         var addresses = _hd!.DeriveReceivingAddresses(count, startIndex)
             .Select(a => (a.Index, a.Address.ToString()))
             .ToList();
@@ -362,7 +428,7 @@ public class WalletService : IWalletService
 
     private void EnsureUnlocked()
     {
-        if (_hd == null || _activeWallet == null)
+        if ((_hd == null && _singleKey == null) || _activeWallet == null)
             throw new InvalidOperationException("Wallet is locked. Unlock it first.");
     }
 }

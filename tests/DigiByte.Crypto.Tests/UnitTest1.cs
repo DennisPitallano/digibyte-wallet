@@ -262,6 +262,81 @@ public class PaymentRequestTests
     }
 }
 
+public class PrivateKeyImporterTests
+{
+    [Fact]
+    public void IsValidWif_AcceptsGeneratedKey()
+    {
+        var network = DigiByteNetwork.Regtest;
+        var key = new Key();
+        var wif = key.GetWif(network).ToString();
+        Assert.True(PrivateKeyImporter.IsValidWif(wif, network));
+    }
+
+    [Fact]
+    public void IsValidWif_RejectsGarbage()
+    {
+        Assert.False(PrivateKeyImporter.IsValidWif("notakey"));
+        Assert.False(PrivateKeyImporter.IsValidWif(""));
+        Assert.False(PrivateKeyImporter.IsValidWif(null!));
+    }
+
+    [Fact]
+    public void ParseWif_RoundTrips()
+    {
+        var network = DigiByteNetwork.Regtest;
+        var originalKey = new Key();
+        var wif = originalKey.GetWif(network).ToString();
+
+        var parsed = PrivateKeyImporter.ParseWif(wif, network);
+        Assert.Equal(originalKey.ToBytes(), parsed.ToBytes());
+    }
+
+    [Fact]
+    public void GetAddress_ReturnsValidAddress()
+    {
+        var network = DigiByteNetwork.Regtest;
+        var key = new Key();
+        var wif = key.GetWif(network).ToString();
+
+        var address = PrivateKeyImporter.GetAddress(wif, network, ScriptPubKeyType.Segwit);
+        Assert.StartsWith("dgbrt1", address);
+    }
+
+    [Fact]
+    public void GetAddress_Legacy_StartsWithCorrectPrefix()
+    {
+        var network = DigiByteNetwork.Mainnet;
+        var key = new Key();
+        var wif = key.GetWif(network).ToString();
+
+        var address = PrivateKeyImporter.GetAddress(wif, network, ScriptPubKeyType.Legacy);
+        Assert.StartsWith("D", address);
+    }
+
+    [Fact]
+    public void GetAllAddresses_ReturnsBothFormats()
+    {
+        var network = DigiByteNetwork.Regtest;
+        var key = new Key();
+        var wif = key.GetWif(network).ToString();
+
+        var addresses = PrivateKeyImporter.GetAllAddresses(wif, network);
+        Assert.Contains("legacy", addresses.Keys);
+        Assert.Contains("segwit", addresses.Keys);
+        Assert.NotEqual(addresses["legacy"], addresses["segwit"]);
+    }
+
+    [Fact]
+    public void DetectNetwork_FindsCorrectNetwork()
+    {
+        var key = new Key();
+        var wif = key.GetWif(DigiByteNetwork.Mainnet).ToString();
+        var detected = PrivateKeyImporter.DetectNetwork(wif);
+        Assert.Equal(DigiByteNetwork.Mainnet, detected);
+    }
+}
+
 public class UtxoSelectorTests
 {
     private static Utxo MakeUtxo(long satoshis)

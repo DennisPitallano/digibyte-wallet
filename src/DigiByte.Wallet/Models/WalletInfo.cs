@@ -9,6 +9,11 @@ public class WalletInfo
     public string FiatCurrency { get; set; } = "USD";
     public int NextReceivingIndex { get; set; }
     public int NextChangeIndex { get; set; }
+
+    /// <summary>
+    /// "hd" for BIP39/BIP44 mnemonic wallets, "privatekey" for single WIF key import.
+    /// </summary>
+    public string WalletType { get; set; } = "hd";
 }
 
 public class WalletBalance
