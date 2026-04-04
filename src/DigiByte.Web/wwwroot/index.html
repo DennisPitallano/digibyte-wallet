@@ -4,9 +4,11 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#f8fafc" />
+    <meta name="theme-color" content="#002352" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DGB Wallet" />
+    <meta name="description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
     <title>DigiByte Wallet</title>
     <base href="/" />
     <link rel="preload" id="webassembly" />
@@ -51,14 +53,22 @@
 
 <body class="font-sans bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white antialiased">
     <div id="app">
-        <div class="flex items-center justify-center h-screen">
-            <div class="flex flex-col items-center gap-4">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 479.8 479.8" width="64" height="64" class="animate-pulse">
-                    <circle cx="239.9" cy="239.9" r="219.5" fill="#002352" stroke="#06c" stroke-miterlimit="10" stroke-width="40.8"/>
-                    <path fill="#fff" d="M116.9 182.9h155s53.5-.5 16.5 68.5c0 0-27 54-94 53l36.1-92.2a7.3 7.3 0 0 0-6.6-10l-47.5-.8-60 146s20 2 31 1l-6 15h28.3a3.8 3.8 0 0 0 3.6-2.5l5.1-13.5 12-1-7 17H211a5 5 0 0 0 4.7-3.2l7.7-19.8s84-14 122-82c0 0 51-79-9-107a116 116 0 0 0-37-10l7-17.3a3.4 3.4 0 0 0-3.1-4.7h-25.9l-8 21h-11l6.2-16.3a3.5 3.5 0 0 0-3.2-4.7h-26l-8 21h-80.8a12 12 0 0 0-10.6 6.3z"/>
-                </svg>
-                <p class="text-sm text-slate-400 dark:text-slate-500 font-medium">Loading DigiByte Wallet...</p>
-            </div>
+        <style>
+            #splash{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:linear-gradient(160deg,#001529 0%,#002352 40%,#003d7a 100%);gap:1.5rem}
+            #splash svg{filter:drop-shadow(0 0 30px rgba(0,102,204,.35))}
+            @keyframes splash-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.06);opacity:.85}}
+            @keyframes splash-bar{0%{width:0}100%{width:100%}}
+            .splash-logo{animation:splash-pulse 2s ease-in-out infinite}
+            .splash-track{width:120px;height:3px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden}
+            .splash-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0066CC,#4d94ff);animation:splash-bar 1.8s ease-in-out infinite}
+        </style>
+        <div id="splash">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 479.8 479.8" width="72" height="72" class="splash-logo">
+                <circle cx="239.9" cy="239.9" r="219.5" fill="#002352" stroke="#06c" stroke-miterlimit="10" stroke-width="40.8"/>
+                <path fill="#fff" d="M116.9 182.9h155s53.5-.5 16.5 68.5c0 0-27 54-94 53l36.1-92.2a7.3 7.3 0 0 0-6.6-10l-47.5-.8-60 146s20 2 31 1l-6 15h28.3a3.8 3.8 0 0 0 3.6-2.5l5.1-13.5 12-1-7 17H211a5 5 0 0 0 4.7-3.2l7.7-19.8s84-14 122-82c0 0 51-79-9-107a116 116 0 0 0-37-10l7-17.3a3.4 3.4 0 0 0-3.1-4.7h-25.9l-8 21h-11l6.2-16.3a3.5 3.5 0 0 0-3.2-4.7h-26l-8 21h-80.8a12 12 0 0 0-10.6 6.3z"/>
+            </svg>
+            <p style="font-size:.875rem;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.05em">DigiByte Wallet</p>
+            <div class="splash-track"><div class="splash-fill"></div></div>
         </div>
     </div>
 
@@ -69,8 +79,10 @@
     </div>
     <script src="js/crypto.js"></script>
     <script src="js/storage.js"></script>
+    <script src="js/network.js"></script>
     <script src="js/nfc.js"></script>
     <script src="js/qrscanner.js"></script>
+    <script src="js/download.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
     <script>navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });</script>
 </body>

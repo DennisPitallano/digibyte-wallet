@@ -3,11 +3,22 @@
 @inject NavigationManager Nav
 @inject ContactService ContactService
 @inject WalletService WalletService
+@inject NetworkStatusService Network
 
 <PageTitle>DigiByte Wallet</PageTitle>
 
 <AuthGuard>
-    <div class="flex flex-col gap-4">
+    <OnboardingWalkthrough />
+    <div class="flex flex-col gap-4" @ontouchstart="OnTouchStart" @ontouchmove="OnTouchMove" @ontouchend="OnTouchEnd">
+        @* Pull-to-refresh indicator *@
+        @if (pullDistance > 0)
+        {
+            <div class="flex justify-center -mb-2 transition-all duration-150" style="height: @(Math.Min(pullDistance / 2, 40))px; opacity: @(Math.Min(pullDistance / 80.0, 1))">
+                <div class="w-6 h-6 border-2 border-dgb-500 border-t-transparent rounded-full @(isRefreshing ? "animate-spin" : "")"
+                     style="transform: rotate(@(pullDistance * 2)deg)"></div>
+            </div>
+        }
+
         @* ===== Balance + Actions (normal flow) ===== *@
         <div>
             @* Balance Card *@
@@ -96,7 +107,7 @@
                         @foreach (var c in quickContacts)
                         {
                             var contact = c;
-                            <button class="flex flex-col items-center gap-1 min-w-[52px] press-effect"
+                            <button @key="contact.Address" class="flex flex-col items-center gap-1 min-w-[52px] press-effect"
                                     @onclick="() => SendToContact(contact)">
                                 <div class="w-10 h-10 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center">
                                     <span class="text-xs font-bold text-dgb-600 dark:text-dgb-400">@contact.Name[..1].ToUpper()</span>
@@ -153,15 +164,12 @@
             else
             {
                 <div id="tx-list" class="overflow-y-auto thin-scrollbar flex flex-col gap-0.5 rounded-xl">
-                    @foreach (var tx in transactions.Take(50))
-                    {
-                        var currentTx = tx;
-                        var isSent = tx.Direction == TransactionDirection.Sent;
-                        <div class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors"
-                             @onclick="() => OpenTxDetail(currentTx)">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @(isSent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
-                                <svg class="w-4 h-4 @(isSent ? "text-red-500" : "text-green-500")" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                    @if (isSent)
+                    <Virtualize Items="@transactions" Context="tx" OverscanCount="5">
+                        <div @key="tx.TxId" class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors"
+                             @onclick="() => OpenTxDetail(tx)">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @(tx.Direction == TransactionDirection.Sent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
+                                <svg class="w-4 h-4 @(tx.Direction == TransactionDirection.Sent ? "text-red-500" : "text-green-500")" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                    @if (tx.Direction == TransactionDirection.Sent)
                                     {
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
                                     }
@@ -172,17 +180,17 @@
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-slate-900 dark:text-white">@(isSent ? "Sent" : "Received")</p>
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white">@(tx.Direction == TransactionDirection.Sent ? "Sent" : "Received")</p>
                                 <p class="text-[10px] text-slate-400 dark:text-slate-500">@tx.Timestamp.ToString("MMM d, h:mm tt")</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-xs font-bold @(isSent ? "text-red-500" : "text-green-500")">
-                                    @(isSent ? "-" : "+")@tx.AmountDgb.ToString("N4") DGB
+                                <p class="text-xs font-bold @(tx.Direction == TransactionDirection.Sent ? "text-red-500" : "text-green-500")">
+                                    @(tx.Direction == TransactionDirection.Sent ? "-" : "+")@tx.AmountDgb.ToString("N4") DGB
                                 </p>
                                 <p class="text-[9px] text-slate-400">@tx.Confirmations conf</p>
                             </div>
                         </div>
-                    }
+                    </Virtualize>
                 </div>
             }
 
@@ -223,6 +231,12 @@
     private bool isLoadingBalance;
     private bool isLoadingTx;
 
+    // Pull-to-refresh state
+    private double pullDistance;
+    private double touchStartY;
+    private bool isRefreshing;
+    private const double RefreshThreshold = 80;
+
     protected override async Task OnInitializedAsync()
     {
         quickContacts = (await ContactService.GetAllAsync()).Take(6).ToList();
@@ -259,15 +273,45 @@
 
     private async Task LoadBalanceAsync()
     {
-        isLoadingBalance = true; StateHasChanged();
-        try { balance = await WalletService.GetBalanceAsync(); } catch { }
+        isLoadingBalance = true;
+        try
+        {
+            balance = await WalletService.GetBalanceAsync();
+            // Cache for offline use
+            await Network.CacheDataAsync("balance", System.Text.Json.JsonSerializer.Serialize(balance));
+        }
+        catch
+        {
+            // Attempt to load cached balance when network fails
+            var cached = await Network.GetCachedDataAsync("balance");
+            if (cached != null)
+            {
+                try { balance = System.Text.Json.JsonSerializer.Deserialize<WalletBalance>(cached) ?? new(); }
+                catch { }
+            }
+        }
         finally { isLoadingBalance = false; StateHasChanged(); }
     }
 
     private async Task LoadTransactionsAsync()
     {
-        isLoadingTx = true; StateHasChanged();
-        try { transactions = await WalletService.GetTransactionHistoryAsync(); } catch { }
+        isLoadingTx = true;
+        try
+        {
+            transactions = await WalletService.GetTransactionHistoryAsync();
+            // Cache for offline use
+            await Network.CacheDataAsync("transactions", System.Text.Json.JsonSerializer.Serialize(transactions));
+        }
+        catch
+        {
+            // Attempt to load cached transactions when network fails
+            var cached = await Network.GetCachedDataAsync("transactions");
+            if (cached != null)
+            {
+                try { transactions = System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(cached) ?? []; }
+                catch { }
+            }
+        }
         finally { isLoadingTx = false; StateHasChanged(); }
     }
 
@@ -306,4 +350,51 @@
     }
     private void SendToContact(Contact c) =>
         Nav.NavigateTo($"/send?address={Uri.EscapeDataString(c.Address)}&name={Uri.EscapeDataString(c.Name)}");
+
+    // Pull-to-refresh handlers
+    private void OnTouchStart(TouchEventArgs e)
+    {
+        if (!isRefreshing && e.Touches.Length > 0)
+            touchStartY = e.Touches[0].ClientY;
+    }
+
+    private void OnTouchMove(TouchEventArgs e)
+    {
+        if (isRefreshing || e.Touches.Length == 0) return;
+        var delta = e.Touches[0].ClientY - touchStartY;
+        var newPull = Math.Max(0, delta * 0.5);
+        // Only re-render when distance changes by at least 4px
+        if (Math.Abs(newPull - pullDistance) < 4) return;
+        pullDistance = newPull;
+        StateHasChanged();
+    }
+
+    private async Task OnTouchEnd(TouchEventArgs e)
+    {
+        if (pullDistance >= RefreshThreshold && !isRefreshing)
+        {
+            isRefreshing = true;
+            pullDistance = RefreshThreshold;
+            StateHasChanged();
+
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var refreshTask = Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync());
+                var completed = await Task.WhenAny(refreshTask, Task.Delay(Timeout.Infinite, cts.Token));
+                if (completed == refreshTask) await refreshTask; // observe exceptions
+                quickContacts = (await ContactService.GetAllAsync()).Take(6).ToList();
+            }
+            catch { /* swallow — balance/tx methods handle their own errors */ }
+            finally
+            {
+                isRefreshing = false;
+                pullDistance = 0;
+                StateHasChanged();
+            }
+            return;
+        }
+        pullDistance = 0;
+        StateHasChanged();
+    }
 }

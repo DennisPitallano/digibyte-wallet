@@ -18,6 +18,13 @@ a { text-decoration: none; color: inherit; }
 
 /* ===== Animations ===== */
 
+/* Navigation progress bar */
+@keyframes navpulse {
+    0%   { width: 20%; margin-left: 0; }
+    50%  { width: 50%; margin-left: 25%; }
+    100% { width: 20%; margin-left: 80%; }
+}
+
 /* Page entrance — fade + slide up */
 @keyframes page-enter {
     from { opacity: 0; }

@@ -1,47 +1,82 @@
 namespace DigiByte.Wallet.Services;
 
 /// <summary>
-/// Cascading fallback with smart routing:
-/// - Reads (balance, txs): Explorer first → NodeApi → mock
-/// - Writes (broadcast): NodeApi first → Explorer
-/// - Regtest: NodeApi only → mock (no public explorer for regtest)
+/// Cascading fallback with smart routing and multiple explorer backends:
+/// - Reads:  NodeApi (own pruned node) → Explorer list (Blockbook, Esplora, etc.) → Mock
+/// - Writes: NodeApi first → all explorers in order
+/// - Regtest: NodeApi only → Mock (no public explorer for regtest)
 /// </summary>
 public class FallbackBlockchainService : IBlockchainService
 {
     private readonly NodeApiBlockchainService _nodeApi;
-    private readonly BlockchainApiService _explorer;
-    private readonly MockBlockchainService _mock;
+    private readonly List<IBlockchainService> _explorers;
+    private readonly MockBlockchainService? _mock;
+    private readonly bool _isDevelopment;
     private bool _isRegtest;
+
+    // Track which explorers are currently failing to skip them temporarily
+    private readonly Dictionary<int, DateTime> _explorerCooldowns = new();
+    private static readonly TimeSpan CooldownDuration = TimeSpan.FromMinutes(2);
 
     public bool IsDemoMode { get; private set; }
     public bool ForceDemoMode { get; set; }
     public string ActiveBackend { get; private set; } = "starting";
 
+    /// <summary>
+    /// Names of all registered explorer backends for diagnostics.
+    /// </summary>
+    public IReadOnlyList<string> ExplorerNames => _explorers.Select(e =>
+        e is BlockbookApiService bb ? bb.Name :
+        e is BlockchainApiService ? "esplora" : e.GetType().Name).ToList();
+
     public FallbackBlockchainService(
         NodeApiBlockchainService nodeApi,
-        BlockchainApiService explorer,
-        MockBlockchainService mock)
+        IEnumerable<IBlockchainService> explorers,
+        bool isDevelopment,
+        MockBlockchainService? mock = null)
     {
         _nodeApi = nodeApi;
-        _explorer = explorer;
-        _mock = mock;
+        _explorers = explorers.ToList();
+        _isDevelopment = isDevelopment;
+        _mock = isDevelopment ? mock : null;
     }
 
-    public void SetNetwork(bool isTestnet) => _explorer.SetNetwork(isTestnet);
+    public void SetNetwork(bool isTestnet)
+    {
+        foreach (var explorer in _explorers)
+        {
+            if (explorer is BlockchainApiService esplora)
+                esplora.SetNetwork(isTestnet);
+        }
+    }
 
     public void SetNetworkMode(string mode)
     {
         _isRegtest = mode == "regtest";
-        _explorer.SetNetwork(mode == "testnet");
+        foreach (var explorer in _explorers)
+        {
+            if (explorer is BlockchainApiService esplora)
+                esplora.SetNetwork(mode == "testnet");
+        }
+    }
+
+    private bool IsOnCooldown(int index)
+    {
+        if (_explorerCooldowns.TryGetValue(index, out var until))
+        {
+            if (DateTime.UtcNow < until) return true;
+            _explorerCooldowns.Remove(index);
+        }
+        return false;
     }
 
     /// <summary>
-    /// For reads: Explorer first (has address indexing), then NodeApi, then mock.
-    /// On regtest: NodeApi first (no public explorer).
+    /// For reads: Explorers first (address-indexed, fast) → NodeApi (pruned, slow scantxoutset) → mock.
+    /// On regtest: NodeApi only → mock (no public explorer for regtest).
     /// </summary>
     private async Task<T> TryRead<T>(Func<IBlockchainService, Task<T>> call)
     {
-        if (ForceDemoMode)
+        if (ForceDemoMode && _isDevelopment && _mock != null)
         {
             IsDemoMode = true;
             ActiveBackend = "demo";
@@ -50,18 +85,29 @@ public class FallbackBlockchainService : IBlockchainService
 
         if (!_isRegtest)
         {
-            // Mainnet/Testnet: try public explorer first (full address index)
-            try
+            // 1. Try each explorer in order, skipping those on cooldown
+            for (int i = 0; i < _explorers.Count; i++)
             {
-                var result = await call(_explorer);
-                IsDemoMode = false;
-                ActiveBackend = "explorer";
-                return result;
+                if (IsOnCooldown(i)) continue;
+
+                try
+                {
+                    var result = await call(_explorers[i]);
+                    IsDemoMode = false;
+                    ActiveBackend = _explorers[i] is BlockbookApiService bb ? bb.Name
+                        : _explorers[i] is BlockchainApiService ? "esplora"
+                        : $"explorer-{i}";
+                    return result;
+                }
+                catch
+                {
+                    // Put this explorer on cooldown so we don't hammer it
+                    _explorerCooldowns[i] = DateTime.UtcNow + CooldownDuration;
+                }
             }
-            catch { }
         }
 
-        // Try our own Node API
+        // 2. Fall back to own node (pruned — scantxoutset is slower but always works)
         try
         {
             var result = await call(_nodeApi);
@@ -71,27 +117,49 @@ public class FallbackBlockchainService : IBlockchainService
         }
         catch { }
 
-        // Fall back to mock
-        IsDemoMode = true;
-        ActiveBackend = "demo";
-        return await call(_mock);
+        // 3. Mock fallback — development only
+        if (_isDevelopment && _mock != null)
+        {
+            IsDemoMode = true;
+            ActiveBackend = "demo";
+            return await call(_mock);
+        }
+
+        throw new InvalidOperationException(
+            "All blockchain backends are unavailable. Node and all explorers failed.");
     }
 
     /// <summary>
-    /// For writes: NodeApi first (direct node access), then explorer.
-    /// Never falls back to mock.
+    /// For writes: NodeApi first (direct node), then all explorers in order.
+    /// Never falls back to mock for broadcasts.
     /// </summary>
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
-        try { return await _nodeApi.BroadcastTransactionAsync(rawTransaction); }
-        catch (Exception ex)
+        // Try own node first
+        try
         {
-            try { return await _explorer.BroadcastTransactionAsync(rawTransaction); }
-            catch { throw new Exception($"Broadcast failed: {ex.Message}"); }
+            return await _nodeApi.BroadcastTransactionAsync(rawTransaction);
         }
+        catch { }
+
+        // Try each explorer
+        Exception? lastError = null;
+        for (int i = 0; i < _explorers.Count; i++)
+        {
+            try
+            {
+                return await _explorers[i].BroadcastTransactionAsync(rawTransaction);
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
+        }
+
+        throw new Exception($"Broadcast failed on all backends. Last error: {lastError?.Message}");
     }
 
-    // Read operations — explorer first on mainnet/testnet
+    // Read operations — own node first, then explorers in order
     public Task<long> GetBalanceAsync(string address) =>
         TryRead(s => s.GetBalanceAsync(address));
 

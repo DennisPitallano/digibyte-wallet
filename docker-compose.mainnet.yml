@@ -1,0 +1,60 @@
+# DigiByte Mainnet (pruned) — production deployment
+# Usage: docker compose -f docker-compose.mainnet.yml up -d
+#
+# IMPORTANT: Before deploying, change the RPC password:
+#   1. Edit docker/digibyted/digibyte-mainnet.conf → rpcpassword
+#   2. Update DigiByteNode__RpcPassword below to match
+#
+# Initial sync takes several hours. The pruned node keeps ~550 MB of blocks
+# but maintains the full UTXO set for balance lookups and tx broadcasting.
+
+services:
+  # DigiByte Core mainnet node (pruned)
+  digibyted:
+    build:
+      context: docker/digibyted
+    container_name: dgb-mainnet-node
+    entrypoint: ["/bin/bash", "/etc/digibyte/entrypoint-mainnet.sh"]
+    ports:
+      - "12024:12024"   # Mainnet P2P
+      - "14022:14022"   # Mainnet RPC
+    volumes:
+      - dgb-mainnet-data:/root/.digibyte
+      - ./docker/digibyted/digibyte-mainnet.conf:/etc/digibyte/digibyte-mainnet.conf
+      - ./docker/digibyted/entrypoint-mainnet.sh:/etc/digibyte/entrypoint-mainnet.sh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "digibyte-cli", "-rpcuser=dgbrpc", "-rpcpassword=changeme_in_production", "getblockcount"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # DigiByte Node API (wraps RPC into REST — for broadcasting + fallback reads)
+  node-api:
+    build:
+      context: .
+      dockerfile: docker/node-api/Dockerfile
+    container_name: dgb-mainnet-api
+    ports:
+      - "5260:5260"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DigiByteNode__Host=digibyted
+      - DigiByteNode__TestnetPort=14022
+      - DigiByteNode__RpcUser=dgbrpc
+      - DigiByteNode__RpcPassword=changeme_in_production
+      - DigiByteNode__IsTestnet=false
+      - DigiByteNode__FaucetEnabled=false
+    depends_on:
+      digibyted:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  dgb-mainnet-data:
+    name: dgb-mainnet-data

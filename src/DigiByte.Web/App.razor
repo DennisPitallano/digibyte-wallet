@@ -1,6 +1,25 @@
-﻿<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+﻿<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)" OnNavigateAsync="OnNavigateAsync">
     <Found Context="routeData">
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
 </Router>
+
+@if (isNavigating)
+{
+    <div class="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-dgb-500/20">
+        <div class="h-full bg-dgb-500 animate-[navpulse_1s_ease-in-out_infinite]" style="width: 70%"></div>
+    </div>
+}
+
+@code {
+    private bool isNavigating;
+
+    private async Task OnNavigateAsync(NavigationContext context)
+    {
+        isNavigating = true;
+        StateHasChanged();
+        try { await Task.Yield(); }
+        finally { isNavigating = false; }
+    }
+}

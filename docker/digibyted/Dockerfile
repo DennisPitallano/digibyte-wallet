@@ -1,5 +1,6 @@
-# DigiByte Core Regtest Node (instant mining for development)
+# DigiByte Core Node
 # Downloads pre-built binary from official GitHub releases
+# Used for regtest (dev), testnet, and mainnet (pruned prod)
 
 FROM ubuntu:22.04
 
@@ -19,19 +20,20 @@ RUN wget "https://github.com/DigiByte-Core/digibyte/releases/download/v${DGB_VER
     ln -sf $(find /opt/ -name "digibyte-cli" -type f | head -1) /usr/local/bin/digibyte-cli && \
     rm /tmp/digibyte.tar.gz
 
-# Store config template outside the data volume
+# Store config templates outside the data volume
 COPY digibyte.conf /etc/digibyte/digibyte.conf
+COPY digibyte-testnet.conf /etc/digibyte/digibyte-testnet.conf
+COPY digibyte-mainnet.conf /etc/digibyte/digibyte-mainnet.conf
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY entrypoint-testnet.sh /etc/digibyte/entrypoint-testnet.sh
+COPY entrypoint-mainnet.sh /etc/digibyte/entrypoint-mainnet.sh
+RUN chmod +x /entrypoint.sh /etc/digibyte/entrypoint-testnet.sh /etc/digibyte/entrypoint-mainnet.sh
 
-# Regtest P2P + RPC ports
-EXPOSE 18444 18443
+# Expose all possible ports (regtest, testnet, mainnet P2P + RPC)
+EXPOSE 18444 18443 12025 14023 12024 14022
 
 # Persist blockchain data
 VOLUME ["/root/.digibyte"]
 
-# Health check
-HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=10s \
-    CMD digibyte-cli -regtest -rpcuser=dgbrpc -rpcpassword=changeme getblockcount || exit 1
-
+# Default entrypoint is regtest (override via docker-compose for testnet/mainnet)
 ENTRYPOINT ["/entrypoint.sh"]

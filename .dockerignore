@@ -12,3 +12,4 @@
 *.md
 docker/
 !docker/node-api/
+!docker/api/

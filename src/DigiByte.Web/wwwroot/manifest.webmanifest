@@ -1,23 +1,45 @@
 {
   "name": "DigiByte Wallet",
   "short_name": "DGB Wallet",
+  "description": "A self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading.",
   "id": "./",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0a0e17",
-  "theme_color": "#0a0e17",
+  "theme_color": "#002352",
   "orientation": "portrait",
   "prefer_related_applications": false,
+  "categories": ["finance", "crypto"],
   "icons": [
     {
       "src": "icon-512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     },
     {
       "src": "icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "favicon.png",
+      "type": "image/png",
+      "sizes": "48x48"
     }
   ]
 }

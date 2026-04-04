@@ -6,6 +6,13 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Railway sets PORT env var — bind to it for cloud deployment
+var port = Environment.GetEnvironmentVariable("PORT");
+if (port is not null)
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Configuration
 var nodeConfig = builder.Configuration.GetSection("DigiByteNode").Get<NodeConfig>() ?? new NodeConfig();
 builder.Services.AddSingleton(nodeConfig);

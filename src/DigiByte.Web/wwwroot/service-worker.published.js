@@ -8,8 +8,16 @@ self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
 
 const cacheNamePrefix = 'offline-cache-';
 const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
+const apiCacheName = 'api-cache-v1';
 const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/, /\.webmanifest$/ ];
 const offlineAssetsExclude = [ /^service-worker\.js$/ ];
+
+// API domains whose responses should be cached for offline use
+const cacheableApiPatterns = [
+    /api\.coingecko\.com/,
+    /digiexplorer\.info\/api/,
+    /api\.github\.com/
+];
 
 // Replace with your base path if you are hosting on a subfolder. Ensure there is a trailing '/'.
 const base = "/";
@@ -38,18 +46,44 @@ async function onActivate(event) {
 }
 
 async function onFetch(event) {
-    let cachedResponse = null;
-    if (event.request.method === 'GET') {
-        // For all navigation requests, try to serve index.html from cache,
-        // unless that request is for an offline resource.
-        // If you need some URLs to be server-rendered, edit the following check to exclude those URLs
-        const shouldServeIndexHtml = event.request.mode === 'navigate'
-            && !manifestUrlList.some(url => url === event.request.url);
+    const request = event.request;
 
-        const request = shouldServeIndexHtml ? 'index.html' : event.request;
-        const cache = await caches.open(cacheName);
-        cachedResponse = await cache.match(request);
+    if (request.method !== 'GET') {
+        return fetch(request);
     }
 
-    return cachedResponse || fetch(event.request);
+    // Network-first for external API calls — cache successful responses
+    if (cacheableApiPatterns.some(p => p.test(request.url))) {
+        return networkFirstWithCache(request);
+    }
+
+    // Cache-first for app shell assets
+    const shouldServeIndexHtml = request.mode === 'navigate'
+        && !manifestUrlList.some(url => url === request.url);
+
+    const cacheRequest = shouldServeIndexHtml ? 'index.html' : request;
+    const cache = await caches.open(cacheName);
+    const cachedResponse = await cache.match(cacheRequest);
+
+    return cachedResponse || fetch(request);
+}
+
+async function networkFirstWithCache(request) {
+    const cache = await caches.open(apiCacheName);
+    try {
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+            cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+    } catch {
+        // Network failed — return cached version if available
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        // No cache available — return a minimal offline JSON response
+        return new Response(JSON.stringify({ offline: true }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 }

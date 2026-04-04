@@ -30,10 +30,24 @@
             <p class="text-red-400 text-xs font-medium bg-red-900/30 px-3 py-1.5 rounded-lg">@errorMessage</p>
         }
 
-        <button class="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur transition-colors press-effect"
-                @onclick="Close">
-            Cancel
-        </button>
+        <div class="flex items-center gap-3">
+            <label class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur transition-colors press-effect cursor-pointer flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                Upload Image
+                <InputFile OnChange="OnFileSelected" accept="image/*" class="hidden" />
+            </label>
+            <button class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur transition-colors press-effect"
+                    @onclick="Close">
+                Cancel
+            </button>
+        </div>
+
+        @if (isDecoding)
+        {
+            <p class="text-dgb-400 text-xs font-medium">Decoding image...</p>
+        }
     </div>
 }
 
@@ -44,6 +58,7 @@
 
     private DotNetObjectReference<QrScannerModal>? objRef;
     private bool isLoading = true;
+    private bool isDecoding;
     private string? errorMessage;
 
     protected override async Task OnParametersSetAsync()
@@ -74,6 +89,49 @@
         errorMessage = error;
         isLoading = false;
         StateHasChanged();
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        isDecoding = true;
+        StateHasChanged();
+
+        try
+        {
+            var file = e.File;
+            if (file.Size > 10 * 1024 * 1024)
+            {
+                errorMessage = "Image too large (max 10 MB)";
+                return;
+            }
+
+            // Read file as data URL for JS processing
+            var buffer = new byte[file.Size];
+            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).ReadExactlyAsync(buffer);
+            var dataUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(buffer)}";
+
+            var result = await JS.InvokeAsync<string?>("qrScanner.decodeImage", dataUrl);
+
+            if (!string.IsNullOrEmpty(result))
+            {
+                await OnScanned.InvokeAsync(result);
+                await Close();
+            }
+            else
+            {
+                errorMessage = "No QR code found in image";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to read image: {ex.Message}";
+        }
+        finally
+        {
+            isDecoding = false;
+            StateHasChanged();
+        }
     }
 
     private async Task Close()

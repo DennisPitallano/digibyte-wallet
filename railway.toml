@@ -1,0 +1,30 @@
+# Railway configuration for DigiByte services
+# This project deploys as THREE separate Railway services from this monorepo.
+# See below for per-service setup instructions.
+#
+# Service 1: digibyte-api
+#   Dockerfile: docker/api/Dockerfile
+#   Health check: /api/health
+#
+# Service 2: digibyte-node-api
+#   Dockerfile: docker/node-api/Dockerfile
+#   Health check: /api/health
+#
+# Service 3: digibyted (mainnet pruned node)
+#   Dockerfile: docker/digibyted/Dockerfile
+#   Override entrypoint in Railway service settings:
+#     /bin/bash /etc/digibyte/entrypoint-mainnet.sh
+#   Required volume: mount to /root/.digibyte (50+ GB for initial sync, ~2 GB pruned)
+#   Required env vars (set in Railway dashboard, NOT here):
+#     - No env vars needed — config is baked into the image
+#   Change RPC password in digibyte-mainnet.conf before deploying!
+
+[build]
+# Default builder — each Railway service overrides the Dockerfile path
+builder = "dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

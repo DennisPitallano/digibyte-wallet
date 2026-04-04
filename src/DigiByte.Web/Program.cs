@@ -27,12 +27,32 @@ builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();
 
-// Blockchain service chain: NodeApi → Esplora explorers → Mock demo data
+// Blockchain service chain: Own Node (pruned) → Explorer list (with fallback)
+// Mock demo data is only available in Development — production throws if all backends fail.
 var nodeApiUrl = builder.Configuration["NodeApiUrl"] ?? "http://localhost:5260";
+var isDevelopment = builder.HostEnvironment.IsDevelopment();
+
 builder.Services.AddScoped(sp => new NodeApiBlockchainService(sp.GetRequiredService<HttpClient>(), nodeApiUrl));
 builder.Services.AddScoped<BlockchainApiService>();
-builder.Services.AddScoped<MockBlockchainService>();
-builder.Services.AddScoped<FallbackBlockchainService>();
+if (isDevelopment)
+    builder.Services.AddScoped<MockBlockchainService>();
+
+// Register multiple explorer backends — tried in order, if one fails the next is used.
+builder.Services.AddScoped<FallbackBlockchainService>(sp =>
+{
+    var http = sp.GetRequiredService<HttpClient>();
+    var nodeApi = sp.GetRequiredService<NodeApiBlockchainService>();
+    var esplora = sp.GetRequiredService<BlockchainApiService>();
+
+    var explorers = new List<IBlockchainService>
+    {
+        esplora, // Esplora (digiexplorer.info) — primary
+        new BlockbookApiService(http, "https://dgb-explorer.nownodes.io", "blockbook-nownodes"),
+    };
+
+    var mock = isDevelopment ? sp.GetRequiredService<MockBlockchainService>() : null;
+    return new FallbackBlockchainService(nodeApi, explorers, isDevelopment, mock);
+});
 builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<FallbackBlockchainService>());
 
 // App state, theme & UI services
@@ -41,11 +61,16 @@ builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<NfcService>();
 builder.Services.AddSingleton<NotificationService>();
 builder.Services.AddScoped<LocalizationService>();
+builder.Services.AddScoped<NetworkStatusService>();
 
 var host = builder.Build();
 
 // Initialize app state from localStorage (persisted preferences)
 var appState = host.Services.GetRequiredService<AppState>();
 await appState.InitializeAsync();
+
+// Start network monitoring
+var network = host.Services.GetRequiredService<NetworkStatusService>();
+await network.InitializeAsync();
 
 await host.RunAsync();

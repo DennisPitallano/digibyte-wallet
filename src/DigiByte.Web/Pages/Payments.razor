@@ -46,8 +46,13 @@
     @if (activeRequest != null)
     {
         <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col items-center gap-4">
-            <div class="bg-white rounded-2xl p-3 shadow-inner">
+            <div class="bg-white rounded-2xl p-3 shadow-inner relative">
                 <img src="@activeQrUrl" alt="Payment QR" class="w-44 h-44 rounded-lg" />
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="bg-white rounded-full p-1.5 shadow-md">
+                        <DigiLogo Size="28" />
+                    </div>
+                </div>
             </div>
             @if (activeRequest.AmountDgb.HasValue)
             {
@@ -66,6 +71,11 @@
                 <button class="flex-1 py-2.5 bg-white dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
                         @onclick="ShareUri">Share</button>
             </div>
+            <button class="flex items-center justify-center gap-1.5 w-full py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors"
+                    @onclick="DownloadQr">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                Download QR
+            </button>
             <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="() => activeRequest = null">Close</button>
         </div>
     }
@@ -154,7 +164,7 @@
     private void GenerateQr(string data)
     {
         using var qrGen = new QRCoder.QRCodeGenerator();
-        using var qrData = qrGen.CreateQrCode(data, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qrData = qrGen.CreateQrCode(data, QRCoder.QRCodeGenerator.ECCLevel.H);
         using var qrCode = new QRCoder.PngByteQRCode(qrData);
         var png = qrCode.GetGraphic(10, [0, 35, 82], [255, 255, 255]);
         activeQrUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
@@ -174,5 +184,12 @@
         if (activeRequest == null) return;
         try { await JS.InvokeVoidAsync("navigator.share", new { title = activeRequest.Label ?? "DigiByte Payment", text = activeRequest.ToUri() }); }
         catch { await CopyUri(); }
+    }
+
+    private async Task DownloadQr()
+    {
+        if (activeQrUrl == null) return;
+        var name = activeRequest?.Label ?? "payment";
+        await JS.InvokeVoidAsync("downloadDataUrl", activeQrUrl, $"digibyte-{name}.png");
     }
 }

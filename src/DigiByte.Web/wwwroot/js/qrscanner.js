@@ -80,5 +80,36 @@ window.qrScanner = {
 
     isSupported() {
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    },
+
+    async decodeImage(imageDataUrl) {
+        // Load jsQR if not loaded yet
+        if (!window.jsQR) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: 'attemptBoth'
+                });
+                resolve(code ? code.data : null);
+            };
+            img.onerror = () => resolve(null);
+            img.src = imageDataUrl;
+        });
     }
 };

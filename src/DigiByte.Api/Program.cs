@@ -3,6 +3,13 @@ using DigiByte.Api.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Railway sets PORT env var — bind to it for cloud deployment
+var port = Environment.GetEnvironmentVariable("PORT");
+if (port is not null)
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
 builder.Services.AddCors(options =>
@@ -24,7 +31,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("WasmClient");
 
 // P2P API endpoints
