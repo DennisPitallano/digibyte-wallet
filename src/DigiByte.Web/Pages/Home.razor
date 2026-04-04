@@ -3,7 +3,6 @@
 @inject NavigationManager Nav
 @inject ContactService ContactService
 @inject WalletService WalletService
-@inject FallbackBlockchainService BlockchainApi
 
 <PageTitle>DigiByte Wallet</PageTitle>
 
@@ -11,17 +10,6 @@
     <div class="flex flex-col gap-4">
         @* ===== Balance + Actions (normal flow) ===== *@
         <div>
-            @* Demo Banner *@
-            @if (BlockchainApi.IsDemoMode)
-            {
-                <div class="flex items-center gap-2 px-3 py-2 mb-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl">
-                    <svg class="w-3.5 h-3.5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126Z" />
-                    </svg>
-                    <p class="text-[11px] font-medium text-amber-700 dark:text-amber-300">DEMO MODE — Simulated data</p>
-                </div>
-            }
-
             @* Balance Card *@
             <div class="scale-in relative overflow-hidden rounded-2xl bg-gradient-to-br from-dgb-900 via-dgb-800 to-dgb-700 px-5 py-4 text-white shadow-lg shadow-dgb-900/25">
                 <div class="absolute -top-8 -right-8 w-24 h-24 bg-dgb-500/20 rounded-full blur-2xl"></div>

@@ -84,4 +84,15 @@ public class HdKeyDerivation
     {
         return DeriveAccount(account).Neuter();
     }
+
+    /// <summary>
+    /// Derives a Digi-ID site-specific key: m/13'/siteIndex'/0'/0
+    /// Purpose 13 is the Digi-ID authentication standard.
+    /// The siteIndex is derived from the callback domain hash.
+    /// </summary>
+    public ExtKey DeriveDigiIdKey(int siteIndex)
+    {
+        var path = new KeyPath($"m/13'/{siteIndex}'/0'/0");
+        return _masterKey.Derive(path);
+    }
 }

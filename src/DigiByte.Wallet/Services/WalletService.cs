@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DigiByte.Crypto.DigiId;
 using DigiByte.Crypto.KeyGeneration;
 using DigiByte.Crypto.Networks;
 using DigiByte.Wallet.Models;
@@ -541,6 +542,20 @@ public class WalletService : IWalletService
             await _keyStore.StoreSeedAsync(walletId, encrypted);
             return true;
         }
+    }
+
+    public Task<DigiIdResponse> SignDigiIdAsync(DigiIdRequest request)
+    {
+        EnsureUnlocked();
+
+        if (_hd == null)
+            throw new InvalidOperationException("Digi-ID requires an HD wallet (not WIF import).");
+
+        var siteIndex = DigiIdService.DeriveSiteIndex(request.Domain);
+        var siteKey = _hd.DeriveDigiIdKey(siteIndex);
+        var response = DigiIdService.Sign(request, siteKey.PrivateKey);
+
+        return Task.FromResult(response);
     }
 
     private void EnsureUnlocked()

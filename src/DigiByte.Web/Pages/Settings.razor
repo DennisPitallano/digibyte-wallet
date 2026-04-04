@@ -1,6 +1,5 @@
 @page "/settings"
 @inject ThemeService Theme
-@inject FallbackBlockchainService BlockchainApi
 @inject NavigationManager Nav
 
 <PageTitle>Settings</PageTitle>
@@ -101,25 +100,6 @@
             </select>
         </div>
 
-        @* Demo Mode (dev) *@
-        <div class="slide-up-delay-5 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-dashed border-orange-300 dark:border-orange-700/50 card-hover">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.16-2.58a1 1 0 01-.555-.894V7.697a1 1 0 01.555-.894l5.16-2.58a1 1 0 01.89 0l5.16 2.58a1 1 0 01.555.894v3.949a1 1 0 01-.555.894l-5.16 2.58a1 1 0 01-.89 0z" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Demo Mode</p>
-                    <p class="text-xs text-orange-500 dark:text-orange-400">DEV — Simulated data, not from any real network</p>
-                </div>
-            </div>
-            <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(BlockchainApi.ForceDemoMode ? "bg-orange-500" : "bg-slate-300 dark:bg-dgb-700")"
-                    @onclick="ToggleDemoMode">
-                <span class="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-200 @(BlockchainApi.ForceDemoMode ? "translate-x-5" : "translate-x-0")"></span>
-            </button>
-        </div>
-
         @* Language (continued) *@
         <div class="slide-up-delay-5 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
             <div class="flex items-center gap-3">
@@ -155,6 +135,57 @@
                 <p class="text-xs text-slate-500 dark:text-slate-400">View your recovery phrase</p>
             </div>
         </button>
+        @* About & Info *@
+        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-dgb-800">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">About & Info</p>
+            <div class="flex flex-col gap-2">
+                <a href="/about" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                    <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-900/40 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">About</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Version, tech stack & credits</p>
+                    </div>
+                </a>
+                <a href="/roadmap" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                    <div class="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Roadmap</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Development progress & plans</p>
+                    </div>
+                </a>
+                <a href="/analytics" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                    <div class="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Analytics</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">DGB price, market cap & network stats</p>
+                    </div>
+                </a>
+                <a href="/deployment" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                    <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008ZM6.75 14.25h.008v.008H6.75v-.008Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Deployment</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Infrastructure status & costs</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+
         @* Delete Wallet — Danger Zone *@
         <div class="mt-4 pt-4 border-t border-red-200 dark:border-red-900/30">
             @if (!showDeleteConfirm)
@@ -234,11 +265,6 @@
         AppState.IsTestnet = mode != "mainnet";
         await AppState.SavePreferenceAsync("dgb-network", mode);
         AppState.NotifyStateChanged();
-    }
-
-    private void ToggleDemoMode()
-    {
-        BlockchainApi.ForceDemoMode = !BlockchainApi.ForceDemoMode;
     }
 
     private async Task OnLocaleChanged(ChangeEventArgs e)

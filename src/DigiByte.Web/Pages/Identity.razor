@@ -1,5 +1,6 @@
 @page "/identity"
 @inject WalletService WalletService
+@inject HttpClient Http
 @inject NavigationManager Nav
 
 <PageTitle>Digi-ID</PageTitle>
@@ -136,18 +137,34 @@
     }
 </div>
 
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
+
 @code {
     private string digiIdUri = "";
     private string? parseError;
     private bool isAuthenticating;
     private bool authSuccess;
     private string? lastAuthDomain;
+    private bool showScanner;
     private DigiByte.Crypto.DigiId.DigiIdRequest? pendingRequest;
     private List<AuthHistoryEntry> authHistory = [];
 
     private void ScanDigiId()
     {
-        // TODO: Open camera QR scanner via JS interop
+        showScanner = true;
+    }
+
+    private void OnQrScanned(string value)
+    {
+        showScanner = false;
+        digiIdUri = value;
+        StateHasChanged();
+
+        // Auto-parse if it looks like a Digi-ID URI
+        if (value.StartsWith("digiid://", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = AuthenticateAsync();
+        }
     }
 
     private async Task AuthenticateAsync()
@@ -174,31 +191,46 @@
     {
         if (pendingRequest == null) return;
         isAuthenticating = true;
+        parseError = null;
         StateHasChanged();
 
         try
         {
-            // Derive a site-specific key
-            var siteIndex = DigiByte.Crypto.DigiId.DigiIdService.DeriveSiteIndex(pendingRequest.Domain);
-            // Use the wallet's HD derivation to get a key at a Digi-ID specific path
-            // For now use index 0 receiving key as placeholder
-            // TODO: derive from m/13'/siteIndex'/0'/0 path
-            var address = await WalletService.GetReceivingAddressAsync();
+            // 1. Sign the URI with site-specific HD key (m/13'/siteIndex'/0'/0)
+            var response = await WalletService.SignDigiIdAsync(pendingRequest);
 
-            // In production: sign the URI and POST to callback
-            // For now, simulate success
-            await Task.Delay(500);
+            // 2. POST the signed response to the callback URL
+            var payload = new
+            {
+                address = response.Address,
+                uri = response.Uri,
+                signature = response.Signature,
+            };
+            var httpResponse = await Http.PostAsJsonAsync(pendingRequest.CallbackUrl, payload);
 
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                var body = await httpResponse.Content.ReadAsStringAsync();
+                parseError = $"Server rejected authentication ({(int)httpResponse.StatusCode}): {body}";
+                return;
+            }
+
+            // 3. Success
             authHistory.Insert(0, new AuthHistoryEntry
             {
                 Domain = pendingRequest.Domain,
-                Timestamp = DateTime.Now
+                Address = response.Address,
+                Timestamp = DateTime.Now,
             });
 
             lastAuthDomain = pendingRequest.Domain;
             pendingRequest = null;
             authSuccess = true;
             digiIdUri = "";
+        }
+        catch (HttpRequestException)
+        {
+            parseError = $"Could not reach {pendingRequest?.Domain ?? "server"}. Check your connection.";
         }
         catch (Exception ex)
         {
@@ -213,6 +245,7 @@
     private record AuthHistoryEntry
     {
         public required string Domain { get; init; }
+        public required string Address { get; init; }
         public required DateTime Timestamp { get; init; }
     }
 }

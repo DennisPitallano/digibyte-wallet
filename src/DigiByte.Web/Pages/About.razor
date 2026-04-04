@@ -1,9 +1,14 @@
 @page "/about"
 @inject HttpClient Http
+@inject IJSRuntime JS
 
 <PageTitle>About</PageTitle>
 
 <div class="flex flex-col gap-5">
+    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Back
+    </button>
     <div class="slide-up flex flex-col items-center gap-3 text-center pt-4">
         <DigiLogo Size="56" />
         <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">
@@ -105,6 +110,8 @@
 </div>
 
 @code {
+    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
+
     private List<GitHubContributor> contributors = [];
     private bool isLoadingContributors = true;
 

@@ -1,92 +1,155 @@
 @page "/roadmap"
+@inject IJSRuntime JS
 
 <PageTitle>Roadmap</PageTitle>
 
-<div class="flex flex-col gap-5">
+<div class="flex flex-col gap-4">
+    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Back
+    </button>
     <div class="slide-up">
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Roadmap</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">What's built, what's next, and what's planned.</p>
     </div>
 
-    @* Completed *@
-    <div class="slide-up-delay-1">
-        <h3 class="text-xs font-semibold text-green-500 uppercase tracking-wider mb-2">Completed</h3>
-        <div class="flex flex-col gap-1.5">
-            @foreach (var item in completed)
-            {
-                <div class="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-900/20">
-                    <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                    </svg>
-                    <span class="text-xs text-green-700 dark:text-green-400 font-medium">@item</span>
-                </div>
-            }
-        </div>
-    </div>
+    @* Timeline *@
+    <div class="relative ml-3">
+        @* Vertical line *@
+        <div class="absolute left-[7px] top-2 bottom-2 w-[2px] bg-gradient-to-b from-green-400 via-dgb-500 to-slate-300 dark:to-dgb-800"></div>
 
-    @* In Progress *@
-    <div class="slide-up-delay-2">
-        <h3 class="text-xs font-semibold text-dgb-500 uppercase tracking-wider mb-2">In Progress</h3>
-        <div class="flex flex-col gap-1.5">
-            @foreach (var item in inProgress)
+        @foreach (var milestone in milestones)
+        {
+            var dotColor = milestone.Status switch
             {
-                <div class="flex items-center gap-2 px-3 py-2 bg-dgb-50 dark:bg-dgb-900/30 rounded-xl border border-dgb-100 dark:border-dgb-800">
-                    <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
-                    <span class="text-xs text-dgb-700 dark:text-dgb-300 font-medium">@item</span>
-                </div>
-            }
-        </div>
-    </div>
+                Status.Done => "bg-green-500",
+                Status.InProgress => "bg-dgb-500 animate-pulse",
+                _ => "bg-slate-300 dark:bg-dgb-700"
+            };
+            var cardBorder = milestone.Status switch
+            {
+                Status.Done => "border-green-100 dark:border-green-900/20",
+                Status.InProgress => "border-dgb-200 dark:border-dgb-800",
+                _ => "border-slate-100 dark:border-dgb-800/40"
+            };
+            var cardBg = milestone.Status switch
+            {
+                Status.Done => "bg-green-50/50 dark:bg-green-900/10",
+                Status.InProgress => "bg-dgb-50/50 dark:bg-dgb-900/20",
+                _ => "bg-slate-50/50 dark:bg-dgb-900/10"
+            };
+            var dateBadge = milestone.Status switch
+            {
+                Status.Done => "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                Status.InProgress => "text-dgb-600 dark:text-dgb-300 bg-dgb-50 dark:bg-dgb-900/30",
+                _ => "text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-dgb-800/50"
+            };
 
-    @* Planned *@
-    <div class="slide-up-delay-3">
-        <h3 class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Planned</h3>
-        <div class="flex flex-col gap-1.5">
-            @foreach (var item in planned)
-            {
-                <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-dgb-900/20 rounded-xl border border-slate-100 dark:border-dgb-800/40">
-                    <div class="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
-                    <span class="text-xs text-slate-600 dark:text-slate-400">@item</span>
+            <div class="relative flex gap-3 pb-5">
+                @* Dot *@
+                <div class="relative z-10 mt-1.5">
+                    <div class="w-4 h-4 rounded-full border-2 border-white dark:border-dgb-950 @dotColor shadow-sm"></div>
                 </div>
-            }
-        </div>
+
+                @* Card *@
+                <div class="flex-1 rounded-xl border @cardBorder @cardBg px-3 py-2.5">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md @dateBadge">@milestone.Date</span>
+                        @if (milestone.Status == Status.InProgress)
+                        {
+                            <span class="text-[9px] font-bold text-dgb-500 uppercase tracking-widest">In Progress</span>
+                        }
+                    </div>
+                    <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">@milestone.Title</p>
+                    @if (milestone.Items.Length > 0)
+                    {
+                        <ul class="mt-1.5 flex flex-col gap-0.5">
+                            @foreach (var item in milestone.Items)
+                            {
+                                <li class="flex items-start gap-1.5">
+                                    @if (milestone.Status == Status.Done)
+                                    {
+                                        <svg class="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                    }
+                                    else if (milestone.Status == Status.InProgress)
+                                    {
+                                        <div class="w-3 h-3 border-[1.5px] border-dgb-500 border-t-transparent rounded-full animate-spin flex-shrink-0 mt-0.5"></div>
+                                    }
+                                    else
+                                    {
+                                        <div class="w-3 h-3 rounded-full border-[1.5px] border-slate-300 dark:border-dgb-700 flex-shrink-0 mt-0.5"></div>
+                                    }
+                                    <span class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">@item</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        }
     </div>
 </div>
 
 @code {
-    private string[] completed = [
-        "HD Wallet (BIP39/BIP44) + WIF Private Key Import",
-        "Send/Receive with QR codes + real transaction signing",
-        "Contact book with format badges + QR scan",
-        "Payment requests (BIP21 URIs)",
-        "Digi-ID passwordless authentication",
-        "Node API (87 RPC methods + Scalar docs)",
-        "Docker (regtest + testnet)",
-        "Light/Dark theme + 10 languages",
-        "OTP PIN input + forgot PIN recovery",
-        "Transaction detail modal + explorer link",
-        "Address format selector (Legacy/SegWit)",
-        "Loading skeletons + send success animation",
-        "Fiat/DGB amount toggle on Send",
-    ];
+    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
 
-    private string[] inProgress = [
-        "Open source setup (docs, templates, roadmap)",
-        "Real-time DigiByte analytics page",
-        "Deployment info + donation page",
-    ];
+    private enum Status { Done, InProgress, Planned }
 
-    private string[] planned = [
-        "P2P Exchange (order book, multisig escrow, chat)",
-        "Multiple wallet support",
-        "Biometric unlock (WebAuthn)",
-        "DigiAssets (custom tokens)",
-        "Transaction search/filter",
-        "Watch-only wallets (xpub)",
-        "Address book import/export",
-        "Spending limits + alerts",
-        "Railway deployment + CI/CD",
-        "Tailwind CLI build for production",
-        "E2E test suite (Playwright)",
+    private record Milestone(string Date, string Title, Status Status, string[] Items);
+
+    private Milestone[] milestones = [
+        new("Jan 2026", "Core Wallet Foundation", Status.Done, [
+            "HD Wallet (BIP39/BIP44) + WIF Private Key Import",
+            "AES-256-GCM encryption with PIN",
+            "IndexedDB secure storage (browser)",
+        ]),
+        new("Feb 2026", "Send & Receive", Status.Done, [
+            "Send/Receive with QR codes + real transaction signing",
+            "Payment requests (BIP21 URIs)",
+            "Fiat/DGB amount toggle on Send",
+            "Address format selector (Legacy/SegWit)",
+        ]),
+        new("Feb 2026", "Contacts & Identity", Status.Done, [
+            "Contact book with format badges + QR scan",
+            "Digi-ID passwordless authentication",
+            "OTP PIN input + forgot PIN recovery",
+        ]),
+        new("Mar 2026", "Node API & DevOps", Status.Done, [
+            "Node API (87 RPC methods + Scalar docs)",
+            "Docker (regtest + testnet)",
+            "Transaction detail modal + explorer link",
+        ]),
+        new("Mar 2026", "UI Polish", Status.Done, [
+            "Light/Dark theme",
+            "10 languages",
+            "Loading skeletons + send success animation",
+        ]),
+        new("Apr 2026", "Open Source & Analytics", Status.InProgress, [
+            "Open source setup (docs, templates, roadmap)",
+            "Real-time DigiByte analytics page",
+            "Deployment info + donation page",
+            "About page with auto-fetched contributors",
+        ]),
+        new("Q2 2026", "P2P Exchange", Status.Planned, [
+            "Order book + trade matching",
+            "Multisig escrow",
+            "Real-time trade chat (SignalR)",
+        ]),
+        new("Q2 2026", "Multi-Wallet & Security", Status.Planned, [
+            "Multiple wallet support",
+            "Biometric unlock (WebAuthn)",
+            "Spending limits + alerts",
+        ]),
+        new("Q3 2026", "Advanced Features", Status.Planned, [
+            "DigiAssets (custom tokens)",
+            "Watch-only wallets (xpub)",
+            "Transaction search/filter",
+            "Address book import/export",
+        ]),
+        new("Q3 2026", "Production Deployment", Status.Planned, [
+            "Railway deployment + CI/CD",
+            "Tailwind CLI build for production",
+            "E2E test suite (Playwright)",
+        ]),
     ];
 }
