@@ -1,0 +1,92 @@
+@page "/roadmap"
+
+<PageTitle>Roadmap</PageTitle>
+
+<div class="flex flex-col gap-5">
+    <div class="slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Roadmap</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">What's built, what's next, and what's planned.</p>
+    </div>
+
+    @* Completed *@
+    <div class="slide-up-delay-1">
+        <h3 class="text-xs font-semibold text-green-500 uppercase tracking-wider mb-2">Completed</h3>
+        <div class="flex flex-col gap-1.5">
+            @foreach (var item in completed)
+            {
+                <div class="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-900/20">
+                    <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                    <span class="text-xs text-green-700 dark:text-green-400 font-medium">@item</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* In Progress *@
+    <div class="slide-up-delay-2">
+        <h3 class="text-xs font-semibold text-dgb-500 uppercase tracking-wider mb-2">In Progress</h3>
+        <div class="flex flex-col gap-1.5">
+            @foreach (var item in inProgress)
+            {
+                <div class="flex items-center gap-2 px-3 py-2 bg-dgb-50 dark:bg-dgb-900/30 rounded-xl border border-dgb-100 dark:border-dgb-800">
+                    <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                    <span class="text-xs text-dgb-700 dark:text-dgb-300 font-medium">@item</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Planned *@
+    <div class="slide-up-delay-3">
+        <h3 class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Planned</h3>
+        <div class="flex flex-col gap-1.5">
+            @foreach (var item in planned)
+            {
+                <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-dgb-900/20 rounded-xl border border-slate-100 dark:border-dgb-800/40">
+                    <div class="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">@item</span>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string[] completed = [
+        "HD Wallet (BIP39/BIP44) + WIF Private Key Import",
+        "Send/Receive with QR codes + real transaction signing",
+        "Contact book with format badges + QR scan",
+        "Payment requests (BIP21 URIs)",
+        "Digi-ID passwordless authentication",
+        "Node API (87 RPC methods + Scalar docs)",
+        "Docker (regtest + testnet)",
+        "Light/Dark theme + 10 languages",
+        "OTP PIN input + forgot PIN recovery",
+        "Transaction detail modal + explorer link",
+        "Address format selector (Legacy/SegWit)",
+        "Loading skeletons + send success animation",
+        "Fiat/DGB amount toggle on Send",
+    ];
+
+    private string[] inProgress = [
+        "Open source setup (docs, templates, roadmap)",
+        "Real-time DigiByte analytics page",
+        "Deployment info + donation page",
+    ];
+
+    private string[] planned = [
+        "P2P Exchange (order book, multisig escrow, chat)",
+        "Multiple wallet support",
+        "Biometric unlock (WebAuthn)",
+        "DigiAssets (custom tokens)",
+        "Transaction search/filter",
+        "Watch-only wallets (xpub)",
+        "Address book import/export",
+        "Spending limits + alerts",
+        "Railway deployment + CI/CD",
+        "Tailwind CLI build for production",
+        "E2E test suite (Playwright)",
+    ];
+}

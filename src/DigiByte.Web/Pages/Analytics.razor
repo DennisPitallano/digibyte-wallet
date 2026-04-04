@@ -1,0 +1,136 @@
+@page "/analytics"
+@inject HttpClient Http
+
+<PageTitle>DigiByte Analytics</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">DigiByte Analytics</h2>
+
+    @* Price Card *@
+    <div class="slide-up-delay-1 bg-gradient-to-br from-dgb-900 to-dgb-700 rounded-2xl p-5 text-white">
+        <p class="text-xs text-dgb-200 font-medium">DGB / USD</p>
+        @if (price > 0)
+        {
+            <h2 class="text-3xl font-extrabold mt-1">$@price.ToString("N6")</h2>
+            <p class="text-sm mt-1 @(priceChange >= 0 ? "text-green-400" : "text-red-400")">
+                @(priceChange >= 0 ? "+" : "")@priceChange.ToString("N2")% (24h)
+            </p>
+        }
+        else
+        {
+            <div class="h-9 w-32 skeleton mt-1 rounded-lg" style="background:rgba(255,255,255,0.1)"></div>
+        }
+    </div>
+
+    @* Market Stats *@
+    <div class="slide-up-delay-2 grid grid-cols-2 gap-2">
+        <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Market Cap</p>
+            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatLarge(marketCap)</p>
+        </div>
+        <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">24h Volume</p>
+            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatLarge(volume24h)</p>
+        </div>
+        <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Circulating Supply</p>
+            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatLarge(circulatingSupply) DGB</p>
+        </div>
+        <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Block Height</p>
+            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@blockHeight.ToString("N0")</p>
+        </div>
+    </div>
+
+    @* Network Stats *@
+    <div class="slide-up-delay-3">
+        <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Network</h3>
+        <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                <span class="text-xs text-slate-500 dark:text-slate-400">Block Time</span>
+                <span class="text-xs font-bold text-slate-900 dark:text-white">~15 seconds</span>
+            </div>
+            <div class="flex justify-between p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                <span class="text-xs text-slate-500 dark:text-slate-400">Mining Algorithms</span>
+                <span class="text-xs font-bold text-slate-900 dark:text-white">5 (MultiAlgo)</span>
+            </div>
+            <div class="flex justify-between p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                <span class="text-xs text-slate-500 dark:text-slate-400">Max Supply</span>
+                <span class="text-xs font-bold text-slate-900 dark:text-white">21,000,000,000 DGB</span>
+            </div>
+            <div class="flex justify-between p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                <span class="text-xs text-slate-500 dark:text-slate-400">SegWit</span>
+                <span class="text-xs font-bold text-green-500">Active</span>
+            </div>
+        </div>
+    </div>
+
+    @* Live Chart Embed *@
+    <div class="slide-up-delay-4">
+        <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Price Chart (7d)</h3>
+        <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-2 overflow-hidden">
+            <img src="https://www.coingecko.com/coins/63/sparkline.svg" alt="DGB 7-day price" class="w-full h-20 object-contain" />
+        </div>
+        <p class="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">Data from CoinGecko</p>
+    </div>
+</div>
+
+@code {
+    private decimal price;
+    private decimal priceChange;
+    private decimal marketCap;
+    private decimal volume24h;
+    private decimal circulatingSupply;
+    private int blockHeight;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ = LoadPrice();
+        _ = LoadBlockHeight();
+    }
+
+    private async Task LoadPrice()
+    {
+        try
+        {
+            var data = await Http.GetFromJsonAsync<System.Text.Json.JsonElement>(
+                "https://api.coingecko.com/api/v3/coins/digibyte?localization=false&tickers=false&community_data=false&developer_data=false");
+
+            if (data.TryGetProperty("market_data", out var md))
+            {
+                if (md.TryGetProperty("current_price", out var cp) && cp.TryGetProperty("usd", out var p))
+                    price = p.GetDecimal();
+                if (md.TryGetProperty("price_change_percentage_24h", out var pc))
+                    priceChange = pc.GetDecimal();
+                if (md.TryGetProperty("market_cap", out var mc) && mc.TryGetProperty("usd", out var m))
+                    marketCap = m.GetDecimal();
+                if (md.TryGetProperty("total_volume", out var tv) && tv.TryGetProperty("usd", out var v))
+                    volume24h = v.GetDecimal();
+                if (md.TryGetProperty("circulating_supply", out var cs))
+                    circulatingSupply = cs.GetDecimal();
+            }
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task LoadBlockHeight()
+    {
+        try
+        {
+            var heightStr = await Http.GetStringAsync("https://digiexplorer.info/api/blocks/tip/height");
+            if (int.TryParse(heightStr, out var h)) blockHeight = h;
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private static string FormatLarge(decimal n) => n switch
+    {
+        >= 1_000_000_000 => $"${(n / 1_000_000_000):N2}B",
+        >= 1_000_000 => $"${(n / 1_000_000):N2}M",
+        >= 1_000 => $"${(n / 1_000):N1}K",
+        > 0 => $"${n:N0}",
+        _ => "..."
+    };
+}
