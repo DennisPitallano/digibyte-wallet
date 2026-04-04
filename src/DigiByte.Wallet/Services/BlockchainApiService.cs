@@ -96,16 +96,20 @@ public class BlockchainApiService : IBlockchainService
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
         var hex = Convert.ToHexString(rawTransaction).ToLower();
+        Console.WriteLine($"[Esplora] Broadcasting to {_baseUrl}/tx — hex length: {hex.Length}");
         var response = await _http.PostAsync($"{_baseUrl}/tx",
             new StringContent(hex, System.Text.Encoding.UTF8, "text/plain"));
 
+        var body = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"[Esplora] Response: {(int)response.StatusCode} {response.StatusCode} — {body[..Math.Min(200, body.Length)]}");
+
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"[Esplora] ✓ Broadcast success — txid: {body}");
+            return body;
         }
 
-        var error = await response.Content.ReadAsStringAsync();
-        throw new Exception($"Broadcast failed: {error}");
+        throw new Exception($"Broadcast failed: {body}");
     }
 
     public async Task<TransactionInfo?> GetTransactionAsync(string txId)

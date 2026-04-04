@@ -47,7 +47,6 @@ builder.Services.AddScoped<FallbackBlockchainService>(sp =>
     var explorers = new List<IBlockchainService>
     {
         esplora, // Esplora (digiexplorer.info) — primary
-        new BlockbookApiService(http, "https://dgb-explorer.nownodes.io", "blockbook-nownodes"),
     };
 
     var mock = isDevelopment ? sp.GetRequiredService<MockBlockchainService>() : null;

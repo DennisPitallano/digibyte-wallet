@@ -77,15 +77,20 @@ public class NodeApiBlockchainService : IBlockchainService
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
         var hex = Convert.ToHexString(rawTransaction).ToLower();
+        Console.WriteLine($"[NodeApi] Broadcasting to {_baseUrl}/api/tx/broadcast — hex length: {hex.Length}");
         var response = await _http.PostAsJsonAsync($"{_baseUrl}/api/tx/broadcast", new { hex });
         var body = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"[NodeApi] Response: {(int)response.StatusCode} {response.StatusCode} — {body[..Math.Min(200, body.Length)]}");
 
         if (!response.IsSuccessStatusCode)
             throw new Exception($"Broadcast rejected: {body}");
 
         var result = JsonSerializer.Deserialize<JsonElement>(body);
         if (result.TryGetProperty("txid", out var txid))
+        {
+            Console.WriteLine($"[NodeApi] ✓ Broadcast success — txid: {txid.GetString()}");
             return txid.GetString()!;
+        }
         if (result.TryGetProperty("error", out var error))
             throw new Exception($"Broadcast error: {error}");
 

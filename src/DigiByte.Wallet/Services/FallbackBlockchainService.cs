@@ -88,19 +88,27 @@ public class FallbackBlockchainService : IBlockchainService
             // 1. Try each explorer in order, skipping those on cooldown
             for (int i = 0; i < _explorers.Count; i++)
             {
-                if (IsOnCooldown(i)) continue;
+                var name = _explorers[i] is BlockbookApiService bb ? bb.Name
+                    : _explorers[i] is BlockchainApiService ? "esplora"
+                    : $"explorer-{i}";
+
+                if (IsOnCooldown(i))
+                {
+                    Console.WriteLine($"[Read] Skipping {name} (on cooldown)");
+                    continue;
+                }
 
                 try
                 {
                     var result = await call(_explorers[i]);
                     IsDemoMode = false;
-                    ActiveBackend = _explorers[i] is BlockbookApiService bb ? bb.Name
-                        : _explorers[i] is BlockchainApiService ? "esplora"
-                        : $"explorer-{i}";
+                    ActiveBackend = name;
+                    Console.WriteLine($"[Read] ✓ {name} succeeded");
                     return result;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Console.WriteLine($"[Read] ✗ {name} failed: {ex.Message}");
                     // Put this explorer on cooldown so we don't hammer it
                     _explorerCooldowns[i] = DateTime.UtcNow + CooldownDuration;
                 }
@@ -110,21 +118,28 @@ public class FallbackBlockchainService : IBlockchainService
         // 2. Fall back to own node (pruned — scantxoutset is slower but always works)
         try
         {
+            Console.WriteLine("[Read] Trying node-api...");
             var result = await call(_nodeApi);
             IsDemoMode = false;
             ActiveBackend = "node-api";
+            Console.WriteLine("[Read] ✓ node-api succeeded");
             return result;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
+        }
 
         // 3. Mock fallback — development only
         if (_isDevelopment && _mock != null)
         {
             IsDemoMode = true;
             ActiveBackend = "demo";
+            Console.WriteLine("[Read] Using mock (development mode)");
             return await call(_mock);
         }
 
+        Console.WriteLine("[Read] ✗ ALL BACKENDS FAILED");
         throw new InvalidOperationException(
             "All blockchain backends are unavailable. Node and all explorers failed.");
     }
@@ -135,27 +150,44 @@ public class FallbackBlockchainService : IBlockchainService
     /// </summary>
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
+        var hexPreview = Convert.ToHexString(rawTransaction).ToLower();
+        Console.WriteLine($"[Broadcast] Starting — tx size: {rawTransaction.Length} bytes, hex preview: {hexPreview[..Math.Min(40, hexPreview.Length)]}...");
+
         // Try own node first
         try
         {
-            return await _nodeApi.BroadcastTransactionAsync(rawTransaction);
+            Console.WriteLine("[Broadcast] Trying node-api...");
+            var txId = await _nodeApi.BroadcastTransactionAsync(rawTransaction);
+            Console.WriteLine($"[Broadcast] ✓ node-api succeeded — txid: {txId}");
+            return txId;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Broadcast] ✗ node-api failed: {ex.Message}");
+        }
 
         // Try each explorer
         Exception? lastError = null;
         for (int i = 0; i < _explorers.Count; i++)
         {
+            var name = _explorers[i] is BlockbookApiService bb ? bb.Name
+                : _explorers[i] is BlockchainApiService ? "esplora"
+                : $"explorer-{i}";
             try
             {
-                return await _explorers[i].BroadcastTransactionAsync(rawTransaction);
+                Console.WriteLine($"[Broadcast] Trying {name}...");
+                var txId = await _explorers[i].BroadcastTransactionAsync(rawTransaction);
+                Console.WriteLine($"[Broadcast] ✓ {name} succeeded — txid: {txId}");
+                return txId;
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[Broadcast] ✗ {name} failed: {ex.Message}");
                 lastError = ex;
             }
         }
 
+        Console.WriteLine($"[Broadcast] ✗ ALL BACKENDS FAILED. Last error: {lastError?.Message}");
         throw new Exception($"Broadcast failed on all backends. Last error: {lastError?.Message}");
     }
 
