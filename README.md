@@ -342,13 +342,10 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 
 ## Video Tutorials
 
-> [**Watch all tutorials on the Releases page**](https://github.com/DennisPitallano/digibyte-wallet/releases/tag/video-tutorials) — download and play locally.
-
-| | Tutorial | Download |
-|:-:|----------|:--------:|
-| ▶️ | **How to Install the PWA** | [📥 MP4](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-install-pwa.mp4) |
-| ▶️ | **How to Recover / Import an Existing Wallet** | [📥 MP4](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-recover-import--existing-wallet.mp4) |
-| ▶️ | **How to Send DigiByte** | [📥 MP4](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-send-digibyte.mp4) |
+| How to Install the PWA | How to Recover / Import Wallet | How to Send DigiByte |
+|:-:|:-:|:-:|
+| ![Install PWA](docs/media/how-to-install-pwa.gif) | ![Recover Wallet](docs/media/how-to-recover-import--existing-wallet.gif) | ![Send DigiByte](docs/media/how-to-send-digibyte.gif) |
+| [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-install-pwa.mp4) | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-recover-import--existing-wallet.mp4) | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-send-digibyte.mp4) |
 
 ---
 
