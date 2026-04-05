@@ -41,7 +41,7 @@
         </div>
         <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
             <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Circulating Supply</p>
-            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatLarge(circulatingSupply) DGB</p>
+            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatNumber(circulatingSupply) DGB</p>
         </div>
         <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
             <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Block Height</p>
@@ -72,11 +72,35 @@
         </div>
     </div>
 
-    @* Live Chart Embed *@
+    @* Live Chart *@
     <div class="slide-up-delay-4">
         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Price Chart (7d)</h3>
-        <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-2 overflow-hidden">
-            <img src="https://www.coingecko.com/coins/63/sparkline.svg" alt="DGB 7-day price" class="w-full h-20 object-contain" />
+        <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3 overflow-hidden">
+            @if (sparklinePath != null)
+            {
+                <svg viewBox="0 0 300 60" preserveAspectRatio="none" class="w-full h-20">
+                    <defs>
+                        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#0066cc" stop-opacity="0.3" />
+                            <stop offset="100%" stop-color="#0066cc" stop-opacity="0.02" />
+                        </linearGradient>
+                    </defs>
+                    <path d="@sparklineFillPath" fill="url(#sparkFill)" />
+                    <path d="@sparklinePath" fill="none" stroke="#0066cc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            }
+            else if (chartLoaded)
+            {
+                <div class="h-20 flex items-center justify-center">
+                    <p class="text-xs text-slate-400 dark:text-slate-500">Chart data unavailable</p>
+                </div>
+            }
+            else
+            {
+                <div class="h-20 flex items-center justify-center">
+                    <div class="w-5 h-5 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            }
         </div>
         <p class="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">Data from CoinGecko</p>
     </div>
@@ -91,6 +115,9 @@
     private decimal volume24h;
     private decimal circulatingSupply;
     private int blockHeight;
+    private string? sparklinePath;
+    private string? sparklineFillPath;
+    private bool chartLoaded;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,26 +134,30 @@
     {
         try
         {
+            var currency = AppState.FiatCurrency.ToLower();
             var data = await Http.GetFromJsonAsync<System.Text.Json.JsonElement>(
-                "https://api.coingecko.com/api/v3/coins/digibyte?localization=false&tickers=false&community_data=false&developer_data=false");
+                $"https://api.coingecko.com/api/v3/coins/digibyte?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=true");
 
             if (data.TryGetProperty("market_data", out var md))
             {
-                if (md.TryGetProperty("current_price", out var cp) && cp.TryGetProperty("usd", out var p))
+                if (md.TryGetProperty("current_price", out var cp) && cp.TryGetProperty(currency, out var p))
                     price = p.GetDecimal();
                 if (md.TryGetProperty("price_change_percentage_24h", out var pc))
                     priceChange = pc.GetDecimal();
-                if (md.TryGetProperty("market_cap", out var mc) && mc.TryGetProperty("usd", out var m))
+                if (md.TryGetProperty("market_cap", out var mc) && mc.TryGetProperty(currency, out var m))
                     marketCap = m.GetDecimal();
-                if (md.TryGetProperty("total_volume", out var tv) && tv.TryGetProperty("usd", out var v))
+                if (md.TryGetProperty("total_volume", out var tv) && tv.TryGetProperty(currency, out var v))
                     volume24h = v.GetDecimal();
                 if (md.TryGetProperty("circulating_supply", out var cs))
                     circulatingSupply = cs.GetDecimal();
+                if (md.TryGetProperty("sparkline_7d", out var sp) && sp.TryGetProperty("price", out var prices))
+                    BuildSparkline(prices);
             }
             Cache.Set("analytics:price", price, TimeSpan.FromSeconds(60));
+            chartLoaded = true;
             StateHasChanged();
         }
-        catch { }
+        catch { chartLoaded = true; StateHasChanged(); }
     }
 
     private async Task LoadBlockHeight()
@@ -144,12 +175,58 @@
         catch { }
     }
 
-    private static string FormatLarge(decimal n) => n switch
+    private string FormatLarge(decimal n) => n switch
     {
-        >= 1_000_000_000 => $"${(n / 1_000_000_000):N2}B",
-        >= 1_000_000 => $"${(n / 1_000_000):N2}M",
-        >= 1_000 => $"${(n / 1_000):N1}K",
-        > 0 => $"${n:N0}",
+        >= 1_000_000_000 => $"{AppState.FiatSymbol}{(n / 1_000_000_000):N2}B",
+        >= 1_000_000 => $"{AppState.FiatSymbol}{(n / 1_000_000):N2}M",
+        >= 1_000 => $"{AppState.FiatSymbol}{(n / 1_000):N1}K",
+        > 0 => $"{AppState.FiatSymbol}{n:N0}",
         _ => "..."
     };
+
+    private static string FormatNumber(decimal n) => n switch
+    {
+        >= 1_000_000_000 => $"{(n / 1_000_000_000):N2}B",
+        >= 1_000_000 => $"{(n / 1_000_000):N2}M",
+        >= 1_000 => $"{(n / 1_000):N1}K",
+        > 0 => $"{n:N0}",
+        _ => "..."
+    };
+
+    private void BuildSparkline(System.Text.Json.JsonElement prices)
+    {
+        var points = new List<double>();
+        foreach (var p in prices.EnumerateArray())
+        {
+            if (p.TryGetDouble(out var v)) points.Add(v);
+        }
+        if (points.Count < 2) return;
+
+        // Downsample to ~150 points for performance
+        var step = Math.Max(1, points.Count / 150);
+        var sampled = new List<double>();
+        for (int i = 0; i < points.Count; i += step)
+            sampled.Add(points[i]);
+        if (sampled.Count < 2) return;
+
+        var min = sampled.Min();
+        var max = sampled.Max();
+        var range = max - min;
+        if (range == 0) range = 1;
+
+        const double w = 300;
+        const double h = 60;
+        const double pad = 2;
+
+        var pathParts = new List<string>();
+        for (int i = 0; i < sampled.Count; i++)
+        {
+            var x = (i / (double)(sampled.Count - 1)) * w;
+            var y = pad + (1 - (sampled[i] - min) / range) * (h - 2 * pad);
+            pathParts.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:F1},{1:F1}", x, y));
+        }
+
+        sparklinePath = "M" + string.Join(" L", pathParts);
+        sparklineFillPath = sparklinePath + string.Format(System.Globalization.CultureInfo.InvariantCulture, " L{0:F1},{1:F1} L0,{1:F1} Z", w, h);
+    }
 }

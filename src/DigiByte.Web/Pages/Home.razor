@@ -38,6 +38,10 @@
                         {
                             <span class="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-full uppercase">@AppState.NetworkMode</span>
                         }
+                        @if (WalletService.ActiveWallet?.WalletType == "xpub")
+                        {
+                            <span class="text-[9px] font-bold text-sky-700 dark:text-sky-300 bg-sky-500/20 px-1.5 py-0.5 rounded-full uppercase">Watch-Only</span>
+                        }
                         @if (isLoadingBalance)
                         {
                             <div class="w-2.5 h-2.5 border-2 border-dgb-500 dark:border-dgb-300 border-t-transparent rounded-full animate-spin"></div>
@@ -105,7 +109,7 @@
 
             @* Action Buttons *@
             <div class="flex justify-center gap-5 mt-3">
-                <button class="flex flex-col items-center gap-1 group" @onclick="OnSend">
+                <button class="flex flex-col items-center gap-1 group @(isWatchOnly ? "opacity-40 pointer-events-none" : "")" @onclick="OnSend">
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                         <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
@@ -144,7 +148,7 @@
         @* ===== TX AREA ===== *@
         <div>
             @* Quick Contacts *@
-            @if (quickContacts.Count > 0)
+            @if (quickContacts.Count > 0 && !isWatchOnly)
             {
                 <div class="mt-3 mb-3">
                     <div class="flex items-center justify-between mb-2">
@@ -369,6 +373,7 @@
     private bool showAddressQr;
     private string? addressQrDataUri;
     private bool showWalletInfo;
+    private bool isWatchOnly => WalletService.ActiveWallet?.WalletType == "xpub";
 
     // Pull-to-refresh state
     private double pullDistance;
@@ -398,7 +403,17 @@
         // Try IndexedDB cache first — instant display
         await LoadFromCacheAsync();
 
-        if (hasCachedData && !IsCacheStale())
+        // Check if redirected from a send — force fresh fetch after a short delay
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var forceRefresh = uri.Query.Contains("refresh=1");
+
+        if (forceRefresh)
+        {
+            // Explorer may take a moment to index the new tx — wait briefly then fetch
+            await Task.Delay(2000);
+            await FetchAndCacheAsync();
+        }
+        else if (hasCachedData && !IsCacheStale())
         {
             // Cache is fresh — no network needed, render cached data
         }
@@ -528,7 +543,7 @@
             var p = await Cache.GetOrFetchAsync(
                 $"price:{AppState.FiatCurrency}",
                 () => Blockchain.GetDgbPriceAsync(AppState.FiatCurrency),
-                TimeSpan.FromSeconds(60));
+                TimeSpan.FromMinutes(5));
             if (p > 0) dgbPrice = p;
         }
         catch { }

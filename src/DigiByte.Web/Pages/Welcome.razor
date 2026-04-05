@@ -28,6 +28,10 @@
                 @onclick="RecoverWallet">
             Recover Existing Wallet
         </button>
+        <button class="slide-up-delay-3 w-full py-3.5 px-6 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 font-semibold rounded-2xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all duration-200 press-effect"
+                @onclick="ImportXpub">
+            Watch-Only (xpub)
+        </button>
     </div>
 
     <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500 slide-up-delay-3">
@@ -44,4 +48,5 @@
 @code {
     private void CreateWallet() => Nav.NavigateTo("/create-wallet");
     private void RecoverWallet() => Nav.NavigateTo("/recover-wallet");
+    private void ImportXpub() => Nav.NavigateTo("/import-xpub");
 }

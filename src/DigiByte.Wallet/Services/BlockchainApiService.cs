@@ -14,6 +14,7 @@ namespace DigiByte.Wallet.Services;
 public class BlockchainApiService : IBlockchainService
 {
     private readonly HttpClient _http;
+    private readonly HttpClient _priceHttp;
     private string _baseUrl;
     private bool _isTestnet;
 
@@ -24,9 +25,10 @@ public class BlockchainApiService : IBlockchainService
     // Fallback: chainz.cryptoid.info
     private const string FallbackMainnet = "https://chainz.cryptoid.info/dgb/api.dws";
 
-    public BlockchainApiService(HttpClient http)
+    public BlockchainApiService(HttpClient http, HttpClient? priceHttp = null)
     {
         _http = http;
+        _priceHttp = priceHttp ?? http;
         _baseUrl = TestnetApi;
         _isTestnet = true;
     }
@@ -149,6 +151,7 @@ public class BlockchainApiService : IBlockchainService
                     Address = v.ScriptPubKeyAddress ?? "unknown",
                     AmountSatoshis = v.Value,
                     Index = (uint)i,
+                    ScriptHex = v.ScriptPubKey,
                 }).ToList() ?? [],
             };
         }
@@ -190,6 +193,7 @@ public class BlockchainApiService : IBlockchainService
                     Address = v.ScriptPubKeyAddress ?? "unknown",
                     AmountSatoshis = v.Value,
                     Index = (uint)i,
+                    ScriptHex = v.ScriptPubKey,
                 }).ToList() ?? [],
             }).ToList();
         }
@@ -207,8 +211,8 @@ public class BlockchainApiService : IBlockchainService
 
     public async Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
     {
-        // Use CoinGecko free API
-        var data = await _http.GetFromJsonAsync<JsonElement>(
+        // Use CoinGecko free API — via dedicated no-retry HttpClient to avoid 429 storms
+        var data = await _priceHttp.GetFromJsonAsync<JsonElement>(
             $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={fiatCurrency.ToLower()}");
         if (data.TryGetProperty("digibyte", out var dgb) &&
             dgb.TryGetProperty(fiatCurrency.ToLower(), out var price))
@@ -310,5 +314,8 @@ public class BlockchainApiService : IBlockchainService
 
         [JsonPropertyName("scriptpubkey_address")]
         public string? ScriptPubKeyAddress { get; set; }
+
+        [JsonPropertyName("scriptpubkey")]
+        public string? ScriptPubKey { get; set; }
     }
 }

@@ -142,6 +142,40 @@ public class WalletService : IWalletService
         return wallet;
     }
 
+    /// <summary>
+    /// Create a watch-only wallet from an extended public key (xpub).
+    /// Can view balances and receive, but cannot sign or send transactions.
+    /// </summary>
+    public async Task<WalletInfo> CreateWatchOnlyWalletAsync(string name, string xpub, string pin)
+    {
+        var walletId = Guid.NewGuid().ToString("N");
+
+        var extPubKey = HdKeyDerivation.ParseXpub(xpub.Trim(), CurrentNetwork)
+            ?? throw new InvalidOperationException("Invalid extended public key.");
+
+        // Encrypt the xpub with PIN (same pattern as mnemonic/WIF)
+        var encrypted = await _crypto.EncryptAsync(
+            System.Text.Encoding.UTF8.GetBytes(xpub.Trim()), pin);
+        await _keyStore.StoreSeedAsync(walletId, encrypted);
+
+        var wallet = new WalletInfo
+        {
+            Id = walletId,
+            Name = name,
+            CreatedAt = DateTime.UtcNow,
+            WalletType = "xpub",
+        };
+
+        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+        await _walletStore.SetActiveWalletIdAsync(walletId);
+
+        _hd = new HdKeyDerivation(extPubKey, CurrentNetwork);
+        _singleKey = null;
+        _activeWallet = wallet;
+
+        return wallet;
+    }
+
     public async Task<WalletInfo?> GetWalletAsync(string walletId)
     {
         var json = await _walletStore.GetWalletInfoAsync(walletId);
@@ -178,6 +212,14 @@ public class WalletService : IWalletService
             var wifNetwork = PrivateKeyImporter.DetectNetwork(seedString) ?? CurrentNetwork;
             _singleKey = PrivateKeyImporter.ParseWif(seedString, wifNetwork);
             _hd = null;
+        }
+        else if (_activeWallet?.WalletType == "xpub")
+        {
+            // Watch-only wallet — xpub, no private keys
+            var extPubKey = HdKeyDerivation.ParseXpub(seedString, CurrentNetwork);
+            if (extPubKey == null) return false;
+            _hd = new HdKeyDerivation(extPubKey, CurrentNetwork);
+            _singleKey = null;
         }
         else
         {
@@ -227,16 +269,16 @@ public class WalletService : IWalletService
         }
         else
         {
-            // HD wallet — scan 20 receiving + 10 change
+            // HD or watch-only wallet — scan 20 receiving + 10 change, both SegWit and Legacy
             for (int i = 0; i < 20; i++)
             {
-                var key = _hd!.DeriveReceivingKey(i);
-                addresses.Add(_hd.GetAddress(key).ToString());
+                addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
+                addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
             }
             for (int i = 0; i < 10; i++)
             {
-                var key = _hd!.DeriveChangeKey(i);
-                addresses.Add(_hd.GetAddress(key).ToString());
+                addresses.Add(_hd!.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString());
+                addresses.Add(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString());
             }
         }
 
@@ -265,8 +307,7 @@ public class WalletService : IWalletService
             return Task.FromResult(addr.ToString());
         }
         var index = _activeWallet!.NextReceivingIndex;
-        var key = _hd!.DeriveReceivingKey(index);
-        var address = _hd.GetAddress(key, format == "default" ? ScriptPubKeyType.Segwit : type);
+        var address = _hd!.DeriveReceivingAddress(index, format == "default" ? ScriptPubKeyType.Segwit : type);
         return Task.FromResult(address.ToString());
     }
 
@@ -286,9 +327,15 @@ public class WalletService : IWalletService
         }
         var addresses = new List<string>();
         for (int i = 0; i < 20; i++)
-            addresses.Add(_hd!.GetAddress(_hd.DeriveReceivingKey(i)).ToString());
+        {
+            addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
+            addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
+        }
         for (int i = 0; i < 10; i++)
-            addresses.Add(_hd!.GetAddress(_hd.DeriveChangeKey(i)).ToString());
+        {
+            addresses.Add(_hd!.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString());
+            addresses.Add(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString());
+        }
         return addresses;
     }
 
@@ -304,7 +351,7 @@ public class WalletService : IWalletService
                 (1, _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, net).ToString()),
             });
         }
-        var addresses = _hd!.DeriveReceivingAddresses(count, startIndex)
+        var addresses = _hd!.DeriveReceivingAddressRange(count, startIndex)
             .Select(a => (a.Index, a.Address.ToString()))
             .ToList();
         return Task.FromResult(addresses);
@@ -313,6 +360,9 @@ public class WalletService : IWalletService
     public async Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null, int feeRateSatPerByte = 5)
     {
         EnsureUnlocked();
+
+        if (_activeWallet?.WalletType == "xpub")
+            throw new InvalidOperationException("Watch-only wallets cannot send transactions.");
 
         var network = CurrentNetwork;
         var amountSatoshis = (long)(amountDgb * 100_000_000m);
@@ -365,19 +415,19 @@ public class WalletService : IWalletService
         }
         else
         {
-            // HD wallet — derive multiple receiving + change addresses
+            // HD wallet — derive multiple receiving + change addresses (both SegWit and Legacy)
             var addressKeyMap = new Dictionary<string, ExtKey>();
             for (int i = 0; i < 20; i++)
             {
                 var key = _hd!.DeriveReceivingKey(i);
-                var addr = _hd.GetAddress(key).ToString();
-                addressKeyMap[addr] = key;
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
             }
             for (int i = 0; i < 10; i++)
             {
                 var key = _hd!.DeriveChangeKey(i);
-                var addr = _hd.GetAddress(key).ToString();
-                addressKeyMap[addr] = key;
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
             }
 
             var utxoInfos = await _blockchain.GetUtxosAsync(addressKeyMap.Keys);
@@ -429,10 +479,12 @@ public class WalletService : IWalletService
 
         // Build and sign the transaction
         var destination = BitcoinAddress.Create(destinationAddress, network);
-        var feeRate = new FeeRate(Money.Satoshis(feeRateSatPerByte * 1000));
+        // DigiByte min relay fee is 100000 sat/kB (100 sat/vB) — enforce floor
+        var effectiveFeeRate = Math.Max(feeRateSatPerByte, 100);
+        var feeRate = new FeeRate(Money.Satoshis(effectiveFeeRate * 1000));
 
         var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
-        var tx = txBuilder.BuildSendTransaction(availableUtxos, destination, amount, changeAddress, feeRate);
+        var tx = txBuilder.BuildSendTransaction(availableUtxos, destination, amount, changeAddress, feeRate, memo);
 
         // Broadcast
         var rawTx = tx.ToBytes();
@@ -441,7 +493,7 @@ public class WalletService : IWalletService
         // Track the transaction locally
         var feePaid = tx.GetFee(availableUtxos.Select(u => u.ToCoin()).ToArray());
         await _txTracker.RecordSendAsync(txId, destinationAddress, amountSatoshis,
-            feePaid?.Satoshi ?? 0);
+            feePaid?.Satoshi ?? 0, memo);
 
         // Increment change index (HD wallets only)
         if (_hd != null && _activeWallet != null)
@@ -498,6 +550,7 @@ public class WalletService : IWalletService
                         CounterpartyAddress = isSent
                             ? tx.Outputs.FirstOrDefault(o => !isOurs(o.Address))?.Address
                             : tx.Inputs.FirstOrDefault(i => !isOurs(i.Address))?.Address,
+                        Memo = ExtractOpReturnMemo(tx.Outputs),
                     };
                 }).ToList();
 
@@ -573,6 +626,17 @@ public class WalletService : IWalletService
             await _keyStore.StoreSeedAsync(walletId, encrypted);
             return true;
         }
+        else if (wallet.WalletType == "xpub")
+        {
+            // Watch-only wallet — verify xpub is valid
+            if (HdKeyDerivation.ParseXpub(seedPhrase.Trim()) == null)
+                return false;
+
+            var encrypted = await _crypto.EncryptAsync(
+                System.Text.Encoding.UTF8.GetBytes(seedPhrase.Trim()), newPin);
+            await _keyStore.StoreSeedAsync(walletId, encrypted);
+            return true;
+        }
         else
         {
             // HD wallet — verify mnemonic is valid
@@ -594,8 +658,8 @@ public class WalletService : IWalletService
     {
         EnsureUnlocked();
 
-        if (_hd == null)
-            throw new InvalidOperationException("Digi-ID requires an HD wallet (not WIF import).");
+        if (_hd == null || _hd.IsWatchOnly)
+            throw new InvalidOperationException("Digi-ID requires an HD wallet with private keys.");
 
         var siteIndex = DigiIdService.DeriveSiteIndex(request.Domain);
         var siteKey = _hd.DeriveDigiIdKey(siteIndex);
@@ -623,5 +687,40 @@ public class WalletService : IWalletService
              address.StartsWith("dgbt1", StringComparison.OrdinalIgnoreCase)))
             return address[..^6].ToLowerInvariant();
         return address?.ToLowerInvariant() ?? "";
+    }
+
+    /// <summary>
+    /// Extract a UTF-8 memo from the first OP_RETURN output, if any.
+    /// </summary>
+    private static string? ExtractOpReturnMemo(List<TxOutput> outputs)
+    {
+        var hex = outputs.FirstOrDefault(o =>
+            o.ScriptHex != null && o.ScriptHex.StartsWith("6a", StringComparison.OrdinalIgnoreCase))?.ScriptHex;
+        if (hex is not { Length: > 4 }) return null;
+
+        try
+        {
+            var bytes = Convert.FromHexString(hex[2..]); // skip 0x6a (OP_RETURN)
+            if (bytes.Length == 0) return null;
+
+            byte[] data;
+            if (bytes[0] < 0x4c) // direct push
+            {
+                int len = bytes[0];
+                if (bytes.Length < 1 + len) return null;
+                data = bytes[1..(1 + len)];
+            }
+            else if (bytes[0] == 0x4c && bytes.Length > 2) // OP_PUSHDATA1
+            {
+                int len = bytes[1];
+                if (bytes.Length < 2 + len) return null;
+                data = bytes[2..(2 + len)];
+            }
+            else return null;
+
+            var text = System.Text.Encoding.UTF8.GetString(data);
+            return text.All(c => !char.IsControl(c) || c == '\n' || c == '\r') ? text : null;
+        }
+        catch { return null; }
     }
 }

@@ -2,12 +2,12 @@
 window.themeManager = {
     init() {
         const saved = localStorage.getItem('dgb-theme');
-        if (saved === 'dark') {
-            document.documentElement.classList.add('dark');
-            return true; // isDark
+        if (saved === 'light') {
+            document.documentElement.classList.remove('dark');
+            return false;
         }
-        document.documentElement.classList.remove('dark');
-        return false;
+        document.documentElement.classList.add('dark');
+        return true; // isDark — default to dark
     },
 
     setDark(isDark) {

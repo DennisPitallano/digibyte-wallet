@@ -31,6 +31,9 @@ builder.Services.AddHttpClient("Blockchain")
         o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(45);
     });
 
+// CoinGecko price HttpClient — no retries to avoid 429 storms
+builder.Services.AddHttpClient("CoinGecko");
+
 // Node API HttpClient (own pruned node)
 builder.Services.AddHttpClient("NodeApi")
     .AddStandardResilienceHandler(o =>
@@ -66,7 +69,8 @@ builder.Services.AddScoped(sp =>
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), nodeApiUrl));
 builder.Services.AddScoped(sp =>
     new BlockchainApiService(
-        sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain")));
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain"),
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko")));
 if (isDevelopment)
     builder.Services.AddScoped<MockBlockchainService>();
 

@@ -142,18 +142,10 @@ public class NodeApiBlockchainService : IBlockchainService
         catch { return 0.00001m; }
     }
 
-    public async Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
+    public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
     {
-        // Node API doesn't provide price — use CoinGecko directly
-        var data = await _http.GetFromJsonAsync<JsonElement>(
-            $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={fiatCurrency.ToLower()}");
-        if (data.TryGetProperty("digibyte", out var dgb) &&
-            dgb.TryGetProperty(fiatCurrency.ToLower(), out var price))
-        {
-            var result = price.GetDecimal();
-            if (result > 0) return result;
-        }
-        throw new InvalidOperationException("CoinGecko returned no price data");
+        // Price is not a node API feature — let the fallback chain handle it via explorer backends
+        throw new NotSupportedException("Node API does not provide price data");
     }
 
     public async Task<int> GetBlockHeightAsync()
@@ -193,17 +185,20 @@ public class NodeApiBlockchainService : IBlockchainService
             foreach (var v in vout.EnumerateArray())
             {
                 var addr = "unknown";
+                string? scriptHex = null;
                 if (v.TryGetProperty("scriptPubKey", out var spk))
                 {
                     if (spk.TryGetProperty("address", out var a)) addr = a.GetString()!;
                     else if (spk.TryGetProperty("addresses", out var addrs) && addrs.GetArrayLength() > 0)
                         addr = addrs[0].GetString()!;
+                    if (spk.TryGetProperty("hex", out var h)) scriptHex = h.GetString();
                 }
                 outputs.Add(new TxOutput
                 {
                     Address = addr,
                     AmountSatoshis = (long)(v.GetProperty("value").GetDecimal() * 100_000_000m),
                     Index = idx++,
+                    ScriptHex = scriptHex,
                 });
             }
         }

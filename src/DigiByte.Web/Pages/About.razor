@@ -129,9 +129,16 @@
     {
         try
         {
-            var response = await Http.GetFromJsonAsync<List<GitHubContributor>>(
+            var request = new HttpRequestMessage(HttpMethod.Get,
                 "https://api.github.com/repos/DennisPitallano/digibyte-wallet/contributors");
-            contributors = response ?? [];
+            request.Headers.Add("User-Agent", "DigiByte-Wallet");
+            request.Headers.Add("Accept", "application/vnd.github.v3+json");
+            var httpResponse = await Http.SendAsync(request);
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                var response = await httpResponse.Content.ReadFromJsonAsync<List<GitHubContributor>>();
+                contributors = response ?? [];
+            }
         }
         catch { }
         finally { isLoadingContributors = false; }
@@ -139,18 +146,16 @@
 
     private class GitHubContributor
     {
-        public string Login { get; set; } = "";
-        public string AvatarUrl { get; set; } = "";
-        public string HtmlUrl { get; set; } = "";
-        public int Contributions { get; set; }
-
         [System.Text.Json.Serialization.JsonPropertyName("login")]
-        public string LoginProp { set => Login = value; }
+        public string Login { get; set; } = "";
+
         [System.Text.Json.Serialization.JsonPropertyName("avatar_url")]
-        public string AvatarProp { set => AvatarUrl = value; }
+        public string AvatarUrl { get; set; } = "";
+
         [System.Text.Json.Serialization.JsonPropertyName("html_url")]
-        public string HtmlProp { set => HtmlUrl = value; }
+        public string HtmlUrl { get; set; } = "";
+
         [System.Text.Json.Serialization.JsonPropertyName("contributions")]
-        public int ContribProp { set => Contributions = value; }
+        public int Contributions { get; set; }
     }
 }

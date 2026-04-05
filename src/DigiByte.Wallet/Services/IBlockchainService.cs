@@ -50,4 +50,5 @@ public class TxOutput
     public required string Address { get; init; }
     public required long AmountSatoshis { get; init; }
     public required uint Index { get; init; }
+    public string? ScriptHex { get; init; }
 }

@@ -10,6 +10,25 @@
 <PageTitle>Send DGB</PageTitle>
 
 <AuthGuard>
+@if (WalletService.ActiveWallet?.WalletType == "xpub")
+{
+    <div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
+        <div class="w-16 h-16 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+            <svg class="w-8 h-8 text-sky-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+        </div>
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Watch-Only Wallet</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[260px]">This wallet can only view balances and receive funds. Sending requires a wallet with private keys.</p>
+        <button class="py-2.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl transition-all press-effect"
+                @onclick='() => Nav.NavigateTo("/")'>
+            Back to Home
+        </button>
+    </div>
+}
+else
+{
 <div class="flex flex-col gap-4">
     <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">Send DigiByte</h2>
 
@@ -36,7 +55,7 @@
         else
         {
             <div class="flex gap-1.5">
-                <input type="text" @bind="destinationAddress" @bind:event="oninput"
+                <input type="text" @bind="destinationAddress" @bind:event="oninput" @bind:after="RecalcFee"
                        placeholder="D... or dgb1... or search contact"
                        autocomplete="off" spellcheck="false"
                        class="flex-1 px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
@@ -146,11 +165,11 @@
             </div>
             <div class="flex gap-2">
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "low" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeLow" disabled="@isFormDisabled">Slow (1)</button>
+                        @onclick="SetFeeLow" disabled="@isFormDisabled">Slow (100)</button>
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "med" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeMed" disabled="@isFormDisabled">Normal (5)</button>
+                        @onclick="SetFeeMed" disabled="@isFormDisabled">Normal (200)</button>
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "high" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeHigh" disabled="@isFormDisabled">Fast (20)</button>
+                        @onclick="SetFeeHigh" disabled="@isFormDisabled">Fast (400)</button>
             </div>
             <input type="number" @bind="customFeeRate" min="1" placeholder="Custom sat/vB" disabled="@isFormDisabled"
                    class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed" />
@@ -160,7 +179,7 @@
     @* Memo *@
     <div class="flex flex-col gap-1.5 slide-up-delay-3">
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Memo (optional)</label>
-        <input type="text" @bind="memo" placeholder="What's this for?" disabled="@isFormDisabled"
+        <input type="text" @bind="memo" @bind:event="oninput" @bind:after="RecalcFee" placeholder="What's this for?" disabled="@isFormDisabled"
                class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed" />
     </div>
 
@@ -226,9 +245,9 @@
                     <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800">
                         <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Speed options</p>
                         <div class="flex flex-col gap-1.5 text-xs">
-                            <div class="flex justify-between"><span>🐢 Slow (1 sat/vB)</span><span>Cheapest — may take a few minutes</span></div>
-                            <div class="flex justify-between"><span>⚡ Normal (5 sat/vB)</span><span>Recommended — ~15 seconds</span></div>
-                            <div class="flex justify-between"><span>🚀 Fast (20 sat/vB)</span><span>Priority — next block</span></div>
+                            <div class="flex justify-between"><span>🐢 Slow (100 sat/vB)</span><span>Cheapest — may take a few blocks</span></div>
+                            <div class="flex justify-between"><span>⚡ Normal (200 sat/vB)</span><span>Recommended — ~15 seconds</span></div>
+                            <div class="flex justify-between"><span>🚀 Fast (400 sat/vB)</span><span>Priority — next block</span></div>
                         </div>
                     </div>
 
@@ -244,7 +263,7 @@
     @* Confirm Modal — centered card *@
     @if (showConfirm)
     {
-        <div class="modal-overlay" @onclick="() => { if (!isSending) showConfirm = false; }">
+        <div class="modal-overlay" @onclick="() => { if (!isSending) { showConfirm = false; sendError = null; } }">
             <div class="modal-card flex flex-col gap-5" @onclick:stopPropagation="true">
                 @* Header *@
                 <div class="flex flex-col items-center gap-2">
@@ -284,6 +303,16 @@
                     </div>
                 </div>
 
+                @if (hasUnconfirmedUtxos)
+                {
+                    <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl">
+                        <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">Some funds are still unconfirmed (~15s). This is safe on DigiByte.</p>
+                    </div>
+                }
+
                 @if (sendError != null)
                 {
                     <p class="text-xs text-red-500 font-medium text-center bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl">@sendError</p>
@@ -292,7 +321,7 @@
                 @* Actions *@
                 <div class="flex gap-3">
                     <button class="flex-1 py-3 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect"
-                            @onclick="() => showConfirm = false" disabled="@isSending">
+                            @onclick="() => { showConfirm = false; sendError = null; }" disabled="@isSending">
                         Cancel
                     </button>
                     <button class="flex-1 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
@@ -324,6 +353,7 @@
 
     <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 </div>
+}
 </AuthGuard>
 
 @code {
@@ -345,8 +375,33 @@
 
     // Advanced fee control
     private string feeLevel = "med";
-    private int customFeeRate = 5;
-    private decimal estimatedFee = 0.0001m;
+    private int customFeeRate = 200;
+    private decimal estimatedFee = 0.0026m;
+
+    // Fee estimation helpers — detect address types for accurate vbyte calculation
+    // HD wallets default to SegWit (dgb1...), WIF wallets default to Legacy (D...)
+    private bool walletUsesSegWit;
+    private int inputVBytes => walletUsesSegWit ? 68 : 148;
+    private int OutputVBytes(string addr) =>
+        !string.IsNullOrEmpty(addr) && addr.StartsWith("dgb1") ? 31 : 34;
+    private int EstimateVBytes()
+    {
+        // 1 input + 2 outputs (destination + change) + optional OP_RETURN
+        var destVB = OutputVBytes(destinationAddress);
+        var changeVB = walletUsesSegWit ? 31 : 34;
+        var memoVB = 0;
+        if (!string.IsNullOrWhiteSpace(memo))
+        {
+            // OP_RETURN output: 9 (value+scriptLen) + 1 (OP_RETURN) + 1 (push) + data
+            var dataLen = Math.Min(System.Text.Encoding.UTF8.GetByteCount(memo), 80);
+            memoVB = 9 + 1 + 1 + dataLen;
+        }
+        return 10 + inputVBytes + destVB + changeVB + memoVB;
+    }
+    private void RecalcFee()
+    {
+        estimatedFee = (EstimateVBytes() * customFeeRate) / 100_000_000m;
+    }
 
     // Loading & price state
     private bool isLoadingBalance = true;
@@ -357,6 +412,7 @@
     private decimal amountFiat => isAmountInFiat ? amount : amount * dgbPrice;
 
     private string? amountWarning;
+    private bool hasUnconfirmedUtxos;
 
     private void UpdateAmountWarning()
     {
@@ -414,6 +470,18 @@
         if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
             amount = qtyAmount;
 
+        // Detect wallet address type for fee estimation
+        if (WalletService.IsUnlocked)
+        {
+            try
+            {
+                var addr = await WalletService.GetReceivingAddressAsync();
+                walletUsesSegWit = addr.StartsWith("dgb1");
+            }
+            catch { walletUsesSegWit = true; }
+        }
+        RecalcFee();
+
         // Run all async loads in parallel
         var contactsTask = ContactService.GetAllAsync();
         var balanceTask = Task.Run(async () =>
@@ -429,7 +497,7 @@
                 dgbPrice = await Cache.GetOrFetchAsync(
                     $"price:{AppState.FiatCurrency}",
                     () => Blockchain.GetDgbPriceAsync(AppState.FiatCurrency),
-                    TimeSpan.FromSeconds(60));
+                    TimeSpan.FromMinutes(5));
             }
             catch { }
             finally { isLoadingPrice = false; await InvokeAsync(StateHasChanged); }
@@ -444,6 +512,7 @@
         destinationAddress = c.Address;
         recipientName = c.Name;
         showContactPicker = false;
+        RecalcFee();
     }
 
     private void ClearRecipient()
@@ -460,15 +529,15 @@
             amount = availableBalance;
     }
 
-    private void SetFeeLow() => SetFee("low", 1);
-    private void SetFeeMed() => SetFee("med", 5);
-    private void SetFeeHigh() => SetFee("high", 20);
+    private void SetFeeLow() => SetFee("low", 100);
+    private void SetFeeMed() => SetFee("med", 200);
+    private void SetFeeHigh() => SetFee("high", 400);
 
     private void SetFee(string level, int rate)
     {
         feeLevel = level;
         customFeeRate = rate;
-        estimatedFee = rate * 0.000068m; // ~68 vbytes * rate
+        RecalcFee();
     }
 
     private void OnQrScanned(string data)
@@ -486,16 +555,23 @@
         {
             destinationAddress = data.Trim();
         }
+        RecalcFee();
         StateHasChanged();
     }
 
-    private void PreviewSend()
+    private async Task PreviewSend()
     {
         addressError = null;
         amountError = null;
+        hasUnconfirmedUtxos = false;
         if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(destinationAddress))
         {
             addressError = "Invalid DigiByte address.";
+            return;
+        }
+        if (WalletService.GetAllAddresses().Contains(destinationAddress.Trim()))
+        {
+            addressError = "You cannot send to your own address.";
             return;
         }
         if (amountDgb <= 0)
@@ -513,6 +589,16 @@
             amountError = $"Insufficient balance. You have {availableBalance:N4} DGB available.";
             return;
         }
+
+        // Check for unconfirmed UTXOs
+        try
+        {
+            var addresses = WalletService.GetAllAddresses();
+            var utxos = await Blockchain.GetUtxosAsync(addresses);
+            hasUnconfirmedUtxos = utxos.Any(u => u.Confirmations == 0);
+        }
+        catch { }
+
         showConfirm = true;
     }
 
@@ -541,9 +627,9 @@
             sentTxId = txId;
             showConfirm = false;
             StateHasChanged();
-            // Show success for 2 seconds then go home
+            // Show success for 2 seconds then go home with forceRefresh
             await Task.Delay(2500);
-            Nav.NavigateTo("/");
+            Nav.NavigateTo("/?refresh=1", forceLoad: false);
         }
         catch (Exception ex)
         {

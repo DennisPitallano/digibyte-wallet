@@ -10,10 +10,18 @@ public static class AppVersion
     private static readonly Assembly _assembly = typeof(AppVersion).Assembly;
 
     /// <summary>Full version including pre-release tag, e.g. "0.2.0-alpha.1"</summary>
-    public static string Version =>
-        _assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?? _assembly.GetName().Version?.ToString(3)
-        ?? "0.0.0";
+    public static string Version
+    {
+        get
+        {
+            var v = _assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? _assembly.GetName().Version?.ToString(3)
+                ?? "0.0.0";
+            // Strip build metadata (+commitsha) appended by the SDK
+            var plusIndex = v.IndexOf('+');
+            return plusIndex >= 0 ? v[..plusIndex] : v;
+        }
+    }
 
     /// <summary>Numeric-only version, e.g. "0.2.0"</summary>
     public static string ShortVersion =>

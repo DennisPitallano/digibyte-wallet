@@ -47,7 +47,7 @@ public class BlockbookApiService : IBlockchainService
     public async Task<List<UtxoInfo>> GetUtxosAsync(string address)
     {
         var utxos = await _http.GetFromJsonAsync<List<BlockbookUtxo>>(
-            $"{_baseUrl}/api/v2/utxo/{address}?confirmed=true");
+            $"{_baseUrl}/api/v2/utxo/{address}");
         return utxos?.Select(u => new UtxoInfo
         {
             TxId = u.TxId,
@@ -103,6 +103,7 @@ public class BlockbookApiService : IBlockchainService
                     Address = v.Addresses?.FirstOrDefault() ?? "unknown",
                     AmountSatoshis = long.TryParse(v.Value, out var val) ? val : 0,
                     Index = (uint)v.N,
+                    ScriptHex = v.Hex,
                 }).ToList() ?? [],
             };
         }
@@ -135,6 +136,7 @@ public class BlockbookApiService : IBlockchainService
                     Address = v.Addresses?.FirstOrDefault() ?? "unknown",
                     AmountSatoshis = long.TryParse(v.Value, out var val) ? val : 0,
                     Index = (uint)v.N,
+                    ScriptHex = v.Hex,
                 }).ToList() ?? [],
             }).ToList();
         }
@@ -267,6 +269,9 @@ public class BlockbookApiService : IBlockchainService
 
         [JsonPropertyName("value")]
         public string Value { get; set; } = "0";
+
+        [JsonPropertyName("hex")]
+        public string? Hex { get; set; }
     }
 
     private class BlockbookSendResult

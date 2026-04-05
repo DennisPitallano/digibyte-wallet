@@ -32,7 +32,7 @@ public class TransactionTracker
     /// <summary>
     /// Record a sent transaction.
     /// </summary>
-    public async Task RecordSendAsync(string txId, string toAddress, long amountSatoshis, long feeSatoshis)
+    public async Task RecordSendAsync(string txId, string toAddress, long amountSatoshis, long feeSatoshis, string? memo = null)
     {
         var all = await GetAllAsync();
         // Don't duplicate
@@ -47,6 +47,7 @@ public class TransactionTracker
             Timestamp = DateTime.UtcNow,
             Confirmations = 0,
             CounterpartyAddress = toAddress,
+            Memo = string.IsNullOrWhiteSpace(memo) ? null : memo,
         });
 
         await SaveAsync(all);

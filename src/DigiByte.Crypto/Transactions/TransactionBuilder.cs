@@ -16,16 +16,20 @@ public class DigiByteTransactionBuilder
     }
 
     /// <summary>
-    /// Builds a simple send transaction.
+    /// Builds a simple send transaction with an optional OP_RETURN memo.
     /// </summary>
     public Transaction BuildSendTransaction(
         IEnumerable<Utxo> utxos,
         BitcoinAddress destination,
         Money amount,
         BitcoinAddress changeAddress,
-        FeeRate feeRate)
+        FeeRate feeRate,
+        string? memo = null)
     {
         var builder = _network.CreateTransactionBuilder();
+        // Disable NBitcoin's dust prevention — it uses Bitcoin's dust relay fee
+        // which incorrectly rejects OP_RETURN outputs and doesn't match DigiByte's policy.
+        builder.DustPrevention = false;
 
         foreach (var utxo in utxos)
         {
@@ -34,6 +38,17 @@ public class DigiByteTransactionBuilder
         }
 
         builder.Send(destination, amount);
+
+        // Embed memo as an OP_RETURN output (max 80 bytes, unspendable)
+        if (!string.IsNullOrWhiteSpace(memo))
+        {
+            var memoBytes = System.Text.Encoding.UTF8.GetBytes(memo);
+            if (memoBytes.Length > 80)
+                memoBytes = memoBytes[..80];
+            var opReturnScript = TxNullDataTemplate.Instance.GenerateScriptPubKey(memoBytes);
+            builder.Send(opReturnScript, Money.Zero);
+        }
+
         builder.SetChange(changeAddress);
         builder.SendEstimatedFees(feeRate);
 

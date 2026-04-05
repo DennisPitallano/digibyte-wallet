@@ -213,8 +213,19 @@ public class FallbackBlockchainService : IBlockchainService
     public Task<decimal> GetFeeRateAsync() =>
         TryRead(s => s.GetFeeRateAsync());
 
-    public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") =>
-        TryRead(s => s.GetDgbPriceAsync(fiatCurrency));
+    /// <summary>
+    /// Price fetch goes directly to explorers without triggering cooldowns —
+    /// a CoinGecko 429 should not disable balance/tx/UTXO queries.
+    /// </summary>
+    public async Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
+    {
+        foreach (var explorer in _explorers)
+        {
+            try { return await explorer.GetDgbPriceAsync(fiatCurrency); }
+            catch { /* try next */ }
+        }
+        throw new InvalidOperationException("All price backends failed");
+    }
 
     public Task<int> GetBlockHeightAsync() =>
         TryRead(s => s.GetBlockHeightAsync());
