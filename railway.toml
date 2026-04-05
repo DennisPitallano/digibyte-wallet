@@ -1,16 +1,22 @@
 # Railway configuration for DigiByte services
-# This project deploys as THREE separate Railway services from this monorepo.
+# This project deploys as FOUR separate Railway services from this monorepo.
 # See below for per-service setup instructions.
 #
 # Service 1: digibyte-api
 #   Dockerfile: docker/api/Dockerfile
 #   Health check: /api/health
+#   Env vars: ClientOrigin (comma-separated CORS origins)
 #
-# Service 2: digibyte-node-api
+# Service 2: digibyte-web
+#   Dockerfile: docker/web/Dockerfile
+#   Static Blazor WASM served by Nginx on port 8080
+#   No env vars needed — config is in wwwroot/appsettings.json
+#
+# Service 3: digibyte-node-api
 #   Dockerfile: docker/node-api/Dockerfile
 #   Health check: /api/health
 #
-# Service 3: digibyted (mainnet pruned node)
+# Service 4: digibyted (mainnet pruned node)
 #   Dockerfile: docker/digibyted/Dockerfile
 #   Override entrypoint in Railway service settings:
 #     /bin/bash /etc/digibyte/entrypoint-mainnet.sh
