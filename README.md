@@ -342,13 +342,13 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 
 ## Video Tutorials
 
-> Click to watch each walkthrough:
+> [**Watch all tutorials on the Releases page**](https://github.com/DennisPitallano/digibyte-wallet/releases/tag/video-tutorials) — download and play locally.
 
-| | Tutorial |
-|:-:|----------|
-| ▶️ | [**How to Install the PWA**](docs/media/how-to-install-pwa.mp4?raw=true) |
-| ▶️ | [**How to Recover / Import an Existing Wallet**](docs/media/how-to-recover-import--existing-wallet.mp4?raw=true) |
-| ▶️ | [**How to Send DigiByte**](docs/media/how-to-send-digibyte.mp4?raw=true) |
+| | Tutorial | Download |
+|:-:|----------|:--------:|
+| ▶️ | **How to Install the PWA** | [📥 MP4](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-install-pwa.mp4) |
+| ▶️ | **How to Recover / Import an Existing Wallet** | [📥 MP4](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-recover-import--existing-wallet.mp4) |
+| ▶️ | **How to Send DigiByte** | [📥 MP4](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-send-digibyte.mp4) |
 
 ---
 
