@@ -13,3 +13,4 @@
 docker/
 !docker/node-api/
 !docker/api/
+!docker/web/
