@@ -1,5 +1,7 @@
 @implements IAsyncDisposable
+@implements IDisposable
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 @if (showBanner)
 {
@@ -26,27 +28,55 @@
 
 @code {
     private bool showBanner;
+    private bool promptAvailable;
+    private bool isStandalone;
     private DotNetObjectReference<PwaInstallBanner>? selfRef;
+
+    // Pages where the banner always shows (ignore dismiss)
+    private static readonly string[] AlwaysShowPaths = ["/welcome", "/recover-wallet", "/import-xpub"];
+
+    private bool IsAlwaysShowPage()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLower();
+        return AlwaysShowPaths.Contains(path);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        // Don't show if already installed as standalone
-        var isStandalone = await JS.InvokeAsync<bool>("pwaInstall.isStandalone");
+        isStandalone = await JS.InvokeAsync<bool>("pwaInstall.isStandalone");
         if (isStandalone) return;
 
-        // Don't show if user dismissed this session
-        var dismissed = await JS.InvokeAsync<string?>("sessionStorage.getItem", "pwa-install-dismissed");
-        if (!string.IsNullOrEmpty(dismissed)) return;
+        Nav.LocationChanged += OnLocationChanged;
 
         selfRef = DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("pwaInstall.registerCallback", selfRef);
     }
 
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (isStandalone || !promptAvailable) return;
+
+        InvokeAsync(async () =>
+        {
+            if (IsAlwaysShowPage())
+            {
+                showBanner = true;
+            }
+            else
+            {
+                var dismissed = await JS.InvokeAsync<string?>("sessionStorage.getItem", "pwa-install-dismissed");
+                showBanner = string.IsNullOrEmpty(dismissed);
+            }
+            StateHasChanged();
+        });
+    }
+
     [JSInvokable]
     public void OnInstallAvailable()
     {
+        promptAvailable = true;
         showBanner = true;
         InvokeAsync(StateHasChanged);
     }
@@ -54,6 +84,7 @@
     [JSInvokable]
     public void OnAppInstalled()
     {
+        promptAvailable = false;
         showBanner = false;
         InvokeAsync(StateHasChanged);
     }
@@ -67,11 +98,22 @@
     private async Task Dismiss()
     {
         showBanner = false;
-        await JS.InvokeVoidAsync("sessionStorage.setItem", "pwa-install-dismissed", "1");
+        // Only persist dismiss on non-priority pages
+        if (!IsAlwaysShowPage())
+        {
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "pwa-install-dismissed", "1");
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
+        Nav.LocationChanged -= OnLocationChanged;
+        selfRef?.Dispose();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
         selfRef?.Dispose();
     }
 }
