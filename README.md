@@ -55,7 +55,8 @@ digibyte-wallet/
 ├── docs/
 │   ├── ARCHITECTURE.md           # Detailed architecture & design decisions
 │   ├── PROCESS_FLOWS.md          # Per-page technical flows
-│   └── ROADMAP.md                # Development roadmap & status
+│   ├── ROADMAP.md                # Development roadmap & status
+│   └── media/                    # Video tutorials (install, recover, send)
 ├── docker-compose.yml            # Regtest (instant mining, local dev)
 ├── docker-compose.testnet.yml    # Testnet (real network)
 └── docker-compose.mainnet.yml    # Mainnet pruned (production)
@@ -336,6 +337,18 @@ Test projects use **xUnit** with **coverlet** for code coverage.
    ```
 6. Send a transaction from the Send page
 7. Check the Node API docs at http://localhost:5260/scalar/v1
+
+---
+
+## Video Tutorials
+
+Recorded walkthroughs are available in [`docs/media/`](docs/media/):
+
+| Tutorial | File |
+|----------|------|
+| How to Install the PWA | [`how-to-install-pwa.mp4`](docs/media/how-to-install-pwa.mp4) |
+| How to Recover / Import an Existing Wallet | [`how-to-recover-import--existing-wallet.mp4`](docs/media/how-to-recover-import--existing-wallet.mp4) |
+| How to Send DigiByte | [`how-to-send-digibyte.mp4`](docs/media/how-to-send-digibyte.mp4) |
 
 ---
 

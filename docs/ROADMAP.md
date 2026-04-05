@@ -76,6 +76,7 @@
 - [x] Architecture documentation
 - [x] Process flow documentation (per-page technical flows)
 - [x] Comprehensive README with configs, run/test instructions
+- [x] Video tutorials — Install PWA, Recover/Import Wallet, Send DigiByte (`docs/media/`)
 
 ## In Progress
 
