@@ -5,7 +5,12 @@ All notable changes to the DigiByte Wallet project.
 ## [Unreleased]
 
 ### Added
-- **Configurable fee rates** — Send page fee selection (Low 1/Normal 5/Fast 20 sat/vB) now controls actual transaction fees
+- **CoinGecko price proxy** \u2014 Server-side proxy endpoints (`/api/price/simple`, `/api/price/coin`) with 60s IMemoryCache TTL; avoids browser CORS and 429 rate limits
+- **Railway deployment** \u2014 Dockerfiles for API (multi-stage .NET 10) and Web (Blazor WASM + Nginx), ForwardedHeaders, config-driven CORS
+- **PWA install banner** \u2014 Native `beforeinstallprompt` capture with styled top banner (session-scoped dismiss)
+- **Donation balance** \u2014 Live DGB balance shown on Deployment & Support page
+- **Config-driven network defaults** \u2014 `DefaultNetwork` in appsettings (mainnet prod, testnet dev); localStorage overrides
+- **Configurable fee rates** \u2014 Send page fee selection (Low 100/Normal 200/Fast 400 sat/vB) now controls actual transaction fees
 - **Global error boundary** — Styled crash recovery screen with "Go Home" button; auto-recovers on navigation
 - **PIN lockout protection** — Exponential backoff after 3 failed attempts (15s → 30s → 60s → 120s)
 - **Multi-currency fiat** — USD ($), EUR (€), GBP (£), PHP (₱), JPY (¥) with proper currency symbols
@@ -40,8 +45,8 @@ All notable changes to the DigiByte Wallet project.
 - Backup seed phrase (PIN-protected viewing)
 - Real transaction signing and broadcasting via NBitcoin
 
-### Fixed
-- **MemoryCacheService TryGet** — Value types (decimal 0) no longer treated as cache hits
+### Fixed- **bad-witness-nonstandard on send** \u2014 HD wallet UTXO path now queries each address individually; correct scriptPubKey (legacy vs segwit) per UTXO
+- **Send page spinners** \u2014 Review Transaction and Send Now buttons show loader immediately (`Task.Yield` forces render before async work)- **MemoryCacheService TryGet** — Value types (decimal 0) no longer treated as cache hits
 - **CoinGecko $0.00 price** — Services throw instead of returning 0, enabling fallback chain
 - **IndexedDB price cache** — No longer loads/saves 0 values
 - **Home page empty data** — Distinguishes network error from empty wallet

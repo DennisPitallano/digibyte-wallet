@@ -30,7 +30,11 @@
 - [x] Polly resilience — per-client retry, circuit breaker, timeout
 - [x] Two-tier caching — MemoryCacheService (TTL + dedup) + IndexedDB persistent
 - [x] Production log suppression (HTTP/Polly → Warning; Dev → Information)
-- [x] Railway deployment config (`railway.toml` with 3 services)
+- [x] Railway deployment config (`railway.toml` with 4 services)
+- [x] Dockerfiles for API (multi-stage .NET 10) and Web (Blazor WASM + Nginx)
+- [x] CoinGecko price proxy (server-side, IMemoryCache 60s TTL)
+- [x] ForwardedHeaders for Railway reverse proxy
+- [x] Config-driven CORS (comma-separated origins)
 - [x] Toast notifications
 
 ### Security & Stability
@@ -52,6 +56,7 @@
 - [x] Loading skeletons (balance, price, transactions)
 - [x] Send page form disabled during loading
 - [x] Real-time amount warnings (exceeds balance, below minimum)
+- [x] Send page immediate loader on Review/Send buttons
 - [x] Send success animation
 - [x] Transaction detail modal with explorer link
 - [x] Address format labels (Legacy/SegWit/P2SH)
@@ -59,8 +64,11 @@
 - [x] Pull-to-refresh on Home dashboard
 - [x] Onboarding walkthrough (5-step carousel)
 - [x] Offline banner
+- [x] PWA install banner (native beforeinstallprompt, session-scoped)
+- [x] Donation balance display on Deployment page
 - [x] Version and tagline on Unlock/CreateWallet pages
 - [x] Developer tools guard (Development only)
+- [x] Config-driven network defaults (mainnet prod, testnet dev)
 
 ### Open Source & Documentation
 - [x] LICENSE, CONTRIBUTING, CODE_OF_CONDUCT
@@ -114,7 +122,7 @@
 - [ ] Performance optimization (lazy loading)
 
 ### Deployment
-- [ ] Railway production deployment (PWA + Node API + pruned node)
+- [x] Railway production deployment (API + Web + Nginx)
+- [x] Docker production images (multi-stage builds)
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Automated testing on PR
-- [ ] Docker production images (multi-stage builds)

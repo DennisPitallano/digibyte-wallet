@@ -145,6 +145,14 @@
             "Watch-only wallets (xpub import, address derivation, balance viewing)",
             "Unit test suite (xUnit — HdKeyDerivation + WalletService, 37 tests)",
         ]),
+        new("Apr 2026", "Deployment & Fixes", Status.Done, [
+            "Railway deployment (API + Blazor WASM + Nginx)",
+            "CoinGecko price proxy (server-side, avoids CORS/429)",
+            "Fix bad-witness-nonstandard (correct scriptPubKey per UTXO)",
+            "Send page immediate spinners (Review + Send buttons)",
+            "PWA install banner (native beforeinstallprompt)",
+            "Config-driven network defaults (mainnet prod, testnet dev)",
+        ]),
         new("Apr 2026", "Open Source & Analytics", Status.InProgress, [
             "Real-time DigiByte analytics page",
             "Multi-language support (10 locales)",
@@ -165,10 +173,9 @@
             "Transaction search/filter",
             "Hardware wallet support (Ledger/Trezor)",
         ]),
-        new("Q3 2026", "Production Deployment", Status.Planned, [
-            "Railway deployment + CI/CD",
+        new("Q3 2026", "CI/CD & Testing", Status.Planned, [
+            "CI/CD pipeline (GitHub Actions)",
             "E2E test suite (Playwright)",
-            "Docker production images (multi-stage)",
         ]),
     ];
 }

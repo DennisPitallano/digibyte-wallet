@@ -20,6 +20,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **PIN lockout** — Brute-force protection with exponential backoff after 3 failed attempts
 - **Global error boundary** — Crash recovery with user-friendly error screen
 - **Multi-explorer fallback** — Esplora → Own node → Error/Mock with Polly resilience (retry, circuit breaker, timeout)
+- **Server-side price proxy** — CoinGecko API proxied through DigiByte.Api (avoids CORS/rate-limit), cached 60s
 - **Two-tier caching** — In-memory (MemoryCacheService with TTL + dedup) + IndexedDB persistent cache
 - **CSP compliant** — All assets self-hosted (Tailwind CSS, Inter font, jsQR), strict Content Security Policy
 - **Node API** — 87 RPC methods wrapped as REST endpoints with Scalar docs
@@ -27,7 +28,8 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **NFC tap-to-pay** — Web NFC API (experimental)
 - **Remittance** — Fee comparison with traditional services
 - **Analytics** — Market data, network stats, 7-day price chart from CoinGecko
-- **PWA** — Installable, offline-capable with service worker (network-first API, cache-first assets)
+- **PWA** — Installable with native install banner, offline-capable with service worker (network-first API, cache-first assets)
+- **Railway deployment** — Dockerized API + Blazor WASM with Nginx, ForwardedHeaders, config-driven CORS
 
 ## Architecture
 
@@ -37,7 +39,7 @@ digibyte-wallet/
 │   ├── DigiByte.Crypto/          # BIP39, BIP44, HD keys, tx building, Digi-ID
 │   ├── DigiByte.Wallet/          # Wallet service, encryption, contacts, storage
 │   ├── DigiByte.Web/             # Blazor WASM PWA (the wallet UI)
-│   ├── DigiByte.Api/             # P2P marketplace backend API
+│   ├── DigiByte.Api/             # Backend API: CoinGecko price proxy, P2P marketplace, SignalR
 │   ├── DigiByte.NodeApi/         # Node RPC wrapper (87 methods + Scalar)
 │   └── DigiByte.P2P.Shared/      # Shared models for P2P exchange
 ├── tests/
@@ -46,6 +48,8 @@ digibyte-wallet/
 │   ├── DigiByte.Api.Tests/       # xUnit — API endpoints
 │   └── DigiByte.NodeApi.Tests/   # xUnit — Node API endpoints
 ├── docker/
+│   ├── api/                  # DigiByte.Api Docker image (multi-stage .NET 10)
+│   ├── web/                  # Blazor WASM + Nginx Docker image
 │   ├── digibyted/                # DigiByte Core Docker image (multi-network)
 │   └── node-api/                 # Node API Docker image
 ├── docs/
@@ -209,10 +213,19 @@ Failed explorers enter a 2-minute cooldown before retrying.
 
 ### Railway Deployment (`railway.toml`)
 
-Three services for production:
-1. `digibyted` — Pruned mainnet node
-2. `digibyte-node-api` — REST wrapper for RPC
-3. `digibyte-api` — P2P marketplace backend
+Four services for production:
+1. `digibyte-api` — Backend API (CoinGecko price proxy, P2P, SignalR) — `docker/api/Dockerfile`
+2. `digibyte-web` — Blazor WASM served by Nginx — `docker/web/Dockerfile`
+3. `digibyte-node-api` — REST wrapper for RPC — `docker/node-api/Dockerfile`
+4. `digibyted` — Pruned mainnet node — `docker/digibyted/Dockerfile`
+
+#### Railway Environment Variables
+
+| Service | Variable | Example |
+|---------|----------|---------|
+| `digibyte-api` | `ClientOrigin` | `https://digibyte-web-production.up.railway.app` |
+| `digibyte-api` | `PORT` | Auto-set by Railway |
+| `digibyte-web` | (none) | Config baked into `wwwroot/appsettings.json` |
 
 ---
 
