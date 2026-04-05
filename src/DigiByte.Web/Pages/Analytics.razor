@@ -1,6 +1,8 @@
 @page "/analytics"
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject MemoryCacheService Cache
+@inject AppState AppState
 
 <PageTitle>DigiByte Analytics</PageTitle>
 
@@ -13,10 +15,10 @@
 
     @* Price Card *@
     <div class="slide-up-delay-1 bg-gradient-to-br from-dgb-900 to-dgb-700 rounded-2xl p-5 text-white">
-        <p class="text-xs text-dgb-200 font-medium">DGB / USD</p>
+        <p class="text-xs text-dgb-200 font-medium">DGB / @AppState.FiatCurrency</p>
         @if (price > 0)
         {
-            <h2 class="text-3xl font-extrabold mt-1">$@price.ToString("N6")</h2>
+            <h2 class="text-3xl font-extrabold mt-1">@AppState.FiatSymbol@price.ToString("N6")</h2>
             <p class="text-sm mt-1 @(priceChange >= 0 ? "text-green-400" : "text-red-400")">
                 @(priceChange >= 0 ? "+" : "")@priceChange.ToString("N2")% (24h)
             </p>
@@ -92,6 +94,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Load from cache instantly, then refresh in background
+        if (Cache.TryGet<decimal>("analytics:price", out var cp)) price = cp;
+        if (Cache.TryGet<int>("analytics:blockHeight", out var ch)) blockHeight = ch;
+        if (price > 0 || blockHeight > 0) StateHasChanged();
+
         _ = LoadPrice();
         _ = LoadBlockHeight();
     }
@@ -116,6 +123,7 @@
                 if (md.TryGetProperty("circulating_supply", out var cs))
                     circulatingSupply = cs.GetDecimal();
             }
+            Cache.Set("analytics:price", price, TimeSpan.FromSeconds(60));
             StateHasChanged();
         }
         catch { }
@@ -126,7 +134,11 @@
         try
         {
             var heightStr = await Http.GetStringAsync("https://digiexplorer.info/api/blocks/tip/height");
-            if (int.TryParse(heightStr, out var h)) blockHeight = h;
+            if (int.TryParse(heightStr, out var h))
+            {
+                blockHeight = h;
+                Cache.Set("analytics:blockHeight", blockHeight, TimeSpan.FromSeconds(60));
+            }
             StateHasChanged();
         }
         catch { }

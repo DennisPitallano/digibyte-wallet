@@ -1,6 +1,7 @@
 @page "/payments"
 @inject PaymentRequestService PaymentService
 @inject WalletService WalletService
+@inject AppState AppState
 @inject IJSRuntime JS
 
 <PageTitle>Payments</PageTitle>
@@ -133,8 +134,11 @@
     private string? activeQrUrl;
     private bool copied;
 
-    protected override async Task OnInitializedAsync() =>
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.ResetLockTimer();
         requests = await PaymentService.GetAllAsync();
+    }
 
     private void ShowCreateForm()
     {

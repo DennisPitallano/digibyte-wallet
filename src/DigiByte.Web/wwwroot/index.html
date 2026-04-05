@@ -9,40 +9,32 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DGB Wallet" />
     <meta name="description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
+
+    <!-- Security headers -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline';
+                   style-src 'self' 'unsafe-inline';
+                   img-src 'self' data: blob:;
+                   font-src 'self';
+                   connect-src 'self' https://digiexplorer.info https://api.coingecko.com https://api.github.com ws: wss:;
+                   frame-src 'none';
+                   object-src 'none';
+                   base-uri 'self';" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Referrer-Policy" content="no-referrer" />
+
     <title>DigiByte Wallet</title>
     <base href="/" />
     <link rel="preload" id="webassembly" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-                    },
-                    colors: {
-                        dgb: {
-                            50: '#e6f0ff',
-                            100: '#b3d1ff',
-                            200: '#80b3ff',
-                            300: '#4d94ff',
-                            400: '#1a75ff',
-                            500: '#0066CC',
-                            600: '#0052a3',
-                            700: '#003d7a',
-                            800: '#002952',
-                            900: '#002352',
-                            950: '#001529',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Self-hosted Tailwind (purged & minified) -->
+    <link rel="stylesheet" href="css/tailwind.css" />
+
     <script src="js/theme.js"></script>
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="DigiByte.Web.styles.css" rel="stylesheet" />
     <link href="manifest.webmanifest" rel="manifest" />
@@ -77,12 +69,13 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">&#x1F5D9;</span>
     </div>
-    <script src="js/crypto.js"></script>
-    <script src="js/storage.js"></script>
-    <script src="js/network.js"></script>
-    <script src="js/nfc.js"></script>
-    <script src="js/qrscanner.js"></script>
-    <script src="js/download.js"></script>
+    <script src="js/dom-helpers.js" defer></script>
+    <script src="js/crypto.js" defer></script>
+    <script src="js/storage.js" defer></script>
+    <script src="js/network.js" defer></script>
+    <script src="js/nfc.js" defer></script>
+    <script src="js/qrscanner.js" defer></script>
+    <script src="js/download.js" defer></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
     <script>navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });</script>
 </body>

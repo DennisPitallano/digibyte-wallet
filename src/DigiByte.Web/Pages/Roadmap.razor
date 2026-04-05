@@ -100,7 +100,7 @@
     private Milestone[] milestones = [
         new("Jan 2026", "Core Wallet Foundation", Status.Done, [
             "HD Wallet (BIP39/BIP44) + WIF Private Key Import",
-            "AES-256-GCM encryption with PIN",
+            "AES-256-GCM encryption with PIN (PBKDF2 key derivation)",
             "IndexedDB secure storage (browser)",
         ]),
         new("Feb 2026", "Send & Receive", Status.Done, [
@@ -116,18 +116,34 @@
         ]),
         new("Mar 2026", "Node API & DevOps", Status.Done, [
             "Node API (87 RPC methods + Scalar docs)",
-            "Docker (regtest + testnet)",
+            "Docker (regtest + testnet + mainnet pruned)",
             "Transaction detail modal + explorer link",
         ]),
         new("Mar 2026", "UI Polish", Status.Done, [
-            "Light/Dark theme",
-            "10 languages",
+            "Light/Dark theme with DigiByte branding",
             "Loading skeletons + send success animation",
+            "Pull-to-refresh + onboarding walkthrough",
+        ]),
+        new("Apr 2026", "Performance & Security", Status.Done, [
+            "Self-hosted Tailwind CSS (purged ~37KB), Inter font, jsQR",
+            "Polly resilience (retry, circuit breaker, timeout)",
+            "Two-tier caching (memory + IndexedDB)",
+            "PIN lockout (exponential backoff after 3 attempts)",
+            "Global error boundary with crash recovery",
+            "Content Security Policy compliance",
+        ]),
+        new("Apr 2026", "Alpha Release Prep", Status.Done, [
+            "Configurable fee rates (Low/Normal/Fast sat/vB)",
+            "Multi-currency fiat (USD, EUR, GBP, PHP, JPY)",
+            "Currency change cache invalidation + re-fetch",
+            "CoinGecko price fix (proper fallback chain)",
+            "Send page loading states + amount warnings",
+            "DigiByte favicon/icons + version branding",
+            "Documentation + changelog update",
         ]),
         new("Apr 2026", "Open Source & Analytics", Status.InProgress, [
-            "Open source setup (docs, templates, roadmap)",
             "Real-time DigiByte analytics page",
-            "Deployment info + donation page",
+            "Multi-language support (10 locales)",
             "About page with auto-fetched contributors",
         ]),
         new("Q2 2026", "P2P Exchange", Status.Planned, [
@@ -144,12 +160,12 @@
             "DigiAssets (custom tokens)",
             "Watch-only wallets (xpub)",
             "Transaction search/filter",
-            "Address book import/export",
+            "Hardware wallet support (Ledger/Trezor)",
         ]),
         new("Q3 2026", "Production Deployment", Status.Planned, [
             "Railway deployment + CI/CD",
-            "Tailwind CLI build for production",
             "E2E test suite (Playwright)",
+            "Docker production images (multi-stage)",
         ]),
     ];
 }

@@ -2,6 +2,7 @@
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
+@inject MemoryCacheService Cache
 
 <PageTitle>Unlock Wallet</PageTitle>
 
@@ -49,7 +50,15 @@
     @if (showForgotPin)
     {
         <div class="w-full max-w-[340px] flex flex-col gap-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 scale-in">
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Recovery Options</h3>
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Recovery Options</h3>
+                <button class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                        @onclick="CancelForgot">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
 
             @if (!showSeedInput && !showDeleteConfirm)
             {
@@ -135,6 +144,11 @@
         <span>·</span>
         <a href="/deployment" class="hover:text-dgb-500 transition-colors">Deployment</a>
     </div>
+
+    <div class="flex flex-col items-center gap-1 slide-up-delay-3">
+        <p class="text-[10px] text-slate-400 dark:text-slate-500">Speed · Security · Scalability</p>
+        <p class="text-[10px] text-slate-400 dark:text-slate-500">DigiByte Wallet v@(AppVersion.Version)</p>
+    </div>
 </div>
 
 @code {
@@ -143,6 +157,12 @@
     private string? error;
     private bool isUnlocking;
     private string? walletId;
+
+    // Brute-force protection
+    private int failedAttempts;
+    private DateTime? lockedUntil;
+    private bool isLockedOut => lockedUntil.HasValue && DateTime.UtcNow < lockedUntil.Value;
+    private string? lockoutMessage;
 
     // Forgot PIN state
     private bool showForgotPin;
@@ -166,7 +186,19 @@
     private async Task UnlockAsync()
     {
         if (walletId == null || pin.Length < 6 || isUnlocking) return;
-        error = null; isUnlocking = true;
+
+        // Check lockout
+        if (isLockedOut)
+        {
+            var remaining = lockedUntil!.Value - DateTime.UtcNow;
+            lockoutMessage = $"Too many attempts. Try again in {(int)Math.Ceiling(remaining.TotalSeconds)}s.";
+            error = lockoutMessage;
+            pin = "";
+            pinInput?.Clear();
+            return;
+        }
+
+        error = null; lockoutMessage = null; isUnlocking = true;
         StateHasChanged();
         try
         {
@@ -174,6 +206,8 @@
             var success = await WalletService.UnlockWalletAsync(walletId, pin);
             if (success)
             {
+                failedAttempts = 0;
+                lockedUntil = null;
                 AppState.IsWalletCreated = true;
                 AppState.IsWalletUnlocked = true;
                 AppState.NotifyStateChanged();
@@ -181,7 +215,18 @@
             }
             else
             {
-                error = "Incorrect PIN. Please try again.";
+                failedAttempts++;
+                if (failedAttempts >= 3)
+                {
+                    // Exponential backoff: 15s, 30s, 60s, 120s, ...
+                    var delaySec = 15 * (int)Math.Pow(2, Math.Min(failedAttempts - 3, 5));
+                    lockedUntil = DateTime.UtcNow.AddSeconds(delaySec);
+                    error = $"Incorrect PIN. Locked for {delaySec}s after {failedAttempts} failed attempts.";
+                }
+                else
+                {
+                    error = $"Incorrect PIN. {3 - failedAttempts} attempts remaining before lockout.";
+                }
                 pin = "";
                 pinInput?.Clear();
             }
@@ -249,6 +294,7 @@
     private async Task DeleteWallet()
     {
         if (deleteConfirmText?.ToUpper() != "DELETE") return;
+        Cache.Clear();
         await WalletService.WipeAllDataAsync();
         AppState.IsWalletCreated = false;
         AppState.IsWalletUnlocked = false;

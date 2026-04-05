@@ -4,6 +4,9 @@
 @inject ContactService ContactService
 @inject WalletService WalletService
 @inject NetworkStatusService Network
+@inject MemoryCacheService Cache
+@inject IBlockchainService Blockchain
+@inject ISecureStorage Storage
 
 <PageTitle>DigiByte Wallet</PageTitle>
 
@@ -54,13 +57,27 @@
                     }
                     else if (AppState.IsSimpleMode)
                     {
-                        <h1 class="text-3xl font-extrabold mt-0.5 tracking-tight">$@balance.FiatValue.ToString("N2")</h1>
-                        <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">@balance.TotalDgb.ToString("N8") DGB</p>
+                        <h1 class="text-3xl font-extrabold mt-0.5 tracking-tight">@AppState.FiatSymbol@FormatFiat(fiatValue)</h1>
+                        @if (isLoadingPrice)
+                        {
+                            <div class="h-4 w-28 skeleton mt-1 rounded" style="background:rgba(0,102,204,0.08)"></div>
+                        }
+                        else
+                        {
+                            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">@balance.TotalDgb.ToString("N8") DGB</p>
+                        }
                     }
                     else
                     {
                         <h1 class="text-3xl font-extrabold mt-0.5 tracking-tight">@balance.TotalDgb.ToString("N8") DGB</h1>
-                        <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">$@balance.FiatValue.ToString("N2") @balance.FiatCurrency</p>
+                        @if (isLoadingPrice)
+                        {
+                            <div class="h-4 w-28 skeleton mt-1 rounded" style="background:rgba(0,102,204,0.08)"></div>
+                        }
+                        else
+                        {
+                            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">@AppState.FiatSymbol@FormatFiat(fiatValue) @AppState.FiatCurrency</p>
+                        }
                     }
 
                     @* Wallet address with copy & QR *@
@@ -183,13 +200,30 @@
             else if (transactions.Count == 0)
             {
                 <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
-                    <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
+                    <div class="w-10 h-10 mx-auto mb-2 rounded-full @(fetchFailed ? "bg-amber-100 dark:bg-amber-900/20" : "bg-slate-100 dark:bg-dgb-800") flex items-center justify-center">
+                        @if (fetchFailed)
+                        {
+                            <svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="w-5 h-5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        }
                     </div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">No transactions yet</p>
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Send or receive DGB to get started</p>
+                    @if (fetchFailed)
+                    {
+                        <p class="text-xs font-medium text-amber-600 dark:text-amber-400">Unable to load data</p>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Pull down to refresh or check your connection</p>
+                    }
+                    else
+                    {
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">No transactions yet</p>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Send or receive DGB to get started</p>
+                    }
                 </div>
             }
             else
@@ -323,9 +357,14 @@
     [Inject] private IJSRuntime JS { get; set; } = default!;
     private List<Contact> quickContacts = [];
     private WalletBalance balance = new();
+    private decimal dgbPrice;
+    private decimal fiatValue => balance.TotalDgb * dgbPrice;
     private List<TransactionRecord> transactions = [];
     private bool isLoadingBalance;
     private bool isLoadingTx;
+    private bool isLoadingPrice;
+    private bool hasCachedData; // true = loaded real data from IndexedDB
+    private bool fetchFailed; // true = network fetch returned nothing or errored
     private string receivingAddress = "";
     private bool showAddressQr;
     private string? addressQrDataUri;
@@ -337,42 +376,136 @@
     private bool isRefreshing;
     private const double RefreshThreshold = 80;
 
+    // IndexedDB cache keys
+    private const string CacheKeyBalance = "cache:balance";
+    private const string CacheKeyTx = "cache:transactions";
+    private const string CacheKeyPrice = "cache:dgbPrice";
+    private const string CacheKeyTimestamp = "cache:lastFetch";
+
     protected override async Task OnInitializedAsync()
     {
-        quickContacts = (await ContactService.GetAllAsync()).Take(6).ToList();
+        // Reset auto-lock timer on page load
+        AppState.ResetLockTimer();
+
         WalletService.SetNetworkMode(AppState.NetworkMode);
-        if (WalletService.IsUnlocked)
+
+        // Fire all I/O in parallel — UI renders immediately with skeleton states
+        var contactsTask = ContactService.GetAllAsync();
+        var addressTask = WalletService.IsUnlocked
+            ? WalletService.GetReceivingAddressAsync()
+            : Task.FromResult("");
+
+        // Try IndexedDB cache first — instant display
+        await LoadFromCacheAsync();
+
+        if (hasCachedData && !IsCacheStale())
         {
-            try { receivingAddress = await WalletService.GetReceivingAddressAsync(); }
-            catch { }
+            // Cache is fresh — no network needed, render cached data
         }
-        _ = LoadBalanceAsync();
-        _ = LoadTransactionsAsync();
+        else if (hasCachedData)
+        {
+            // Cache exists but stale — show cached data now, refresh in background
+            _ = FetchAndCacheAsync();
+        }
+        else
+        {
+            // No cache at all (first load) — must await network so UI gets data
+            await FetchAndCacheAsync();
+        }
+
+        // Contacts & address are fast (IndexedDB) — await them
+        try { quickContacts = (await contactsTask).Take(6).ToList(); } catch { }
+        try { receivingAddress = await addressTask; } catch { }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // Auto-size tx list + disable page scroll (this page handles its own)
-        await JS.InvokeVoidAsync("eval", @"
-            (function() {
-                var main = document.querySelector('main');
-                if (main) main.style.overflow = 'hidden';
-
-                var el = document.getElementById('tx-list');
-                if (!el) return;
-                var rect = el.getBoundingClientRect();
-                var navHeight = 64;
-                var padding = 16;
-                var available = window.innerHeight - rect.top - navHeight - padding;
-                if (available > 100) el.style.maxHeight = available + 'px';
-            })();
-        ");
+        await JS.InvokeVoidAsync("domHelpers.autoSizeTxList");
     }
 
     public async ValueTask DisposeAsync()
     {
         // Restore page scroll when leaving this page
-        try { await JS.InvokeVoidAsync("eval", "var m=document.querySelector('main');if(m)m.style.overflow='';"); }
+        try { await JS.InvokeVoidAsync("domHelpers.restoreScroll"); }
+        catch { }
+    }
+
+    /// <summary>Load balance, txs, and price from IndexedDB cache for instant display.</summary>
+    private async Task LoadFromCacheAsync()
+    {
+        try
+        {
+            var balJson = await Storage.GetAsync(CacheKeyBalance);
+            if (balJson != null)
+            {
+                var cached = System.Text.Json.JsonSerializer.Deserialize<WalletBalance>(balJson);
+                if (cached != null && (cached.ConfirmedSatoshis > 0 || cached.UnconfirmedSatoshis > 0))
+                {
+                    balance = cached;
+                    hasCachedData = true;
+                }
+            }
+
+            var priceJson = await Storage.GetAsync(CacheKeyPrice);
+            if (priceJson != null && decimal.TryParse(priceJson, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var p) && p > 0)
+                dgbPrice = p;
+
+            var txJson = await Storage.GetAsync(CacheKeyTx);
+            if (txJson != null)
+            {
+                var cached = System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(txJson);
+                if (cached != null && cached.Count > 0)
+                    transactions = cached;
+            }
+
+            if (hasCachedData) StateHasChanged();
+
+            // Load timestamp so IsCacheStale() works on fresh app start
+            var tsJson = await Storage.GetAsync(CacheKeyTimestamp);
+            if (tsJson != null && long.TryParse(tsJson, out var ticks))
+                Cache.Set("lastFetchTime", new DateTime(ticks, DateTimeKind.Utc), TimeSpan.FromMinutes(5));
+        }
+        catch { }
+    }
+
+    private bool IsCacheStale()
+    {
+        // We don't await the timestamp here — check in-memory cache instead
+        if (Cache.TryGet<DateTime>("lastFetchTime", out var ts))
+            return (DateTime.UtcNow - ts).TotalMinutes > 2;
+        return true; // no timestamp = treat as stale
+    }
+
+    /// <summary>Fetch fresh data from network, then persist to IndexedDB.</summary>
+    private async Task FetchAndCacheAsync()
+    {
+        fetchFailed = false;
+        await Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync(), LoadPriceAsync());
+
+        // Only cache if we got real data from the network
+        if (balance.ConfirmedSatoshis > 0 || balance.UnconfirmedSatoshis > 0 || transactions.Count > 0)
+            await SaveToCacheAsync();
+        else
+            fetchFailed = true;
+
+        StateHasChanged();
+    }
+
+    /// <summary>Persist balance, txs, and price to IndexedDB + update timestamp.</summary>
+    private async Task SaveToCacheAsync()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            await Storage.SetAsync(CacheKeyBalance, System.Text.Json.JsonSerializer.Serialize(balance));
+            await Storage.SetAsync(CacheKeyTx, System.Text.Json.JsonSerializer.Serialize(transactions));
+            if (dgbPrice > 0)
+                await Storage.SetAsync(CacheKeyPrice, dgbPrice.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            await Storage.SetAsync(CacheKeyTimestamp, now.Ticks.ToString());
+            Cache.Set("lastFetchTime", now, TimeSpan.FromMinutes(5));
+        }
         catch { }
     }
 
@@ -382,20 +515,24 @@
         try
         {
             balance = await WalletService.GetBalanceAsync();
-            // Cache for offline use
-            await Network.CacheDataAsync("balance", System.Text.Json.JsonSerializer.Serialize(balance));
         }
-        catch
-        {
-            // Attempt to load cached balance when network fails
-            var cached = await Network.GetCachedDataAsync("balance");
-            if (cached != null)
-            {
-                try { balance = System.Text.Json.JsonSerializer.Deserialize<WalletBalance>(cached) ?? new(); }
-                catch { }
-            }
-        }
+        catch { }
         finally { isLoadingBalance = false; StateHasChanged(); }
+    }
+
+    private async Task LoadPriceAsync()
+    {
+        isLoadingPrice = true;
+        try
+        {
+            var p = await Cache.GetOrFetchAsync(
+                $"price:{AppState.FiatCurrency}",
+                () => Blockchain.GetDgbPriceAsync(AppState.FiatCurrency),
+                TimeSpan.FromSeconds(60));
+            if (p > 0) dgbPrice = p;
+        }
+        catch { }
+        finally { isLoadingPrice = false; StateHasChanged(); }
     }
 
     private async Task LoadTransactionsAsync()
@@ -404,19 +541,8 @@
         try
         {
             transactions = await WalletService.GetTransactionHistoryAsync();
-            // Cache for offline use
-            await Network.CacheDataAsync("transactions", System.Text.Json.JsonSerializer.Serialize(transactions));
         }
-        catch
-        {
-            // Attempt to load cached transactions when network fails
-            var cached = await Network.GetCachedDataAsync("transactions");
-            if (cached != null)
-            {
-                try { transactions = System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(cached) ?? []; }
-                catch { }
-            }
-        }
+        catch { }
         finally { isLoadingTx = false; StateHasChanged(); }
     }
 
@@ -458,6 +584,17 @@
 
     private static string TruncateAddress(string addr) =>
         addr.Length > 16 ? $"{addr[..10]}...{addr[^6..]}" : addr;
+
+    private static string FormatFiat(decimal value)
+    {
+        if (value == 0) return "0.00";
+        var abs = Math.Abs(value);
+        if (abs >= 1m) return value.ToString("N2");
+        if (abs >= 0.01m) return value.ToString("N4");
+        if (abs >= 0.001m) return value.ToString("N5");
+        if (abs >= 0.0001m) return value.ToString("N6");
+        return value.ToString("N8");
+    }
 
     private async Task CopyAddress()
     {
@@ -507,10 +644,11 @@
 
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                var refreshTask = Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync());
-                var completed = await Task.WhenAny(refreshTask, Task.Delay(Timeout.Infinite, cts.Token));
-                if (completed == refreshTask) await refreshTask; // observe exceptions
+                // Force fresh data from network (invalidate in-memory cache)
+                Cache.RemoveByPrefix("price");
+                await Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync(), LoadPriceAsync());
+                // Persist fresh data to IndexedDB
+                await SaveToCacheAsync();
                 quickContacts = (await ContactService.GetAllAsync()).Take(6).ToList();
             }
             catch { /* swallow — balance/tx methods handle their own errors */ }

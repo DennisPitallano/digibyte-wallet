@@ -145,16 +145,15 @@ public class NodeApiBlockchainService : IBlockchainService
     public async Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
     {
         // Node API doesn't provide price — use CoinGecko directly
-        try
+        var data = await _http.GetFromJsonAsync<JsonElement>(
+            $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={fiatCurrency.ToLower()}");
+        if (data.TryGetProperty("digibyte", out var dgb) &&
+            dgb.TryGetProperty(fiatCurrency.ToLower(), out var price))
         {
-            var data = await _http.GetFromJsonAsync<JsonElement>(
-                $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={fiatCurrency.ToLower()}");
-            if (data.TryGetProperty("digibyte", out var dgb) &&
-                dgb.TryGetProperty(fiatCurrency.ToLower(), out var price))
-                return price.GetDecimal();
+            var result = price.GetDecimal();
+            if (result > 0) return result;
         }
-        catch { }
-        return 0;
+        throw new InvalidOperationException("CoinGecko returned no price data");
     }
 
     public async Task<int> GetBlockHeightAsync()

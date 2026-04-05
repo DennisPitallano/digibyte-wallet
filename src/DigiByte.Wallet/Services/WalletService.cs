@@ -310,7 +310,7 @@ public class WalletService : IWalletService
         return Task.FromResult(addresses);
     }
 
-    public async Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null)
+    public async Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null, int feeRateSatPerByte = 5)
     {
         EnsureUnlocked();
 
@@ -429,7 +429,7 @@ public class WalletService : IWalletService
 
         // Build and sign the transaction
         var destination = BitcoinAddress.Create(destinationAddress, network);
-        var feeRate = new FeeRate(Money.Satoshis(150_000));
+        var feeRate = new FeeRate(Money.Satoshis(feeRateSatPerByte * 1000));
 
         var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
         var tx = txBuilder.BuildSendTransaction(availableUtxos, destination, amount, changeAddress, feeRate);

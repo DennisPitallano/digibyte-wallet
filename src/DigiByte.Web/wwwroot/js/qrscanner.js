@@ -24,11 +24,11 @@ window.qrScanner = {
             this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
             this.scanning = true;
 
-            // Load the jsQR library dynamically
+            // Load the jsQR library dynamically (self-hosted)
             if (!window.jsQR) {
                 await new Promise((resolve, reject) => {
                     const script = document.createElement('script');
-                    script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+                    script.src = 'js/jsqr.min.js';
                     script.onload = resolve;
                     script.onerror = reject;
                     document.head.appendChild(script);
@@ -83,11 +83,11 @@ window.qrScanner = {
     },
 
     async decodeImage(imageDataUrl) {
-        // Load jsQR if not loaded yet
+        // Load jsQR if not loaded yet (self-hosted)
         if (!window.jsQR) {
             await new Promise((resolve, reject) => {
                 const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+                script.src = 'js/jsqr.min.js';
                 script.onload = resolve;
                 script.onerror = reject;
                 document.head.appendChild(script);

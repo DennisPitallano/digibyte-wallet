@@ -1,5 +1,6 @@
 @page "/receive"
 @inject WalletService WalletService
+@inject AppState AppState
 @inject IJSRuntime JS
 
 <PageTitle>Receive DGB</PageTitle>
@@ -80,6 +81,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AppState.ResetLockTimer();
         isWifWallet = WalletService.ActiveWallet?.WalletType == "privatekey";
         // Default to segwit for HD wallets, legacy for WIF
         addressFormat = isWifWallet ? "legacy" : "segwit";

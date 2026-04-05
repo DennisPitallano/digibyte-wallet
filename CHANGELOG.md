@@ -5,44 +5,52 @@ All notable changes to the DigiByte Wallet project.
 ## [Unreleased]
 
 ### Added
+- **Configurable fee rates** — Send page fee selection (Low 1/Normal 5/Fast 20 sat/vB) now controls actual transaction fees
+- **Global error boundary** — Styled crash recovery screen with "Go Home" button; auto-recovers on navigation
+- **PIN lockout protection** — Exponential backoff after 3 failed attempts (15s → 30s → 60s → 120s)
+- **Multi-currency fiat** — USD ($), EUR (€), GBP (£), PHP (₱), JPY (¥) with proper currency symbols
+- **Currency change cache invalidation** — Changing currency clears price caches and forces re-fetch
+- **Self-hosted assets** — Tailwind CSS (purged ~37KB), Inter font (woff2), jsQR — all CSP compliant
+- **DigiByte favicon/icons** — SVG favicon, 192px/512px PNG icons using official DGB logo
+- **Version and tagline** — "Speed · Security · Scalability" footer on Unlock and CreateWallet pages
+- **Polly resilience** — Per-client retry, circuit breaker, timeout (Blockchain 15s/45s, NodeApi 8s/20s)
+- **Two-tier caching** — MemoryCacheService (TTL + dedup) + IndexedDB persistent cache
+- **Production log levels** — HTTP/Polly at Warning; Development overrides to Information
+- **Send page loading states** — Skeleton loaders for balance/price, form disabled during fetch
+- **Amount warnings** — Real-time inline warnings for exceeding balance and below minimum
+- **Developer tools guard** — Cache clear button only in Development environment
+- **Recovery Options close button** — X button to dismiss Forgot PIN panel
+- **Language coming soon modal** — Placeholder until multi-language is complete
 - Address format labels (Legacy/SegWit/P2SH) on contacts and transaction details
 - Address format selector on Receive page (Legacy/SegWit toggle)
 - Transaction detail modal with explorer link, copy txid, add to contacts
-- Scan both Legacy and SegWit addresses for WIF imports
 - Forgot PIN recovery (verify seed phrase to reset PIN, or delete wallet)
-- Delete Wallet option in Settings (PIN-protected)
-- Enhanced PIN input with auto-focus, shake animation on error, unique instance IDs
-- WIF private key import (auto-detect network from key prefix)
+- Delete Wallet option in Settings (PIN-protected, clears all caches)
 - QR code scanner (Send, Contacts, Home scan button)
-- Loading skeletons for balance and transaction list
-- Send success animation (green checkmark overlay)
-- Nav hidden on pre-auth pages (Welcome, Unlock, Create, Recover)
-- Nav hidden behind modals (CSS :has selector)
-- Full-viewport modal backdrop
-- Fiat/DGB amount toggle on Send page
 - OTP-style 6-digit PIN input on all PIN pages
 - Contact book with CRUD, QR scan, search
 - Payment requests with BIP21 URI generation
 - Digi-ID passwordless authentication
-- Remittances with fee comparison widget
-- NFC tap-to-pay support (Web NFC API)
 - Toast notification system
-- Localization (10 languages)
 - Transaction tracking (local IndexedDB + explorer fallback)
 - Node API (87 RPC methods + Scalar docs)
-- Docker setup (regtest with instant mining + testnet)
+- Docker setup (regtest, testnet, mainnet pruned)
 - Light/dark theme with official DigiByte branding
 - Settings persistence to localStorage
 - Backup seed phrase (PIN-protected viewing)
 - Real transaction signing and broadcasting via NBitcoin
-- Mainnet tested with real Guardia wallet import
 
 ### Fixed
+- **MemoryCacheService TryGet** — Value types (decimal 0) no longer treated as cache hits
+- **CoinGecko $0.00 price** — Services throw instead of returning 0, enabling fallback chain
+- **IndexedDB price cache** — No longer loads/saves 0 values
+- **Home page empty data** — Distinguishes network error from empty wallet
+- **Currency not persisted** — Now saved to localStorage on change
+- **Stale cache after currency change** — Clears fetch timestamp so Home re-fetches
+- **Blazor input re-render** — `@bind:after` prevents cursor jumps on Send amount warnings
 - Auto-detect network from WIF key prefix on import
-- Use detected network for WIF wallet address generation
-- Load persisted preferences (network, display mode) at app startup
-- Confirmations calculated from currentHeight - blockHeight + 1
-- Full-viewport modal backdrop (removed transform from page-enter animation)
+- Load persisted preferences at app startup
+- Confirmations calculated correctly (currentHeight - blockHeight + 1)
 
 ## [0.1.0] - 2026-04-03
 

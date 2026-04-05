@@ -31,3 +31,7 @@ _ReSharper*/
 .idea/
 #Nuget packages folder
 packages/
+
+# Node.js (Tailwind CSS build)
+node_modules/
+package-lock.json

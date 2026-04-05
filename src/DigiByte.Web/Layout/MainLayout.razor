@@ -2,11 +2,13 @@
 @implements IDisposable
 @inject ThemeService Theme
 @inject NavigationManager Nav
+@inject AppState AppState
 
 <ToastContainer />
 
 <div class="flex flex-col h-dvh max-w-[480px] mx-auto relative bg-slate-50 dark:bg-dgb-950">
-    <main class="flex-1 overflow-y-auto px-4 pt-4 @(ShowNav ? "pb-24" : "pb-4") scroll-smooth thin-scrollbar">
+    <main class="flex-1 overflow-y-auto px-4 pt-4 @(ShowNav ? "pb-24" : "pb-4") scroll-smooth thin-scrollbar"
+          @onclick="AppState.ResetLockTimer" @ontouchstart="AppState.ResetLockTimer">
         <OfflineBanner />
         <div class="page-enter">
             @Body
@@ -36,6 +38,16 @@
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
+        AppState.OnAutoLocked += OnAutoLocked;
+    }
+
+    private void OnAutoLocked()
+    {
+        InvokeAsync(() =>
+        {
+            Nav.NavigateTo("/unlock", forceLoad: false);
+            StateHasChanged();
+        });
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
@@ -46,5 +58,6 @@
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
+        AppState.OnAutoLocked -= OnAutoLocked;
     }
 }

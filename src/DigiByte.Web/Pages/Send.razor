@@ -4,6 +4,8 @@
 @inject IBlockchainService Blockchain
 @inject AppState AppState
 @inject NavigationManager Nav
+@inject MemoryCacheService Cache
+@inject ISecureStorage Storage
 
 <PageTitle>Send DGB</PageTitle>
 
@@ -80,16 +82,27 @@
     <div class="flex flex-col gap-1.5 slide-up-delay-2">
         <div class="flex items-center justify-between">
             <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</label>
-            <button type="button" @onclick="SetMaxAmount"
-                    class="text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors">
-                Available: @availableBalance.ToString("N4") DGB
-            </button>
+            @if (isLoadingBalance)
+            {
+                <span class="flex items-center gap-1.5 text-xs text-dgb-500">
+                    <span>Available:</span>
+                    <span class="inline-block w-16 h-3.5 skeleton rounded"></span>
+                </span>
+            }
+            else
+            {
+                <button type="button" @onclick="SetMaxAmount"
+                        class="text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors">
+                    Available: @availableBalance.ToString("N4") DGB
+                </button>
+            }
         </div>
-        <div class="flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all">
-            <input type="number" @bind="amount" step="0.00000001" min="0" placeholder="0.00" inputmode="decimal"
-                   class="flex-1 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
-            <button type="button" @onclick="ToggleAmountMode"
-                    class="flex items-center gap-1 mr-2 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-dgb-800 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect">
+        <div class="flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all @(isFormDisabled ? "opacity-50" : "")">
+            <input type="number" @bind="amount" @bind:after="UpdateAmountWarning" step="0.00000001" min="0" placeholder="0.00" inputmode="decimal"
+                   disabled="@isFormDisabled"
+                   class="flex-1 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none disabled:cursor-not-allowed" />
+            <button type="button" @onclick="ToggleAmountMode" disabled="@isFormDisabled"
+                    class="flex items-center gap-1 mr-2 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-dgb-800 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect disabled:cursor-not-allowed">
                 <span class="text-sm font-bold text-dgb-500">@(isAmountInFiat ? AppState.FiatCurrency : "DGB")</span>
                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
@@ -97,21 +110,26 @@
             </button>
         </div>
         <p class="text-xs text-slate-400 dark:text-slate-500">
-            @if (isAmountInFiat)
+            @if (isLoadingPrice)
+            {
+                <span class="inline-block w-24 h-3.5 skeleton rounded align-middle"></span>
+            }
+            else if (isAmountInFiat)
             {
                 <span>~ @amountDgb.ToString("N8") DGB</span>
             }
             else
             {
-                <span>~ $@FormatFiat(amountFiat) @AppState.FiatCurrency</span>
+                <span>~ @AppState.FiatSymbol@FormatFiat(amountFiat) @AppState.FiatCurrency</span>
             }
-            @if (amount > 0)
+            @if (amount > 0 && !isLoadingPrice)
             {
                 <span class="italic ml-1">(estimate — actual rate may vary)</span>
             }
         </p>
         <p class="text-xs text-slate-400 dark:text-slate-500">Minimum send: 0.0001 DGB</p>
         @if (amountError != null) { <p class="text-xs text-red-500 font-medium">@amountError</p> }
+        @if (amountWarning != null) { <p class="text-xs text-amber-500 font-medium">@amountWarning</p> }
     </div>
 
     @* Advanced Mode: Fee Control *@
@@ -128,22 +146,22 @@
             </div>
             <div class="flex gap-2">
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "low" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeLow">Slow (1)</button>
+                        @onclick="SetFeeLow" disabled="@isFormDisabled">Slow (1)</button>
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "med" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeMed">Normal (5)</button>
+                        @onclick="SetFeeMed" disabled="@isFormDisabled">Normal (5)</button>
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "high" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeHigh">Fast (20)</button>
+                        @onclick="SetFeeHigh" disabled="@isFormDisabled">Fast (20)</button>
             </div>
-            <input type="number" @bind="customFeeRate" min="1" placeholder="Custom sat/vB"
-                   class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+            <input type="number" @bind="customFeeRate" min="1" placeholder="Custom sat/vB" disabled="@isFormDisabled"
+                   class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed" />
         </div>
     }
 
     @* Memo *@
     <div class="flex flex-col gap-1.5 slide-up-delay-3">
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Memo (optional)</label>
-        <input type="text" @bind="memo" placeholder="What's this for?"
-               class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+        <input type="text" @bind="memo" placeholder="What's this for?" disabled="@isFormDisabled"
+               class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed" />
     </div>
 
     @* Fee Display *@
@@ -164,8 +182,18 @@
 
     <button class="slide-up-delay-5 w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 mt-2"
             @onclick="PreviewSend"
-            disabled="@(string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)">
-        Review Transaction
+            disabled="@(isFormDisabled || string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)">
+        @if (isFormDisabled)
+        {
+            <span class="flex items-center justify-center gap-2">
+                <span class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                Loading...
+            </span>
+        }
+        else
+        {
+            <span>Review Transaction</span>
+        }
     </button>
 
     @* Fee Info Modal *@
@@ -320,19 +348,38 @@
     private int customFeeRate = 5;
     private decimal estimatedFee = 0.0001m;
 
-    // Live DGB price from CoinGecko
+    // Loading & price state
+    private bool isLoadingBalance = true;
+    private bool isLoadingPrice = true;
+    private bool isFormDisabled => isLoadingBalance || isLoadingPrice;
     private decimal dgbPrice;
     private decimal amountDgb => isAmountInFiat ? (dgbPrice > 0 ? amount / dgbPrice : 0) : amount;
     private decimal amountFiat => isAmountInFiat ? amount : amount * dgbPrice;
+
+    private string? amountWarning;
+
+    private void UpdateAmountWarning()
+    {
+        var dgb = amountDgb;
+        if (amount <= 0 || isFormDisabled)
+            amountWarning = null;
+        else if (dgb > 0 && dgb < 0.0001m)
+            amountWarning = "Below minimum send amount (0.0001 DGB)";
+        else if (!isLoadingBalance && dgb > availableBalance)
+            amountWarning = $"Exceeds available balance ({availableBalance:N4} DGB)";
+        else
+            amountWarning = null;
+    }
 
     private static string FormatFiat(decimal value)
     {
         if (value == 0) return "0.00";
         var abs = Math.Abs(value);
-        if (abs >= 0.01m) return value.ToString("N2");
-        if (abs >= 0.001m) return value.ToString("N3");
-        if (abs >= 0.0001m) return value.ToString("N4");
-        return value.ToString("N6");
+        if (abs >= 1m) return value.ToString("N2");
+        if (abs >= 0.01m) return value.ToString("N4");
+        if (abs >= 0.001m) return value.ToString("N5");
+        if (abs >= 0.0001m) return value.ToString("N6");
+        return value.ToString("N8");
     }
 
     private void ToggleAmountMode()
@@ -353,18 +400,40 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Parse query params immediately (no I/O)
+        AppState.ResetLockTimer();
+
+        // Parse query params immediately (no I/O) — with validation
         var uri = new Uri(Nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        if (query["address"] != null) destinationAddress = query["address"]!;
-        if (query["name"] != null) recipientName = query["name"]!;
-        if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount))
+        var qAddr = query["address"];
+        if (qAddr != null && qAddr.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(qAddr))
+            destinationAddress = qAddr;
+        var qName = query["name"];
+        if (qName != null && qName.Length <= 64)
+            recipientName = qName;
+        if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
             amount = qtyAmount;
 
         // Run all async loads in parallel
         var contactsTask = ContactService.GetAllAsync();
-        var balanceTask = Task.Run(async () => { try { var b = await WalletService.GetBalanceAsync(); availableBalance = b.ConfirmedDgb; } catch { } });
-        var priceTask = Task.Run(async () => { try { dgbPrice = await Blockchain.GetDgbPriceAsync(AppState.FiatCurrency); } catch { } });
+        var balanceTask = Task.Run(async () =>
+        {
+            try { var b = await WalletService.GetBalanceAsync(); availableBalance = b.ConfirmedDgb; }
+            catch { }
+            finally { isLoadingBalance = false; await InvokeAsync(StateHasChanged); }
+        });
+        var priceTask = Task.Run(async () =>
+        {
+            try
+            {
+                dgbPrice = await Cache.GetOrFetchAsync(
+                    $"price:{AppState.FiatCurrency}",
+                    () => Blockchain.GetDgbPriceAsync(AppState.FiatCurrency),
+                    TimeSpan.FromSeconds(60));
+            }
+            catch { }
+            finally { isLoadingPrice = false; await InvokeAsync(StateHasChanged); }
+        });
 
         contactList = await contactsTask;
         await Task.WhenAll(balanceTask, priceTask);
@@ -455,7 +524,19 @@
         StateHasChanged();
         try
         {
-            var txId = await WalletService.SendAsync(destinationAddress, amountDgb, memo);
+            var txId = await WalletService.SendAsync(destinationAddress, amountDgb, memo, customFeeRate);
+            // Invalidate in-memory + IndexedDB caches after successful send
+            Cache.RemoveByPrefix("balance");
+            Cache.RemoveByPrefix("transactions");
+            Cache.RemoveByPrefix("price");
+            Cache.Remove("lastFetchTime");
+            try
+            {
+                await Storage.RemoveAsync("cache:balance");
+                await Storage.RemoveAsync("cache:transactions");
+                await Storage.RemoveAsync("cache:lastFetch");
+            }
+            catch { }
             isSending = false;
             sentTxId = txId;
             showConfirm = false;

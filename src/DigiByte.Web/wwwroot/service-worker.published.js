@@ -9,7 +9,7 @@ self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
 const cacheNamePrefix = 'offline-cache-';
 const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
 const apiCacheName = 'api-cache-v1';
-const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/, /\.webmanifest$/ ];
+const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff2?$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/, /\.webmanifest$/ ];
 const offlineAssetsExclude = [ /^service-worker\.js$/ ];
 
 // API domains whose responses should be cached for offline use
@@ -71,9 +71,20 @@ async function onFetch(event) {
 async function networkFirstWithCache(request) {
     const cache = await caches.open(apiCacheName);
     try {
-        const networkResponse = await fetch(request);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+        const networkResponse = await fetch(request, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (networkResponse.ok) {
-            cache.put(request, networkResponse.clone());
+            // Store with timestamp header for TTL checks
+            const headers = new Headers(networkResponse.headers);
+            headers.set('sw-cached-at', Date.now().toString());
+            const timedResponse = new Response(await networkResponse.clone().blob(), {
+                status: networkResponse.status,
+                statusText: networkResponse.statusText,
+                headers
+            });
+            cache.put(request, timedResponse);
         }
         return networkResponse;
     } catch {

@@ -136,12 +136,12 @@
 
     private async Task OnFocus(int idx)
     {
-        await JS.InvokeVoidAsync("eval", $"document.getElementById('{InputId(idx)}')?.select()");
+        await JS.InvokeVoidAsync("domHelpers.selectElement", InputId(idx));
     }
 
     private async Task FocusInput(int idx)
     {
-        await JS.InvokeVoidAsync("eval", $"document.getElementById('{InputId(idx)}')?.focus()");
+        await JS.InvokeVoidAsync("domHelpers.focusElement", InputId(idx));
     }
 
     /// <summary>

@@ -10,11 +10,17 @@
     <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <FileVersion>0.2.0.0</FileVersion>
     <InformationalVersion>0.2.0-alpha.1</InformationalVersion>
+    <!-- IL Trimming for smaller WASM download -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <!-- Brotli compression for published output -->
+    <BlazorEnableCompression>true</BlazorEnableCompression>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.5" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.5" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
     <PackageReference Include="QRCoder" Version="1.7.0" />
   </ItemGroup>
 
@@ -27,5 +33,10 @@
     <ProjectReference Include="..\DigiByte.Crypto\DigiByte.Crypto.csproj" />
     <ProjectReference Include="..\DigiByte.P2P.Shared\DigiByte.P2P.Shared.csproj" />
   </ItemGroup>
+
+  <!-- Rebuild Tailwind CSS on build (purged & minified) -->
+  <Target Name="BuildTailwindCSS" BeforeTargets="Build" Condition="Exists('node_modules/.package-lock.json')">
+    <Exec Command="npx tailwindcss -i ./wwwroot/css/tailwind-input.css -o ./wwwroot/css/tailwind.css --minify" />
+  </Target>
 
 </Project>

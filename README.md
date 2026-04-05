@@ -8,20 +8,26 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **BIP39/BIP44 HD wallet** — 24-word mnemonic, derivation path `m/44'/20'/0'/change/index`
 - **WIF private key import** — Single-key import with auto network detection (mainnet/testnet/regtest)
 - **Send & Receive** — Real transaction building, signing, and broadcasting via NBitcoin
-- **QR Scanner** — Camera-based scanning for addresses, `digibyte:` URIs, WIF keys, and Digi-ID URIs
+- **Configurable fee rates** — Low/Normal/Fast fee presets with sat/vB control
+- **QR Scanner** — Self-hosted jsQR, camera-based scanning for addresses, `digibyte:` URIs, WIF keys, and Digi-ID URIs
 - **Contacts** — Save addresses with names, QR scan, send with one tap
 - **Payment Requests** — Generate BIP21 URIs with amount/label/message and QR codes
 - **Digi-ID** — Passwordless authentication protocol (`digiid://` URI signing)
 - **Light & Dark Mode** — Official DigiByte branding with theme toggle
 - **Multi-network** — Mainnet, Testnet, and Regtest support
-- **10 Languages** — English, Spanish, Chinese, Japanese, Korean, Filipino, Hindi, Arabic, Portuguese, French
+- **Multi-currency** — USD, EUR, GBP, PHP, JPY with proper fiat symbols and CoinGecko pricing
 - **OTP-style PIN** — 6-digit PIN with individual digit boxes, shake animation on error
-- **Multi-explorer fallback** — Esplora → Own node → Error/Mock
+- **PIN lockout** — Brute-force protection with exponential backoff after 3 failed attempts
+- **Global error boundary** — Crash recovery with user-friendly error screen
+- **Multi-explorer fallback** — Esplora → Own node → Error/Mock with Polly resilience (retry, circuit breaker, timeout)
+- **Two-tier caching** — In-memory (MemoryCacheService with TTL + dedup) + IndexedDB persistent cache
+- **CSP compliant** — All assets self-hosted (Tailwind CSS, Inter font, jsQR), strict Content Security Policy
 - **Node API** — 87 RPC methods wrapped as REST endpoints with Scalar docs
 - **Docker** — Regtest (instant mining), Testnet, and Mainnet pruned node configs
 - **NFC tap-to-pay** — Web NFC API (experimental)
 - **Remittance** — Fee comparison with traditional services
 - **Analytics** — Market data, network stats, 7-day price chart from CoinGecko
+- **PWA** — Installable, offline-capable with service worker (network-first API, cache-first assets)
 
 ## Architecture
 
@@ -57,7 +63,7 @@ digibyte-wallet/
 |-------|-----------|
 | Frontend | Blazor WebAssembly PWA (.NET 10) |
 | Crypto | NBitcoin (HD keys, tx building, signing) |
-| CSS | Tailwind CSS (CDN) |
+| CSS | Tailwind CSS v3 (self-hosted, purged ~37KB) |
 | Storage | Browser IndexedDB (AES-256-GCM encrypted) |
 | Node API | .NET 10 Minimal API + Scalar |
 | Blockchain | DigiByte Core v8.26.2 (Docker) |

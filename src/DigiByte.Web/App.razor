@@ -1,7 +1,26 @@
 ﻿<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)" OnNavigateAsync="OnNavigateAsync">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        <ErrorBoundary @ref="errorBoundary">
+            <ChildContent>
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </ChildContent>
+            <ErrorContent Context="ex">
+                <div class="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-6 text-center">
+                    <div class="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">Something went wrong</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs">An unexpected error occurred. Your wallet data is safe.</p>
+                    <button class="px-6 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl shadow-lg transition-all"
+                            @onclick="Recover">
+                        Go Home
+                    </button>
+                </div>
+            </ErrorContent>
+        </ErrorBoundary>
     </Found>
 </Router>
 
@@ -12,14 +31,24 @@
     </div>
 }
 
+@inject NavigationManager Nav
+
 @code {
+    private ErrorBoundary? errorBoundary;
     private bool isNavigating;
 
     private async Task OnNavigateAsync(NavigationContext context)
     {
+        errorBoundary?.Recover();
         isNavigating = true;
         StateHasChanged();
         try { await Task.Yield(); }
         finally { isNavigating = false; }
+    }
+
+    private void Recover()
+    {
+        errorBoundary?.Recover();
+        Nav.NavigateTo("/");
     }
 }

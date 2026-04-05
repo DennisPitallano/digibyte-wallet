@@ -131,11 +131,12 @@
     {
         await LoadContacts();
 
-        // Check for ?add= query param (from tx detail "Add to Contacts")
+        // Check for ?add= query param (from tx detail "Add to Contacts") — validated
         var uri = new Uri(Nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
         var addAddress = query["add"];
-        if (!string.IsNullOrEmpty(addAddress))
+        if (!string.IsNullOrEmpty(addAddress) && addAddress.Length <= 128
+            && DigiByte.Crypto.Addresses.AddressValidator.IsValid(addAddress))
         {
             formAddress = addAddress;
             showForm = true;
@@ -167,6 +168,12 @@
     private async Task SaveContact()
     {
         formError = null;
+
+        // Length caps
+        if (formName.Length > 64) { formError = "Name is too long (max 64 characters)."; return; }
+        if (formAddress.Length > 128) { formError = "Address is too long."; return; }
+        if (formNotes.Length > 256) { formError = "Notes are too long (max 256 characters)."; return; }
+
         if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(formAddress))
         {
             formError = "Invalid DigiByte address.";

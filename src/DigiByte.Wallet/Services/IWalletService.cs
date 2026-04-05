@@ -10,7 +10,7 @@ public interface IWalletService
     Task LockWalletAsync();
     Task<WalletBalance> GetBalanceAsync();
     Task<string> GetReceivingAddressAsync(string format = "default");
-    Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null);
+    Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null, int feeRateSatPerByte = 5);
     Task<List<TransactionRecord>> GetTransactionHistoryAsync(int skip = 0, int take = 50);
     Task<List<Contact>> GetContactsAsync();
     Task AddContactAsync(Contact contact);
