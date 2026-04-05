@@ -28,7 +28,7 @@ COPY . .
 
 # Install npm dependencies for Tailwind CSS
 WORKDIR /src/src/DigiByte.Web
-RUN npm ci
+RUN npm install
 
 # Publish Blazor WASM (includes Tailwind build via MSBuild target)
 WORKDIR /src
