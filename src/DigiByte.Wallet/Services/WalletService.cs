@@ -59,9 +59,11 @@ public class WalletService : IWalletService
     /// <summary>
     /// For privatekey wallets, use the network detected from the WIF key.
     /// For HD wallets, use the user-selected network.
+    /// For privatekey/xpub wallets, use the network detected from the key prefix.
+    /// For HD wallets, use the user-selected network.
     /// </summary>
     private Network EffectiveNetwork =>
-        _activeWallet?.WalletType == "privatekey" && _activeWallet.WifNetwork != null
+        _activeWallet?.WalletType is "privatekey" or "xpub" && _activeWallet.WifNetwork != null
             ? _activeWallet.WifNetwork switch
             {
                 "mainnet" => DigiByteNetwork.Mainnet,
@@ -150,8 +152,12 @@ public class WalletService : IWalletService
     {
         var walletId = Guid.NewGuid().ToString("N");
 
-        var extPubKey = HdKeyDerivation.ParseXpub(xpub.Trim(), CurrentNetwork)
+        var detectedNetwork = HdKeyDerivation.DetectXpubNetwork(xpub.Trim());
+        var extPubKey = HdKeyDerivation.ParseXpub(xpub.Trim())
             ?? throw new InvalidOperationException("Invalid extended public key.");
+
+        var networkName = detectedNetwork == DigiByteNetwork.Mainnet ? "mainnet"
+            : detectedNetwork == DigiByteNetwork.Testnet ? "testnet" : "regtest";
 
         // Encrypt the xpub with PIN (same pattern as mnemonic/WIF)
         var encrypted = await _crypto.EncryptAsync(
@@ -164,12 +170,13 @@ public class WalletService : IWalletService
             Name = name,
             CreatedAt = DateTime.UtcNow,
             WalletType = "xpub",
+            WifNetwork = networkName,
         };
 
         await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
         await _walletStore.SetActiveWalletIdAsync(walletId);
 
-        _hd = new HdKeyDerivation(extPubKey, CurrentNetwork);
+        _hd = new HdKeyDerivation(extPubKey, detectedNetwork ?? CurrentNetwork);
         _singleKey = null;
         _activeWallet = wallet;
 
@@ -215,10 +222,11 @@ public class WalletService : IWalletService
         }
         else if (_activeWallet?.WalletType == "xpub")
         {
-            // Watch-only wallet — xpub, no private keys
-            var extPubKey = HdKeyDerivation.ParseXpub(seedString, CurrentNetwork);
+            // Watch-only wallet — xpub, no private keys (auto-detect network from key prefix)
+            var xpubNetwork = HdKeyDerivation.DetectXpubNetwork(seedString) ?? CurrentNetwork;
+            var extPubKey = HdKeyDerivation.ParseXpub(seedString);
             if (extPubKey == null) return false;
-            _hd = new HdKeyDerivation(extPubKey, CurrentNetwork);
+            _hd = new HdKeyDerivation(extPubKey, xpubNetwork);
             _singleKey = null;
         }
         else

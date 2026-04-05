@@ -176,19 +176,36 @@ public class HdKeyDerivation
     }
 
     /// <summary>
-    /// Parses an xpub string and validates it as a DigiByte account-level extended public key.
+    /// Parses an xpub/tpub string and validates it as a DigiByte extended public key.
+    /// Tries the specified network first, then falls back to all DigiByte networks.
     /// Returns null if invalid.
     /// </summary>
     public static ExtPubKey? ParseXpub(string xpub, Network? network = null)
     {
-        var net = network ?? DigiByteNetwork.Mainnet;
-        try
+        var trimmed = xpub.Trim();
+        // Try the specified network first
+        var networks = new[] { network ?? DigiByteNetwork.Mainnet, DigiByteNetwork.Mainnet, DigiByteNetwork.Testnet, DigiByteNetwork.Regtest };
+        foreach (var net in networks)
         {
-            return ExtPubKey.Parse(xpub.Trim(), net);
+            try { return ExtPubKey.Parse(trimmed, net); }
+            catch { }
         }
-        catch
+        return null;
+    }
+
+    /// <summary>
+    /// Detects which DigiByte network an xpub/tpub is encoded for.
+    /// Returns null if the key is invalid on all networks.
+    /// </summary>
+    public static Network? DetectXpubNetwork(string xpub)
+    {
+        var trimmed = xpub.Trim();
+        Network[] networks = [DigiByteNetwork.Mainnet, DigiByteNetwork.Testnet, DigiByteNetwork.Regtest];
+        foreach (var net in networks)
         {
-            return null;
+            try { ExtPubKey.Parse(trimmed, net); return net; }
+            catch { }
         }
+        return null;
     }
 }
