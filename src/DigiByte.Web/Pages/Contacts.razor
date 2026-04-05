@@ -131,12 +131,13 @@
     {
         await LoadContacts();
 
-        // Check for ?add= query param (from tx detail "Add to Contacts") — validated
+        // Check for ?add= query param (from tx detail "Add to Contacts")
+        // Accept any dgb1/dgbt1/D-prefixed address (may have bech32m checksum that NBitcoin can't parse)
         var uri = new Uri(Nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
         var addAddress = query["add"];
         if (!string.IsNullOrEmpty(addAddress) && addAddress.Length <= 128
-            && DigiByte.Crypto.Addresses.AddressValidator.IsValid(addAddress))
+            && IsPlausibleDigiByteAddress(addAddress))
         {
             formAddress = addAddress;
             showForm = true;
@@ -174,7 +175,8 @@
         if (formAddress.Length > 128) { formError = "Address is too long."; return; }
         if (formNotes.Length > 256) { formError = "Notes are too long (max 256 characters)."; return; }
 
-        if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(formAddress))
+        if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(formAddress)
+            && !IsPlausibleDigiByteAddress(formAddress))
         {
             formError = "Invalid DigiByte address.";
             return;
@@ -236,4 +238,17 @@
         formAddress = parsed != null ? parsed.Address : data.Trim();
         StateHasChanged();
     }
+
+    /// <summary>
+    /// Lenient prefix check for DigiByte addresses. Accepts bech32m variants
+    /// that NBitcoin can't parse but are valid on-chain (explorer-sourced addresses).
+    /// </summary>
+    private static bool IsPlausibleDigiByteAddress(string addr) =>
+        !string.IsNullOrWhiteSpace(addr) && addr.Length >= 20 && addr.Length <= 128
+        && (addr.StartsWith("dgb1", StringComparison.OrdinalIgnoreCase)
+            || addr.StartsWith("dgbt1", StringComparison.OrdinalIgnoreCase)
+            || addr.StartsWith("dgbrt1", StringComparison.OrdinalIgnoreCase)
+            || addr.StartsWith("D")
+            || addr.StartsWith("S")
+            || (addr.StartsWith("t") && addr.Length >= 34));
 }
