@@ -1,5 +1,6 @@
 @page "/deployment"
 @inject IJSRuntime JS
+@inject IBlockchainService Blockchain
 
 <PageTitle>Deployment</PageTitle>
 
@@ -52,7 +53,19 @@
 
         <div class="mt-3 bg-white/10 backdrop-blur rounded-xl p-3">
             <p class="text-[10px] text-dgb-200 uppercase font-semibold mb-1">DigiByte (DGB) Donation Address</p>
-            <p class="font-mono text-xs break-all text-white">DPSNEw5UmtUMQwTZPNoiUFDmCLu3Tp5SrK</p>
+            <p class="font-mono text-xs break-all text-white">@donationAddress</p>
+        </div>
+
+        <div class="mt-2 flex items-center justify-center gap-2">
+            @if (isLoadingBalance)
+            {
+                <span class="inline-block w-20 h-4 skeleton rounded"></span>
+            }
+            else
+            {
+                <span class="text-sm font-bold text-white">@((donationBalance / 100_000_000m).ToString("N4")) DGB</span>
+                <span class="text-[10px] text-dgb-200">current balance</span>
+            }
         </div>
 
         <p class="text-[10px] text-dgb-300 mt-3">100% of donations go to infrastructure and development</p>
@@ -73,5 +86,20 @@
 </div>
 
 @code {
+    private const string donationAddress = "DPSNEw5UmtUMQwTZPNoiUFDmCLu3Tp5SrK";
+    private decimal donationBalance;
+    private bool isLoadingBalance = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var satoshis = await Blockchain.GetBalanceAsync(donationAddress);
+            donationBalance = satoshis;
+        }
+        catch { }
+        finally { isLoadingBalance = false; }
+    }
+
     private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
 }

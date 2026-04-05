@@ -1,0 +1,77 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@if (showBanner)
+{
+    <div class="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none slide-up">
+        <div class="pointer-events-auto mx-4 mt-3 max-w-[460px] w-full flex items-center gap-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-2xl shadow-xl px-4 py-3">
+            <img src="icon-192.png" alt="App Icon" class="w-10 h-10 rounded-xl flex-shrink-0" />
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Install DGB Wallet</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Add to your home screen for quick access</p>
+            </div>
+            <button class="px-4 py-1.5 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-bold rounded-xl press-effect flex-shrink-0 transition-colors"
+                    @onclick="InstallApp">
+                Install
+            </button>
+            <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0 p-1 -mr-1 transition-colors"
+                    @onclick="Dismiss">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool showBanner;
+    private DotNetObjectReference<PwaInstallBanner>? selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Don't show if already installed as standalone
+        var isStandalone = await JS.InvokeAsync<bool>("pwaInstall.isStandalone");
+        if (isStandalone) return;
+
+        // Don't show if user dismissed this session
+        var dismissed = await JS.InvokeAsync<string?>("sessionStorage.getItem", "pwa-install-dismissed");
+        if (!string.IsNullOrEmpty(dismissed)) return;
+
+        selfRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("pwaInstall.registerCallback", selfRef);
+    }
+
+    [JSInvokable]
+    public void OnInstallAvailable()
+    {
+        showBanner = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnAppInstalled()
+    {
+        showBanner = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task InstallApp()
+    {
+        await JS.InvokeAsync<bool>("pwaInstall.prompt");
+        showBanner = false;
+    }
+
+    private async Task Dismiss()
+    {
+        showBanner = false;
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "pwa-install-dismissed", "1");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        selfRef?.Dispose();
+    }
+}
