@@ -9,13 +9,28 @@
         <div class="pointer-events-auto mx-4 mt-3 max-w-[460px] w-full flex items-center gap-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-2xl shadow-xl px-4 py-3">
             <img src="icon-192.png" alt="App Icon" class="w-10 h-10 rounded-xl flex-shrink-0" />
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Install DGB Wallet</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Add to your home screen for quick access</p>
+                @if (isIos)
+                {
+                    <p class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Install DGB Wallet</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Tap
+                        <svg class="inline w-3.5 h-3.5 -mt-0.5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg>
+                        then <strong>"Add to Home Screen"</strong>
+                    </p>
+                }
+                else
+                {
+                    <p class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Install DGB Wallet</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Add to your home screen for quick access</p>
+                }
             </div>
-            <button class="px-4 py-1.5 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-bold rounded-xl press-effect flex-shrink-0 transition-colors"
-                    @onclick="InstallApp">
-                Install
-            </button>
+            @if (!isIos)
+            {
+                <button class="px-4 py-1.5 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-bold rounded-xl press-effect flex-shrink-0 transition-colors"
+                        @onclick="InstallApp">
+                    Install
+                </button>
+            }
             <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0 p-1 -mr-1 transition-colors"
                     @onclick="Dismiss">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -30,6 +45,7 @@
     private bool showBanner;
     private bool promptAvailable;
     private bool isStandalone;
+    private bool isIos;
     private DotNetObjectReference<PwaInstallBanner>? selfRef;
 
     // Pages where the banner always shows (ignore dismiss)
@@ -56,7 +72,7 @@
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        if (isStandalone || !promptAvailable) return;
+        if (isStandalone || (!promptAvailable && !isIos)) return;
 
         InvokeAsync(async () =>
         {
@@ -77,6 +93,14 @@
     public void OnInstallAvailable()
     {
         promptAvailable = true;
+        showBanner = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnIosDetected()
+    {
+        isIos = true;
         showBanner = true;
         InvokeAsync(StateHasChanged);
     }

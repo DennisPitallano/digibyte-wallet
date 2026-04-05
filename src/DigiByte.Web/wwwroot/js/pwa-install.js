@@ -25,6 +25,10 @@ window.pwaInstall = {
         if (deferredPrompt) {
             dotnetRef.invokeMethodAsync('OnInstallAvailable');
         }
+        // On iOS Safari there's no beforeinstallprompt — notify Blazor for manual instructions
+        if (window.pwaInstall.isIos() && !window.pwaInstall.isStandalone()) {
+            dotnetRef.invokeMethodAsync('OnIosDetected');
+        }
     },
     prompt: async () => {
         if (!deferredPrompt) return false;
@@ -36,5 +40,10 @@ window.pwaInstall = {
     isStandalone: () => {
         return window.matchMedia('(display-mode: standalone)').matches
             || window.navigator.standalone === true;
+    },
+    isIos: () => {
+        const ua = window.navigator.userAgent;
+        return /iP(hone|od|ad)/.test(ua)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
 };
