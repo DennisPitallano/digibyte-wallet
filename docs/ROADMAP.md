@@ -25,8 +25,8 @@
 - [x] Docker regtest (instant mining, local dev)
 - [x] Docker testnet (real network)
 - [x] Docker mainnet pruned (`prune=550`, tuned for Railway)
-- [x] Multi-explorer fallback (Blockbook → Esplora → NOWNodes → Own node)
-- [x] Blockbook API adapter (returns scriptPubKey in UTXOs)
+- [x] Multi-explorer fallback (Esplora → Own node)
+- [x] Esplora API adapter (digiexplorer.info — primary public explorer)
 - [x] 2-minute cooldown on failed explorers
 - [x] Read/write separation (explorers for reads, own node for broadcasts)
 - [x] Mock limited to development only (production throws)

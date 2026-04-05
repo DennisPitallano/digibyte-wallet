@@ -16,7 +16,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **Multi-network** — Mainnet, Testnet, and Regtest support
 - **10 Languages** — English, Spanish, Chinese, Japanese, Korean, Filipino, Hindi, Arabic, Portuguese, French
 - **OTP-style PIN** — 6-digit PIN with individual digit boxes, shake animation on error
-- **Multi-explorer fallback** — Blockbook → Esplora → NOWNodes → Own node → Error/Mock
+- **Multi-explorer fallback** — Esplora → Own node → Error/Mock
 - **Node API** — 87 RPC methods wrapped as REST endpoints with Scalar docs
 - **Docker** — Regtest (instant mining), Testnet, and Mainnet pruned node configs
 - **NFC tap-to-pay** — Web NFC API (experimental)
@@ -83,7 +83,7 @@ dotnet run --project DigiByte.Web/DigiByte.Web.csproj
 # Open http://localhost:5251
 ```
 
-The wallet connects to public explorers (Blockbook, Esplora) for blockchain data. No local node required for basic mainnet usage.
+The wallet connects to a public Esplora explorer (digiexplorer.info) for blockchain data. No local node required for basic mainnet usage.
 
 ### 2. Run with Docker — Regtest (recommended for development)
 
@@ -193,9 +193,7 @@ environment:
 
 | Priority | Backend | Type | Base URL | Notes |
 |----------|---------|------|----------|-------|
-| 1 | Blockbook | Blockbook REST | `digibyteblockexplorer.com` | Primary — returns `scriptPubKey` in UTXOs |
-| 2 | Esplora | Esplora REST | `digiexplorer.info` | Secondary |
-| 3 | NOWNodes | Blockbook REST | `dgb-explorer.nownodes.io` | Free tier |
+| 1 | Esplora | Esplora REST | `digiexplorer.info` | Primary public explorer |
 | Last | Own node | RPC via Node API | Configurable | Pruned node, `scantxoutset` for reads |
 
 **Read operations** (balance, UTXOs, history, fees): Explorers in order → Own node → Mock (dev only)

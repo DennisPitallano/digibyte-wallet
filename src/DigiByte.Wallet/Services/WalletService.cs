@@ -318,95 +318,134 @@ public class WalletService : IWalletService
         var amountSatoshis = (long)(amountDgb * 100_000_000m);
         var amount = Money.Satoshis(amountSatoshis);
 
-        // 1. Collect all wallet addresses and their keys (first 20 receiving + 10 change)
-        var addressKeyMap = new Dictionary<string, ExtKey>();
-        for (int i = 0; i < 20; i++)
-        {
-            var key = _hd!.DeriveReceivingKey(i);
-            var addr = _hd.GetAddress(key).ToString();
-            addressKeyMap[addr] = key;
-        }
-        for (int i = 0; i < 10; i++)
-        {
-            var key = _hd!.DeriveChangeKey(i);
-            var addr = _hd.GetAddress(key).ToString();
-            addressKeyMap[addr] = key;
-        }
+        List<DigiByte.Crypto.Transactions.Utxo> availableUtxos;
+        BitcoinAddress changeAddress;
 
-        // 2. Fetch UTXOs for all our addresses
-        var utxoInfos = await _blockchain.GetUtxosAsync(addressKeyMap.Keys);
-        if (utxoInfos.Count == 0)
-            throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
-
-        // 3. Convert to Utxo objects with private keys
-        var availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
-        foreach (var utxoInfo in utxoInfos)
+        if (_singleKey != null)
         {
-            // Find which address this UTXO belongs to by checking scriptPubKey
-            // Since we may not have scriptPubKey from the API, we match by scanning
-            ExtKey? matchedKey = null;
-            foreach (var (addr, key) in addressKeyMap)
+            // WIF wallet — single key, both Legacy and SegWit addresses
+            var legacyAddr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
+            var segwitAddr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network);
+
+            // Query each address separately so we know the correct scriptPubKey per UTXO
+            var legacyUtxos = await _blockchain.GetUtxosAsync(legacyAddr.ToString());
+            var segwitUtxos = await _blockchain.GetUtxosAsync(segwitAddr.ToString());
+
+            if (legacyUtxos.Count == 0 && segwitUtxos.Count == 0)
+                throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
+
+            availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+
+            foreach (var u in legacyUtxos)
             {
-                var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
-                // If we have the scriptPubKey from the API, compare it
-                if (!string.IsNullOrEmpty(utxoInfo.ScriptPubKey))
+                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
                 {
-                    var utxoScript = Script.FromHex(utxoInfo.ScriptPubKey);
-                    if (addrScript == utxoScript)
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = legacyAddr.ScriptPubKey,
+                    PrivateKey = _singleKey,
+                });
+            }
+
+            foreach (var u in segwitUtxos)
+            {
+                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = segwitAddr.ScriptPubKey,
+                    PrivateKey = _singleKey,
+                });
+            }
+
+            // Change goes back to the SegWit address of the same key
+            changeAddress = segwitAddr;
+        }
+        else
+        {
+            // HD wallet — derive multiple receiving + change addresses
+            var addressKeyMap = new Dictionary<string, ExtKey>();
+            for (int i = 0; i < 20; i++)
+            {
+                var key = _hd!.DeriveReceivingKey(i);
+                var addr = _hd.GetAddress(key).ToString();
+                addressKeyMap[addr] = key;
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                var key = _hd!.DeriveChangeKey(i);
+                var addr = _hd.GetAddress(key).ToString();
+                addressKeyMap[addr] = key;
+            }
+
+            var utxoInfos = await _blockchain.GetUtxosAsync(addressKeyMap.Keys);
+            if (utxoInfos.Count == 0)
+                throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
+
+            availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+            foreach (var utxoInfo in utxoInfos)
+            {
+                ExtKey? matchedKey = null;
+                foreach (var (addr, key) in addressKeyMap)
+                {
+                    var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
+                    if (!string.IsNullOrEmpty(utxoInfo.ScriptPubKey))
                     {
-                        matchedKey = key;
-                        break;
+                        var utxoScript = Script.FromHex(utxoInfo.ScriptPubKey);
+                        if (addrScript == utxoScript)
+                        {
+                            matchedKey = key;
+                            break;
+                        }
                     }
                 }
+
+                if (matchedKey == null)
+                    matchedKey = _hd!.DeriveReceivingKey(0);
+
+                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(utxoInfo.TxId),
+                    OutputIndex = utxoInfo.OutputIndex,
+                    Amount = Money.Satoshis(utxoInfo.AmountSatoshis),
+                    ScriptPubKey = !string.IsNullOrEmpty(utxoInfo.ScriptPubKey)
+                        ? Script.FromHex(utxoInfo.ScriptPubKey)
+                        : matchedKey.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network).ScriptPubKey,
+                    PrivateKey = matchedKey.PrivateKey,
+                });
             }
 
-            // If no scriptPubKey match, try to resolve by address from the UTXO
-            if (matchedKey == null)
-            {
-                // Fall back: use the first receiving key (index 0)
-                matchedKey = _hd!.DeriveReceivingKey(0);
-            }
-
-            availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
-            {
-                TransactionId = uint256.Parse(utxoInfo.TxId),
-                OutputIndex = utxoInfo.OutputIndex,
-                Amount = Money.Satoshis(utxoInfo.AmountSatoshis),
-                ScriptPubKey = !string.IsNullOrEmpty(utxoInfo.ScriptPubKey)
-                    ? Script.FromHex(utxoInfo.ScriptPubKey)
-                    : matchedKey.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network).ScriptPubKey,
-                PrivateKey = matchedKey.PrivateKey,
-            });
+            var changeKey = _hd!.DeriveChangeKey(_activeWallet!.NextChangeIndex);
+            changeAddress = _hd.GetAddress(changeKey);
         }
 
-        // 4. Check we have enough funds
+        // Check we have enough funds
         var totalAvailable = availableUtxos.Sum(u => u.Amount.Satoshi);
         if (totalAvailable < amountSatoshis)
             throw new InvalidOperationException(
                 $"Insufficient funds. Need {amountDgb:N8} DGB but only have {totalAvailable / 100_000_000m:N8} DGB.");
 
-        // 5. Build and sign the transaction
+        // Build and sign the transaction
         var destination = BitcoinAddress.Create(destinationAddress, network);
-        var changeKey = _hd!.DeriveChangeKey(_activeWallet!.NextChangeIndex);
-        var changeAddress = _hd.GetAddress(changeKey);
-        // DigiByte minrelaytxfee = 0.001 DGB/KB = 100,000 sat/KB
-        // Use 150,000 sat/KB to be safe (150 sat/byte)
         var feeRate = new FeeRate(Money.Satoshis(150_000));
 
         var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
         var tx = txBuilder.BuildSendTransaction(availableUtxos, destination, amount, changeAddress, feeRate);
 
-        // 6. Broadcast
+        // Broadcast
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
 
-        // 7. Track the transaction locally
+        // Track the transaction locally
         var feePaid = tx.GetFee(availableUtxos.Select(u => u.ToCoin()).ToArray());
         await _txTracker.RecordSendAsync(txId, destinationAddress, amountSatoshis,
             feePaid?.Satoshi ?? 0);
 
-        // 8. Increment change index
-        _activeWallet.NextChangeIndex++;
+        // Increment change index (HD wallets only)
+        if (_hd != null && _activeWallet != null)
+            _activeWallet.NextChangeIndex++;
 
         return txId;
     }
@@ -424,10 +463,16 @@ public class WalletService : IWalletService
         {
             try
             {
-                var ourAddresses = new HashSet<string>(GetAllAddresses());
+                // Build a set of normalized addresses for comparison.
+                // Esplora may return bech32 addresses with a different checksum variant
+                // than NBitcoin generates; stripping the 6-char checksum from dgb1/dgbt1
+                // addresses makes comparison encoding-independent.
+                var rawAddresses = GetAllAddresses();
+                var ourNormalized = new HashSet<string>(rawAddresses.Select(NormalizeAddress));
+                bool isOurs(string? addr) => addr != null && ourNormalized.Contains(NormalizeAddress(addr));
 
                 var allTxs = new Dictionary<string, TransactionInfo>();
-                foreach (var addr in ourAddresses)
+                foreach (var addr in rawAddresses)
                 {
                     var txInfos = await _blockchain.GetAddressTransactionsAsync(addr, 0, take);
                     foreach (var tx in txInfos)
@@ -436,10 +481,11 @@ public class WalletService : IWalletService
 
                 var explorerRecords = allTxs.Values.Select(tx =>
                 {
-                    var isSent = tx.Inputs.Any(i => ourAddresses.Contains(i.Address));
+                    var isSent = tx.Inputs.Any(i => isOurs(i.Address));
+                    var matchingOutputs = tx.Outputs.Where(o => isOurs(o.Address)).ToList();
                     var amount = isSent
-                        ? tx.Outputs.Where(o => !ourAddresses.Contains(o.Address)).Sum(o => o.AmountSatoshis)
-                        : tx.Outputs.Where(o => ourAddresses.Contains(o.Address)).Sum(o => o.AmountSatoshis);
+                        ? tx.Outputs.Where(o => !isOurs(o.Address)).Sum(o => o.AmountSatoshis)
+                        : matchingOutputs.Sum(o => o.AmountSatoshis);
 
                     return new TransactionRecord
                     {
@@ -450,8 +496,8 @@ public class WalletService : IWalletService
                         Timestamp = tx.Timestamp,
                         Confirmations = tx.Confirmations,
                         CounterpartyAddress = isSent
-                            ? tx.Outputs.FirstOrDefault(o => !ourAddresses.Contains(o.Address))?.Address
-                            : tx.Inputs.FirstOrDefault(i => !ourAddresses.Contains(i.Address))?.Address,
+                            ? tx.Outputs.FirstOrDefault(o => !isOurs(o.Address))?.Address
+                            : tx.Inputs.FirstOrDefault(i => !isOurs(i.Address))?.Address,
                     };
                 }).ToList();
 
@@ -461,7 +507,7 @@ public class WalletService : IWalletService
                 foreach (var tx in localTxs) merged[tx.TxId] = tx; // local overwrites
                 localTxs = merged.Values.ToList();
             }
-            catch { /* Explorer unavailable — use local only */ }
+            catch (Exception ex) { Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}"); }
         }
 
         // Update confirmation counts in background
@@ -562,5 +608,20 @@ public class WalletService : IWalletService
     {
         if ((_hd == null && _singleKey == null) || _activeWallet == null)
             throw new InvalidOperationException("Wallet is locked. Unlock it first.");
+    }
+
+    /// <summary>
+    /// Strips the 6-char bech32 checksum from DigiByte SegWit addresses so that
+    /// addresses with different checksum variants (bech32 vs bech32m) compare equal
+    /// when they encode the same witness program.
+    /// Legacy/P2SH addresses are returned as-is (lowercased).
+    /// </summary>
+    private static string NormalizeAddress(string address)
+    {
+        if (address != null && address.Length > 10 &&
+            (address.StartsWith("dgb1", StringComparison.OrdinalIgnoreCase) ||
+             address.StartsWith("dgbt1", StringComparison.OrdinalIgnoreCase)))
+            return address[..^6].ToLowerInvariant();
+        return address?.ToLowerInvariant() ?? "";
     }
 }

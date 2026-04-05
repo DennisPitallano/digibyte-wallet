@@ -67,23 +67,19 @@ The DigiByte Wallet is a self-custodial Progressive Web App (PWA) built with Bla
 ```
 FallbackBlockchainService
   ├── Explorer List (tried in order, 2-min cooldown on failure)
-  │     ├── BlockbookApiService    (digibyteblockexplorer.com — primary, returns scriptPubKey)
-  │     ├── BlockchainApiService   (digiexplorer.info — Esplora)
-  │     └── BlockbookApiService    (dgb-explorer.nownodes.io — NOWNodes free)
+  │     └── BlockchainApiService   (digiexplorer.info — Esplora)
   ├── NodeApiBlockchainService     (own pruned node — last resort for reads)
   └── MockBlockchainService        (demo data — development only)
 ```
 
-**Reads** (balance, UTXOs, tx history, fees): Explorers first → Own Node → Mock (dev) / Error (prod)
-**Writes** (broadcast tx): Own Node first → Explorers in order → Error
+**Reads** (balance, UTXOs, tx history, fees): Esplora first → Own Node → Mock (dev) / Error (prod)
+**Writes** (broadcast tx): Own Node first → Esplora → Error
 
 ### Explorer Backends
 
 | Priority | Name | Type | URL | Notes |
 |----------|------|------|-----|-------|
-| 1 | blockbook-primary | Blockbook | digibyteblockexplorer.com | Free, returns scriptPubKey in UTXOs |
-| 2 | esplora | Esplora | digiexplorer.info | Existing, no scriptPubKey in UTXOs |
-| 3 | blockbook-nownodes | Blockbook | dgb-explorer.nownodes.io | Free NOWNodes tier |
+| 1 | esplora | Esplora | digiexplorer.info | Primary public explorer |
 | Last | node-api | Own Node RPC | Railway (configurable) | Pruned node, scantxoutset for reads |
 
 Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends, edit the `explorers` list.
@@ -148,8 +144,7 @@ Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends
 | `PaymentRequestService` | Scoped | BIP21 payment request management |
 | `FallbackBlockchainService` | Scoped | Cascading blockchain backend orchestration |
 | `NodeApiBlockchainService` | Scoped | RPC wrapper for own node |
-| `BlockbookApiService` | Scoped | Blockbook REST API (×2 instances) |
-| `BlockchainApiService` | Scoped | Esplora REST API |
+| `BlockchainApiService` | Scoped | Esplora REST API (digiexplorer.info) |
 | `MockBlockchainService` | Scoped | Demo data (development only) |
 | `AppState` | Singleton | Theme, network, display mode, currency |
 | `ThemeService` | Singleton | Dark/light mode toggle |

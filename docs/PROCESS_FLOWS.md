@@ -40,11 +40,7 @@
 
 ### Read Operations (Balance, UTXOs, Tx History, Fees, Block Height)
 ```
-Blockbook (digibyteblockexplorer.com)
-  ↓ failed? (2-min cooldown)
 Esplora (digiexplorer.info)
-  ↓ failed? (2-min cooldown)
-NOWNodes Blockbook (dgb-explorer.nownodes.io)
   ↓ failed? (2-min cooldown)
 Own Pruned Node (Railway, scantxoutset)
   ↓ failed?
@@ -56,11 +52,7 @@ Production  → Error (InvalidOperationException)
 ```
 Own Pruned Node (sendrawtransaction — most reliable)
   ↓ failed?
-Blockbook (digibyteblockexplorer.com, GET /api/v2/sendtx)
-  ↓ failed?
 Esplora (digiexplorer.info, POST /tx)
-  ↓ failed?
-NOWNodes Blockbook (dgb-explorer.nownodes.io)
   ↓ failed?
 Error — "Broadcast failed on all backends"
 ```
@@ -149,9 +141,7 @@ User enters seed phrase on Unlock page
 ```
 Balance/UTXO/History Request (reads):
   FallbackBlockchainService.TryRead()
-    → Blockbook (digibyteblockexplorer.com)     [2-min cooldown on failure]
     → Esplora (digiexplorer.info)                [2-min cooldown on failure]
-    → NOWNodes Blockbook (dgb-explorer.nownodes.io) [2-min cooldown on failure]
     → Own pruned node (scantxoutset)             [last resort for reads]
     → Development: MockBlockchainService (demo data)
     → Production: InvalidOperationException
@@ -159,9 +149,7 @@ Balance/UTXO/History Request (reads):
 Transaction Broadcast (writes):
   FallbackBlockchainService.BroadcastTransactionAsync(rawTx)
     → Own node first (sendrawtransaction — most reliable)
-    → Blockbook (GET /api/v2/sendtx/{hex})
     → Esplora (POST /tx)
-    → NOWNodes Blockbook
     → Error — "Broadcast failed on all backends"
     → NEVER falls back to mock, even in development
 ```

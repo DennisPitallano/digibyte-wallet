@@ -1,6 +1,7 @@
 @page "/send"
 @inject WalletService WalletService
 @inject ContactService ContactService
+@inject IBlockchainService Blockchain
 @inject AppState AppState
 @inject NavigationManager Nav
 
@@ -77,7 +78,13 @@
 
     @* Amount *@
     <div class="flex flex-col gap-1.5 slide-up-delay-2">
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</label>
+        <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</label>
+            <button type="button" @onclick="SetMaxAmount"
+                    class="text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors">
+                Available: @availableBalance.ToString("N4") DGB
+            </button>
+        </div>
         <div class="flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all">
             <input type="number" @bind="amount" step="0.00000001" min="0" placeholder="0.00" inputmode="decimal"
                    class="flex-1 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
@@ -96,16 +103,29 @@
             }
             else
             {
-                <span>~ $@amountFiat.ToString("N2") @AppState.FiatCurrency</span>
+                <span>~ $@FormatFiat(amountFiat) @AppState.FiatCurrency</span>
+            }
+            @if (amount > 0)
+            {
+                <span class="italic ml-1">(estimate — actual rate may vary)</span>
             }
         </p>
+        <p class="text-xs text-slate-400 dark:text-slate-500">Minimum send: 0.0001 DGB</p>
+        @if (amountError != null) { <p class="text-xs text-red-500 font-medium">@amountError</p> }
     </div>
 
     @* Advanced Mode: Fee Control *@
     @if (!AppState.IsSimpleMode)
     {
         <div class="flex flex-col gap-1.5 slide-up-delay-3">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fee Rate (sat/vB)</label>
+            <div class="flex items-center gap-1.5">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fee Rate (sat/vB)</label>
+                <button type="button" @onclick="() => showFeeInfo = true" class="text-slate-400 hover:text-dgb-500 transition-colors" title="What is this?">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+                    </svg>
+                </button>
+            </div>
             <div class="flex gap-2">
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "low" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
                         @onclick="SetFeeLow">Slow (1)</button>
@@ -128,7 +148,17 @@
 
     @* Fee Display *@
     <div class="flex justify-between px-4 py-3 bg-slate-50 dark:bg-dgb-900/50 rounded-xl border border-slate-100 dark:border-dgb-800 slide-up-delay-4">
-        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Fee</span>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Fee</span>
+            @if (AppState.IsSimpleMode)
+            {
+                <button type="button" @onclick="() => showFeeInfo = true" class="text-slate-400 hover:text-dgb-500 transition-colors" title="What is this?">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+                    </svg>
+                </button>
+            }
+        </div>
         <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold">~@estimatedFee.ToString("N4") DGB</span>
     </div>
 
@@ -137,6 +167,51 @@
             disabled="@(string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)">
         Review Transaction
     </button>
+
+    @* Fee Info Modal *@
+    @if (showFeeInfo)
+    {
+        <div class="modal-overlay" @onclick="() => showFeeInfo = false">
+            <div class="modal-card flex flex-col gap-4 max-w-sm" @onclick:stopPropagation="true">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">What is a Transaction Fee?</h3>
+                </div>
+
+                <div class="flex flex-col gap-3 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <p>Every crypto transaction pays a small fee to the network. Think of it like <strong>postage on a letter</strong> — you pay a little extra so the network delivers your payment.</p>
+
+                    <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800">
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Real-world comparison</p>
+                        <div class="flex flex-col gap-1.5 text-xs">
+                            <div class="flex justify-between"><span>Bank wire transfer</span><span class="font-semibold">$15 – $45</span></div>
+                            <div class="flex justify-between"><span>PayPal / Venmo</span><span class="font-semibold">1.5% – 3%</span></div>
+                            <div class="flex justify-between"><span>Western Union</span><span class="font-semibold">$5 – $50</span></div>
+                            <div class="flex justify-between text-dgb-500 font-semibold"><span>DigiByte</span><span>~$0.001 or less</span></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800">
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Speed options</p>
+                        <div class="flex flex-col gap-1.5 text-xs">
+                            <div class="flex justify-between"><span>🐢 Slow (1 sat/vB)</span><span>Cheapest — may take a few minutes</span></div>
+                            <div class="flex justify-between"><span>⚡ Normal (5 sat/vB)</span><span>Recommended — ~15 seconds</span></div>
+                            <div class="flex justify-between"><span>🚀 Fast (20 sat/vB)</span><span>Priority — next block</span></div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400 dark:text-slate-500">DigiByte blocks are mined every ~15 seconds, so even "Slow" is fast compared to traditional payments. For most transactions, <strong>Normal</strong> is perfect.</p>
+                </div>
+
+                <button class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                        @onclick="() => showFeeInfo = false">Got it!</button>
+            </div>
+        </div>
+    }
 
     @* Confirm Modal — centered card *@
     @if (showConfirm)
@@ -239,14 +314,17 @@
     private string destinationAddress = "";
     private string recipientName = "";
     private decimal amount;
+    private decimal availableBalance;
     private string memo = "";
     private string? addressError;
+    private string? amountError;
     private string? sendError;
     private bool showConfirm;
     private bool isSending;
     private bool showContactPicker;
     private bool showScanner;
-    private bool isAmountInFiat = true;
+    private bool showFeeInfo;
+    private bool isAmountInFiat = false;
     private List<Contact> contactList = [];
 
     // Advanced fee control
@@ -254,10 +332,20 @@
     private int customFeeRate = 5;
     private decimal estimatedFee = 0.0001m;
 
-    // TODO: replace 0.01 with real DGB price from API
-    private const decimal DgbPriceUsd = 0.004m;
-    private decimal amountDgb => isAmountInFiat ? (DgbPriceUsd > 0 ? amount / DgbPriceUsd : 0) : amount;
-    private decimal amountFiat => isAmountInFiat ? amount : amount * DgbPriceUsd;
+    // Live DGB price from CoinGecko
+    private decimal dgbPrice;
+    private decimal amountDgb => isAmountInFiat ? (dgbPrice > 0 ? amount / dgbPrice : 0) : amount;
+    private decimal amountFiat => isAmountInFiat ? amount : amount * dgbPrice;
+
+    private static string FormatFiat(decimal value)
+    {
+        if (value == 0) return "0.00";
+        var abs = Math.Abs(value);
+        if (abs >= 0.01m) return value.ToString("N2");
+        if (abs >= 0.001m) return value.ToString("N3");
+        if (abs >= 0.0001m) return value.ToString("N4");
+        return value.ToString("N6");
+    }
 
     private void ToggleAmountMode()
     {
@@ -278,6 +366,8 @@
     protected override async Task OnInitializedAsync()
     {
         contactList = await ContactService.GetAllAsync();
+        try { var bal = await WalletService.GetBalanceAsync(); availableBalance = bal.ConfirmedDgb; } catch { }
+        try { dgbPrice = await Blockchain.GetDgbPriceAsync(AppState.FiatCurrency); } catch { }
 
         // Parse query params from contact navigation
         var uri = new Uri(Nav.Uri);
@@ -297,6 +387,14 @@
     {
         destinationAddress = "";
         recipientName = "";
+    }
+
+    private void SetMaxAmount()
+    {
+        if (isAmountInFiat)
+            amount = Math.Round(availableBalance * dgbPrice, 2);
+        else
+            amount = availableBalance;
     }
 
     private void SetFeeLow() => SetFee("low", 1);
@@ -331,9 +429,25 @@
     private void PreviewSend()
     {
         addressError = null;
+        amountError = null;
         if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(destinationAddress))
         {
             addressError = "Invalid DigiByte address.";
+            return;
+        }
+        if (amountDgb <= 0)
+        {
+            amountError = "Please enter an amount greater than zero.";
+            return;
+        }
+        if (amountDgb < 0.0001m)
+        {
+            amountError = "Minimum send amount is 0.0001 DGB.";
+            return;
+        }
+        if (amountDgb > availableBalance)
+        {
+            amountError = $"Insufficient balance. You have {availableBalance:N4} DGB available.";
             return;
         }
         showConfirm = true;

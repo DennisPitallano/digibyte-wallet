@@ -106,7 +106,7 @@
     {
         if (address == null) return;
         using var qrGenerator = new QRCoder.QRCodeGenerator();
-        using var qrCodeData = qrGenerator.CreateQrCode($"digibyte:{address}", QRCoder.QRCodeGenerator.ECCLevel.H);
+        using var qrCodeData = qrGenerator.CreateQrCode(address, QRCoder.QRCodeGenerator.ECCLevel.H);
         using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
         var png = qrCode.GetGraphic(10, [0, 35, 82], [255, 255, 255]);
         qrDataUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
