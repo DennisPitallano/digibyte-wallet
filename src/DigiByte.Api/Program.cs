@@ -12,12 +12,18 @@ if (port is not null)
 
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient("CoinGeckoProxy", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("WasmClient", policy =>
     {
-        policy.WithOrigins(
-                builder.Configuration.GetValue<string>("ClientOrigin") ?? "https://localhost:5001")
+        var origins = (builder.Configuration.GetValue<string>("ClientOrigin") ?? "https://localhost:5001")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        policy.WithOrigins(origins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -30,6 +36,12 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+        | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
 
 if (!app.Environment.IsProduction())
 {
@@ -45,6 +57,10 @@ app.MapGroup("/api/p2p")
 // Username/phone directory for remittances
 app.MapGroup("/api/directory")
     .MapDirectoryEndpoints();
+
+// Price proxy (avoids CORS/rate-limit issues from browser → CoinGecko)
+app.MapGroup("/api/price")
+    .MapPriceEndpoints();
 
 // Health check
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));

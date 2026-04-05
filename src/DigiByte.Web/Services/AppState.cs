@@ -9,6 +9,7 @@ namespace DigiByte.Web.Services;
 public class AppState : IDisposable
 {
     private readonly IJSRuntime _js;
+    private readonly string _defaultNetwork;
     private Timer? _lockTimer;
 
     /// <summary>Auto-lock after this duration of inactivity.</summary>
@@ -26,15 +27,18 @@ public class AppState : IDisposable
         "JPY" => "\u00a5",
         _ => "$",
     };
-    public bool IsTestnet { get; set; } = true;
-    public string NetworkMode { get; set; } = "testnet";
+    public bool IsTestnet { get; set; }
+    public string NetworkMode { get; set; } = "mainnet";
 
     public event Action? OnChange;
     public event Action? OnAutoLocked;
 
-    public AppState(IJSRuntime js)
+    public AppState(IJSRuntime js, IConfiguration config)
     {
         _js = js;
+        _defaultNetwork = config["DefaultNetwork"] ?? "mainnet";
+        NetworkMode = _defaultNetwork;
+        IsTestnet = _defaultNetwork != "mainnet";
     }
 
     /// <summary>

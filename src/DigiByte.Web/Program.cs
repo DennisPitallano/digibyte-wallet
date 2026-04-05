@@ -62,6 +62,9 @@ builder.Services.AddScoped<PaymentRequestService>();
 // ── Blockchain service chain: Own Node (pruned) → Explorer list (with fallback) ──
 // Mock demo data is only available in Development — production throws if all backends fail.
 var nodeApiUrl = builder.Configuration["NodeApiUrl"] ?? "http://localhost:5260";
+var priceApiUrl = builder.Configuration["PriceApiUrl"];
+var defaultNetwork = builder.Configuration["DefaultNetwork"] ?? "mainnet";
+var defaultIsTestnet = defaultNetwork != "mainnet";
 var isDevelopment = builder.HostEnvironment.IsDevelopment();
 
 builder.Services.AddScoped(sp =>
@@ -70,7 +73,9 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddScoped(sp =>
     new BlockchainApiService(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain"),
-        sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko")));
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko"),
+        priceApiUrl,
+        defaultIsTestnet));
 if (isDevelopment)
     builder.Services.AddScoped<MockBlockchainService>();
 

@@ -438,42 +438,30 @@ public class WalletService : IWalletService
                 addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
             }
 
-            var utxoInfos = await _blockchain.GetUtxosAsync(addressKeyMap.Keys);
-            if (utxoInfos.Count == 0)
-                throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
-
+            // Query each address individually so we know exactly which address
+            // each UTXO belongs to — Esplora doesn't return scriptPubKey in UTXO responses.
             availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
-            foreach (var utxoInfo in utxoInfos)
+            foreach (var (addr, key) in addressKeyMap)
             {
-                ExtKey? matchedKey = null;
-                foreach (var (addr, key) in addressKeyMap)
+                var utxos = await _blockchain.GetUtxosAsync(addr);
+                var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
+                foreach (var utxoInfo in utxos)
                 {
-                    var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
-                    if (!string.IsNullOrEmpty(utxoInfo.ScriptPubKey))
+                    availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
                     {
-                        var utxoScript = Script.FromHex(utxoInfo.ScriptPubKey);
-                        if (addrScript == utxoScript)
-                        {
-                            matchedKey = key;
-                            break;
-                        }
-                    }
+                        TransactionId = uint256.Parse(utxoInfo.TxId),
+                        OutputIndex = utxoInfo.OutputIndex,
+                        Amount = Money.Satoshis(utxoInfo.AmountSatoshis),
+                        ScriptPubKey = !string.IsNullOrEmpty(utxoInfo.ScriptPubKey)
+                            ? Script.FromHex(utxoInfo.ScriptPubKey)
+                            : addrScript,
+                        PrivateKey = key.PrivateKey,
+                    });
                 }
-
-                if (matchedKey == null)
-                    matchedKey = _hd!.DeriveReceivingKey(0);
-
-                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
-                {
-                    TransactionId = uint256.Parse(utxoInfo.TxId),
-                    OutputIndex = utxoInfo.OutputIndex,
-                    Amount = Money.Satoshis(utxoInfo.AmountSatoshis),
-                    ScriptPubKey = !string.IsNullOrEmpty(utxoInfo.ScriptPubKey)
-                        ? Script.FromHex(utxoInfo.ScriptPubKey)
-                        : matchedKey.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network).ScriptPubKey,
-                    PrivateKey = matchedKey.PrivateKey,
-                });
             }
+
+            if (availableUtxos.Count == 0)
+                throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
 
             var changeKey = _hd!.DeriveChangeKey(_activeWallet!.NextChangeIndex);
             changeAddress = _hd.GetAddress(changeKey);

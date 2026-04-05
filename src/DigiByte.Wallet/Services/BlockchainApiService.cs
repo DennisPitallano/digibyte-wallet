@@ -15,6 +15,7 @@ public class BlockchainApiService : IBlockchainService
 {
     private readonly HttpClient _http;
     private readonly HttpClient _priceHttp;
+    private readonly string? _priceApiBaseUrl;
     private string _baseUrl;
     private bool _isTestnet;
 
@@ -25,12 +26,13 @@ public class BlockchainApiService : IBlockchainService
     // Fallback: chainz.cryptoid.info
     private const string FallbackMainnet = "https://chainz.cryptoid.info/dgb/api.dws";
 
-    public BlockchainApiService(HttpClient http, HttpClient? priceHttp = null)
+    public BlockchainApiService(HttpClient http, HttpClient? priceHttp = null, string? priceApiBaseUrl = null, bool isTestnet = false)
     {
         _http = http;
         _priceHttp = priceHttp ?? http;
-        _baseUrl = TestnetApi;
-        _isTestnet = true;
+        _priceApiBaseUrl = priceApiBaseUrl?.TrimEnd('/');
+        _isTestnet = isTestnet;
+        _baseUrl = isTestnet ? TestnetApi : MainnetApi;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -211,11 +213,13 @@ public class BlockchainApiService : IBlockchainService
 
     public async Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
     {
-        // Use CoinGecko free API — via dedicated no-retry HttpClient to avoid 429 storms
-        var data = await _priceHttp.GetFromJsonAsync<JsonElement>(
-            $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={fiatCurrency.ToLower()}");
+        var currency = fiatCurrency.ToLower();
+        var url = _priceApiBaseUrl != null
+            ? $"{_priceApiBaseUrl}/simple?currency={currency}"
+            : $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={currency}";
+        var data = await _priceHttp.GetFromJsonAsync<JsonElement>(url);
         if (data.TryGetProperty("digibyte", out var dgb) &&
-            dgb.TryGetProperty(fiatCurrency.ToLower(), out var price))
+            dgb.TryGetProperty(currency, out var price))
         {
             var result = price.GetDecimal();
             if (result > 0) return result;

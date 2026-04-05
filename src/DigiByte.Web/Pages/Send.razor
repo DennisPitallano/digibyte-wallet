@@ -201,12 +201,12 @@ else
 
     <button class="slide-up-delay-5 w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 mt-2"
             @onclick="PreviewSend"
-            disabled="@(isFormDisabled || string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)">
-        @if (isFormDisabled)
+            disabled="@(isFormDisabled || isReviewing || string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)">
+        @if (isFormDisabled || isReviewing)
         {
             <span class="flex items-center justify-center gap-2">
                 <span class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                Loading...
+                @(isReviewing ? "Reviewing..." : "Loading...")
             </span>
         }
         else
@@ -367,6 +367,7 @@ else
     private string? sendError;
     private bool showConfirm;
     private bool isSending;
+    private bool isReviewing;
     private bool showContactPicker;
     private bool showScanner;
     private bool showFeeInfo;
@@ -590,6 +591,10 @@ else
             return;
         }
 
+        isReviewing = true;
+        StateHasChanged();
+        await Task.Yield();
+
         // Check for unconfirmed UTXOs
         try
         {
@@ -598,6 +603,7 @@ else
             hasUnconfirmedUtxos = utxos.Any(u => u.Confirmations == 0);
         }
         catch { }
+        finally { isReviewing = false; }
 
         showConfirm = true;
     }
@@ -608,6 +614,7 @@ else
     {
         sendError = null; isSending = true;
         StateHasChanged();
+        await Task.Yield();
         try
         {
             var txId = await WalletService.SendAsync(destinationAddress, amountDgb, memo, customFeeRate);

@@ -3,6 +3,7 @@
 @inject IJSRuntime JS
 @inject MemoryCacheService Cache
 @inject AppState AppState
+@inject IConfiguration Config
 
 <PageTitle>DigiByte Analytics</PageTitle>
 
@@ -135,8 +136,11 @@
         try
         {
             var currency = AppState.FiatCurrency.ToLower();
-            var data = await Http.GetFromJsonAsync<System.Text.Json.JsonElement>(
-                $"https://api.coingecko.com/api/v3/coins/digibyte?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=true");
+            var apiUrl = Config["PriceApiUrl"];
+            var url = apiUrl != null
+                ? $"{apiUrl.TrimEnd('/')}/coin"
+                : "https://api.coingecko.com/api/v3/coins/digibyte?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=true";
+            var data = await Http.GetFromJsonAsync<System.Text.Json.JsonElement>(url);
 
             if (data.TryGetProperty("market_data", out var md))
             {

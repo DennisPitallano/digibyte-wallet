@@ -13,14 +13,16 @@ public class BlockbookApiService : IBlockchainService
 {
     private readonly HttpClient _http;
     private string _baseUrl;
+    private readonly string? _priceApiBaseUrl;
 
     public string Name { get; }
 
-    public BlockbookApiService(HttpClient http, string baseUrl, string name = "blockbook")
+    public BlockbookApiService(HttpClient http, string baseUrl, string name = "blockbook", string? priceApiBaseUrl = null)
     {
         _http = http;
         _baseUrl = baseUrl.TrimEnd('/');
         Name = name;
+        _priceApiBaseUrl = priceApiBaseUrl?.TrimEnd('/');
     }
 
     public void SetBaseUrl(string baseUrl)
@@ -159,10 +161,13 @@ public class BlockbookApiService : IBlockchainService
     {
         try
         {
-            var data = await _http.GetFromJsonAsync<JsonElement>(
-                $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={fiatCurrency.ToLower()}");
+            var currency = fiatCurrency.ToLower();
+            var url = _priceApiBaseUrl != null
+                ? $"{_priceApiBaseUrl}/simple?currency={currency}"
+                : $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={currency}";
+            var data = await _http.GetFromJsonAsync<JsonElement>(url);
             if (data.TryGetProperty("digibyte", out var dgb) &&
-                dgb.TryGetProperty(fiatCurrency.ToLower(), out var price))
+                dgb.TryGetProperty(currency, out var price))
                 return price.GetDecimal();
         }
         catch { }
