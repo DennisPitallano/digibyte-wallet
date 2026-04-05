@@ -35,16 +35,17 @@ WORKDIR /src
 RUN dotnet publish src/DigiByte.Web/DigiByte.Web.csproj \
     -c Release -o /app/publish --no-restore
 
+# Copy nginx config into a known location for the runtime stage
+RUN cp docker/web/nginx.conf /app/publish/nginx.conf
+
 # === Runtime stage — Nginx to serve static files ===
 FROM nginx:alpine AS runtime
 
 # Remove default nginx site
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy published Blazor WASM output
+# Copy published Blazor WASM output and nginx config from build stage
 COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
-
-# Nginx config for Blazor WASM SPA routing
-COPY docker/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/publish/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
