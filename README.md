@@ -342,13 +342,14 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 
 ## Video Tutorials
 
-Recorded walkthroughs are available in [`docs/media/`](docs/media/):
+### How to Install the PWA
+<video src="docs/media/how-to-install-pwa.mp4" controls width="300"></video>
 
-| Tutorial | File |
-|----------|------|
-| How to Install the PWA | [`how-to-install-pwa.mp4`](docs/media/how-to-install-pwa.mp4) |
-| How to Recover / Import an Existing Wallet | [`how-to-recover-import--existing-wallet.mp4`](docs/media/how-to-recover-import--existing-wallet.mp4) |
-| How to Send DigiByte | [`how-to-send-digibyte.mp4`](docs/media/how-to-send-digibyte.mp4) |
+### How to Recover / Import an Existing Wallet
+<video src="docs/media/how-to-recover-import--existing-wallet.mp4" controls width="300"></video>
+
+### How to Send DigiByte
+<video src="docs/media/how-to-send-digibyte.mp4" controls width="300"></video>
 
 ---
 
