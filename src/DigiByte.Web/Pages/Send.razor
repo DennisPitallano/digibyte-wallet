@@ -291,19 +291,7 @@
     @* Success overlay *@
     @if (sentTxId != null)
     {
-        <div class="modal-overlay" style="flex-direction:column; gap:1rem;">
-            <div class="flex flex-col items-center gap-4">
-                <div class="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center check-pop shadow-lg shadow-green-500/30">
-                    <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                    </svg>
-                </div>
-                <div class="text-center fade-in">
-                    <h3 class="text-xl font-bold text-white">Sent!</h3>
-                    <p class="text-sm text-white/70 mt-1">@amountDgb.ToString("N4") DGB sent successfully</p>
-                </div>
-            </div>
-        </div>
+        <TxSuccessOverlay Amount="@amountDgb" TxId="@sentTxId" />
     }
 
     <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
@@ -365,15 +353,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        contactList = await ContactService.GetAllAsync();
-        try { var bal = await WalletService.GetBalanceAsync(); availableBalance = bal.ConfirmedDgb; } catch { }
-        try { dgbPrice = await Blockchain.GetDgbPriceAsync(AppState.FiatCurrency); } catch { }
-
-        // Parse query params from contact navigation
+        // Parse query params immediately (no I/O)
         var uri = new Uri(Nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
         if (query["address"] != null) destinationAddress = query["address"]!;
         if (query["name"] != null) recipientName = query["name"]!;
+        if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount))
+            amount = qtyAmount;
+
+        // Run all async loads in parallel
+        var contactsTask = ContactService.GetAllAsync();
+        var balanceTask = Task.Run(async () => { try { var b = await WalletService.GetBalanceAsync(); availableBalance = b.ConfirmedDgb; } catch { } });
+        var priceTask = Task.Run(async () => { try { dgbPrice = await Blockchain.GetDgbPriceAsync(AppState.FiatCurrency); } catch { } });
+
+        contactList = await contactsTask;
+        await Task.WhenAll(balanceTask, priceTask);
     }
 
     private void SelectContact(Contact c)

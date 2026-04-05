@@ -1,0 +1,59 @@
+@* Transaction success celebration — pure CSS confetti + animated check *@
+
+<div class="modal-overlay" style="flex-direction:column; gap:1rem;">
+    <div class="flex flex-col items-center gap-4 relative">
+        @* Confetti particles *@
+        <div class="confetti-container" style="top:-60px; left:50%; transform:translateX(-50%);">
+            @for (int i = 0; i < 18; i++)
+            {
+                var angle = i * 20;
+                var distance = 40 + (i % 3) * 30;
+                var delay = (i * 0.04);
+                var color = _colors[i % _colors.Length];
+                var x = Math.Cos(angle * Math.PI / 180) * distance;
+                var y = Math.Sin(angle * Math.PI / 180) * distance;
+                <div class="confetti-particle"
+                     style="left:calc(50% + @(x.ToString("F0"))px); top:calc(50% + @(y.ToString("F0"))px); background:@color; animation-delay:@(delay.ToString("F2"))s; animation-duration:@((0.8 + i % 4 * 0.15).ToString("F2"))s; width:@(4 + i % 3 * 2)px; height:@(4 + i % 3 * 2)px; border-radius:@(i % 2 == 0 ? "50%" : "1px");"></div>
+            }
+        </div>
+
+        @* Animated rings *@
+        <div class="relative flex items-center justify-center" style="width:80px;height:80px;">
+            <div class="success-ring"></div>
+            <div class="success-ring success-ring-2"></div>
+
+            @* Spinning coin that settles *@
+            <div style="animation: coin-settle 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;">
+                <SpinningCoin Size="72" />
+            </div>
+        </div>
+
+        @* Check badge *@
+        <div class="absolute" style="top:52px; left:50%; transform:translateX(-50%); animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;">
+            <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/40 border-2 border-white dark:border-dgb-900">
+                <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="text-center fade-in" style="animation-delay:0.3s;">
+            <h3 class="text-xl font-bold text-white">Sent!</h3>
+            <p class="text-sm text-white/70 mt-1">@Amount.ToString("N4") DGB sent successfully</p>
+            @if (!string.IsNullOrEmpty(TxId))
+            {
+                <p class="text-[10px] font-mono text-white/40 mt-2 break-all max-w-[260px] mx-auto">@TxId</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public decimal Amount { get; set; }
+    [Parameter] public string? TxId { get; set; }
+
+    private static readonly string[] _colors = [
+        "#4ade80", "#22d3ee", "#a78bfa", "#fb923c",
+        "#f472b6", "#fbbf24", "#34d399", "#60a5fa"
+    ];
+}

@@ -1,0 +1,146 @@
+@page "/test-animations"
+
+<PageTitle>Animation Test</PageTitle>
+
+<div class="flex flex-col gap-6 p-4 pb-24">
+    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Animation Test Page</h2>
+
+    @* ===== 1. Spinning Coin — Sizes ===== *@
+    <section>
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">3D Spinning Coin — Sizes</h3>
+        <div class="flex items-end gap-6 flex-wrap">
+            <div class="flex flex-col items-center gap-2">
+                <SpinningCoin Size="40" />
+                <span class="text-[10px] text-slate-400">40px</span>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+                <SpinningCoin Size="64" />
+                <span class="text-[10px] text-slate-400">64px</span>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+                <SpinningCoin Size="96" />
+                <span class="text-[10px] text-slate-400">96px</span>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+                <SpinningCoin Size="120" />
+                <span class="text-[10px] text-slate-400">120px</span>
+            </div>
+        </div>
+    </section>
+
+    @* ===== 2. Spinning Coin — Paused vs Active ===== *@
+    <section>
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Paused vs Spinning</h3>
+        <div class="flex items-center gap-6">
+            <div class="flex flex-col items-center gap-2">
+                <SpinningCoin Size="72" Paused="true" />
+                <span class="text-[10px] text-slate-400">Paused</span>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+                <SpinningCoin Size="72" />
+                <span class="text-[10px] text-slate-400">Spinning</span>
+            </div>
+        </div>
+    </section>
+
+    @* ===== 3. Coin on Dark/Light Cards ===== *@
+    <section>
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">On Cards (like balance card)</h3>
+        <div class="flex flex-col gap-3">
+            @* Light card *@
+            <div class="relative overflow-hidden rounded-2xl bg-white px-5 py-4 shadow-lg border border-slate-100">
+                <div class="absolute -bottom-4 -right-4 opacity-[0.08] pointer-events-none">
+                    <SpinningCoin Size="120" />
+                </div>
+                <p class="text-xs text-dgb-600 font-medium">Light Mode Card</p>
+                <h1 class="text-2xl font-extrabold text-dgb-900 mt-1">1,234.5678 DGB</h1>
+                <p class="text-xs text-dgb-500 mt-0.5">$12.34 USD</p>
+            </div>
+            @* Dark card *@
+            <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-dgb-900 via-dgb-800 to-dgb-700 px-5 py-4 text-white shadow-lg">
+                <div class="absolute -bottom-4 -right-4 opacity-[0.10] pointer-events-none">
+                    <SpinningCoin Size="120" />
+                </div>
+                <p class="text-xs text-dgb-200 font-medium">Dark Mode Card</p>
+                <h1 class="text-2xl font-extrabold mt-1">1,234.5678 DGB</h1>
+                <p class="text-xs text-dgb-300 mt-0.5">$12.34 USD</p>
+            </div>
+        </div>
+    </section>
+
+    @* ===== 4. Tx Success Overlay ===== *@
+    <section>
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Transaction Success Overlay</h3>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mb-3">Click the button to trigger the full-screen success celebration.</p>
+        <button class="px-4 py-2.5 bg-green-500 text-white text-sm font-semibold rounded-xl hover:bg-green-600 transition-colors press-effect"
+                @onclick="ShowSuccess">
+            Trigger Tx Success
+        </button>
+    </section>
+
+    @* ===== 5. Individual CSS Animations ===== *@
+    <section>
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">CSS Animation Classes</h3>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
+                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-dgb-500 scale-in"></div>
+                <span class="text-[10px] text-slate-400">.scale-in</span>
+            </div>
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
+                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-dgb-500 float"></div>
+                <span class="text-[10px] text-slate-400">.float</span>
+            </div>
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
+                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-dgb-500 glow-pulse"></div>
+                <span class="text-[10px] text-slate-400">.glow-pulse</span>
+            </div>
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
+                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-green-500 check-pop flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                </div>
+                <span class="text-[10px] text-slate-400">.check-pop</span>
+            </div>
+        </div>
+    </section>
+
+    @* ===== 6. Replay button ===== *@
+    <section>
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Replay Animations</h3>
+        <button class="px-4 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl hover:bg-dgb-600 transition-colors press-effect"
+                @onclick="ReplayAnimations">
+            Replay All
+        </button>
+        <p class="text-[10px] text-slate-400 mt-1">Re-triggers one-shot animations by re-rendering the section above.</p>
+    </section>
+</div>
+
+@* Success overlay *@
+@if (showSuccess)
+{
+    <TxSuccessOverlay Amount="42.1337m" TxId="abc123def456789abc123def456789abc123def456789abc123def456789abcd" />
+}
+
+@code {
+    private bool showSuccess;
+    private bool animKey = true;
+
+    private async Task ShowSuccess()
+    {
+        showSuccess = true;
+        StateHasChanged();
+        await Task.Delay(3000);
+        showSuccess = false;
+        StateHasChanged();
+    }
+
+    private async Task ReplayAnimations()
+    {
+        animKey = !animKey;
+        StateHasChanged();
+        await Task.Delay(50);
+        animKey = !animKey;
+        StateHasChanged();
+    }
+}

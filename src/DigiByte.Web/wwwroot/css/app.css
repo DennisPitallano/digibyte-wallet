@@ -291,3 +291,117 @@ body:has(.modal-overlay) nav {
 .blazor-error-boundary::after {
     content: "An error has occurred.";
 }
+
+/* ===== 3D Spinning Coin ===== */
+.coin-scene {
+    perspective: 600px;
+    display: inline-block;
+}
+.coin {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+}
+.coin-spin {
+    animation: coin-rotate 4s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+.coin-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    backface-visibility: hidden;
+    overflow: hidden;
+    /* Metallic edge effect */
+    box-shadow:
+        inset 0 0 8px rgba(255,255,255,0.15),
+        0 2px 12px rgba(0,35,82,0.3);
+}
+.coin-front {
+    transform: rotateY(0deg);
+}
+.coin-back {
+    transform: rotateY(180deg);
+}
+@keyframes coin-rotate {
+    0%   { transform: rotateY(0deg); }
+    100% { transform: rotateY(360deg); }
+}
+/* Coin settling from spin to front-face */
+@keyframes coin-settle {
+    0%   { transform: rotateY(0deg) scale(0.5); opacity: 0; }
+    60%  { transform: rotateY(540deg) scale(1.1); opacity: 1; }
+    80%  { transform: rotateY(700deg) scale(0.95); }
+    100% { transform: rotateY(720deg) scale(1); opacity: 1; }
+}
+/* Coin shine sweep */
+.coin-face::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(
+        105deg,
+        transparent 30%,
+        rgba(255,255,255,0.25) 45%,
+        rgba(255,255,255,0.05) 50%,
+        transparent 55%
+    );
+    pointer-events: none;
+}
+
+/* ===== Tx Success Celebration ===== */
+@keyframes success-ring {
+    0%   { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+@keyframes confetti-fall {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(120px) rotate(720deg); opacity: 0; }
+}
+@keyframes confetti-pop {
+    0%   { transform: scale(0) translateY(0); opacity: 0; }
+    15%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+.success-ring {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border: 3px solid rgba(74, 222, 128, 0.6);
+    border-radius: 50%;
+    animation: success-ring 1s ease-out forwards;
+}
+.success-ring-2 {
+    animation-delay: 0.15s;
+    border-color: rgba(74, 222, 128, 0.3);
+}
+.confetti-container {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    pointer-events: none;
+}
+/* Individual confetti particles — positioned via inline styles */
+.confetti-particle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    animation: confetti-pop 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+/* Sparkle burst for success */
+@keyframes sparkle {
+    0%   { transform: scale(0) rotate(0deg); opacity: 1; }
+    50%  { opacity: 1; }
+    100% { transform: scale(1) rotate(180deg); opacity: 0; }
+}
+.sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #fbbf24;
+    border-radius: 50%;
+    animation: sparkle 0.8s ease-out forwards;
+}

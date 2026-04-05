@@ -18,7 +18,11 @@
             A self-custodial, open-source DigiByte wallet for everyone. Your money, your keys, your freedom.
         </p>
         <div class="flex gap-2 mt-1">
-            <span class="text-[10px] font-bold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-1 rounded-full">v0.1.0</span>
+            <span class="text-[10px] font-bold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-1 rounded-full">v@(AppVersion.ShortVersion)</span>
+            @if (AppVersion.IsPreRelease)
+            {
+                <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-full uppercase">@AppVersion.Channel</span>
+            }
             <span class="text-[10px] font-bold text-green-500 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">MIT License</span>
             <span class="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-dgb-800 px-2 py-1 rounded-full">.NET 10 + Blazor WASM</span>
         </div>

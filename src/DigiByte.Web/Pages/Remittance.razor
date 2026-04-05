@@ -95,21 +95,20 @@
     }
 
     @* Register username *@
-    <div class="slide-up-delay-5 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+    <div class="slide-up-delay-5 bg-white dark:bg-dgb-900 rounded-2xl border border-dashed border-dgb-300 dark:border-dgb-700 p-4 flex flex-col gap-3 relative overflow-hidden">
+        <div class="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-[9px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Coming Soon</span>
+        </div>
         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Register Your Username</h3>
         <p class="text-xs text-slate-500 dark:text-slate-400">Let others send you DGB by name instead of an address.</p>
-        <div class="flex gap-2">
-            <input type="text" @bind="registerUsername" placeholder="Choose a username"
-                   class="flex-1 px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
-            <button class="px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
-                    @onclick="RegisterAsync" disabled="@(string.IsNullOrWhiteSpace(registerUsername) || isRegistering)">
-                @(isRegistering ? "..." : "Register")
+        <div class="flex gap-2 opacity-50 pointer-events-none">
+            <input type="text" placeholder="Choose a username"
+                   class="flex-1 px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none" />
+            <button class="px-4 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl opacity-50" disabled>
+                Register
             </button>
         </div>
-        @if (registerResult != null)
-        {
-            <p class="text-xs font-medium @(registerSuccess ? "text-green-500" : "text-red-500")">@registerResult</p>
-        }
     </div>
 </div>
 
@@ -119,10 +118,6 @@
     private string? lookupError;
     private DirectoryEntry? resolvedEntry;
     private decimal compareAmount = 200;
-    private string registerUsername = "";
-    private bool isRegistering;
-    private string? registerResult;
-    private bool registerSuccess;
 
     private List<FeeComparison> feeComparisons => RemittanceFeeData.GetComparisons(compareAmount > 0 ? compareAmount : 200);
     private decimal savings => feeComparisons.Count > 1
@@ -168,28 +163,6 @@
     {
         if (resolvedEntry == null) return;
         Nav.NavigateTo($"/send?address={Uri.EscapeDataString(resolvedEntry.Address)}&name={Uri.EscapeDataString(resolvedEntry.Username)}");
-    }
-
-    private async Task RegisterAsync()
-    {
-        registerResult = null;
-        isRegistering = true;
-
-        try
-        {
-            // For now just simulate — would need the user's current address
-            registerResult = "Username registration requires a connected wallet. Coming soon!";
-            registerSuccess = false;
-        }
-        catch (Exception ex)
-        {
-            registerResult = ex.Message;
-            registerSuccess = false;
-        }
-        finally
-        {
-            isRegistering = false;
-        }
     }
 
     private static string FormatTime(TimeSpan ts)
