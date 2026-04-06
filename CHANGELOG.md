@@ -4,6 +4,8 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.2.0-alpha.1] - 2026-04-06
+
 ### Added
 - **Video tutorials** — Recorded walkthroughs in `docs/media/`: How to Install PWA, How to Recover/Import Wallet, How to Send DigiByte
 - **iOS PWA install banner** — Detects iOS Safari and shows manual "Add to Home Screen" instructions (since `beforeinstallprompt` is Chromium-only)
@@ -48,8 +50,11 @@ All notable changes to the DigiByte Wallet project.
 - Backup seed phrase (PIN-protected viewing)
 - Real transaction signing and broadcasting via NBitcoin
 
-### Fixed- **bad-witness-nonstandard on send** \u2014 HD wallet UTXO path now queries each address individually; correct scriptPubKey (legacy vs segwit) per UTXO
-- **Send page spinners** \u2014 Review Transaction and Send Now buttons show loader immediately (`Task.Yield` forces render before async work)- **MemoryCacheService TryGet** — Value types (decimal 0) no longer treated as cache hits
+### Fixed
+- **too-long-mempool-chain broadcast error** — Blockbook fallback + confirmed-only UTXO filtering
+- **bad-witness-nonstandard on send** \u2014 HD wallet UTXO path now queries each address individually; correct scriptPubKey (legacy vs segwit) per UTXO
+- **Send page spinners**  \u2014 Review Transaction and Send Now buttons show loader immediately (`Task.Yield` forces render before async work)
+- **MemoryCacheService TryGet** — Value types (decimal 0) no longer treated as cache hits
 - **CoinGecko $0.00 price** — Services throw instead of returning 0, enabling fallback chain
 - **IndexedDB price cache** — No longer loads/saves 0 values
 - **Home page empty data** — Distinguishes network error from empty wallet
