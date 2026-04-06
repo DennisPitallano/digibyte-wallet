@@ -4,6 +4,16 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **M-of-N multisig wallets** — Create multisig wallets with configurable M-of-N thresholds, add co-signers by public key, PSBT signing workflow, combine signatures, finalize and broadcast
+- **Multisig import** — Import existing multisig wallets via redeem script (watch-only or signing)
+- **Multisig pages** — 6 new pages: wallet list, create wizard, import, detail view, send (PSBT), pending transactions
+- **Multisig unit tests** — 52 new tests: MultisigServiceTests (26), MultisigWalletServiceTests (14), MultisigModelsTests (12)
+- **Help Center** — In-app help page with accordion tutorials for all features, report issue / suggest feature via GitHub Issues
+
+### Fixed
+- **Script hex parsing** — `new Script(hexString)` parses as assembly text, not raw hex; changed to `new Script(Convert.FromHexString(hex))` for correct redeem script deserialization
+
 ## [0.2.0-alpha.1] - 2026-04-06
 
 ### Added

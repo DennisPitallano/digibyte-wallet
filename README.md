@@ -27,6 +27,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **CSP compliant** — All assets self-hosted (Tailwind CSS, Inter font, jsQR), strict Content Security Policy
 - **Node API** — 87 RPC methods wrapped as REST endpoints with Scalar docs
 - **Docker** — Regtest (instant mining), Testnet, and Mainnet pruned node configs
+- **M-of-N multisig wallets** — Create multisig wallets, co-signer management, PSBT signing workflow, import via redeem script
 - **NFC tap-to-pay** — Web NFC API (experimental)
 - **Remittance** — Fee comparison with traditional services
 - **Analytics** — Market data, network stats, 7-day price chart from CoinGecko
@@ -248,6 +249,13 @@ Four services for production:
 | `/identity` | Identity | Digi-ID passwordless auth — scan/paste `digiid://` URI, approve domain, sign challenge |
 | `/p2p` | P2P Marketplace | Coming soon — buy/sell orders, escrow, trade chat |
 | `/remittance` | Remittance | Send by username, fee comparison vs traditional services |
+| `/multisig` | MultisigWallets | Multisig wallet list — create or import |
+| `/multisig/create` | MultisigCreate | 3-step wizard: set threshold, add co-signers, confirm |
+| `/multisig/import` | MultisigImport | Import existing multisig via redeem script |
+| `/multisig/{id}` | MultisigDetail | Multisig wallet detail — balance, address, co-signers |
+| `/multisig/{id}/send` | MultisigSend | Create PSBT spending transaction from multisig |
+| `/multisig/{id}/pending` | MultisigPending | View/sign/broadcast pending multisig transactions |
+| `/help` | Help | Help center — tutorials, how-tos, report issue, suggest feature |
 | `/settings` | Settings | Theme, language, network, currency, display mode, backup seed, delete wallet |
 | `/backup-seed` | BackupSeed | PIN-protected seed phrase viewer |
 | `/about` | About | Version, credits, GitHub contributors, tech stack |

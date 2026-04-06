@@ -37,6 +37,15 @@
 - [x] Config-driven CORS (comma-separated origins)
 - [x] Toast notifications
 
+### Phase 5 — Multisig
+- [x] M-of-N multisig wallet creation (configurable thresholds)
+- [x] Co-signer management (public key import, BIP67 sorted keys)
+- [x] P2SH-P2WSH and P2WSH multisig address derivation
+- [x] PSBT signing workflow (create, sign, combine, finalize, broadcast)
+- [x] Import multisig wallet via redeem script (watch-only or signing)
+- [x] 6 multisig UI pages (list, create wizard, import, detail, send, pending)
+- [x] 52 unit tests (MultisigService, MultisigWalletService, MultisigModels)
+
 ### Security & Stability
 - [x] PIN lockout — exponential backoff after 3 failed attempts
 - [x] Global error boundary — styled crash recovery screen
@@ -89,7 +98,7 @@
 
 ### Phase 3 — P2P Exchange
 - [ ] Order book (buy/sell offers)
-- [ ] 2-of-3 multisig escrow
+- [x] M-of-N multisig wallet support (completed in Phase 5)
 - [ ] Trade flow (initiate → pay → release)
 - [ ] SignalR real-time chat (TradeChatHub)
 - [ ] Reputation system (ratings, badges)
@@ -118,7 +127,7 @@
 ### Technical Debt
 - [ ] PWA offline mode improvements (background sync for pending tx)
 - [ ] Service worker update notification
-- [ ] Unit tests for WalletService + UI components
+- [x] Unit tests for WalletService + multisig (92 total)
 - [ ] E2E test suite (Playwright)
 - [ ] Performance optimization (lazy loading)
 
