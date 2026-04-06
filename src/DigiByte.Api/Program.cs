@@ -67,5 +67,6 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp =
 
 // SignalR hubs
 app.MapHub<TradeChatHub>("/hubs/trade");
+app.MapHub<MultisigRoomHub>("/hubs/multisig-room");
 
 app.Run();
