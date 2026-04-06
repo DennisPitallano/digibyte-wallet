@@ -9,7 +9,15 @@ All notable changes to the DigiByte Wallet project.
 - **Multisig import** — Import existing multisig wallets via redeem script (watch-only or signing)
 - **Multisig pages** — 6 new pages: wallet list, create wizard, import, detail view, send (PSBT), pending transactions
 - **Multisig unit tests** — 52 new tests: MultisigServiceTests (26), MultisigWalletServiceTests (14), MultisigModelsTests (12)
-- **Help Center** — In-app help page with accordion tutorials for all features, report issue / suggest feature via GitHub Issues
+- **Help Center** — In-app help page (`/help`) with 12 searchable accordion tutorial sections, report issue / suggest feature via GitHub Issues
+- **Multisig Guide** — Dedicated guide page (`/help/multisig`) with visual flows, real-world scenarios, step-by-step walkthroughs, technical details, and wallet type comparison table
+- **Help links** — Help Center accessible from Unlock, CreateWallet, Settings, About, and Welcome pages
+- **Multisig button** — Quick-access Multisig button on Home page action row
+- **Multisig create help link** — "New to multisig? Read the guide" link on MultisigCreate page
+
+### Changed
+- **PSBT wording** — Updated "Partially Signed Bitcoin Transaction" to "Partially Signed Transaction" with DigiByte context across all pages
+- **Welcome page** — Removed Multisig Wallet button (requires an existing wallet first)
 
 ### Fixed
 - **Script hex parsing** — `new Script(hexString)` parses as assembly text, not raw hex; changed to `new Script(Convert.FromHexString(hex))` for correct redeem script deserialization

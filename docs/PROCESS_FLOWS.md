@@ -166,7 +166,7 @@ App start
     → Yes → redirect /unlock
   → User taps "Create New Wallet" → navigate /create-wallet
   → User taps "Recover"           → navigate /recover-wallet
-  → Footer links: /about, /roadmap, /analytics, /deployment
+  → Footer links: /help, /about, /roadmap, /analytics, /deployment
 ```
 No services called. Pure navigation page.
 
@@ -512,5 +512,6 @@ Finalize & broadcast:
 /roadmap      → Static: visual timeline with Done/In Progress/Planned milestones
 /deployment   → Static: infrastructure status badges, cost breakdown, donation address
 /help         → Static: accordion help sections (12 topics), search/filter, report issue / suggest feature (pre-filled GitHub URL)
+/help/multisig → Static: comprehensive multisig guide — visual flows, real-world scenarios (2-of-2 joint, 2-of-3 backup/escrow, 3-of-5 treasury), step-by-step walkthroughs (create, send, import), technical details (BIP67, BIP174, P2SH-P2WSH/P2WSH), wallet type comparison table
 /not-found    → 404 error page
 ```

@@ -255,7 +255,8 @@ Four services for production:
 | `/multisig/{id}` | MultisigDetail | Multisig wallet detail — balance, address, co-signers |
 | `/multisig/{id}/send` | MultisigSend | Create PSBT spending transaction from multisig |
 | `/multisig/{id}/pending` | MultisigPending | View/sign/broadcast pending multisig transactions |
-| `/help` | Help | Help center — tutorials, how-tos, report issue, suggest feature |
+| `/help` | Help | Help center — 12 searchable tutorial sections, report issue, suggest feature |
+| `/help/multisig` | MultisigGuide | Comprehensive multisig guide — visual flows, scenarios, walkthroughs, technical details |
 | `/settings` | Settings | Theme, language, network, currency, display mode, backup seed, delete wallet |
 | `/backup-seed` | BackupSeed | PIN-protected seed phrase viewer |
 | `/about` | About | Version, credits, GitHub contributors, tech stack |
@@ -270,7 +271,7 @@ Bottom Navigation (5 tabs):
   Wallet (/)  |  Pay (/payments)  |  P2P (/p2p)  |  ID (/identity)  |  Settings (/settings)
 
 Pages WITHOUT bottom nav:
-  /welcome, /create-wallet, /recover-wallet, /unlock, /about, /roadmap, /analytics, /deployment
+  /welcome, /create-wallet, /recover-wallet, /unlock, /about, /roadmap, /analytics, /deployment, /help, /help/multisig
 ```
 
 ---

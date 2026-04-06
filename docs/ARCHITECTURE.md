@@ -120,6 +120,7 @@ Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends
 - **MainLayout.razor** — Root wrapper, 480px max-width mobile-first container
 - **NavMenu.razor** — Fixed bottom nav (5 tabs: Wallet, Pay, P2P, ID, Settings) with frosted glass
 - **AuthGuard.razor** — Protects pages: no wallet → `/welcome`, locked → `/unlock`
+- **HiddenNavPaths** — Routes without bottom nav: `/welcome`, `/create-wallet`, `/recover-wallet`, `/unlock`, `/about`, `/roadmap`, `/analytics`, `/deployment`, `/help`, `/help/multisig`
 - **OfflineBanner** — Amber banner when offline
 - **ToastContainer** — Top-center notifications (success/error/warning/info)
 

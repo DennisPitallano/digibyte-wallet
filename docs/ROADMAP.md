@@ -86,6 +86,10 @@
 - [x] Process flow documentation (per-page technical flows)
 - [x] Comprehensive README with configs, run/test instructions
 - [x] Video tutorials — Install PWA, Recover/Import Wallet, Send DigiByte (`docs/media/`)
+- [x] Help Center (`/help`) — 12 searchable accordion tutorial sections, report issue / suggest feature
+- [x] Multisig Guide (`/help/multisig`) — visual flows, real-world scenarios, step-by-step walkthroughs, technical details
+- [x] Help links on Welcome, Unlock, CreateWallet, Settings, About pages
+- [x] Multisig quick-access from Home page + guide link on MultisigCreate
 
 ## In Progress
 
