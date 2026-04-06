@@ -124,6 +124,7 @@ public class Utxo
     public required Money Amount { get; init; }
     public required Script ScriptPubKey { get; init; }
     public required Key PrivateKey { get; init; }
+    public int Confirmations { get; init; }
 
     public Coin ToCoin()
     {

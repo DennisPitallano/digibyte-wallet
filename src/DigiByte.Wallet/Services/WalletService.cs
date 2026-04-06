@@ -403,6 +403,7 @@ public class WalletService : IWalletService
                     Amount = Money.Satoshis(u.AmountSatoshis),
                     ScriptPubKey = legacyAddr.ScriptPubKey,
                     PrivateKey = _singleKey,
+                    Confirmations = u.Confirmations,
                 });
             }
 
@@ -415,6 +416,7 @@ public class WalletService : IWalletService
                     Amount = Money.Satoshis(u.AmountSatoshis),
                     ScriptPubKey = segwitAddr.ScriptPubKey,
                     PrivateKey = _singleKey,
+                    Confirmations = u.Confirmations,
                 });
             }
 
@@ -456,6 +458,7 @@ public class WalletService : IWalletService
                             ? Script.FromHex(utxoInfo.ScriptPubKey)
                             : addrScript,
                         PrivateKey = key.PrivateKey,
+                        Confirmations = utxoInfo.Confirmations,
                     });
                 }
             }
@@ -472,6 +475,12 @@ public class WalletService : IWalletService
         if (totalAvailable < amountSatoshis)
             throw new InvalidOperationException(
                 $"Insufficient funds. Need {amountDgb:N8} DGB but only have {totalAvailable / 100_000_000m:N8} DGB.");
+
+        // Prefer confirmed UTXOs to avoid long mempool chains (limit: 25 ancestors)
+        availableUtxos = availableUtxos
+            .OrderByDescending(u => u.Confirmations > 0 ? 1 : 0)
+            .ThenByDescending(u => u.Amount)
+            .ToList();
 
         // Build and sign the transaction
         var destination = BitcoinAddress.Create(destinationAddress, network);
