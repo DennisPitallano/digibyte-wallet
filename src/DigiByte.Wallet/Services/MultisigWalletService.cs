@@ -87,7 +87,7 @@ public class MultisigWalletService
         int ownKeyIndex = -1,
         string addressType = "p2sh-p2wsh")
     {
-        var redeemScript = new Script(redeemScriptHex);
+        var redeemScript = new Script(Convert.FromHexString(redeemScriptHex));
         var service = new MultisigService(CurrentNetwork);
 
         // Extract M and pubkeys from the redeem script
@@ -144,7 +144,7 @@ public class MultisigWalletService
         string? memo = null)
     {
         var service = new MultisigService(CurrentNetwork);
-        var redeemScript = new Script(config.RedeemScriptHex);
+        var redeemScript = new Script(Convert.FromHexString(config.RedeemScriptHex));
         var destination = BitcoinAddress.Create(destinationAddress, CurrentNetwork);
         var changeAddress = BitcoinAddress.Create(config.Address, CurrentNetwork);
         var amount = Money.Coins(amountDgb);
