@@ -84,10 +84,13 @@ builder.Services.AddScoped<FallbackBlockchainService>(sp =>
 {
     var nodeApi = sp.GetRequiredService<NodeApiBlockchainService>();
     var esplora = sp.GetRequiredService<BlockchainApiService>();
+    var blockbookHttp = sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain");
+    var blockbook = new BlockbookApiService(blockbookHttp, "https://digibyteblockexplorer.com", "blockbook-main", priceApiUrl);
 
     var explorers = new List<IBlockchainService>
     {
-        esplora, // Esplora (digiexplorer.info) — primary
+        esplora,   // Esplora (digiexplorer.info) — primary
+        blockbook, // Blockbook (digibyteblockexplorer.com) — fallback
     };
 
     var mock = isDevelopment ? sp.GetRequiredService<MockBlockchainService>() : null;
