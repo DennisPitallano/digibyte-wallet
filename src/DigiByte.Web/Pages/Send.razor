@@ -640,10 +640,25 @@ else
         }
         catch (Exception ex)
         {
-            sendError = ex.Message;
+            sendError = MapSendError(ex.Message);
             isSending = false;
         }
     }
+
+    private static string MapSendError(string message) => message switch
+    {
+        _ when message.Contains("too-long-mempool-chain", StringComparison.OrdinalIgnoreCase)
+            => "Too many unconfirmed transactions. Please wait for some to confirm before sending again.",
+        _ when message.Contains("insufficient fee", StringComparison.OrdinalIgnoreCase)
+            => "Transaction fee is too low. Try increasing the fee rate.",
+        _ when message.Contains("dust", StringComparison.OrdinalIgnoreCase)
+            => "Amount is too small (dust). Please send a larger amount.",
+        _ when message.Contains("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase)
+            => "A conflicting transaction is already in the mempool. Please wait and try again.",
+        _ when message.Contains("bad-txns-inputs-missingorspent", StringComparison.OrdinalIgnoreCase)
+            => "Some inputs have already been spent. Pull to refresh your balance and try again.",
+        _ => message
+    };
 
     private static string TruncateAddress(string addr) => addr.Length <= 16 ? addr : $"{addr[..8]}...{addr[^8..]}";
 }
