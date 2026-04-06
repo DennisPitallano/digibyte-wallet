@@ -118,6 +118,7 @@
             skipWaiting: () => {
                 if (window._swWaiting) {
                     window._swWaiting.postMessage({ type: 'SKIP_WAITING' });
+                    window._swWaiting = null;
                 }
             }
         };
