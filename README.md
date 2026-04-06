@@ -1,5 +1,7 @@
 # DigiByte Wallet
 
+**[dgbwallet.app](https://dgbwallet.app)**
+
 A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with Blazor WebAssembly (.NET 10). All cryptographic operations happen in the browser — private keys never leave your device.
 
 ## Features
@@ -224,7 +226,7 @@ Four services for production:
 
 | Service | Variable | Example |
 |---------|----------|---------|
-| `digibyte-api` | `ClientOrigin` | `https://digibyte-web-production.up.railway.app` |
+| `digibyte-api` | `ClientOrigin` | `https://dgbwallet.app` |
 | `digibyte-api` | `PORT` | Auto-set by Railway |
 | `digibyte-web` | (none) | Config baked into `wwwroot/appsettings.json` |
 
