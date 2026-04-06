@@ -1,0 +1,66 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@if (showBanner)
+{
+    <div class="fixed bottom-20 left-0 right-0 z-50 flex justify-center pointer-events-none slide-up">
+        <div class="pointer-events-auto mx-4 max-w-[460px] w-full flex items-center gap-3 bg-white dark:bg-dgb-900 border border-dgb-400 dark:border-dgb-600 rounded-2xl shadow-xl px-4 py-3">
+            <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-dgb-100 dark:bg-dgb-800 flex-shrink-0">
+                <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Update Available</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">A new version is ready to install</p>
+            </div>
+            <button class="px-4 py-1.5 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-bold rounded-xl press-effect flex-shrink-0 transition-colors"
+                    @onclick="ApplyUpdate">
+                Update
+            </button>
+            <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0 p-1 -mr-1 transition-colors"
+                    @onclick="Dismiss">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool showBanner;
+    private DotNetObjectReference<PwaUpdateBanner>? selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        selfRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("pwaUpdate.registerCallback", selfRef);
+    }
+
+    [JSInvokable]
+    public void OnUpdateAvailable()
+    {
+        showBanner = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApplyUpdate()
+    {
+        showBanner = false;
+        await JS.InvokeVoidAsync("pwaUpdate.skipWaiting");
+    }
+
+    private void Dismiss()
+    {
+        showBanner = false;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        selfRef?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

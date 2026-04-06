@@ -78,7 +78,50 @@
     <script src="js/qrscanner.js" defer></script>
     <script src="js/download.js" defer></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
-    <script>navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });</script>
+    <script>
+        navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).then(reg => {
+            // Check for updates every 60 minutes
+            setInterval(() => reg.update(), 60 * 60 * 1000);
+
+            // Detect when a new service worker is waiting
+            function onNewSW(sw) {
+                if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                    window._swWaiting = sw;
+                    if (window._pwaUpdateCallback) {
+                        window._pwaUpdateCallback.invokeMethodAsync('OnUpdateAvailable');
+                    }
+                }
+            }
+
+            if (reg.waiting) { onNewSW(reg.waiting); }
+
+            reg.addEventListener('updatefound', () => {
+                const newSW = reg.installing;
+                if (!newSW) return;
+                newSW.addEventListener('statechange', () => onNewSW(newSW));
+            });
+        });
+
+        // Reload once the new SW takes over
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) { refreshing = true; location.reload(); }
+        });
+
+        window.pwaUpdate = {
+            registerCallback: (dotnetRef) => {
+                window._pwaUpdateCallback = dotnetRef;
+                if (window._swWaiting) {
+                    dotnetRef.invokeMethodAsync('OnUpdateAvailable');
+                }
+            },
+            skipWaiting: () => {
+                if (window._swWaiting) {
+                    window._swWaiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+            }
+        };
+    </script>
 </body>
 
 </html>
