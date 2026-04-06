@@ -41,15 +41,19 @@
     }
 
     [JSInvokable]
-    public void OnUpdateAvailable()
+    public async Task OnUpdateAvailable()
     {
+        var applied = await JS.InvokeAsync<string?>("sessionStorage.getItem", "pwa-update-applied");
+        if (!string.IsNullOrEmpty(applied)) return;
+
         showBanner = true;
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task ApplyUpdate()
     {
         showBanner = false;
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "pwa-update-applied", "1");
         await JS.InvokeVoidAsync("pwaUpdate.skipWaiting");
     }
 
