@@ -1,0 +1,98 @@
+@page "/multisig/import"
+@inject MultisigWalletService MultisigService
+@inject NavigationManager Nav
+
+<PageTitle>Import Multisig</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-5">
+    <div class="slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Import Multisig Wallet</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Paste the redeem script shared by a co-signer to import an existing multisig wallet.
+        </p>
+    </div>
+
+    <div class="flex flex-col gap-4">
+        @* Wallet Name *@
+        <div class="flex flex-col gap-1.5 slide-up-delay-1">
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
+            <input type="text" @bind="walletName" placeholder="e.g. Shared Fund"
+                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+        </div>
+
+        @* Redeem Script *@
+        <div class="flex flex-col gap-1.5 slide-up-delay-1">
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Redeem Script (Hex)</label>
+            <textarea @bind="redeemScriptHex" @bind:event="oninput" rows="4"
+                      placeholder="Paste the multisig redeem script hex..."
+                      class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none"></textarea>
+        </div>
+
+        @* Own Key Index *@
+        <div class="flex flex-col gap-1.5 slide-up-delay-1">
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Your Key Position (optional)</label>
+            <input type="number" @bind="ownKeyIndex" min="-1" max="14"
+                   placeholder="-1 for watch-only"
+                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            <p class="text-[11px] text-slate-400 dark:text-slate-500">
+                Enter -1 for watch-only, or 0-based index of your key in the script.
+            </p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <p class="text-sm text-red-500 font-medium">@error</p>
+    }
+
+    <div class="flex flex-col gap-2 slide-up-delay-2">
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                @onclick="ImportWallet" disabled="@(isImporting || string.IsNullOrWhiteSpace(walletName) || string.IsNullOrWhiteSpace(redeemScriptHex))">
+            @if (isImporting)
+            {
+                <div class="flex items-center justify-center gap-2">
+                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Importing...</span>
+                </div>
+            }
+            else
+            {
+                <span>Import Wallet</span>
+            }
+        </button>
+        <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2"
+                @onclick='() => Nav.NavigateTo("/multisig")'>Cancel</button>
+    </div>
+</div>
+</AuthGuard>
+
+@code {
+    private string walletName = "";
+    private string redeemScriptHex = "";
+    private int ownKeyIndex = -1;
+    private string? error;
+    private bool isImporting;
+
+    private async Task ImportWallet()
+    {
+        isImporting = true;
+        error = null;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await MultisigService.ImportMultisigWalletAsync(walletName, redeemScriptHex.Trim(), ownKeyIndex);
+            Nav.NavigateTo("/multisig");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+}
