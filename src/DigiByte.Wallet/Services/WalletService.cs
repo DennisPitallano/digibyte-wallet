@@ -476,11 +476,11 @@ public class WalletService : IWalletService
             throw new InvalidOperationException(
                 $"Insufficient funds. Need {amountDgb:N8} DGB but only have {totalAvailable / 100_000_000m:N8} DGB.");
 
-        // Prefer confirmed UTXOs to avoid long mempool chains (limit: 25 ancestors)
-        availableUtxos = availableUtxos
-            .OrderByDescending(u => u.Confirmations > 0 ? 1 : 0)
-            .ThenByDescending(u => u.Amount)
-            .ToList();
+        // Use only confirmed UTXOs to avoid too-long-mempool-chain (node limit: 25 ancestors).
+        // Fall back to all UTXOs only if confirmed ones can't cover the amount + estimated fee.
+        var confirmedUtxos = availableUtxos.Where(u => u.Confirmations > 0).ToList();
+        var confirmedTotal = confirmedUtxos.Sum(u => u.Amount.Satoshi);
+        var utxosToUse = confirmedTotal >= amountSatoshis ? confirmedUtxos : availableUtxos;
 
         // Build and sign the transaction
         var destination = BitcoinAddress.Create(destinationAddress, network);
@@ -489,14 +489,14 @@ public class WalletService : IWalletService
         var feeRate = new FeeRate(Money.Satoshis(effectiveFeeRate * 1000));
 
         var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
-        var tx = txBuilder.BuildSendTransaction(availableUtxos, destination, amount, changeAddress, feeRate, memo);
+        var tx = txBuilder.BuildSendTransaction(utxosToUse, destination, amount, changeAddress, feeRate, memo);
 
         // Broadcast
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
 
         // Track the transaction locally
-        var feePaid = tx.GetFee(availableUtxos.Select(u => u.ToCoin()).ToArray());
+        var feePaid = tx.GetFee(utxosToUse.Select(u => u.ToCoin()).ToArray());
         await _txTracker.RecordSendAsync(txId, destinationAddress, amountSatoshis,
             feePaid?.Satoshi ?? 0, memo);
 
