@@ -4,23 +4,28 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.3.0-beta.1] - 2026-04-07
+
 ### Added
-- **M-of-N multisig wallets** — Create multisig wallets with configurable M-of-N thresholds, add co-signers by public key, PSBT signing workflow, combine signatures, finalize and broadcast
-- **Multisig import** — Import existing multisig wallets via redeem script (watch-only or signing)
-- **Multisig pages** — 6 new pages: wallet list, create wizard, import, detail view, send (PSBT), pending transactions
-- **Multisig unit tests** — 52 new tests: MultisigServiceTests (26), MultisigWalletServiceTests (14), MultisigModelsTests (12)
-- **Help Center** — In-app help page (`/help`) with 12 searchable accordion tutorial sections, report issue / suggest feature via GitHub Issues
-- **Multisig Guide** — Dedicated guide page (`/help/multisig`) with visual flows, real-world scenarios, step-by-step walkthroughs, technical details, and wallet type comparison table
-- **Help links** — Help Center accessible from Unlock, CreateWallet, Settings, About, and Welcome pages
-- **Multisig button** — Quick-access Multisig button on Home page action row
-- **Multisig create help link** — "New to multisig? Read the guide" link on MultisigCreate page
+- **Real-time multisig rooms** — SignalR-based collaborative multisig wallet creation with invite codes, participant tracking, ready system, auto-expiry (15 min), and deep link support
+- **Multisig backup/restore** — Download redeem script as `.txt` backup file with wallet metadata, co-signers, and recovery instructions
+- **Import from backup file** — Upload `.txt` backup on MultisigImport page; auto-parses wallet name and redeem script
+- **Backup warning** — Amber warning banner on MultisigDetail page explaining seed phrases cannot recover multisig wallets
+- **VersionBadge component** — Shared tappable version pill badge used across 5 pages (Welcome, About, CreateWallet, Settings, Unlock)
+- **Version Info modal** — Tappable modal with app details, channel, platform, framework, and What's New section; rendered at layout level via static event pattern
+- **Real-life scenario** — Maya/Leo/Priya vacation fund walkthrough in Multisig Guide real-time collaboration section
+- **Security documentation** — Comprehensive `docs/SECURITY.md` with threat model, OWASP Top 10 mapping, risk matrix, cryptographic primitives, and hardening recommendations
+- **Video tutorial** — Real-time multisig creation recording (`create-multi-sigg.mp4` + GIF) added to README
 
 ### Changed
-- **PSBT wording** — Updated "Partially Signed Bitcoin Transaction" to "Partially Signed Transaction" with DigiByte context across all pages
-- **Welcome page** — Removed Multisig Wallet button (requires an existing wallet first)
+- **Version bumped to 0.3.0-beta.1** — Promoted from alpha to beta; all core features functional, documented, and tested
+- **Roadmap updated** — Added "Real-Time Multisig Rooms" and "UI Enhancements" as completed milestones
+- **Help Center updated** — New Q&As for multisig rooms, real-time creation, and recovery warnings
+- **Multisig Guide updated** — New "Real-Time Collaboration" expandable section with step-by-step walkthrough
+- **Delete wallet help** — Updated to mention backing up multisig redeem scripts before deletion
 
 ### Fixed
-- **Script hex parsing** — `new Script(hexString)` parses as assembly text, not raw hex; changed to `new Script(Convert.FromHexString(hex))` for correct redeem script deserialization
+- **Version Info modal positioning** — Fixed CSS `transform` containment issue (animations creating containing blocks that break `position: fixed`); modal now rendered at layout level outside page transforms
 
 ## [0.2.0-alpha.1] - 2026-04-06
 
