@@ -369,6 +369,7 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 
 - [Architecture](docs/ARCHITECTURE.md) — Design decisions, project structure, blockchain service chain, Docker/deployment
 - [Security & Threat Model](docs/SECURITY.md) — Cryptographic primitives, threat matrix, OWASP mapping, attack surface analysis
+- [Protocol Compliance](docs/COMPLIANCE.md) — BIP compliance matrix, network parameters, address formats, regulatory considerations
 - [Process Flows](docs/PROCESS_FLOWS.md) — Per-page technical flows, user flows, backend operation matrix
 - [Roadmap](docs/ROADMAP.md) — Development phases, completed features, planned work
 - [Contributing](CONTRIBUTING.md) — How to contribute
