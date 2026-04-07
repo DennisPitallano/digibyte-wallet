@@ -59,7 +59,7 @@ digibyte-wallet/
 │   ├── ARCHITECTURE.md           # Detailed architecture & design decisions
 │   ├── PROCESS_FLOWS.md          # Per-page technical flows
 │   ├── ROADMAP.md                # Development roadmap & status
-│   └── media/                    # Video tutorials (install, recover, send)
+│   └── media/                    # Video tutorials (install, recover, send, multisig)
 ├── docker-compose.yml            # Regtest (instant mining, local dev)
 ├── docker-compose.testnet.yml    # Testnet (real network)
 └── docker-compose.mainnet.yml    # Mainnet pruned (production)
@@ -357,6 +357,11 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 |:-:|:-:|:-:|
 | ![Install PWA](docs/media/how-to-install-pwa.gif) | ![Recover Wallet](docs/media/how-to-recover-import--existing-wallet.gif) | ![Send DigiByte](docs/media/how-to-send-digibyte.gif) |
 | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-install-pwa.mp4) | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-recover-import--existing-wallet.mp4) | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-send-digibyte.mp4) |
+
+| How to Create a Multisig Wallet in Real-Time |
+|:-:|
+| ![Create Multisig](docs/media/create-multi-sigg.gif) |
+| [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/create-multi-sigg.mp4) |
 
 ---
 
