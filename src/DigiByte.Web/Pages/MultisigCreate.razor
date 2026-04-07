@@ -1,0 +1,327 @@
+@page "/multisig/create"
+@inject MultisigWalletService MultisigService
+@inject WalletService WalletService
+@inject AppState AppState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Create Multisig</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-5">
+    @* Step Indicator *@
+    <div class="flex items-center justify-center gap-2 mb-2 fade-in">
+        @for (int i = 0; i < 3; i++)
+        {
+            var idx = i;
+            <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(idx <= (int)step ? "bg-dgb-500 w-10" : "bg-slate-200 dark:bg-dgb-800 w-6")"></div>
+        }
+    </div>
+
+    @if (step == Step.Configure)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Create Multisig Wallet</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Set up a wallet that requires multiple signatures to spend.</p>
+        </div>
+
+        <div class="flex flex-col gap-4">
+            @* Wallet Name *@
+            <div class="flex flex-col gap-1.5 slide-up-delay-1">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
+                <input type="text" @bind="walletName" placeholder="e.g. Family Savings"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            </div>
+
+            @* M-of-N Configuration *@
+            <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Signature Scheme</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex flex-col items-center gap-1">
+                        <label class="text-[10px] text-slate-400 uppercase">Required</label>
+                        <select @bind="requiredSigs"
+                                class="w-16 px-2 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-center text-slate-900 dark:text-white font-bold outline-none">
+                            @for (int m = 1; m <= totalSigners; m++)
+                            {
+                                <option value="@m">@m</option>
+                            }
+                        </select>
+                    </div>
+                    <span class="text-lg font-bold text-slate-400 mt-4">of</span>
+                    <div class="flex flex-col items-center gap-1">
+                        <label class="text-[10px] text-slate-400 uppercase">Total</label>
+                        <select @bind="totalSigners" @bind:after="OnTotalChanged"
+                                class="w-16 px-2 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-center text-slate-900 dark:text-white font-bold outline-none">
+                            @for (int n = 2; n <= 7; n++)
+                            {
+                                <option value="@n">@n</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                    @requiredSigs of @totalSigners signers must approve each transaction.
+                </p>
+            </div>
+        </div>
+
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+                @onclick="GoToAddSigners" disabled="@string.IsNullOrWhiteSpace(walletName)">
+            Next: Add Co-Signers
+        </button>
+
+        <div class="flex items-center gap-3 slide-up-delay-2">
+            <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase">or</span>
+            <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
+        </div>
+
+        <a href="/multisig/room" class="flex items-center justify-center gap-2 w-full py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 font-semibold rounded-2xl hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors press-effect slide-up-delay-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+            </svg>
+            Create Together in Real-Time
+        </a>
+
+        <a href="/help/multisig" class="flex items-center justify-center gap-1.5 text-xs text-purple-500 hover:text-purple-600 font-medium py-2 slide-up-delay-2">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" /></svg>
+            New to multisig? Read the guide
+        </a>
+    }
+    else if (step == Step.AddSigners)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Add Co-Signers</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Add the public keys of each co-signer. Your key is added automatically.
+            </p>
+        </div>
+
+        @* Own key (auto-populated) *@
+        <div class="slide-up-delay-1 p-3 bg-dgb-50 dark:bg-dgb-900/50 rounded-2xl border border-dgb-200 dark:border-dgb-700">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                    </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-dgb-700 dark:text-dgb-300">You (This Wallet)</p>
+                    <p class="text-[11px] font-mono text-dgb-500/70 truncate">@ownPubKeyHex</p>
+                </div>
+                <span class="text-[10px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-2 py-0.5 rounded-full">LOCAL</span>
+            </div>
+        </div>
+
+        @* Co-signer entries *@
+        <div class="flex flex-col gap-3">
+            @for (int i = 0; i < coSignerEntries.Count; i++)
+            {
+                var idx = i;
+                <div class="slide-up-delay-1 flex flex-col gap-2 p-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-400 w-4">@(idx + 2)</span>
+                        <input type="text" @bind="coSignerEntries[idx].Name" placeholder="Name (e.g. Alice)"
+                               class="flex-1 px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                    </div>
+                    <input type="text" @bind="coSignerEntries[idx].PubKeyHex" placeholder="Public key (hex)"
+                           class="w-full px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="text-sm text-red-500 font-medium">@error</p>
+        }
+
+        <div class="flex flex-col gap-2 slide-up-delay-2">
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                    @onclick="GoToReview" disabled="@(!AllSignersValid())">
+                Review Wallet
+            </button>
+            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="BackToConfigure">Back</button>
+        </div>
+    }
+    else if (step == Step.Review)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Review & Create</h2>
+        </div>
+
+        <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between">
+                    <span class="text-xs text-slate-500 dark:text-slate-400">Name</span>
+                    <span class="text-sm font-semibold text-slate-900 dark:text-white">@walletName</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-xs text-slate-500 dark:text-slate-400">Type</span>
+                    <span class="text-sm font-semibold text-dgb-500">@requiredSigs-of-@totalSigners Multisig</span>
+                </div>
+                <hr class="border-slate-100 dark:border-dgb-800" />
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Co-Signers</p>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-dgb-500 font-bold">1.</span>
+                    <span class="text-sm text-slate-900 dark:text-white font-medium">You (This Wallet)</span>
+                </div>
+                @for (int i = 0; i < coSignerEntries.Count; i++)
+                {
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-dgb-500 font-bold">@(i + 2).</span>
+                        <span class="text-sm text-slate-900 dark:text-white font-medium">@coSignerEntries[i].Name</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="text-sm text-red-500 font-medium">@error</p>
+        }
+
+        <div class="flex flex-col gap-2 slide-up-delay-2">
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                    @onclick="CreateWallet" disabled="@isCreating">
+                @if (isCreating)
+                {
+                    <div class="flex items-center justify-center gap-2">
+                        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Creating...</span>
+                    </div>
+                }
+                else
+                {
+                    <span>Create Multisig Wallet</span>
+                }
+            </button>
+            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="BackToSigners">Back</button>
+        </div>
+    }
+</div>
+</AuthGuard>
+
+@code {
+    private enum Step { Configure, AddSigners, Review }
+    private Step step = Step.Configure;
+
+    private string walletName = "";
+    private int requiredSigs = 2;
+    private int totalSigners = 3;
+    private string ownPubKeyHex = "";
+    private string? error;
+    private bool isCreating;
+
+    private List<CoSignerEntry> coSignerEntries = [];
+
+    private class CoSignerEntry
+    {
+        public string Name { get; set; } = "";
+        public string PubKeyHex { get; set; } = "";
+    }
+
+    protected override void OnInitialized()
+    {
+        InitCoSignerSlots();
+
+        // Get own public key from the active wallet
+        if (WalletService.IsUnlocked)
+        {
+            try
+            {
+                var ownKey = WalletService.GetPublicKey();
+                if (ownKey != null)
+                    ownPubKeyHex = ownKey;
+            }
+            catch { }
+        }
+    }
+
+    private void InitCoSignerSlots()
+    {
+        var neededSlots = totalSigners - 1; // -1 for own key
+        while (coSignerEntries.Count < neededSlots)
+            coSignerEntries.Add(new CoSignerEntry());
+        while (coSignerEntries.Count > neededSlots)
+            coSignerEntries.RemoveAt(coSignerEntries.Count - 1);
+    }
+
+    private void OnTotalChanged()
+    {
+        if (requiredSigs > totalSigners)
+            requiredSigs = totalSigners;
+        InitCoSignerSlots();
+    }
+
+    private bool AllSignersValid()
+    {
+        return !string.IsNullOrWhiteSpace(ownPubKeyHex) &&
+               coSignerEntries.All(e =>
+                   !string.IsNullOrWhiteSpace(e.Name) &&
+                   !string.IsNullOrWhiteSpace(e.PubKeyHex) &&
+                   IsValidPubKeyHex(e.PubKeyHex));
+    }
+
+    private static bool IsValidPubKeyHex(string hex)
+    {
+        try
+        {
+            _ = new NBitcoin.PubKey(hex);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private void GoToAddSigners() => step = Step.AddSigners;
+    private void GoToReview()
+    {
+        error = null;
+        if (!AllSignersValid())
+        {
+            error = "Please provide valid public keys for all co-signers.";
+            return;
+        }
+        step = Step.Review;
+    }
+
+    private void BackToConfigure() => step = Step.Configure;
+    private void BackToSigners() => step = Step.AddSigners;
+
+    private async Task CreateWallet()
+    {
+        isCreating = true;
+        error = null;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            var coSigners = new List<DigiByte.Wallet.Models.CoSigner>
+            {
+                new() { Name = "You (This Wallet)", PublicKeyHex = ownPubKeyHex, IsLocal = true }
+            };
+
+            foreach (var entry in coSignerEntries)
+            {
+                coSigners.Add(new DigiByte.Wallet.Models.CoSigner
+                {
+                    Name = entry.Name,
+                    PublicKeyHex = entry.PubKeyHex,
+                    IsLocal = false,
+                });
+            }
+
+            await MultisigService.CreateMultisigWalletAsync(walletName, requiredSigs, coSigners);
+            Nav.NavigateTo("/multisig");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+}

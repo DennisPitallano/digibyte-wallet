@@ -1,0 +1,234 @@
+@page "/multisig/{WalletId}"
+@inject MultisigWalletService MultisigService
+@inject IBlockchainService Blockchain
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Multisig Details</PageTitle>
+
+<AuthGuard>
+@if (isLoading)
+{
+    <div class="flex flex-col gap-4">
+        <div class="h-6 w-48 skeleton rounded"></div>
+        <div class="h-32 skeleton rounded-2xl"></div>
+        <div class="h-20 skeleton rounded-2xl"></div>
+    </div>
+}
+else if (config == null)
+{
+    <div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Wallet Not Found</h2>
+        <button class="py-2.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect"
+                @onclick='() => Nav.NavigateTo("/multisig")'>Back to Wallets</button>
+    </div>
+}
+else
+{
+    <div class="flex flex-col gap-4">
+        @* Header *@
+        <div class="flex items-center gap-3 slide-up">
+            <button class="p-2 rounded-xl bg-slate-100 dark:bg-dgb-800 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                    @onclick='() => Nav.NavigateTo("/multisig")'>
+                <svg class="w-4 h-4 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+            </button>
+            <div>
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">@config.Label</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Multisig Wallet</p>
+            </div>
+        </div>
+
+        @* Balance Card *@
+        <div class="slide-up-delay-1 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 p-4">
+            <p class="text-xs text-slate-500 dark:text-slate-400">Balance</p>
+            @if (isLoadingBalance)
+            {
+                <div class="h-8 w-36 skeleton rounded-lg mt-1"></div>
+            }
+            else
+            {
+                <p class="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5">@FormatDgb(balanceSatoshis) DGB</p>
+            }
+        </div>
+
+        @* Address Card *@
+        <div class="slide-up-delay-1 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Address</p>
+                <button class="text-xs text-dgb-500 hover:text-dgb-600 font-medium" @onclick="CopyAddress">
+                    @(copied ? "Copied!" : "Copy")
+                </button>
+            </div>
+            <p class="text-[11px] font-mono text-slate-700 dark:text-slate-300 break-all leading-relaxed">@config.Address</p>
+        </div>
+
+        @* Redeem Script (shareable) *@
+        <div class="slide-up-delay-1 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Redeem Script</p>
+                <div class="flex items-center gap-2">
+                    <button class="text-xs text-dgb-500 hover:text-dgb-600 font-medium" @onclick="DownloadRedeemScript">
+                        <span class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                            Backup
+                        </span>
+                    </button>
+                    <button class="text-xs text-dgb-500 hover:text-dgb-600 font-medium" @onclick="CopyRedeemScript">
+                        @(copiedScript ? "Copied!" : "Copy")
+                    </button>
+                </div>
+            </div>
+            <p class="text-[10px] font-mono text-slate-500 dark:text-slate-500 break-all leading-relaxed max-h-16 overflow-y-auto">@config.RedeemScriptHex</p>
+            <p class="text-[10px] text-slate-400 mt-1">Share this with co-signers to import this wallet.</p>
+        </div>
+
+        @* Backup Warning *@
+        <div class="slide-up-delay-1 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-4">
+            <div class="flex items-start gap-2.5">
+                <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <div>
+                    <p class="text-xs font-bold text-amber-800 dark:text-amber-300">Back up your redeem script!</p>
+                    <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed mt-0.5">
+                        If you delete or lose this wallet, your <b>seed phrase alone cannot recover it</b>. 
+                        Multisig wallets require the redeem script (which contains all co-signer keys and the threshold). 
+                        Tap <b>Backup</b> above to download it as a file, or copy it to a safe place.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        @* Co-Signers *@
+        <div class="slide-up-delay-1 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 p-4">
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                Co-Signers (@config.RequiredSignatures required of @config.TotalSigners)
+            </p>
+            <div class="flex flex-col gap-2">
+                @foreach (var signer in config.CoSigners)
+                {
+                    <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-dgb-800/50">
+                        <div class="w-7 h-7 rounded-lg @(signer.IsLocal ? "bg-dgb-100 dark:bg-dgb-700" : "bg-slate-100 dark:bg-dgb-800") flex items-center justify-center">
+                            <span class="text-[10px] font-bold @(signer.IsLocal ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500")">@signer.Name[..1].ToUpper()</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-slate-900 dark:text-white">@signer.Name</p>
+                            <p class="text-[10px] font-mono text-slate-400 truncate">@signer.PublicKeyHex[..16]...</p>
+                        </div>
+                        @if (signer.IsLocal)
+                        {
+                            <span class="text-[9px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">YOU</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Actions *@
+        <div class="flex flex-col gap-2 slide-up-delay-2">
+            <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl transition-all press-effect"
+                    @onclick="CreateTransaction">
+                Create Transaction
+            </button>
+            <button class="w-full py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-2xl transition-all press-effect"
+                    @onclick="ViewPendingTxs">
+                Pending Transactions
+                @if (pendingCount > 0)
+                {
+                    <span class="ml-1 text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full">@pendingCount</span>
+                }
+            </button>
+        </div>
+    </div>
+}
+</AuthGuard>
+
+@code {
+    [Parameter] public string WalletId { get; set; } = "";
+
+    private MultisigWalletConfig? config;
+    private bool isLoading = true;
+    private bool isLoadingBalance;
+    private long balanceSatoshis;
+    private bool copied;
+    private bool copiedScript;
+    private int pendingCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            config = await MultisigService.GetConfigAsync(WalletId);
+            if (config != null)
+            {
+                var pending = await MultisigService.GetPendingTransactionsAsync(WalletId);
+                pendingCount = pending.Count(p => p.Status == PendingTxStatus.AwaitingSignatures || p.Status == PendingTxStatus.ReadyToFinalize);
+                _ = LoadBalance();
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadBalance()
+    {
+        isLoadingBalance = true;
+        StateHasChanged();
+        try
+        {
+            balanceSatoshis = await MultisigService.GetBalanceAsync(config!);
+        }
+        catch { }
+        finally
+        {
+            isLoadingBalance = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyAddress()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", config!.Address);
+        copied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        copied = false;
+    }
+
+    private async Task CopyRedeemScript()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", config!.RedeemScriptHex);
+        copiedScript = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        copiedScript = false;
+    }
+
+    private async Task DownloadRedeemScript()
+    {
+        var label = config!.Label.Replace(" ", "-").ToLowerInvariant();
+        var filename = $"multisig-{label}-redeem-script.txt";
+        var content = $"DigiByte Multisig Wallet Backup\n" +
+                      $"==============================\n" +
+                      $"Label: {config.Label}\n" +
+                      $"Threshold: {config.RequiredSignatures}-of-{config.TotalSigners}\n" +
+                      $"Address: {config.Address}\n" +
+                      $"Address Type: {config.AddressType}\n\n" +
+                      $"Redeem Script (hex):\n{config.RedeemScriptHex}\n\n" +
+                      $"Co-Signers:\n" +
+                      string.Join("\n", config.CoSigners.Select(cs => $"  - {cs.Name}: {cs.PublicKeyHex}")) +
+                      $"\n\nIMPORTANT: Keep this file safe. You need the redeem script to recover this multisig wallet.\n" +
+                      $"Your seed phrase alone CANNOT restore multisig wallets.\n" +
+                      $"To restore: Multisig → Import → paste the redeem script above.\n";
+        await JS.InvokeVoidAsync("downloadTextFile", content, filename);
+    }
+
+    private void CreateTransaction() => Nav.NavigateTo($"/multisig/{WalletId}/send");
+    private void ViewPendingTxs() => Nav.NavigateTo($"/multisig/{WalletId}/pending");
+
+    private static string FormatDgb(long satoshis) => (satoshis / 100_000_000m).ToString("N8");
+}

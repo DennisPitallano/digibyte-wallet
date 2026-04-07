@@ -166,7 +166,7 @@ App start
     → Yes → redirect /unlock
   → User taps "Create New Wallet" → navigate /create-wallet
   → User taps "Recover"           → navigate /recover-wallet
-  → Footer links: /about, /roadmap, /analytics, /deployment
+  → Footer links: /help, /about, /roadmap, /analytics, /deployment
 ```
 No services called. Pure navigation page.
 
@@ -451,10 +451,67 @@ Fee comparison:
   → Highlight DGB as lowest cost with "You save $X" callout
 ```
 
+### Multisig Wallets (`/multisig`)
+
+#### Create Multisig Wallet (`/multisig/create`)
+```
+Step 1 — Set Threshold:
+  → Choose M (required signatures) and N (total signers)
+  → Validate: 1 ≤ M ≤ N ≤ 15
+
+Step 2 — Add Co-Signers:
+  → Own public key auto-added from WalletService.GetPublicKey()
+  → Add N-1 external co-signers (name + compressed public key hex)
+  → Validate each key (33 bytes, starts with 02 or 03)
+
+Step 3 — Confirm & Create:
+  → MultisigService.CreateRedeemScript(M, publicKeys) → BIP67 sorted keys
+  → MultisigService.GetP2SH_P2WSH_Address() or GetP2WSH_Address()
+  → MultisigWalletService.CreateMultisigWalletAsync() → persist to IndexedDB
+  → Navigate to /multisig/{walletId}
+```
+
+#### Import Multisig Wallet (`/multisig/import`)
+```
+User pastes redeem script (hex):
+  → MultisigWalletService.ImportMultisigWalletAsync(redeemScriptHex)
+  → Parse script: extract M, N, and public keys
+  → Detect if user's key is among co-signers (ownKeyIndex ≥ 0 = signing, -1 = watch-only)
+  → Derive address → persist config → navigate to detail
+```
+
+#### Send from Multisig (`/multisig/{id}/send`)
+```
+User enters destination address + amount:
+  → MultisigWalletService.CreateSpendingPSBTAsync(walletId, address, amount, feeRate)
+    1. Fetch UTXOs for multisig address
+    2. MultisigService.CreateMultisigPSBT(redeemScript, utxos, dest, amount, change, feeRate)
+    3. Create PendingMultisigTransaction → persist to IndexedDB
+    4. Return PSBT base64 for sharing with co-signers
+
+Signing flow:
+  → User signs: MultisigWalletService.SignPendingTransactionAsync(walletId, txId)
+    1. WalletService.GetPrivateKeyForMultisig() → get signing key
+    2. MultisigService.SignPSBT(psbt, privateKey, redeemScript)
+    3. Update PendingMultisigTransaction.SignedBy list
+  → Co-signer signs: MultisigWalletService.ImportSignedPSBTAsync(walletId, txId, signedPsbtBase64)
+    1. MultisigService.CombinePSBTs(original, signed)
+    2. MultisigService.CountSignatures() → update status
+
+Finalize & broadcast:
+  → MultisigWalletService.FinalizeAndBroadcastAsync(walletId, txId)
+    1. MultisigService.CanFinalize(psbt) → verify enough signatures
+    2. MultisigService.FinalizePSBT(psbt) → complete transaction
+    3. Extract raw tx → IBlockchainService.BroadcastTransactionAsync()
+    4. Update status → Broadcast, store txid
+```
+
 ### About, Roadmap, DeploymentInfo, NotFound
 ```
 /about        → Static: version, license, tech stack, GitHub contributors (fetched from API)
 /roadmap      → Static: visual timeline with Done/In Progress/Planned milestones
 /deployment   → Static: infrastructure status badges, cost breakdown, donation address
+/help         → Static: accordion help sections (12 topics), search/filter, report issue / suggest feature (pre-filled GitHub URL)
+/help/multisig → Static: comprehensive multisig guide — visual flows, real-world scenarios (2-of-2 joint, 2-of-3 backup/escrow, 3-of-5 treasury), step-by-step walkthroughs (create, send, import), technical details (BIP67, BIP174, P2SH-P2WSH/P2WSH), wallet type comparison table
 /not-found    → 404 error page
 ```

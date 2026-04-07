@@ -24,6 +24,32 @@ public class WalletService : IWalletService
     public bool IsUnlocked => _hd != null || _singleKey != null;
     public WalletInfo? ActiveWallet => _activeWallet;
 
+    /// <summary>
+    /// Returns the hex-encoded compressed public key for the primary receiving address (index 0).
+    /// Used for multisig co-signer identification.
+    /// </summary>
+    public string? GetPublicKey()
+    {
+        if (_hd != null)
+            return _hd.DeriveReceivingKey(0).GetPublicKey().ToHex();
+        if (_singleKey != null)
+            return _singleKey.PubKey.ToHex();
+        return null;
+    }
+
+    /// <summary>
+    /// Returns the hex-encoded private key for multisig signing (index 0 receiving key).
+    /// Caller must handle securely.
+    /// </summary>
+    public string? GetPrivateKeyForMultisig()
+    {
+        if (_hd != null)
+            return Convert.ToHexString(_hd.DeriveReceivingKey(0).PrivateKey.ToBytes()).ToLowerInvariant();
+        if (_singleKey != null)
+            return Convert.ToHexString(_singleKey.ToBytes()).ToLowerInvariant();
+        return null;
+    }
+
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker)
     {
         _keyStore = walletStore;

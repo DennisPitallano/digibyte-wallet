@@ -1,0 +1,689 @@
+@page "/help/multisig"
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Multisig Guide</PageTitle>
+
+<div class="flex flex-col gap-5">
+    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Back to Help
+    </button>
+
+    <div class="slide-up">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Multisig Wallets</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">A complete guide for everyone</p>
+            </div>
+        </div>
+    </div>
+
+    @* ===== SECTION 1: What is Multisig? (Plain Language) ===== *@
+    <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-2">What is a Multisig Wallet?</h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
+            A <b>multisig</b> (multi-signature) wallet is like a safe deposit box that needs <b>multiple keys</b> to open.
+            Instead of one person controlling all the funds, you set rules like "2 out of 3 people must agree" before any money can be spent.
+        </p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            The "<b>M-of-N</b>" notation means: <b>M</b> signatures required out of <b>N</b> total key holders.
+        </p>
+    </div>
+
+    @* ===== SECTION 2: Real-World Scenarios ===== *@
+    <div class="slide-up-delay-2">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Real-World Scenarios</p>
+
+        @* Scenario 1: Joint Savings *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-2">
+            <div class="flex items-start gap-3 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">Joint Savings Account (2-of-2)</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like a joint bank account</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                <b>Alice and Bob</b> are married and want a shared savings account. They create a <b>2-of-2</b> multisig — both must approve every transaction.
+                Neither can spend alone, just like a joint bank account that requires both signatures on a check.
+            </p>
+        </div>
+
+        @* Scenario 2: Personal Security *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-2">
+            <div class="flex items-start gap-3 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">Personal Backup (2-of-3)</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like a safety deposit box with backup keys</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                <b>Charlie</b> stores his DGB across 3 keys: his <b>phone</b>, his <b>laptop</b>, and a <b>hardware device</b> in a safe.
+                With <b>2-of-3</b>, if he loses his phone, he can still spend using his laptop + hardware device.
+                No single device stolen means no funds lost.
+            </p>
+        </div>
+
+        @* Scenario 3: Business Treasury *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-2">
+            <div class="flex items-start gap-3 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">Business Treasury (3-of-5)</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like a company board vote</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                A <b>DAO or company</b> has 5 board members, and <b>3 must agree</b> to spend from the treasury.
+                This prevents any single person from running off with funds and ensures democratic control — just like requiring a majority vote.
+            </p>
+        </div>
+
+        @* Scenario 4: Trade Escrow *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+            <div class="flex items-start gap-3 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg class="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">Trade Escrow (2-of-3)</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like an escrow agent holding a house deposit</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                <b>Buyer</b>, <b>Seller</b>, and an <b>Arbitrator</b> each hold a key. The buyer deposits DGB into the 2-of-3 address.
+                If the trade goes well, buyer + seller sign to release funds. If there's a dispute, the arbitrator steps in and sides with either party.
+                No one can steal — the arbitrator alone can't move funds.
+            </p>
+        </div>
+    </div>
+
+    @* ===== SECTION 3: Visual Flow ===== *@
+    <div class="slide-up-delay-3">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">How It Works — Visual Flow</p>
+
+        @* Visual: Create Flow *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-3">
+            <p class="text-xs font-bold text-purple-600 dark:text-purple-400 mb-3">Creating a Multisig Wallet</p>
+
+            <div class="flex flex-col gap-0">
+                @foreach (var step in createSteps)
+                {
+                    <div class="flex gap-3">
+                        <div class="flex flex-col items-center">
+                            <div class="w-7 h-7 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">@step.Number</div>
+                            @if (step.Number < createSteps.Length)
+                            {
+                                <div class="w-[2px] h-8 bg-purple-200 dark:bg-purple-800 my-1"></div>
+                            }
+                        </div>
+                        <div class="pb-3">
+                            <p class="text-xs font-semibold text-slate-900 dark:text-white">@step.Title</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">@step.Description</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Visual: Spending Flow *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-3">
+            <p class="text-xs font-bold text-dgb-600 dark:text-dgb-400 mb-3">Spending from a Multisig Wallet</p>
+
+            <div class="flex flex-col gap-0">
+                @foreach (var step in spendSteps)
+                {
+                    <div class="flex gap-3">
+                        <div class="flex flex-col items-center">
+                            <div class="w-7 h-7 rounded-full bg-dgb-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">@step.Number</div>
+                            @if (step.Number < spendSteps.Length)
+                            {
+                                <div class="w-[2px] h-8 bg-dgb-200 dark:bg-dgb-800 my-1"></div>
+                            }
+                        </div>
+                        <div class="pb-3">
+                            <p class="text-xs font-semibold text-slate-900 dark:text-white">@step.Title</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">@step.Description</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Visual: Signature Collection Diagram *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+            <p class="text-xs font-bold text-slate-900 dark:text-white mb-3">Example: 2-of-3 Signature Collection</p>
+
+            <div class="grid grid-cols-3 gap-2 mb-3">
+                @* Key Holder 1 *@
+                <div class="flex flex-col items-center gap-1.5 p-2 bg-green-50 dark:bg-green-900/15 rounded-xl border border-green-200 dark:border-green-800/30">
+                    <div class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    </div>
+                    <p class="text-[10px] font-semibold text-green-700 dark:text-green-400">Alice</p>
+                    <p class="text-[9px] text-green-600 dark:text-green-500">Signed ✓</p>
+                </div>
+                @* Key Holder 2 *@
+                <div class="flex flex-col items-center gap-1.5 p-2 bg-green-50 dark:bg-green-900/15 rounded-xl border border-green-200 dark:border-green-800/30">
+                    <div class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    </div>
+                    <p class="text-[10px] font-semibold text-green-700 dark:text-green-400">Bob</p>
+                    <p class="text-[9px] text-green-600 dark:text-green-500">Signed ✓</p>
+                </div>
+                @* Key Holder 3 *@
+                <div class="flex flex-col items-center gap-1.5 p-2 bg-slate-50 dark:bg-dgb-800/50 rounded-xl border border-slate-200 dark:border-dgb-700">
+                    <div class="w-8 h-8 rounded-full bg-slate-300 dark:bg-dgb-700 text-slate-500 dark:text-slate-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    </div>
+                    <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Charlie</p>
+                    <p class="text-[9px] text-slate-400 dark:text-slate-500">Not needed</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800/30">
+                <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                <p class="text-[11px] text-green-700 dark:text-green-400 font-medium">2 of 3 signed — threshold met! Transaction can be broadcast.</p>
+            </div>
+        </div>
+    </div>
+
+    @* ===== SECTION 4: Step-by-Step Guide (Non-Technical) ===== *@
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Step-by-Step Guide</p>
+
+        @* Create guide *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden mb-2">
+            <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+                    @onclick='() => ToggleGuide("create")'>
+                <div class="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">How to Create a Multisig Wallet</p>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("create") ? "rotate-180" : "")"
+                     fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </button>
+            @if (openGuides.Contains("create"))
+            {
+                <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
+                    <div class="flex flex-col gap-3 pt-3">
+                        <div class="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800/30">
+                            <p class="text-[11px] font-semibold text-purple-700 dark:text-purple-300 mb-1">Before you start</p>
+                            <p class="text-[11px] text-purple-600 dark:text-purple-400 leading-relaxed">
+                                Each co-signer needs to have <b>their own DigiByte wallet</b> set up already.
+                                They'll need to share their <b>public key</b> with you (this is safe — public keys can't spend funds).
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Open the Multisig page</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Tap the <b>Multisig</b> button on the Home screen, or choose <b>"Multisig Wallet"</b> on the Welcome page.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. Tap "Create New Multisig"</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                You'll see the creation wizard. Give your wallet a name (e.g., "Family Savings").
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Set the threshold</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Choose how many signatures are <b>required</b> (M) and <b>total</b> key holders (N).
+                                Example: <b>2-of-3</b> means 3 people hold keys, and any 2 can approve.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">4. Add co-signers</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Your public key is <b>automatically added</b>. For each co-signer, paste their compressed public key (a hex string starting with 02 or 03).
+                                Ask them to find it in their wallet's settings or receive page.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">5. Review and confirm</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Check the details — the wallet generates a <b>multisig address</b> that all co-signers can now deposit to.
+                                <b>Share the redeem script</b> with all co-signers so they can import the same wallet.
+                            </p>
+                        </div>
+
+                        <div class="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800/30">
+                            <p class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">⚠️ Important</p>
+                            <p class="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                                <b>Save the redeem script!</b> Everyone needs it to reconstruct the wallet.
+                                Without it, the funds are unrecoverable even if you have all the keys.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Spend guide *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden mb-2">
+            <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+                    @onclick='() => ToggleGuide("spend")'>
+                <div class="w-8 h-8 rounded-lg bg-dgb-50 dark:bg-dgb-900/40 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" /></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">How to Send from a Multisig Wallet</p>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("spend") ? "rotate-180" : "")"
+                     fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </button>
+            @if (openGuides.Contains("spend"))
+            {
+                <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
+                    <div class="flex flex-col gap-3 pt-3">
+                        <div class="p-3 bg-dgb-50 dark:bg-dgb-900/30 rounded-xl border border-dgb-100 dark:border-dgb-800">
+                            <p class="text-[11px] font-semibold text-dgb-700 dark:text-dgb-300 mb-1">Think of it like a group approval</p>
+                            <p class="text-[11px] text-dgb-600 dark:text-dgb-400 leading-relaxed">
+                                One person starts the transaction, then passes a "digital approval form" (called a <b>PSBT</b>) to co-signers.
+                                Each person adds their signature. When enough people have signed, the transaction goes through.
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Open your multisig wallet and tap Send</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Enter the destination address and amount, just like a normal send.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. A PSBT is created</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                The app creates a <b>Partially Signed Transaction (PSBT)</b> — a draft of the transaction.
+                                Think of it as writing a check that needs multiple signatures.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Sign with your key</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Tap <b>"Sign"</b> to add your signature. The PSBT is updated but still needs more signatures.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">4. Share the PSBT with co-signers</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Copy the PSBT string (a long text code) and send it to your co-signers via <b>secure messaging</b> (Signal, WhatsApp, email, etc.).
+                                This is safe to share — it can't be spent without enough signatures.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">5. Co-signers paste and sign</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Each co-signer opens the <b>Pending Transactions</b> page, pastes the PSBT, and taps Sign.
+                                Signatures are combined automatically.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">6. Finalize and broadcast</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Once enough signatures are collected (M of N), tap <b>"Finalize & Broadcast"</b>.
+                                The transaction is sent to the DigiByte network and confirms in ~15 seconds. Done! 🎉
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Import guide *@
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+            <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+                    @onclick='() => ToggleGuide("import")'>
+                <div class="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">How to Import a Multisig Wallet</p>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("import") ? "rotate-180" : "")"
+                     fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </button>
+            @if (openGuides.Contains("import"))
+            {
+                <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
+                    <div class="flex flex-col gap-3 pt-3">
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            If another co-signer created the wallet, they'll share the <b>redeem script</b> with you. This is a hex string that contains
+                            all the public keys and the threshold rules.
+                        </p>
+
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Go to Multisig → Import</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Tap <b>Import</b> on the multisig wallets page.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. Paste the redeem script</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Paste the hex string your co-signer shared. The wallet automatically detects the threshold, all co-signers, and the address.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Signing or watch-only?</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                If your key is among the co-signers, you'll be able to <b>sign transactions</b>.
+                                If not, the wallet is imported as <b>watch-only</b> — you can see the balance but can't sign.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ===== SECTION 5: Technical Details (for developers/advanced) ===== *@
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Technical Details</p>
+
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+            <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+                    @onclick='() => ToggleGuide("technical")'>
+                <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">Under the Hood (Advanced)</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">BIP standards, script types, PSBT workflow</p>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("technical") ? "rotate-180" : "")"
+                     fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </button>
+            @if (openGuides.Contains("technical"))
+            {
+                <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
+                    <div class="flex flex-col gap-4 pt-3">
+
+                        @* Address types *@
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Address Types</p>
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex items-start gap-2 p-2 bg-slate-50 dark:bg-dgb-800/50 rounded-lg">
+                                    <span class="text-[10px] font-bold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-1.5 py-0.5 rounded flex-shrink-0">P2SH-P2WSH</span>
+                                    <p class="text-[10px] text-slate-500 dark:text-slate-400">Default. Pays to a SegWit script wrapped in P2SH for broad compatibility. Address starts with <code class="text-[10px]">S...</code></p>
+                                </div>
+                                <div class="flex items-start gap-2 p-2 bg-slate-50 dark:bg-dgb-800/50 rounded-lg">
+                                    <span class="text-[10px] font-bold text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 rounded flex-shrink-0">P2WSH</span>
+                                    <p class="text-[10px] text-slate-500 dark:text-slate-400">Native SegWit. Lower fees, but requires SegWit-compatible wallets. Address starts with <code class="text-[10px]">dgb1...</code></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* BIP Standards *@
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Standards Used</p>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-mono font-bold text-slate-500 w-14 flex-shrink-0">BIP67</span>
+                                    <p class="text-[10px] text-slate-400">Public keys sorted lexicographically in the redeem script (ensures all parties derive the same address)</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-mono font-bold text-slate-500 w-14 flex-shrink-0">BIP174</span>
+                                    <p class="text-[10px] text-slate-400">PSBT format — standard for partially signed transactions, enabling multi-party signing</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-mono font-bold text-slate-500 w-14 flex-shrink-0">OP_CMS</span>
+                                    <p class="text-[10px] text-slate-400">OP_CHECKMULTISIG — the Bitcoin script opcode that validates M-of-N signatures</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Technical flow *@
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Technical Flow</p>
+                            <div class="p-2.5 bg-slate-50 dark:bg-dgb-800/50 rounded-lg font-mono text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">Create:
+  MultisigService.CreateRedeemScript(M, pubKeys[])
+  → BIP67 sort → OP_M [key1] [key2] ... [keyN] OP_N OP_CMS
+  → Hash → P2SH-P2WSH or P2WSH address
+
+Spend:
+  CreateMultisigPSBT(redeemScript, utxos, dest, amt)
+  → PSBT with witnessUtxo + redeemScript hints
+  → SignPSBT(psbt, privKey, redeemScript)  ×M signers
+  → CombinePSBTs(original, signed1, signed2...)
+  → FinalizePSBT(combined) → extract raw tx
+  → BroadcastTransactionAsync(rawTx)</div>
+                        </div>
+
+                        @* Limits *@
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Limits</p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400">
+                                Maximum <b>15 co-signers</b> (Bitcoin/DigiByte protocol limit for standard P2SH scripts).
+                                Minimum threshold: <b>1-of-N</b>. Maximum: <b>N-of-N</b>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ===== Quick Comparison Table ===== *@
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Wallet Type Comparison</p>
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-[10px]">
+                    <thead>
+                        <tr class="border-b border-slate-100 dark:border-dgb-800">
+                            <th class="text-left py-2 px-3 font-semibold text-slate-500 dark:text-slate-400">Feature</th>
+                            <th class="text-center py-2 px-2 font-semibold text-slate-500 dark:text-slate-400">Standard</th>
+                            <th class="text-center py-2 px-2 font-semibold text-slate-500 dark:text-slate-400">Watch-Only</th>
+                            <th class="text-center py-2 px-2 font-semibold text-purple-500">Multisig</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-slate-600 dark:text-slate-400">
+                        <tr class="border-b border-slate-50 dark:border-dgb-800/50">
+                            <td class="py-1.5 px-3">Keys needed to spend</td>
+                            <td class="text-center py-1.5 px-2">1</td>
+                            <td class="text-center py-1.5 px-2">—</td>
+                            <td class="text-center py-1.5 px-2 font-semibold text-purple-500">M of N</td>
+                        </tr>
+                        <tr class="border-b border-slate-50 dark:border-dgb-800/50">
+                            <td class="py-1.5 px-3">Can send</td>
+                            <td class="text-center py-1.5 px-2 text-green-500">✓</td>
+                            <td class="text-center py-1.5 px-2 text-red-400">✗</td>
+                            <td class="text-center py-1.5 px-2 text-green-500">✓*</td>
+                        </tr>
+                        <tr class="border-b border-slate-50 dark:border-dgb-800/50">
+                            <td class="py-1.5 px-3">View balance</td>
+                            <td class="text-center py-1.5 px-2 text-green-500">✓</td>
+                            <td class="text-center py-1.5 px-2 text-green-500">✓</td>
+                            <td class="text-center py-1.5 px-2 text-green-500">✓</td>
+                        </tr>
+                        <tr class="border-b border-slate-50 dark:border-dgb-800/50">
+                            <td class="py-1.5 px-3">Single point of failure</td>
+                            <td class="text-center py-1.5 px-2 text-red-400">Yes</td>
+                            <td class="text-center py-1.5 px-2">N/A</td>
+                            <td class="text-center py-1.5 px-2 text-green-500">No</td>
+                        </tr>
+                        <tr>
+                            <td class="py-1.5 px-3">Best for</td>
+                            <td class="text-center py-1.5 px-2">Daily use</td>
+                            <td class="text-center py-1.5 px-2">Monitoring</td>
+                            <td class="text-center py-1.5 px-2 font-semibold text-purple-500">Security</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-[9px] text-slate-400 dark:text-slate-500 px-3 py-1.5 border-t border-slate-50 dark:border-dgb-800/50">* Requires M co-signers to approve via PSBT workflow</p>
+        </div>
+    </div>
+
+    @* ===== SECTION: Real-Time Rooms ===== *@
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Real-Time Collaboration</p>
+
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden mb-2">
+            <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+                    @onclick='() => ToggleGuide("room")'>
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">Create Together in Real-Time (Multisig Rooms)</p>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("room") ? "rotate-180" : "")"
+                     fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </button>
+            @if (openGuides.Contains("room"))
+            {
+                <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
+                    <div class="flex flex-col gap-3 pt-3">
+                        <div class="p-3 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                            <p class="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 mb-1">No manual key exchange needed!</p>
+                            <p class="text-[11px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
+                                Instead of asking each co-signer to copy and paste their public key, use a <b>Multisig Room</b>.
+                                Everyone joins a real-time room via an invite code, and public keys are shared automatically.
+                            </p>
+                        </div>
+
+                        @* Real-life scenario *@
+                        <div class="p-3 bg-slate-50 dark:bg-dgb-800/50 rounded-xl border border-slate-200/80 dark:border-dgb-700/50">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                                </svg>
+                                <p class="text-[11px] font-bold text-slate-800 dark:text-slate-200">Real-Life Scenario</p>
+                            </div>
+                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
+                                <b>Maya, Leo, and Priya</b> are friends pooling DGB for a group vacation fund. They want a <b>2-of-3</b> wallet so any two of them can approve a withdrawal, but no single person can spend alone.
+                            </p>
+                            <div class="flex flex-col gap-1.5 pl-2 border-l-2 border-indigo-200 dark:border-indigo-700/50">
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    <b class="text-indigo-600 dark:text-indigo-400">Maya</b> opens the app, taps <b>Create Together in Real-Time</b>, names the wallet "Vacation Fund", sets it to 2-of-3, and taps <b>Create Room</b>. She gets the code <code class="text-[10px] bg-white dark:bg-dgb-900 px-1 py-0.5 rounded">H4X9K2</code>.
+                                </p>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    She drops the code in their group chat. <b class="text-indigo-600 dark:text-indigo-400">Leo</b> and <b class="text-indigo-600 dark:text-indigo-400">Priya</b> each open the app, tap <b>Join Room</b>, enter the code, and they instantly appear in Maya's participant list.
+                                </p>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    Everyone taps <b>"Ready"</b> — and in under <b>2 minutes</b>, all three have the same multisig wallet on their phones. No keys were copied, no files were shared. They can now deposit DGB and spend with any 2 approvals.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Create a Room</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Go to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b>. Enter a wallet name, your display name, and set the M-of-N threshold. Tap <b>Create Room</b>.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. Share the Invite Code</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                A <b>6-character invite code</b> is generated (e.g., <code class="text-[10px]">A7K3M2</code>). Share it with your co-signers via messaging. They can also use a <b>deep link</b> with <code class="text-[10px]">?code=A7K3M2</code>.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Co-signers Join</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Each co-signer goes to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b> → <b>Join Room</b>. They enter the invite code and their display name. Their public key is shared automatically.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">4. Everyone Taps Ready</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Once all participants have joined, each person taps <b>"Ready to Create Wallet"</b>. The participant list shows real-time status with checkmarks.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">5. Wallet Created on All Devices</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                When all participants are ready, the wallet is created <b>simultaneously on every device</b>. Everyone gets the same multisig address — guaranteed by BIP67 deterministic key sorting.
+                            </p>
+                        </div>
+
+                        <div class="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800/30">
+                            <p class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">⏱ Room Expiry</p>
+                            <p class="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                                Rooms expire automatically after <b>15 minutes</b>. If the initiator leaves or disconnects, the room is closed for all participants.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* CTA *@
+    <div class="flex flex-col gap-2 mt-2 pb-4">
+        <button class="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-2xl shadow-lg shadow-purple-500/25 transition-all press-effect"
+                @onclick='() => Nav.NavigateTo("/multisig")'>
+            Create a Multisig Wallet
+        </button>
+        <button class="w-full py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect"
+                @onclick='() => Nav.NavigateTo("/help")'>
+            Back to Help Center
+        </button>
+    </div>
+</div>
+
+@code {
+    private HashSet<string> openGuides = [];
+
+    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
+
+    private void ToggleGuide(string id)
+    {
+        if (!openGuides.Remove(id))
+            openGuides.Add(id);
+    }
+
+    private record FlowStep(int Number, string Title, string Description);
+
+    private FlowStep[] createSteps = [
+        new(1, "Choose your threshold", "Decide how many signatures are required (M) and total key holders (N). E.g., 2-of-3."),
+        new(2, "Gather public keys", "Each co-signer shares their compressed public key (hex). Your key is auto-added."),
+        new(3, "Create the wallet", "The app generates a redeem script (BIP67 sorted), derives the multisig address, and saves the config."),
+        new(4, "Share the redeem script", "Send the redeem script to all co-signers so they can import the same wallet."),
+        new(5, "Fund the address", "Send DGB to the multisig address. Anyone can deposit — only M-of-N can withdraw."),
+    ];
+
+    private FlowStep[] spendSteps = [
+        new(1, "Initiator creates PSBT", "One co-signer enters the destination and amount. A Partially Signed Transaction (PSBT) is created."),
+        new(2, "Initiator signs", "The initiator adds their signature to the PSBT."),
+        new(3, "Share with co-signers", "The partially signed PSBT is shared via secure messaging (Signal, email, etc.)."),
+        new(4, "Co-signers sign", "Each co-signer imports the PSBT and adds their signature. Signatures combine automatically."),
+        new(5, "Threshold met → Broadcast", "When M signatures are collected, finalize the PSBT and broadcast to the DigiByte network."),
+    ];
+}

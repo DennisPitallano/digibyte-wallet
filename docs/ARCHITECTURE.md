@@ -49,8 +49,8 @@ The DigiByte Wallet is a self-custodial Progressive Web App (PWA) built with Bla
 
 | Project | Type | Purpose |
 |---------|------|---------|
-| `DigiByte.Crypto` | Class Library | BIP39/BIP44, HD keys, tx building, Digi-ID, WIF import |
-| `DigiByte.Wallet` | Class Library | Wallet service, encryption, contacts, storage abstractions |
+| `DigiByte.Crypto` | Class Library | BIP39/BIP44, HD keys, tx building, Digi-ID, WIF import, multisig (redeem scripts, PSBT) |
+| `DigiByte.Wallet` | Class Library | Wallet service, encryption, contacts, storage abstractions, multisig wallet management |
 | `DigiByte.Web` | Blazor WASM PWA | The wallet UI — all pages, components, JS interop |
 | `DigiByte.Api` | Web API | P2P marketplace backend (future) |
 | `DigiByte.NodeApi` | Web API | Wraps 87 digibyted RPC methods into REST + Scalar docs |
@@ -120,6 +120,7 @@ Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends
 - **MainLayout.razor** — Root wrapper, 480px max-width mobile-first container
 - **NavMenu.razor** — Fixed bottom nav (5 tabs: Wallet, Pay, P2P, ID, Settings) with frosted glass
 - **AuthGuard.razor** — Protects pages: no wallet → `/welcome`, locked → `/unlock`
+- **HiddenNavPaths** — Routes without bottom nav: `/welcome`, `/create-wallet`, `/recover-wallet`, `/unlock`, `/about`, `/roadmap`, `/analytics`, `/deployment`, `/help`, `/help/multisig`
 - **OfflineBanner** — Amber banner when offline
 - **ToastContainer** — Top-center notifications (success/error/warning/info)
 
@@ -142,6 +143,7 @@ Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends
 | `WalletService` | Scoped | Wallet CRUD, unlock, sign, balance, send |
 | `ContactService` | Scoped | Contact CRUD, search |
 | `PaymentRequestService` | Scoped | BIP21 payment request management |
+| `MultisigWalletService` | Scoped | Multisig wallet CRUD, PSBT signing workflow, co-signer management |
 | `FallbackBlockchainService` | Scoped | Cascading blockchain backend orchestration |
 | `NodeApiBlockchainService` | Scoped | RPC wrapper for own node |
 | `BlockchainApiService` | Scoped | Esplora REST API (digiexplorer.info) |

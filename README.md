@@ -27,6 +27,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **CSP compliant** — All assets self-hosted (Tailwind CSS, Inter font, jsQR), strict Content Security Policy
 - **Node API** — 87 RPC methods wrapped as REST endpoints with Scalar docs
 - **Docker** — Regtest (instant mining), Testnet, and Mainnet pruned node configs
+- **M-of-N multisig wallets** — Create multisig wallets, co-signer management, PSBT signing workflow, import via redeem script
 - **NFC tap-to-pay** — Web NFC API (experimental)
 - **Remittance** — Fee comparison with traditional services
 - **Analytics** — Market data, network stats, 7-day price chart from CoinGecko
@@ -58,7 +59,7 @@ digibyte-wallet/
 │   ├── ARCHITECTURE.md           # Detailed architecture & design decisions
 │   ├── PROCESS_FLOWS.md          # Per-page technical flows
 │   ├── ROADMAP.md                # Development roadmap & status
-│   └── media/                    # Video tutorials (install, recover, send)
+│   └── media/                    # Video tutorials (install, recover, send, multisig)
 ├── docker-compose.yml            # Regtest (instant mining, local dev)
 ├── docker-compose.testnet.yml    # Testnet (real network)
 └── docker-compose.mainnet.yml    # Mainnet pruned (production)
@@ -248,6 +249,14 @@ Four services for production:
 | `/identity` | Identity | Digi-ID passwordless auth — scan/paste `digiid://` URI, approve domain, sign challenge |
 | `/p2p` | P2P Marketplace | Coming soon — buy/sell orders, escrow, trade chat |
 | `/remittance` | Remittance | Send by username, fee comparison vs traditional services |
+| `/multisig` | MultisigWallets | Multisig wallet list — create or import |
+| `/multisig/create` | MultisigCreate | 3-step wizard: set threshold, add co-signers, confirm |
+| `/multisig/import` | MultisigImport | Import existing multisig via redeem script |
+| `/multisig/{id}` | MultisigDetail | Multisig wallet detail — balance, address, co-signers |
+| `/multisig/{id}/send` | MultisigSend | Create PSBT spending transaction from multisig |
+| `/multisig/{id}/pending` | MultisigPending | View/sign/broadcast pending multisig transactions |
+| `/help` | Help | Help center — 12 searchable tutorial sections, report issue, suggest feature |
+| `/help/multisig` | MultisigGuide | Comprehensive multisig guide — visual flows, scenarios, walkthroughs, technical details |
 | `/settings` | Settings | Theme, language, network, currency, display mode, backup seed, delete wallet |
 | `/backup-seed` | BackupSeed | PIN-protected seed phrase viewer |
 | `/about` | About | Version, credits, GitHub contributors, tech stack |
@@ -262,7 +271,7 @@ Bottom Navigation (5 tabs):
   Wallet (/)  |  Pay (/payments)  |  P2P (/p2p)  |  ID (/identity)  |  Settings (/settings)
 
 Pages WITHOUT bottom nav:
-  /welcome, /create-wallet, /recover-wallet, /unlock, /about, /roadmap, /analytics, /deployment
+  /welcome, /create-wallet, /recover-wallet, /unlock, /about, /roadmap, /analytics, /deployment, /help, /help/multisig
 ```
 
 ---
@@ -349,11 +358,17 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 | ![Install PWA](docs/media/how-to-install-pwa.gif) | ![Recover Wallet](docs/media/how-to-recover-import--existing-wallet.gif) | ![Send DigiByte](docs/media/how-to-send-digibyte.gif) |
 | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-install-pwa.mp4) | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-recover-import--existing-wallet.mp4) | [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/how-to-send-digibyte.mp4) |
 
+| How to Create a Multisig Wallet in Real-Time |
+|:-:|
+| ![Create Multisig](docs/media/create-multi-sigg.gif) |
+| [📥 Full Video](https://github.com/DennisPitallano/digibyte-wallet/releases/download/video-tutorials/create-multi-sigg.mp4) |
+
 ---
 
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — Design decisions, project structure, blockchain service chain, Docker/deployment
+- [Security & Threat Model](docs/SECURITY.md) — Cryptographic primitives, threat matrix, OWASP mapping, attack surface analysis
 - [Process Flows](docs/PROCESS_FLOWS.md) — Per-page technical flows, user flows, backend operation matrix
 - [Roadmap](docs/ROADMAP.md) — Development phases, completed features, planned work
 - [Contributing](CONTRIBUTING.md) — How to contribute

@@ -24,8 +24,92 @@
 
 <div id="modal-root"></div>
 
+@* Version Info Modal — rendered at layout level to avoid transform containing block issues *@
+@if (showVersionInfo)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @onclick="() => showVersionInfo = false">
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
+             @onclick:stopPropagation="true">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Version Info</h3>
+                <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
+                        @onclick="() => showVersionInfo = false">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center">
+                        <DigiLogo Size="24" />
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-slate-900 dark:text-white">DigiByte Wallet</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 font-mono">v@(AppVersion.Version)</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 text-xs">
+                    <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
+                        <span class="text-slate-500 dark:text-slate-400">Version</span>
+                        <span class="font-semibold text-slate-900 dark:text-white font-mono">@AppVersion.Version</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
+                        <span class="text-slate-500 dark:text-slate-400">Channel</span>
+                        <span class="inline-flex items-center gap-1.5 font-semibold">
+                            <span class="w-1.5 h-1.5 rounded-full @(AppVersion.Channel switch { "alpha" => "bg-amber-500", "beta" => "bg-blue-500", "rc" => "bg-purple-500", _ => "bg-green-500" })"></span>
+                            <span class="text-slate-900 dark:text-white capitalize">@AppVersion.Channel</span>
+                        </span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
+                        <span class="text-slate-500 dark:text-slate-400">Platform</span>
+                        <span class="font-semibold text-slate-900 dark:text-white">Blazor WASM (PWA)</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
+                        <span class="text-slate-500 dark:text-slate-400">Framework</span>
+                        <span class="font-semibold text-slate-900 dark:text-white">.NET 10</span>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">What's New</p>
+                    <div class="flex flex-col gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                        <div class="flex items-start gap-2">
+                            <span class="text-dgb-500 mt-0.5">●</span>
+                            <span>Real-time multisig rooms (invite codes + SignalR)</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-dgb-500 mt-0.5">●</span>
+                            <span>M-of-N multisig wallets with PSBT signing</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-dgb-500 mt-0.5">●</span>
+                            <span>Tappable version info modal on all pages</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-dgb-500 mt-0.5">●</span>
+                            <span>Help Center with tutorials & multisig guide</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-dgb-500 mt-0.5">●</span>
+                            <span>iOS PWA install support</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <a href="/roadmap" class="w-full py-2 text-xs font-semibold text-center rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors">
+                View Full Roadmap
+            </a>
+        </div>
+    </div>
+}
+
 @code {
-    private static readonly string[] HiddenNavPaths = ["/welcome", "/create-wallet", "/recover-wallet", "/unlock", "/about", "/roadmap", "/analytics", "/deployment"];
+    private static readonly string[] HiddenNavPaths = ["/welcome", "/create-wallet", "/recover-wallet", "/unlock", "/about", "/roadmap", "/analytics", "/deployment", "/help", "/help/multisig", "/multisig/room"];
+    private bool showVersionInfo;
 
     private bool ShowNav
     {
@@ -41,6 +125,16 @@
     {
         Nav.LocationChanged += OnLocationChanged;
         AppState.OnAutoLocked += OnAutoLocked;
+        VersionBadge.OnShowModal += OnShowVersionInfo;
+    }
+
+    private void OnShowVersionInfo()
+    {
+        InvokeAsync(() =>
+        {
+            showVersionInfo = true;
+            StateHasChanged();
+        });
     }
 
     private void OnAutoLocked()
@@ -61,5 +155,6 @@
     {
         Nav.LocationChanged -= OnLocationChanged;
         AppState.OnAutoLocked -= OnAutoLocked;
+        VersionBadge.OnShowModal -= OnShowVersionInfo;
     }
 }

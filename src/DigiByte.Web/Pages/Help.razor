@@ -1,0 +1,247 @@
+@page "/help"
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Help Center</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Back
+    </button>
+    <div class="slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Help Center</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Tutorials, how-tos, and support for DigiByte Wallet.</p>
+    </div>
+
+    @* Search / Filter *@
+    <div class="slide-up-delay-1">
+        <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input type="text" @bind="searchQuery" @bind:event="oninput" placeholder="Search help topics..."
+                   class="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500 transition-all" />
+        </div>
+    </div>
+
+    @* Sections *@
+    <div class="flex flex-col gap-2 slide-up-delay-2">
+        @foreach (var section in FilteredSections)
+        {
+            var isOpen = openSections.Contains(section.Id);
+            <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden transition-all">
+                <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+                        @onclick="() => ToggleSection(section.Id)">
+                    <div class="w-9 h-9 rounded-xl @(section.IconBg) flex items-center justify-center flex-shrink-0">
+                        @((MarkupString)section.IconSvg)
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@(section.Title)</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 truncate">@(section.Subtitle)</p>
+                    </div>
+                    <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0 @(isOpen ? "rotate-180" : "")"
+                         fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                </button>
+
+                @if (isOpen)
+                {
+                    <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
+                        <div class="flex flex-col gap-3 pt-3">
+                            @foreach (var qa in section.Items)
+                            {
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">@qa.Question</p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">@((MarkupString)qa.Answer)</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @* Report Issue / Suggest Feature *@
+    <div class="slide-up-delay-3 mt-2">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Feedback & Support</p>
+
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 flex flex-col gap-3">
+            <div class="flex gap-2">
+                <button class="flex-1 py-2 text-xs font-semibold rounded-xl transition-colors @(feedbackType == "bug" ? "bg-red-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300") press-effect"
+                        @onclick='() => feedbackType = "bug"'>
+                    Report Bug
+                </button>
+                <button class="flex-1 py-2 text-xs font-semibold rounded-xl transition-colors @(feedbackType == "feature" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300") press-effect"
+                        @onclick='() => feedbackType = "feature"'>
+                    Suggest Feature
+                </button>
+            </div>
+
+            <input type="text" @bind="feedbackTitle" placeholder="@(feedbackType == "bug" ? "What went wrong?" : "What would you like to see?")"
+                   class="w-full px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500" />
+
+            <textarea @bind="feedbackBody" rows="3" placeholder="Describe in detail..."
+                      class="w-full px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500 resize-none"></textarea>
+
+            <button class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect disabled:opacity-50"
+                    disabled="@(string.IsNullOrWhiteSpace(feedbackTitle))"
+                    @onclick="SubmitFeedback">
+                Open on GitHub
+            </button>
+
+            <a href="https://github.com/DennisPitallano/digibyte-wallet/issues" target="_blank" rel="noopener"
+               class="text-center text-[11px] text-dgb-500 hover:text-dgb-600 font-medium transition-colors">
+                Or browse existing issues on GitHub &rarr;
+            </a>
+        </div>
+    </div>
+
+    <div class="pb-4"></div>
+</div>
+
+@code {
+    private string searchQuery = "";
+    private string feedbackType = "bug";
+    private string feedbackTitle = "";
+    private string feedbackBody = "";
+    private HashSet<string> openSections = [];
+
+    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
+
+    private void ToggleSection(string id)
+    {
+        if (!openSections.Remove(id))
+            openSections.Add(id);
+    }
+
+    private async Task SubmitFeedback()
+    {
+        var label = feedbackType == "bug" ? "bug" : "enhancement";
+        var title = Uri.EscapeDataString(feedbackTitle);
+        var body = Uri.EscapeDataString(feedbackBody);
+        var url = $"https://github.com/DennisPitallano/digibyte-wallet/issues/new?title={title}&body={body}&labels={label}";
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private IEnumerable<HelpSection> FilteredSections =>
+        string.IsNullOrWhiteSpace(searchQuery)
+            ? sections
+            : sections.Where(s =>
+                s.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                s.Subtitle.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                s.Items.Any(i =>
+                    i.Question.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                    i.Answer.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)));
+
+    private record QA(string Question, string Answer);
+    private record HelpSection(string Id, string Title, string Subtitle, string IconBg, string IconSvg, QA[] Items);
+
+    private HelpSection[] sections = [
+        new("getting-started", "Getting Started", "Install, create wallet, set PIN", "bg-green-50 dark:bg-green-900/20",
+            "<svg class=\"w-5 h-5 text-green-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z\" /></svg>",
+            [
+                new("How do I install the wallet?", "Visit <b>dgbwallet.app</b> in your browser. On Chrome/Edge, tap the install banner or use the browser menu → \"Install app\". On iOS Safari, tap Share → \"Add to Home Screen\". The wallet works offline once installed."),
+                new("How do I create a new wallet?", "Tap <b>Create New Wallet</b> on the welcome screen. The app generates 24 secret words (your recovery phrase). Write them down on paper — this is your only backup. Confirm 3 random words, then set a 6-digit PIN."),
+                new("What is a recovery phrase?", "A 24-word BIP39 mnemonic that can restore your wallet on any compatible app. <b>Never share it</b> with anyone. If you lose it and forget your PIN, your funds are permanently lost."),
+                new("What does the PIN do?", "The 6-digit PIN encrypts your wallet data with AES-256-GCM. You need it to unlock the app and authorize transactions. After 3 wrong attempts, there's an exponential lockout (15s → 30s → 60s → 120s)."),
+            ]),
+
+        new("sending-receiving", "Sending & Receiving", "Send DGB, receive, QR codes, fees", "bg-dgb-50 dark:bg-dgb-900/30",
+            "<svg class=\"w-5 h-5 text-dgb-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5\" /></svg>",
+            [
+                new("How do I send DigiByte?", "Tap <b>Send</b> → enter the recipient's address (or scan a QR code, or pick a contact). Enter the amount — tap the currency badge to switch between DGB and fiat. Tap <b>Review</b>, confirm the details, then <b>Send</b>. The transaction is signed locally and broadcast to the network."),
+                new("How do I receive DigiByte?", "Tap <b>Receive</b> → show the QR code to the sender, or copy your address. Toggle between <b>Legacy</b> (D...) and <b>SegWit</b> (dgb1...) formats. SegWit addresses have lower fees."),
+                new("What are fee rates?", "Fees are measured in sat/vB (satoshis per virtual byte). Choose <b>Low</b> (100), <b>Normal</b> (200), or <b>Fast</b> (400). Higher fees get confirmed faster. In Advanced mode, you can set a custom fee rate."),
+                new("Why did my transaction fail?", "Common reasons: insufficient balance (amount + fee exceeds balance), network congestion, or too many unconfirmed UTXOs (too-long-mempool-chain). Wait for pending transactions to confirm and try again."),
+            ]),
+
+        new("contacts-payments", "Contacts & Payments", "Address book, BIP21 payment requests", "bg-indigo-50 dark:bg-indigo-900/20",
+            "<svg class=\"w-5 h-5 text-indigo-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z\" /></svg>",
+            [
+                new("How do I add a contact?", "Go to <b>Contacts</b> → tap <b>+</b>. Enter a name and DGB address (or scan a QR code). You can also add contacts directly from the transaction detail modal."),
+                new("How do I create a payment request?", "Go to <b>Pay</b> tab → tap <b>Create Request</b>. Set the amount, label, and message. A BIP21 URI and QR code are generated. Share the QR or copy the URI for the sender to scan."),
+                new("What is a BIP21 URI?", "A standard format: <code>digibyte:ADDRESS?amount=X&amp;label=Y</code>. When scanned, it auto-fills the send form with the address, amount, and label."),
+            ]),
+
+        new("security-backup", "Security & Backup", "Seed phrase, PIN reset, delete wallet", "bg-amber-50 dark:bg-amber-900/20",
+            "<svg class=\"w-5 h-5 text-amber-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z\" /></svg>",
+            [
+                new("How do I back up my seed phrase?", "Go to <b>Settings</b> → <b>Back Up Seed Phrase</b>. Enter your PIN to reveal the 24 words. Write them on paper and store in a secure location. <b>Never take a screenshot or store digitally.</b>"),
+                new("I forgot my PIN — what do I do?", "On the unlock screen, tap <b>Forgot PIN?</b> → <b>Reset PIN with recovery phrase</b>. Enter your 24 words and set a new PIN. If you've lost both your PIN and seed phrase, the wallet cannot be recovered."),
+                new("How do I delete my wallet?", "Go to <b>Settings</b> → <b>Delete Wallet</b> → enter your PIN to confirm. This permanently removes all wallet data from the device. Make sure you've backed up your seed phrase first. <b>If you have multisig wallets, back up their redeem scripts too</b> — your seed phrase alone cannot restore them."),
+                new("Is my data encrypted?", "Yes. Your seed phrase and private keys are encrypted with <b>AES-256-GCM</b>, using a key derived from your PIN via PBKDF2. Encrypted data is stored in the browser's IndexedDB. Keys are never sent to any server."),
+            ]),
+
+        new("watch-only", "Watch-Only Wallets", "Import xpub, view balances", "bg-cyan-50 dark:bg-cyan-900/20",
+            "<svg class=\"w-5 h-5 text-cyan-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z\" /><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z\" /></svg>",
+            [
+                new("What is a watch-only wallet?", "A wallet created from an extended public key (xpub) that can view balances and transaction history but <b>cannot sign or send</b> transactions. Useful for monitoring cold storage."),
+                new("How do I create a watch-only wallet?", "On the welcome screen, choose <b>Recover</b> → paste your <b>xpub</b> key. The wallet derives addresses from the xpub and tracks balances from the blockchain."),
+                new("Can I send from a watch-only wallet?", "No. Watch-only wallets don't have private keys, so they cannot sign transactions. You'll need the full wallet (with seed phrase or private key) to send funds."),
+            ]),
+
+        new("multisig", "Multisig Wallets", "M-of-N wallets, PSBT signing, real-time rooms", "bg-purple-50 dark:bg-purple-900/20",
+            "<svg class=\"w-5 h-5 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z\" /></svg>",
+            [
+                new("What is a multisig wallet?", "A wallet that requires <b>M-of-N</b> signatures to spend funds. For example, a 2-of-3 multisig needs 2 out of 3 co-signers to approve a transaction. This adds an extra layer of security — no single key can move funds alone."),
+                new("How do I create a multisig wallet?", "Tap the <b>Multisig</b> button on the Home screen → <b>Create</b>. Choose the threshold (e.g., 2-of-3). Your public key is auto-added. Add other co-signers by pasting their compressed public key (hex). Review and confirm to create the wallet."),
+                new("How do I send from a multisig wallet?", "Open your multisig wallet → <b>Send</b>. Enter the destination and amount. A <b>PSBT</b> (Partially Signed Transaction) is created. Sign it with your key, then share the PSBT with co-signers. Once enough signatures are collected, the transaction can be finalized and broadcast."),
+                new("What is a PSBT?", "A <b>Partially Signed Transaction</b> (BIP174) — a standard format originally from Bitcoin, also used by DigiByte, for passing unsigned or partially signed transactions between co-signers. Each signer adds their signature to the PSBT, and when the threshold is met, it can be finalized into a complete transaction."),
+                new("How do I import an existing multisig wallet?", "Go to <b>Multisig</b> → <b>Import</b>. Paste the redeem script (hex). The wallet detects the threshold, co-signers, and whether your key is among them. If your key is found, you can sign transactions; otherwise, it's imported as watch-only."),
+                new("How do co-signers exchange PSBTs?", "After creating a PSBT, copy the base64-encoded string and share it with co-signers (via secure messaging, email, etc.). Co-signers paste the signed PSBT back into the <b>Pending Transactions</b> page. Signatures are combined automatically."),
+                new("What is a Multisig Room?", "A real-time collaborative room where co-signers join together to create a multisig wallet. One person creates the room and gets a <b>6-character invite code</b>. Others join using the code — everyone's public key is shared automatically via SignalR. When all participants are ready, the wallet is created simultaneously on all devices."),
+                new("How do I create a multisig wallet in real-time?", "Go to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b>. Create a room, set the wallet name and M-of-N threshold, then share the invite code with your co-signers. Once everyone joins and taps <b>Ready</b>, the wallet is created on all devices at once — no need to manually exchange public keys."),
+                new("What happens to my multisig if I delete and recover my wallet?", "<b>Multisig wallets are NOT recovered by your seed phrase.</b> Your 24-word mnemonic only restores your personal HD wallet. Multisig configurations (redeem script, co-signer keys, threshold) are stored locally and wiped when you delete the wallet. <b>Always back up the redeem script</b> — you can download it from the multisig wallet detail page. To restore: go to <b>Multisig → Import</b> and paste the redeem script."),
+                new("Where can I learn more?", "Read our <a href='/help/multisig' class='text-purple-500 underline'>complete Multisig Guide</a> — it includes visual flowcharts, real-world scenarios, step-by-step walkthroughs for beginners, and technical details for developers."),
+            ]),
+
+        new("digi-id", "Digi-ID", "Passwordless authentication", "bg-blue-50 dark:bg-blue-900/20",
+            "<svg class=\"w-5 h-5 text-blue-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33\" /></svg>",
+            [
+                new("What is Digi-ID?", "A passwordless authentication protocol for DigiByte. Websites show a <code>digiid://</code> QR code — you scan it with your wallet, approve the domain, and the wallet signs a cryptographic challenge. No passwords needed."),
+                new("How do I use Digi-ID?", "Go to the <b>ID</b> tab → scan the Digi-ID QR code from a website (or paste the <code>digiid://</code> URI). Review the domain name, then tap <b>Approve</b>. The wallet signs the challenge and sends it to the website."),
+                new("Is Digi-ID safe?", "Yes. Each website gets a unique derived key (path <code>m/13'/siteIndex'/0'/0</code>). Your main wallet keys are never exposed. Only a cryptographic signature is sent — no private data leaves your device."),
+            ]),
+
+        new("analytics", "Analytics & Market Data", "Price, market cap, network stats", "bg-purple-50 dark:bg-purple-900/20",
+            "<svg class=\"w-5 h-5 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z\" /></svg>",
+            [
+                new("Where can I see the DGB price?", "Go to <b>Analytics</b> (from Settings or Home). The page shows the current DGB price in your selected fiat currency, 24h change, market cap, volume, and a 7-day sparkline chart."),
+                new("Where does the price data come from?", "Prices are fetched from the CoinGecko API via a server-side proxy (to avoid browser CORS and rate limits). Data is cached for 60 seconds."),
+            ]),
+
+        new("p2p", "P2P Marketplace", "Peer-to-peer trading (coming soon)", "bg-orange-50 dark:bg-orange-900/20",
+            "<svg class=\"w-5 h-5 text-orange-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z\" /></svg>",
+            [
+                new("What is the P2P Marketplace?", "A planned feature for buying and selling DGB directly with other users — no centralized exchange needed. It will include order matching, real-time trade chat via SignalR, and multisig escrow for safe trades."),
+                new("When will it be available?", "The P2P Marketplace is planned for Q2 2026. Check the <b>Roadmap</b> page for the latest status."),
+            ]),
+
+        new("remittance", "Remittance", "Send by username, fee comparison", "bg-emerald-50 dark:bg-emerald-900/20",
+            "<svg class=\"w-5 h-5 text-emerald-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418\" /></svg>",
+            [
+                new("How does remittance work?", "Go to the <b>Remittance</b> page, enter a dollar amount, and see a fee comparison between DigiByte and traditional services (Western Union, Wise, Remitly). DGB transfers settle in ~15 seconds with near-zero fees."),
+                new("Do I need a username to receive remittances?", "The directory lookup feature (send by username) is a planned enhancement. Currently, you share your DGB address directly with the sender."),
+            ]),
+
+        new("settings", "Settings & Customization", "Theme, network, currency, display mode", "bg-slate-100 dark:bg-dgb-800",
+            "<svg class=\"w-5 h-5 text-slate-500 dark:text-slate-400\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z\" /><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z\" /></svg>",
+            [
+                new("How do I change the theme?", "Go to <b>Settings</b> → toggle <b>Appearance</b> between Light and Dark mode. The app uses official DigiByte branding colors."),
+                new("How do I switch networks?", "Go to <b>Settings</b> → <b>Network</b> → select <b>Mainnet</b>, <b>Testnet</b>, or <b>Regtest</b>. Mainnet uses real DGB. Testnet and Regtest use test coins. Your wallet data is separate per network."),
+                new("What is Simple vs Advanced mode?", "<b>Simple</b> hides technical details (fee rate selector, raw addresses). <b>Advanced</b> shows everything including custom fee input, full address formats, and developer-oriented info."),
+                new("How do I change the fiat currency?", "Go to <b>Settings</b> → <b>Currency</b> → choose from USD, EUR, GBP, PHP, or JPY. Prices update automatically across the app."),
+            ]),
+
+        new("deployment", "Deployment & Infrastructure", "Self-hosting, Docker, Railway", "bg-slate-100 dark:bg-dgb-800",
+            "<svg class=\"w-5 h-5 text-slate-500 dark:text-slate-400\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008ZM6.75 14.25h.008v.008H6.75v-.008Z\" /></svg>",
+            [
+                new("Can I self-host the wallet?", "Yes. The wallet is fully open source. Clone the repo, run <code>dotnet run --project src/DigiByte.Web</code>, and open <code>localhost:5251</code>. For the full stack (node + API), use Docker Compose."),
+                new("What Docker configurations are available?", "Three Docker Compose files: <b>Regtest</b> (instant mining, local dev), <b>Testnet</b> (real network), and <b>Mainnet</b> (pruned node, production). See the <b>Deployment</b> page for infrastructure details."),
+                new("How is the production deployment set up?", "The production app runs on Railway with 4 services: Blazor WASM (served by Nginx), Backend API (CoinGecko proxy, P2P), Node API (RPC wrapper), and a pruned mainnet DigiByte node (~2 GB disk)."),
+            ]),
+    ];
+}

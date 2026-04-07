@@ -4,6 +4,29 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.3.0-beta.1] - 2026-04-07
+
+### Added
+- **Real-time multisig rooms** — SignalR-based collaborative multisig wallet creation with invite codes, participant tracking, ready system, auto-expiry (15 min), and deep link support
+- **Multisig backup/restore** — Download redeem script as `.txt` backup file with wallet metadata, co-signers, and recovery instructions
+- **Import from backup file** — Upload `.txt` backup on MultisigImport page; auto-parses wallet name and redeem script
+- **Backup warning** — Amber warning banner on MultisigDetail page explaining seed phrases cannot recover multisig wallets
+- **VersionBadge component** — Shared tappable version pill badge used across 5 pages (Welcome, About, CreateWallet, Settings, Unlock)
+- **Version Info modal** — Tappable modal with app details, channel, platform, framework, and What's New section; rendered at layout level via static event pattern
+- **Real-life scenario** — Maya/Leo/Priya vacation fund walkthrough in Multisig Guide real-time collaboration section
+- **Security documentation** — Comprehensive `docs/SECURITY.md` with threat model, OWASP Top 10 mapping, risk matrix, cryptographic primitives, and hardening recommendations
+- **Video tutorial** — Real-time multisig creation recording (`create-multi-sigg.mp4` + GIF) added to README
+
+### Changed
+- **Version bumped to 0.3.0-beta.1** — Promoted from alpha to beta; all core features functional, documented, and tested
+- **Roadmap updated** — Added "Real-Time Multisig Rooms" and "UI Enhancements" as completed milestones
+- **Help Center updated** — New Q&As for multisig rooms, real-time creation, and recovery warnings
+- **Multisig Guide updated** — New "Real-Time Collaboration" expandable section with step-by-step walkthrough
+- **Delete wallet help** — Updated to mention backing up multisig redeem scripts before deletion
+
+### Fixed
+- **Version Info modal positioning** — Fixed CSS `transform` containment issue (animations creating containing blocks that break `position: fixed`); modal now rendered at layout level outside page transforms
+
 ## [0.2.0-alpha.1] - 2026-04-06
 
 ### Added

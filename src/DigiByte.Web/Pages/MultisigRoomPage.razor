@@ -1,0 +1,666 @@
+@page "/multisig/room"
+@implements IAsyncDisposable
+@inject WalletService WalletService
+@inject MultisigWalletService MultisigWalletService
+@inject NavigationManager Nav
+@inject AppState AppState
+@inject IJSRuntime JS
+@inject IConfiguration Config
+
+@using Microsoft.AspNetCore.SignalR.Client
+@using DigiByte.P2P.Shared.Models
+
+<PageTitle>Multisig Room</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-4">
+    @* Header *@
+    <div class="flex items-center gap-3 fade-in">
+        <button class="p-2 -ml-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" @onclick="GoBack">
+            <svg class="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+        </button>
+        <div>
+            <h1 class="text-lg font-bold text-slate-900 dark:text-white">
+                @if (room != null) { <text>Multisig Room</text> }
+                else { <text>Create Together</text> }
+            </h1>
+            <p class="text-xs text-slate-400 dark:text-slate-500">Real-time collaborative multisig setup</p>
+        </div>
+    </div>
+
+    @* ===== Connection Error ===== *@
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 slide-up">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                </svg>
+                <div>
+                    <p class="text-sm font-medium text-red-700 dark:text-red-300">@errorMessage</p>
+                    <button class="text-xs text-red-500 hover:text-red-600 mt-1 underline" @onclick="ClearError">Dismiss</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ===== MODE SELECT (no room yet) ===== *@
+    @if (room == null && mode == Mode.Select)
+    {
+        <div class="flex flex-col gap-4 slide-up">
+            @* Create Room Card *@
+            <button class="text-left p-5 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 hover:border-dgb-400 dark:hover:border-dgb-600 transition-colors group press-effect"
+                    @onclick="() => mode = Mode.Create">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <svg class="w-6 h-6 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-slate-900 dark:text-white">Create Room</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Set up M-of-N config and invite co-signers</p>
+                    </div>
+                    <svg class="w-5 h-5 text-slate-300 dark:text-slate-600 ml-auto" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                </div>
+            </button>
+
+            @* Join Room Card *@
+            <button class="text-left p-5 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 hover:border-dgb-400 dark:hover:border-dgb-600 transition-colors group press-effect"
+                    @onclick="() => mode = Mode.Join">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <svg class="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-slate-900 dark:text-white">Join Room</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Enter invite code from the initiator</p>
+                    </div>
+                    <svg class="w-5 h-5 text-slate-300 dark:text-slate-600 ml-auto" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                </div>
+            </button>
+
+            @* Or manual *@
+            <div class="text-center">
+                <a href="/multisig/create" class="text-xs text-slate-400 dark:text-slate-500 hover:text-dgb-500 transition-colors">
+                    Or create manually with public keys →
+                </a>
+            </div>
+        </div>
+    }
+
+    @* ===== CREATE MODE (configure + waiting for connection) ===== *@
+    @if (room == null && mode == Mode.Create)
+    {
+        <div class="flex flex-col gap-4 slide-up">
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
+                <input type="text" @bind="walletName" placeholder="e.g. Family Savings"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Your Display Name</label>
+                <input type="text" @bind="displayName" placeholder="e.g. Dennis"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            </div>
+
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Signature Scheme</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex flex-col items-center gap-1">
+                        <label class="text-[10px] text-slate-400 uppercase">Required</label>
+                        <select @bind="requiredSigs"
+                                class="w-16 px-2 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-center text-slate-900 dark:text-white font-bold outline-none">
+                            @for (int m = 1; m <= totalSigners; m++)
+                            {
+                                <option value="@m">@m</option>
+                            }
+                        </select>
+                    </div>
+                    <span class="text-lg font-bold text-slate-400 mt-4">of</span>
+                    <div class="flex flex-col items-center gap-1">
+                        <label class="text-[10px] text-slate-400 uppercase">Total</label>
+                        <select @bind="totalSigners" @bind:after="OnTotalChanged"
+                                class="w-16 px-2 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-center text-slate-900 dark:text-white font-bold outline-none">
+                            @for (int n = 2; n <= 7; n++)
+                            {
+                                <option value="@n">@n</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">
+                    <span class="font-bold text-dgb-500">@requiredSigs</span> of <span class="font-bold">@totalSigners</span> signers must approve each transaction
+                </p>
+            </div>
+
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                    disabled="@(isConnecting || string.IsNullOrWhiteSpace(walletName) || string.IsNullOrWhiteSpace(displayName))"
+                    @onclick="CreateRoom">
+                @if (isConnecting)
+                {
+                    <div class="inline-flex items-center gap-2">
+                        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Creating room...</span>
+                    </div>
+                }
+                else
+                {
+                    <span>Create Room</span>
+                }
+            </button>
+
+            <button class="text-xs text-slate-400 hover:text-slate-500 text-center" @onclick="() => mode = Mode.Select">← Back</button>
+        </div>
+    }
+
+    @* ===== JOIN MODE ===== *@
+    @if (room == null && mode == Mode.Join)
+    {
+        <div class="flex flex-col gap-4 slide-up">
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Your Display Name</label>
+                <input type="text" @bind="displayName" placeholder="e.g. Alice"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Invite Code</label>
+                <input type="text" @bind="inviteCode" placeholder="e.g. X7K9M2" maxlength="6"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-center font-mono text-lg tracking-[0.3em] uppercase outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            </div>
+
+            <button class="w-full py-3.5 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-2xl shadow-lg shadow-purple-500/25 transition-all press-effect disabled:opacity-50"
+                    disabled="@(isConnecting || string.IsNullOrWhiteSpace(displayName) || inviteCode?.Trim().Length != 6)"
+                    @onclick="JoinRoom">
+                @if (isConnecting)
+                {
+                    <div class="inline-flex items-center gap-2">
+                        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Joining...</span>
+                    </div>
+                }
+                else
+                {
+                    <span>Join Room</span>
+                }
+            </button>
+
+            <button class="text-xs text-slate-400 hover:text-slate-500 text-center" @onclick="() => mode = Mode.Select">← Back</button>
+        </div>
+    }
+
+    @* ===== ROOM VIEW (connected) ===== *@
+    @if (room != null)
+    {
+        @* Invite Code Banner *@
+        @if (isInitiator && room.Status == MultisigRoomStatus.Waiting)
+        {
+            <div class="p-4 rounded-2xl bg-dgb-50 dark:bg-dgb-900/60 border border-dgb-200/60 dark:border-dgb-700/40 slide-up">
+                <p class="text-xs font-semibold text-dgb-600 dark:text-dgb-300 mb-2">Share this invite code with co-signers:</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex-1 text-center py-3 bg-white dark:bg-dgb-800 rounded-xl border border-dgb-200 dark:border-dgb-700">
+                        <span class="text-2xl font-mono font-extrabold tracking-[0.3em] text-dgb-600 dark:text-dgb-200">@room.InviteCode</span>
+                    </div>
+                    <button class="p-3 rounded-xl bg-dgb-500 text-white hover:bg-dgb-600 transition-colors press-effect" title="Copy code"
+                            @onclick="CopyInviteCode">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        }
+
+        @* Room Info *@
+        <div class="p-4 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 slide-up">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <p class="text-sm font-bold text-slate-900 dark:text-white">@room.WalletName</p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">@room.RequiredSignatures-of-@room.TotalSigners Multisig</p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full @(room.Status switch {
+                        MultisigRoomStatus.Waiting => "bg-amber-500 animate-pulse",
+                        MultisigRoomStatus.Full => "bg-green-500",
+                        MultisigRoomStatus.Creating => "bg-dgb-500 animate-pulse",
+                        MultisigRoomStatus.Created => "bg-green-500",
+                        _ => "bg-slate-400"
+                    })"></span>
+                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">
+                        @(room.Status switch {
+                            MultisigRoomStatus.Waiting => $"Waiting ({room.Participants.Count}/{room.TotalSigners})",
+                            MultisigRoomStatus.Full => "All joined",
+                            MultisigRoomStatus.Creating => "Creating...",
+                            MultisigRoomStatus.Created => "Created!",
+                            _ => room.Status.ToString()
+                        })
+                    </span>
+                </div>
+            </div>
+
+            @* Participant List *@
+            <div class="flex flex-col gap-2">
+                @foreach (var p in room.Participants)
+                {
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-dgb-800/50">
+                        <div class="w-8 h-8 rounded-full @(p.IsInitiator ? "bg-dgb-100 dark:bg-dgb-800" : "bg-purple-100 dark:bg-purple-900/30") flex items-center justify-center">
+                            <span class="text-xs font-bold @(p.IsInitiator ? "text-dgb-600 dark:text-dgb-400" : "text-purple-600 dark:text-purple-400")">@p.Name[..1].ToUpper()</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white truncate">@p.Name</p>
+                                @if (p.IsInitiator)
+                                {
+                                    <span class="text-[8px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">HOST</span>
+                                }
+                                @if (p.PublicKeyHex == myPublicKey)
+                                {
+                                    <span class="text-[8px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full">YOU</span>
+                                }
+                            </div>
+                            <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">@p.PublicKeyHex[..8]...@p.PublicKeyHex[^6..]</p>
+                        </div>
+                        @if (p.IsReady)
+                        {
+                            <div class="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                <svg class="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                                <div class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Empty slots *@
+                @for (int i = room.Participants.Count; i < room.TotalSigners; i++)
+                {
+                    <div class="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-dgb-800">
+                        <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0" />
+                            </svg>
+                        </div>
+                        <p class="text-xs text-slate-300 dark:text-slate-600 italic">Waiting for co-signer...</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Ready / Create Button *@
+        @if (room.Status == MultisigRoomStatus.Created)
+        {
+            <div class="p-4 rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-center slide-up">
+                <svg class="w-10 h-10 text-green-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <p class="text-sm font-bold text-green-700 dark:text-green-300">Wallet Created!</p>
+                <p class="text-xs text-green-600 dark:text-green-400 mt-1">All participants now have the same multisig wallet.</p>
+                <button class="mt-3 px-6 py-2.5 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors press-effect"
+                        @onclick="ViewWallet">
+                    View Wallet
+                </button>
+            </div>
+        }
+        else if (room.IsFull)
+        {
+            var amIReady = room.Participants.Find(p => p.PublicKeyHex == myPublicKey)?.IsReady ?? false;
+            <div class="flex flex-col gap-2 slide-up">
+                @if (amIReady)
+                {
+                    <button class="w-full py-3.5 bg-slate-200 dark:bg-dgb-800 text-slate-500 dark:text-slate-400 font-semibold rounded-2xl transition-all press-effect"
+                            @onclick="UnsetReady">
+                        <div class="inline-flex items-center gap-2">
+                            <svg class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                            <span>You're ready — waiting for others...</span>
+                        </div>
+                    </button>
+                }
+                else
+                {
+                    <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect"
+                            @onclick="SetReady">
+                        Ready to Create Wallet
+                    </button>
+                }
+                <p class="text-[10px] text-slate-400 dark:text-slate-500 text-center">
+                    @room.Participants.Count(p => p.IsReady)/@room.TotalSigners ready
+                </p>
+            </div>
+        }
+        else
+        {
+            <p class="text-xs text-slate-400 dark:text-slate-500 text-center slide-up">
+                Waiting for @(room.TotalSigners - room.Participants.Count) more participant@(room.TotalSigners - room.Participants.Count > 1 ? "s" : "") to join...
+            </p>
+        }
+
+        @* Leave button *@
+        @if (room.Status != MultisigRoomStatus.Created)
+        {
+            <button class="text-xs text-red-400 hover:text-red-500 text-center mt-2" @onclick="LeaveRoom">
+                Leave Room
+            </button>
+        }
+    }
+
+    @* ===== ROOM CLOSED ===== *@
+    @if (roomClosed)
+    {
+        <div class="p-6 rounded-2xl bg-slate-100 dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-center slide-up">
+            <svg class="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-300">@closedReason</p>
+            <button class="mt-3 px-6 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl transition-colors press-effect"
+                    @onclick="Reset">
+                Start Over
+            </button>
+        </div>
+    }
+</div>
+</AuthGuard>
+
+@code {
+    private enum Mode { Select, Create, Join }
+    private Mode mode = Mode.Select;
+
+    private HubConnection? hub;
+    private MultisigRoom? room;
+    private string? myPublicKey;
+    private string? createdWalletId;
+    private bool isInitiator;
+    private bool isConnecting;
+    private bool roomClosed;
+    private string? closedReason;
+    private string? errorMessage;
+
+    // Form state
+    private string walletName = "";
+    private string displayName = "";
+    private int requiredSigs = 2;
+    private int totalSigners = 2;
+    private string inviteCode = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.ResetLockTimer();
+
+        // Check for invite code in query string (deep link)
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var code = query["code"];
+        if (!string.IsNullOrEmpty(code))
+        {
+            inviteCode = code;
+            mode = Mode.Join;
+        }
+
+        // Get our public key
+        myPublicKey = WalletService.GetPublicKey();
+    }
+
+    private void OnTotalChanged()
+    {
+        if (requiredSigs > totalSigners)
+            requiredSigs = totalSigners;
+    }
+
+    private async Task CreateRoom()
+    {
+        if (string.IsNullOrEmpty(myPublicKey))
+        {
+            errorMessage = "Could not retrieve your public key. Is your wallet unlocked?";
+            return;
+        }
+
+        isConnecting = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await EnsureHubConnected();
+            isInitiator = true;
+            await hub!.InvokeAsync("CreateRoom", walletName.Trim(), requiredSigs, totalSigners, displayName.Trim(), myPublicKey);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to create room: {ex.Message}";
+            isConnecting = false;
+        }
+    }
+
+    private async Task JoinRoom()
+    {
+        if (string.IsNullOrEmpty(myPublicKey))
+        {
+            errorMessage = "Could not retrieve your public key. Is your wallet unlocked?";
+            return;
+        }
+
+        isConnecting = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await EnsureHubConnected();
+            isInitiator = false;
+            await hub!.InvokeAsync("JoinRoom", inviteCode.Trim().ToUpperInvariant(), displayName.Trim(), myPublicKey);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to join room: {ex.Message}";
+            isConnecting = false;
+        }
+    }
+
+    private async Task SetReady()
+    {
+        if (hub != null && room != null)
+            await hub.InvokeAsync("SetReady", room.RoomId);
+    }
+
+    private async Task UnsetReady()
+    {
+        if (hub != null && room != null)
+            await hub.InvokeAsync("SetNotReady", room.RoomId);
+    }
+
+    private async Task LeaveRoom()
+    {
+        if (hub != null && room != null)
+        {
+            await hub.InvokeAsync("LeaveRoom", room.RoomId);
+            room = null;
+            mode = Mode.Select;
+            StateHasChanged();
+        }
+    }
+
+    private void Reset()
+    {
+        room = null;
+        roomClosed = false;
+        closedReason = null;
+        errorMessage = null;
+        mode = Mode.Select;
+        StateHasChanged();
+    }
+
+    private void ViewWallet()
+    {
+        if (createdWalletId != null)
+            Nav.NavigateTo($"/multisig/{createdWalletId}");
+        else
+            Nav.NavigateTo("/multisig");
+    }
+
+    private void GoBack()
+    {
+        if (room != null)
+            return; // Don't navigate away while in a room
+        if (mode != Mode.Select)
+        {
+            mode = Mode.Select;
+            StateHasChanged();
+            return;
+        }
+        Nav.NavigateTo("/multisig/create");
+    }
+
+    private async Task CopyInviteCode()
+    {
+        if (room != null)
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", room.InviteCode);
+    }
+
+    private void ClearError() => errorMessage = null;
+
+    private async Task EnsureHubConnected()
+    {
+        if (hub != null) return;
+
+        var apiBase = Config["PriceApiUrl"]?.Replace("/api/price", "") ?? "http://localhost:5007";
+        var hubUrl = $"{apiBase}/hubs/multisig-room";
+
+        hub = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
+
+        hub.On<MultisigRoom>("RoomUpdated", OnRoomUpdated);
+        hub.On<MultisigParticipant>("ParticipantJoined", OnParticipantJoined);
+        hub.On<string>("ParticipantLeft", OnParticipantLeft);
+        hub.On<MultisigRoom>("AllReady", OnAllReady);
+        hub.On<string>("RoomClosed", OnRoomClosed);
+        hub.On<string>("Error", OnError);
+
+        hub.Closed += async (ex) =>
+        {
+            await InvokeAsync(() =>
+            {
+                if (room != null && room.Status != MultisigRoomStatus.Created)
+                {
+                    errorMessage = "Connection lost. Please try again.";
+                    room = null;
+                    mode = Mode.Select;
+                    StateHasChanged();
+                }
+            });
+        };
+
+        await hub.StartAsync();
+    }
+
+    private async Task OnRoomUpdated(MultisigRoom updated)
+    {
+        await InvokeAsync(() =>
+        {
+            room = updated;
+            isConnecting = false;
+            StateHasChanged();
+        });
+    }
+
+    private Task OnParticipantJoined(MultisigParticipant participant)
+    {
+        // Room state comes via RoomUpdated; this is for notifications if needed
+        return Task.CompletedTask;
+    }
+
+    private Task OnParticipantLeft(string publicKeyHex)
+    {
+        // Room state comes via RoomUpdated
+        return Task.CompletedTask;
+    }
+
+    private async Task OnAllReady(MultisigRoom finalRoom)
+    {
+        await InvokeAsync(async () =>
+        {
+            room = finalRoom;
+            StateHasChanged();
+
+            // Create the wallet locally with the final participant data
+            try
+            {
+                var coSigners = finalRoom.Participants.Select(p => new CoSigner
+                {
+                    Name = p.Name,
+                    PublicKeyHex = p.PublicKeyHex,
+                    IsLocal = p.PublicKeyHex == myPublicKey
+                }).ToList();
+
+                var config = await MultisigWalletService.CreateMultisigWalletAsync(
+                    finalRoom.WalletName,
+                    finalRoom.RequiredSignatures,
+                    coSigners);
+
+                createdWalletId = config.WalletId;
+                finalRoom.Status = MultisigRoomStatus.Created;
+                room = finalRoom;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Failed to create wallet: {ex.Message}";
+                StateHasChanged();
+            }
+        });
+    }
+
+    private async Task OnRoomClosed(string reason)
+    {
+        await InvokeAsync(() =>
+        {
+            room = null;
+            roomClosed = true;
+            closedReason = reason;
+            isConnecting = false;
+            StateHasChanged();
+        });
+    }
+
+    private async Task OnError(string message)
+    {
+        await InvokeAsync(() =>
+        {
+            errorMessage = message;
+            isConnecting = false;
+            StateHasChanged();
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hub != null)
+        {
+            try
+            {
+                if (room != null)
+                    await hub.InvokeAsync("LeaveRoom", room.RoomId);
+                await hub.DisposeAsync();
+            }
+            catch { }
+        }
+    }
+}
