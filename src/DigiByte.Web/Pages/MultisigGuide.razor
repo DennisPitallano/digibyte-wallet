@@ -548,6 +548,103 @@ Spend:
         </div>
     </div>
 
+    @* ===== SECTION: Real-Time Rooms ===== *@
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Real-Time Collaboration</p>
+
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden mb-2">
+            <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+                    @onclick='() => ToggleGuide("room")'>
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">Create Together in Real-Time (Multisig Rooms)</p>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("room") ? "rotate-180" : "")"
+                     fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </button>
+            @if (openGuides.Contains("room"))
+            {
+                <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
+                    <div class="flex flex-col gap-3 pt-3">
+                        <div class="p-3 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                            <p class="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 mb-1">No manual key exchange needed!</p>
+                            <p class="text-[11px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
+                                Instead of asking each co-signer to copy and paste their public key, use a <b>Multisig Room</b>.
+                                Everyone joins a real-time room via an invite code, and public keys are shared automatically.
+                            </p>
+                        </div>
+
+                        @* Real-life scenario *@
+                        <div class="p-3 bg-slate-50 dark:bg-dgb-800/50 rounded-xl border border-slate-200/80 dark:border-dgb-700/50">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                                </svg>
+                                <p class="text-[11px] font-bold text-slate-800 dark:text-slate-200">Real-Life Scenario</p>
+                            </div>
+                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
+                                <b>Maya, Leo, and Priya</b> are friends pooling DGB for a group vacation fund. They want a <b>2-of-3</b> wallet so any two of them can approve a withdrawal, but no single person can spend alone.
+                            </p>
+                            <div class="flex flex-col gap-1.5 pl-2 border-l-2 border-indigo-200 dark:border-indigo-700/50">
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    <b class="text-indigo-600 dark:text-indigo-400">Maya</b> opens the app, taps <b>Create Together in Real-Time</b>, names the wallet "Vacation Fund", sets it to 2-of-3, and taps <b>Create Room</b>. She gets the code <code class="text-[10px] bg-white dark:bg-dgb-900 px-1 py-0.5 rounded">H4X9K2</code>.
+                                </p>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    She drops the code in their group chat. <b class="text-indigo-600 dark:text-indigo-400">Leo</b> and <b class="text-indigo-600 dark:text-indigo-400">Priya</b> each open the app, tap <b>Join Room</b>, enter the code, and they instantly appear in Maya's participant list.
+                                </p>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    Everyone taps <b>"Ready"</b> — and in under <b>2 minutes</b>, all three have the same multisig wallet on their phones. No keys were copied, no files were shared. They can now deposit DGB and spend with any 2 approvals.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Create a Room</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Go to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b>. Enter a wallet name, your display name, and set the M-of-N threshold. Tap <b>Create Room</b>.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. Share the Invite Code</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                A <b>6-character invite code</b> is generated (e.g., <code class="text-[10px]">A7K3M2</code>). Share it with your co-signers via messaging. They can also use a <b>deep link</b> with <code class="text-[10px]">?code=A7K3M2</code>.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Co-signers Join</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Each co-signer goes to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b> → <b>Join Room</b>. They enter the invite code and their display name. Their public key is shared automatically.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">4. Everyone Taps Ready</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Once all participants have joined, each person taps <b>"Ready to Create Wallet"</b>. The participant list shows real-time status with checkmarks.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">5. Wallet Created on All Devices</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                When all participants are ready, the wallet is created <b>simultaneously on every device</b>. Everyone gets the same multisig address — guaranteed by BIP67 deterministic key sorting.
+                            </p>
+                        </div>
+
+                        <div class="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800/30">
+                            <p class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">⏱ Room Expiry</p>
+                            <p class="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                                Rooms expire automatically after <b>15 minutes</b>. If the initiator leaves or disconnects, the room is closed for all participants.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
     @* CTA *@
     <div class="flex flex-col gap-2 mt-2 pb-4">
         <button class="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-2xl shadow-lg shadow-purple-500/25 transition-all press-effect"

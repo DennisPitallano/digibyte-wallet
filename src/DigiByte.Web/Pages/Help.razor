@@ -183,7 +183,7 @@
                 new("Can I send from a watch-only wallet?", "No. Watch-only wallets don't have private keys, so they cannot sign transactions. You'll need the full wallet (with seed phrase or private key) to send funds."),
             ]),
 
-        new("multisig", "Multisig Wallets", "M-of-N wallets, PSBT signing, co-signers", "bg-purple-50 dark:bg-purple-900/20",
+        new("multisig", "Multisig Wallets", "M-of-N wallets, PSBT signing, real-time rooms", "bg-purple-50 dark:bg-purple-900/20",
             "<svg class=\"w-5 h-5 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z\" /></svg>",
             [
                 new("What is a multisig wallet?", "A wallet that requires <b>M-of-N</b> signatures to spend funds. For example, a 2-of-3 multisig needs 2 out of 3 co-signers to approve a transaction. This adds an extra layer of security — no single key can move funds alone."),
@@ -192,6 +192,8 @@
                 new("What is a PSBT?", "A <b>Partially Signed Transaction</b> (BIP174) — a standard format originally from Bitcoin, also used by DigiByte, for passing unsigned or partially signed transactions between co-signers. Each signer adds their signature to the PSBT, and when the threshold is met, it can be finalized into a complete transaction."),
                 new("How do I import an existing multisig wallet?", "Go to <b>Multisig</b> → <b>Import</b>. Paste the redeem script (hex). The wallet detects the threshold, co-signers, and whether your key is among them. If your key is found, you can sign transactions; otherwise, it's imported as watch-only."),
                 new("How do co-signers exchange PSBTs?", "After creating a PSBT, copy the base64-encoded string and share it with co-signers (via secure messaging, email, etc.). Co-signers paste the signed PSBT back into the <b>Pending Transactions</b> page. Signatures are combined automatically."),
+                new("What is a Multisig Room?", "A real-time collaborative room where co-signers join together to create a multisig wallet. One person creates the room and gets a <b>6-character invite code</b>. Others join using the code — everyone's public key is shared automatically via SignalR. When all participants are ready, the wallet is created simultaneously on all devices."),
+                new("How do I create a multisig wallet in real-time?", "Go to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b>. Create a room, set the wallet name and M-of-N threshold, then share the invite code with your co-signers. Once everyone joins and taps <b>Ready</b>, the wallet is created on all devices at once — no need to manually exchange public keys."),
                 new("Where can I learn more?", "Read our <a href='/help/multisig' class='text-purple-500 underline'>complete Multisig Guide</a> — it includes visual flowcharts, real-world scenarios, step-by-step walkthroughs for beginners, and technical details for developers."),
             ]),
 
