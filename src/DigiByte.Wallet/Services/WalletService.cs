@@ -533,6 +533,176 @@ public class WalletService : IWalletService
         return txId;
     }
 
+    /// <summary>
+    /// Sends DGB to multiple recipients in a single transaction (batch send).
+    /// </summary>
+    public async Task<string> SendBatchAsync(
+        List<(string Address, decimal AmountDgb)> recipients,
+        string? memo = null,
+        int feeRateSatPerByte = 5)
+    {
+        EnsureUnlocked();
+
+        if (_activeWallet?.WalletType == "xpub")
+            throw new InvalidOperationException("Watch-only wallets cannot send transactions.");
+
+        if (recipients == null || recipients.Count == 0)
+            throw new ArgumentException("At least one recipient is required.");
+
+        if (recipients.Count > 20)
+            throw new ArgumentException("Maximum 20 recipients per batch transaction.");
+
+        var network = CurrentNetwork;
+
+        // Validate all addresses and convert amounts
+        var outputs = new List<(BitcoinAddress Address, Money Amount)>();
+        var seenAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long totalSatoshis = 0;
+
+        foreach (var (address, amountDgb) in recipients)
+        {
+            if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(address))
+                throw new ArgumentException($"Invalid address: {address}");
+
+            if (!seenAddresses.Add(address))
+                throw new ArgumentException($"Duplicate address in batch: {address}");
+
+            if (amountDgb < 0.0001m)
+                throw new ArgumentException($"Amount below minimum (0.0001 DGB) for {address}");
+
+            var satoshis = (long)(amountDgb * 100_000_000m);
+            totalSatoshis += satoshis;
+
+            var dest = BitcoinAddress.Create(address, network);
+            outputs.Add((dest, Money.Satoshis(satoshis)));
+        }
+
+        // Fetch UTXOs (same logic as SendAsync)
+        List<DigiByte.Crypto.Transactions.Utxo> availableUtxos;
+        BitcoinAddress changeAddress;
+
+        if (_singleKey != null)
+        {
+            var legacyAddr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
+            var segwitAddr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network);
+
+            var legacyUtxos = await _blockchain.GetUtxosAsync(legacyAddr.ToString());
+            var segwitUtxos = await _blockchain.GetUtxosAsync(segwitAddr.ToString());
+
+            if (legacyUtxos.Count == 0 && segwitUtxos.Count == 0)
+                throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
+
+            availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+
+            foreach (var u in legacyUtxos)
+            {
+                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = legacyAddr.ScriptPubKey,
+                    PrivateKey = _singleKey,
+                    Confirmations = u.Confirmations,
+                });
+            }
+
+            foreach (var u in segwitUtxos)
+            {
+                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = segwitAddr.ScriptPubKey,
+                    PrivateKey = _singleKey,
+                    Confirmations = u.Confirmations,
+                });
+            }
+
+            changeAddress = segwitAddr;
+        }
+        else
+        {
+            var addressKeyMap = new Dictionary<string, ExtKey>();
+            for (int i = 0; i < 20; i++)
+            {
+                var key = _hd!.DeriveReceivingKey(i);
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                var key = _hd!.DeriveChangeKey(i);
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
+                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
+            }
+
+            availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+            foreach (var (addr, key) in addressKeyMap)
+            {
+                var utxos = await _blockchain.GetUtxosAsync(addr);
+                var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
+                foreach (var utxoInfo in utxos)
+                {
+                    availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                    {
+                        TransactionId = uint256.Parse(utxoInfo.TxId),
+                        OutputIndex = utxoInfo.OutputIndex,
+                        Amount = Money.Satoshis(utxoInfo.AmountSatoshis),
+                        ScriptPubKey = !string.IsNullOrEmpty(utxoInfo.ScriptPubKey)
+                            ? Script.FromHex(utxoInfo.ScriptPubKey)
+                            : addrScript,
+                        PrivateKey = key.PrivateKey,
+                        Confirmations = utxoInfo.Confirmations,
+                    });
+                }
+            }
+
+            if (availableUtxos.Count == 0)
+                throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
+
+            var changeKey = _hd!.DeriveChangeKey(_activeWallet!.NextChangeIndex);
+            changeAddress = _hd.GetAddress(changeKey);
+        }
+
+        // Check sufficient funds
+        var totalAvailable = availableUtxos.Sum(u => u.Amount.Satoshi);
+        var totalDgb = totalSatoshis / 100_000_000m;
+        if (totalAvailable < totalSatoshis)
+            throw new InvalidOperationException(
+                $"Insufficient funds. Need {totalDgb:N8} DGB but only have {totalAvailable / 100_000_000m:N8} DGB.");
+
+        // Prefer confirmed UTXOs
+        var confirmedUtxos = availableUtxos.Where(u => u.Confirmations > 0).ToList();
+        var confirmedTotal = confirmedUtxos.Sum(u => u.Amount.Satoshi);
+        var utxosToUse = confirmedTotal >= totalSatoshis ? confirmedUtxos : availableUtxos;
+
+        // Build and sign
+        var effectiveFeeRate = Math.Max(feeRateSatPerByte, 100);
+        var feeRate = new FeeRate(Money.Satoshis(effectiveFeeRate * 1000));
+
+        var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
+        var tx = txBuilder.BuildMultiOutputTransaction(utxosToUse, outputs, changeAddress, feeRate, memo);
+
+        // Broadcast
+        var rawTx = tx.ToBytes();
+        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+
+        // Track each recipient
+        var feePaid = tx.GetFee(utxosToUse.Select(u => u.ToCoin()).ToArray());
+        foreach (var (address, amountDgb) in recipients)
+        {
+            var satoshis = (long)(amountDgb * 100_000_000m);
+            await _txTracker.RecordSendAsync(txId, address, satoshis, feePaid?.Satoshi ?? 0, memo);
+        }
+
+        if (_hd != null && _activeWallet != null)
+            _activeWallet.NextChangeIndex++;
+
+        return txId;
+    }
+
     public async Task<List<TransactionRecord>> GetTransactionHistoryAsync(int skip = 0, int take = 50)
     {
         EnsureUnlocked();

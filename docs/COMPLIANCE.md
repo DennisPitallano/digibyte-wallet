@@ -1,6 +1,6 @@
 # DigiByte Protocol Compliance
 
-> **Version:** 0.3.0-beta.1 | **Last Updated:** April 2026
+> **Version:** 0.3.0-beta.2 | **Last Updated:** April 2026
 
 This document details the wallet's compliance with DigiByte protocol standards (BIPs), network parameters, address formats, and regulatory considerations. It is intended for technical reviewers, auditors, and developers evaluating interoperability with the DigiByte network.
 
@@ -399,4 +399,4 @@ Compare values in `DigiByteNetwork.cs` against DigiByte Core source:
 
 | Date | Change |
 |------|--------|
-| April 2026 | Initial compliance document for v0.3.0-beta.1 |
+| April 2026 | Initial compliance document for v0.3.0-beta.2 |

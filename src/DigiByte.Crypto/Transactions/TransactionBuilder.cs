@@ -56,15 +56,17 @@ public class DigiByteTransactionBuilder
     }
 
     /// <summary>
-    /// Builds a transaction with multiple outputs.
+    /// Builds a transaction with multiple outputs and an optional OP_RETURN memo.
     /// </summary>
     public Transaction BuildMultiOutputTransaction(
         IEnumerable<Utxo> utxos,
         IEnumerable<(BitcoinAddress Address, Money Amount)> outputs,
         BitcoinAddress changeAddress,
-        FeeRate feeRate)
+        FeeRate feeRate,
+        string? memo = null)
     {
         var builder = _network.CreateTransactionBuilder();
+        builder.DustPrevention = false;
 
         foreach (var utxo in utxos)
         {
@@ -75,6 +77,16 @@ public class DigiByteTransactionBuilder
         foreach (var (address, amount) in outputs)
         {
             builder.Send(address, amount);
+        }
+
+        // Embed memo as an OP_RETURN output (max 80 bytes, unspendable)
+        if (!string.IsNullOrWhiteSpace(memo))
+        {
+            var memoBytes = System.Text.Encoding.UTF8.GetBytes(memo);
+            if (memoBytes.Length > 80)
+                memoBytes = memoBytes[..80];
+            var opReturnScript = TxNullDataTemplate.Instance.GenerateScriptPubKey(memoBytes);
+            builder.Send(opReturnScript, Money.Zero);
         }
 
         builder.SetChange(changeAddress);
