@@ -102,6 +102,16 @@
                     View on Explorer
                 </a>
 
+                <a href="https://blockchair.com/digibyte/transaction/@(Tx.TxId).pdf" target="_blank" rel="noopener"
+                   class="w-full py-2.5 bg-white dark:bg-dgb-800 border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400 text-sm font-semibold rounded-xl text-center press-effect flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5 4a2 2 0 0 1 2-2h7.586a1 1 0 0 1 .707.293l4.414 4.414A1 1 0 0 1 20 7.414V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4Z" opacity="0.15"/>
+                        <path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M14 2.5V7a1 1 0 0 0 1 1h4.5M7 2h7.586a1 1 0 0 1 .707.293l4.414 4.414A1 1 0 0 1 20 7.414V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/>
+                        <text x="12" y="17" text-anchor="middle" font-size="6" font-weight="bold" fill="currentColor" font-family="system-ui">PDF</text>
+                    </svg>
+                    PDF Receipt
+                </a>
+
                 @if (!string.IsNullOrEmpty(Tx.CounterpartyAddress))
                 {
                     <button class="w-full py-2.5 bg-white dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect flex items-center justify-center gap-2"
