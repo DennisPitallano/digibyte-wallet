@@ -214,6 +214,92 @@ public class HdKeyDerivation
     }
 
     /// <summary>
+    /// Derives addresses across multiple BIP purpose paths (44, 49, 84) for fund recovery.
+    /// Returns a list of (address, privateKey, path label) for each address found.
+    /// </summary>
+    public static List<(string Address, Key PrivateKey, string PathLabel)> DeriveMultiPathAddresses(
+        Mnemonic mnemonic, Network network, int receivingCount = 20, int changeCount = 5)
+    {
+        var masterKey = mnemonic.DeriveExtKey();
+        return DeriveMultiPathAddressesFromKey(masterKey, network, receivingCount, changeCount);
+    }
+
+    /// <summary>
+    /// Derives addresses across old (non-BIP84) derivation paths from the current wallet's master key.
+    /// Scans BIP44 and BIP49 paths — BIP84 is skipped since it's the active derivation path.
+    /// </summary>
+    public List<(string Address, Key PrivateKey, string PathLabel)> DeriveOldPathAddresses(
+        int receivingCount = 20, int changeCount = 10)
+    {
+        if (_masterKey == null)
+            throw new InvalidOperationException("Cannot derive private keys from a watch-only wallet.");
+        return DeriveMultiPathAddressesFromKey(_masterKey, _network, receivingCount, changeCount,
+            skipPurpose: Purpose); // skip BIP84 — it's the current active path
+    }
+
+    private static List<(string Address, Key PrivateKey, string PathLabel)> DeriveMultiPathAddressesFromKey(
+        ExtKey masterKey, Network network, int receivingCount, int changeCount, int? skipPurpose = null)
+    {
+        var results = new List<(string Address, Key PrivateKey, string PathLabel)>();
+        var seen = new HashSet<string>();
+
+        var purposes = new[]
+        {
+            (Purpose: 44, Label: "BIP44"),
+            (Purpose: 49, Label: "BIP49"),
+            (Purpose: 84, Label: "BIP84"),
+        };
+
+        // Check all address types for each key — funds may be on a non-standard encoding
+        // (e.g., BIP44 key used with SegWit address, which was the original wallet bug)
+        var addressTypes = new[]
+        {
+            (Type: ScriptPubKeyType.Legacy, Suffix: "Legacy"),
+            (Type: ScriptPubKeyType.SegwitP2SH, Suffix: "SegWit-P2SH"),
+            (Type: ScriptPubKeyType.Segwit, Suffix: "SegWit"),
+        };
+
+        foreach (var (purpose, label) in purposes)
+        {
+            if (skipPurpose.HasValue && purpose == skipPurpose.Value) continue;
+
+            for (int change = 0; change <= 1; change++)
+            {
+                int count = change == 0 ? receivingCount : changeCount;
+                for (int i = 0; i < count; i++)
+                {
+                    var path = new KeyPath($"m/{purpose}'/{CoinType}'/{0}'/{change}/{i}");
+                    var key = masterKey.Derive(path);
+
+                    foreach (var (scriptType, suffix) in addressTypes)
+                    {
+                        var address = key.PrivateKey.PubKey.GetAddress(scriptType, network).ToString();
+                        if (seen.Add(address))
+                            results.Add((address, key.PrivateKey, $"{label} {suffix}"));
+                    }
+                }
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Gets all address formats (Legacy, SegWit-P2SH, SegWit) for a single WIF private key.
+    /// Returns a list of (address, privateKey, path label).
+    /// </summary>
+    public static List<(string Address, Key PrivateKey, string PathLabel)> DeriveWifAddresses(
+        Key privateKey, Network network)
+    {
+        return
+        [
+            (privateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, network).ToString(), privateKey, "WIF Legacy"),
+            (privateKey.PubKey.GetAddress(ScriptPubKeyType.SegwitP2SH, network).ToString(), privateKey, "WIF SegWit-P2SH"),
+            (privateKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network).ToString(), privateKey, "WIF SegWit"),
+        ];
+    }
+
+    /// <summary>
     /// Parses an xpub/tpub string and validates it as a DigiByte extended public key.
     /// Tries the specified network first, then falls back to all DigiByte networks.
     /// Returns null if invalid.
