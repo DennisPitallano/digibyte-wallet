@@ -1,0 +1,514 @@
+@page "/recovery"
+@inject NavigationManager Nav
+@inject WalletService WalletService
+@inject NotificationService Notify
+@inject IJSRuntime JS
+
+<PageTitle>Recovery Tools — DigiByte Wallet</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Back
+    </button>
+    <div class="slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Recovery Tools</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Sweep funds from old derivation paths, another seed phrase, or a private key.</p>
+    </div>
+
+    @* Current Wallet — BIP44 legacy scan (HD wallets only) *@
+    @if (isHdWallet)
+    {
+        <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+                </svg>
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">Current Wallet — Old Paths</p>
+            </div>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">
+                Scan your current seed's old derivation paths (BIP44 and BIP49) for any stranded funds. No need to re-enter your seed.
+            </p>
+
+            @if (legacyScanComplete && legacyBalance > 0)
+            {
+                <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 border border-green-200 dark:border-green-900/30 mb-3">
+                    <p class="text-sm font-semibold text-green-700 dark:text-green-300">
+                        Found @((legacyBalance / 100_000_000m).ToString("N8")) DGB on @legacyResults.Count address@(legacyResults.Count != 1 ? "es" : "")
+                    </p>
+                    <div class="flex flex-col gap-1.5 mt-2">
+                        @foreach (var addr in legacyResults)
+                        {
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <span class="text-[8px] font-medium px-1 py-0.5 rounded bg-slate-100 dark:bg-dgb-800 text-slate-500 dark:text-slate-400 flex-shrink-0">@addr.PathLabel</span>
+                                    <p class="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">@addr.Address</p>
+                                </div>
+                                <span class="text-[10px] font-semibold text-green-600 dark:text-green-400 flex-shrink-0">@((addr.BalanceSatoshis / 100_000_000m).ToString("N8"))</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <button class="w-full py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                        @onclick="SweepLegacyFunds" disabled="@isLegacySweeping">
+                    @if (isLegacySweeping)
+                    {
+                        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Sweeping funds…</span>
+                    }
+                    else
+                    {
+                        <span>Move to Wallet</span>
+                    }
+                </button>
+                @if (isLegacySweeping)
+                {
+                    <p class="text-[10px] text-green-600 dark:text-green-400 mt-1.5 text-center">Building and broadcasting transaction…</p>
+                }
+                @if (legacySweepError != null)
+                {
+                    <p class="text-[10px] text-red-500 mt-1.5">@legacySweepError</p>
+                }
+            }
+            else if (legacyScanComplete && legacyBalance == 0)
+            {
+                <div class="bg-slate-50 dark:bg-dgb-800/30 rounded-xl p-3 text-center">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">No funds found on old BIP44 or BIP49 addresses.</p>
+                    <button class="mt-2 text-[10px] text-dgb-500 hover:text-dgb-600 font-medium hover:underline" @onclick="ScanLegacyPaths">Scan again</button>
+                </div>
+            }
+            else if (legacySweepTxId != null)
+            {
+                <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 border border-green-200 dark:border-green-900/30">
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                        <p class="text-xs font-semibold text-green-700 dark:text-green-300">Funds moved successfully!</p>
+                    </div>
+                    <p class="text-[10px] text-green-600 dark:text-green-400 font-mono break-all">TX: @legacySweepTxId</p>
+                    <button class="mt-2 text-[10px] text-dgb-500 hover:text-dgb-600 font-medium hover:underline" @onclick="ScanLegacyPaths">Scan again</button>
+                </div>
+            }
+            else
+            {
+                <button class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                        @onclick="ScanLegacyPaths" disabled="@isLegacyScanning">
+                    @if (isLegacyScanning)
+                    {
+                        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Scanning… @scanProgress%</span>
+                    }
+                    else
+                    {
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                        <span>Scan Old Derivation Paths</span>
+                    }
+                </button>
+                @if (isLegacyScanning)
+                {
+                    <div class="mt-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[10px] text-slate-500 dark:text-slate-400">@(scanCurrentLabel ?? "Preparing…")</span>
+                            <span class="text-[10px] font-semibold text-dgb-500">@scanProgress%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-dgb-700 rounded-full h-1.5 overflow-hidden">
+                            <div class="bg-dgb-500 h-1.5 rounded-full transition-all duration-300" style="width: @(scanProgress)%"></div>
+                        </div>
+                    </div>
+                }
+            }
+            @if (legacyScanError != null)
+            {
+                <p class="text-[10px] text-red-500 mt-2">@legacyScanError</p>
+            }
+        </div>
+    }
+
+    @* External Sweep Section *@
+    <div class="@(isHdWallet ? "slide-up-delay-2" : "slide-up-delay-1")">
+        @if (isHdWallet)
+        {
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">External Sweep</p>
+        }
+    </div>
+
+    @* Input Section *@
+    <div class="@(isHdWallet ? "slide-up-delay-2" : "slide-up-delay-1") bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+        @* Input type tabs *@
+        <div class="flex gap-2 mb-3">
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all @(inputMode == InputMode.Mnemonic ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dgb-700")"
+                    @onclick="() => SwitchMode(InputMode.Mnemonic)">
+                Seed Phrase
+            </button>
+            <button class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all @(inputMode == InputMode.Wif ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dgb-700")"
+                    @onclick="() => SwitchMode(InputMode.Wif)">
+                Private Key (WIF)
+            </button>
+        </div>
+
+        @if (inputMode == InputMode.Mnemonic)
+        {
+            <textarea @bind="inputText" @bind:event="oninput" rows="3"
+                      placeholder="Enter 12 or 24 word recovery phrase…"
+                      class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-800/50 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500 transition-all resize-none font-mono"></textarea>
+        }
+        else
+        {
+            <input type="text" @bind="inputText" @bind:event="oninput"
+                   placeholder="Enter WIF private key (starts with K, L, or 5)…"
+                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-800/50 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500 transition-all font-mono" />
+        }
+
+        <button class="w-full mt-3 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                @onclick="ScanForFunds" disabled="@(isScanning || string.IsNullOrWhiteSpace(inputText))">
+            @if (isScanning)
+            {
+                <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Scanning… @scanProgress%</span>
+            }
+            else
+            {
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <span>Scan for Funds</span>
+            }
+        </button>
+
+        @if (scanError != null)
+        {
+            <p class="text-[10px] text-red-500 mt-2">@scanError</p>
+        }
+    </div>
+
+    @* Scan Progress *@
+    @if (isScanning)
+    {
+        <div class="slide-up bg-slate-50 dark:bg-dgb-800/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3">
+                    <div class="w-5 h-5 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">@(scanCurrentLabel ?? "Preparing…")</p>
+                </div>
+                <span class="text-xs font-semibold text-dgb-500">@scanProgress%</span>
+            </div>
+            <div class="w-full bg-slate-200 dark:bg-dgb-700 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-dgb-500 h-1.5 rounded-full transition-all duration-300" style="width: @(scanProgress)%"></div>
+            </div>
+        </div>
+    }
+
+    @* Results *@
+    @if (scanComplete && discoveredAddresses.Count > 0)
+    {
+        <div class="slide-up bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-800 p-4">
+            <div class="flex items-center gap-2 mb-3">
+                <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <p class="text-sm font-semibold text-green-800 dark:text-green-300">
+                    Found @((totalDiscovered / 100_000_000m).ToString("N8")) DGB on @discoveredAddresses.Count address@(discoveredAddresses.Count != 1 ? "es" : "")
+                </p>
+            </div>
+
+            @* Address list *@
+            <div class="flex flex-col gap-2">
+                @foreach (var addr in discoveredAddresses)
+                {
+                    <div class="bg-white dark:bg-dgb-900 rounded-xl p-3 border border-green-100 dark:border-green-900/30">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-dgb-800 text-slate-500 dark:text-slate-400">@addr.PathLabel</span>
+                            <span class="text-xs font-semibold text-green-600 dark:text-green-400">@((addr.BalanceSatoshis / 100_000_000m).ToString("N8")) DGB</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono truncate">@addr.Address</p>
+                    </div>
+                }
+            </div>
+
+            @* Sweep button *@
+            <button class="w-full mt-3 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                    @onclick="SweepFunds" disabled="@isSweeping">
+                @if (isSweeping)
+                {
+                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Sweeping funds…</span>
+                }
+                else
+                {
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <span>Sweep All to Wallet</span>
+                }
+            </button>
+            @if (isSweeping)
+            {
+                <p class="text-[10px] text-green-600 dark:text-green-400 mt-1.5 text-center">Building and broadcasting transaction…</p>
+            }
+            @if (sweepError != null)
+            {
+                <p class="text-[10px] text-red-500 mt-1.5">@sweepError</p>
+            }
+        </div>
+    }
+    else if (scanComplete && discoveredAddresses.Count == 0)
+    {
+        <div class="slide-up bg-slate-50 dark:bg-dgb-800/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 text-center">
+            <svg class="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+            </svg>
+            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No funds found</p>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                @if (inputMode == InputMode.Mnemonic)
+                {
+                    <span>Scanned BIP44, BIP49, and BIP84 derivation paths — all addresses have zero balance.</span>
+                }
+                else
+                {
+                    <span>Scanned Legacy, SegWit-P2SH, and SegWit address types — no balance found.</span>
+                }
+            </p>
+        </div>
+    }
+
+    @* Sweep Success *@
+    @if (sweepTxId != null)
+    {
+        <div class="slide-up bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-800 p-4">
+            <div class="flex items-center gap-2 mb-1">
+                <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+                <p class="text-sm font-semibold text-green-800 dark:text-green-300">Funds swept successfully!</p>
+            </div>
+            <p class="text-[10px] text-green-600 dark:text-green-400 font-mono break-all">TX: @sweepTxId</p>
+        </div>
+    }
+
+    @* Info section *@
+    <div class="slide-up-delay-2 bg-slate-50 dark:bg-dgb-800/30 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+        <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">How it works</p>
+        <div class="flex flex-col gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <div class="flex gap-2">
+                <span class="font-bold text-dgb-500">1.</span>
+                <span>Enter a seed phrase or WIF private key from another wallet or backup.</span>
+            </div>
+            <div class="flex gap-2">
+                <span class="font-bold text-dgb-500">2.</span>
+                <span>The tool scans BIP44, BIP49, and BIP84 derivation paths for any funds.</span>
+            </div>
+            <div class="flex gap-2">
+                <span class="font-bold text-dgb-500">3.</span>
+                <span>If funds are found, sweep them all into your current wallet in one transaction.</span>
+            </div>
+        </div>
+        <div class="mt-3 p-2.5 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200/50 dark:border-amber-900/20">
+            <p class="text-[10px] text-amber-600 dark:text-amber-400">
+                <strong>Security note:</strong> The seed phrase or private key is used only in memory for signing and is never stored. Close this page when done.
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private enum InputMode { Mnemonic, Wif }
+
+    private InputMode inputMode = InputMode.Mnemonic;
+    private string? inputText;
+    private bool isScanning;
+    private bool scanComplete;
+    private string? scanError;
+    private List<RecoveryAddressInfo> discoveredAddresses = [];
+    private long totalDiscovered;
+    private bool isSweeping;
+    private string? sweepError;
+    private string? sweepTxId;
+    private int scanProgress;
+    private string? scanCurrentLabel;
+
+    // Current wallet legacy scan state
+    private bool isHdWallet;
+    private bool isLegacyScanning;
+    private bool legacyScanComplete;
+    private string? legacyScanError;
+    private long legacyBalance;
+    private List<RecoveryAddressInfo> legacyResults = [];
+    private bool isLegacySweeping;
+    private string? legacySweepError;
+    private string? legacySweepTxId;
+
+    protected override void OnInitialized()
+    {
+        isHdWallet = WalletService.IsUnlocked
+            && WalletService.ActiveWallet?.WalletType == "hd";
+    }
+
+    private void SwitchMode(InputMode mode)
+    {
+        inputMode = mode;
+        inputText = null;
+        scanComplete = false;
+        scanError = null;
+        discoveredAddresses = [];
+        sweepTxId = null;
+        sweepError = null;
+    }
+
+    private async Task ScanForFunds()
+    {
+        if (string.IsNullOrWhiteSpace(inputText)) return;
+
+        isScanning = true;
+        scanComplete = false;
+        scanError = null;
+        scanProgress = 0;
+        scanCurrentLabel = null;
+        discoveredAddresses = [];
+        sweepTxId = null;
+        sweepError = null;
+        StateHasChanged();
+
+        var progress = new Progress<int>(pct =>
+        {
+            scanProgress = pct;
+            InvokeAsync(StateHasChanged);
+        });
+
+        void onLabel(string label)
+        {
+            scanCurrentLabel = label;
+            InvokeAsync(StateHasChanged);
+        }
+
+        try
+        {
+            if (inputMode == InputMode.Mnemonic)
+            {
+                var words = inputText.Trim();
+                if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(words))
+                {
+                    scanError = "Invalid seed phrase. Please enter a valid 12 or 24 word BIP39 mnemonic.";
+                    return;
+                }
+                discoveredAddresses = await WalletService.ScanExternalMnemonicAsync(words, progress, onLabel);
+            }
+            else
+            {
+                var wif = inputText.Trim();
+                if (!DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(wif))
+                {
+                    scanError = "Invalid private key. Please enter a valid WIF-encoded private key.";
+                    return;
+                }
+                discoveredAddresses = await WalletService.ScanExternalWifAsync(wif, progress, onLabel);
+            }
+
+            totalDiscovered = discoveredAddresses.Sum(a => a.BalanceSatoshis);
+            scanComplete = true;
+        }
+        catch (Exception ex)
+        {
+            scanError = ex.Message;
+        }
+        finally
+        {
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SweepFunds()
+    {
+        if (discoveredAddresses.Count == 0) return;
+
+        isSweeping = true;
+        sweepError = null;
+        StateHasChanged();
+
+        try
+        {
+            sweepTxId = await WalletService.SweepExternalFundsAsync(discoveredAddresses);
+            discoveredAddresses = [];
+            scanComplete = false;
+            inputText = null;
+            Notify.Success("Funds swept to your wallet!");
+        }
+        catch (Exception ex)
+        {
+            sweepError = ex.Message;
+        }
+        finally
+        {
+            isSweeping = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScanLegacyPaths()
+    {
+        isLegacyScanning = true;
+        legacyScanError = null;
+        legacyScanComplete = false;
+        scanProgress = 0;
+        scanCurrentLabel = null;
+        StateHasChanged();
+
+        var progress = new Progress<int>(pct =>
+        {
+            scanProgress = pct;
+            InvokeAsync(StateHasChanged);
+        });
+
+        void onLabel(string label)
+        {
+            scanCurrentLabel = label;
+            InvokeAsync(StateHasChanged);
+        }
+
+        try
+        {
+            legacyResults = await WalletService.ScanCurrentWalletOldPathsAsync(progress, onLabel);
+            legacyBalance = legacyResults.Sum(a => a.BalanceSatoshis);
+            legacyScanComplete = true;
+        }
+        catch (Exception ex)
+        {
+            legacyScanError = ex.Message;
+        }
+        finally
+        {
+            isLegacyScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SweepLegacyFunds()
+    {
+        isLegacySweeping = true;
+        legacySweepError = null;
+        StateHasChanged();
+
+        try
+        {
+            legacySweepTxId = await WalletService.SweepCurrentWalletOldPathsAsync(legacyResults);
+            legacyBalance = 0;
+            legacyResults = [];
+            legacyScanComplete = false;
+            Notify.Success("Funds moved to your wallet!");
+        }
+        catch (Exception ex)
+        {
+            legacySweepError = ex.Message;
+        }
+        finally
+        {
+            isLegacySweeping = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack() => Nav.NavigateTo("/settings");
+}

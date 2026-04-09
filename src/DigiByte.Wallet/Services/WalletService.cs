@@ -897,6 +897,172 @@ public class WalletService : IWalletService
     }
 
     /// <summary>
+    /// Scans the current wallet's old derivation paths (BIP44 + BIP49) for any funds.
+    /// Unlike ScanLegacyBip44BalanceAsync (BIP44 only), this checks all non-active paths.
+    /// Returns discovered addresses with balances and path labels.
+    /// </summary>
+    public async Task<List<RecoveryAddressInfo>> ScanCurrentWalletOldPathsAsync(IProgress<int>? progress = null, Action<string>? onLabel = null)
+    {
+        EnsureUnlocked();
+        if (_hd == null || _hd.IsWatchOnly) return [];
+
+        var oldAddresses = _hd.DeriveOldPathAddresses();
+        var results = new List<RecoveryAddressInfo>();
+        int total = oldAddresses.Count;
+        int done = 0;
+        string? lastLabel = null;
+
+        foreach (var (address, privateKey, pathLabel) in oldAddresses)
+        {
+            if (pathLabel != lastLabel) { lastLabel = pathLabel; onLabel?.Invoke(pathLabel); }
+            try
+            {
+                var bal = await _blockchain.GetBalanceAsync(address);
+                if (bal > 0)
+                    results.Add(new RecoveryAddressInfo(address, privateKey, pathLabel, bal));
+            }
+            catch { }
+            done++;
+            progress?.Report(total > 0 ? (int)(done * 100.0 / total) : 0);
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Sweeps funds from old derivation paths (BIP44 + BIP49) into the current BIP84 address.
+    /// </summary>
+    public async Task<string> SweepCurrentWalletOldPathsAsync(List<RecoveryAddressInfo> sources, int feeRateSatPerByte = 100)
+    {
+        EnsureUnlocked();
+        if (_hd == null)
+            throw new InvalidOperationException("Sweep requires an HD wallet.");
+
+        // Reuse the external sweep logic — destination is the current wallet's BIP84 address
+        return await SweepExternalFundsAsync(sources, feeRateSatPerByte);
+    }
+
+    /// <summary>
+    /// Scans an external mnemonic across BIP44/49/84 derivation paths for funds.
+    /// Returns discovered addresses with balances grouped by path type.
+    /// </summary>
+    public async Task<List<RecoveryAddressInfo>> ScanExternalMnemonicAsync(string mnemonicWords, IProgress<int>? progress = null, Action<string>? onLabel = null)
+    {
+        var mnemonic = MnemonicGenerator.FromWords(mnemonicWords);
+        var network = CurrentNetwork;
+        var allAddresses = HdKeyDerivation.DeriveMultiPathAddresses(mnemonic, network);
+
+        var results = new List<RecoveryAddressInfo>();
+        int total = allAddresses.Count;
+        int done = 0;
+        string? lastLabel = null;
+
+        foreach (var (address, privateKey, pathLabel) in allAddresses)
+        {
+            if (pathLabel != lastLabel) { lastLabel = pathLabel; onLabel?.Invoke(pathLabel); }
+            try
+            {
+                var bal = await _blockchain.GetBalanceAsync(address);
+                if (bal > 0)
+                    results.Add(new RecoveryAddressInfo(address, privateKey, pathLabel, bal));
+            }
+            catch { }
+            done++;
+            progress?.Report(total > 0 ? (int)(done * 100.0 / total) : 0);
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Scans an external WIF private key for funds on all address types.
+    /// </summary>
+    public async Task<List<RecoveryAddressInfo>> ScanExternalWifAsync(string wif, IProgress<int>? progress = null, Action<string>? onLabel = null)
+    {
+        var network = PrivateKeyImporter.DetectNetwork(wif) ?? CurrentNetwork;
+        var key = PrivateKeyImporter.ParseWif(wif, network);
+        var allAddresses = HdKeyDerivation.DeriveWifAddresses(key, network);
+
+        var results = new List<RecoveryAddressInfo>();
+        int total = allAddresses.Count;
+        int done = 0;
+        string? lastLabel = null;
+
+        foreach (var (address, privateKey, pathLabel) in allAddresses)
+        {
+            if (pathLabel != lastLabel) { lastLabel = pathLabel; onLabel?.Invoke(pathLabel); }
+            try
+            {
+                var bal = await _blockchain.GetBalanceAsync(address);
+                if (bal > 0)
+                    results.Add(new RecoveryAddressInfo(address, privateKey, pathLabel, bal));
+            }
+            catch { }
+            done++;
+            progress?.Report(total > 0 ? (int)(done * 100.0 / total) : 0);
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Sweeps funds from externally-scanned addresses into the current wallet's receiving address.
+    /// </summary>
+    public async Task<string> SweepExternalFundsAsync(List<RecoveryAddressInfo> sources, int feeRateSatPerByte = 100)
+    {
+        EnsureUnlocked();
+        var network = CurrentNetwork;
+
+        // Collect UTXOs from all source addresses
+        var utxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+        foreach (var src in sources)
+        {
+            var addrUtxos = await _blockchain.GetUtxosAsync(src.Address);
+            var addrScript = BitcoinAddress.Create(src.Address, network).ScriptPubKey;
+            foreach (var u in addrUtxos)
+            {
+                utxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = !string.IsNullOrEmpty(u.ScriptPubKey)
+                        ? Script.FromHex(u.ScriptPubKey)
+                        : addrScript,
+                    PrivateKey = src.PrivateKey,
+                    Confirmations = u.Confirmations,
+                });
+            }
+        }
+
+        if (utxos.Count == 0)
+            throw new InvalidOperationException("No spendable UTXOs found on the scanned addresses.");
+
+        // Determine destination: current wallet's receiving address
+        BitcoinAddress destination;
+        if (_hd != null)
+            destination = _hd.DeriveReceivingAddress(0);
+        else if (_singleKey != null)
+            destination = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network);
+        else
+            throw new InvalidOperationException("No active wallet to receive swept funds.");
+
+        var totalSatoshis = utxos.Sum(u => u.Amount.Satoshi);
+        var effectiveFeeRate = Math.Max(feeRateSatPerByte, 100);
+        var feeRate = new FeeRate(Money.Satoshis(effectiveFeeRate * 1000));
+
+        var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
+        var tx = txBuilder.BuildSendAllTransaction(utxos, destination, feeRate);
+
+        var rawTx = tx.ToBytes();
+        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+
+        var feePaid = tx.GetFee(utxos.Select(u => u.ToCoin()).ToArray());
+        var amountAfterFee = totalSatoshis - (feePaid?.Satoshi ?? 0);
+        await _txTracker.RecordSendAsync(txId, destination.ToString(), amountAfterFee,
+            feePaid?.Satoshi ?? 0, "Recovery sweep");
+
+        return txId;
+    }
+
+    /// <summary>
     /// Reset PIN by verifying the seed phrase and re-encrypting with a new PIN.
     /// Works for HD wallets only (mnemonic-based).
     /// </summary>
