@@ -9,23 +9,49 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DGB Wallet" />
     <meta name="description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
+    <meta name="google-site-verification" content="fx-sSWQByq9RGCSE-2qhinKMMvDr-tqtfZeZee_8wrw" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dgbwallet.app/" />
+    <meta property="og:title" content="DigiByte Wallet — Self-Custodial DGB Wallet" />
+    <meta property="og:description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
+    <meta property="og:image" content="https://dgbwallet.app/icon-512.png" />
+    <meta property="og:site_name" content="DigiByte Wallet" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="DigiByte Wallet — Self-Custodial DGB Wallet" />
+    <meta name="twitter:description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
+    <meta name="twitter:image" content="https://dgbwallet.app/icon-512.png" />
 
     <!-- Security headers -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
-                   script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline';
+                   script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com;
                    style-src 'self' 'unsafe-inline';
-                   img-src 'self' data: blob: https://avatars.githubusercontent.com;
+                   img-src 'self' data: blob: https://avatars.githubusercontent.com https://www.googletagmanager.com;
                    font-src 'self';
-                   connect-src 'self' http://localhost:5007 https://digiexplorer.info https://digibyteblockexplorer.com https://digibyte-api-production.up.railway.app https://api.coingecko.com https://api.github.com ws: wss:;
+                   connect-src 'self' http://localhost:5007 https://digiexplorer.info https://digibyteblockexplorer.com https://digibyte-api-production.up.railway.app https://api.coingecko.com https://api.github.com https://www.google-analytics.com https://www.googletagmanager.com https://analytics.google.com ws: wss:;
                    frame-src 'none';
                    object-src 'none';
                    base-uri 'self';" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta http-equiv="Referrer-Policy" content="no-referrer" />
 
-    <title>DigiByte Wallet</title>
+    <title>DigiByte Wallet — Self-Custodial DGB Wallet</title>
     <base href="/" />
+    <link rel="canonical" href="https://dgbwallet.app/" />
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NR6R1MNL9X"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-NR6R1MNL9X');
+    </script>
+
     <link rel="preload" id="webassembly" />
     <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
 
@@ -41,6 +67,24 @@
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
     <script type="importmap"></script>
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "DigiByte Wallet",
+        "url": "https://dgbwallet.app",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Web",
+        "description": "Self-custodial DigiByte wallet with Digi-ID authentication, QR scanning, multisig, and P2P trading.",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+    }
+    </script>
 </head>
 
 <body class="font-sans bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white antialiased">

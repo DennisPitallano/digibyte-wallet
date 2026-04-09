@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /help
+Allow: /help/multisig
+Allow: /roadmap
+Allow: /analytics
+Allow: /p2p
+Disallow: /settings
+Disallow: /send
+Disallow: /receive
+Disallow: /contacts
+Disallow: /payments
+Disallow: /backup-seed
+Disallow: /create-wallet
+Disallow: /recover-wallet
+Disallow: /unlock
+Disallow: /import-xpub
+Disallow: /identity
+Disallow: /remittance
+Disallow: /multisig/
+Disallow: /test-animations
+Disallow: /deployment
+
+Sitemap: https://dgbwallet.app/sitemap.xml
