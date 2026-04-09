@@ -11,7 +11,7 @@ public class WalletInfo
     public int NextChangeIndex { get; set; }
 
     /// <summary>
-    /// "hd" for BIP39/BIP44 mnemonic wallets, "privatekey" for single WIF key import, "xpub" for watch-only.
+    /// "hd" for BIP39/BIP84 mnemonic wallets, "privatekey" for single WIF key import, "xpub" for watch-only.
     /// </summary>
     public string WalletType { get; set; } = "hd";
 

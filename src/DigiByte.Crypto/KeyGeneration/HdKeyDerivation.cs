@@ -4,12 +4,13 @@ using NBitcoin;
 namespace DigiByte.Crypto.KeyGeneration;
 
 /// <summary>
-/// BIP44 HD key derivation for DigiByte.
-/// Path: m/44'/20'/account'/change/index
+/// BIP84 HD key derivation for DigiByte (native SegWit).
+/// Path: m/84'/20'/account'/change/index
 /// Coin type 20 = DigiByte.
 /// </summary>
 public class HdKeyDerivation
 {
+    private const int Purpose = 84;
     private const int CoinType = 20;
     private readonly ExtKey? _masterKey;
     private readonly ExtPubKey? _accountPubKey;
@@ -43,35 +44,35 @@ public class HdKeyDerivation
     }
 
     /// <summary>
-    /// Derives the account-level extended key: m/44'/20'/account'
+    /// Derives the account-level extended key: m/84'/20'/account'
     /// </summary>
     public ExtKey DeriveAccount(int account = 0)
     {
         if (_masterKey == null)
             throw new InvalidOperationException("Cannot derive private keys from a watch-only wallet.");
-        var path = new KeyPath($"m/44'/{CoinType}'/{account}'");
+        var path = new KeyPath($"m/{Purpose}'/{CoinType}'/{account}'");
         return _masterKey.Derive(path);
     }
 
     /// <summary>
-    /// Derives a receiving address key: m/44'/20'/account'/0/index
+    /// Derives a receiving address key: m/84'/20'/account'/0/index
     /// </summary>
     public ExtKey DeriveReceivingKey(int index, int account = 0)
     {
         if (_masterKey == null)
             throw new InvalidOperationException("Cannot derive private keys from a watch-only wallet.");
-        var path = new KeyPath($"m/44'/{CoinType}'/{account}'/0/{index}");
+        var path = new KeyPath($"m/{Purpose}'/{CoinType}'/{account}'/0/{index}");
         return _masterKey.Derive(path);
     }
 
     /// <summary>
-    /// Derives a change address key: m/44'/20'/account'/1/index
+    /// Derives a change address key: m/84'/20'/account'/1/index
     /// </summary>
     public ExtKey DeriveChangeKey(int index, int account = 0)
     {
         if (_masterKey == null)
             throw new InvalidOperationException("Cannot derive private keys from a watch-only wallet.");
-        var path = new KeyPath($"m/44'/{CoinType}'/{account}'/1/{index}");
+        var path = new KeyPath($"m/{Purpose}'/{CoinType}'/{account}'/1/{index}");
         return _masterKey.Derive(path);
     }
 
@@ -173,6 +174,43 @@ public class HdKeyDerivation
             throw new InvalidOperationException("Cannot derive Digi-ID keys from a watch-only wallet.");
         var path = new KeyPath($"m/13'/{siteIndex}'/0'/0");
         return _masterKey.Derive(path);
+    }
+
+    /// <summary>
+    /// Derives a key using the old BIP44 path (m/44'/20'/account'/change/index).
+    /// Used for migration: scanning legacy BIP44 addresses to sweep funds to BIP84.
+    /// </summary>
+    public ExtKey DeriveLegacyBip44Key(int index, int change = 0, int account = 0)
+    {
+        if (_masterKey == null)
+            throw new InvalidOperationException("Cannot derive private keys from a watch-only wallet.");
+        var path = new KeyPath($"m/44'/{CoinType}'/{account}'/{change}/{index}");
+        return _masterKey.Derive(path);
+    }
+
+    /// <summary>
+    /// Gets legacy BIP44 addresses (both Legacy and SegWit encodings) for migration scanning.
+    /// Returns address → ExtKey mappings for the first N receiving + change addresses.
+    /// </summary>
+    public Dictionary<string, ExtKey> GetLegacyBip44AddressMap(int receivingCount = 20, int changeCount = 10)
+    {
+        if (_masterKey == null)
+            throw new InvalidOperationException("Cannot derive private keys from a watch-only wallet.");
+
+        var map = new Dictionary<string, ExtKey>();
+        for (int i = 0; i < receivingCount; i++)
+        {
+            var key = DeriveLegacyBip44Key(i, change: 0);
+            map[key.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, _network).ToString()] = key;
+            map[key.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, _network).ToString()] = key;
+        }
+        for (int i = 0; i < changeCount; i++)
+        {
+            var key = DeriveLegacyBip44Key(i, change: 1);
+            map[key.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, _network).ToString()] = key;
+            map[key.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, _network).ToString()] = key;
+        }
+        return map;
     }
 
     /// <summary>

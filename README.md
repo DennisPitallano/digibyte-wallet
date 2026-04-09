@@ -7,7 +7,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 ## Features
 
 - **Self-custodial** — Keys encrypted in browser IndexedDB with AES-256-GCM, never sent to any server
-- **BIP39/BIP44 HD wallet** — 24-word mnemonic, derivation path `m/44'/20'/0'/change/index`
+- **BIP39/BIP84 HD wallet** — 24-word mnemonic, derivation path `m/84'/20'/0'/change/index` (native SegWit)
 - **WIF private key import** — Single-key import with auto network detection (mainnet/testnet/regtest)
 - **Send & Receive** — Real transaction building, signing, and broadcasting via NBitcoin
 - **Configurable fee rates** — Low/Normal/Fast fee presets with sat/vB control
@@ -39,7 +39,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 ```
 digibyte-wallet/
 ├── src/
-│   ├── DigiByte.Crypto/          # BIP39, BIP44, HD keys, tx building, Digi-ID
+│   ├── DigiByte.Crypto/          # BIP39, BIP84, HD keys, tx building, Digi-ID
 │   ├── DigiByte.Wallet/          # Wallet service, encryption, contacts, storage
 │   ├── DigiByte.Web/             # Blazor WASM PWA (the wallet UI)
 │   ├── DigiByte.Api/             # Backend API: CoinGecko price proxy, P2P marketplace, SignalR
