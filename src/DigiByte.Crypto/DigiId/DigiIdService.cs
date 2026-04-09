@@ -60,33 +60,65 @@ public class DigiIdService
 
     /// <summary>
     /// Signs a Digi-ID challenge URI with the given private key.
-    /// Returns the response to send to the callback URL.
+    /// Uses Bitcoin-style message signing with DigiByte's message magic prefix.
+    /// Returns a compact recoverable signature (65 bytes, base64-encoded).
     /// </summary>
     public static DigiIdResponse Sign(DigiIdRequest request, Key privateKey)
     {
         var network = DigiByteNetwork.Mainnet;
         var address = privateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
 
-        // Sign the full original URI using Bitcoin-style message signing
+        // Build the message hash: SHA256(SHA256( VarInt(magic.len) + magic + VarInt(msg.len) + msg ))
         var messageBytes = Encoding.UTF8.GetBytes(request.OriginalUri);
-        var prefixBytes = Encoding.UTF8.GetBytes("\x18DigiByte Signed Message:\n");
-        var lenBytes = new byte[] { (byte)messageBytes.Length };
+        var magic = "DigiByte Signed Message:\n"u8;
 
-        var toHash = new byte[prefixBytes.Length + lenBytes.Length + messageBytes.Length];
-        Buffer.BlockCopy(prefixBytes, 0, toHash, 0, prefixBytes.Length);
-        Buffer.BlockCopy(lenBytes, 0, toHash, prefixBytes.Length, lenBytes.Length);
-        Buffer.BlockCopy(messageBytes, 0, toHash, prefixBytes.Length + lenBytes.Length, messageBytes.Length);
+        using var ms = new MemoryStream();
+        WriteVarInt(ms, (ulong)magic.Length);   // 25 = 0x19
+        ms.Write(magic);
+        WriteVarInt(ms, (ulong)messageBytes.Length);
+        ms.Write(messageBytes);
 
-        var hash = new uint256(Hashes.SHA256(Hashes.SHA256(toHash)));
-        var sig = privateKey.Sign(hash);
-        var signature = Convert.ToBase64String(sig.ToDER());
+        var hash = new uint256(Hashes.SHA256(Hashes.SHA256(ms.ToArray())));
+
+        // Compact recoverable signature (servers need this to recover the pubkey)
+        var compact = privateKey.SignCompact(hash);
+        var sigBytes = new byte[65];
+        sigBytes[0] = (byte)(27 + compact.RecoveryId + 4); // +4 = compressed pubkey
+        Buffer.BlockCopy(compact.Signature, 0, sigBytes, 1, 64);
 
         return new DigiIdResponse
         {
             Address = address.ToString(),
             Uri = request.OriginalUri,
-            Signature = signature,
+            Signature = Convert.ToBase64String(sigBytes),
         };
+    }
+
+    /// <summary>
+    /// Writes a Bitcoin-style variable-length integer to the stream.
+    /// </summary>
+    private static void WriteVarInt(Stream s, ulong value)
+    {
+        if (value < 0xFD)
+        {
+            s.WriteByte((byte)value);
+        }
+        else if (value <= 0xFFFF)
+        {
+            s.WriteByte(0xFD);
+            s.WriteByte((byte)(value & 0xFF));
+            s.WriteByte((byte)((value >> 8) & 0xFF));
+        }
+        else if (value <= 0xFFFFFFFF)
+        {
+            s.WriteByte(0xFE);
+            s.Write(BitConverter.GetBytes((uint)value));
+        }
+        else
+        {
+            s.WriteByte(0xFF);
+            s.Write(BitConverter.GetBytes(value));
+        }
     }
 
     /// <summary>
