@@ -17,6 +17,11 @@ builder.Services.AddHttpClient("CoinGeckoProxy", client =>
 {
     client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
 });
+builder.Services.AddHttpClient("DigiIdProxy", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("WasmClient", policy =>
@@ -61,6 +66,10 @@ app.MapGroup("/api/directory")
 // Price proxy (avoids CORS/rate-limit issues from browser → CoinGecko)
 app.MapGroup("/api/price")
     .MapPriceEndpoints();
+
+// Digi-ID callback proxy (avoids CORS when posting signed auth to third-party servers)
+app.MapGroup("/api/digiid")
+    .MapDigiIdEndpoints();
 
 // Health check
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
