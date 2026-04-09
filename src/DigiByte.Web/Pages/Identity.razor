@@ -67,49 +67,184 @@
     </div>
 
     @* Auth confirmation *@
-    @if (pendingRequest != null)
+    @if (pendingRequest != null && !isAuthenticating && authResult == AuthResult.None)
     {
-        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-dgb-200 dark:border-dgb-700 p-4 flex flex-col gap-3">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
-                    <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border-2 border-dgb-300 dark:border-dgb-700 p-5 flex flex-col gap-4 shadow-lg shadow-dgb-500/10">
+            <div class="flex flex-col items-center gap-2">
+                <div class="w-12 h-12 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                     </svg>
                 </div>
-                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Authenticate with</h3>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Authenticate with</h3>
             </div>
-            <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2">
-                <p class="text-sm font-semibold text-slate-900 dark:text-white">@pendingRequest.Domain</p>
-                <p class="text-xs font-mono text-slate-400 dark:text-slate-500 mt-0.5 truncate">@pendingRequest.CallbackUrl</p>
+
+            <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-200/60 dark:border-dgb-800">
+                <p class="text-base font-bold text-slate-900 dark:text-white text-center">@pendingRequest.Domain</p>
+                <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-1 text-center truncate">@pendingRequest.CallbackUrl</p>
             </div>
+
             @if (pendingRequest.IsUnsecure)
             {
-                <p class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
-                    This site uses HTTP (not secure). Proceed with caution.
-                </p>
+                <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5 border border-amber-200/60 dark:border-amber-900/30">
+                    <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                    <p class="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                        <b>Insecure connection</b> — This site uses HTTP. Your authentication could be intercepted.
+                    </p>
+                </div>
             }
-            <div class="flex gap-2">
-                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+
+            <div class="bg-dgb-50/50 dark:bg-dgb-800/30 rounded-xl p-3">
+                <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed text-center">
+                    This will sign a cryptographic challenge proving you own a DigiByte address.
+                    No funds will be sent. A site-specific key is used — your main wallet keys are never exposed.
+                </p>
+            </div>
+
+            <div class="flex gap-3">
+                <button class="flex-1 py-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
                         @onclick="CancelAuth">Cancel</button>
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
-                        @onclick="ConfirmAuthAsync" disabled="@isAuthenticating">
-                    @(isAuthenticating ? "Signing..." : "Approve")
+                <button class="flex-1 py-3 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-bold rounded-xl press-effect shadow-md shadow-dgb-500/25 transition-all"
+                        @onclick="ConfirmAuthAsync">
+                    Approve
                 </button>
             </div>
         </div>
     }
 
-    @* Success *@
-    @if (authSuccess)
+    @* Signing in progress — step animation *@
+    @if (isAuthenticating)
     {
-        <div class="scale-in bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800/30 p-4 text-center">
-            <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center check-pop">
-                <svg class="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col items-center gap-4 shadow-lg">
+            <div class="w-14 h-14 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                <div class="w-7 h-7 border-[3px] border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+                <p class="text-sm font-bold text-slate-900 dark:text-white">Authenticating…</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@pendingRequest?.Domain</p>
+            </div>
+
+            <div class="w-full flex flex-col gap-2">
+                @* Step 1: Signing *@
+                <div class="flex items-center gap-3 p-2.5 rounded-lg @(authStep >= 1 ? "bg-dgb-50/50 dark:bg-dgb-800/30" : "opacity-40")">
+                    @if (authStep > 1)
+                    {
+                        <div class="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        </div>
+                    }
+                    else if (authStep == 1)
+                    {
+                        <div class="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                            <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
+                    }
+                    <span class="text-xs font-medium @(authStep >= 1 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">Signing challenge with your key…</span>
+                </div>
+
+                @* Step 2: Sending *@
+                <div class="flex items-center gap-3 p-2.5 rounded-lg @(authStep >= 2 ? "bg-dgb-50/50 dark:bg-dgb-800/30" : "opacity-40")">
+                    @if (authStep > 2)
+                    {
+                        <div class="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        </div>
+                    }
+                    else if (authStep == 2)
+                    {
+                        <div class="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                            <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
+                    }
+                    <span class="text-xs font-medium @(authStep >= 2 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">Sending to @(pendingRequest?.Domain ?? "server")…</span>
+                </div>
+
+                @* Step 3: Verifying *@
+                <div class="flex items-center gap-3 p-2.5 rounded-lg @(authStep >= 3 ? "bg-dgb-50/50 dark:bg-dgb-800/30" : "opacity-40")">
+                    @if (authStep > 3)
+                    {
+                        <div class="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        </div>
+                    }
+                    else if (authStep == 3)
+                    {
+                        <div class="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                            <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
+                    }
+                    <span class="text-xs font-medium @(authStep >= 3 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">Verifying server response…</span>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Success *@
+    @if (authResult == AuthResult.Success)
+    {
+        <div class="scale-in bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-800/30 p-5 flex flex-col items-center gap-3">
+            <div class="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center check-pop">
+                <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                 </svg>
             </div>
-            <p class="text-sm font-semibold text-green-700 dark:text-green-400">Successfully authenticated!</p>
-            <p class="text-xs text-green-600 dark:text-green-500 mt-0.5">@lastAuthDomain</p>
+            <div class="text-center">
+                <p class="text-base font-bold text-green-700 dark:text-green-400">Authenticated!</p>
+                <p class="text-sm text-green-600 dark:text-green-500 mt-0.5">You're now logged in to <b>@lastAuthDomain</b></p>
+            </div>
+            <div class="w-full bg-green-100/50 dark:bg-green-900/20 rounded-xl px-3 py-2 flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Address used</span>
+                    <span class="text-[10px] font-mono text-green-700 dark:text-green-400 truncate ml-2 max-w-[200px]">@lastAuthAddress</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Time</span>
+                    <span class="text-[10px] text-green-700 dark:text-green-400">@DateTime.Now.ToString("h:mm:ss tt")</span>
+                </div>
+            </div>
+            <button class="text-xs text-green-600 dark:text-green-400 font-medium hover:underline mt-1" @onclick="ResetState">Authenticate another site</button>
+        </div>
+    }
+
+    @* Failure *@
+    @if (authResult == AuthResult.Failed)
+    {
+        <div class="scale-in bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-200 dark:border-red-800/30 p-5 flex flex-col items-center gap-3">
+            <div class="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <svg class="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </div>
+            <div class="text-center">
+                <p class="text-base font-bold text-red-700 dark:text-red-400">Authentication Failed</p>
+                <p class="text-sm text-red-600 dark:text-red-500 mt-0.5">@authErrorTitle</p>
+            </div>
+            @if (authErrorDetail != null)
+            {
+                <div class="w-full bg-red-100/50 dark:bg-red-900/20 rounded-xl px-3 py-2.5">
+                    <p class="text-[11px] text-red-600/80 dark:text-red-400/80 leading-relaxed">@authErrorDetail</p>
+                </div>
+            }
+            <div class="flex gap-2 w-full">
+                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        @onclick="ResetState">Dismiss</button>
+                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                        @onclick="RetryAuth">Try Again</button>
+            </div>
         </div>
     }
 
@@ -141,11 +276,17 @@
 <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 
 @code {
+    private enum AuthResult { None, Success, Failed }
+
     private string digiIdUri = "";
     private string? parseError;
     private bool isAuthenticating;
-    private bool authSuccess;
+    private int authStep; // 0=idle, 1=signing, 2=sending, 3=verifying
+    private AuthResult authResult = AuthResult.None;
     private string? lastAuthDomain;
+    private string? lastAuthAddress;
+    private string? authErrorTitle;
+    private string? authErrorDetail;
     private bool showScanner;
     private DigiByte.Crypto.DigiId.DigiIdRequest? pendingRequest;
     private List<AuthHistoryEntry> authHistory = [];
@@ -171,7 +312,7 @@
     private async Task AuthenticateAsync()
     {
         parseError = null;
-        authSuccess = false;
+        authResult = AuthResult.None;
 
         var request = DigiByte.Crypto.DigiId.DigiIdService.ParseUri(digiIdUri.Trim());
         if (request == null)
@@ -188,19 +329,47 @@
         pendingRequest = null;
     }
 
+    private void ResetState()
+    {
+        authResult = AuthResult.None;
+        parseError = null;
+        authErrorTitle = null;
+        authErrorDetail = null;
+        pendingRequest = null;
+        digiIdUri = "";
+    }
+
+    private async Task RetryAuth()
+    {
+        authResult = AuthResult.None;
+        authErrorTitle = null;
+        authErrorDetail = null;
+
+        if (pendingRequest != null)
+        {
+            await ConfirmAuthAsync();
+        }
+    }
+
     private async Task ConfirmAuthAsync()
     {
         if (pendingRequest == null) return;
         isAuthenticating = true;
+        authStep = 1;
         parseError = null;
+        authResult = AuthResult.None;
         StateHasChanged();
 
         try
         {
-            // 1. Sign the URI with site-specific HD key (m/13'/siteIndex'/0'/0)
+            // Step 1: Sign the URI with site-specific HD key (m/13'/siteIndex'/0'/0)
             var response = await WalletService.SignDigiIdAsync(pendingRequest);
 
-            // 2. POST the signed response via API proxy (avoids CORS)
+            // Step 2: POST the signed response via API proxy (avoids CORS)
+            authStep = 2;
+            StateHasChanged();
+            await Task.Delay(200); // brief visual pause for step transition
+
             var apiBase = Config["PriceApiUrl"]?.Replace("/api/price", "") ?? "http://localhost:5007";
             var proxyPayload = new
             {
@@ -211,14 +380,39 @@
             };
             var httpResponse = await Http.PostAsJsonAsync($"{apiBase}/api/digiid/callback", proxyPayload);
 
+            // Step 3: Verify server response
+            authStep = 3;
+            StateHasChanged();
+            await Task.Delay(200);
+
             if (!httpResponse.IsSuccessStatusCode)
             {
                 var body = await httpResponse.Content.ReadAsStringAsync();
-                parseError = $"Server rejected authentication ({(int)httpResponse.StatusCode}): {body}";
+                var statusCode = (int)httpResponse.StatusCode;
+
+                authErrorTitle = statusCode switch
+                {
+                    401 or 403 => $"{pendingRequest.Domain} rejected the signature",
+                    404 => $"Authentication endpoint not found on {pendingRequest.Domain}",
+                    >= 500 => $"{pendingRequest.Domain} is experiencing server issues",
+                    _ => $"{pendingRequest.Domain} returned an error ({statusCode})"
+                };
+                authErrorDetail = statusCode switch
+                {
+                    401 or 403 => "The server did not accept the cryptographic signature. This may mean the site doesn't recognize your Digi-ID address or the challenge has expired. Try scanning a fresh QR code.",
+                    404 => "The callback URL returned 404. The site may have changed its Digi-ID integration or the QR code may be outdated.",
+                    >= 500 => $"The server returned a {statusCode} error. This is a problem on their end — try again in a few minutes.",
+                    _ => !string.IsNullOrWhiteSpace(body) ? body : null
+                };
+
+                authResult = AuthResult.Failed;
                 return;
             }
 
-            // 3. Success
+            // Success
+            lastAuthDomain = pendingRequest.Domain;
+            lastAuthAddress = response.Address;
+
             authHistory.Insert(0, new AuthHistoryEntry
             {
                 Domain = pendingRequest.Domain,
@@ -226,22 +420,32 @@
                 Timestamp = DateTime.Now,
             });
 
-            lastAuthDomain = pendingRequest.Domain;
             pendingRequest = null;
-            authSuccess = true;
+            authResult = AuthResult.Success;
             digiIdUri = "";
         }
         catch (HttpRequestException)
         {
-            parseError = $"Could not reach {pendingRequest?.Domain ?? "server"}. Check your connection.";
+            authErrorTitle = $"Could not reach {pendingRequest?.Domain ?? "server"}";
+            authErrorDetail = "The authentication server is unreachable. This could be a network issue on your end, or the server may be down. Check your internet connection and try again.";
+            authResult = AuthResult.Failed;
+        }
+        catch (InvalidOperationException ex)
+        {
+            authErrorTitle = "Wallet error";
+            authErrorDetail = ex.Message;
+            authResult = AuthResult.Failed;
         }
         catch (Exception ex)
         {
-            parseError = ex.Message;
+            authErrorTitle = "Unexpected error";
+            authErrorDetail = ex.Message;
+            authResult = AuthResult.Failed;
         }
         finally
         {
             isAuthenticating = false;
+            authStep = 0;
         }
     }
 
