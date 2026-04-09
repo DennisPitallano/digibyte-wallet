@@ -95,7 +95,7 @@ public class DigiIdService
     /// but different sites get different keys (privacy).
     ///
     /// Path: m/13'/site-hash'/0'/0
-    /// 13 = Digi-ID purpose (like BIP44's 44)
+    /// 13 = Digi-ID purpose (like BIP84's 84)
     /// </summary>
     public static int DeriveSiteIndex(string domain)
     {

@@ -805,6 +805,98 @@ public class WalletService : IWalletService
     }
 
     /// <summary>
+    /// Scans old BIP44 addresses (m/44'/20'/...) for any remaining balance.
+    /// Returns total satoshis found and the list of addresses with funds.
+    /// Used to detect funds stranded after the BIP44→BIP84 migration.
+    /// </summary>
+    public async Task<(long TotalSatoshis, List<string> Addresses)> ScanLegacyBip44BalanceAsync()
+    {
+        EnsureUnlocked();
+        if (_hd == null || _hd.IsWatchOnly) return (0, []);
+
+        var legacyMap = _hd.GetLegacyBip44AddressMap();
+        var addressesWithFunds = new List<string>();
+        long total = 0;
+
+        foreach (var addr in legacyMap.Keys)
+        {
+            try
+            {
+                var bal = await _blockchain.GetBalanceAsync(addr);
+                if (bal > 0)
+                {
+                    total += bal;
+                    addressesWithFunds.Add(addr);
+                }
+            }
+            catch { }
+        }
+
+        return (total, addressesWithFunds);
+    }
+
+    /// <summary>
+    /// Sweeps all funds from old BIP44 addresses to the current BIP84 receiving address.
+    /// Builds a transaction spending all BIP44 UTXOs to the BIP84 address at index 0.
+    /// </summary>
+    public async Task<string> SweepLegacyBip44FundsAsync(int feeRateSatPerByte = 100)
+    {
+        EnsureUnlocked();
+        if (_hd == null || _hd.IsWatchOnly)
+            throw new InvalidOperationException("Sweep requires an HD wallet with private keys.");
+
+        var network = CurrentNetwork;
+        var legacyMap = _hd.GetLegacyBip44AddressMap();
+
+        // Collect UTXOs from all legacy BIP44 addresses
+        var utxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+        foreach (var (addr, key) in legacyMap)
+        {
+            var addrUtxos = await _blockchain.GetUtxosAsync(addr);
+            var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
+            foreach (var u in addrUtxos)
+            {
+                utxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = !string.IsNullOrEmpty(u.ScriptPubKey)
+                        ? Script.FromHex(u.ScriptPubKey)
+                        : addrScript,
+                    PrivateKey = key.PrivateKey,
+                    Confirmations = u.Confirmations,
+                });
+            }
+        }
+
+        if (utxos.Count == 0)
+            throw new InvalidOperationException("No funds found on legacy BIP44 addresses.");
+
+        // Send everything to current BIP84 receiving address (index 0)
+        var destination = _hd.DeriveReceivingAddress(0);
+        var totalSatoshis = utxos.Sum(u => u.Amount.Satoshi);
+
+        // Build a send-all transaction (amount = total minus fee)
+        var effectiveFeeRate = Math.Max(feeRateSatPerByte, 100);
+        var feeRate = new FeeRate(Money.Satoshis(effectiveFeeRate * 1000));
+
+        var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
+        var tx = txBuilder.BuildSendAllTransaction(utxos, destination, feeRate);
+
+        var rawTx = tx.ToBytes();
+        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+
+        // Track the sweep transaction
+        var feePaid = tx.GetFee(utxos.Select(u => u.ToCoin()).ToArray());
+        var amountAfterFee = totalSatoshis - (feePaid?.Satoshi ?? 0);
+        await _txTracker.RecordSendAsync(txId, destination.ToString(), amountAfterFee,
+            feePaid?.Satoshi ?? 0, "BIP44→BIP84 migration sweep");
+
+        return txId;
+    }
+
+    /// <summary>
     /// Reset PIN by verifying the seed phrase and re-encrypting with a new PIN.
     /// Works for HD wallets only (mnemonic-based).
     /// </summary>

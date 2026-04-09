@@ -4,6 +4,20 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Fixed
+- **BIP84 derivation path** — Changed HD key derivation from BIP44 (`m/44'/20'/...`) to BIP84 (`m/84'/20'/...`) for native SegWit addresses. Addresses now match standard BIP84-compatible tools (Ian Coleman, Ledger, Trezor). Fixes [#1](https://github.com/DennisPitallano/digibyte-wallet/issues/1)
+- **Cache clearing broke transaction loading** — `fetchFailed` flag was based on empty data instead of actual HTTP errors; replaced with separate `balanceFetchFailed`/`txFetchFailed` flags
+
+### Added
+- **HD derivation unit tests** — BIP84 path verification, address format, determinism, watch-only, and regression tests in `DigiByte.Crypto.Tests`
+- **BIP44→BIP84 fund sweep migration** — Automatically scans old BIP44 derivation path addresses for stranded funds on Home page load. Displays migration banner with balance and "Move to wallet" button that sweeps all UTXOs to the current BIP84 SegWit address in a single transaction. Includes loading indicator during scan and sweep processing. Auto-expires after May 10, 2026 to avoid unnecessary API calls once all users have migrated.
+- **Legacy address toggle removed for HD wallets** — Receive page now only shows SegWit addresses for HD wallets (WIF wallets retain the Legacy/SegWit toggle)
+
+### Changed
+- Updated all documentation (README, ARCHITECTURE, COMPLIANCE, SECURITY, PROCESS_FLOWS, ROADMAP) to reflect BIP84 derivation
+- Updated Home page wallet info to show BIP84 path and description
+- Updated Roadmap page milestone text
+
 ## [0.3.0-beta.1] - 2026-04-07
 
 ### Added

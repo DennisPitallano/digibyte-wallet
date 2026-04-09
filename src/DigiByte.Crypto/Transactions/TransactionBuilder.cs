@@ -96,6 +96,32 @@ public class DigiByteTransactionBuilder
     }
 
     /// <summary>
+    /// Builds a "send all" transaction — spends all UTXOs to a single destination, minus the fee.
+    /// No change output. Used for sweeps (e.g., BIP44→BIP84 migration).
+    /// </summary>
+    public Transaction BuildSendAllTransaction(
+        IEnumerable<Utxo> utxos,
+        BitcoinAddress destination,
+        FeeRate feeRate)
+    {
+        var utxoList = utxos.ToList();
+        var builder = _network.CreateTransactionBuilder();
+        builder.DustPrevention = false;
+
+        foreach (var utxo in utxoList)
+        {
+            builder.AddCoins(utxo.ToCoin());
+            builder.AddKeys(utxo.PrivateKey);
+        }
+
+        // SendAllRemaining sends total minus fee to the destination
+        builder.SendAllRemaining(destination);
+        builder.SendEstimatedFees(feeRate);
+
+        return builder.BuildTransaction(sign: true);
+    }
+
+    /// <summary>
     /// Estimates the fee for a transaction without signing.
     /// </summary>
     public Money EstimateFee(

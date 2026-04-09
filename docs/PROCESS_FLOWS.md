@@ -93,7 +93,7 @@ User clicks "Create"
   → User sets 6-digit PIN
   → ICryptoService.EncryptAsync(mnemonic, pin) → AES-256-GCM
   → WalletKeyStore.StoreSeedAsync(walletId, encryptedSeed)
-  → HdKeyDerivation(mnemonic, network) → m/44'/20'/0'/0/0
+  → HdKeyDerivation(mnemonic, network) → m/84'/20'/0'/0/0
   → Redirect to Home dashboard
 ```
 
@@ -192,7 +192,7 @@ Step 3 — Set PIN:
   → CreateWalletAsync():
     1. ICryptoService.EncryptAsync(mnemonic, pin) → AES-256-GCM ciphertext
     2. WalletKeyStore.StoreSeedAsync(walletId, encryptedSeed)
-    3. HdKeyDerivation(mnemonic, network) → m/44'/20'/0'/0/0
+    3. HdKeyDerivation(mnemonic, network) → m/84'/20'/0'/0/0
     4. AppState.IsUnlocked = true
     5. Navigate to / (Home)
 ```

@@ -49,7 +49,7 @@ The DigiByte Wallet is a self-custodial Progressive Web App (PWA) built with Bla
 
 | Project | Type | Purpose |
 |---------|------|---------|
-| `DigiByte.Crypto` | Class Library | BIP39/BIP44, HD keys, tx building, Digi-ID, WIF import, multisig (redeem scripts, PSBT) |
+| `DigiByte.Crypto` | Class Library | BIP39/BIP84, HD keys, tx building, Digi-ID, WIF import, multisig (redeem scripts, PSBT) |
 | `DigiByte.Wallet` | Class Library | Wallet service, encryption, contacts, storage abstractions, multisig wallet management |
 | `DigiByte.Web` | Blazor WASM PWA | The wallet UI — all pages, components, JS interop |
 | `DigiByte.Api` | Web API | P2P marketplace backend (future) |
@@ -111,8 +111,11 @@ Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends
 - Network auto-detected from WIF key prefix on import
 
 ### Wallet Types
-- **HD Wallet**: BIP39 mnemonic, BIP44 derivation `m/44'/20'/0'/change/index`
+- **HD Wallet**: BIP39 mnemonic, BIP84 derivation `m/84'/20'/0'/change/index` (native SegWit)
 - **Private Key Wallet**: Single WIF key import, supports both Legacy and SegWit addresses
+
+### BIP44→BIP84 Migration (Temporary)
+Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit addresses — a non-standard combination. On Home page load, the app scans old BIP44 addresses for stranded UTXOs and shows a migration banner if funds are found. Users can sweep all funds to their current BIP84 address in one transaction. This check auto-expires after **May 10, 2026** to avoid unnecessary API overhead.
 
 ## UI Architecture
 

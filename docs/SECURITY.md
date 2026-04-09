@@ -141,12 +141,12 @@ All sensitive data is encrypted before storage using the Web Crypto API (`Subtle
 - **Key stretching**: 100,000 PBKDF2 iterations slow brute-force
 - **No key reuse**: Each encryption generates fresh salt → fresh derived key
 
-### HD Key Derivation: BIP39 / BIP44
+### HD Key Derivation: BIP39 / BIP84
 
 | Standard | Implementation |
 |----------|---------------|
 | BIP39 | 24-word mnemonic → 512-bit seed (PBKDF2-HMAC-SHA512, 2048 iterations) |
-| BIP44 | Derivation path: `m/44'/20'/0'/change/index` (coin type 20 = DigiByte) |
+| BIP84 | Derivation path: `m/84'/20'/0'/change/index` (coin type 20 = DigiByte, native SegWit) |
 | BIP67 | Deterministic key sorting for multisig (lexicographic pubkey order) |
 | BIP174 | PSBT format for multisig transaction passing |
 
@@ -540,7 +540,7 @@ User input (destination, amount)
 
 ### Change Address Derivation
 
-Change addresses use the BIP44 internal chain: `m/44'/20'/0'/1/index`
+Change addresses use the BIP84 internal chain: `m/84'/20'/0'/1/index`
 
 - Separate derivation path from receiving addresses
 - New change address per transaction

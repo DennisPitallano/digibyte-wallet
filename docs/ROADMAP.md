@@ -3,7 +3,7 @@
 ## Completed
 
 ### Phase 1 — Wallet Core
-- [x] BIP39/BIP44 HD wallet (24-word mnemonic)
+- [x] BIP39/BIP84 HD wallet (24-word mnemonic, native SegWit)
 - [x] AES-256-GCM encrypted seed storage (PBKDF2 key derivation)
 - [x] Send/Receive with QR codes
 - [x] Real transaction signing + broadcasting (NBitcoin)
