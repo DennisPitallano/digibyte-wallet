@@ -38,4 +38,12 @@ public static class MnemonicGenerator
             return false;
         }
     }
+
+    /// <summary>
+    /// Returns the BIP39 English word list (2048 words).
+    /// </summary>
+    public static string[] GetWordList()
+    {
+        return [.. Wordlist.English.GetWords()];
+    }
 }

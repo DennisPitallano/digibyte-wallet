@@ -200,7 +200,22 @@ Step 3 — Set PIN:
 ### RecoverWallet (`/recover-wallet`)
 ```
 Tab 1 — Seed Phrase:
-  → Textarea for 12 or 24 words
+  Input modes (toggle):
+    "Paste All" — masked textarea (CSS -webkit-text-security: disc)
+      → Accepts space/comma/newline-separated words
+      → Word counter shows "N / 12" or "N / 24"
+    "Word by Word" — 3-column numbered grid of individual inputs
+      → BIP39 auto-suggest dropdown (up to 6 prefix matches)
+      → Keyboard navigation: Arrow Up/Down, Enter/Tab to accept, Escape to dismiss
+      → Privacy mode: suggestions show first 2 chars + dots when hidden
+      → Red border validation for non-BIP39 words (binary search)
+      → Multi-word paste auto-splits across fields (space/comma/newline/tab)
+      → Auto-expands to 24 words if >12 pasted
+      → 12/24 word count toggle buttons
+  Show/hide toggle (eye icon):
+    → Textarea: CSS text-security mask ↔ plain text
+    → Word inputs: type="password" ↔ type="text"
+  Mode switch transfers data between Paste All ↔ Word by Word
   → ValidateMnemonic(): check word count, BIP39 checksum
   → Valid → proceed to PIN step
 
@@ -510,8 +525,18 @@ Finalize & broadcast:
 ```
 /about        → Static: version, license, tech stack, GitHub contributors (fetched from API)
 /roadmap      → Static: visual timeline with Done/In Progress/Planned milestones
-/deployment   → Static: infrastructure status badges, cost breakdown, donation address
-/help         → Static: accordion help sections (12 topics), search/filter, report issue / suggest feature (pre-filled GitHub URL)
+/deployment   → Infrastructure status, cost breakdown, donation address with:
+                 - Live DGB balance + USD conversion (CoinGecko via IBlockchainService)
+                 - Cached data (5-min TTL via MemoryCacheService, donation:balance/price keys)
+                 - Refresh button (clears cache prefix, re-fetches)
+                 - Copy address button (clipboard + "Copied!" feedback)
+                 - Mainnet-forced queries (SetNetworkMode temporary switch)
+/donations    → Interactive donation transaction history:
+                 - Per-transaction USD value at current price
+                 - Cached tx list (donation:txs key, 5-min TTL)
+                 - Refresh button + mainnet-forced queries
+                 - ScriptPubKey hex matching for accurate tx filtering
+/help         → Static: accordion help sections (14 topics), search/filter, report issue / suggest feature (pre-filled GitHub URL)
 /help/multisig → Static: comprehensive multisig guide — visual flows, real-world scenarios (2-of-2 joint, 2-of-3 backup/escrow, 3-of-5 treasury), step-by-step walkthroughs (create, send, import), technical details (BIP67, BIP174, P2SH-P2WSH/P2WSH), wallet type comparison table
 /not-found    → 404 error page
 ```

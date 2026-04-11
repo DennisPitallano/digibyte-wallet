@@ -4,6 +4,33 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.6.0-beta.1] - 2026-04-14
+
+### Added
+- **Recovery phrase masked input** — Seed phrase is hidden by default (CSS `-webkit-text-security: disc` for textarea, `type="password"` for word inputs); eye toggle to show/hide
+- **Word-by-word input mode** — 3-column numbered grid for entering recovery phrase one word at a time; mode toggle transfers data between Paste All and Word by Word
+- **BIP39 auto-suggest** — Dropdown shows up to 6 prefix-matched BIP39 words as you type; keyboard navigation (Arrow Up/Down, Enter/Tab to accept, Escape to dismiss); privacy mode shows first 2 chars + dots when hidden
+- **Multi-separator paste** — Word inputs auto-split on spaces, commas, newlines, and tabs; pasting a full phrase into a single field distributes words across all fields
+- **12/24 word count toggle** — Switch between 12 and 24 word grids; auto-expands to 24 if more than 12 words are pasted
+- **Word validation** — Non-BIP39 words get red borders via binary search against the 2048-word list
+- **`MnemonicGenerator.GetWordList()`** — New public API exposing the BIP39 English wordlist from NBitcoin
+- **Donation page USD conversion** — Live DGB/USD price from CoinGecko via `IBlockchainService.GetDgbPriceAsync()` on Deployment and Donation History pages
+- **Copy donation address** — One-tap clipboard copy with "📋 Copy Address" → "✅ Copied!" feedback animation
+- **Donation data caching** — 5-minute TTL via `MemoryCacheService` for donation balance, transactions, and price (`donation:balance`, `donation:txs`, `donation:price` keys)
+- **Donation refresh buttons** — Spinning arrow buttons that clear donation cache prefix and force re-fetch
+- **Donation history USD values** — Each transaction on `/donations` shows its USD equivalent at the current price
+- **3 new unit tests** — MnemonicGenerator wordlist tests (count, valid words, sorted order)
+
+### Changed
+- **Donation pages use BlockchainService** — Refactored from direct `IHttpClientFactory` HTTP calls to `FallbackBlockchainService` with proper fallback chain
+- **Mainnet-forced donation queries** — Donation pages temporarily switch to mainnet via `SetNetworkMode()` regardless of current network setting, restoring original mode in `finally` block
+- **Roadmap updated** — New "Donation Pages & Recovery UX" and "Biometric & Batch Send" milestones marked Done; security enhancements and advanced features updated
+- **Help Center updated** — New Q&A for wallet recovery input modes and donation page features (14 sections total)
+- **Process flows updated** — RecoverWallet section rewritten to document dual input modes, auto-suggest, and masking; Deployment section updated with donation/history page descriptions
+
+### Fixed
+- **ScriptPubKey matching on donation history** — Transactions matched by `output.ScriptHex` against the donation address's scriptPubKey for accurate filtering
+
 ## [0.5.0-beta.1] - 2026-04-11
 
 ### Added

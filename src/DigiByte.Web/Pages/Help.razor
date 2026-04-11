@@ -147,6 +147,7 @@
                 new("How do I create a new wallet?", "Tap <b>Create New Wallet</b> on the welcome screen. The app generates 24 secret words (your recovery phrase). Write them down on paper — this is your only backup. Confirm 3 random words, then set a 6-digit PIN."),
                 new("What is a recovery phrase?", "A 24-word BIP39 mnemonic that can restore your wallet on any compatible app. <b>Never share it</b> with anyone. If you lose it and forget your PIN, your funds are permanently lost."),
                 new("What does the PIN do?", "The 6-digit PIN encrypts your wallet data with AES-256-GCM. You need it to unlock the app and authorize transactions. After 3 wrong attempts, there's an exponential lockout (15s → 30s → 60s → 120s)."),
+                new("How do I recover a wallet from a seed phrase?", "Tap <b>Recover Existing Wallet</b> on the welcome screen. You have two input modes:<br/><b>Paste All</b> — paste your entire phrase into a single text area (accepts space, comma, or newline-separated words).<br/><b>Word by Word</b> — enter each word in a numbered grid with BIP39 auto-suggest. As you type, matching words appear in a dropdown — use arrow keys and Enter to select. Toggle between 12 and 24 words. Both modes support a show/hide toggle to mask your phrase for privacy."),
             ]),
 
         new("sending-receiving", "Sending & Receiving", "Send DGB, batch send, receive, QR codes, fees", "bg-dgb-50 dark:bg-dgb-900/30",
@@ -284,6 +285,7 @@
                 new("Can I self-host the wallet?", "Yes. The wallet is fully open source. Clone the repo, run <code>dotnet run --project src/DigiByte.Web</code>, and open <code>localhost:5251</code>. For the full stack (node + API), use Docker Compose."),
                 new("What Docker configurations are available?", "Three Docker Compose files: <b>Regtest</b> (instant mining, local dev), <b>Testnet</b> (real network), and <b>Mainnet</b> (pruned node, production). See the <b>Deployment</b> page for infrastructure details."),
                 new("How is the production deployment set up?", "The production app runs on Railway with 4 services: Blazor WASM (served by Nginx), Backend API (CoinGecko proxy, P2P), Node API (RPC wrapper), and a pruned mainnet DigiByte node (~2 GB disk)."),
+                new("What does the Deployment page show about donations?", "The Deployment page shows the project's donation address with a <b>live DGB balance</b> and <b>USD conversion</b> (fetched from CoinGecko). You can <b>copy the address</b> to your clipboard and tap the <b>refresh button</b> to update the data. There's also a link to the full <b>Donation History</b> page showing every transaction with its USD value."),
             ]),
     ];
 }

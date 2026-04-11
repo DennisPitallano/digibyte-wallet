@@ -83,13 +83,117 @@
 
         @if (!isPrivateKeyMode)
         {
-            @* Mnemonic input *@
+            @* Mnemonic input mode toggle *@
+            <div class="flex bg-slate-100 dark:bg-dgb-900 rounded-xl p-1 gap-0.5 slide-up-delay-1">
+                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(!wordByWordMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                        @onclick="() => SwitchInputMode(false)">Paste All</button>
+                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(wordByWordMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                        @onclick="() => SwitchInputMode(true)">Word by Word</button>
+            </div>
+
             <div class="flex flex-col gap-3 slide-up-delay-1">
-                <p class="text-sm text-slate-500 dark:text-slate-400">Enter your 12 or 24-word recovery phrase.</p>
-                <textarea @bind="mnemonicInput" rows="4"
-                          placeholder="Enter your recovery phrase separated by spaces..."
-                          autocomplete="off" spellcheck="false"
-                          class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                <div class="flex items-center justify-between">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        @(wordByWordMode ? "Enter each word of your recovery phrase." : "Paste your 12 or 24-word recovery phrase.")
+                    </p>
+                    <button type="button" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
+                            @onclick="() => showMnemonic = !showMnemonic" title="@(showMnemonic ? "Hide" : "Show") phrase">
+                        @if (showMnemonic)
+                        {
+                            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12c1.292 4.338 5.31 7.5 10.066 7.5.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                            </svg>
+                        }
+                    </button>
+                </div>
+
+                @if (!wordByWordMode)
+                {
+                    @* Paste-all mode *@
+                    <div class="relative">
+                        @if (showMnemonic)
+                        {
+                            <textarea @bind="mnemonicInput" @bind:event="oninput" rows="4"
+                                      placeholder="Enter your recovery phrase separated by spaces..."
+                                      autocomplete="off" spellcheck="false" autocapitalize="off"
+                                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                        }
+                        else
+                        {
+                            <textarea @bind="mnemonicInput" @bind:event="oninput" rows="4"
+                                      placeholder="Enter your recovery phrase separated by spaces..."
+                                      autocomplete="off" spellcheck="false" autocapitalize="off"
+                                      style="-webkit-text-security: disc; text-security: disc;"
+                                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(mnemonicInput))
+                    {
+                        var wc = mnemonicInput.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 text-right">@wc / @(wc > 12 ? "24" : "12") words</p>
+                    }
+                }
+                else
+                {
+                    @* Word-by-word mode *@
+                    <div class="flex items-center gap-2 mb-1">
+                        <p class="text-xs text-slate-400 dark:text-slate-500">Words: @wordCount</p>
+                        <div class="flex-1"></div>
+                        <button type="button" class="text-[10px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
+                                @onclick="() => SetWordCount(12)">12</button>
+                        <span class="text-slate-300 dark:text-slate-600">|</span>
+                        <button type="button" class="text-[10px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
+                                @onclick="() => SetWordCount(24)">24</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        @for (int i = 0; i < wordCount; i++)
+                        {
+                            var idx = i;
+                            <div class="relative flex items-center gap-1.5">
+                                <span class="text-[10px] text-slate-400 dark:text-slate-500 w-5 text-right font-mono">@((idx + 1).ToString())</span>
+                                <input type="@(showMnemonic ? "text" : "password")"
+                                       value="@wordInputs[idx]"
+                                       @oninput="(e) => OnWordInput(idx, e.Value?.ToString() ?? string.Empty)"
+                                       @onfocus="() => OnWordFocus(idx)"
+                                       @onblur="() => OnWordBlur(idx)"
+                                       @onkeydown="(e) => OnWordKeyDown(idx, e)"
+                                       autocomplete="off" spellcheck="false" autocapitalize="off"
+                                       class="flex-1 px-2.5 py-2 bg-white dark:bg-dgb-900 border rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-dgb-500/20 transition-all font-mono @(IsWordValid(idx) ? "border-slate-200 dark:border-dgb-800 focus:border-dgb-500" : wordInputs[idx].Length > 0 ? "border-red-300 dark:border-red-700 focus:border-red-400" : "border-slate-200 dark:border-dgb-800 focus:border-dgb-500")" />
+                                @if (activeWordIndex == idx && suggestions.Length > 0)
+                                {
+                                    <div class="absolute top-full left-5 right-0 mt-0.5 z-50 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-lg shadow-lg max-h-28 overflow-y-auto">
+                                        @for (int j = 0; j < suggestions.Length; j++)
+                                        {
+                                            var sIdx = j;
+                                            var word = suggestions[sIdx];
+                                            <button type="button"
+                                                    class="w-full text-left px-2.5 py-1.5 text-xs font-mono transition-colors @(sIdx == selectedSuggestion ? "bg-dgb-100 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dgb-800/50")"
+                                                    @onmousedown:preventDefault
+                                                    @onmousedown="() => SelectSuggestion(idx, word)">
+                                                @if (showMnemonic)
+                                                {
+                                                    @word
+                                                }
+                                                else
+                                                {
+                                                    <span>@word[..Math.Min(2, word.Length)]<span class="text-slate-400">@(new string('•', Math.Max(0, word.Length - 2)))</span></span>
+                                                }
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
                 @if (mnemonicError != null)
                 {
                     <p class="text-sm text-red-500 font-medium">@mnemonicError</p>
@@ -98,7 +202,7 @@
 
             <div class="flex flex-col gap-2">
                 <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
-                        @onclick="ValidateMnemonic" disabled="@string.IsNullOrWhiteSpace(mnemonicInput)">
+                        @onclick="ValidateMnemonic" disabled="@IsMnemonicEmpty">
                     Continue
                 </button>
                 <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="GoBack">Back</button>
@@ -201,6 +305,20 @@
     // Mnemonic fields
     private string mnemonicInput = "";
     private string? mnemonicError;
+    private bool showMnemonic;
+    private bool wordByWordMode;
+    private int wordCount = 12;
+    private string[] wordInputs = new string[24];
+
+    // Auto-suggest
+    private static readonly string[] bip39Words = DigiByte.Crypto.KeyGeneration.MnemonicGenerator.GetWordList();
+    private int activeWordIndex = -1;
+    private string[] suggestions = [];
+    private int selectedSuggestion;
+
+    private bool IsMnemonicEmpty => wordByWordMode
+        ? wordInputs.Take(wordCount).All(string.IsNullOrWhiteSpace)
+        : string.IsNullOrWhiteSpace(mnemonicInput);
 
     // Private Key fields
     private bool isPrivateKeyMode;
@@ -237,6 +355,7 @@
         var uri = new Uri(Nav.Uri);
         isAddWalletMode = uri.Query.Contains("addWallet=true");
         step = isAddWalletMode ? Step.NameWallet : Step.EnterMnemonic;
+        Array.Fill(wordInputs, "");
     }
 
     private void GoBack()
@@ -253,13 +372,165 @@
         step = Step.EnterMnemonic;
     }
 
+    private void SwitchInputMode(bool toWordByWord)
+    {
+        if (wordByWordMode == toWordByWord) return;
+        mnemonicError = null;
+
+        if (toWordByWord && !string.IsNullOrWhiteSpace(mnemonicInput))
+        {
+            // Transfer paste-all text into individual word inputs
+            var words = mnemonicInput.Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length > 12) wordCount = 24;
+            Array.Fill(wordInputs, "");
+            for (int i = 0; i < Math.Min(words.Length, wordInputs.Length); i++)
+                wordInputs[i] = words[i];
+        }
+        else if (!toWordByWord)
+        {
+            // Transfer word inputs back into paste-all text
+            var words = wordInputs.Take(wordCount).Where(w => !string.IsNullOrWhiteSpace(w)).Select(w => w.Trim().ToLower());
+            mnemonicInput = string.Join(' ', words);
+        }
+
+        wordByWordMode = toWordByWord;
+    }
+
+    private void SetWordCount(int count)
+    {
+        wordCount = count;
+        if (count == 12)
+            Array.Fill(wordInputs, "", 12, 12); // clear words 13-24
+    }
+
+    private static readonly char[] WordSeparators = [' ', ',', '\n', '\r', '\t'];
+
+    private void OnWordChanged(int index, string value)
+    {
+        mnemonicError = null;
+
+        // Split on space, comma, or newline — handles paste of full phrase
+        var parts = value.Trim().Split(WordSeparators, StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => w.Trim().ToLower()).Where(w => w.Length > 0).ToArray();
+
+        if (parts.Length > 1)
+        {
+            // Pasted multiple words — distribute starting from this index
+            if (parts.Length > 12) wordCount = 24;
+            else if (index == 0 && parts.Length == 12) wordCount = 12;
+            for (int i = 0; i < parts.Length && (index + i) < wordInputs.Length; i++)
+                wordInputs[index + i] = parts[i];
+            suggestions = [];
+            activeWordIndex = -1;
+        }
+        else
+        {
+            wordInputs[index] = parts.Length == 1 ? parts[0] : string.Empty;
+        }
+    }
+
+    private void OnWordInput(int index, string value)
+    {
+        OnWordChanged(index, value);
+        UpdateSuggestions(index);
+    }
+
+    private void OnWordFocus(int index)
+    {
+        activeWordIndex = index;
+        UpdateSuggestions(index);
+    }
+
+    private void OnWordBlur(int index)
+    {
+        // Delay to allow click on suggestion
+        activeWordIndex = -1;
+        suggestions = [];
+    }
+
+    private void UpdateSuggestions(int index)
+    {
+        var input = wordInputs[index]?.Trim().ToLower();
+        if (string.IsNullOrEmpty(input) || input.Length < 1)
+        {
+            suggestions = [];
+            selectedSuggestion = 0;
+            return;
+        }
+
+        suggestions = bip39Words
+            .Where(w => w.StartsWith(input, StringComparison.Ordinal))
+            .Take(6)
+            .ToArray();
+        selectedSuggestion = 0;
+
+        // Auto-accept if exact match
+        if (suggestions.Length == 1 && suggestions[0] == input)
+            suggestions = [];
+    }
+
+    private void SelectSuggestion(int index, string word)
+    {
+        wordInputs[index] = word;
+        suggestions = [];
+        activeWordIndex = -1;
+    }
+
+    private void OnWordKeyDown(int index, KeyboardEventArgs e)
+    {
+        if (suggestions.Length == 0) return;
+
+        if (e.Key == "ArrowDown")
+        {
+            selectedSuggestion = Math.Min(selectedSuggestion + 1, suggestions.Length - 1);
+        }
+        else if (e.Key == "ArrowUp")
+        {
+            selectedSuggestion = Math.Max(selectedSuggestion - 1, 0);
+        }
+        else if (e.Key == "Enter" || e.Key == "Tab")
+        {
+            wordInputs[index] = suggestions[selectedSuggestion];
+            suggestions = [];
+            activeWordIndex = -1;
+        }
+        else if (e.Key == "Escape")
+        {
+            suggestions = [];
+            activeWordIndex = -1;
+        }
+    }
+
+    private bool IsWordValid(int index)
+    {
+        var w = wordInputs[index];
+        return string.IsNullOrEmpty(w) || Array.BinarySearch(bip39Words, w) >= 0;
+    }
+
     private void ValidateMnemonic()
     {
         mnemonicError = null;
-        var cleaned = string.Join(' ', mnemonicInput.Trim().ToLower()
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        var wordCount = cleaned.Split(' ').Length;
-        if (wordCount != 12 && wordCount != 24) { mnemonicError = $"Expected 12 or 24 words, got {wordCount}."; return; }
+
+        string cleaned;
+        if (wordByWordMode)
+        {
+            var words = wordInputs.Take(wordCount).Select(w => w?.Trim().ToLower() ?? "").ToArray();
+            if (words.Any(string.IsNullOrWhiteSpace))
+            {
+                var emptyIndices = words.Select((w, i) => string.IsNullOrWhiteSpace(w) ? i + 1 : -1).Where(i => i > 0);
+                mnemonicError = $"Missing word(s): {string.Join(", ", emptyIndices.Take(5))}{(emptyIndices.Count() > 5 ? "..." : "")}";
+                return;
+            }
+            cleaned = string.Join(' ', words);
+        }
+        else
+        {
+            cleaned = string.Join(' ', mnemonicInput.Trim().ToLower()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        var wordCount2 = cleaned.Split(' ').Length;
+        if (wordCount2 != 12 && wordCount2 != 24) { mnemonicError = $"Expected 12 or 24 words, got {wordCount2}."; return; }
         if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(cleaned)) { mnemonicError = "Invalid recovery phrase. Please check your words."; return; }
         mnemonicInput = cleaned;
         step = Step.SetPin;

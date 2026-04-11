@@ -62,6 +62,7 @@
 - [x] DigiByte favicon and app icons (SVG + PNG)
 - [x] OTP-style PIN input with auto-focus + shake animation
 - [x] QR code scanner (camera-based + file upload)
+- [x] Recovery phrase input — masked textarea, word-by-word mode, BIP39 auto-suggest, multi-separator paste
 - [x] Loading skeletons (balance, price, transactions)
 - [x] Send page form disabled during loading
 - [x] Real-time amount warnings (exceeds balance, below minimum)
@@ -74,7 +75,10 @@
 - [x] Onboarding walkthrough (5-step carousel)
 - [x] Offline banner
 - [x] PWA install banner (native beforeinstallprompt, session-scoped)
-- [x] Donation balance display on Deployment page
+- [x] Donation balance display on Deployment page with USD conversion
+- [x] Donation address copy-to-clipboard button
+- [x] Cached donation data (5-min TTL) + refresh buttons
+- [x] Donation history page (`/donations`) with per-tx USD values
 - [x] Version and tagline on Unlock/CreateWallet pages
 - [x] Developer tools guard (Development only)
 - [x] Config-driven network defaults (mainnet prod, testnet dev)
@@ -86,7 +90,7 @@
 - [x] Process flow documentation (per-page technical flows)
 - [x] Comprehensive README with configs, run/test instructions
 - [x] Video tutorials — Install PWA, Recover/Import Wallet, Send DigiByte (`docs/media/`)
-- [x] Help Center (`/help`) — 12 searchable accordion tutorial sections, report issue / suggest feature
+- [x] Help Center (`/help`) — 14 searchable accordion tutorial sections, report issue / suggest feature
 - [x] Multisig Guide (`/help/multisig`) — visual flows, real-world scenarios, step-by-step walkthroughs, technical details
 - [x] Help links on Welcome, Unlock, CreateWallet, Settings, About pages
 - [x] Multisig quick-access from Home page + guide link on MultisigCreate
@@ -132,7 +136,7 @@
 ### Technical Debt
 - [ ] PWA offline mode improvements (background sync for pending tx)
 - [ ] Service worker update notification
-- [x] Unit tests for WalletService + multisig + biometric (213 total)
+- [x] Unit tests for WalletService + multisig + biometric (216 total)
 - [ ] E2E test suite (Playwright)
 - [ ] Performance optimization (lazy loading)
 

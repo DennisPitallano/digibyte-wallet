@@ -208,18 +208,32 @@
             "Wallet management page (rename, change color, delete, backup)",
             "Per-wallet scoped cache (balance, transactions, timestamps)",
             "19 new unit tests (MultiWalletTests)",
-        ]),        new("Q2 2026", "P2P Exchange", Status.Planned, [
+        ]),        new("Apr 2026", "Donation Pages & Recovery UX", Status.Done, [
+            "Donation page USD conversion (CoinGecko via IBlockchainService)",
+            "Cached donation data (5-min TTL) with refresh buttons",
+            "Copy donation address to clipboard with feedback",
+            "Donation history page with per-transaction USD values",
+            "Recovery phrase masked input (show/hide toggle)",
+            "Word-by-word input mode with 3-column numbered grid",
+            "BIP39 auto-suggest (prefix match, keyboard navigation, privacy mode)",
+            "Multi-separator paste support (space, comma, newline, tab)",
+            "12/24 word count toggle with auto-expand on paste",
+        ]),        new("Apr 2026", "Biometric & Batch Send", Status.Done, [
+            "Biometric unlock (WebAuthn PRF fingerprint/face)",
+            "Biometric send confirmation (WebAuthn assertion)",
+            "Batch send UI (up to 20 recipients per transaction)",
+            "Transaction search/filter (date, amount, direction)",
+        ]),
+        new("Q2 2026", "P2P Exchange", Status.Planned, [
             "Order book + trade matching",
             "Multisig escrow",
             "Real-time trade chat (SignalR)",
         ]),
         new("Q2 2026", "Security Enhancements", Status.Planned, [
-            "Biometric unlock (WebAuthn)",
             "Spending limits + alerts",
         ]),
         new("Q3 2026", "Advanced Features", Status.Planned, [
             "DigiAssets (custom tokens)",
-            "Transaction search/filter",
             "Hardware wallet support (Ledger/Trezor)",
         ]),
         new("Q3 2026", "CI/CD & Testing", Status.Planned, [
