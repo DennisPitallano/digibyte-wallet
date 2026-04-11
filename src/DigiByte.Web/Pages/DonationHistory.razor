@@ -165,6 +165,9 @@
     private const string MainnetApi = "https://digiexplorer.info/api";
     private const string ExplorerUrl = "https://digiexplorer.info";
     private const string CurrentAddress = "dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa";
+    // The scriptpubkey for CurrentAddress — used for matching because the API may return
+    // a different bech32 checksum variant of the same address
+    private const string CurrentScriptPubKey = "00146614dd737059843850c40ed8ea39718ef17ce2a2";
     private const string OldAddress = "DPSNEw5UmtUMQwTZPNoiUFDmCLu3Tp5SrK";
 
     // Known previous donations to old address
@@ -205,10 +208,10 @@
 
                     foreach (var vout in tx.GetProperty("vout").EnumerateArray())
                     {
-                        var addr = vout.TryGetProperty("scriptpubkey_address", out var a) ? a.GetString() : null;
+                        var spk = vout.TryGetProperty("scriptpubkey", out var s) ? s.GetString() : null;
                         var type = vout.TryGetProperty("scriptpubkey_type", out var t) ? t.GetString() : null;
 
-                        if (addr == CurrentAddress)
+                        if (string.Equals(spk, CurrentScriptPubKey, StringComparison.OrdinalIgnoreCase))
                             amount += vout.GetProperty("value").GetInt64();
 
                         if (type == "op_return" && vout.TryGetProperty("scriptpubkey_asm", out var asm))
