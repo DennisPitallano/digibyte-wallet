@@ -2,6 +2,7 @@
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
+@inject ILogger<BackupSeed> Logger
 
 <PageTitle>Backup Seed Phrase</PageTitle>
 
@@ -35,6 +36,10 @@
         @* Step 2: Show seed phrase *@
         <div class="slide-up">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Recovery Phrase</h2>
+            @if (!string.IsNullOrEmpty(walletName))
+            {
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">For wallet: <strong>@walletName</strong></p>
+            }
             <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 leading-relaxed bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
                 <strong>Never share</strong> these words with anyone. Anyone with this phrase can steal your funds.
             </p>
@@ -60,14 +65,17 @@
 </AuthGuard>
 
 @code {
+    [SupplyParameterFromQuery] public string? WalletId { get; set; }
+
     private PinInput? pinInput;
     private string pin = "";
     private string? error;
     private bool isVerifying;
     private bool isVerified;
     private string[] seedWords = [];
+    private string? walletName;
 
-    private void GoBack() => Nav.NavigateTo("/settings");
+    private void GoBack() => Nav.NavigateTo(!string.IsNullOrEmpty(WalletId) ? "/settings/wallets" : "/settings");
 
     private async Task VerifyPin()
     {
@@ -77,7 +85,7 @@
 
         try
         {
-            var walletId = await WalletService.GetActiveWalletIdAsync();
+            var walletId = !string.IsNullOrEmpty(WalletId) ? WalletId : await WalletService.GetActiveWalletIdAsync();
             if (walletId == null) { error = "No wallet found"; return; }
 
             // Try to unlock with the PIN to verify it's correct
@@ -89,6 +97,14 @@
                 pinInput?.Clear();
                 return;
             }
+
+            // Resolve wallet name for display
+            try
+            {
+                var info = await WalletService.GetWalletAsync(walletId);
+                walletName = info?.Name;
+            }
+            catch { /* non-critical */ }
 
             // Decrypt and retrieve the actual seed phrase
             var words = await WalletService.GetSeedPhraseAsync(walletId, pin);
