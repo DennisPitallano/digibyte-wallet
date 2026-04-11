@@ -3,6 +3,7 @@
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject MemoryCacheService Cache
+@inject BiometricService Biometric
 
 <PageTitle>Unlock Wallet</PageTitle>
 
@@ -22,6 +23,36 @@
         }
             <p class="text-sm text-slate-400 dark:text-slate-500">Enter your 6-digit PIN</p>
         </div>
+
+    @* Biometric unlock button *@
+    @if (biometricEnabled)
+    {
+        <div class="flex flex-col items-center gap-2 slide-up-delay-1">
+            <button class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all press-effect disabled:opacity-50"
+                    @onclick="BiometricUnlockAsync" disabled="@isBiometricUnlocking">
+                @if (isBiometricUnlocking)
+                {
+                    <svg class="animate-spin h-7 w-7 text-dgb-400" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                }
+                else
+                {
+                    <svg class="w-7 h-7 text-dgb-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a48.667 48.667 0 0 0-1.418 8.773 7.498 7.498 0 0 1-1.332-5.023A7.5 7.5 0 0 1 7.864 4.243ZM14.25 14.25a2.25 2.25 0 0 0-4.5 0v.75a2.25 2.25 0 0 0 4.5 0v-.75Zm-2.25-6.75a4.5 4.5 0 0 0-4.5 4.5v.75a4.5 4.5 0 0 0 9 0v-.75a4.5 4.5 0 0 0-4.5-4.5Z" />
+                    </svg>
+                }
+            </button>
+            <p class="text-[10px] text-slate-500">Tap to use biometric</p>
+        </div>
+
+        <div class="flex items-center gap-3 w-full max-w-[280px]">
+            <div class="flex-1 h-px bg-slate-300 dark:bg-dgb-800"></div>
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">or PIN</span>
+            <div class="flex-1 h-px bg-slate-300 dark:bg-dgb-800"></div>
+        </div>
+    }
 
     <div class="flex flex-col items-center gap-5 slide-up-delay-2">
         <PinInput @ref="pinInput"
@@ -178,6 +209,16 @@
     </div>
 </div>
 
+@* Biometric enrollment prompt — shown after first successful PIN unlock *@
+@if (showBioEnrollPrompt)
+{
+    <BiometricEnrollPrompt WalletId="@(walletId ?? "")"
+                           WalletName="@walletName"
+                           DecryptedSeed="@(lastDecryptedSeed ?? Array.Empty<byte>())"
+                           OnEnrolled="OnBioEnrolled"
+                           OnDismissed="OnBioDismissed" />
+}
+
 @code {
     private PinInput? pinInput;
     private string pin = "";
@@ -204,6 +245,13 @@
     private string walletName = "";
     private string walletColor = "#0066FF";
     private List<WalletInfo> allWallets = [];
+
+    // Biometric state
+    private bool biometricSupported;
+    private bool biometricEnabled;
+    private bool isBiometricUnlocking;
+    private bool showBioEnrollPrompt;
+    private byte[]? lastDecryptedSeed;
 
     protected override async Task OnInitializedAsync()
     {
@@ -234,6 +282,26 @@
         walletColor = info?.Color ?? "#0066FF";
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // JS interop must run after first render in Blazor WASM
+            biometricSupported = await Biometric.IsSupportedAsync();
+            if (biometricSupported && walletId != null)
+            {
+                biometricEnabled = await Biometric.IsEnabledAsync(walletId);
+            }
+            StateHasChanged();
+
+            // Auto-trigger biometric if enrolled
+            if (biometricEnabled && walletId != null)
+            {
+                await BiometricUnlockAsync();
+            }
+        }
+    }
+
     private void OnPinChanged(string value) => pin = value;
 
     private async Task UnlockAsync()
@@ -261,6 +329,24 @@
             {
                 failedAttempts = 0;
                 lockedUntil = null;
+
+                // Check if we should offer biometric enrollment
+                // Re-check IsEnabledAsync directly to avoid race with OnAfterRenderAsync
+                if (await Biometric.IsSupportedAsync() && !await Biometric.IsEnabledAsync(walletId) && !await Biometric.IsDismissedAsync(walletId))
+                {
+                    lastDecryptedSeed = await WalletService.GetDecryptedSeedAsync(walletId, pin);
+                    if (lastDecryptedSeed != null)
+                    {
+                        showBioEnrollPrompt = true;
+                        // Don't navigate yet — wait for enrollment decision
+                        AppState.IsWalletCreated = true;
+                        AppState.IsWalletUnlocked = true;
+                        AppState.ActiveWalletName = walletName;
+                        AppState.NotifyStateChanged();
+                        return;
+                    }
+                }
+
                 AppState.IsWalletCreated = true;
                 AppState.IsWalletUnlocked = true;
                 AppState.ActiveWalletName = walletName;
@@ -287,6 +373,57 @@
         }
         catch (Exception ex) { error = $"Error: {ex.Message}"; }
         finally { isUnlocking = false; }
+    }
+
+    private async Task BiometricUnlockAsync()
+    {
+        if (walletId == null || isBiometricUnlocking) return;
+        isBiometricUnlocking = true;
+        error = null;
+        StateHasChanged();
+
+        try
+        {
+            WalletService.SetNetworkMode(AppState.NetworkMode);
+            var seed = await Biometric.UnlockAsync(walletId);
+            if (seed != null)
+            {
+                var success = await WalletService.UnlockWalletFromSeedAsync(walletId, seed);
+                if (success)
+                {
+                    AppState.IsWalletCreated = true;
+                    AppState.IsWalletUnlocked = true;
+                    AppState.ActiveWalletName = walletName;
+                    AppState.NotifyStateChanged();
+                    Nav.NavigateTo("/");
+                    return;
+                }
+            }
+            error = "Biometric failed. Enter your PIN.";
+        }
+        catch
+        {
+            error = "Biometric failed. Enter your PIN.";
+        }
+        finally
+        {
+            isBiometricUnlocking = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnBioEnrolled()
+    {
+        showBioEnrollPrompt = false;
+        lastDecryptedSeed = null;
+        Nav.NavigateTo("/");
+    }
+
+    private void OnBioDismissed()
+    {
+        showBioEnrollPrompt = false;
+        lastDecryptedSeed = null;
+        Nav.NavigateTo("/");
     }
 
     private void CancelForgot()
@@ -349,6 +486,9 @@
     {
         if (deleteConfirmText?.ToUpper() != "DELETE") return;
         Cache.Clear();
+        // Clean up biometric data for all wallets
+        foreach (var w in allWallets)
+            await Biometric.DisableAsync(w.Id);
         await WalletService.WipeAllDataAsync();
         AppState.IsWalletCreated = false;
         AppState.IsWalletUnlocked = false;
@@ -379,6 +519,12 @@
             lockedUntil = null;
             pinInput?.Clear();
             CancelForgot();
+
+            // Refresh biometric state for the new wallet
+            biometricEnabled = biometricSupported && await Biometric.IsEnabledAsync(id);
+            showBioEnrollPrompt = false;
+            lastDecryptedSeed = null;
+
             StateHasChanged();
         }
     }

@@ -329,6 +329,52 @@ public class WalletService : IWalletService
         return mnemonicWords.Split(' ', StringSplitOptions.RemoveEmptyEntries);
     }
 
+    /// <summary>
+    /// Decrypt the raw seed bytes for a wallet. Used by biometric enrollment.
+    /// </summary>
+    public async Task<byte[]?> GetDecryptedSeedAsync(string walletId, string pin)
+    {
+        var encryptedSeed = await _keyStore.GetSeedAsync(walletId);
+        if (encryptedSeed == null) return null;
+        return await _crypto.DecryptAsync(encryptedSeed, pin);
+    }
+
+    /// <summary>
+    /// Unlock a wallet from pre-decrypted seed bytes (used by biometric unlock).
+    /// </summary>
+    public async Task<bool> UnlockWalletFromSeedAsync(string walletId, byte[] decryptedSeed)
+    {
+        var walletInfo = await GetWalletAsync(walletId);
+        if (walletInfo == null) return false;
+
+        var seedString = System.Text.Encoding.UTF8.GetString(decryptedSeed);
+        var session = new UnlockedWalletSession { Info = walletInfo };
+
+        if (walletInfo.WalletType == "privatekey")
+        {
+            var wifNetwork = PrivateKeyImporter.DetectNetwork(seedString) ?? CurrentNetwork;
+            session.SingleKey = PrivateKeyImporter.ParseWif(seedString, wifNetwork);
+        }
+        else if (walletInfo.WalletType == "xpub")
+        {
+            var xpubNetwork = HdKeyDerivation.DetectXpubNetwork(seedString) ?? CurrentNetwork;
+            var extPubKey = HdKeyDerivation.ParseXpub(seedString);
+            if (extPubKey == null) return false;
+            session.Hd = new HdKeyDerivation(extPubKey, xpubNetwork);
+        }
+        else
+        {
+            var mnemonic = MnemonicGenerator.FromWords(seedString);
+            session.Hd = new HdKeyDerivation(mnemonic, network: CurrentNetwork);
+        }
+
+        _sessions[walletId] = session;
+        _activeWalletId = walletId;
+        _txTracker.SetActiveWallet(walletId);
+        await _walletStore.SetActiveWalletIdAsync(walletId);
+        return true;
+    }
+
     public Task LockWalletAsync()
     {
         _sessions.Clear();

@@ -46,6 +46,83 @@
             </svg>
         </a>
 
+        @* Biometric Unlock *@
+        @if (biometricSupported)
+        {
+            <div class="slide-up-delay-1 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a48.667 48.667 0 0 0-1.418 8.773 7.498 7.498 0 0 1-1.332-5.023A7.5 7.5 0 0 1 7.864 4.243ZM14.25 14.25a2.25 2.25 0 0 0-4.5 0v.75a2.25 2.25 0 0 0 4.5 0v-.75Zm-2.25-6.75a4.5 4.5 0 0 0-4.5 4.5v.75a4.5 4.5 0 0 0 9 0v-.75a4.5 4.5 0 0 0-4.5-4.5Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Biometric Unlock</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@(biometricEnabled ? "Enabled for this wallet" : "Fingerprint or face")</p>
+                    </div>
+                </div>
+                <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(biometricEnabled ? "bg-dgb-500" : "bg-slate-300")"
+                        @onclick="ToggleBiometric" disabled="@isBioToggling">
+                    <span class="absolute top-1 left-1 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200 @(biometricEnabled ? "translate-x-5" : "translate-x-0")"></span>
+                </button>
+            </div>
+
+            @* Biometric PIN verification for enrollment *@
+            @if (showBioPinVerify)
+            {
+                <div class="scale-in bg-dgb-50 dark:bg-dgb-900 rounded-2xl border border-dgb-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Enter PIN to enable biometric</p>
+                    <PinInput @ref="bioPinInput" ValueChanged="(v) => bioPin = v" OnComplete="ConfirmBioEnroll" Error="@bioPinError" />
+                    <div class="flex gap-2">
+                        <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                                @onclick="CancelBioToggle">Cancel</button>
+                        <button class="flex-1 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                @onclick="ConfirmBioEnroll" disabled="@(bioPin.Length < 6 || isBioToggling)">
+                            @(isBioToggling ? "Setting up..." : "Enable")
+                        </button>
+                    </div>
+                </div>
+            }
+
+            @* Biometric disable confirmation *@
+            @if (showBioDisableConfirm)
+            {
+                <div class="scale-in bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30 p-4 flex flex-col gap-3">
+                    <p class="text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
+                        Disable biometric unlock? You'll need to enter your PIN each time.
+                    </p>
+                    <div class="flex gap-2">
+                        <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                                @onclick="CancelBioToggle">Cancel</button>
+                        <button class="flex-1 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl press-effect"
+                                @onclick="ConfirmBioDisable">Disable</button>
+                    </div>
+                </div>
+            }
+
+            @* Confirm Sends with Biometric *@
+            @if (biometricEnabled)
+            {
+                <div class="slide-up-delay-1 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">Confirm Sends</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Require biometric before sending</p>
+                        </div>
+                    </div>
+                    <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(bioConfirmSendEnabled ? "bg-dgb-500" : "bg-slate-300")"
+                            @onclick="ToggleBioConfirmSend">
+                        <span class="absolute top-1 left-1 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200 @(bioConfirmSendEnabled ? "translate-x-5" : "translate-x-0")"></span>
+                    </button>
+                </div>
+            }
+        }
+
         @* Theme Toggle *@
         <div class="slide-up-delay-1 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
             <div class="flex items-center gap-3">
@@ -314,6 +391,7 @@
     [Inject] private AppState AppState { get; set; } = default!;
     [Inject] private LocalizationService L10n { get; set; } = default!;
     [Inject] private WalletService WalletService { get; set; } = default!;
+    [Inject] private BiometricService Biometric { get; set; } = default!;
 
     // Delete wallet state
     private bool showDeleteConfirm;
@@ -327,9 +405,40 @@
     private bool cacheCleared;
     private bool showLanguageToast;
 
+    // Biometric state
+    private bool biometricSupported;
+    private bool biometricEnabled;
+    private bool bioConfirmSendEnabled;
+    private bool isBioToggling;
+    private bool showBioPinVerify;
+    private bool showBioDisableConfirm;
+    private string bioPin = "";
+    private string? bioPinError;
+    private PinInput? bioPinInput;
+
     protected override async Task OnInitializedAsync()
     {
         try { walletCount = (await WalletService.GetAllWalletsAsync()).Count; } catch { walletCount = 1; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // JS interop must run after first render in Blazor WASM
+            biometricSupported = await Biometric.IsSupportedAsync();
+            if (biometricSupported)
+            {
+                var walletId = await WalletService.GetActiveWalletIdAsync();
+                if (walletId != null)
+                {
+                    biometricEnabled = await Biometric.IsEnabledAsync(walletId);
+                    if (biometricEnabled)
+                        bioConfirmSendEnabled = await Biometric.IsConfirmSendEnabledAsync(walletId);
+                }
+            }
+            StateHasChanged();
+        }
     }
 
     private string NetworkIconBg => AppState.NetworkMode switch
@@ -398,6 +507,88 @@
         deleteError = null;
     }
 
+    // ── Biometric toggle methods ──
+
+    private void ToggleBiometric()
+    {
+        if (biometricEnabled)
+            showBioDisableConfirm = true;
+        else
+            showBioPinVerify = true;
+    }
+
+    private void CancelBioToggle()
+    {
+        showBioPinVerify = false;
+        showBioDisableConfirm = false;
+        bioPin = "";
+        bioPinError = null;
+    }
+
+    private async Task ConfirmBioEnroll()
+    {
+        if (bioPin.Length < 6) return;
+        isBioToggling = true;
+        bioPinError = null;
+        StateHasChanged();
+
+        try
+        {
+            var walletId = await WalletService.GetActiveWalletIdAsync();
+            if (walletId == null) { bioPinError = "No active wallet."; return; }
+
+            var seed = await WalletService.GetDecryptedSeedAsync(walletId, bioPin);
+            if (seed == null)
+            {
+                bioPinError = "Incorrect PIN.";
+                bioPin = "";
+                bioPinInput?.Clear();
+                return;
+            }
+
+            var info = await WalletService.GetWalletAsync(walletId);
+            var success = await Biometric.EnrollAsync(walletId, info?.Name ?? "Wallet", seed);
+            if (success)
+            {
+                biometricEnabled = true;
+                CancelBioToggle();
+            }
+            else
+            {
+                bioPinError = "Biometric setup failed or was cancelled.";
+            }
+        }
+        catch
+        {
+            bioPinError = "Biometric setup failed.";
+        }
+        finally
+        {
+            isBioToggling = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmBioDisable()
+    {
+        var walletId = await WalletService.GetActiveWalletIdAsync();
+        if (walletId != null)
+            await Biometric.DisableAsync(walletId);
+
+        biometricEnabled = false;
+        bioConfirmSendEnabled = false;
+        CancelBioToggle();
+    }
+
+    private async Task ToggleBioConfirmSend()
+    {
+        var walletId = await WalletService.GetActiveWalletIdAsync();
+        if (walletId == null) return;
+
+        bioConfirmSendEnabled = !bioConfirmSendEnabled;
+        await Biometric.SetConfirmSendAsync(walletId, bioConfirmSendEnabled);
+    }
+
     private async Task ConfirmDelete()
     {
         if (deletePin.Length < 6) return;
@@ -418,6 +609,7 @@
 
         // PIN verified — delete everything
         Cache.Clear();
+        await Biometric.DisableAsync(walletId);
         await WalletService.WipeAllDataAsync();
         AppState.IsWalletCreated = false;
         AppState.IsWalletUnlocked = false;

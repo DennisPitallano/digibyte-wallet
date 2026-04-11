@@ -4,6 +4,35 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.5.0-beta.1] - 2026-04-11
+
+### Added
+- **Biometric unlock (WebAuthn PRF)** — Unlock your wallet with fingerprint or face recognition using the WebAuthn PRF extension; per-wallet enrollment with AES-256-GCM wrapping key derived from platform authenticator
+- **Biometric enrollment prompt** — After first successful PIN unlock, a modal offers to enable biometric; "Not Now" dismisses per-wallet; can be enabled later from Settings
+- **Confirm sends with biometric** — Optional setting to require biometric verification (WebAuthn assertion) before broadcasting any transaction; toggle in Settings under Biometric Unlock
+- **Biometric auto-trigger on unlock** — When biometric is enrolled, the unlock screen automatically triggers biometric authentication on page load
+- **Settings biometric toggle** — Enable/disable biometric unlock from Settings with PIN verification for enrollment and confirmation for disable
+- **Biometric cleanup on wallet delete** — Disabling or deleting a wallet removes all biometric keys (credential, wrapping key, encrypted seed, preferences)
+- **19 new unit tests** — BiometricServiceTests covering enabled/dismissed/confirm-send preferences, disable cleanup, per-wallet isolation, JS interop error handling, and identity verification
+
+### Changed
+- **Version bumped to 0.5.0-beta.1** — Biometric unlock and send confirmation feature complete
+- **Production log suppression** — HTTP/Polly info logs suppressed only in production; Development keeps info-level logging
+- **Font preload removed** — Removed unused `<link rel="preload">` for Inter font; `@font-face` with `font-display: swap` handles on-demand loading
+- **Roadmap updated** — Biometric Unlock and Batch Send UI marked as completed
+- **Help Center updated** — New Biometric & Security section with real-life scenarios, security model explanation, and confirm-send documentation
+
+### Fixed
+- **Biometric enrollment prompt race condition** — Prompt no longer shows when biometric is already enabled; `UnlockAsync` now re-checks `IsEnabledAsync` directly instead of relying on cached field from `OnAfterRenderAsync`
+- **JS interop timing in Blazor WASM** — Biometric detection moved to `OnAfterRenderAsync(firstRender)` since JS interop is unavailable during `OnInitializedAsync`
+- **Global scope collision** — `webauthn.js` wrapped in IIFE to prevent `const IV_SIZE` conflict with `crypto.js`
+- **Font preload browser warning** — Removed preload tag that triggered "preloaded but not used" console warning
+
+### Security
+- **No secrets at rest** — Biometric wrapping key is derived from the platform authenticator via WebAuthn PRF; only encrypted blobs stored in IndexedDB
+- **Per-wallet credentials** — Each wallet gets its own WebAuthn credential; disabling biometric for one wallet does not affect others
+- **Identity-only send confirmation** — Send confirmation uses a simple WebAuthn assertion (no PRF/decryption), verifying only that the authenticated user is present
+
 ## [0.4.0-beta.1] - 2026-04-11
 
 ### Added

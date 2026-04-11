@@ -1,0 +1,94 @@
+@inject BiometricService Biometric
+
+@* Biometric enrollment prompt modal — shown after first successful PIN unlock *@
+<div class="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm scale-in">
+    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 mx-6 max-w-sm shadow-2xl flex flex-col items-center gap-4"
+         @onclick:stopPropagation="true">
+        @* Fingerprint icon *@
+        <div class="w-16 h-16 rounded-2xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+            <svg class="w-8 h-8 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a48.667 48.667 0 0 0-1.418 8.773 7.498 7.498 0 0 1-1.332-5.023A7.5 7.5 0 0 1 7.864 4.243ZM14.25 14.25a2.25 2.25 0 0 0-4.5 0v.75a2.25 2.25 0 0 0 4.5 0v-.75Zm-2.25-6.75a4.5 4.5 0 0 0-4.5 4.5v.75a4.5 4.5 0 0 0 9 0v-.75a4.5 4.5 0 0 0-4.5-4.5Z" />
+            </svg>
+        </div>
+
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">Enable Biometric Unlock?</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+            Unlock your wallet faster with fingerprint or face recognition. Your PIN will still work as a backup.
+        </p>
+
+        @if (!string.IsNullOrEmpty(enrollError))
+        {
+            <p class="text-xs text-red-500 font-medium text-center">@enrollError</p>
+        }
+
+        <div class="flex flex-col gap-2 w-full mt-2">
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                    @onclick="EnableAsync" disabled="@isEnrolling">
+                @if (isEnrolling)
+                {
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        Setting up...
+                    </span>
+                }
+                else
+                {
+                    <span>Enable Biometric</span>
+                }
+            </button>
+            <button class="w-full py-3 text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                    @onclick="DismissAsync" disabled="@isEnrolling">
+                Not Now
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string WalletId { get; set; } = "";
+    [Parameter, EditorRequired] public string WalletName { get; set; } = "";
+    [Parameter, EditorRequired] public byte[] DecryptedSeed { get; set; } = [];
+    [Parameter] public EventCallback OnEnrolled { get; set; }
+    [Parameter] public EventCallback OnDismissed { get; set; }
+
+    private bool isEnrolling;
+    private string? enrollError;
+
+    private async Task EnableAsync()
+    {
+        isEnrolling = true;
+        enrollError = null;
+        StateHasChanged();
+
+        try
+        {
+            var success = await Biometric.EnrollAsync(WalletId, WalletName, DecryptedSeed);
+            if (success)
+            {
+                await OnEnrolled.InvokeAsync();
+            }
+            else
+            {
+                enrollError = "Biometric setup failed. You can try again from Settings.";
+            }
+        }
+        catch
+        {
+            enrollError = "Biometric setup was cancelled or failed.";
+        }
+        finally
+        {
+            isEnrolling = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DismissAsync()
+    {
+        await Biometric.DismissPromptAsync(WalletId);
+        await OnDismissed.InvokeAsync();
+    }
+}

@@ -6,6 +6,7 @@
 @inject NavigationManager Nav
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
+@inject BiometricService Biometric
 
 <PageTitle>Send DGB</PageTitle>
 
@@ -1015,6 +1016,19 @@ else
         await Task.Yield();
         try
         {
+            // Biometric send confirmation (if enabled)
+            var walletId = await WalletService.GetActiveWalletIdAsync();
+            if (walletId != null && await Biometric.IsConfirmSendEnabledAsync(walletId))
+            {
+                var verified = await Biometric.VerifyIdentityAsync(walletId);
+                if (!verified)
+                {
+                    sendError = "Biometric verification failed or was cancelled.";
+                    isSending = false;
+                    return;
+                }
+            }
+
             string txId;
             if (isBatchMode)
             {

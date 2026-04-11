@@ -10,6 +10,14 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
+// ── Logging: suppress noisy HTTP / Polly info logs in production ──
+if (!builder.HostEnvironment.IsDevelopment())
+{
+    builder.Logging.AddFilter("System.Net.Http", LogLevel.Warning);
+    builder.Logging.AddFilter("Microsoft.Extensions.Http", LogLevel.Warning);
+    builder.Logging.AddFilter("Polly", LogLevel.Warning);
+}
+
 // ── HTTP clients with resilience (Polly: retry + circuit breaker + timeout) ──
 var baseAddress = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.BaseAddress;
 
@@ -59,6 +67,7 @@ builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();
 builder.Services.AddScoped<MultisigWalletService>();
+builder.Services.AddScoped<BiometricService>();
 
 // ── Blockchain service chain: Own Node (pruned) → Explorer list (with fallback) ──
 // Mock demo data is only available in Development — production throws if all backends fail.

@@ -114,24 +114,25 @@
 - [ ] Component re-render on locale change
 
 ### UX Enhancements
-- [ ] Transaction search/filter (date, amount, direction)
-- [ ] Biometric unlock (WebAuthn fingerprint/face)
-- [ ] Batch send UI (TransactionBuilder supports it)
+- [x] Transaction search/filter (date, amount, direction)
+- [x] Biometric unlock (WebAuthn PRF fingerprint/face)
+- [x] Biometric send confirmation (WebAuthn assertion)
+- [x] Batch send UI (TransactionBuilder supports it)
 - [ ] Transaction confirmation detail view (inputs/outputs/fee)
 
 ### Advanced Features
-- [ ] Multiple wallet support (switch between wallets)
+- [x] Multiple wallet support (switch between wallets)
 - [ ] Address book import/export (CSV)
 - [ ] Transaction history CSV export
 - [ ] DigiAssets (custom token support)
-- [ ] Watch-only wallets (xpub import)
+- [x] Watch-only wallets (xpub import)
 - [ ] Spending limits / transaction alerts
 - [ ] Hardware wallet support (Ledger/Trezor)
 
 ### Technical Debt
 - [ ] PWA offline mode improvements (background sync for pending tx)
 - [ ] Service worker update notification
-- [x] Unit tests for WalletService + multisig (92 total)
+- [x] Unit tests for WalletService + multisig + biometric (213 total)
 - [ ] E2E test suite (Playwright)
 - [ ] Performance optimization (lazy loading)
 
