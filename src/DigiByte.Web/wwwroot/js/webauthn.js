@@ -1,6 +1,6 @@
 // WebAuthn + PRF extension for biometric wallet unlock
 // Uses platform authenticator (fingerprint/face) with PRF to derive wrapping keys.
-// No secrets are stored at rest — the PRF output is bound to the authenticator.
+// Falls back to assertion-gated encryption when PRF is not supported.
 
 (function () {
     const WA_IV_SIZE = 12;
@@ -20,14 +20,14 @@
         return new Uint8Array(hash);
     }
 
-    // Import raw PRF output as AES-256-GCM key
-    async function importPrfKey(prfOutput) {
+    // Import raw bytes as AES-256-GCM key
+    async function importAesKey(rawBytes, usages) {
         return crypto.subtle.importKey(
-            "raw", prfOutput, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]
+            "raw", rawBytes, { name: "AES-GCM" }, false, usages
         );
     }
 
-    // AES-256-GCM encrypt with raw key (not PBKDF2-derived)
+    // AES-256-GCM encrypt
     async function encryptWithKey(key, plaintext) {
         const iv = crypto.getRandomValues(new Uint8Array(WA_IV_SIZE));
         const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
@@ -37,7 +37,7 @@
         return result;
     }
 
-    // AES-256-GCM decrypt with raw key
+    // AES-256-GCM decrypt
     async function decryptWithKey(key, packed) {
         if (packed.length < WA_IV_SIZE + 1) return null;
         const iv = packed.slice(0, WA_IV_SIZE);
@@ -51,8 +51,6 @@
 
     window.dgbWebAuthn = {
         // Check if platform authenticator is available.
-        // PRF support is validated at enrollment time — if the authenticator doesn't
-        // support PRF, enroll() will throw and the UI handles it gracefully.
         isSupported: async function () {
             if (!window.PublicKeyCredential) return false;
             try {
@@ -62,7 +60,10 @@
             }
         },
 
-        // Enroll biometric for a wallet. Returns { credentialId, wrappedKey, bioSeed } (all base64)
+        // Enroll biometric for a wallet.
+        // Returns { credentialId, wrappedKey, bioSeed, fallbackKey? } (all base64).
+        // If PRF is supported, fallbackKey is null (wrapping key is PRF-derived).
+        // If PRF is NOT supported, fallbackKey contains the encryption key (assertion-gated).
         enroll: async function (walletId, userName, wrappingKeyBase64, seedBase64) {
             const salt = await prfSalt(walletId);
             const userId = new TextEncoder().encode(walletId);
@@ -88,29 +89,38 @@
                 }
             });
 
-            // Extract PRF result
-            const prfResult = credential.getClientExtensionResults()?.prf?.results?.first;
-            if (!prfResult) {
-                throw new Error("PRF extension not supported by this authenticator");
-            }
-
-            const prfKey = await importPrfKey(new Uint8Array(prfResult));
             const wrappingKey = fromBase64(wrappingKeyBase64);
             const seed = fromBase64(seedBase64);
 
-            // Encrypt wrapping key with PRF-derived key
-            const wrappedKey = await encryptWithKey(prfKey, wrappingKey);
+            // Encrypt seed with wrapping key
+            const wrapKeyEnc = await importAesKey(wrappingKey, ["encrypt"]);
+            const bioSeed = await encryptWithKey(wrapKeyEnc, seed);
 
-            // Encrypt seed with wrapping key (raw AES, not PBKDF2)
-            const wrapKey = await crypto.subtle.importKey(
-                "raw", wrappingKey, { name: "AES-GCM" }, false, ["encrypt"]
-            );
-            const bioSeed = await encryptWithKey(wrapKey, seed);
+            // Try PRF-based encryption first (most secure — key bound to authenticator)
+            const prfResult = credential.getClientExtensionResults()?.prf?.results?.first;
+
+            let wrappedKey;
+            let fallbackKey = null;
+
+            if (prfResult) {
+                // PRF path: encrypt wrapping key with authenticator-derived key
+                const prfKey = await importAesKey(new Uint8Array(prfResult), ["encrypt"]);
+                wrappedKey = await encryptWithKey(prfKey, wrappingKey);
+            } else {
+                // Fallback: generate random encryption key, encrypt wrapping key with it.
+                // Security: the fallback key is stored in IndexedDB but decryption is
+                // gated behind a WebAuthn assertion (biometric check) in authenticate().
+                const fbKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+                const fbKey = await importAesKey(fbKeyBytes, ["encrypt"]);
+                wrappedKey = await encryptWithKey(fbKey, wrappingKey);
+                fallbackKey = toBase64(fbKeyBytes);
+            }
 
             return {
                 credentialId: toBase64(credential.rawId),
                 wrappedKey: toBase64(wrappedKey),
-                bioSeed: toBase64(bioSeed)
+                bioSeed: toBase64(bioSeed),
+                fallbackKey: fallbackKey
             };
         },
 
@@ -133,8 +143,9 @@
             }
         },
 
-        // Authenticate with biometric and return the unwrapped seed (base64) or null
-        authenticate: async function (walletId, credentialIdBase64, wrappedKeyBase64, bioSeedBase64) {
+        // Authenticate with biometric and return the unwrapped seed (base64) or null.
+        // fallbackKeyBase64 is provided when PRF was not available during enrollment.
+        authenticate: async function (walletId, credentialIdBase64, wrappedKeyBase64, bioSeedBase64, fallbackKeyBase64) {
             const salt = await prfSalt(walletId);
             const credentialId = fromBase64(credentialIdBase64);
             const wrappedKey = fromBase64(wrappedKeyBase64);
@@ -148,7 +159,7 @@
                         allowCredentials: [{ id: credentialId, type: "public-key", transports: ["internal"] }],
                         userVerification: "required",
                         timeout: 60000,
-                        extensions: {
+                        extensions: fallbackKeyBase64 ? {} : {
                             prf: { eval: { first: salt } }
                         }
                     }
@@ -157,18 +168,25 @@
                 return null; // User cancelled or authenticator error
             }
 
-            const prfResult = assertion.getClientExtensionResults()?.prf?.results?.first;
-            if (!prfResult) return null;
+            let unwrappedKey;
 
-            // Decrypt wrapping key with PRF-derived key
-            const prfKey = await importPrfKey(new Uint8Array(prfResult));
-            const unwrappedKey = await decryptWithKey(prfKey, wrappedKey);
+            if (fallbackKeyBase64) {
+                // Fallback path: assertion succeeded (user authenticated), use stored key
+                const fbKeyBytes = fromBase64(fallbackKeyBase64);
+                const fbKey = await importAesKey(fbKeyBytes, ["decrypt"]);
+                unwrappedKey = await decryptWithKey(fbKey, wrappedKey);
+            } else {
+                // PRF path: decrypt wrapping key with authenticator-derived key
+                const prfResult = assertion.getClientExtensionResults()?.prf?.results?.first;
+                if (!prfResult) return null;
+                const prfKey = await importAesKey(new Uint8Array(prfResult), ["decrypt"]);
+                unwrappedKey = await decryptWithKey(prfKey, wrappedKey);
+            }
+
             if (!unwrappedKey) return null;
 
-            // Decrypt seed with unwrapped key
-            const wrapKey = await crypto.subtle.importKey(
-                "raw", unwrappedKey, { name: "AES-GCM" }, false, ["decrypt"]
-            );
+            // Decrypt seed with unwrapped wrapping key
+            const wrapKey = await importAesKey(unwrappedKey, ["decrypt"]);
             const seed = await decryptWithKey(wrapKey, bioSeed);
             if (!seed) return null;
 

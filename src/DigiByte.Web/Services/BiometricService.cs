@@ -4,8 +4,9 @@ using Microsoft.JSInterop;
 namespace DigiByte.Web.Services;
 
 /// <summary>
-/// Per-wallet biometric (WebAuthn PRF) enrollment and unlock.
-/// No secrets stored at rest — wrapping key is derived from the platform authenticator.
+/// Per-wallet biometric (WebAuthn) enrollment and unlock.
+/// Uses PRF extension when available (key bound to authenticator).
+/// Falls back to assertion-gated stored key when PRF is not supported.
 /// </summary>
 public class BiometricService
 {
@@ -18,6 +19,7 @@ public class BiometricService
     private const string BioSeedPrefix = "wallet_bio_seed_";
     private const string BioDismissedPrefix = "wallet_bio_dismissed_";
     private const string BioConfirmSendPrefix = "wallet_bio_confirm_send_";
+    private const string BioFallbackPrefix = "wallet_bio_fallback_";
 
     public BiometricService(IJSRuntime js, ISecureStorage storage)
     {
@@ -26,7 +28,7 @@ public class BiometricService
     }
 
     /// <summary>
-    /// Check if the browser supports WebAuthn with the PRF extension.
+    /// Check if the browser supports WebAuthn with a platform authenticator.
     /// </summary>
     public async Task<bool> IsSupportedAsync()
     {
@@ -94,6 +96,12 @@ public class BiometricService
             await _storage.SetAsync(BioSeedPrefix + walletId, result.BioSeed);
             await _storage.SetAsync(BioEnabledPrefix + walletId, "true");
 
+            // Store fallback key if PRF was not available
+            if (!string.IsNullOrEmpty(result.FallbackKey))
+                await _storage.SetAsync(BioFallbackPrefix + walletId, result.FallbackKey);
+            else
+                await _storage.RemoveAsync(BioFallbackPrefix + walletId);
+
             // Clear any previous dismissal
             await _storage.RemoveAsync(BioDismissedPrefix + walletId);
 
@@ -119,8 +127,11 @@ public class BiometricService
             if (credentialId == null || wrappedKey == null || bioSeed == null)
                 return null;
 
+            // Pass fallback key if stored (null when PRF was used)
+            var fallbackKey = await _storage.GetAsync(BioFallbackPrefix + walletId);
+
             var seedBase64 = await _js.InvokeAsync<string?>(
-                "dgbWebAuthn.authenticate", walletId, credentialId, wrappedKey, bioSeed);
+                "dgbWebAuthn.authenticate", walletId, credentialId, wrappedKey, bioSeed, fallbackKey);
 
             return seedBase64 != null ? Convert.FromBase64String(seedBase64) : null;
         }
@@ -180,6 +191,7 @@ public class BiometricService
         await _storage.RemoveAsync(BioEnabledPrefix + walletId);
         await _storage.RemoveAsync(BioDismissedPrefix + walletId);
         await _storage.RemoveAsync(BioConfirmSendPrefix + walletId);
+        await _storage.RemoveAsync(BioFallbackPrefix + walletId);
     }
 
     private class BiometricEnrollResult
@@ -187,5 +199,6 @@ public class BiometricService
         public string CredentialId { get; set; } = "";
         public string WrappedKey { get; set; } = "";
         public string BioSeed { get; set; } = "";
+        public string? FallbackKey { get; set; }
     }
 }
