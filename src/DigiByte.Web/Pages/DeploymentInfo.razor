@@ -1,6 +1,8 @@
 @page "/deployment"
+@using System.Net.Http.Json
+@using System.Text.Json
 @inject IJSRuntime JS
-@inject IBlockchainService Blockchain
+@inject IHttpClientFactory HttpClientFactory
 
 <PageTitle>Deployment</PageTitle>
 
@@ -63,10 +65,21 @@
             }
             else
             {
-                <span class="text-sm font-bold text-white">@((donationBalance / 100_000_000m).ToString("N4")) DGB</span>
-                <span class="text-[10px] text-dgb-200">current balance</span>
+                <span class="text-sm font-bold text-white">@((totalBalance / 100_000_000m).ToString("N4")) DGB</span>
+                <span class="text-[10px] text-dgb-200">total donated</span>
             }
         </div>
+
+        @if (!isLoadingBalance && previousDonations > 0)
+        {
+            <p class="text-[10px] text-dgb-300 mt-1">
+                Includes @((previousDonations / 100_000_000m).ToString("N4")) DGB from previous address
+            </p>
+        }
+
+        <a href="/donations" class="inline-block mt-3 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-xl press-effect transition-colors">
+            View Donation History
+        </a>
 
         <p class="text-[10px] text-dgb-300 mt-3">100% of donations go to infrastructure and development</p>
     </div>
@@ -86,18 +99,31 @@
 </div>
 
 @code {
-    private const string donationAddress = "DPSNEw5UmtUMQwTZPNoiUFDmCLu3Tp5SrK";
-    private decimal donationBalance;
+    private const string donationAddress = "dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa";
+    private const string MainnetApi = "https://digiexplorer.info/api";
+
+    // Previous donations to old address (DPSNEw5UmtUMQwTZPNoiUFDmCLu3Tp5SrK):
+    // tx 83641321fa...  →  100,000,000 sat (1 DGB)
+    // tx 1139c8aa34...  →  100,000,000,000 sat (1,000 DGB)
+    private const long previousDonations = 100_000_000 + 100_000_000_000;
+
+    private long donationBalance;
+    private long totalBalance;
     private bool isLoadingBalance = true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var satoshis = await Blockchain.GetBalanceAsync(donationAddress);
-            donationBalance = satoshis;
+            // Always query mainnet for the donation address, regardless of current network setting
+            var http = HttpClientFactory.CreateClient("Blockchain");
+            var response = await http.GetFromJsonAsync<JsonElement>($"{MainnetApi}/address/{donationAddress}");
+            var funded = response.GetProperty("chain_stats").GetProperty("funded_txo_sum").GetInt64();
+            var spent = response.GetProperty("chain_stats").GetProperty("spent_txo_sum").GetInt64();
+            donationBalance = funded - spent;
+            totalBalance = donationBalance + previousDonations;
         }
-        catch { }
+        catch { totalBalance = previousDonations; }
         finally { isLoadingBalance = false; }
     }
 

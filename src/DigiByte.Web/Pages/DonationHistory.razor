@@ -1,0 +1,274 @@
+@page "/donations"
+@using System.Net.Http.Json
+@using System.Text.Json
+@inject IJSRuntime JS
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Nav
+
+<PageTitle>Donation History</PageTitle>
+
+<div class="flex flex-col gap-5">
+    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2"
+            @onclick="() => Nav.NavigateTo(ReturnUrl)">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
+        Back
+    </button>
+
+    @* Header *@
+    <div class="text-center slide-up">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-dgb-400 to-dgb-600 flex items-center justify-center mx-auto shadow-lg shadow-dgb-500/25">
+            <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+            </svg>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white mt-3">Thank You, Donors!</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Every contribution helps keep this project alive</p>
+    </div>
+
+    @* Total Banner *@
+    <div class="slide-up-delay-1 bg-gradient-to-br from-dgb-500 to-dgb-700 rounded-2xl p-5 text-center text-white">
+        <p class="text-[10px] text-dgb-200 uppercase font-semibold tracking-wider">Total Donated</p>
+        @if (isLoading)
+        {
+            <div class="flex justify-center mt-2"><span class="inline-block w-32 h-8 skeleton rounded-lg"></span></div>
+        }
+        else
+        {
+            <p class="text-3xl font-extrabold mt-1">@((totalSatoshis / 100_000_000m).ToString("N4"))</p>
+            <p class="text-sm text-dgb-200 mt-0.5">DGB across @donations.Count donation@(donations.Count != 1 ? "s" : "")</p>
+        }
+    </div>
+
+    @* Transaction List *@
+    <div class="slide-up-delay-2">
+        <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Donation History</h3>
+
+        @if (isLoading)
+        {
+            @for (int i = 0; i < 3; i++)
+            {
+                <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-4 mb-2">
+                    <div class="flex gap-3">
+                        <span class="w-10 h-10 skeleton rounded-xl"></span>
+                        <div class="flex-1 flex flex-col gap-2">
+                            <span class="w-24 h-4 skeleton rounded"></span>
+                            <span class="w-40 h-3 skeleton rounded"></span>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="flex flex-col gap-2">
+                @foreach (var tx in donations)
+                {
+                    <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 overflow-hidden transition-all card-hover">
+                        <button class="w-full p-4 text-left" @onclick="() => ToggleExpand(tx.TxId)">
+                            <div class="flex items-start gap-3">
+                                @* Heart icon *@
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 @(tx.IsLarge ? "bg-gradient-to-br from-amber-400 to-amber-500" : "bg-green-50 dark:bg-green-900/20")">
+                                    @if (tx.IsLarge)
+                                    {
+                                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                                        </svg>
+                                    }
+                                </div>
+
+                                @* Info *@
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <p class="text-sm font-bold @(tx.IsLarge ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-white")">
+                                            +@((tx.Amount / 100_000_000m).ToString("N4")) DGB
+                                        </p>
+                                        @if (tx.IsLarge)
+                                        {
+                                            <span class="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded-full uppercase">Generous!</span>
+                                        }
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">@tx.Date.ToString("MMMM d, yyyy 'at' h:mm tt")</p>
+                                    @if (!string.IsNullOrEmpty(tx.Message))
+                                    {
+                                        <p class="text-xs text-dgb-500 dark:text-dgb-400 mt-1 italic">"@tx.Message"</p>
+                                    }
+                                    @if (tx.IsOldAddress)
+                                    {
+                                        <span class="text-[9px] text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full mt-1 inline-block">Previous address</span>
+                                    }
+                                </div>
+
+                                @* Expand chevron *@
+                                <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform duration-200 flex-shrink-0 mt-1 @(expandedTx == tx.TxId ? "rotate-180" : "")"
+                                     fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </div>
+                        </button>
+
+                        @* Expanded details *@
+                        @if (expandedTx == tx.TxId)
+                        {
+                            <div class="px-4 pb-4 pt-0 border-t border-slate-100 dark:border-dgb-800">
+                                <div class="mt-3 flex flex-col gap-2">
+                                    <div>
+                                        <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Transaction ID</p>
+                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-300 break-all mt-0.5">@tx.TxId</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Block Height</p>
+                                        <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5">@tx.BlockHeight.ToString("N0")</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Recipient Address</p>
+                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-300 break-all mt-0.5">@tx.ToAddress</p>
+                                    </div>
+                                    <div class="flex gap-2 mt-1">
+                                        <button class="flex-1 py-2 text-[10px] font-semibold rounded-lg bg-dgb-50 dark:bg-dgb-900/40 text-dgb-600 dark:text-dgb-400 hover:bg-dgb-100 dark:hover:bg-dgb-800 transition-colors press-effect"
+                                                @onclick="() => CopyTxId(tx.TxId)">
+                                            @(copiedTxId == tx.TxId ? "Copied!" : "Copy TX ID")
+                                        </button>
+                                        <button class="flex-1 py-2 text-[10px] font-semibold rounded-lg bg-dgb-50 dark:bg-dgb-900/40 text-dgb-600 dark:text-dgb-400 hover:bg-dgb-100 dark:hover:bg-dgb-800 transition-colors press-effect"
+                                                @onclick="() => ViewOnExplorer(tx.TxId)">
+                                            View on Explorer
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @* Thank You Footer *@
+    <div class="slide-up-delay-3 text-center py-4">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Want to support the project?</p>
+        <a href="/deployment" class="inline-block mt-2 px-5 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-dgb-500/25 press-effect transition-colors">
+            Make a Donation
+        </a>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private const string MainnetApi = "https://digiexplorer.info/api";
+    private const string ExplorerUrl = "https://digiexplorer.info";
+    private const string CurrentAddress = "dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa";
+    private const string OldAddress = "DPSNEw5UmtUMQwTZPNoiUFDmCLu3Tp5SrK";
+
+    // Known previous donations to old address
+    private static readonly DonationTx[] knownDonations =
+    [
+        new("83641321fa0386d531290fb9ace6244ab5cb3a4b9349ee0998c251ece1a38f6c",
+            100_000_000, OldAddress, 23_269_462,
+            DateTimeOffset.FromUnixTimeSeconds(1775456498).LocalDateTime,
+            "Donation to DigiByte wallet", true),
+        new("1139c8aa344cdfe2d9551e8abb14703071ec212b98a8bfc312e03c543f1b27a0",
+            100_000_000_000, OldAddress, 23_296_454,
+            DateTimeOffset.FromUnixTimeSeconds(1775860077).LocalDateTime,
+            null, true),
+    ];
+
+    private List<DonationTx> donations = [];
+    private long totalSatoshis;
+    private bool isLoading = true;
+    private string? expandedTx;
+    private string? copiedTxId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ReturnUrl ??= "/deployment";
+        donations = [.. knownDonations];
+
+        try
+        {
+            var http = HttpClientFactory.CreateClient("Blockchain");
+            var txList = await http.GetFromJsonAsync<JsonElement>($"{MainnetApi}/address/{CurrentAddress}/txs");
+            if (txList.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var tx in txList.EnumerateArray())
+                {
+                    var txid = tx.GetProperty("txid").GetString() ?? "";
+                    long amount = 0;
+                    string? opReturnMsg = null;
+
+                    foreach (var vout in tx.GetProperty("vout").EnumerateArray())
+                    {
+                        var addr = vout.TryGetProperty("scriptpubkey_address", out var a) ? a.GetString() : null;
+                        var type = vout.TryGetProperty("scriptpubkey_type", out var t) ? t.GetString() : null;
+
+                        if (addr == CurrentAddress)
+                            amount += vout.GetProperty("value").GetInt64();
+
+                        if (type == "op_return" && vout.TryGetProperty("scriptpubkey_asm", out var asm))
+                        {
+                            var asmStr = asm.GetString() ?? "";
+                            var hex = asmStr.Replace("OP_RETURN OP_PUSHBYTES_27 ", "")
+                                           .Replace("OP_RETURN OP_PUSHBYTES_", "")
+                                           .Trim();
+                            // Remove length prefix if present
+                            if (hex.Length > 2 && hex.Contains(' '))
+                                hex = hex[(hex.IndexOf(' ') + 1)..];
+                            try
+                            {
+                                var bytes = Convert.FromHexString(hex.Replace(" ", ""));
+                                opReturnMsg = System.Text.Encoding.UTF8.GetString(bytes);
+                                if (opReturnMsg.Any(c => char.IsControl(c))) opReturnMsg = null;
+                            }
+                            catch { }
+                        }
+                    }
+
+                    if (amount <= 0) continue;
+
+                    var status = tx.GetProperty("status");
+                    var blockHeight = status.TryGetProperty("block_height", out var bh) ? bh.GetInt64() : 0;
+                    var blockTime = status.TryGetProperty("block_time", out var bt) ? bt.GetInt64() : 0;
+                    var date = blockTime > 0 ? DateTimeOffset.FromUnixTimeSeconds(blockTime).LocalDateTime : DateTime.Now;
+
+                    donations.Add(new DonationTx(txid, amount, CurrentAddress, blockHeight, date, opReturnMsg, false));
+                }
+            }
+        }
+        catch { /* live fetch failed, still show known donations */ }
+
+        donations = [.. donations.OrderByDescending(d => d.BlockHeight)];
+        totalSatoshis = donations.Sum(d => d.Amount);
+        isLoading = false;
+    }
+
+    private void ToggleExpand(string txId)
+    {
+        expandedTx = expandedTx == txId ? null : txId;
+    }
+
+    private async Task CopyTxId(string txId)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", txId);
+        copiedTxId = txId;
+        StateHasChanged();
+        await Task.Delay(2000);
+        if (copiedTxId == txId) { copiedTxId = null; StateHasChanged(); }
+    }
+
+    private async Task ViewOnExplorer(string txId)
+    {
+        await JS.InvokeVoidAsync("open", $"{ExplorerUrl}/tx/{txId}", "_blank");
+    }
+
+    private record DonationTx(string TxId, long Amount, string ToAddress, long BlockHeight, DateTime Date, string? Message, bool IsOldAddress)
+    {
+        public bool IsLarge => Amount >= 10_000_000_000; // >= 100 DGB
+    }
+}
