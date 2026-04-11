@@ -1,8 +1,8 @@
 @page "/deployment"
-@using System.Net.Http.Json
-@using System.Text.Json
 @inject IJSRuntime JS
-@inject IHttpClientFactory HttpClientFactory
+@inject FallbackBlockchainService Blockchain
+@inject AppState AppState
+@inject MemoryCacheService Cache
 
 <PageTitle>Deployment</PageTitle>
 
@@ -56,6 +56,10 @@
         <div class="mt-3 bg-white/10 backdrop-blur rounded-xl p-3">
             <p class="text-[10px] text-dgb-200 uppercase font-semibold mb-1">DigiByte (DGB) Donation Address</p>
             <p class="font-mono text-xs break-all text-white">@donationAddress</p>
+            <button class="mt-2 px-3 py-1.5 text-[10px] font-semibold rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors press-effect"
+                    @onclick="CopyAddress">
+                @(addressCopied ? "✅ Copied!" : "📋 Copy Address")
+            </button>
         </div>
 
         <div class="mt-2 flex items-center justify-center gap-2">
@@ -67,8 +71,20 @@
             {
                 <span class="text-sm font-bold text-white">@((totalBalance / 100_000_000m).ToString("N4")) DGB</span>
                 <span class="text-[10px] text-dgb-200">total donated</span>
+                <button type="button" class="p-1 rounded-lg hover:bg-white/20 transition-colors disabled:opacity-40" title="Refresh"
+                        @onclick="RefreshDonationDataAsync" disabled="@isRefreshing">
+                    <svg class="w-3.5 h-3.5 text-white @(isRefreshing ? "animate-spin" : "")" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M20.015 4.356v4.992" />
+                    </svg>
+                </button>
             }
         </div>
+
+        @if (!isLoadingBalance && dgbPriceUsd > 0)
+        {
+            <p class="text-sm font-semibold text-dgb-100 mt-0.5">≈ $@((totalBalance / 100_000_000m * dgbPriceUsd).ToString("N2")) USD</p>
+            <p class="text-[10px] text-dgb-300">@@ $@(dgbPriceUsd.ToString("N4"))/DGB</p>
+        }
 
         @if (!isLoadingBalance && previousDonations > 0)
         {
@@ -100,7 +116,6 @@
 
 @code {
     private const string donationAddress = "dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa";
-    private const string MainnetApi = "https://digiexplorer.info/api";
 
     // Previous donations to old address (DPSNEw5UmtUMQwTZPNoiUFDmCLu3Tp5SrK):
     // tx 83641321fa...  →  100,000,000 sat (1 DGB)
@@ -109,22 +124,89 @@
 
     private long donationBalance;
     private long totalBalance;
+    private decimal dgbPriceUsd;
     private bool isLoadingBalance = true;
+    private bool isRefreshing;
+    private bool addressCopied;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadDonationDataAsync(useCache: true);
+    }
+
+    private async Task LoadDonationDataAsync(bool useCache)
+    {
+        var currentMode = AppState.NetworkMode;
         try
         {
-            // Always query mainnet for the donation address, regardless of current network setting
-            var http = HttpClientFactory.CreateClient("Blockchain");
-            var response = await http.GetFromJsonAsync<JsonElement>($"{MainnetApi}/address/{donationAddress}");
-            var funded = response.GetProperty("chain_stats").GetProperty("funded_txo_sum").GetInt64();
-            var spent = response.GetProperty("chain_stats").GetProperty("spent_txo_sum").GetInt64();
-            donationBalance = funded - spent;
+            Blockchain.SetNetworkMode("mainnet");
+
+            if (useCache)
+            {
+                donationBalance = await Cache.GetOrFetchAsync(
+                    "donation:balance",
+                    () => Blockchain.GetBalanceAsync(donationAddress),
+                    TimeSpan.FromMinutes(5));
+            }
+            else
+            {
+                donationBalance = await Blockchain.GetBalanceAsync(donationAddress);
+                Cache.Set("donation:balance", donationBalance, TimeSpan.FromMinutes(5));
+            }
+
             totalBalance = donationBalance + previousDonations;
         }
         catch { totalBalance = previousDonations; }
-        finally { isLoadingBalance = false; }
+        finally
+        {
+            isLoadingBalance = false;
+            Blockchain.SetNetworkMode(currentMode);
+        }
+
+        try
+        {
+            if (useCache)
+            {
+                dgbPriceUsd = await Cache.GetOrFetchAsync(
+                    "donation:price",
+                    () => Blockchain.GetDgbPriceAsync(),
+                    TimeSpan.FromMinutes(5));
+            }
+            else
+            {
+                dgbPriceUsd = await Blockchain.GetDgbPriceAsync();
+                Cache.Set("donation:price", dgbPriceUsd, TimeSpan.FromMinutes(5));
+            }
+        }
+        catch { /* price fetch failed, USD won't be shown */ }
+    }
+
+    private async Task RefreshDonationDataAsync()
+    {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        StateHasChanged();
+
+        try
+        {
+            Cache.RemoveByPrefix("donation:");
+            await LoadDonationDataAsync(useCache: false);
+        }
+        catch { }
+        finally
+        {
+            isRefreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyAddress()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", donationAddress);
+        addressCopied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        addressCopied = false;
     }
 
     private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
