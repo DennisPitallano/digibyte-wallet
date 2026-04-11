@@ -68,26 +68,40 @@
             const salt = await prfSalt(walletId);
             const userId = new TextEncoder().encode(walletId);
 
-            const credential = await navigator.credentials.create({
-                publicKey: {
-                    rp: { name: "DigiByte Wallet", id: window.location.hostname },
-                    user: { id: userId, name: userName, displayName: userName },
-                    challenge: crypto.getRandomValues(new Uint8Array(32)),
-                    pubKeyCredParams: [
-                        { alg: -7, type: "public-key" },   // ES256
-                        { alg: -257, type: "public-key" },  // RS256
-                    ],
-                    authenticatorSelection: {
-                        authenticatorAttachment: "platform",
-                        userVerification: "required",
-                        residentKey: "discouraged",
-                    },
-                    timeout: 60000,
-                    extensions: {
-                        prf: { eval: { first: salt } }
-                    }
+            const createOptions = {
+                rp: { name: "DigiByte Wallet", id: window.location.hostname },
+                user: { id: userId, name: userName, displayName: userName },
+                challenge: crypto.getRandomValues(new Uint8Array(32)),
+                pubKeyCredParams: [
+                    { alg: -7, type: "public-key" },   // ES256
+                    { alg: -257, type: "public-key" },  // RS256
+                ],
+                authenticatorSelection: {
+                    authenticatorAttachment: "platform",
+                    userVerification: "required",
+                    residentKey: "discouraged",
+                },
+                timeout: 60000
+            };
+
+            // Try with PRF extension first. Some authenticators (Windows Hello,
+            // mobile fingerprint) reject the entire create() call when PRF is
+            // included, so we fall back to creating without it.
+            let credential;
+            let prfRequested = false;
+            try {
+                credential = await navigator.credentials.create({
+                    publicKey: { ...createOptions, extensions: { prf: { eval: { first: salt } } } }
+                });
+                prfRequested = true;
+            } catch (prfErr) {
+                // Retry without PRF extension
+                try {
+                    credential = await navigator.credentials.create({ publicKey: createOptions });
+                } catch {
+                    return null; // User cancelled or authenticator truly unavailable
                 }
-            });
+            }
 
             const wrappingKey = fromBase64(wrappingKeyBase64);
             const seed = fromBase64(seedBase64);
@@ -97,7 +111,9 @@
             const bioSeed = await encryptWithKey(wrapKeyEnc, seed);
 
             // Try PRF-based encryption first (most secure — key bound to authenticator)
-            const prfResult = credential.getClientExtensionResults()?.prf?.results?.first;
+            const prfResult = prfRequested
+                ? credential.getClientExtensionResults()?.prf?.results?.first
+                : null;
 
             let wrappedKey;
             let fallbackKey = null;
@@ -151,21 +167,37 @@
             const wrappedKey = fromBase64(wrappedKeyBase64);
             const bioSeed = fromBase64(bioSeedBase64);
 
+            const getOptions = {
+                challenge: crypto.getRandomValues(new Uint8Array(32)),
+                allowCredentials: [{ id: credentialId, type: "public-key", transports: ["internal"] }],
+                userVerification: "required",
+                timeout: 60000
+            };
+
             let assertion;
-            try {
-                assertion = await navigator.credentials.get({
-                    publicKey: {
-                        challenge: crypto.getRandomValues(new Uint8Array(32)),
-                        allowCredentials: [{ id: credentialId, type: "public-key", transports: ["internal"] }],
-                        userVerification: "required",
-                        timeout: 60000,
-                        extensions: fallbackKeyBase64 ? {} : {
-                            prf: { eval: { first: salt } }
-                        }
+            let prfAttempted = false;
+
+            if (fallbackKeyBase64) {
+                // Fallback path — no PRF needed, just verify identity
+                try {
+                    assertion = await navigator.credentials.get({ publicKey: getOptions });
+                } catch {
+                    return null;
+                }
+            } else {
+                // Try with PRF first; fall back to without if authenticator rejects it
+                try {
+                    assertion = await navigator.credentials.get({
+                        publicKey: { ...getOptions, extensions: { prf: { eval: { first: salt } } } }
+                    });
+                    prfAttempted = true;
+                } catch {
+                    try {
+                        assertion = await navigator.credentials.get({ publicKey: getOptions });
+                    } catch {
+                        return null;
                     }
-                });
-            } catch {
-                return null; // User cancelled or authenticator error
+                }
             }
 
             let unwrappedKey;
@@ -177,7 +209,9 @@
                 unwrappedKey = await decryptWithKey(fbKey, wrappedKey);
             } else {
                 // PRF path: decrypt wrapping key with authenticator-derived key
-                const prfResult = assertion.getClientExtensionResults()?.prf?.results?.first;
+                const prfResult = prfAttempted
+                    ? assertion.getClientExtensionResults()?.prf?.results?.first
+                    : null;
                 if (!prfResult) return null;
                 const prfKey = await importAesKey(new Uint8Array(prfResult), ["decrypt"]);
                 unwrappedKey = await decryptWithKey(prfKey, wrappedKey);
