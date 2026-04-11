@@ -13,6 +13,13 @@
             <DigiLogo Size="72" Class="relative" />
         </div>
         <h2 class="text-lg font-bold text-slate-900 dark:text-white">Welcome back</h2>
+        @if (!string.IsNullOrEmpty(walletName))
+        {
+            <div class="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
+                <span class="w-3 h-3 rounded-full flex-shrink-0 shadow-lg" style="background-color: @walletColor; box-shadow: 0 0 8px @(walletColor)66;"></span>
+                <span class="text-base font-bold text-white tracking-wide">@walletName</span>
+            </div>
+        }
             <p class="text-sm text-slate-400 dark:text-slate-500">Enter your 6-digit PIN</p>
         </div>
 
@@ -134,7 +141,25 @@
             }
         </div>
     }
-
+    @if (allWallets.Count > 1)
+    {
+        <div class="flex flex-col items-center gap-2 slide-up-delay-3">
+            <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">Or unlock a different wallet:</p>
+            @foreach (var w in allWallets.Where(w => w.Id != walletId))
+            {
+                var wc = w.Color ?? "#0066FF";
+                <button class="flex items-center gap-1.5 text-xs text-dgb-500 hover:text-dgb-600 font-semibold transition-colors"
+                        @onclick="() => SwitchToWallet(w.Id, w.Name, w.Color)">
+                    <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: @wc;"></span>
+                    @w.Name
+                    @if (WalletService.IsWalletUnlockedInSession(w.Id))
+                    {
+                        <span class="text-green-500 ml-1">(unlocked)</span>
+                    }
+                </button>
+            }
+        </div>
+    }
     <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500 slide-up-delay-3">
         <a href="/help" class="hover:text-dgb-500 transition-colors">Help</a>
         <span>·</span>
@@ -176,11 +201,37 @@
     private string? resetError;
     private string deleteConfirmText = "";
     private PinInput? resetPinInput;
+    private string walletName = "";
+    private string walletColor = "#0066FF";
+    private List<WalletInfo> allWallets = [];
 
     protected override async Task OnInitializedAsync()
     {
-        walletId = await WalletService.GetActiveWalletIdAsync();
-        if (walletId == null) Nav.NavigateTo("/welcome");
+        // Check for wallet-specific unlock via query param
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var requestedId = query["walletId"];
+
+        allWallets = await WalletService.GetAllWalletsAsync();
+        if (allWallets.Count == 0) { Nav.NavigateTo("/welcome"); return; }
+
+        if (!string.IsNullOrEmpty(requestedId))
+        {
+            walletId = requestedId;
+        }
+        else
+        {
+            walletId = await WalletService.GetActiveWalletIdAsync();
+        }
+
+        if (walletId == null)
+        {
+            walletId = allWallets.First().Id;
+        }
+
+        var info = allWallets.FirstOrDefault(w => w.Id == walletId);
+        walletName = info?.Name ?? "";
+        walletColor = info?.Color ?? "#0066FF";
     }
 
     private void OnPinChanged(string value) => pin = value;
@@ -212,6 +263,7 @@
                 lockedUntil = null;
                 AppState.IsWalletCreated = true;
                 AppState.IsWalletUnlocked = true;
+                AppState.ActiveWalletName = walletName;
                 AppState.NotifyStateChanged();
                 Nav.NavigateTo("/");
             }
@@ -301,5 +353,33 @@
         AppState.IsWalletCreated = false;
         AppState.IsWalletUnlocked = false;
         Nav.NavigateTo("/welcome");
+    }
+
+    private async Task SwitchToWallet(string id, string name, string? color = null)
+    {
+        if (WalletService.IsWalletUnlockedInSession(id))
+        {
+            // Already unlocked — switch instantly
+            await WalletService.SwitchWalletAsync(id);
+            AppState.IsWalletCreated = true;
+            AppState.IsWalletUnlocked = true;
+            AppState.ActiveWalletName = name;
+            AppState.NotifyStateChanged();
+            Nav.NavigateTo("/");
+        }
+        else
+        {
+            // Needs PIN — reload this page for the other wallet
+            walletId = id;
+            walletName = name;
+            walletColor = color ?? "#0066FF";
+            pin = "";
+            error = null;
+            failedAttempts = 0;
+            lockedUntil = null;
+            pinInput?.Clear();
+            CancelForgot();
+            StateHasChanged();
+        }
     }
 }

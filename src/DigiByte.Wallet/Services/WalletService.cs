@@ -16,13 +16,29 @@ public class WalletService : IWalletService
     private readonly IBlockchainService _blockchain;
     private readonly TransactionTracker _txTracker;
 
-    private HdKeyDerivation? _hd;
-    private Key? _singleKey; // For WIF-imported wallets (no HD derivation)
-    private WalletInfo? _activeWallet;
+    // Multi-wallet session: holds all unlocked wallets in memory
+    private class UnlockedWalletSession
+    {
+        public WalletInfo Info { get; set; } = default!;
+        public HdKeyDerivation? Hd { get; set; }
+        public Key? SingleKey { get; set; }
+    }
+
+    private readonly Dictionary<string, UnlockedWalletSession> _sessions = new();
+    private string? _activeWalletId;
     private string _networkMode = "testnet";
 
-    public bool IsUnlocked => _hd != null || _singleKey != null;
-    public WalletInfo? ActiveWallet => _activeWallet;
+    private const int MaxWallets = 10;
+
+    private UnlockedWalletSession? ActiveSession =>
+        _activeWalletId != null && _sessions.TryGetValue(_activeWalletId, out var s) ? s : null;
+
+    // Convenience accessors that delegate to the active session
+    private HdKeyDerivation? _hd => ActiveSession?.Hd;
+    private Key? _singleKey => ActiveSession?.SingleKey;
+
+    public bool IsUnlocked => ActiveSession != null;
+    public WalletInfo? ActiveWallet => ActiveSession?.Info;
 
     /// <summary>
     /// Returns the hex-encoded compressed public key for the primary receiving address (index 0).
@@ -89,8 +105,8 @@ public class WalletService : IWalletService
     /// For HD wallets, use the user-selected network.
     /// </summary>
     private Network EffectiveNetwork =>
-        _activeWallet?.WalletType is "privatekey" or "xpub" && _activeWallet.WifNetwork != null
-            ? _activeWallet.WifNetwork switch
+        ActiveWallet?.WalletType is "privatekey" or "xpub" && ActiveWallet.WifNetwork != null
+            ? ActiveWallet.WifNetwork switch
             {
                 "mainnet" => DigiByteNetwork.Mainnet,
                 "testnet" => DigiByteNetwork.Testnet,
@@ -106,8 +122,12 @@ public class WalletService : IWalletService
         _ => DigiByteNetwork.Mainnet,
     };
 
-    public async Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin)
+    public async Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null)
     {
+        var count = await _walletStore.GetWalletCountAsync();
+        if (count >= MaxWallets)
+            throw new InvalidOperationException($"Maximum of {MaxWallets} wallets reached. Delete an existing wallet first.");
+
         var walletId = Guid.NewGuid().ToString("N");
 
         var encrypted = await _crypto.EncryptAsync(
@@ -118,15 +138,22 @@ public class WalletService : IWalletService
         {
             Id = walletId,
             Name = name,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Color = color ?? WalletInfo.ColorPalette[count % WalletInfo.ColorPalette.Length]
         };
 
         await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
         await _walletStore.SetActiveWalletIdAsync(walletId);
 
         var parsedMnemonic = MnemonicGenerator.FromWords(mnemonic);
-        _hd = new HdKeyDerivation(parsedMnemonic, network: CurrentNetwork);
-        _activeWallet = wallet;
+        var session = new UnlockedWalletSession
+        {
+            Info = wallet,
+            Hd = new HdKeyDerivation(parsedMnemonic, network: CurrentNetwork),
+        };
+        _sessions[walletId] = session;
+        _activeWalletId = walletId;
+        _txTracker.SetActiveWallet(walletId);
 
         return wallet;
     }
@@ -134,8 +161,12 @@ public class WalletService : IWalletService
     /// <summary>
     /// Create a wallet from a single WIF private key (paper wallet / legacy import).
     /// </summary>
-    public async Task<WalletInfo> CreateWalletFromWifAsync(string name, string wif, string pin)
+    public async Task<WalletInfo> CreateWalletFromWifAsync(string name, string wif, string pin, string? color = null)
     {
+        var count = await _walletStore.GetWalletCountAsync();
+        if (count >= MaxWallets)
+            throw new InvalidOperationException($"Maximum of {MaxWallets} wallets reached. Delete an existing wallet first.");
+
         var walletId = Guid.NewGuid().ToString("N");
 
         // Encrypt the WIF with PIN (same pattern as mnemonic)
@@ -158,14 +189,20 @@ public class WalletService : IWalletService
             CreatedAt = DateTime.UtcNow,
             WalletType = "privatekey",
             WifNetwork = networkName,
+            Color = color ?? WalletInfo.ColorPalette[count % WalletInfo.ColorPalette.Length]
         };
 
         await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
         await _walletStore.SetActiveWalletIdAsync(walletId);
 
-        _singleKey = PrivateKeyImporter.ParseWif(wif, detectedNetwork);
-        _hd = null;
-        _activeWallet = wallet;
+        var session = new UnlockedWalletSession
+        {
+            Info = wallet,
+            SingleKey = PrivateKeyImporter.ParseWif(wif, detectedNetwork),
+        };
+        _sessions[walletId] = session;
+        _activeWalletId = walletId;
+        _txTracker.SetActiveWallet(walletId);
 
         return wallet;
     }
@@ -174,8 +211,12 @@ public class WalletService : IWalletService
     /// Create a watch-only wallet from an extended public key (xpub).
     /// Can view balances and receive, but cannot sign or send transactions.
     /// </summary>
-    public async Task<WalletInfo> CreateWatchOnlyWalletAsync(string name, string xpub, string pin)
+    public async Task<WalletInfo> CreateWatchOnlyWalletAsync(string name, string xpub, string pin, string? color = null)
     {
+        var count = await _walletStore.GetWalletCountAsync();
+        if (count >= MaxWallets)
+            throw new InvalidOperationException($"Maximum of {MaxWallets} wallets reached. Delete an existing wallet first.");
+
         var walletId = Guid.NewGuid().ToString("N");
 
         var detectedNetwork = HdKeyDerivation.DetectXpubNetwork(xpub.Trim());
@@ -197,14 +238,20 @@ public class WalletService : IWalletService
             CreatedAt = DateTime.UtcNow,
             WalletType = "xpub",
             WifNetwork = networkName,
+            Color = color ?? WalletInfo.ColorPalette[count % WalletInfo.ColorPalette.Length]
         };
 
         await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
         await _walletStore.SetActiveWalletIdAsync(walletId);
 
-        _hd = new HdKeyDerivation(extPubKey, detectedNetwork ?? CurrentNetwork);
-        _singleKey = null;
-        _activeWallet = wallet;
+        var session = new UnlockedWalletSession
+        {
+            Info = wallet,
+            Hd = new HdKeyDerivation(extPubKey, detectedNetwork ?? CurrentNetwork),
+        };
+        _sessions[walletId] = session;
+        _activeWalletId = walletId;
+        _txTracker.SetActiveWallet(walletId);
 
         return wallet;
     }
@@ -236,33 +283,35 @@ public class WalletService : IWalletService
         if (decrypted == null)
             return false;
 
-        _activeWallet = await GetWalletAsync(walletId);
+        var walletInfo = await GetWalletAsync(walletId);
         var seedString = System.Text.Encoding.UTF8.GetString(decrypted);
+        var session = new UnlockedWalletSession { Info = walletInfo! };
 
-        if (_activeWallet?.WalletType == "privatekey")
+        if (walletInfo?.WalletType == "privatekey")
         {
             // WIF-imported wallet — single key, no HD derivation
             var wifNetwork = PrivateKeyImporter.DetectNetwork(seedString) ?? CurrentNetwork;
-            _singleKey = PrivateKeyImporter.ParseWif(seedString, wifNetwork);
-            _hd = null;
+            session.SingleKey = PrivateKeyImporter.ParseWif(seedString, wifNetwork);
         }
-        else if (_activeWallet?.WalletType == "xpub")
+        else if (walletInfo?.WalletType == "xpub")
         {
             // Watch-only wallet — xpub, no private keys (auto-detect network from key prefix)
             var xpubNetwork = HdKeyDerivation.DetectXpubNetwork(seedString) ?? CurrentNetwork;
             var extPubKey = HdKeyDerivation.ParseXpub(seedString);
             if (extPubKey == null) return false;
-            _hd = new HdKeyDerivation(extPubKey, xpubNetwork);
-            _singleKey = null;
+            session.Hd = new HdKeyDerivation(extPubKey, xpubNetwork);
         }
         else
         {
             // Standard HD wallet from mnemonic
             var mnemonic = MnemonicGenerator.FromWords(seedString);
-            _hd = new HdKeyDerivation(mnemonic, network: CurrentNetwork);
-            _singleKey = null;
+            session.Hd = new HdKeyDerivation(mnemonic, network: CurrentNetwork);
         }
 
+        _sessions[walletId] = session;
+        _activeWalletId = walletId;
+        _txTracker.SetActiveWallet(walletId);
+        await _walletStore.SetActiveWalletIdAsync(walletId);
         return true;
     }
 
@@ -282,9 +331,8 @@ public class WalletService : IWalletService
 
     public Task LockWalletAsync()
     {
-        _hd = null;
-        _singleKey = null;
-        _activeWallet = null;
+        _sessions.Clear();
+        _activeWalletId = null;
         return Task.CompletedTask;
     }
 
@@ -317,12 +365,12 @@ public class WalletService : IWalletService
         }
 
         var totalSatoshis = await _blockchain.GetBalanceAsync(addresses);
-        var dgbPrice = await _blockchain.GetDgbPriceAsync(_activeWallet!.FiatCurrency);
+        var dgbPrice = await _blockchain.GetDgbPriceAsync(ActiveWallet!.FiatCurrency);
 
         var balance = new WalletBalance
         {
             ConfirmedSatoshis = totalSatoshis,
-            FiatCurrency = _activeWallet.FiatCurrency,
+            FiatCurrency = ActiveWallet.FiatCurrency,
         };
         balance.FiatValue = balance.ConfirmedDgb * dgbPrice;
 
@@ -340,7 +388,7 @@ public class WalletService : IWalletService
             var addr = _singleKey.PubKey.GetAddress(defaultType, EffectiveNetwork);
             return Task.FromResult(addr.ToString());
         }
-        var index = _activeWallet!.NextReceivingIndex;
+        var index = ActiveWallet!.NextReceivingIndex;
         var address = _hd!.DeriveReceivingAddress(index, format == "default" ? ScriptPubKeyType.Segwit : type);
         return Task.FromResult(address.ToString());
     }
@@ -395,7 +443,7 @@ public class WalletService : IWalletService
     {
         EnsureUnlocked();
 
-        if (_activeWallet?.WalletType == "xpub")
+        if (ActiveWallet?.WalletType == "xpub")
             throw new InvalidOperationException("Watch-only wallets cannot send transactions.");
 
         var network = CurrentNetwork;
@@ -492,7 +540,7 @@ public class WalletService : IWalletService
             if (availableUtxos.Count == 0)
                 throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
 
-            var changeKey = _hd!.DeriveChangeKey(_activeWallet!.NextChangeIndex);
+            var changeKey = _hd!.DeriveChangeKey(ActiveWallet!.NextChangeIndex);
             changeAddress = _hd.GetAddress(changeKey);
         }
 
@@ -527,8 +575,8 @@ public class WalletService : IWalletService
             feePaid?.Satoshi ?? 0, memo);
 
         // Increment change index (HD wallets only)
-        if (_hd != null && _activeWallet != null)
-            _activeWallet.NextChangeIndex++;
+        if (_hd != null && ActiveWallet != null)
+            ActiveWallet.NextChangeIndex++;
 
         return txId;
     }
@@ -543,7 +591,7 @@ public class WalletService : IWalletService
     {
         EnsureUnlocked();
 
-        if (_activeWallet?.WalletType == "xpub")
+        if (ActiveWallet?.WalletType == "xpub")
             throw new InvalidOperationException("Watch-only wallets cannot send transactions.");
 
         if (recipients == null || recipients.Count == 0)
@@ -662,7 +710,7 @@ public class WalletService : IWalletService
             if (availableUtxos.Count == 0)
                 throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
 
-            var changeKey = _hd!.DeriveChangeKey(_activeWallet!.NextChangeIndex);
+            var changeKey = _hd!.DeriveChangeKey(ActiveWallet!.NextChangeIndex);
             changeAddress = _hd.GetAddress(changeKey);
         }
 
@@ -697,8 +745,8 @@ public class WalletService : IWalletService
             await _txTracker.RecordSendAsync(txId, address, satoshis, feePaid?.Satoshi ?? 0, memo);
         }
 
-        if (_hd != null && _activeWallet != null)
-            _activeWallet.NextChangeIndex++;
+        if (_hd != null && ActiveWallet != null)
+            ActiveWallet.NextChangeIndex++;
 
         return txId;
     }
@@ -711,7 +759,7 @@ public class WalletService : IWalletService
         var localTxs = await _txTracker.GetAllAsync();
 
         // On mainnet/testnet, also try the Esplora explorer for full history
-        var effectiveMode = _activeWallet?.WifNetwork ?? _networkMode;
+        var effectiveMode = ActiveWallet?.WifNetwork ?? _networkMode;
         if (effectiveMode != "regtest")
         {
             try
@@ -779,18 +827,40 @@ public class WalletService : IWalletService
     public Task RemoveContactAsync(string contactId) => Task.CompletedTask;
 
     /// <summary>
-    /// Delete the active wallet and all associated data.
+    /// Delete the specified wallet and all associated data.
+    /// If deleting the active wallet, switches to another if available.
+    /// </summary>
+    public async Task DeleteWalletAsync(string walletId)
+    {
+        _sessions.Remove(walletId);
+        await _walletStore.DeleteWalletAsync(walletId);
+
+        if (_activeWalletId == walletId)
+        {
+            // Switch to another unlocked wallet, or the first available
+            var remaining = await _walletStore.GetAllWalletInfosAsync();
+            if (remaining.Count > 0)
+            {
+                var next = remaining.First();
+                _activeWalletId = next.Id;
+                _txTracker.SetActiveWallet(next.Id);
+                await _walletStore.SetActiveWalletIdAsync(next.Id);
+            }
+            else
+            {
+                _activeWalletId = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Delete the active wallet (legacy overload for backward compat).
     /// </summary>
     public async Task DeleteWalletAsync()
     {
         var walletId = await _walletStore.GetActiveWalletIdAsync();
         if (walletId != null)
-        {
-            await _walletStore.DeleteWalletAsync(walletId);
-        }
-        _hd = null;
-        _singleKey = null;
-        _activeWallet = null;
+            await DeleteWalletAsync(walletId);
     }
 
     /// <summary>
@@ -799,9 +869,8 @@ public class WalletService : IWalletService
     public async Task WipeAllDataAsync()
     {
         await _walletStore.ClearAllAsync();
-        _hd = null;
-        _singleKey = null;
-        _activeWallet = null;
+        _sessions.Clear();
+        _activeWalletId = null;
     }
 
     /// <summary>
@@ -1129,8 +1198,66 @@ public class WalletService : IWalletService
 
     private void EnsureUnlocked()
     {
-        if ((_hd == null && _singleKey == null) || _activeWallet == null)
+        if (ActiveSession == null)
             throw new InvalidOperationException("Wallet is locked. Unlock it first.");
+    }
+
+    /// <summary>
+    /// Returns all wallets stored in IndexedDB.
+    /// </summary>
+    public async Task<List<WalletInfo>> GetAllWalletsAsync()
+    {
+        return await _walletStore.GetAllWalletInfosAsync();
+    }
+
+    /// <summary>
+    /// Switch to a different wallet that is already unlocked in this session.
+    /// If the wallet is not unlocked, throws — caller should redirect to unlock page.
+    /// </summary>
+    public async Task SwitchWalletAsync(string walletId)
+    {
+        if (!_sessions.ContainsKey(walletId))
+            throw new InvalidOperationException("Wallet is not unlocked. Enter PIN to unlock.");
+
+        _activeWalletId = walletId;
+        _txTracker.SetActiveWallet(walletId);
+        await _walletStore.SetActiveWalletIdAsync(walletId);
+    }
+
+    /// <summary>
+    /// Returns true if the given wallet has been unlocked during this session.
+    /// </summary>
+    public bool IsWalletUnlockedInSession(string walletId)
+    {
+        return _sessions.ContainsKey(walletId);
+    }
+
+    /// <summary>
+    /// Rename a wallet and persist the change.
+    /// </summary>
+    public async Task RenameWalletAsync(string walletId, string newName)
+    {
+        var info = await GetWalletAsync(walletId);
+        if (info == null) return;
+
+        info.Name = newName;
+        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+
+        // Update in-memory session if unlocked
+        if (_sessions.TryGetValue(walletId, out var session))
+            session.Info.Name = newName;
+    }
+
+    public async Task ChangeWalletColorAsync(string walletId, string color)
+    {
+        var info = await GetWalletAsync(walletId);
+        if (info == null) return;
+
+        info.Color = color;
+        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+
+        if (_sessions.TryGetValue(walletId, out var session))
+            session.Info.Color = color;
     }
 
     /// <summary>

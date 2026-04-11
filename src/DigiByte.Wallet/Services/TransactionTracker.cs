@@ -11,7 +11,8 @@ namespace DigiByte.Wallet.Services;
 public class TransactionTracker
 {
     private readonly ISecureStorage _storage;
-    private const string TxKey = "tx_history";
+    private const string TxKeyPrefix = "tx_history_";
+    private string _walletId = "";
     private List<TransactionRecord>? _cache;
 
     public TransactionTracker(ISecureStorage storage)
@@ -19,10 +20,22 @@ public class TransactionTracker
         _storage = storage;
     }
 
+    /// <summary>
+    /// Switch to a different wallet's transaction history, clearing the in-memory cache.
+    /// </summary>
+    public void SetActiveWallet(string walletId)
+    {
+        if (_walletId == walletId) return;
+        _walletId = walletId;
+        _cache = null;
+    }
+
+    private string CurrentKey => $"{TxKeyPrefix}{_walletId}";
+
     public async Task<List<TransactionRecord>> GetAllAsync()
     {
         if (_cache != null) return _cache;
-        var json = await _storage.GetAsync(TxKey);
+        var json = await _storage.GetAsync(CurrentKey);
         _cache = json != null
             ? JsonSerializer.Deserialize<List<TransactionRecord>>(json) ?? []
             : [];
@@ -98,6 +111,6 @@ public class TransactionTracker
     {
         _cache = txs;
         var json = JsonSerializer.Serialize(txs);
-        await _storage.SetAsync(TxKey, json);
+        await _storage.SetAsync(CurrentKey, json);
     }
 }

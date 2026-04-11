@@ -30,9 +30,9 @@ else if (AppState.IsWalletUnlocked)
 
     protected override async Task OnInitializedAsync()
     {
-        var hasWallet = await WalletService.HasWalletAsync();
-
-        if (!hasWallet)
+        // Check if any wallets exist
+        var wallets = await WalletService.GetAllWalletsAsync();
+        if (wallets.Count == 0)
         {
             Nav.NavigateTo("/welcome");
             return;

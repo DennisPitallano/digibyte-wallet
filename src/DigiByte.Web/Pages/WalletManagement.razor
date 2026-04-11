@@ -1,0 +1,326 @@
+@page "/settings/wallets"
+@inject WalletService WalletService
+@inject AppState AppState
+@inject NavigationManager Nav
+@inject MemoryCacheService Cache
+
+<PageTitle>Manage Wallets</PageTitle>
+
+<AuthGuard>
+    <div class="flex flex-col gap-4">
+        <div class="flex items-center gap-3">
+            <button class="w-9 h-9 rounded-xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors press-effect"
+                    @onclick="GoToSettings">
+                <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+            </button>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Manage Wallets</h2>
+            <span class="text-xs font-semibold text-slate-400 dark:text-slate-500">@wallets.Count / 10</span>
+        </div>
+
+        @* Wallet Cards *@
+        <div class="flex flex-col gap-3">
+            @foreach (var wallet in wallets)
+            {
+                var isActive = wallet.Id == WalletService.ActiveWallet?.Id;
+                var wColor = wallet.Color ?? "#0066FF";
+                <div class="bg-white dark:bg-dgb-900 rounded-2xl border @(isActive ? "border-dgb-300 dark:border-dgb-600" : "border-slate-200 dark:border-dgb-800") p-4 flex flex-col gap-3 card-hover">
+                    <div class="flex items-start gap-3">
+                        @* Icon with wallet color *@
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                             style="background-color: @(isActive ? wColor : $"{wColor}18"); color: @(isActive ? "white" : wColor);">
+                            @if (wallet.WalletType == "xpub")
+                            {
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                </svg>
+                            }
+                            else if (wallet.WalletType == "privatekey")
+                            {
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+                                </svg>
+                            }
+                        </div>
+
+                        @* Info *@
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
+                                @if (isActive)
+                                {
+                                    <span class="text-[9px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-900/40 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Active</span>
+                                }
+                                @if (wallet.WalletType == "xpub")
+                                {
+                                    <span class="text-[9px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
+                                }
+                                else if (wallet.WalletType == "privatekey")
+                                {
+                                    <span class="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
+                                }
+                            </div>
+                            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Created @wallet.CreatedAt.ToString("MMM d, yyyy")</p>
+                        </div>
+                    </div>
+
+                    @* Actions *@
+                    <div class="flex gap-2">
+                        <button class="flex-1 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect"
+                                @onclick="() => StartRename(wallet)">
+                            Rename
+                        </button>
+                        <button class="py-2 px-3 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect"
+                                @onclick="() => StartColorPick(wallet)">
+                            <span class="w-3.5 h-3.5 rounded-full inline-block align-middle" style="background-color: @wColor;"></span>
+                        </button>
+                        @if (wallet.WalletType == "hd")
+                        {
+                            <button class="flex-1 py-2 text-xs font-semibold rounded-xl bg-amber-50 dark:bg-amber-900/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors press-effect"
+                                    @onclick="GoToBackupSeed">
+                                Backup
+                            </button>
+                        }
+                        <button class="py-2 px-3 text-xs font-semibold rounded-xl bg-red-50 dark:bg-red-900/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors press-effect"
+                                @onclick="() => StartDelete(wallet)">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Add New Wallet *@
+        @if (wallets.Count < 10)
+        {
+            <button class="w-full flex items-center justify-center gap-2 py-3.5 bg-dgb-50 dark:bg-dgb-900 border-2 border-dashed border-dgb-200 dark:border-dgb-700 text-dgb-600 dark:text-dgb-400 font-semibold text-sm rounded-2xl hover:bg-dgb-100 dark:hover:bg-dgb-800 hover:border-dgb-400 dark:hover:border-dgb-600 transition-all press-effect"
+                    @onclick="GoToAddWallet">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Add New Wallet
+            </button>
+        }
+        else
+        {
+            <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-2">Maximum of 10 wallets reached</p>
+        }
+    </div>
+
+    @* Rename Modal *@
+    @if (renameWallet != null)
+    {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @onclick="CancelRename">
+            <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
+                 @onclick:stopPropagation="true">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Rename Wallet</h3>
+                <input type="text" @bind="renameInput" maxlength="30" placeholder="Wallet name"
+                       class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500" />
+                <div class="flex gap-2">
+                    <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            @onclick="CancelRename">Cancel</button>
+                    <button class="flex-1 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                            @onclick="ConfirmRename" disabled="@string.IsNullOrWhiteSpace(renameInput)">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Color Picker Modal *@
+    @if (colorWallet != null)
+    {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @onclick="CancelColorPick">
+            <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
+                 @onclick:stopPropagation="true">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Wallet Color</h3>
+                <p class="text-[10px] text-slate-400 dark:text-slate-500">Choose a color for <strong>@colorWallet.Name</strong></p>
+                <div class="flex flex-wrap gap-3 justify-center">
+                    @foreach (var c in WalletInfo.ColorPalette)
+                    {
+                        var selected = c == selectedColor;
+                        <button class="w-9 h-9 rounded-full flex items-center justify-center transition-all press-effect @(selected ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-dgb-900 ring-dgb-500 scale-110" : "hover:scale-105")"
+                                style="background-color: @c;"
+                                @onclick="() => selectedColor = c">
+                            @if (selected)
+                            {
+                                <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+                            }
+                        </button>
+                    }
+                </div>
+                <div class="flex gap-2">
+                    <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            @onclick="CancelColorPick">Cancel</button>
+                    <button class="flex-1 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect"
+                            @onclick="ConfirmColorPick">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Delete Confirmation Modal *@
+    @if (deleteWallet != null)
+    {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @onclick="CancelDelete">
+            <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
+                 @onclick:stopPropagation="true">
+                <h3 class="text-sm font-bold text-red-600 dark:text-red-400">Delete Wallet</h3>
+                <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-3">
+                    <p class="text-xs text-red-600 dark:text-red-400 leading-relaxed">
+                        This will permanently delete <strong>@deleteWallet.Name</strong> and all its data.
+                        Make sure you have backed up your recovery phrase.
+                    </p>
+                </div>
+                <div>
+                    <p class="text-[10px] text-slate-400 mb-1.5">Type the wallet name to confirm:</p>
+                    <input type="text" @bind="deleteConfirmInput" placeholder="@deleteWallet.Name"
+                           class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-red-300 dark:border-red-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none text-center" />
+                </div>
+                @if (deleteError != null)
+                {
+                    <p class="text-xs text-red-500 font-medium">@deleteError</p>
+                }
+                <div class="flex gap-2">
+                    <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            @onclick="CancelDelete">Cancel</button>
+                    <button class="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                            @onclick="ConfirmDelete"
+                            disabled="@(deleteConfirmInput != deleteWallet.Name)">Delete</button>
+                </div>
+            </div>
+        </div>
+    }
+</AuthGuard>
+
+@code {
+    private List<WalletInfo> wallets = [];
+
+    // Rename state
+    private WalletInfo? renameWallet;
+    private string renameInput = "";
+
+    // Delete state
+    private WalletInfo? deleteWallet;
+    private string deleteConfirmInput = "";
+    private string? deleteError;
+
+    // Color picker state
+    private WalletInfo? colorWallet;
+    private string selectedColor = "";
+
+    private void GoToSettings() => Nav.NavigateTo("/settings");
+    private void GoToBackupSeed() => Nav.NavigateTo("/backup-seed");
+    private void GoToAddWallet() => Nav.NavigateTo("/welcome?addWallet=true");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWallets();
+    }
+
+    private async Task LoadWallets()
+    {
+        wallets = await WalletService.GetAllWalletsAsync();
+    }
+
+    private void StartRename(WalletInfo wallet)
+    {
+        renameWallet = wallet;
+        renameInput = wallet.Name;
+    }
+
+    private void CancelRename()
+    {
+        renameWallet = null;
+        renameInput = "";
+    }
+
+    private async Task ConfirmRename()
+    {
+        if (renameWallet == null || string.IsNullOrWhiteSpace(renameInput)) return;
+        await WalletService.RenameWalletAsync(renameWallet.Id, renameInput.Trim());
+        AppState.ActiveWalletName = WalletService.ActiveWallet?.Name;
+        AppState.NotifyStateChanged();
+        renameWallet = null;
+        renameInput = "";
+        await LoadWallets();
+    }
+
+    private void StartColorPick(WalletInfo wallet)
+    {
+        colorWallet = wallet;
+        selectedColor = wallet.Color ?? "#0066FF";
+    }
+
+    private void CancelColorPick()
+    {
+        colorWallet = null;
+        selectedColor = "";
+    }
+
+    private async Task ConfirmColorPick()
+    {
+        if (colorWallet == null) return;
+        await WalletService.ChangeWalletColorAsync(colorWallet.Id, selectedColor);
+        AppState.NotifyStateChanged();
+        colorWallet = null;
+        selectedColor = "";
+        await LoadWallets();
+    }
+
+    private void StartDelete(WalletInfo wallet)
+    {
+        deleteWallet = wallet;
+        deleteConfirmInput = "";
+        deleteError = null;
+    }
+
+    private void CancelDelete()
+    {
+        deleteWallet = null;
+        deleteConfirmInput = "";
+        deleteError = null;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deleteWallet == null || deleteConfirmInput != deleteWallet.Name) return;
+        deleteError = null;
+
+        try
+        {
+            await WalletService.DeleteWalletAsync(deleteWallet.Id);
+            deleteWallet = null;
+            deleteConfirmInput = "";
+
+            await LoadWallets();
+            if (wallets.Count == 0)
+            {
+                Cache.Clear();
+                AppState.IsWalletCreated = false;
+                AppState.IsWalletUnlocked = false;
+                Nav.NavigateTo("/welcome");
+            }
+            else
+            {
+                AppState.ActiveWalletName = WalletService.ActiveWallet?.Name;
+                AppState.NotifyStateChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            deleteError = ex.Message;
+        }
+    }
+}

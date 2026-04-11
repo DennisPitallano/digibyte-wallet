@@ -19,6 +19,28 @@ public class WalletInfo
     /// For privatekey wallets: the network detected from the WIF prefix ("mainnet", "testnet", "regtest").
     /// </summary>
     public string? WifNetwork { get; set; }
+
+    /// <summary>
+    /// Display color for the wallet icon/badge. Hex color code (e.g. "#0066FF").
+    /// </summary>
+    public string Color { get; set; } = "#0066FF";
+
+    /// <summary>
+    /// Predefined wallet color palette.
+    /// </summary>
+    public static readonly string[] ColorPalette =
+    [
+        "#0066FF", // DigiByte blue
+        "#F59E0B", // Amber
+        "#10B981", // Emerald
+        "#8B5CF6", // Violet
+        "#EF4444", // Red
+        "#EC4899", // Pink
+        "#06B6D4", // Cyan
+        "#F97316", // Orange
+        "#6366F1", // Indigo
+        "#14B8A6", // Teal
+    ];
 }
 
 public class WalletBalance

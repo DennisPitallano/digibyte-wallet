@@ -1,0 +1,204 @@
+@inject WalletService WalletService
+@inject NavigationManager Nav
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-[60] flex items-end justify-center" @onclick="Close">
+        @* Backdrop *@
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+        @* Sheet *@
+        <div class="relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px] transition-transform duration-150 ease-out"
+             style="transform: translateY(@(dragOffset)px); @(isClosing ? "transform: translateY(100%); transition-duration: 200ms;" : "")"
+             @onclick:stopPropagation="true"
+             @ontouchstart="OnSheetTouchStart" @ontouchmove="OnSheetTouchMove" @ontouchend="OnSheetTouchEnd"
+             @ontouchmove:preventDefault="isDragging">
+            @* Handle *@
+            <div class="flex justify-center pt-3 pb-1">
+                <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700"></div>
+            </div>
+
+            @* Header *@
+            <div class="flex items-center justify-between px-5 pb-3">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">My Wallets</h3>
+                <button class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                        @onclick="Close">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            @* Wallet List *@
+            <div class="px-4 pb-3 max-h-[40vh] overflow-y-auto flex flex-col gap-2">
+                @foreach (var wallet in Wallets)
+                {
+                    var isActive = wallet.Id == ActiveWalletId;
+                    var isUnlocked = WalletService.IsWalletUnlockedInSession(wallet.Id);
+                    var wColor = wallet.Color ?? "#0066FF";
+                    <button class="w-full flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left
+                                   @(isActive
+                                       ? "border-dgb-300 dark:border-dgb-600"
+                                       : "bg-white dark:bg-dgb-900 border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600")"
+                            style="@(isActive ? $"background-color: {wColor}12; border-color: {wColor}40;" : "")"
+                            @onclick="() => SelectWallet(wallet)">
+                        @* Wallet icon with wallet color *@
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                             style="background-color: @(isActive ? wColor : $"{wColor}18"); color: @(isActive ? "white" : wColor);">
+                            @if (wallet.WalletType == "xpub")
+                            {
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                </svg>
+                            }
+                            else if (wallet.WalletType == "privatekey")
+                            {
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+                                </svg>
+                            }
+                        </div>
+
+                        @* Info *@
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
+                                @if (wallet.WalletType == "xpub")
+                                {
+                                    <span class="text-[9px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
+                                }
+                                else if (wallet.WalletType == "privatekey")
+                                {
+                                    <span class="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
+                                }
+                            </div>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500">
+                                @if (!isUnlocked)
+                                {
+                                    <span>Locked</span>
+                                }
+                                else if (isActive)
+                                {
+                                    <span class="text-dgb-500">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="text-green-500">Unlocked</span>
+                                }
+                            </p>
+                        </div>
+
+                        @* Checkmark for active *@
+                        @if (isActive)
+                        {
+                            <svg class="w-5 h-5 flex-shrink-0" style="color: @wColor;" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                        }
+                    </button>
+                }
+            </div>
+
+            @* Footer actions *@
+            <div class="px-4 pt-2 pb-4 border-t border-slate-200 dark:border-dgb-800 flex flex-col gap-2">
+                <button class="w-full flex items-center justify-center gap-2 py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold text-sm rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect"
+                        @onclick="AddNewWallet">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Create New Wallet
+                </button>
+                <button class="w-full text-center py-2 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
+                        @onclick="ManageWallets">
+                    Manage Wallets
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<WalletInfo> OnWalletSelected { get; set; }
+    [Parameter] public List<WalletInfo> Wallets { get; set; } = [];
+    [Parameter] public string? ActiveWalletId { get; set; }
+
+    private double touchStartY;
+    private double dragOffset;
+    private bool isDragging;
+    private bool isClosing;
+    private const double DismissThreshold = 80;
+
+    private void OnSheetTouchStart(TouchEventArgs e)
+    {
+        if (e.Touches.Length > 0)
+        {
+            touchStartY = e.Touches[0].ClientY;
+            isDragging = false;
+            dragOffset = 0;
+        }
+    }
+
+    private void OnSheetTouchMove(TouchEventArgs e)
+    {
+        if (e.Touches.Length > 0)
+        {
+            var delta = e.Touches[0].ClientY - touchStartY;
+            if (delta > 0)
+            {
+                isDragging = true;
+                dragOffset = delta * 0.6; // dampen the drag
+            }
+        }
+    }
+
+    private async Task OnSheetTouchEnd(TouchEventArgs e)
+    {
+        if (dragOffset > DismissThreshold)
+        {
+            isClosing = true;
+            StateHasChanged();
+            await Task.Delay(200);
+            isClosing = false;
+            dragOffset = 0;
+            isDragging = false;
+            await Close();
+        }
+        else
+        {
+            dragOffset = 0;
+            isDragging = false;
+        }
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task SelectWallet(WalletInfo wallet)
+    {
+        await OnWalletSelected.InvokeAsync(wallet);
+        await Close();
+    }
+
+    private async Task AddNewWallet()
+    {
+        await Close();
+        Nav.NavigateTo("/welcome?addWallet=true");
+    }
+
+    private async Task ManageWallets()
+    {
+        await Close();
+        Nav.NavigateTo("/settings/wallets");
+    }
+}

@@ -302,6 +302,9 @@ public class MultisigWalletServiceTests
             _store.Clear();
             return Task.CompletedTask;
         }
+
+        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) =>
+            Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
     }
 
     private class FakeBlockchain : IBlockchainService

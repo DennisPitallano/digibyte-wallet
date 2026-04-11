@@ -1,3 +1,6 @@
+using System.Text.Json;
+using DigiByte.Wallet.Models;
+
 namespace DigiByte.Wallet.Storage;
 
 /// <summary>
@@ -72,5 +75,34 @@ public class WalletKeyStore : IKeyStore
     public async Task ClearAllAsync()
     {
         await _storage.ClearAsync();
+    }
+
+    /// <summary>
+    /// Returns all stored wallet infos by scanning IndexedDB keys.
+    /// </summary>
+    public async Task<List<WalletInfo>> GetAllWalletInfosAsync()
+    {
+        var keys = await _storage.GetKeysWithPrefixAsync("wallet_info_");
+        var wallets = new List<WalletInfo>();
+        foreach (var key in keys)
+        {
+            var json = await _storage.GetAsync(key);
+            if (json != null)
+            {
+                var info = JsonSerializer.Deserialize<WalletInfo>(json);
+                if (info != null)
+                    wallets.Add(info);
+            }
+        }
+        return wallets.OrderBy(w => w.CreatedAt).ToList();
+    }
+
+    /// <summary>
+    /// Returns the number of stored wallets.
+    /// </summary>
+    public async Task<int> GetWalletCountAsync()
+    {
+        var keys = await _storage.GetKeysWithPrefixAsync("wallet_info_");
+        return keys.Count;
     }
 }

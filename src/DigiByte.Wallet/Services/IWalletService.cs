@@ -4,7 +4,7 @@ namespace DigiByte.Wallet.Services;
 
 public interface IWalletService
 {
-    Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin);
+    Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null);
     Task<WalletInfo?> GetWalletAsync(string walletId);
     Task<bool> UnlockWalletAsync(string walletId, string pin);
     Task LockWalletAsync();
@@ -15,4 +15,10 @@ public interface IWalletService
     Task<List<Contact>> GetContactsAsync();
     Task AddContactAsync(Contact contact);
     Task RemoveContactAsync(string contactId);
+    Task<List<WalletInfo>> GetAllWalletsAsync();
+    Task SwitchWalletAsync(string walletId);
+    bool IsWalletUnlockedInSession(string walletId);
+    Task RenameWalletAsync(string walletId, string newName);
+    Task ChangeWalletColorAsync(string walletId, string color);
+    Task DeleteWalletAsync(string walletId);
 }

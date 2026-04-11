@@ -39,4 +39,10 @@ public class IndexedDbStorage : ISecureStorage
     {
         await _js.InvokeVoidAsync("secureStorage.clear");
     }
+
+    public async Task<List<string>> GetKeysWithPrefixAsync(string prefix)
+    {
+        var keys = await _js.InvokeAsync<string[]>("secureStorage.getKeysWithPrefix", prefix);
+        return keys?.ToList() ?? [];
+    }
 }

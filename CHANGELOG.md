@@ -4,19 +4,33 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
-### Fixed
-- **BIP84 derivation path** — Changed HD key derivation from BIP44 (`m/44'/20'/...`) to BIP84 (`m/84'/20'/...`) for native SegWit addresses. Addresses now match standard BIP84-compatible tools (Ian Coleman, Ledger, Trezor). Fixes [#1](https://github.com/DennisPitallano/digibyte-wallet/issues/1)
-- **Cache clearing broke transaction loading** — `fetchFailed` flag was based on empty data instead of actual HTTP errors; replaced with separate `balanceFetchFailed`/`txFetchFailed` flags
+## [0.4.0-beta.1] - 2026-04-11
 
 ### Added
-- **HD derivation unit tests** — BIP84 path verification, address format, determinism, watch-only, and regression tests in `DigiByte.Crypto.Tests`
-- **BIP44→BIP84 fund sweep migration** — Automatically scans old BIP44 derivation path addresses for stranded funds on Home page load. Displays migration banner with balance and "Move to wallet" button that sweeps all UTXOs to the current BIP84 SegWit address in a single transaction. Includes loading indicator during scan and sweep processing. Auto-expires after May 10, 2026 to avoid unnecessary API calls once all users have migrated.
-- **Legacy address toggle removed for HD wallets** — Receive page now only shows SegWit addresses for HD wallets (WIF wallets retain the Legacy/SegWit toggle)
+- **Multi-wallet support** — Create and manage up to 10 wallets (HD, WIF, Watch-Only) per device with independent PIN unlock per session
+- **Wallet switcher** — Swipe left/right on the Home balance card to switch wallets instantly; wallet picker bottom sheet with swipe-to-dismiss
+- **Stacked card carousel** — Layered card visual on Home showing wallet deck with colored ghost cards behind the active wallet
+- **Wallet color theming** — 10-color palette with per-wallet color; color picker during creation and in wallet management
+- **Wallet management page** — Rename, change color, delete, and backup wallets from Settings → Manage Wallets
+- **Wallet picker sheet** — Bottom sheet overlay listing all wallets with color dots, type badges, "Create New Wallet" button
+- **Per-wallet scoped cache** — Balance, transactions, and fetch timestamps are now scoped per wallet ID; price remains global
+- **Enhanced unlock screen** — Wallet name shown in frosted-glass pill badge with color dot and glow effect
+- **Recovery page wallet info** — Active wallet info card showing name, type, and color on the Recovery Tools page
+- **`ChangeWalletColorAsync`** — New service method to update wallet color with persistence and in-memory session sync
+- **19 new unit tests** — MultiWalletTests covering creation, switching, rename, color change, deletion, palette, and mixed wallet types
 
 ### Changed
-- Updated all documentation (README, ARCHITECTURE, COMPLIANCE, SECURITY, PROCESS_FLOWS, ROADMAP) to reflect BIP84 derivation
-- Updated Home page wallet info to show BIP84 path and description
-- Updated Roadmap page milestone text
+- **Version bumped to 0.4.0-beta.1** — Multi-wallet feature complete
+- **Cache freshness increased** — Stale threshold raised from 2 to 5 minutes; in-memory TTL from 5 to 10 minutes
+- **Touch handlers enhanced** — Horizontal swipe detection (wallet switch) coexists with vertical pull-to-refresh
+- **Roadmap updated** — Multi-Wallet Support milestone marked Done; removed from Q2 planned
+- **Help Center updated** — 4 new Q&As for multi-wallet, wallet switching, color, and rename
+- **Welcome page** — Footer links/version hidden in add-wallet mode for cleaner UI
+
+### Fixed
+- **Zero-balance wallet always re-fetched** — Cache required balance > 0 to count as cached; now any persisted balance is valid
+- **Global in-memory timestamp** — `lastFetchTime` was shared across all wallets causing false fresh/stale decisions; now wallet-scoped
+- **Removed BIP44→BIP84 migration banner** — Legacy fund sweep banner removed from Home; recovery tools handle this instead
 
 ## [0.3.0-beta.1] - 2026-04-07
 

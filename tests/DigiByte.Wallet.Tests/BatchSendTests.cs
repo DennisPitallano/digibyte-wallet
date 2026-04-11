@@ -183,6 +183,8 @@ public class BatchSendTests
         public Task RemoveAsync(string key) { _store.Remove(key); return Task.CompletedTask; }
         public Task<bool> ContainsKeyAsync(string key) => Task.FromResult(_store.ContainsKey(key));
         public Task ClearAsync() { _store.Clear(); return Task.CompletedTask; }
+        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) =>
+            Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
     }
 
     private class FakeCryptoService : ICryptoService

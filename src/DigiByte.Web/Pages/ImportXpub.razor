@@ -6,13 +6,68 @@
 <PageTitle>Watch-Only Wallet</PageTitle>
 
 <div class="flex flex-col gap-5">
+    @if (isAddWalletMode)
+    {
+        <button class="self-start flex items-center gap-1.5 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
+                @onclick="GoBack">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+            Back
+        </button>
+    }
+
     @* Step Indicator *@
     <div class="flex items-center justify-center gap-2 mb-2 fade-in">
-        <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(step == Step.EnterXpub ? "bg-dgb-500 w-10" : "bg-dgb-500 w-6")"></div>
-        <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(step == Step.SetPin ? "bg-dgb-500 w-10" : "bg-slate-200 dark:bg-dgb-800 w-6")"></div>
+        @for (int i = 0; i < totalSteps; i++)
+        {
+            var idx = i;
+            <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(idx <= currentStepIndex ? "bg-dgb-500 w-10" : "bg-slate-200 dark:bg-dgb-800 w-6")"></div>
+        }
     </div>
 
-    @if (step == Step.EnterXpub)
+    @if (step == Step.NameWallet)
+    {
+        <div class="slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Name Your Wallet</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <input type="text" @bind="walletName" @bind:event="oninput"
+                   placeholder="e.g. Savings, Trading, Cold Storage..."
+                   maxlength="30" autocomplete="off"
+                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            <p class="text-xs text-slate-400 dark:text-slate-500 text-right">@walletName.Length / 30</p>
+        </div>
+
+        @* Color Picker *@
+        <div class="flex flex-col gap-2">
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Color</p>
+            <div class="flex flex-wrap gap-2.5">
+                @foreach (var c in WalletInfo.ColorPalette)
+                {
+                    var color = c;
+                    <button class="w-9 h-9 rounded-full transition-all duration-200 press-effect ring-offset-2 ring-offset-white dark:ring-offset-dgb-950 @(walletColor == color ? "ring-2 scale-110" : "hover:scale-105")"
+                            style="background-color: @color; @(walletColor == color ? $"box-shadow: 0 0 0 2px {color}40; --tw-ring-color: {color};" : "")"
+                            @onclick="() => walletColor = color">
+                        @if (walletColor == color)
+                        {
+                            <svg class="w-4 h-4 mx-auto text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+
+        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                @onclick="NameContinue" disabled="@string.IsNullOrWhiteSpace(walletName)">
+            Continue
+        </button>
+    }
+    else if (step == Step.EnterXpub)
     {
         <div class="slide-up">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Watch-Only Wallet</h2>
@@ -100,7 +155,7 @@
 </div>
 
 @code {
-    private enum Step { EnterXpub, SetPin }
+    private enum Step { NameWallet, EnterXpub, SetPin }
     private Step step = Step.EnterXpub;
 
     // Xpub fields
@@ -117,7 +172,40 @@
     private PinInput? rPinInput1;
     private PinInput? rPinInput2;
 
-    private void GoBack() => Nav.NavigateTo("/welcome");
+    // Add-wallet mode
+    private bool isAddWalletMode;
+    private string walletName = "";
+    private string walletColor = WalletInfo.ColorPalette[0];
+
+    private int totalSteps => isAddWalletMode ? 3 : 2;
+    private int currentStepIndex => step switch
+    {
+        Step.NameWallet => 0,
+        Step.EnterXpub => isAddWalletMode ? 1 : 0,
+        Step.SetPin => isAddWalletMode ? 2 : 1,
+        _ => 0
+    };
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Nav.Uri);
+        isAddWalletMode = uri.Query.Contains("addWallet=true");
+        step = isAddWalletMode ? Step.NameWallet : Step.EnterXpub;
+    }
+
+    private void GoBack()
+    {
+        if (isAddWalletMode)
+            Nav.NavigateTo("/welcome?addWallet=true");
+        else
+            Nav.NavigateTo("/welcome");
+    }
+
+    private void NameContinue()
+    {
+        if (string.IsNullOrWhiteSpace(walletName)) return;
+        step = Step.EnterXpub;
+    }
 
     private void ValidateXpub()
     {
@@ -178,8 +266,10 @@
         await Task.Yield();
         try
         {
+            var name = isAddWalletMode ? walletName.Trim() : "Watch-Only Wallet";
+            var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
-            await WalletService.CreateWatchOnlyWalletAsync("Watch-Only Wallet", xpubInput.Trim(), pin);
+            await WalletService.CreateWatchOnlyWalletAsync(name, xpubInput.Trim(), pin, color);
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");
         }

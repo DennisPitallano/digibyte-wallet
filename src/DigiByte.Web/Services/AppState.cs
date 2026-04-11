@@ -1,3 +1,4 @@
+using DigiByte.Wallet.Models;
 using Microsoft.JSInterop;
 
 namespace DigiByte.Web.Services;
@@ -19,6 +20,8 @@ public class AppState : IDisposable
     public bool IsWalletUnlocked { get; set; }
     public bool IsSimpleMode { get; set; } = true;
     public string FiatCurrency { get; set; } = "USD";
+    public List<WalletInfo> Wallets { get; set; } = [];
+    public string? ActiveWalletName { get; set; }
     public string FiatSymbol => FiatCurrency switch
     {
         "EUR" => "\u20ac",

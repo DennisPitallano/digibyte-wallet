@@ -1,10 +1,20 @@
 @page "/welcome"
 @inject NavigationManager Nav
 
-<PageTitle>Welcome — DigiByte Wallet</PageTitle>
+<PageTitle>@(isAddWalletMode ? "Add Wallet" : "Welcome") — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col items-center justify-center min-h-[80vh] text-center gap-8">
     <div class="flex flex-col items-center gap-3 float-in">
+        @if (isAddWalletMode)
+        {
+            <button class="self-start ml-4 mb-2 flex items-center gap-1.5 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
+                    @onclick="GoHome">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+                Back to wallet
+            </button>
+        }
         <div class="relative">
             <div class="absolute inset-0 bg-dgb-500/20 rounded-full blur-2xl scale-150 glow-pulse"></div>
             <div class="float">
@@ -12,10 +22,17 @@
             </div>
         </div>
         <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
-            Digi<span class="text-dgb-500">Byte</span>
+            @if (isAddWalletMode)
+            {
+                <span>Add <span class="text-dgb-500">Wallet</span></span>
+            }
+            else
+            {
+                <span>Digi<span class="text-dgb-500">Byte</span></span>
+            }
         </h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 font-medium tracking-wide">
-            Your money. Your keys. Your freedom.
+            @(isAddWalletMode ? "Create or import an additional wallet" : "Your money. Your keys. Your freedom.")
         </p>
     </div>
 
@@ -34,26 +51,38 @@
         </button>
     </div>
 
-    <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500 slide-up-delay-3">
-        <a href="/help" class="hover:text-dgb-500 transition-colors">Help</a>
-        <span>·</span>
-        <a href="/about" class="hover:text-dgb-500 transition-colors">About</a>
-        <span>·</span>
-        <a href="/roadmap" class="hover:text-dgb-500 transition-colors">Roadmap</a>
-        <span>·</span>
-        <a href="/analytics" class="hover:text-dgb-500 transition-colors">Analytics</a>
-        <span>·</span>
-        <a href="/deployment" class="hover:text-dgb-500 transition-colors">Deployment</a>
-    </div>
+    @if (!isAddWalletMode)
+    {
+        <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500 slide-up-delay-3">
+            <a href="/help" class="hover:text-dgb-500 transition-colors">Help</a>
+            <span>·</span>
+            <a href="/about" class="hover:text-dgb-500 transition-colors">About</a>
+            <span>·</span>
+            <a href="/roadmap" class="hover:text-dgb-500 transition-colors">Roadmap</a>
+            <span>·</span>
+            <a href="/analytics" class="hover:text-dgb-500 transition-colors">Analytics</a>
+            <span>·</span>
+            <a href="/deployment" class="hover:text-dgb-500 transition-colors">Deployment</a>
+        </div>
 
-    <div class="flex flex-col items-center gap-2 slide-up-delay-3">
-        <VersionBadge />
-        <p class="text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">Speed · Security · Scalability</p>
-    </div>
+        <div class="flex flex-col items-center gap-2 slide-up-delay-3">
+            <VersionBadge />
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">Speed · Security · Scalability</p>
+        </div>
+    }
 </div>
 
 @code {
-    private void CreateWallet() => Nav.NavigateTo("/create-wallet");
-    private void RecoverWallet() => Nav.NavigateTo("/recover-wallet");
-    private void ImportXpub() => Nav.NavigateTo("/import-xpub");
+    private bool isAddWalletMode;
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Nav.Uri);
+        isAddWalletMode = uri.Query.Contains("addWallet=true");
+    }
+
+    private void GoHome() => Nav.NavigateTo("/");
+    private void CreateWallet() => Nav.NavigateTo(isAddWalletMode ? "/create-wallet?addWallet=true" : "/create-wallet");
+    private void RecoverWallet() => Nav.NavigateTo(isAddWalletMode ? "/recover-wallet?addWallet=true" : "/recover-wallet");
+    private void ImportXpub() => Nav.NavigateTo(isAddWalletMode ? "/import-xpub?addWallet=true" : "/import-xpub");
 }

@@ -11,6 +11,7 @@ public interface ISecureStorage
     Task RemoveAsync(string key);
     Task<bool> ContainsKeyAsync(string key);
     Task ClearAsync();
+    Task<List<string>> GetKeysWithPrefixAsync(string prefix);
 }
 
 /// <summary>

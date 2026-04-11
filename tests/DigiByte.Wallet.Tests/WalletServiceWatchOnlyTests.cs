@@ -185,9 +185,9 @@ public class WalletServiceWatchOnlyTests
         public Task RemoveAsync(string key) { _store.Remove(key); return Task.CompletedTask; }
         public Task<bool> ContainsKeyAsync(string key) => Task.FromResult(_store.ContainsKey(key));
         public Task ClearAsync() { _store.Clear(); return Task.CompletedTask; }
+        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) =>
+            Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
     }
-
-    /// <summary>
     /// Fake crypto that just passes data through (base64), not truly encrypted.
     /// </summary>
     private class FakeCryptoService : ICryptoService

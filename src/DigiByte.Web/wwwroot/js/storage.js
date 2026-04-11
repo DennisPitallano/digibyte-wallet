@@ -66,5 +66,18 @@ window.secureStorage = {
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
+    },
+
+    async getKeysWithPrefix(prefix) {
+        const db = await openDb();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const request = tx.objectStore(STORE_NAME).getAllKeys();
+            request.onsuccess = () => {
+                const keys = request.result.filter(k => typeof k === 'string' && k.startsWith(prefix));
+                resolve(keys);
+            };
+            request.onerror = () => reject(request.error);
+        });
     }
 };
