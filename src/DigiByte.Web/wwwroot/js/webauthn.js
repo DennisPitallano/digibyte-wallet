@@ -1,6 +1,6 @@
 // WebAuthn biometric unlock for DigiByte Wallet
-// Uses platform authenticator (fingerprint/face/PIN) with assertion-gated encryption.
-// A random AES key encrypts wallet secrets; decryption requires a WebAuthn assertion.
+// Single credential for all wallets. Each wallet's seed is encrypted with
+// a shared AES-256 key; decryption requires a WebAuthn assertion (biometric).
 
 (function () {
     const WA_IV_SIZE = 12;
@@ -13,14 +13,12 @@
         return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
     }
 
-    // Import raw bytes as AES-256-GCM key
     async function importAesKey(rawBytes, usages) {
         return crypto.subtle.importKey(
             "raw", rawBytes, { name: "AES-GCM" }, false, usages
         );
     }
 
-    // AES-256-GCM encrypt
     async function encryptWithKey(key, plaintext) {
         const iv = crypto.getRandomValues(new Uint8Array(WA_IV_SIZE));
         const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
@@ -30,7 +28,6 @@
         return result;
     }
 
-    // AES-256-GCM decrypt
     async function decryptWithKey(key, packed) {
         if (packed.length < WA_IV_SIZE + 1) return null;
         const iv = packed.slice(0, WA_IV_SIZE);
@@ -53,11 +50,11 @@
             }
         },
 
-        // Enroll biometric for a wallet.
-        // Returns { credentialId, wrappedKey, bioSeed, fallbackKey } (all base64).
-        // Creates a plain WebAuthn credential (no PRF) compatible with all authenticators.
-        enroll: async function (walletId, userName, wrappingKeyBase64, seedBase64) {
-            const userId = new TextEncoder().encode(walletId);
+        // Create a single WebAuthn credential for the app.
+        // Returns { credentialId, bioKey } (both base64) or null.
+        // bioKey is a random AES-256 key for encrypting/decrypting wallet seeds.
+        enroll: async function (userName) {
+            const userId = crypto.getRandomValues(new Uint8Array(16));
 
             let credential;
             try {
@@ -67,8 +64,8 @@
                         user: { id: userId, name: userName, displayName: userName },
                         challenge: crypto.getRandomValues(new Uint8Array(32)),
                         pubKeyCredParams: [
-                            { alg: -7, type: "public-key" },   // ES256
-                            { alg: -257, type: "public-key" },  // RS256
+                            { alg: -7, type: "public-key" },
+                            { alg: -257, type: "public-key" },
                         ],
                         authenticatorSelection: {
                             authenticatorAttachment: "platform",
@@ -79,32 +76,32 @@
                     }
                 });
             } catch {
-                return null; // User cancelled or authenticator unavailable
+                return null;
             }
 
-            const wrappingKey = fromBase64(wrappingKeyBase64);
-            const seed = fromBase64(seedBase64);
-
-            // Encrypt seed with wrapping key
-            const wrapKeyEnc = await importAesKey(wrappingKey, ["encrypt"]);
-            const bioSeed = await encryptWithKey(wrapKeyEnc, seed);
-
-            // Encrypt wrapping key with a random AES key (stored in IndexedDB).
-            // Decryption is gated behind a WebAuthn assertion (biometric check).
-            const fbKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-            const fbKey = await importAesKey(fbKeyBytes, ["encrypt"]);
-            const wrappedKey = await encryptWithKey(fbKey, wrappingKey);
+            const bioKeyBytes = crypto.getRandomValues(new Uint8Array(32));
 
             return {
                 credentialId: toBase64(credential.rawId),
-                wrappedKey: toBase64(wrappedKey),
-                bioSeed: toBase64(bioSeed),
-                fallbackKey: toBase64(fbKeyBytes)
+                bioKey: toBase64(bioKeyBytes)
             };
         },
 
-        // Simple identity verification (no decryption).
-        // Returns true if the user confirms with biometric, false otherwise.
+        // Encrypt a seed with the bio key. Returns base64 ciphertext.
+        encryptSeed: async function (bioKeyBase64, seedBase64) {
+            const key = await importAesKey(fromBase64(bioKeyBase64), ["encrypt"]);
+            const encrypted = await encryptWithKey(key, fromBase64(seedBase64));
+            return toBase64(encrypted);
+        },
+
+        // Decrypt a seed with the bio key. Returns base64 plaintext or null.
+        decryptSeed: async function (bioKeyBase64, encryptedSeedBase64) {
+            const key = await importAesKey(fromBase64(bioKeyBase64), ["decrypt"]);
+            const decrypted = await decryptWithKey(key, fromBase64(encryptedSeedBase64));
+            return decrypted ? toBase64(decrypted) : null;
+        },
+
+        // Verify identity with biometric assertion. Returns true/false.
         verifyIdentity: async function (credentialIdBase64) {
             const credentialId = fromBase64(credentialIdBase64);
             try {
@@ -122,13 +119,11 @@
             }
         },
 
-        // Authenticate with biometric and return the unwrapped seed (base64) or null.
-        authenticate: async function (walletId, credentialIdBase64, wrappedKeyBase64, bioSeedBase64, fallbackKeyBase64) {
+        // Authenticate with biometric, then decrypt the given seed.
+        // Returns decrypted seed (base64) or null.
+        authenticate: async function (credentialIdBase64, bioKeyBase64, encryptedSeedBase64) {
             const credentialId = fromBase64(credentialIdBase64);
-            const wrappedKey = fromBase64(wrappedKeyBase64);
-            const bioSeed = fromBase64(bioSeedBase64);
 
-            // Verify identity with biometric assertion
             try {
                 await navigator.credentials.get({
                     publicKey: {
@@ -139,23 +134,14 @@
                     }
                 });
             } catch {
-                return null; // User cancelled or authenticator error
+                return null;
             }
 
-            if (!fallbackKeyBase64) return null;
+            if (!bioKeyBase64 || !encryptedSeedBase64) return null;
 
-            // Decrypt wrapping key with stored fallback key
-            const fbKeyBytes = fromBase64(fallbackKeyBase64);
-            const fbKey = await importAesKey(fbKeyBytes, ["decrypt"]);
-            const unwrappedKey = await decryptWithKey(fbKey, wrappedKey);
-            if (!unwrappedKey) return null;
-
-            // Decrypt seed with unwrapped wrapping key
-            const wrapKey = await importAesKey(unwrappedKey, ["decrypt"]);
-            const seed = await decryptWithKey(wrapKey, bioSeed);
-            if (!seed) return null;
-
-            return toBase64(seed);
+            const key = await importAesKey(fromBase64(bioKeyBase64), ["decrypt"]);
+            const seed = await decryptWithKey(key, fromBase64(encryptedSeedBase64));
+            return seed ? toBase64(seed) : null;
         }
     };
 })();

@@ -58,7 +58,7 @@
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-slate-900 dark:text-white">Biometric Unlock</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">@(biometricEnabled ? "Enabled for this wallet" : "Fingerprint or face")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@(biometricEnabled ? "Enabled for all wallets" : "Fingerprint or face")</p>
                     </div>
                 </div>
                 <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(biometricEnabled ? "bg-dgb-500" : "bg-slate-300")"
@@ -429,13 +429,9 @@
             biometricSupported = await Biometric.IsSupportedAsync();
             if (biometricSupported)
             {
-                var walletId = await WalletService.GetActiveWalletIdAsync();
-                if (walletId != null)
-                {
-                    biometricEnabled = await Biometric.IsEnabledAsync(walletId);
-                    if (biometricEnabled)
-                        bioConfirmSendEnabled = await Biometric.IsConfirmSendEnabledAsync(walletId);
-                }
+                biometricEnabled = await Biometric.IsEnabledAsync();
+                if (biometricEnabled)
+                    bioConfirmSendEnabled = await Biometric.IsConfirmSendEnabledAsync();
             }
             StateHasChanged();
         }
@@ -550,6 +546,16 @@
             var success = await Biometric.EnrollAsync(walletId, info?.Name ?? "Wallet", seed);
             if (success)
             {
+                // Also enroll seeds for all other wallets
+                var allWallets = await WalletService.GetAllWalletsAsync();
+                foreach (var w in allWallets)
+                {
+                    if (w.Id != walletId)
+                    {
+                        // We can't decrypt other wallets' seeds without their PINs,
+                        // so they'll be auto-enrolled on their next PIN unlock
+                    }
+                }
                 biometricEnabled = true;
                 CancelBioToggle();
             }
@@ -571,9 +577,7 @@
 
     private async Task ConfirmBioDisable()
     {
-        var walletId = await WalletService.GetActiveWalletIdAsync();
-        if (walletId != null)
-            await Biometric.DisableAsync(walletId);
+        await Biometric.DisableAsync();
 
         biometricEnabled = false;
         bioConfirmSendEnabled = false;
@@ -582,11 +586,8 @@
 
     private async Task ToggleBioConfirmSend()
     {
-        var walletId = await WalletService.GetActiveWalletIdAsync();
-        if (walletId == null) return;
-
         bioConfirmSendEnabled = !bioConfirmSendEnabled;
-        await Biometric.SetConfirmSendAsync(walletId, bioConfirmSendEnabled);
+        await Biometric.SetConfirmSendAsync(bioConfirmSendEnabled);
     }
 
     private async Task ConfirmDelete()
@@ -609,7 +610,7 @@
 
         // PIN verified — delete everything
         Cache.Clear();
-        await Biometric.DisableAsync(walletId);
+        await Biometric.DisableAsync();
         await WalletService.WipeAllDataAsync();
         AppState.IsWalletCreated = false;
         AppState.IsWalletUnlocked = false;

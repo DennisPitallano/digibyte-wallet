@@ -295,9 +295,12 @@
 
             // JS interop must run after first render in Blazor WASM
             biometricSupported = await Biometric.IsSupportedAsync();
-            if (biometricSupported && walletId != null)
+            if (biometricSupported)
             {
-                biometricEnabled = await Biometric.IsEnabledAsync(walletId);
+                biometricEnabled = await Biometric.IsEnabledAsync();
+                // Also check this wallet has its seed enrolled
+                if (biometricEnabled && walletId != null && !await Biometric.HasWalletSeedAsync(walletId))
+                    biometricEnabled = false;
             }
             StateHasChanged();
 
@@ -339,7 +342,7 @@
 
                 // Check if we should offer biometric enrollment
                 // Re-check IsEnabledAsync directly to avoid race with OnAfterRenderAsync
-                if (await Biometric.IsSupportedAsync() && !await Biometric.IsEnabledAsync(walletId) && !await Biometric.IsDismissedAsync(walletId))
+                if (await Biometric.IsSupportedAsync() && !await Biometric.IsEnabledAsync() && !await Biometric.IsDismissedAsync())
                 {
                     lastDecryptedSeed = await WalletService.GetDecryptedSeedAsync(walletId, pin);
                     if (lastDecryptedSeed != null)
@@ -352,6 +355,14 @@
                         AppState.NotifyStateChanged();
                         return;
                     }
+                }
+
+                // Auto-add this wallet's seed if biometric enabled but seed not yet enrolled
+                if (await Biometric.IsEnabledAsync() && !await Biometric.HasWalletSeedAsync(walletId))
+                {
+                    var seed = await WalletService.GetDecryptedSeedAsync(walletId, pin);
+                    if (seed != null)
+                        await Biometric.AddWalletSeedAsync(walletId, seed);
                 }
 
                 AppState.IsWalletCreated = true;
@@ -493,9 +504,8 @@
     {
         if (deleteConfirmText?.ToUpper() != "DELETE") return;
         Cache.Clear();
-        // Clean up biometric data for all wallets
-        foreach (var w in allWallets)
-            await Biometric.DisableAsync(w.Id);
+        // Clean up biometric data
+        await Biometric.DisableAsync();
         await WalletService.WipeAllDataAsync();
         AppState.IsWalletCreated = false;
         AppState.IsWalletUnlocked = false;
@@ -528,7 +538,7 @@
             CancelForgot();
 
             // Refresh biometric state for the new wallet
-            biometricEnabled = biometricSupported && await Biometric.IsEnabledAsync(id);
+            biometricEnabled = biometricSupported && await Biometric.IsEnabledAsync() && await Biometric.HasWalletSeedAsync(id);
             showBioEnrollPrompt = false;
             lastDecryptedSeed = null;
 

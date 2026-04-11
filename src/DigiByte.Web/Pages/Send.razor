@@ -1017,10 +1017,9 @@ else
         try
         {
             // Biometric send confirmation (if enabled)
-            var walletId = await WalletService.GetActiveWalletIdAsync();
-            if (walletId != null && await Biometric.IsConfirmSendEnabledAsync(walletId))
+            if (await Biometric.IsConfirmSendEnabledAsync())
             {
-                var verified = await Biometric.VerifyIdentityAsync(walletId);
+                var verified = await Biometric.VerifyIdentityAsync();
                 if (!verified)
                 {
                     sendError = "Biometric verification failed or was cancelled.";

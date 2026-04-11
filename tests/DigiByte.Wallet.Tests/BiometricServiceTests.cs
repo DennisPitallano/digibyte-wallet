@@ -14,45 +14,66 @@ public class BiometricServiceTests
         return new BiometricService(js ?? new FakeJSRuntime(), storage ?? new InMemorySecureStorage());
     }
 
-    #region IsEnabledAsync
+    #region IsEnabledAsync (global)
 
     [Fact]
     public async Task IsEnabledAsync_ReturnsFalse_WhenNotEnrolled()
     {
         var svc = CreateService();
-        Assert.False(await svc.IsEnabledAsync(WalletId));
+        Assert.False(await svc.IsEnabledAsync());
     }
 
     [Fact]
     public async Task IsEnabledAsync_ReturnsTrue_WhenEnabled()
     {
         var storage = new InMemorySecureStorage();
-        await storage.SetAsync("wallet_bio_enabled_" + WalletId, "true");
+        await storage.SetAsync("bio_enabled", "true");
         var svc = CreateService(storage);
 
-        Assert.True(await svc.IsEnabledAsync(WalletId));
-    }
-
-    [Fact]
-    public async Task IsEnabledAsync_PerWallet_Independent()
-    {
-        var storage = new InMemorySecureStorage();
-        await storage.SetAsync("wallet_bio_enabled_" + WalletId, "true");
-        var svc = CreateService(storage);
-
-        Assert.True(await svc.IsEnabledAsync(WalletId));
-        Assert.False(await svc.IsEnabledAsync(WalletId2));
+        Assert.True(await svc.IsEnabledAsync());
     }
 
     #endregion
 
-    #region IsDismissedAsync / DismissPromptAsync
+    #region HasWalletSeedAsync
+
+    [Fact]
+    public async Task HasWalletSeedAsync_ReturnsFalse_WhenNoSeedStored()
+    {
+        var svc = CreateService();
+        Assert.False(await svc.HasWalletSeedAsync(WalletId));
+    }
+
+    [Fact]
+    public async Task HasWalletSeedAsync_ReturnsTrue_WhenSeedStored()
+    {
+        var storage = new InMemorySecureStorage();
+        await storage.SetAsync("bio_seed_" + WalletId, "encryptedSeedData");
+        var svc = CreateService(storage);
+
+        Assert.True(await svc.HasWalletSeedAsync(WalletId));
+    }
+
+    [Fact]
+    public async Task HasWalletSeedAsync_PerWallet_Independent()
+    {
+        var storage = new InMemorySecureStorage();
+        await storage.SetAsync("bio_seed_" + WalletId, "encryptedSeedData");
+        var svc = CreateService(storage);
+
+        Assert.True(await svc.HasWalletSeedAsync(WalletId));
+        Assert.False(await svc.HasWalletSeedAsync(WalletId2));
+    }
+
+    #endregion
+
+    #region IsDismissedAsync / DismissPromptAsync (global)
 
     [Fact]
     public async Task IsDismissedAsync_ReturnsFalse_ByDefault()
     {
         var svc = CreateService();
-        Assert.False(await svc.IsDismissedAsync(WalletId));
+        Assert.False(await svc.IsDismissedAsync());
     }
 
     [Fact]
@@ -60,31 +81,20 @@ public class BiometricServiceTests
     {
         var svc = CreateService();
 
-        await svc.DismissPromptAsync(WalletId);
+        await svc.DismissPromptAsync();
 
-        Assert.True(await svc.IsDismissedAsync(WalletId));
-    }
-
-    [Fact]
-    public async Task DismissPromptAsync_PerWallet_Independent()
-    {
-        var svc = CreateService();
-
-        await svc.DismissPromptAsync(WalletId);
-
-        Assert.True(await svc.IsDismissedAsync(WalletId));
-        Assert.False(await svc.IsDismissedAsync(WalletId2));
+        Assert.True(await svc.IsDismissedAsync());
     }
 
     #endregion
 
-    #region IsConfirmSendEnabledAsync / SetConfirmSendAsync
+    #region IsConfirmSendEnabledAsync / SetConfirmSendAsync (global)
 
     [Fact]
     public async Task IsConfirmSendEnabledAsync_ReturnsFalse_ByDefault()
     {
         var svc = CreateService();
-        Assert.False(await svc.IsConfirmSendEnabledAsync(WalletId));
+        Assert.False(await svc.IsConfirmSendEnabledAsync());
     }
 
     [Fact]
@@ -92,77 +102,69 @@ public class BiometricServiceTests
     {
         var svc = CreateService();
 
-        await svc.SetConfirmSendAsync(WalletId, true);
+        await svc.SetConfirmSendAsync(true);
 
-        Assert.True(await svc.IsConfirmSendEnabledAsync(WalletId));
+        Assert.True(await svc.IsConfirmSendEnabledAsync());
     }
 
     [Fact]
     public async Task SetConfirmSendAsync_Disable_RemovesPreference()
     {
         var svc = CreateService();
-        await svc.SetConfirmSendAsync(WalletId, true);
-        Assert.True(await svc.IsConfirmSendEnabledAsync(WalletId));
+        await svc.SetConfirmSendAsync(true);
+        Assert.True(await svc.IsConfirmSendEnabledAsync());
 
-        await svc.SetConfirmSendAsync(WalletId, false);
+        await svc.SetConfirmSendAsync(false);
 
-        Assert.False(await svc.IsConfirmSendEnabledAsync(WalletId));
-    }
-
-    [Fact]
-    public async Task SetConfirmSendAsync_PerWallet_Independent()
-    {
-        var svc = CreateService();
-
-        await svc.SetConfirmSendAsync(WalletId, true);
-
-        Assert.True(await svc.IsConfirmSendEnabledAsync(WalletId));
-        Assert.False(await svc.IsConfirmSendEnabledAsync(WalletId2));
+        Assert.False(await svc.IsConfirmSendEnabledAsync());
     }
 
     #endregion
 
-    #region DisableAsync
+    #region DisableAsync (global)
 
     [Fact]
     public async Task DisableAsync_ClearsAllBiometricKeys()
     {
         var storage = new InMemorySecureStorage();
-        // Simulate a fully enrolled wallet
-        await storage.SetAsync("wallet_bio_enabled_" + WalletId, "true");
-        await storage.SetAsync("wallet_bio_cred_" + WalletId, "credentialData");
-        await storage.SetAsync("wallet_bio_wrap_" + WalletId, "wrappedKeyData");
-        await storage.SetAsync("wallet_bio_seed_" + WalletId, "bioSeedData");
-        await storage.SetAsync("wallet_bio_dismissed_" + WalletId, "true");
-        await storage.SetAsync("wallet_bio_confirm_send_" + WalletId, "true");
+        await storage.SetAsync("bio_enabled", "true");
+        await storage.SetAsync("bio_cred", "credentialData");
+        await storage.SetAsync("bio_key", "bioKeyData");
+        await storage.SetAsync("bio_dismissed", "true");
+        await storage.SetAsync("bio_confirm_send", "true");
+        await storage.SetAsync("bio_seed_" + WalletId, "encryptedSeed1");
+        await storage.SetAsync("bio_seed_" + WalletId2, "encryptedSeed2");
 
         var svc = CreateService(storage);
 
-        await svc.DisableAsync(WalletId);
+        await svc.DisableAsync();
 
-        Assert.False(await svc.IsEnabledAsync(WalletId));
-        Assert.False(await svc.IsDismissedAsync(WalletId));
-        Assert.False(await svc.IsConfirmSendEnabledAsync(WalletId));
-        Assert.Null(await storage.GetAsync("wallet_bio_cred_" + WalletId));
-        Assert.Null(await storage.GetAsync("wallet_bio_wrap_" + WalletId));
-        Assert.Null(await storage.GetAsync("wallet_bio_seed_" + WalletId));
+        Assert.False(await svc.IsEnabledAsync());
+        Assert.False(await svc.IsDismissedAsync());
+        Assert.False(await svc.IsConfirmSendEnabledAsync());
+        Assert.Null(await storage.GetAsync("bio_cred"));
+        Assert.Null(await storage.GetAsync("bio_key"));
+        Assert.False(await svc.HasWalletSeedAsync(WalletId));
+        Assert.False(await svc.HasWalletSeedAsync(WalletId2));
     }
 
+    #endregion
+
+    #region RemoveWalletSeedAsync
+
     [Fact]
-    public async Task DisableAsync_DoesNotAffectOtherWallets()
+    public async Task RemoveWalletSeedAsync_RemovesOnlyThatWallet()
     {
         var storage = new InMemorySecureStorage();
-        await storage.SetAsync("wallet_bio_enabled_" + WalletId, "true");
-        await storage.SetAsync("wallet_bio_enabled_" + WalletId2, "true");
-        await storage.SetAsync("wallet_bio_confirm_send_" + WalletId2, "true");
+        await storage.SetAsync("bio_seed_" + WalletId, "seed1");
+        await storage.SetAsync("bio_seed_" + WalletId2, "seed2");
 
         var svc = CreateService(storage);
 
-        await svc.DisableAsync(WalletId);
+        await svc.RemoveWalletSeedAsync(WalletId);
 
-        Assert.False(await svc.IsEnabledAsync(WalletId));
-        Assert.True(await svc.IsEnabledAsync(WalletId2));
-        Assert.True(await svc.IsConfirmSendEnabledAsync(WalletId2));
+        Assert.False(await svc.HasWalletSeedAsync(WalletId));
+        Assert.True(await svc.HasWalletSeedAsync(WalletId2));
     }
 
     #endregion
@@ -189,36 +191,36 @@ public class BiometricServiceTests
 
     #endregion
 
-    #region VerifyIdentityAsync
+    #region VerifyIdentityAsync (global)
 
     [Fact]
     public async Task VerifyIdentityAsync_ReturnsFalse_WhenNoCredential()
     {
         var svc = CreateService();
 
-        Assert.False(await svc.VerifyIdentityAsync(WalletId));
+        Assert.False(await svc.VerifyIdentityAsync());
     }
 
     [Fact]
     public async Task VerifyIdentityAsync_ReturnsFalse_WhenJsThrows()
     {
         var storage = new InMemorySecureStorage();
-        await storage.SetAsync("wallet_bio_cred_" + WalletId, "someCredential");
+        await storage.SetAsync("bio_cred", "someCredential");
         var js = new FakeJSRuntime { ThrowOnInvoke = true };
         var svc = CreateService(storage, js);
 
-        Assert.False(await svc.VerifyIdentityAsync(WalletId));
+        Assert.False(await svc.VerifyIdentityAsync());
     }
 
     [Fact]
     public async Task VerifyIdentityAsync_ReturnsTrue_WhenJsVerifies()
     {
         var storage = new InMemorySecureStorage();
-        await storage.SetAsync("wallet_bio_cred_" + WalletId, "someCredential");
+        await storage.SetAsync("bio_cred", "someCredential");
         var js = new FakeJSRuntime { VerifyResult = true };
         var svc = CreateService(storage, js);
 
-        Assert.True(await svc.VerifyIdentityAsync(WalletId));
+        Assert.True(await svc.VerifyIdentityAsync());
     }
 
     #endregion
@@ -237,13 +239,51 @@ public class BiometricServiceTests
     public async Task UnlockAsync_ReturnsNull_WhenJsThrows()
     {
         var storage = new InMemorySecureStorage();
-        await storage.SetAsync("wallet_bio_cred_" + WalletId, "cred");
-        await storage.SetAsync("wallet_bio_wrap_" + WalletId, "wrap");
-        await storage.SetAsync("wallet_bio_seed_" + WalletId, "seed");
+        await storage.SetAsync("bio_cred", "cred");
+        await storage.SetAsync("bio_key", "key");
+        await storage.SetAsync("bio_seed_" + WalletId, "seed");
         var js = new FakeJSRuntime { ThrowOnInvoke = true };
         var svc = CreateService(storage, js);
 
         Assert.Null(await svc.UnlockAsync(WalletId));
+    }
+
+    [Fact]
+    public async Task UnlockAsync_ReturnsNull_WhenSeedMissing()
+    {
+        var storage = new InMemorySecureStorage();
+        await storage.SetAsync("bio_cred", "cred");
+        await storage.SetAsync("bio_key", "key");
+        // No seed stored for this wallet
+        var svc = CreateService(storage);
+
+        Assert.Null(await svc.UnlockAsync(WalletId));
+    }
+
+    #endregion
+
+    #region AddWalletSeedAsync
+
+    [Fact]
+    public async Task AddWalletSeedAsync_ReturnsFalse_WhenNoBioKey()
+    {
+        var svc = CreateService();
+
+        Assert.False(await svc.AddWalletSeedAsync(WalletId, new byte[] { 1, 2, 3 }));
+    }
+
+    [Fact]
+    public async Task AddWalletSeedAsync_StoresSeed_WhenBioKeyExists()
+    {
+        var storage = new InMemorySecureStorage();
+        await storage.SetAsync("bio_key", "testBioKey");
+        var js = new FakeJSRuntime { EncryptResult = "encryptedSeedData" };
+        var svc = CreateService(storage, js);
+
+        var result = await svc.AddWalletSeedAsync(WalletId, new byte[] { 1, 2, 3 });
+
+        Assert.True(result);
+        Assert.True(await svc.HasWalletSeedAsync(WalletId));
     }
 
     #endregion
@@ -270,6 +310,7 @@ public class BiometricServiceTests
         public bool SupportedResult { get; set; }
         public bool VerifyResult { get; set; }
         public bool ThrowOnInvoke { get; set; }
+        public string? EncryptResult { get; set; }
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
         {
@@ -281,6 +322,8 @@ public class BiometricServiceTests
                 "dgbWebAuthn.isSupported" => SupportedResult,
                 "dgbWebAuthn.verifyIdentity" => VerifyResult,
                 "dgbWebAuthn.authenticate" => (object)null!,
+                "dgbWebAuthn.encryptSeed" => EncryptResult ?? "encrypted",
+                "dgbWebAuthn.decryptSeed" => (object)null!,
                 _ => default(TValue)!,
             };
 

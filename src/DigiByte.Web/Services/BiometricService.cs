@@ -4,22 +4,24 @@ using Microsoft.JSInterop;
 namespace DigiByte.Web.Services;
 
 /// <summary>
-/// Per-wallet biometric (WebAuthn) enrollment and unlock.
-/// Uses PRF extension when available (key bound to authenticator).
-/// Falls back to assertion-gated stored key when PRF is not supported.
+/// Global biometric (WebAuthn) enrollment and unlock.
+/// A single credential is shared across all wallets. Each wallet's seed
+/// is encrypted with a shared AES key; decryption requires a biometric assertion.
 /// </summary>
 public class BiometricService
 {
     private readonly IJSRuntime _js;
     private readonly ISecureStorage _storage;
 
-    private const string BioEnabledPrefix = "wallet_bio_enabled_";
-    private const string BioCredPrefix = "wallet_bio_cred_";
-    private const string BioWrapPrefix = "wallet_bio_wrap_";
-    private const string BioSeedPrefix = "wallet_bio_seed_";
-    private const string BioDismissedPrefix = "wallet_bio_dismissed_";
-    private const string BioConfirmSendPrefix = "wallet_bio_confirm_send_";
-    private const string BioFallbackPrefix = "wallet_bio_fallback_";
+    // Global keys (single credential for all wallets)
+    private const string BioEnabled = "bio_enabled";
+    private const string BioCred = "bio_cred";
+    private const string BioKey = "bio_key";
+    private const string BioDismissed = "bio_dismissed";
+    private const string BioConfirmSend = "bio_confirm_send";
+
+    // Per-wallet encrypted seed
+    private const string BioSeedPrefix = "bio_seed_";
 
     public BiometricService(IJSRuntime js, ISecureStorage storage)
     {
@@ -27,14 +29,68 @@ public class BiometricService
         _storage = storage;
     }
 
-    /// <summary>
-    /// Check if the browser supports WebAuthn with a platform authenticator.
-    /// </summary>
+    /// <summary>Check if the browser supports WebAuthn with a platform authenticator.</summary>
     public async Task<bool> IsSupportedAsync()
+    {
+        try { return await _js.InvokeAsync<bool>("dgbWebAuthn.isSupported"); }
+        catch { return false; }
+    }
+
+    /// <summary>Check if biometric is enrolled (global — not per-wallet).</summary>
+    public async Task<bool> IsEnabledAsync()
+    {
+        var val = await _storage.GetAsync(BioEnabled);
+        return val == "true";
+    }
+
+    /// <summary>Check if a specific wallet has its seed enrolled for biometric unlock.</summary>
+    public async Task<bool> HasWalletSeedAsync(string walletId)
+    {
+        var val = await _storage.GetAsync(BioSeedPrefix + walletId);
+        return val != null;
+    }
+
+    /// <summary>Check if the user dismissed the enrollment prompt.</summary>
+    public async Task<bool> IsDismissedAsync()
+    {
+        var val = await _storage.GetAsync(BioDismissed);
+        return val == "true";
+    }
+
+    /// <summary>Mark the enrollment prompt as dismissed.</summary>
+    public async Task DismissPromptAsync()
+    {
+        await _storage.SetAsync(BioDismissed, "true");
+    }
+
+    /// <summary>
+    /// Enroll biometric: creates a WebAuthn credential and encrypts the first wallet's seed.
+    /// </summary>
+    public async Task<bool> EnrollAsync(string walletId, string walletName, byte[] decryptedSeed)
     {
         try
         {
-            return await _js.InvokeAsync<bool>("dgbWebAuthn.isSupported");
+            var result = await _js.InvokeAsync<BiometricEnrollResult>(
+                "dgbWebAuthn.enroll", walletName);
+
+            if (result == null || string.IsNullOrEmpty(result.CredentialId) || string.IsNullOrEmpty(result.BioKey))
+                return false;
+
+            // Store global credential and key
+            await _storage.SetAsync(BioCred, result.CredentialId);
+            await _storage.SetAsync(BioKey, result.BioKey);
+            await _storage.SetAsync(BioEnabled, "true");
+
+            // Encrypt this wallet's seed
+            var seedBase64 = Convert.ToBase64String(decryptedSeed);
+            var encryptedSeed = await _js.InvokeAsync<string>(
+                "dgbWebAuthn.encryptSeed", result.BioKey, seedBase64);
+            await _storage.SetAsync(BioSeedPrefix + walletId, encryptedSeed);
+
+            // Clear any previous dismissal
+            await _storage.RemoveAsync(BioDismissed);
+
+            return true;
         }
         catch
         {
@@ -43,67 +99,20 @@ public class BiometricService
     }
 
     /// <summary>
-    /// Check if biometric is enrolled for a specific wallet.
+    /// Add a wallet's seed to biometric unlock (biometric must already be enrolled).
+    /// No biometric prompt — uses the stored key directly.
     /// </summary>
-    public async Task<bool> IsEnabledAsync(string walletId)
-    {
-        var val = await _storage.GetAsync(BioEnabledPrefix + walletId);
-        return val == "true";
-    }
-
-    /// <summary>
-    /// Check if the user dismissed the enrollment prompt for this wallet.
-    /// </summary>
-    public async Task<bool> IsDismissedAsync(string walletId)
-    {
-        var val = await _storage.GetAsync(BioDismissedPrefix + walletId);
-        return val == "true";
-    }
-
-    /// <summary>
-    /// Mark the enrollment prompt as dismissed for this wallet.
-    /// </summary>
-    public async Task DismissPromptAsync(string walletId)
-    {
-        await _storage.SetAsync(BioDismissedPrefix + walletId, "true");
-    }
-
-    /// <summary>
-    /// Enroll biometric for a wallet using the decrypted seed from a successful PIN unlock.
-    /// </summary>
-    public async Task<bool> EnrollAsync(string walletId, string walletName, byte[] decryptedSeed)
+    public async Task<bool> AddWalletSeedAsync(string walletId, byte[] decryptedSeed)
     {
         try
         {
-            // Generate random 256-bit wrapping key
-            var wrappingKey = new byte[32];
-            using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-            rng.GetBytes(wrappingKey);
+            var bioKey = await _storage.GetAsync(BioKey);
+            if (bioKey == null) return false;
 
-            var wrappingKeyBase64 = Convert.ToBase64String(wrappingKey);
             var seedBase64 = Convert.ToBase64String(decryptedSeed);
-
-            // Call WebAuthn enrollment — triggers platform authenticator (fingerprint/face)
-            var result = await _js.InvokeAsync<BiometricEnrollResult>(
-                "dgbWebAuthn.enroll", walletId, walletName, wrappingKeyBase64, seedBase64);
-
-            if (result == null || string.IsNullOrEmpty(result.CredentialId))
-                return false;
-
-            // Persist all biometric data in IndexedDB
-            await _storage.SetAsync(BioCredPrefix + walletId, result.CredentialId);
-            await _storage.SetAsync(BioWrapPrefix + walletId, result.WrappedKey);
-            await _storage.SetAsync(BioSeedPrefix + walletId, result.BioSeed);
-            await _storage.SetAsync(BioEnabledPrefix + walletId, "true");
-
-            // Store fallback key if PRF was not available
-            if (!string.IsNullOrEmpty(result.FallbackKey))
-                await _storage.SetAsync(BioFallbackPrefix + walletId, result.FallbackKey);
-            else
-                await _storage.RemoveAsync(BioFallbackPrefix + walletId);
-
-            // Clear any previous dismissal
-            await _storage.RemoveAsync(BioDismissedPrefix + walletId);
+            var encryptedSeed = await _js.InvokeAsync<string>(
+                "dgbWebAuthn.encryptSeed", bioKey, seedBase64);
+            await _storage.SetAsync(BioSeedPrefix + walletId, encryptedSeed);
 
             return true;
         }
@@ -120,18 +129,15 @@ public class BiometricService
     {
         try
         {
-            var credentialId = await _storage.GetAsync(BioCredPrefix + walletId);
-            var wrappedKey = await _storage.GetAsync(BioWrapPrefix + walletId);
-            var bioSeed = await _storage.GetAsync(BioSeedPrefix + walletId);
+            var credentialId = await _storage.GetAsync(BioCred);
+            var bioKey = await _storage.GetAsync(BioKey);
+            var encryptedSeed = await _storage.GetAsync(BioSeedPrefix + walletId);
 
-            if (credentialId == null || wrappedKey == null || bioSeed == null)
+            if (credentialId == null || bioKey == null || encryptedSeed == null)
                 return null;
 
-            // Pass fallback key if stored (null when PRF was used)
-            var fallbackKey = await _storage.GetAsync(BioFallbackPrefix + walletId);
-
             var seedBase64 = await _js.InvokeAsync<string?>(
-                "dgbWebAuthn.authenticate", walletId, credentialId, wrappedKey, bioSeed, fallbackKey);
+                "dgbWebAuthn.authenticate", credentialId, bioKey, encryptedSeed);
 
             return seedBase64 != null ? Convert.FromBase64String(seedBase64) : null;
         }
@@ -143,13 +149,12 @@ public class BiometricService
 
     /// <summary>
     /// Verify the user's identity with biometric (no decryption — just an assertion).
-    /// Used for confirming sends.
     /// </summary>
-    public async Task<bool> VerifyIdentityAsync(string walletId)
+    public async Task<bool> VerifyIdentityAsync()
     {
         try
         {
-            var credentialId = await _storage.GetAsync(BioCredPrefix + walletId);
+            var credentialId = await _storage.GetAsync(BioCred);
             if (credentialId == null) return false;
 
             return await _js.InvokeAsync<bool>("dgbWebAuthn.verifyIdentity", credentialId);
@@ -160,45 +165,50 @@ public class BiometricService
         }
     }
 
-    /// <summary>
-    /// Check if "confirm sends with biometric" is enabled for this wallet.
-    /// </summary>
-    public async Task<bool> IsConfirmSendEnabledAsync(string walletId)
+    /// <summary>Check if "confirm sends with biometric" is enabled.</summary>
+    public async Task<bool> IsConfirmSendEnabledAsync()
     {
-        var val = await _storage.GetAsync(BioConfirmSendPrefix + walletId);
+        var val = await _storage.GetAsync(BioConfirmSend);
         return val == "true";
     }
 
-    /// <summary>
-    /// Enable or disable "confirm sends with biometric" for this wallet.
-    /// </summary>
-    public async Task SetConfirmSendAsync(string walletId, bool enabled)
+    /// <summary>Enable or disable "confirm sends with biometric".</summary>
+    public async Task SetConfirmSendAsync(bool enabled)
     {
         if (enabled)
-            await _storage.SetAsync(BioConfirmSendPrefix + walletId, "true");
+            await _storage.SetAsync(BioConfirmSend, "true");
         else
-            await _storage.RemoveAsync(BioConfirmSendPrefix + walletId);
+            await _storage.RemoveAsync(BioConfirmSend);
     }
 
     /// <summary>
-    /// Disable biometric for a wallet — removes all bio-related keys.
+    /// Remove a single wallet's biometric seed (e.g., when deleting a wallet).
     /// </summary>
-    public async Task DisableAsync(string walletId)
+    public async Task RemoveWalletSeedAsync(string walletId)
     {
-        await _storage.RemoveAsync(BioCredPrefix + walletId);
-        await _storage.RemoveAsync(BioWrapPrefix + walletId);
         await _storage.RemoveAsync(BioSeedPrefix + walletId);
-        await _storage.RemoveAsync(BioEnabledPrefix + walletId);
-        await _storage.RemoveAsync(BioDismissedPrefix + walletId);
-        await _storage.RemoveAsync(BioConfirmSendPrefix + walletId);
-        await _storage.RemoveAsync(BioFallbackPrefix + walletId);
+    }
+
+    /// <summary>
+    /// Disable biometric entirely — removes credential, key, all wallet seeds, and preferences.
+    /// </summary>
+    public async Task DisableAsync()
+    {
+        await _storage.RemoveAsync(BioCred);
+        await _storage.RemoveAsync(BioKey);
+        await _storage.RemoveAsync(BioEnabled);
+        await _storage.RemoveAsync(BioDismissed);
+        await _storage.RemoveAsync(BioConfirmSend);
+
+        // Remove all per-wallet seeds
+        var seedKeys = await _storage.GetKeysWithPrefixAsync(BioSeedPrefix);
+        foreach (var key in seedKeys)
+            await _storage.RemoveAsync(key);
     }
 
     private class BiometricEnrollResult
     {
         public string CredentialId { get; set; } = "";
-        public string WrappedKey { get; set; } = "";
-        public string BioSeed { get; set; } = "";
-        public string? FallbackKey { get; set; }
+        public string BioKey { get; set; } = "";
     }
 }
