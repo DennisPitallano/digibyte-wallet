@@ -252,9 +252,14 @@
     private bool isBiometricUnlocking;
     private bool showBioEnrollPrompt;
     private byte[]? lastDecryptedSeed;
+    private bool biometricChecked;
 
     protected override async Task OnInitializedAsync()
     {
+        // Reset biometric check so it runs fresh each navigation
+        biometricChecked = false;
+        biometricEnabled = false;
+
         // Check for wallet-specific unlock via query param
         var uri = new Uri(Nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
@@ -284,8 +289,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!biometricChecked)
         {
+            biometricChecked = true;
+
             // JS interop must run after first render in Blazor WASM
             biometricSupported = await Biometric.IsSupportedAsync();
             if (biometricSupported && walletId != null)
