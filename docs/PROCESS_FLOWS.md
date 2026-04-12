@@ -298,8 +298,13 @@ Fee selection (Advanced mode only):
   → FallbackBlockchainService.EstimateFeeAsync() for defaults
 
 Review:
-  → PreviewSend() → validate all fields → show confirmation modal
+  → PreviewSend() → validate all fields
+  → SpendingLimitService.CheckLimitAsync(walletId, sendAmount)
+    → If hard block exceeded → set sendError, abort (no confirm modal)
+    → If threshold warning → store spendingCheck for amber banner
+  → Show confirmation modal
   → Modal shows: recipient, amount, fee, total
+  → If spendingCheck.Warning → amber banner with limit message
 
 Confirm:
   → ConfirmSend():
@@ -412,10 +417,35 @@ Sections:
   → Network selector (Mainnet/Testnet/Regtest) → AppState.Network
   → Language selector (10 locales) → LocalizationService.SetLocale()
   → "Back Up Seed Phrase" → navigate /backup-seed
+  → "Spending Limits" → navigate /settings/spending-limits (hidden for xpub)
   → Links: About, Roadmap, Analytics, Deployment
-  → "Delete Wallet" (danger zone) → confirmation → WalletService.DeleteWalletAsync()
+  → "Delete Wallet" (danger zone) → confirmation
+    → SpendingLimitService.DeleteSettingsAsync(walletId)
+    → BiometricService.DisableAsync()
+    → WalletService.WipeAllDataAsync()
 
 All preferences persisted to localStorage via AppState.
+```
+
+### Spending Limits (`/settings/spending-limits`)
+```
+Step 1 — PIN verification:
+  → PinInput (6 digits)
+  → WalletService.UnlockWalletAsync(walletId, pin)
+  → Incorrect → error message + shake
+  → Correct → pinVerified = true, show settings controls
+
+Step 2 — Configure limits:
+  → Enable/disable toggle → auto-save
+  → Daily / Weekly / Monthly DGB limit inputs (number, min 0)
+  → Alert threshold selector (60% / 70% / 80% / 90%)
+  → Hard block toggle (Block Sends vs Warn Only)
+  → Each change → SaveSettingsAsync() → 2s green confirmation toast
+
+Current spending summary:
+  → GetSpentInPeriodAsync(24h / 7d / 30d)
+  → Progress bars: green (<threshold), amber (>=threshold), red (>limit)
+  → Label: "X / Y DGB" for each period
 ```
 
 ### BackupSeed (`/backup-seed`)

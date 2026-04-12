@@ -4,6 +4,22 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.7.0-beta.1] - 2026-04-12
+
+### Added
+- **Per-wallet spending limits** — Configurable daily (24h), weekly (7d), and monthly (30d) rolling DGB limits; settings stored per-wallet in IndexedDB (`spending_limit_` prefix)
+- **Spending limit enforcement on send** — `PreviewSend()` checks all enabled limits; hard block prevents confirm modal, soft warn shows amber banner in review
+- **Spending limit settings page** (`/settings/spending-limits`) — PIN-gated controls: enable/disable toggle, DGB limit inputs with period badges, alert threshold selector (60/70/80/90%), hard block toggle, live spending progress bars
+- **Settings nav card** — "Spending Limits" card (red shield icon) in Settings page; hidden for watch-only (xpub) wallets
+- **Alert threshold warnings** — Amber warning banner in send confirm modal when approaching configurable percentage of any limit
+- **Spending limit cleanup** — Limit settings deleted on wallet delete alongside biometric data
+- **17 new unit tests** — SpendingLimitServiceTests covering settings persistence, roundtrip, corrupt JSON, period calculations, threshold warnings, hard block, multi-period worst-result, zero-limit skip, batch amounts, per-wallet isolation
+
+### Changed
+- **Help Center updated** — New "Spending Limits" Q&A section with 4 entries covering setup, enforcement, and per-wallet behavior
+- **Roadmap updated** — "Spending limits / transaction alerts" marked as completed
+- **Process flows updated** — Send page flow updated with spending limit check step; new SpendingLimits page flow added
+
 ## [0.6.0-beta.1] - 2026-04-14
 
 ### Added

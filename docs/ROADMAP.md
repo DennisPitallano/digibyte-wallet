@@ -130,13 +130,13 @@
 - [ ] Transaction history CSV export
 - [ ] DigiAssets (custom token support)
 - [x] Watch-only wallets (xpub import)
-- [ ] Spending limits / transaction alerts
+- [x] Spending limits / transaction alerts
 - [ ] Hardware wallet support (Ledger/Trezor)
 
 ### Technical Debt
 - [ ] PWA offline mode improvements (background sync for pending tx)
 - [ ] Service worker update notification
-- [x] Unit tests for WalletService + multisig + biometric (216 total)
+- [x] Unit tests for WalletService + multisig + biometric + spending limits (233 total)
 - [ ] E2E test suite (Playwright)
 - [ ] Performance optimization (lazy loading)
 

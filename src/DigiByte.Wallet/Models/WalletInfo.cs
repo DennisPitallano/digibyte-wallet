@@ -84,3 +84,33 @@ public enum TransactionDirection
     Sent,
     Received
 }
+
+/// <summary>
+/// Per-wallet spending limit configuration.
+/// </summary>
+public class SpendingLimitSettings
+{
+    public bool Enabled { get; set; }
+    public decimal DailyLimitDgb { get; set; }
+    public decimal WeeklyLimitDgb { get; set; }
+    public decimal MonthlyLimitDgb { get; set; }
+
+    /// <summary>Alert threshold as a percentage (0–100). Default 80%.</summary>
+    public int AlertThresholdPercent { get; set; } = 80;
+
+    /// <summary>If true, sends exceeding the limit are blocked. If false, only a warning is shown.</summary>
+    public bool HardBlock { get; set; }
+}
+
+/// <summary>
+/// Result of checking a spending limit before sending.
+/// </summary>
+public class SpendingCheckResult
+{
+    public bool Allowed { get; init; } = true;
+    public bool Warning { get; init; }
+    public string? Message { get; init; }
+    public decimal SpentInPeriod { get; init; }
+    public decimal LimitForPeriod { get; init; }
+    public string? PeriodLabel { get; init; }
+}

@@ -7,6 +7,7 @@
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
 @inject BiometricService Biometric
+@inject SpendingLimitService SpendingLimit
 
 <PageTitle>Send DGB</PageTitle>
 
@@ -551,6 +552,16 @@ else
                     </div>
                 }
 
+                @if (spendingCheck is { Warning: true, Message: not null })
+                {
+                    <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/30">
+                        <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">@spendingCheck.Message</p>
+                    </div>
+                }
+
                 @if (sendError != null)
                 {
                     <p class="text-xs text-red-500 font-medium text-center bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl">@sendError</p>
@@ -746,6 +757,7 @@ else
 
     private string? amountWarning;
     private bool hasUnconfirmedUtxos;
+    private SpendingCheckResult? spendingCheck;
 
     private void UpdateAmountWarning()
     {
@@ -906,6 +918,8 @@ else
     private async Task PreviewSend()
     {
         addressError = null;
+        hasUnconfirmedUtxos = false;
+        spendingCheck = null;
         amountError = null;
         batchError = null;
         hasUnconfirmedUtxos = false;
@@ -1003,6 +1017,23 @@ else
         }
         catch { }
         finally { isReviewing = false; }
+
+        // Check spending limits
+        try
+        {
+            var walletId = await WalletService.GetActiveWalletIdAsync();
+            if (walletId != null)
+            {
+                var sendAmount = isBatchMode ? BatchTotal : amountDgb;
+                spendingCheck = await SpendingLimit.CheckLimitAsync(walletId, sendAmount);
+                if (spendingCheck is { Allowed: false })
+                {
+                    sendError = spendingCheck.Message;
+                    return;
+                }
+            }
+        }
+        catch { spendingCheck = null; }
 
         showConfirm = true;
     }
