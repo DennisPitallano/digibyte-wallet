@@ -18,7 +18,7 @@ public static class MiningEndpoints
         Results.Ok(await rpc.CallAsync<JsonElement>("getmininginfo"));
 
     private static async Task<IResult> GetDifficulty(DigiByteRpcClient rpc) =>
-        Results.Ok(new { difficulty = await rpc.CallAsync<decimal>("getdifficulty") });
+        Results.Ok(await rpc.CallAsync<JsonElement>("getdifficulty"));
 
     private static async Task<IResult> GenerateToAddress(DigiByteRpcClient rpc, int count, GenerateRequest req) =>
         Results.Ok(new { blocks = await rpc.CallAsync<JsonElement>("generatetoaddress", count, req.Address) });

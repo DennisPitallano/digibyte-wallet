@@ -40,10 +40,19 @@ public class BlockbookApiService : IBlockchainService
 
     public async Task<long> GetBalanceAsync(IEnumerable<string> addresses)
     {
-        long total = 0;
-        foreach (var addr in addresses)
-            total += await GetBalanceAsync(addr);
-        return total;
+        var addressList = addresses.ToList();
+        if (addressList.Count == 0) return 0;
+
+        var semaphore = new SemaphoreSlim(10);
+        var tasks = addressList.Select(async addr =>
+        {
+            await semaphore.WaitAsync();
+            try { return await GetBalanceAsync(addr); }
+            finally { semaphore.Release(); }
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.Sum();
     }
 
     public async Task<List<UtxoInfo>> GetUtxosAsync(string address)
@@ -62,10 +71,19 @@ public class BlockbookApiService : IBlockchainService
 
     public async Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses)
     {
-        var all = new List<UtxoInfo>();
-        foreach (var addr in addresses)
-            all.AddRange(await GetUtxosAsync(addr));
-        return all;
+        var addressList = addresses.ToList();
+        if (addressList.Count == 0) return [];
+
+        var semaphore = new SemaphoreSlim(10);
+        var tasks = addressList.Select(async addr =>
+        {
+            await semaphore.WaitAsync();
+            try { return await GetUtxosAsync(addr); }
+            finally { semaphore.Release(); }
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.SelectMany(r => r).ToList();
     }
 
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)

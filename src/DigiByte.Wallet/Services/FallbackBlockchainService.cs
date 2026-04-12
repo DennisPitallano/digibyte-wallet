@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace DigiByte.Wallet.Services;
 
 /// <summary>
@@ -17,6 +19,12 @@ public class FallbackBlockchainService : IBlockchainService
     // Track which explorers are currently failing to skip them temporarily
     private readonly Dictionary<int, DateTime> _explorerCooldowns = new();
     private static readonly TimeSpan CooldownDuration = TimeSpan.FromMinutes(2);
+
+    // Service-level cache for read operations
+    private readonly ConcurrentDictionary<string, (object Value, DateTime ExpiresAt)> _cache = new();
+    private static readonly TimeSpan BalanceCacheTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TxHistoryCacheTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan BlockHeightCacheTtl = TimeSpan.FromSeconds(15);
 
     public bool IsDemoMode { get; private set; }
     public bool ForceDemoMode { get; set; }
@@ -159,6 +167,7 @@ public class FallbackBlockchainService : IBlockchainService
             Console.WriteLine("[Broadcast] Trying node-api...");
             var txId = await _nodeApi.BroadcastTransactionAsync(rawTransaction);
             Console.WriteLine($"[Broadcast] ✓ node-api succeeded — txid: {txId}");
+            InvalidateCache();
             return txId;
         }
         catch (Exception ex)
@@ -178,6 +187,7 @@ public class FallbackBlockchainService : IBlockchainService
                 Console.WriteLine($"[Broadcast] Trying {name}...");
                 var txId = await _explorers[i].BroadcastTransactionAsync(rawTransaction);
                 Console.WriteLine($"[Broadcast] ✓ {name} succeeded — txid: {txId}");
+                InvalidateCache();
                 return txId;
             }
             catch (Exception ex)
@@ -191,13 +201,19 @@ public class FallbackBlockchainService : IBlockchainService
         throw new Exception($"Broadcast failed on all backends. Last error: {lastError?.Message}");
     }
 
-    // Read operations — own node first, then explorers in order
+    // Read operations — cached where appropriate
     public Task<long> GetBalanceAsync(string address) =>
-        TryRead(s => s.GetBalanceAsync(address));
+        CachedRead($"bal:{address}", BalanceCacheTtl, s => s.GetBalanceAsync(address));
 
-    public Task<long> GetBalanceAsync(IEnumerable<string> addresses) =>
-        TryRead(s => s.GetBalanceAsync(addresses));
+    public Task<long> GetBalanceAsync(IEnumerable<string> addresses)
+    {
+        // Materialize once so we can build a stable cache key and avoid re-enumeration
+        var list = addresses as IList<string> ?? addresses.ToList();
+        var key = $"bal-multi:{string.Join(",", list.OrderBy(a => a))}";
+        return CachedRead(key, BalanceCacheTtl, s => s.GetBalanceAsync(list));
+    }
 
+    // UTXOs are NOT cached — they must be fresh for transaction signing
     public Task<List<UtxoInfo>> GetUtxosAsync(string address) =>
         TryRead(s => s.GetUtxosAsync(address));
 
@@ -208,7 +224,8 @@ public class FallbackBlockchainService : IBlockchainService
         TryRead(s => s.GetTransactionAsync(txId));
 
     public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) =>
-        TryRead(s => s.GetAddressTransactionsAsync(address, skip, take));
+        CachedRead($"txs:{address}:{skip}:{take}", TxHistoryCacheTtl,
+            s => s.GetAddressTransactionsAsync(address, skip, take));
 
     public Task<decimal> GetFeeRateAsync() =>
         TryRead(s => s.GetFeeRateAsync());
@@ -228,5 +245,20 @@ public class FallbackBlockchainService : IBlockchainService
     }
 
     public Task<int> GetBlockHeightAsync() =>
-        TryRead(s => s.GetBlockHeightAsync());
+        CachedRead("blockheight", BlockHeightCacheTtl, s => s.GetBlockHeightAsync());
+
+    /// <summary>
+    /// Invalidate all cached data — call after sending a transaction so balance refreshes immediately.
+    /// </summary>
+    public void InvalidateCache() => _cache.Clear();
+
+    private async Task<T> CachedRead<T>(string key, TimeSpan ttl, Func<IBlockchainService, Task<T>> call)
+    {
+        if (_cache.TryGetValue(key, out var entry) && DateTime.UtcNow < entry.ExpiresAt)
+            return (T)entry.Value;
+
+        var result = await TryRead(call);
+        _cache[key] = (result!, DateTime.UtcNow + ttl);
+        return result;
+    }
 }

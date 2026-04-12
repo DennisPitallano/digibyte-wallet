@@ -13,8 +13,19 @@ if (port is not null)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
-// Configuration
+// Configuration — appsettings.json with env var overrides (12-factor)
 var nodeConfig = builder.Configuration.GetSection("DigiByteNode").Get<NodeConfig>() ?? new NodeConfig();
+
+// Allow env var overrides for sensitive/deployment config
+if (Environment.GetEnvironmentVariable("DIGIBYTE_RPC_USER") is { } rpcUser)
+    nodeConfig.RpcUser = rpcUser;
+if (Environment.GetEnvironmentVariable("DIGIBYTE_RPC_PASSWORD") is { } rpcPass)
+    nodeConfig.RpcPassword = rpcPass;
+if (Environment.GetEnvironmentVariable("DIGIBYTE_HOST") is { } host)
+    nodeConfig.Host = host;
+if (Environment.GetEnvironmentVariable("DIGIBYTE_TESTNET") is { } testnet)
+    nodeConfig.IsTestnet = testnet.Equals("true", StringComparison.OrdinalIgnoreCase);
+
 builder.Services.AddSingleton(nodeConfig);
 
 // RPC client

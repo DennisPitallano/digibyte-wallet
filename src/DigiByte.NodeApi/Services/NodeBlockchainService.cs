@@ -27,41 +27,56 @@ public class NodeBlockchainService : IBlockchainService
 
     public async Task<long> GetBalanceAsync(IEnumerable<string> addresses)
     {
-        long total = 0;
-        foreach (var addr in addresses)
-            total += await GetBalanceAsync(addr);
-        return total;
+        var addrList = addresses.ToList();
+        if (addrList.Count == 0) return 0;
+
+        // Batch all addresses into a single scantxoutset call
+        var descriptors = addrList.Select(a => (object)new { desc = $"addr({a})" }).ToArray();
+        var result = await _rpc.CallAsync<JsonElement>("scantxoutset", "start", (object)descriptors);
+        var amount = result.TryGetProperty("total_amount", out var a) ? a.GetDecimal() : 0m;
+        return (long)(amount * 100_000_000m);
     }
 
     public async Task<List<UtxoInfo>> GetUtxosAsync(string address)
     {
+        var currentHeight = await _rpc.CallAsync<int>("getblockcount");
         var result = await _rpc.CallAsync<JsonElement>("scantxoutset", "start",
             new object[] { new { desc = $"addr({address})" } });
 
+        return ParseUtxos(result, currentHeight);
+    }
+
+    public async Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses)
+    {
+        var addrList = addresses.ToList();
+        if (addrList.Count == 0) return [];
+
+        var currentHeight = await _rpc.CallAsync<int>("getblockcount");
+        var descriptors = addrList.Select(a => (object)new { desc = $"addr({a})" }).ToArray();
+        var result = await _rpc.CallAsync<JsonElement>("scantxoutset", "start", (object)descriptors);
+
+        return ParseUtxos(result, currentHeight);
+    }
+
+    private static List<UtxoInfo> ParseUtxos(JsonElement result, int currentHeight)
+    {
         var utxos = new List<UtxoInfo>();
         if (result.TryGetProperty("unspents", out var unspents))
         {
             foreach (var u in unspents.EnumerateArray())
             {
+                var height = u.TryGetProperty("height", out var h) ? h.GetInt32() : 0;
                 utxos.Add(new UtxoInfo
                 {
                     TxId = u.GetProperty("txid").GetString()!,
                     OutputIndex = (uint)u.GetProperty("vout").GetInt32(),
                     AmountSatoshis = (long)(u.GetProperty("amount").GetDecimal() * 100_000_000m),
                     ScriptPubKey = u.TryGetProperty("scriptPubKey", out var s) ? s.GetString()! : "",
-                    Confirmations = u.TryGetProperty("height", out var h) ? 1 : 0,
+                    Confirmations = height > 0 ? currentHeight - height + 1 : 0,
                 });
             }
         }
         return utxos;
-    }
-
-    public async Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses)
-    {
-        var all = new List<UtxoInfo>();
-        foreach (var addr in addresses)
-            all.AddRange(await GetUtxosAsync(addr));
-        return all;
     }
 
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
@@ -168,7 +183,7 @@ public class NodeBlockchainService : IBlockchainService
             TxId = tx.GetProperty("txid").GetString()!,
             Confirmations = tx.TryGetProperty("confirmations", out var c) ? c.GetInt32() : 0,
             Timestamp = blockTime > 0 ? DateTimeOffset.FromUnixTimeSeconds(blockTime).UtcDateTime : DateTime.UtcNow,
-            FeeSatoshis = 0, // fee not directly available in getrawtransaction
+            FeeSatoshis = tx.TryGetProperty("fee", out var feeVal) ? (long)(Math.Abs(feeVal.GetDecimal()) * 100_000_000m) : 0,
             Inputs = inputs,
             Outputs = outputs,
         };

@@ -560,12 +560,23 @@ public class WalletService : IWalletService
                 addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
             }
 
-            // Query each address individually so we know exactly which address
-            // each UTXO belongs to — Esplora doesn't return scriptPubKey in UTXO responses.
+            // Query addresses in parallel — we need to know which address each UTXO
+            // belongs to for correct scriptPubKey assignment (Esplora doesn't return it).
             availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
-            foreach (var (addr, key) in addressKeyMap)
+            var semaphore = new SemaphoreSlim(10);
+            var utxoTasks = addressKeyMap.Select(async kvp =>
             {
-                var utxos = await _blockchain.GetUtxosAsync(addr);
+                await semaphore.WaitAsync();
+                try
+                {
+                    var utxos = await _blockchain.GetUtxosAsync(kvp.Key);
+                    return (Address: kvp.Key, Key: kvp.Value, Utxos: utxos);
+                }
+                finally { semaphore.Release(); }
+            });
+            var utxoResults = await Task.WhenAll(utxoTasks);
+            foreach (var (addr, key, utxos) in utxoResults)
+            {
                 var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
                 foreach (var utxoInfo in utxos)
                 {
@@ -590,14 +601,13 @@ public class WalletService : IWalletService
             changeAddress = _hd.GetAddress(changeKey);
         }
 
-        // Check we have enough funds
+        // Use only confirmed UTXOs to avoid too-long-mempool-chain (node limit: 25 ancestors).
+        // Fall back to all UTXOs only if confirmed ones can't cover the amount + estimated fee.
         var totalAvailable = availableUtxos.Sum(u => u.Amount.Satoshi);
         if (totalAvailable < amountSatoshis)
             throw new InvalidOperationException(
                 $"Insufficient funds. Need {amountDgb:N8} DGB but only have {totalAvailable / 100_000_000m:N8} DGB.");
 
-        // Use only confirmed UTXOs to avoid too-long-mempool-chain (node limit: 25 ancestors).
-        // Fall back to all UTXOs only if confirmed ones can't cover the amount + estimated fee.
         var confirmedUtxos = availableUtxos.Where(u => u.Confirmations > 0).ToList();
         var confirmedTotal = confirmedUtxos.Sum(u => u.Amount.Satoshi);
         var utxosToUse = confirmedTotal >= amountSatoshis ? confirmedUtxos : availableUtxos;
@@ -733,9 +743,20 @@ public class WalletService : IWalletService
             }
 
             availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
-            foreach (var (addr, key) in addressKeyMap)
+            var batchSemaphore = new SemaphoreSlim(10);
+            var batchUtxoTasks = addressKeyMap.Select(async kvp =>
             {
-                var utxos = await _blockchain.GetUtxosAsync(addr);
+                await batchSemaphore.WaitAsync();
+                try
+                {
+                    var utxos = await _blockchain.GetUtxosAsync(kvp.Key);
+                    return (Address: kvp.Key, Key: kvp.Value, Utxos: utxos);
+                }
+                finally { batchSemaphore.Release(); }
+            });
+            var batchUtxoResults = await Task.WhenAll(batchUtxoTasks);
+            foreach (var (addr, key, utxos) in batchUtxoResults)
+            {
                 var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
                 foreach (var utxoInfo in utxos)
                 {
@@ -819,12 +840,17 @@ public class WalletService : IWalletService
                 bool isOurs(string? addr) => addr != null && ourNormalized.Contains(NormalizeAddress(addr));
 
                 var allTxs = new Dictionary<string, TransactionInfo>();
-                foreach (var addr in rawAddresses)
+                var semaphore = new SemaphoreSlim(10);
+                var txTasks = rawAddresses.Select(async addr =>
                 {
-                    var txInfos = await _blockchain.GetAddressTransactionsAsync(addr, 0, take);
+                    await semaphore.WaitAsync();
+                    try { return await _blockchain.GetAddressTransactionsAsync(addr, 0, take); }
+                    finally { semaphore.Release(); }
+                });
+                var txResults = await Task.WhenAll(txTasks);
+                foreach (var txInfos in txResults)
                     foreach (var tx in txInfos)
                         allTxs.TryAdd(tx.TxId, tx);
-                }
 
                 var explorerRecords = allTxs.Values.Select(tx =>
                 {

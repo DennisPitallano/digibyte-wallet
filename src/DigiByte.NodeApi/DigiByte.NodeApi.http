@@ -1,6 +1,123 @@
-@DigiByte.NodeApi_HostAddress = http://localhost:5021
+@host = http://localhost:5260
 
-GET {{DigiByte.NodeApi_HostAddress}}/weatherforecast/
+### Health Check
+GET {{host}}/api/health
 Accept: application/json
 
-###
+### Blockchain Info
+GET {{host}}/api/blockchain/info
+Accept: application/json
+
+### Block Height
+GET {{host}}/api/blockchain/height
+Accept: application/json
+
+### Get Block by Height
+GET {{host}}/api/blockchain/block/1
+Accept: application/json
+
+### Address Balance (replace with a real address)
+GET {{host}}/api/address/dgb1qexampleaddress/balance
+Accept: application/json
+
+### Address UTXOs
+GET {{host}}/api/address/dgb1qexampleaddress/utxos
+Accept: application/json
+
+### Validate Address
+GET {{host}}/api/address/dgb1qexampleaddress/validate
+Accept: application/json
+
+### Network Info
+GET {{host}}/api/network/info
+Accept: application/json
+
+### Peer Info
+GET {{host}}/api/network/peers
+Accept: application/json
+
+### Connection Count
+GET {{host}}/api/network/connections
+Accept: application/json
+
+### Fee Estimate (6 blocks target)
+GET {{host}}/api/network/fee/6
+Accept: application/json
+
+### Mempool Info
+GET {{host}}/api/network/mempool
+Accept: application/json
+
+### Wallet Info
+GET {{host}}/api/wallet/info
+Accept: application/json
+
+### Wallet Balance
+GET {{host}}/api/wallet/balance
+Accept: application/json
+
+### Wallet Balances (confirmed/unconfirmed/immature)
+GET {{host}}/api/wallet/balances
+Accept: application/json
+
+### Generate New Address
+GET {{host}}/api/wallet/newaddress
+Accept: application/json
+
+### Unspent Outputs (wallet)
+GET {{host}}/api/wallet/unspent
+Accept: application/json
+
+### Transaction History
+GET {{host}}/api/wallet/transactions?count=10&skip=0
+Accept: application/json
+
+### Get Transaction
+GET {{host}}/api/tx/REPLACE_WITH_TXID
+Accept: application/json
+
+### Broadcast Transaction
+POST {{host}}/api/tx/broadcast
+Content-Type: application/json
+
+{
+  "hex": "REPLACE_WITH_SIGNED_TX_HEX"
+}
+
+### Decode Transaction
+POST {{host}}/api/tx/decode
+Content-Type: application/json
+
+{
+  "hex": "REPLACE_WITH_TX_HEX"
+}
+
+### Mining Info
+GET {{host}}/api/mining/info
+Accept: application/json
+
+### Network Hashrate
+GET {{host}}/api/mining/hashrate?nblocks=120
+Accept: application/json
+
+### Node Version
+GET {{host}}/api/util/version
+Accept: application/json
+
+### Node Uptime
+GET {{host}}/api/util/uptime
+Accept: application/json
+
+### UTXO Set Statistics
+GET {{host}}/api/util/txoutset
+Accept: application/json
+
+### Verify Message
+POST {{host}}/api/util/verify
+Content-Type: application/json
+
+{
+  "address": "REPLACE_WITH_ADDRESS",
+  "signature": "REPLACE_WITH_SIGNATURE",
+  "message": "REPLACE_WITH_MESSAGE"
+}

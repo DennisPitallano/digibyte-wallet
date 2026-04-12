@@ -35,8 +35,23 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<long> GetBalanceAsync(IEnumerable<string> addresses)
     {
+        var addrList = addresses.ToList();
+        if (addrList.Count == 0) return 0;
+
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"{_baseUrl}/api/address/balances", addrList.ToArray());
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                return result.TryGetProperty("balanceSatoshis", out var sat) ? sat.GetInt64() : 0;
+            }
+        }
+        catch { }
+
+        // Fallback to sequential
         long total = 0;
-        foreach (var addr in addresses)
+        foreach (var addr in addrList)
             total += await GetBalanceAsync(addr);
         return total;
     }
@@ -57,7 +72,8 @@ public class NodeApiBlockchainService : IBlockchainService
                         OutputIndex = (uint)u.GetProperty("vout").GetInt32(),
                         AmountSatoshis = u.GetProperty("amountSatoshis").GetInt64(),
                         ScriptPubKey = u.TryGetProperty("scriptPubKey", out var s) ? s.GetString()! : "",
-                        Confirmations = u.TryGetProperty("height", out var h) ? 1 : 0,
+                        Confirmations = u.TryGetProperty("confirmations", out var conf) ? conf.GetInt32()
+                            : u.TryGetProperty("height", out var h) && h.GetInt32() > 0 ? 1 : 0,
                     });
                 }
             }
@@ -68,8 +84,39 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses)
     {
+        var addrList = addresses.ToList();
+        if (addrList.Count == 0) return [];
+
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"{_baseUrl}/api/address/utxos", addrList.ToArray());
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var list = new List<UtxoInfo>();
+                if (result.TryGetProperty("utxos", out var utxos))
+                {
+                    foreach (var u in utxos.EnumerateArray())
+                    {
+                        list.Add(new UtxoInfo
+                        {
+                            TxId = u.GetProperty("txid").GetString()!,
+                            OutputIndex = (uint)u.GetProperty("vout").GetInt32(),
+                            AmountSatoshis = u.GetProperty("amountSatoshis").GetInt64(),
+                            ScriptPubKey = u.TryGetProperty("scriptPubKey", out var s) ? s.GetString()! : "",
+                            Confirmations = u.TryGetProperty("confirmations", out var conf) ? conf.GetInt32()
+                                : u.TryGetProperty("height", out var h) && h.GetInt32() > 0 ? 1 : 0,
+                        });
+                    }
+                }
+                return list;
+            }
+        }
+        catch { }
+
+        // Fallback to sequential
         var all = new List<UtxoInfo>();
-        foreach (var addr in addresses)
+        foreach (var addr in addrList)
             all.AddRange(await GetUtxosAsync(addr));
         return all;
     }
@@ -212,7 +259,7 @@ public class NodeApiBlockchainService : IBlockchainService
             TxId = tx.GetProperty("txid").GetString()!,
             Confirmations = tx.TryGetProperty("confirmations", out var c) ? c.GetInt32() : 0,
             Timestamp = blockTime > 0 ? DateTimeOffset.FromUnixTimeSeconds(blockTime).UtcDateTime : DateTime.UtcNow,
-            FeeSatoshis = 0,
+            FeeSatoshis = tx.TryGetProperty("fee", out var feeVal) ? (long)(Math.Abs(feeVal.GetDecimal()) * 100_000_000m) : 0,
             Inputs = inputs,
             Outputs = outputs,
         };
