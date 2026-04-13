@@ -96,7 +96,7 @@ public class ParallelQueryTests
     {
         var explorer = CreateDelayedExplorer(delayMs: 100, balancePerAddress: 5000);
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         // First call — hits explorer
         var sw1 = Stopwatch.StartNew();
@@ -119,7 +119,7 @@ public class ParallelQueryTests
     {
         var explorer = CreateDelayedExplorer(delayMs: 50, balancePerAddress: 100);
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         var addresses = Enumerable.Range(0, 10).Select(i => $"dgb1addr{i}").ToList();
 
@@ -140,7 +140,7 @@ public class ParallelQueryTests
     {
         var explorer = CreateDelayedExplorer(delayMs: 100);
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         var txs1 = await sut.GetAddressTransactionsAsync("dgb1test");
 
@@ -159,7 +159,7 @@ public class ParallelQueryTests
         var callCount = 0;
         var explorer = new CountingFakeExplorer(() => Interlocked.Increment(ref callCount));
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         await sut.GetUtxosAsync("dgb1test");
         await sut.GetUtxosAsync("dgb1test");
@@ -173,7 +173,7 @@ public class ParallelQueryTests
         var callCount = 0;
         var explorer = new CountingFakeExplorer(() => Interlocked.Increment(ref callCount), broadcastResult: "txid123");
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         await sut.GetBalanceAsync("dgb1test"); // call 1
         await sut.GetBalanceAsync("dgb1test"); // cached — no new call
@@ -189,7 +189,7 @@ public class ParallelQueryTests
     {
         var explorer = CreateDelayedExplorer(delayMs: 100);
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         await sut.GetBlockHeightAsync(); // populates cache
 
@@ -207,7 +207,7 @@ public class ParallelQueryTests
     {
         var explorer = CreateDelayedExplorer(delayMs: 0, balancePerAddress: 100);
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         var bal1 = await sut.GetBalanceAsync("addr1");
         var bal2 = await sut.GetBalanceAsync("addr2");

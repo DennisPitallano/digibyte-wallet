@@ -104,8 +104,9 @@ builder.Services.AddScoped<FallbackBlockchainService>(sp =>
         blockbook, // Blockbook (digibyteblockexplorer.com) — fallback
     };
 
+    var priceHttp = sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko");
     var mock = isDevelopment ? sp.GetRequiredService<MockBlockchainService>() : null;
-    return new FallbackBlockchainService(nodeApi, explorers, isDevelopment, mock);
+    return new FallbackBlockchainService(nodeApi, explorers, priceHttp, isDevelopment, priceApiUrl, mock);
 });
 builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<FallbackBlockchainService>());
 

@@ -78,6 +78,48 @@ public class ContactService
         await SaveAsync(contacts);
     }
 
+    /// <summary>
+    /// Returns all contacts with the user's other wallets prepended as virtual contacts.
+    /// Wallets appear first, sorted by name, followed by regular contacts.
+    /// The active wallet is excluded (you can't send to yourself).
+    /// </summary>
+    public async Task<List<Contact>> GetAllWithWalletsAsync(WalletService walletService)
+    {
+        var contacts = await GetAllAsync();
+
+        if (!walletService.IsUnlocked) return contacts;
+
+        var allWallets = await walletService.GetAllWalletsAsync();
+        var activeId = walletService.ActiveWallet?.Id;
+
+        // Only include other wallets that are unlocked (we need their address)
+        var walletContacts = new List<Contact>();
+        foreach (var w in allWallets)
+        {
+            if (w.Id == activeId) continue; // skip active wallet
+            if (!walletService.IsWalletUnlocked(w.Id)) continue;
+
+            try
+            {
+                var address = walletService.GetReceivingAddressForWallet(w.Id);
+                if (string.IsNullOrEmpty(address)) continue;
+
+                walletContacts.Add(new Contact
+                {
+                    Id = $"wallet:{w.Id}",
+                    Name = w.Name,
+                    Address = address,
+                    Notes = "My wallet",
+                    IsWallet = true,
+                    WalletColor = w.Color,
+                });
+            }
+            catch { /* wallet not accessible */ }
+        }
+
+        return [.. walletContacts, .. contacts];
+    }
+
     private async Task SaveAsync(List<Contact> contacts)
     {
         _cache = contacts;

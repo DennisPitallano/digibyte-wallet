@@ -40,7 +40,7 @@ public class FallbackBroadcastTests
     {
         var nodeApi = CreateSucceedingNodeApi("abc123");
         var explorer1 = new FakeExplorer("explorer1", broadcastResult: "from-explorer");
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1], new HttpClient(), isDevelopment: false);
 
         var result = await sut.BroadcastTransactionAsync(FakeTx);
 
@@ -53,7 +53,7 @@ public class FallbackBroadcastTests
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("explorer1", broadcastResult: "tx-from-explorer1");
         var explorer2 = new FakeExplorer("explorer2", broadcastResult: "tx-from-explorer2");
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], new HttpClient(), isDevelopment: false);
 
         var result = await sut.BroadcastTransactionAsync(FakeTx);
 
@@ -66,7 +66,7 @@ public class FallbackBroadcastTests
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("explorer1", shouldFailBroadcast: true);
         var explorer2 = new FakeExplorer("explorer2", broadcastResult: "tx-from-explorer2");
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], new HttpClient(), isDevelopment: false);
 
         var result = await sut.BroadcastTransactionAsync(FakeTx);
 
@@ -79,7 +79,7 @@ public class FallbackBroadcastTests
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("explorer1", shouldFailBroadcast: true);
         var explorer2 = new FakeExplorer("explorer2", shouldFailBroadcast: true);
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], new HttpClient(), isDevelopment: false);
 
         var ex = await Assert.ThrowsAsync<Exception>(
             () => sut.BroadcastTransactionAsync(FakeTx));
@@ -93,7 +93,7 @@ public class FallbackBroadcastTests
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("explorer1", shouldFailBroadcast: true);
         var mock = new MockBlockchainService();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1], isDevelopment: true, mock);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1], new HttpClient(), isDevelopment: true, mock: mock);
 
         var ex = await Assert.ThrowsAsync<Exception>(
             () => sut.BroadcastTransactionAsync(FakeTx));
@@ -105,7 +105,7 @@ public class FallbackBroadcastTests
     public async Task Broadcast_NoExplorers_NodeFails_Throws()
     {
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [], new HttpClient(), isDevelopment: false);
 
         var ex = await Assert.ThrowsAsync<Exception>(
             () => sut.BroadcastTransactionAsync(FakeTx));
@@ -121,7 +121,7 @@ public class FallbackBroadcastTests
         var explorer1 = new FakeExplorer("e1", shouldFailBroadcast: true, onBroadcast: () => callOrder.Add("e1"));
         var explorer2 = new FakeExplorer("e2", shouldFailBroadcast: true, onBroadcast: () => callOrder.Add("e2"));
         var explorer3 = new FakeExplorer("e3", broadcastResult: "from-e3", onBroadcast: () => callOrder.Add("e3"));
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2, explorer3], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2, explorer3], new HttpClient(), isDevelopment: false);
 
         var result = await sut.BroadcastTransactionAsync(FakeTx);
 
@@ -135,7 +135,7 @@ public class FallbackBroadcastTests
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("e1", shouldFailReads: true);
         var explorer2 = new FakeExplorer("e2", balance: 5000);
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1, explorer2], new HttpClient(), isDevelopment: false);
 
         var balance = await sut.GetBalanceAsync("dgb1test");
 
@@ -150,7 +150,7 @@ public class FallbackBroadcastTests
         // so it never throws — TryRead considers this a success.
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("e1", shouldFailReads: true);
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1], new HttpClient(), isDevelopment: false);
 
         var balance = await sut.GetBalanceAsync("dgb1test");
 
@@ -167,7 +167,7 @@ public class FallbackBroadcastTests
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("e1", shouldFailReads: true);
         var mock = new MockBlockchainService();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1], isDevelopment: true, mock);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1], new HttpClient(), isDevelopment: true, mock: mock);
 
         var balance = await sut.GetBalanceAsync("dgb1test");
 
@@ -183,7 +183,7 @@ public class FallbackBroadcastTests
         // This is by design — the node is always treated as a valid (if degraded) backend.
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("e1", shouldFailReads: true);
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1], new HttpClient(), isDevelopment: false);
 
         var balance = await sut.GetBalanceAsync("dgb1test");
 
@@ -198,7 +198,7 @@ public class FallbackBroadcastTests
         // So it never throws — TryRead stops at node with empty result.
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("e1", shouldFailReads: true);
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1], new HttpClient(), isDevelopment: false);
 
         var utxos = await sut.GetUtxosAsync("dgb1test");
 
@@ -213,7 +213,7 @@ public class FallbackBroadcastTests
         var nodeApi = CreateFailingNodeApi();
         var explorer1 = new FakeExplorer("e1", shouldFailReads: true);
         var mock = new MockBlockchainService();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer1], isDevelopment: true, mock);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer1], new HttpClient(), isDevelopment: true, mock: mock);
 
         var utxos = await sut.GetUtxosAsync("dgb1test");
 

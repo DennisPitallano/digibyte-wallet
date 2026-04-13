@@ -152,7 +152,7 @@ public class ParallelQueryBenchmarks
     {
         var explorer = new LatencyExplorer(SimulatedLatencyMs, balancePerAddress: 5000);
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [explorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [explorer], new HttpClient(), isDevelopment: false);
 
         var addresses = Enumerable.Range(0, AddressCount).Select(i => $"dgb1addr{i}").ToList();
 
@@ -201,7 +201,7 @@ public class ParallelQueryBenchmarks
         // NEW: parallel + cache (second call is cached)
         var newExplorer = new LatencyExplorer(SimulatedLatencyMs, balancePerAddress: 1000);
         var nodeApi = CreateFailingNodeApi();
-        var sut = new FallbackBlockchainService(nodeApi, [newExplorer], isDevelopment: false);
+        var sut = new FallbackBlockchainService(nodeApi, [newExplorer], new HttpClient(), isDevelopment: false);
         var swNew = Stopwatch.StartNew();
         var newBal = await sut.GetBalanceAsync(addresses);
         var semaphore = new SemaphoreSlim(10);

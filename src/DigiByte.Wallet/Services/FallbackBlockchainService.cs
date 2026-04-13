@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace DigiByte.Wallet.Services;
 
@@ -13,6 +15,8 @@ public class FallbackBlockchainService : IBlockchainService
     private readonly NodeApiBlockchainService _nodeApi;
     private readonly List<IBlockchainService> _explorers;
     private readonly MockBlockchainService? _mock;
+    private readonly HttpClient _priceHttp;
+    private readonly string? _priceApiBaseUrl;
     private readonly bool _isDevelopment;
     private bool _isRegtest;
 
@@ -25,6 +29,7 @@ public class FallbackBlockchainService : IBlockchainService
     private static readonly TimeSpan BalanceCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TxHistoryCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan BlockHeightCacheTtl = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan FeeRateCacheTtl = TimeSpan.FromMinutes(30);
 
     public bool IsDemoMode { get; private set; }
     public bool ForceDemoMode { get; set; }
@@ -40,11 +45,15 @@ public class FallbackBlockchainService : IBlockchainService
     public FallbackBlockchainService(
         NodeApiBlockchainService nodeApi,
         IEnumerable<IBlockchainService> explorers,
+        HttpClient priceHttp,
         bool isDevelopment,
+        string? priceApiBaseUrl = null,
         MockBlockchainService? mock = null)
     {
         _nodeApi = nodeApi;
         _explorers = explorers.ToList();
+        _priceHttp = priceHttp;
+        _priceApiBaseUrl = priceApiBaseUrl?.TrimEnd('/');
         _isDevelopment = isDevelopment;
         _mock = isDevelopment ? mock : null;
     }
@@ -228,20 +237,36 @@ public class FallbackBlockchainService : IBlockchainService
             s => s.GetAddressTransactionsAsync(address, skip, take));
 
     public Task<decimal> GetFeeRateAsync() =>
-        TryRead(s => s.GetFeeRateAsync());
+        CachedRead("feerate", FeeRateCacheTtl, s => s.GetFeeRateAsync());
 
     /// <summary>
-    /// Price fetch goes directly to explorers without triggering cooldowns —
-    /// a CoinGecko 429 should not disable balance/tx/UTXO queries.
+    /// Price fetch — independent of explorers, uses its own HttpClient (no Polly retries).
+    /// Cached for 5 minutes.
     /// </summary>
     public async Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
     {
-        foreach (var explorer in _explorers)
+        var cacheKey = $"price:{fiatCurrency.ToLower()}";
+        if (_cache.TryGetValue(cacheKey, out var cached) && cached.ExpiresAt > DateTime.UtcNow)
+            return (decimal)cached.Value;
+
+        var currency = fiatCurrency.ToLower();
+        var url = _priceApiBaseUrl != null
+            ? $"{_priceApiBaseUrl}/simple?currency={currency}"
+            : $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={currency}";
+
+        var data = await _priceHttp.GetFromJsonAsync<JsonElement>(url);
+        if (data.TryGetProperty("digibyte", out var dgb) &&
+            dgb.TryGetProperty(currency, out var priceEl))
         {
-            try { return await explorer.GetDgbPriceAsync(fiatCurrency); }
-            catch { /* try next */ }
+            var price = priceEl.GetDecimal();
+            if (price > 0)
+            {
+                _cache[cacheKey] = (price, DateTime.UtcNow.AddMinutes(5));
+                return price;
+            }
         }
-        throw new InvalidOperationException("All price backends failed");
+
+        throw new InvalidOperationException("Price API returned no data");
     }
 
     public Task<int> GetBlockHeightAsync() =>

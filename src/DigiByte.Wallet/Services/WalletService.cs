@@ -28,6 +28,11 @@ public class WalletService : IWalletService
     private string? _activeWalletId;
     private string _networkMode = "testnet";
 
+    // Address derivation cache — avoid repeated elliptic curve math
+    private string? _cachedAddressWalletId;
+    private List<string>? _cachedAddresses;
+    private Dictionary<string, ExtKey>? _cachedAddressKeyMap;
+
     private const int MaxWallets = 10;
 
     private UnlockedWalletSession? ActiveSession =>
@@ -386,41 +391,14 @@ public class WalletService : IWalletService
     {
         EnsureUnlocked();
 
-        var addresses = new List<string>();
-
-        if (_singleKey != null)
-        {
-            // Single-key wallet — check both address formats on the detected network
-            var net = EffectiveNetwork;
-            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, net).ToString());
-            addresses.Add(_singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, net).ToString());
-        }
-        else
-        {
-            // HD or watch-only wallet — scan 20 receiving + 10 change, both SegWit and Legacy
-            for (int i = 0; i < 20; i++)
-            {
-                addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
-                addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
-            }
-            for (int i = 0; i < 10; i++)
-            {
-                addresses.Add(_hd!.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString());
-                addresses.Add(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString());
-            }
-        }
-
+        var addresses = GetAllAddresses();
         var totalSatoshis = await _blockchain.GetBalanceAsync(addresses);
-        var dgbPrice = await _blockchain.GetDgbPriceAsync(ActiveWallet!.FiatCurrency);
 
-        var balance = new WalletBalance
+        return new WalletBalance
         {
             ConfirmedSatoshis = totalSatoshis,
-            FiatCurrency = ActiveWallet.FiatCurrency,
+            FiatCurrency = ActiveWallet!.FiatCurrency,
         };
-        balance.FiatValue = balance.ConfirmedDgb * dgbPrice;
-
-        return balance;
     }
 
     public Task<string> GetReceivingAddressAsync(string format = "default")
@@ -441,29 +419,42 @@ public class WalletService : IWalletService
 
     /// <summary>
     /// Get all addresses for this wallet. For WIF wallets, returns both Legacy and SegWit.
+    /// Results are cached per wallet — HD derivation (elliptic curve math) is only done once.
     /// </summary>
     public List<string> GetAllAddresses()
     {
         EnsureUnlocked();
+
+        // Return cached if same wallet
+        if (_cachedAddresses != null && _cachedAddressWalletId == _activeWalletId)
+            return _cachedAddresses;
+
+        List<string> addresses;
         if (_singleKey != null)
         {
             var net = EffectiveNetwork;
-            return [
+            addresses = [
                 _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, net).ToString(),
                 _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, net).ToString(),
             ];
         }
-        var addresses = new List<string>();
-        for (int i = 0; i < 20; i++)
+        else
         {
-            addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
-            addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
+            addresses = new List<string>();
+            for (int i = 0; i < 20; i++)
+            {
+                addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
+                addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                addresses.Add(_hd!.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString());
+                addresses.Add(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString());
+            }
         }
-        for (int i = 0; i < 10; i++)
-        {
-            addresses.Add(_hd!.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString());
-            addresses.Add(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString());
-        }
+
+        _cachedAddresses = addresses;
+        _cachedAddressWalletId = _activeWalletId;
         return addresses;
     }
 
@@ -483,6 +474,38 @@ public class WalletService : IWalletService
             .Select(a => (a.Index, a.Address.ToString()))
             .ToList();
         return Task.FromResult(addresses);
+    }
+
+    /// <summary>
+    /// Get the address-to-private-key mapping for HD wallets. Cached per wallet.
+    /// Used by SendAsync/SendBatchAsync to avoid re-deriving keys on every send.
+    /// </summary>
+    private Dictionary<string, ExtKey> GetAddressKeyMap()
+    {
+        EnsureUnlocked();
+        if (_singleKey != null)
+            throw new InvalidOperationException("Use _singleKey directly for WIF wallets.");
+
+        if (_cachedAddressKeyMap != null && _cachedAddressWalletId == _activeWalletId)
+            return _cachedAddressKeyMap;
+
+        var map = new Dictionary<string, ExtKey>();
+        for (int i = 0; i < 20; i++)
+        {
+            var key = _hd!.DeriveReceivingKey(i);
+            map[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
+            map[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
+        }
+        for (int i = 0; i < 10; i++)
+        {
+            var key = _hd!.DeriveChangeKey(i);
+            map[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
+            map[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
+        }
+
+        _cachedAddressKeyMap = map;
+        // _cachedAddressWalletId is already set by GetAllAddresses
+        return map;
     }
 
     public async Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null, int feeRateSatPerByte = 5)
@@ -545,20 +568,8 @@ public class WalletService : IWalletService
         }
         else
         {
-            // HD wallet — derive multiple receiving + change addresses (both SegWit and Legacy)
-            var addressKeyMap = new Dictionary<string, ExtKey>();
-            for (int i = 0; i < 20; i++)
-            {
-                var key = _hd!.DeriveReceivingKey(i);
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
-            }
-            for (int i = 0; i < 10; i++)
-            {
-                var key = _hd!.DeriveChangeKey(i);
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
-            }
+            // HD wallet — use cached address-to-key mapping
+            var addressKeyMap = GetAddressKeyMap();
 
             // Query addresses in parallel — we need to know which address each UTXO
             // belongs to for correct scriptPubKey assignment (Esplora doesn't return it).
@@ -728,19 +739,7 @@ public class WalletService : IWalletService
         }
         else
         {
-            var addressKeyMap = new Dictionary<string, ExtKey>();
-            for (int i = 0; i < 20; i++)
-            {
-                var key = _hd!.DeriveReceivingKey(i);
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
-            }
-            for (int i = 0; i < 10; i++)
-            {
-                var key = _hd!.DeriveChangeKey(i);
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
-                addressKeyMap[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
-            }
+            var addressKeyMap = GetAddressKeyMap();
 
             availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
             var batchSemaphore = new SemaphoreSlim(10);
@@ -1299,9 +1298,32 @@ public class WalletService : IWalletService
     /// <summary>
     /// Returns true if the given wallet has been unlocked during this session.
     /// </summary>
-    public bool IsWalletUnlockedInSession(string walletId)
+    public bool IsWalletUnlocked(string walletId)
     {
         return _sessions.ContainsKey(walletId);
+    }
+
+    /// <summary>Alias for backward compatibility.</summary>
+    public bool IsWalletUnlockedInSession(string walletId) => IsWalletUnlocked(walletId);
+
+    /// <summary>
+    /// Gets the first receiving address of another unlocked wallet (without switching).
+    /// Used for auto-generating wallet contacts.
+    /// </summary>
+    public string? GetReceivingAddressForWallet(string walletId)
+    {
+        if (!_sessions.TryGetValue(walletId, out var session)) return null;
+        var net = session.Info.WifNetwork switch
+        {
+            "testnet" => DigiByte.Crypto.Networks.DigiByteNetwork.Testnet,
+            "regtest" => DigiByte.Crypto.Networks.DigiByteNetwork.Regtest,
+            _ => DigiByte.Crypto.Networks.DigiByteNetwork.Mainnet,
+        };
+        if (session.SingleKey != null)
+            return session.SingleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, net).ToString();
+        if (session.Hd != null)
+            return session.Hd.DeriveReceivingAddress(0, ScriptPubKeyType.Segwit).ToString();
+        return null;
     }
 
     /// <summary>

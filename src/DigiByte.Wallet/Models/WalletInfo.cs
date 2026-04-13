@@ -62,6 +62,12 @@ public class Contact
     public required string Address { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+
+    /// <summary>True if this is an auto-generated contact from another wallet in this app.</summary>
+    public bool IsWallet { get; init; }
+
+    /// <summary>Wallet color for display (only set when IsWallet = true).</summary>
+    public string? WalletColor { get; init; }
 }
 
 public class TransactionRecord
