@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject NavigationManager Nav
 @inject ContactService ContactService
+@inject AddressLabelService LabelService
 @inject WalletService WalletService
 @inject NetworkStatusService Network
 @inject MemoryCacheService Cache
@@ -154,49 +155,98 @@
             }
             </div> @* end card stack *@
 
-            @* Action Buttons *@
-            <div class="flex justify-center gap-5 mt-3">
-                <button class="flex flex-col items-center gap-1 group @(isWatchOnly ? "opacity-40 pointer-events-none" : "")" @onclick="OnSend">
-                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-                        </svg>
+            @* Action Buttons — Swipeable Pages *@
+            <div class="relative" @ontouchstart="OnActionTouchStart" @ontouchstart:stopPropagation
+                 @ontouchmove:stopPropagation @ontouchend="OnActionTouchEnd" @ontouchend:stopPropagation>
+                <div @ref="actionScrollRef" class="overflow-x-auto snap-x snap-mandatory scrollbar-hide" style="-webkit-overflow-scrolling: touch;">
+                    <div class="flex w-[200%]">
+                        @* Page 1: Core Actions *@
+                        <div class="w-1/2 flex justify-center gap-5 snap-center shrink-0 mt-3">
+                            <button class="flex flex-col items-center gap-1 group @(isWatchOnly ? "opacity-40 pointer-events-none" : "")" @onclick="OnSend">
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Send</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-1 group" @onclick="OnReceive">
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-1 group" @onclick="OnContacts">
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Contacts</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-1 group" @onclick="OnScan">
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 14.625v2.625m3.375-2.625v2.625M16.875 20.25h-3.375v-2.625" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Scan</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-1 group" @onclick="OnMultisig">
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Multisig</span>
+                            </button>
+                        </div>
+                        @* Page 2: Tools & Utilities *@
+                        <div class="w-1/2 flex justify-center gap-5 snap-center shrink-0 mt-3">
+                            <button class="flex flex-col items-center gap-1 group @(isWatchOnly ? "opacity-40 pointer-events-none" : "")" @onclick="OnConsolidate">
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Consolidate</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-1 group" @onclick='() => Nav.NavigateTo("/donation-history")'>
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Donate</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-1 group" @onclick='() => Nav.NavigateTo("/roadmap")'>
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Roadmap</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-1 group" @onclick='() => Nav.NavigateTo("/settings")'>
+                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.431.992a7.723 7.723 0 0 1 0 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Settings</span>
+                            </button>
+                        </div>
                     </div>
-                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Send</span>
-                </button>
-                <button class="flex flex-col items-center gap-1 group" @onclick="OnReceive">
-                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
-                </button>
-                <button class="flex flex-col items-center gap-1 group" @onclick="OnContacts">
-                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Contacts</span>
-                </button>
-                <button class="flex flex-col items-center gap-1 group" @onclick="OnScan">
-                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 14.625v2.625m3.375-2.625v2.625M16.875 20.25h-3.375v-2.625" />
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Scan</span>
-                </button>
-                <button class="flex flex-col items-center gap-1 group" @onclick="OnMultisig">
-                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Multisig</span>
-                </button>
+                </div>
+                @* Page Indicators *@
+                <div class="flex justify-center gap-1.5 mt-2">
+                    <div class="rounded-full transition-all duration-200 @(actionPage == 0 ? "w-4 h-1 bg-dgb-500" : "w-1.5 h-1 bg-slate-300 dark:bg-dgb-800")"></div>
+                    <div class="rounded-full transition-all duration-200 @(actionPage == 1 ? "w-4 h-1 bg-dgb-500" : "w-1.5 h-1 bg-slate-300 dark:bg-dgb-800")"></div>
+                </div>
             </div>
         </div>
 
@@ -684,7 +734,28 @@
     private void OnReceive() => Nav.NavigateTo("/receive");
     private void OnContacts() => Nav.NavigateTo("/contacts");
     private void OnMultisig() => Nav.NavigateTo("/multisig");
+    private void OnConsolidate() => Nav.NavigateTo("/consolidate");
     private void OnScan() { showScanner = true; }
+    private static void OnActionTouchStart(TouchEventArgs e) { /* stop propagation only */ }
+
+    private ElementReference actionScrollRef;
+    private int actionPage;
+
+    private async Task OnActionTouchEnd(TouchEventArgs e)
+    {
+        // Small delay for snap-scroll to settle
+        await Task.Delay(150);
+        try
+        {
+            var page = await JS.InvokeAsync<int>("domHelpers.getScrollPage", actionScrollRef);
+            if (page != actionPage)
+            {
+                actionPage = page;
+                StateHasChanged();
+            }
+        }
+        catch { }
+    }
     private bool showScanner;
 
     private void OnQrScanned(string data)

@@ -1,23 +1,23 @@
 @inject AppState AppState
 
-<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 safe-area-bottom">
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 safe-area-bottom" aria-label="Main navigation">
     @* Frosted glass background with top fade *@
-    <div class="absolute inset-0 bg-white/70 dark:bg-dgb-950/80 backdrop-blur-2xl border-t border-slate-200/60 dark:border-white/[0.06]"></div>
+    <div class="absolute inset-0 bg-white/70 dark:bg-dgb-950/80 backdrop-blur-2xl border-t border-slate-200/60 dark:border-white/[0.06]" aria-hidden="true"></div>
 
-    <div class="relative flex justify-around items-end px-2 pt-2.5 pb-1.5">
-        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="" Match="NavLinkMatch.All" @onclick="() => OnNavTap(0)">
+    <div class="relative flex justify-around items-end px-2 pt-2.5 pb-1.5" role="tablist">
+        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="" Match="NavLinkMatch.All" @onclick="() => OnNavTap(0)" role="tab" aria-label="Wallet">
             @* Active pill indicator *@
-            <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0"></div>
+            <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0" aria-hidden="true"></div>
             <div class="transition-transform duration-200 ease-out group-[.active]:scale-110 group-active:scale-90 @(tappedIndex == 0 ? "nav-tap" : "")">
-                <svg class="w-[22px] h-[22px] text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                <svg class="w-[22px] h-[22px] text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-500 transition-colors duration-200" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
                 </svg>
             </div>
             <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-600 dark:group-[.active]:text-dgb-400 transition-colors duration-200">Wallet</span>
         </NavLink>
 
-        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="payments" @onclick="() => OnNavTap(1)">
-            <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0"></div>
+        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="payments" @onclick="() => OnNavTap(1)" role="tab" aria-label="Payments">
+            <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0" aria-hidden="true"></div>
             <div class="transition-transform duration-200 ease-out group-[.active]:scale-110 group-active:scale-90 @(tappedIndex == 1 ? "nav-tap" : "")">
                 <svg class="w-[22px] h-[22px] text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
@@ -26,7 +26,7 @@
             <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-600 dark:group-[.active]:text-dgb-400 transition-colors duration-200">Pay</span>
         </NavLink>
 
-        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="p2p" @onclick="() => OnNavTap(2)">
+        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="p2p" @onclick="() => OnNavTap(2)" role="tab" aria-label="P2P Exchange">
             <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0"></div>
             <div class="transition-transform duration-200 ease-out group-[.active]:scale-110 group-active:scale-90 @(tappedIndex == 2 ? "nav-tap" : "")">
                 <svg class="w-[22px] h-[22px] text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
@@ -36,7 +36,7 @@
             <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-600 dark:group-[.active]:text-dgb-400 transition-colors duration-200">P2P</span>
         </NavLink>
 
-        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="identity" @onclick="() => OnNavTap(3)">
+        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="identity" @onclick="() => OnNavTap(3)" role="tab" aria-label="Identity">
             <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0"></div>
             <div class="transition-transform duration-200 ease-out group-[.active]:scale-110 group-active:scale-90 @(tappedIndex == 3 ? "nav-tap" : "")">
                 <svg class="w-[22px] h-[22px] text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
@@ -47,7 +47,7 @@
             <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-600 dark:group-[.active]:text-dgb-400 transition-colors duration-200">ID</span>
         </NavLink>
 
-        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="settings" @onclick="() => OnNavTap(4)">
+        <NavLink class="nav-item group flex flex-col items-center gap-1 relative px-4 py-1 select-none" href="settings" @onclick="() => OnNavTap(4)" role="tab" aria-label="Settings">
             <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0"></div>
             <div class="transition-transform duration-200 ease-out group-[.active]:scale-110 group-active:scale-90 @(tappedIndex == 4 ? "nav-tap" : "")">
                 <svg class="w-[22px] h-[22px] text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">

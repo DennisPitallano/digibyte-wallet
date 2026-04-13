@@ -22,5 +22,10 @@ window.domHelpers = {
     restoreScroll: function () {
         var m = document.querySelector('main');
         if (m) m.style.overflow = '';
+    },
+    getScrollPage: function (el) {
+        if (!el || !el.scrollWidth) return 0;
+        var halfWidth = el.scrollWidth / 2;
+        return el.scrollLeft >= halfWidth * 0.5 ? 1 : 0;
     }
 };

@@ -1,4 +1,6 @@
 @inject IJSRuntime JS
+@inject AddressLabelService LabelService
+@inject WalletService WalletService
 
 @if (IsOpen && Tx != null)
 {
@@ -60,6 +62,16 @@
                                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full @AddressFormatBadgeClass">@AddressFormatLabel</span>
                             </div>
                             <span class="font-mono text-slate-700 dark:text-slate-300 break-all text-[10px]">@Tx.CounterpartyAddress</span>
+                            @if (!string.IsNullOrEmpty(counterpartyLabel))
+                            {
+                                <div class="flex items-center gap-1 mt-1">
+                                    <svg class="w-3 h-3 text-dgb-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+                                    </svg>
+                                    <span class="text-[10px] font-medium text-dgb-500">@counterpartyLabel</span>
+                                </div>
+                            }
                         </div>
                     </div>
                 }
@@ -137,7 +149,21 @@
     [Parameter] public EventCallback<string> OnAddContact { get; set; }
 
     private bool copied;
+    private string? counterpartyLabel;
     private bool IsSent => Tx?.Direction == DigiByte.Wallet.Models.TransactionDirection.Sent;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && Tx?.CounterpartyAddress != null && WalletService.ActiveWallet != null)
+        {
+            counterpartyLabel = await LabelService.GetLabelAsync(
+                WalletService.ActiveWallet.Id, Tx.CounterpartyAddress);
+        }
+        else
+        {
+            counterpartyLabel = null;
+        }
+    }
 
     private string AddressFormatLabel => Tx?.CounterpartyAddress switch
     {

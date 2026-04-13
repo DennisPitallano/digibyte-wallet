@@ -383,6 +383,7 @@ public class WalletService : IWalletService
     public Task LockWalletAsync()
     {
         _sessions.Clear();
+        _cachedAddressKeyMap = null;
         _activeWalletId = null;
         return Task.CompletedTask;
     }
@@ -973,6 +974,132 @@ public class WalletService : IWalletService
         }
 
         return (total, addressesWithFunds);
+    }
+
+    /// <summary>
+    /// Gets all addresses the current wallet has used (receiving + change), for UTXO scanning.
+    /// </summary>
+    public IEnumerable<string> GetAllUsedAddresses()
+    {
+        EnsureUnlocked();
+        var network = CurrentNetwork;
+
+        if (_singleKey != null)
+        {
+            yield return _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, network).ToString();
+            yield return _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network).ToString();
+        }
+        else
+        {
+            var map = GetAddressKeyMap();
+            foreach (var addr in map.Keys)
+                yield return addr;
+        }
+    }
+
+    /// <summary>
+    /// Consolidates all UTXOs into a single UTXO by sending everything to the wallet's own receive address.
+    /// </summary>
+    public async Task<string> ConsolidateUtxosAsync(int feeRateSatPerByte = 100)
+    {
+        EnsureUnlocked();
+        if (ActiveWallet?.WalletType == "xpub")
+            throw new InvalidOperationException("Watch-only wallets cannot consolidate UTXOs.");
+
+        var network = CurrentNetwork;
+        List<DigiByte.Crypto.Transactions.Utxo> availableUtxos;
+        BitcoinAddress destination;
+
+        if (_singleKey != null)
+        {
+            var legacyAddr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
+            var segwitAddr = _singleKey.PubKey.GetAddress(ScriptPubKeyType.Segwit, network);
+            availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+
+            foreach (var u in await _blockchain.GetUtxosAsync(legacyAddr.ToString()))
+            {
+                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = legacyAddr.ScriptPubKey,
+                    PrivateKey = _singleKey,
+                    Confirmations = u.Confirmations,
+                });
+            }
+            foreach (var u in await _blockchain.GetUtxosAsync(segwitAddr.ToString()))
+            {
+                availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                {
+                    TransactionId = uint256.Parse(u.TxId),
+                    OutputIndex = u.OutputIndex,
+                    Amount = Money.Satoshis(u.AmountSatoshis),
+                    ScriptPubKey = segwitAddr.ScriptPubKey,
+                    PrivateKey = _singleKey,
+                    Confirmations = u.Confirmations,
+                });
+            }
+
+            destination = segwitAddr;
+        }
+        else
+        {
+            var addressKeyMap = GetAddressKeyMap();
+            availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
+            var semaphore = new SemaphoreSlim(10);
+            var utxoTasks = addressKeyMap.Select(async kvp =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    var utxos = await _blockchain.GetUtxosAsync(kvp.Key);
+                    return (Address: kvp.Key, Key: kvp.Value, Utxos: utxos);
+                }
+                finally { semaphore.Release(); }
+            });
+            var utxoResults = await Task.WhenAll(utxoTasks);
+            foreach (var (addr, key, utxos) in utxoResults)
+            {
+                var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
+                foreach (var utxoInfo in utxos)
+                {
+                    availableUtxos.Add(new DigiByte.Crypto.Transactions.Utxo
+                    {
+                        TransactionId = uint256.Parse(utxoInfo.TxId),
+                        OutputIndex = utxoInfo.OutputIndex,
+                        Amount = Money.Satoshis(utxoInfo.AmountSatoshis),
+                        ScriptPubKey = !string.IsNullOrEmpty(utxoInfo.ScriptPubKey)
+                            ? Script.FromHex(utxoInfo.ScriptPubKey)
+                            : addrScript,
+                        PrivateKey = key.PrivateKey,
+                        Confirmations = utxoInfo.Confirmations,
+                    });
+                }
+            }
+
+            destination = _hd!.DeriveReceivingAddress(0);
+        }
+
+        if (availableUtxos.Count <= 1)
+            throw new InvalidOperationException("Only one or zero UTXOs — no consolidation needed.");
+
+        var totalSatoshis = availableUtxos.Sum(u => u.Amount.Satoshi);
+        var effectiveFeeRate = Math.Max(feeRateSatPerByte, 100);
+        var feeRate = new FeeRate(Money.Satoshis(effectiveFeeRate * 1000));
+
+        var txBuilder = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network);
+        var tx = txBuilder.BuildSendAllTransaction(availableUtxos, destination, feeRate);
+
+        var rawTx = tx.ToBytes();
+        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+
+        var feePaid = tx.GetFee(availableUtxos.Select(u => u.ToCoin()).ToArray());
+        var amountAfterFee = totalSatoshis - (feePaid?.Satoshi ?? 0);
+        await _txTracker.RecordSendAsync(txId, destination.ToString(), amountAfterFee,
+            feePaid?.Satoshi ?? 0, $"UTXO consolidation ({availableUtxos.Count} → 1)");
+
+        return txId;
     }
 
     /// <summary>

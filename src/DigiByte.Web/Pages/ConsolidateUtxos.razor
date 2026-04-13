@@ -1,0 +1,434 @@
+@page "/consolidate"
+@implements IDisposable
+@inject WalletService WalletService
+@inject IBlockchainService Blockchain
+@inject AppState AppState
+@inject NavigationManager Nav
+@inject BiometricService Biometric
+
+<PageTitle>Consolidate UTXOs</PageTitle>
+
+<AuthGuard>
+@if (WalletService.ActiveWallet?.WalletType == "xpub")
+{
+    <div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
+        <div class="w-16 h-16 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+            <svg class="w-8 h-8 text-sky-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+        </div>
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Watch-Only Wallet</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[260px]">Consolidation requires a wallet with private keys.</p>
+        <button class="py-2.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl transition-all press-effect"
+                @onclick='() => Nav.NavigateTo("/")'>Back to Home</button>
+    </div>
+}
+else
+{
+<div class="flex flex-col gap-4">
+    <div class="flex items-center justify-between slide-up">
+        <div class="flex items-center gap-3">
+            <button class="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" @onclick='() => Nav.NavigateTo("/")'>
+                <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+            </button>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Consolidate UTXOs</h2>
+        </div>
+        @{ var walletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+            <div class="w-2 h-2 rounded-full" style="background-color: @walletColor;"></div>
+            <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+        </div>
+    </div>
+
+    @* Info Banner *@
+    <div class="slide-up-delay-1 bg-dgb-50 dark:bg-dgb-900/40 rounded-2xl border border-dgb-200 dark:border-dgb-800 p-4 flex gap-3">
+        <svg class="w-5 h-5 text-dgb-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+        </svg>
+        <div>
+            <p class="text-xs font-semibold text-dgb-700 dark:text-dgb-300">What is UTXO consolidation?</p>
+            <p class="text-xs text-dgb-600 dark:text-dgb-400 mt-1 leading-relaxed">Many small UTXOs increase future transaction fees. Consolidation merges them into a single UTXO, reducing costs for future sends. Best done when fees are low.</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="flex flex-col items-center gap-3 py-8">
+            <div class="w-8 h-8 border-3 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Scanning UTXOs...</p>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-200 dark:border-red-900/30 p-4 text-center">
+            <p class="text-sm text-red-600 dark:text-red-400 font-medium">@errorMessage</p>
+            <button class="mt-3 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-xl press-effect" @onclick="ScanUtxos">Retry</button>
+        </div>
+    }
+    else
+    {
+        @* UTXO Summary *@
+        <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">UTXO Summary</p>
+                <button class="text-xs text-dgb-500 font-medium" @onclick="ScanUtxos" disabled="@isConsolidating">Refresh</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
+                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Total UTXOs</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">@utxos.Count</p>
+                </div>
+                <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
+                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Total Balance</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">@totalDgb.ToString("N8")</p>
+                </div>
+                <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
+                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Dust UTXOs</p>
+                    <p class="text-lg font-bold @(dustCount > 0 ? "text-amber-500" : "text-green-500")">@dustCount</p>
+                </div>
+                <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
+                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Est. Fee</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">@estimatedFeeDgb.ToString("N8")</p>
+                </div>
+            </div>
+        </div>
+
+        @* UTXO List *@
+        @if (utxos.Count > 0)
+        {
+            <div class="slide-up-delay-2 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">UTXOs (@utxos.Count)</p>
+                    <button class="text-xs text-dgb-500 font-medium" @onclick="ToggleShowAll">
+                        @(showAllUtxos ? "Show less" : "Show all")
+                    </button>
+                </div>
+                <div class="flex flex-col gap-1 max-h-[240px] overflow-y-auto thin-scrollbar">
+                    @foreach (var utxo in displayedUtxos)
+                    {
+                        var amountDgb = utxo.AmountSatoshis / 100_000_000m;
+                        var isDust = utxo.AmountSatoshis < 100_000; // < 0.001 DGB
+                        <div class="flex items-center justify-between py-2 px-2 rounded-lg @(isDust ? "bg-amber-50/50 dark:bg-amber-900/10" : "")">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">@utxo.TxId[..12]...@utxo.TxId[^6..]</p>
+                                <p class="text-[9px] text-slate-400">@utxo.Confirmations conf</p>
+                            </div>
+                            <div class="text-right flex items-center gap-2">
+                                <p class="text-xs font-semibold @(isDust ? "text-amber-500" : "text-slate-900 dark:text-white")">@amountDgb.ToString("N8") DGB</p>
+                                @if (isDust)
+                                {
+                                    <span class="text-[8px] font-bold text-amber-500 bg-amber-100 dark:bg-amber-900/20 px-1.5 py-0.5 rounded-full">DUST</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @* Consolidation Action *@
+        @if (utxos.Count <= 1)
+        {
+            <div class="bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-900/30 p-4 text-center">
+                <svg class="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <p class="text-sm font-semibold text-green-700 dark:text-green-400">Already optimized</p>
+                <p class="text-xs text-green-600 dark:text-green-500 mt-1">Your wallet has @(utxos.Count == 0 ? "no" : "only one") UTXO. No consolidation needed.</p>
+            </div>
+        }
+        else
+        {
+            <div class="slide-up-delay-3 flex flex-col gap-3">
+                @* Fee Rate Selector *@
+                <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4">
+                    <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Fee Rate</p>
+                    <div class="flex gap-2">
+                        @foreach (var (label, rate) in feeOptions)
+                        {
+                            var r = rate;
+                            <button class="flex-1 py-2 text-xs font-semibold rounded-xl transition-all @(selectedFeeRate == r ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
+                                    @onclick="() => SelectFeeRate(r)" disabled="@isConsolidating">
+                                @label
+                            </button>
+                        }
+                    </div>
+                    <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-2 text-center">@selectedFeeRate sat/vB &middot; @utxos.Count inputs → 1 output</p>
+                </div>
+
+                @* Fee Computation Breakdown *@
+                <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-2">
+                    <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Fee Breakdown</p>
+                    @{
+                        var inputCount = utxos.Count;
+                        var estVBytes = 10 + (inputCount * 68) + 31;
+                        var feeSats = estVBytes * selectedFeeRate;
+                    }
+                    <div class="flex flex-col gap-1.5 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">Inputs</span>
+                            <span class="font-semibold text-slate-900 dark:text-white">@inputCount UTXOs → 1 output</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">Estimated tx size</span>
+                            <span class="font-semibold text-slate-900 dark:text-white">@estVBytes.ToString("N0") vBytes</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">Fee rate</span>
+                            <span class="font-semibold text-slate-900 dark:text-white">@selectedFeeRate sat/vB</span>
+                        </div>
+                        <hr class="border-slate-100 dark:border-dgb-800" />
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">Total fee</span>
+                            <span class="font-semibold text-slate-900 dark:text-white">@feeSats.ToString("N0") sats (@estimatedFeeDgb.ToString("N8") DGB)</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">Balance</span>
+                            <span class="font-semibold text-slate-900 dark:text-white">@totalDgb.ToString("N8") DGB</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-green-600 dark:text-green-400 font-medium">You'll receive</span>
+                            <span class="font-bold text-green-600 dark:text-green-400">@((totalDgb - estimatedFeeDgb).ToString("N8")) DGB</span>
+                        </div>
+                    </div>
+                </div>
+
+                @* Future Fee Savings *@
+                @if (utxos.Count > 1)
+                {
+                    var futureBeforeVBytes = 10 + (utxos.Count * 68) + (2 * 31);
+                    var futureAfterVBytes = 10 + (1 * 68) + (2 * 31);
+                    var futureBeforeSats = futureBeforeVBytes * selectedFeeRate;
+                    var futureAfterSats = futureAfterVBytes * selectedFeeRate;
+                    var savingsSats = futureBeforeSats - futureAfterSats;
+                    var savingsPercent = futureBeforeSats > 0 ? (int)Math.Round(100.0 * savingsSats / futureBeforeSats) : 0;
+                    <div class="bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-200 dark:border-emerald-800/30 p-4 flex flex-col gap-2">
+                        <p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Future Send Savings</p>
+                        <div class="flex flex-col gap-1.5 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-emerald-600/70 dark:text-emerald-500/70">Before consolidation</span>
+                                <span class="font-semibold text-slate-900 dark:text-white">~@futureBeforeSats.ToString("N0") sats <span class="text-slate-400 font-normal">(@futureBeforeVBytes vB)</span></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-emerald-600/70 dark:text-emerald-500/70">After consolidation</span>
+                                <span class="font-semibold text-slate-900 dark:text-white">~@futureAfterSats.ToString("N0") sats <span class="text-slate-400 font-normal">(@futureAfterVBytes vB)</span></span>
+                            </div>
+                            <hr class="border-emerald-200/50 dark:border-emerald-800/30" />
+                            <div class="flex justify-between items-center">
+                                <span class="text-emerald-700 dark:text-emerald-300 font-medium">You save per send</span>
+                                <span class="font-bold text-emerald-700 dark:text-emerald-300">~@savingsSats.ToString("N0") sats <span class="text-emerald-500 text-[10px] font-semibold">(-@savingsPercent%)</span></span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-emerald-600/60 dark:text-emerald-500/50 mt-0.5">Estimated at @selectedFeeRate sat/vB with 1 input + 2 outputs (send + change)</p>
+                    </div>
+                }
+
+                @if (isConsolidating)
+                {
+                    <div class="flex items-center justify-center gap-3 py-4">
+                        <div class="w-5 h-5 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p class="text-sm text-dgb-500 font-medium">Consolidating...</p>
+                    </div>
+                }
+                else if (txId != null)
+                {
+                    <div class="bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-900/30 p-4 text-center">
+                        <svg class="w-10 h-10 text-green-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <p class="text-sm font-bold text-green-700 dark:text-green-400">Consolidation Complete!</p>
+                        <p class="text-[10px] text-green-600 dark:text-green-500 mt-1 font-mono break-all">@txId</p>
+                        <div class="flex flex-col gap-1.5 text-xs mt-3 text-left">
+                            <div class="flex justify-between">
+                                <span class="text-green-600 dark:text-green-500">Fee paid</span>
+                                <span class="font-semibold text-green-700 dark:text-green-400">@consolidatedFeeDgb.ToString("N8") DGB</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-green-600 dark:text-green-500">Net received</span>
+                                <span class="font-bold text-green-700 dark:text-green-400">@((consolidatedTotalDgb - consolidatedFeeDgb).ToString("N8")) DGB</span>
+                            </div>
+                        </div>
+                        <button class="mt-3 px-5 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                                @onclick='() => Nav.NavigateTo("/")'>Back to Home</button>
+                    </div>
+                }
+                else if (consolidateError != null)
+                {
+                    <div class="bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-200 dark:border-red-900/30 p-4 text-center">
+                        <p class="text-sm text-red-600 dark:text-red-400 font-medium">@consolidateError</p>
+                        <div class="flex gap-2 justify-center mt-3">
+                            <button class="px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-xl press-effect" @onclick="RetryConsolidate">Retry</button>
+                            <button class="px-4 py-2 bg-slate-200 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect" @onclick="ResetConsolidateError">Dismiss</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-bold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                            @onclick="Consolidate" disabled="@(utxos.Count <= 1)">
+                        Consolidate @utxos.Count UTXOs into 1
+                    </button>
+                }
+            </div>
+        }
+    }
+</div>
+}
+</AuthGuard>
+
+@code {
+    private List<UtxoInfo> utxos = [];
+    private bool isLoading = true;
+    private bool isConsolidating;
+    private bool showAllUtxos;
+    private string? errorMessage;
+    private string? consolidateError;
+    private string? txId;
+    private int selectedFeeRate = 100;
+    private decimal totalDgb;
+    private decimal estimatedFeeDgb;
+    private int dustCount;
+    private string? _scannedWalletId;
+    private int consolidatedUtxoCount;
+    private int consolidatedFeeRate;
+    private decimal consolidatedTotalDgb;
+    private decimal consolidatedFeeDgb;
+
+    private static readonly (string Label, int Rate)[] feeOptions =
+    [
+        ("Low", 100),
+        ("Normal", 200),
+        ("Fast", 500),
+    ];
+
+    private IEnumerable<UtxoInfo> displayedUtxos =>
+        showAllUtxos ? utxos : utxos.Take(10);
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.ResetLockTimer();
+        AppState.OnChange += OnAppStateChanged;
+        _scannedWalletId = WalletService.ActiveWallet?.Id;
+        await ScanUtxos();
+    }
+
+    private async void OnAppStateChanged()
+    {
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                var currentId = WalletService.ActiveWallet?.Id;
+                if (currentId != _scannedWalletId)
+                {
+                    _scannedWalletId = currentId;
+                    txId = null;
+                    consolidateError = null;
+                    await ScanUtxos();
+                }
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { /* component was disposed */ }
+    }
+
+    private async Task ScanUtxos()
+    {
+        isLoading = true;
+        errorMessage = null;
+        _scannedWalletId = WalletService.ActiveWallet?.Id;
+        StateHasChanged();
+
+        try
+        {
+            var addresses = WalletService.GetAllAddresses();
+            utxos = await Blockchain.GetUtxosAsync(addresses);
+            utxos = utxos.OrderBy(u => u.AmountSatoshis).ToList();
+            totalDgb = utxos.Sum(u => u.AmountSatoshis) / 100_000_000m;
+            dustCount = utxos.Count(u => u.AmountSatoshis < 100_000);
+            UpdateFeeEstimate();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to scan UTXOs: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectFeeRate(int rate)
+    {
+        selectedFeeRate = rate;
+        UpdateFeeEstimate();
+    }
+
+    private void UpdateFeeEstimate()
+    {
+        if (utxos.Count == 0) { estimatedFeeDgb = 0; return; }
+        // SegWit: ~68 vbytes per input, ~31 per output, ~10 overhead
+        var estimatedVBytes = 10 + (utxos.Count * 68) + 31;
+        var feeSatoshis = estimatedVBytes * selectedFeeRate;
+        estimatedFeeDgb = feeSatoshis / 100_000_000m;
+    }
+
+    private void ToggleShowAll() => showAllUtxos = !showAllUtxos;
+
+    private async Task RetryConsolidate()
+    {
+        consolidateError = null;
+        await Consolidate();
+    }
+
+    private void ResetConsolidateError() => consolidateError = null;
+
+    private async Task Consolidate()
+    {
+        isConsolidating = true;
+        errorMessage = null;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            // Check biometric confirmation if enabled
+            var bioConfirm = await Biometric.IsConfirmSendEnabledAsync();
+            if (bioConfirm)
+            {
+                var bioOk = await Biometric.VerifyIdentityAsync();
+                if (!bioOk)
+                {
+                    consolidateError = "Biometric verification failed.";
+                    return;
+                }
+            }
+
+            // Snapshot values for post-consolidation display
+            consolidatedUtxoCount = utxos.Count;
+            consolidatedFeeRate = selectedFeeRate;
+            consolidatedTotalDgb = totalDgb;
+            consolidatedFeeDgb = estimatedFeeDgb;
+
+            txId = await WalletService.ConsolidateUtxosAsync(selectedFeeRate);
+        }
+        catch (Exception ex)
+        {
+            consolidateError = ex.Message;
+        }
+        finally
+        {
+            isConsolidating = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        AppState.OnChange -= OnAppStateChanged;
+    }
+}

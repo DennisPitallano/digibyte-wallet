@@ -12,9 +12,13 @@ public class AppState : IDisposable
     private readonly IJSRuntime _js;
     private readonly string _defaultNetwork;
     private Timer? _lockTimer;
+    private DotNetObjectReference<AppState>? _dotNetRef;
 
     /// <summary>Auto-lock after this duration of inactivity.</summary>
     public TimeSpan LockTimeout { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>Immediately lock when the tab/app becomes hidden (minimized, switched away).</summary>
+    public bool LockOnHidden { get; set; }
 
     public bool IsWalletCreated { get; set; }
     public bool IsWalletUnlocked { get; set; }
@@ -63,6 +67,13 @@ public class AppState : IDisposable
             var lockMins = await _js.InvokeAsync<string?>("localStorage.getItem", "dgb-lock-timeout");
             if (lockMins != null && int.TryParse(lockMins, out var mins) && mins > 0)
                 LockTimeout = TimeSpan.FromMinutes(mins);
+
+            var lockHidden = await _js.InvokeAsync<string?>("localStorage.getItem", "dgb-lock-on-hidden");
+            LockOnHidden = lockHidden == "true";
+
+            // Set up visibility change listener
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await _js.InvokeVoidAsync("visibilityLock.init", _dotNetRef, LockOnHidden);
         }
         catch { /* JS interop may fail during prerender */ }
     }
@@ -100,9 +111,30 @@ public class AppState : IDisposable
         _lockTimer = null;
     }
 
+    /// <summary>Called from JS when the tab/app becomes hidden.</summary>
+    [JSInvokable]
+    public void OnTabHidden()
+    {
+        if (!IsWalletUnlocked || !LockOnHidden) return;
+        IsWalletUnlocked = false;
+        StopLockTimer();
+        OnAutoLocked?.Invoke();
+        NotifyStateChanged();
+    }
+
+    /// <summary>Update the lock-on-hidden setting and sync to JS.</summary>
+    public async Task SetLockOnHiddenAsync(bool value)
+    {
+        LockOnHidden = value;
+        await SavePreferenceAsync("dgb-lock-on-hidden", value ? "true" : "false");
+        try { await _js.InvokeVoidAsync("visibilityLock.setLockOnHidden", value); }
+        catch { }
+    }
+
     public void Dispose()
     {
         _lockTimer?.Dispose();
+        _dotNetRef?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

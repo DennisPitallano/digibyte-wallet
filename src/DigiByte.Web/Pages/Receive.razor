@@ -1,5 +1,6 @@
 @page "/receive"
 @inject WalletService WalletService
+@inject AddressLabelService LabelService
 @inject AppState AppState
 @inject IJSRuntime JS
 
@@ -71,6 +72,33 @@
                 Generate new address
             </button>
         }
+
+        @* Address Label *@
+        @if (address != null)
+        {
+            <div class="w-full slide-up-delay-3">
+                <div class="flex items-center gap-2 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 px-3 py-2">
+                    <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+                    </svg>
+                    <input type="text" placeholder="Label this address (e.g. Donations, Salary)"
+                           maxlength="50"
+                           value="@addressLabel"
+                           @oninput="OnLabelInput"
+                           @onblur="SaveLabel"
+                           class="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 outline-none" />
+                    @if (!string.IsNullOrEmpty(addressLabel))
+                    {
+                        <button class="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" @onclick="ClearLabel" title="Remove label">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
     }
     else
     {
@@ -88,6 +116,7 @@
     private int addressIndex;
     private string addressFormat = "legacy";
     private bool isWifWallet;
+    private string addressLabel = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +131,7 @@
     {
         address = await WalletService.GetReceivingAddressAsync(addressFormat);
         GenerateQrCode();
+        await LoadLabel();
     }
 
     private async Task SetLegacy() => await SetFormat("legacy");
@@ -156,6 +186,31 @@
             GenerateQrCode();
             if (WalletService.ActiveWallet != null)
                 WalletService.ActiveWallet.NextReceivingIndex = addressIndex;
+            await LoadLabel();
         }
+    }
+
+    private async Task LoadLabel()
+    {
+        if (address == null || WalletService.ActiveWallet == null) return;
+        addressLabel = await LabelService.GetLabelAsync(WalletService.ActiveWallet.Id, address) ?? "";
+    }
+
+    private void OnLabelInput(ChangeEventArgs e)
+    {
+        addressLabel = e.Value?.ToString() ?? "";
+    }
+
+    private async Task SaveLabel()
+    {
+        if (address == null || WalletService.ActiveWallet == null) return;
+        await LabelService.SetLabelAsync(WalletService.ActiveWallet.Id, address, addressLabel);
+    }
+
+    private async Task ClearLabel()
+    {
+        if (address == null || WalletService.ActiveWallet == null) return;
+        addressLabel = "";
+        await LabelService.RemoveLabelAsync(WalletService.ActiveWallet.Id, address);
     }
 }

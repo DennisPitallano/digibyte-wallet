@@ -2,9 +2,9 @@
 
 @if (IsOpen)
 {
-    <div class="modal-overlay" style="flex-direction:column; gap:1rem;">
+    <div class="modal-overlay" style="flex-direction:column; gap:1rem;" role="dialog" aria-modal="true" aria-label="QR Code Scanner">
         <div class="relative w-[300px] h-[300px] rounded-2xl overflow-hidden bg-black shadow-2xl scale-in">
-            <video id="qr-video" class="w-full h-full object-cover" playsinline muted></video>
+            <video id="qr-video" class="w-full h-full object-cover" playsinline muted aria-label="Camera viewfinder"></video>
             @* Scan frame overlay *@
             <div class="absolute inset-0 pointer-events-none">
                 <div class="absolute inset-8 border-2 border-white/40 rounded-xl"></div>
