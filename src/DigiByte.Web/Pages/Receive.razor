@@ -7,7 +7,14 @@
 
 <AuthGuard>
 <div class="flex flex-col items-center gap-5">
-    <h2 class="text-xl font-bold text-slate-900 dark:text-white self-start slide-up">Receive DigiByte</h2>
+    <div class="flex items-center justify-between w-full slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Receive DigiByte</h2>
+        @{ var recvWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+            <div class="w-2 h-2 rounded-full" style="background-color: @recvWalletColor;"></div>
+            <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+        </div>
+    </div>
 
     @* Address format selector — WIF wallets only (HD wallets always use SegWit via BIP84) *@
     @if (isWifWallet)

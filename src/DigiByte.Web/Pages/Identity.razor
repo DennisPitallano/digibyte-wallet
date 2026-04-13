@@ -7,7 +7,14 @@
 <PageTitle>Digi-ID</PageTitle>
 
 <div class="flex flex-col gap-4">
-    <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">Digi-ID</h2>
+    <div class="flex items-center justify-between slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Digi-ID</h2>
+        @{ var idWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+            <div class="w-2 h-2 rounded-full" style="background-color: @idWalletColor;"></div>
+            <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+        </div>
+    </div>
 
     @* How it works *@
     <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
