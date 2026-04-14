@@ -1,6 +1,7 @@
 @inject IJSRuntime JS
 @inject AddressLabelService LabelService
 @inject WalletService WalletService
+@inject ContactService ContactService
 
 @if (IsOpen && Tx != null)
 {
@@ -61,16 +62,56 @@
                             <div class="flex items-center justify-end gap-1 mb-0.5">
                                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full @AddressFormatBadgeClass">@AddressFormatLabel</span>
                             </div>
+                            @if (!string.IsNullOrEmpty(contactName))
+                            {
+                                <div class="flex items-center gap-1 mb-0.5">
+                                    <svg class="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                    </svg>
+                                    <span class="text-[11px] font-semibold text-indigo-500 dark:text-indigo-400">@contactName</span>
+                                </div>
+                            }
                             <span class="font-mono text-slate-700 dark:text-slate-300 break-all text-[10px]">@Tx.CounterpartyAddress</span>
-                            @if (!string.IsNullOrEmpty(counterpartyLabel))
+                            @if (isEditingLabel)
                             {
                                 <div class="flex items-center gap-1 mt-1">
+                                    <input type="text" @bind="editLabelText" @bind:event="oninput"
+                                           placeholder="e.g. Alice, Rent, Shop..."
+                                           class="flex-1 px-2 py-1 text-[10px] bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-dgb-500/30" />
+                                    <button class="text-green-500 press-effect" @onclick="SaveLabel" title="Save">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                        </svg>
+                                    </button>
+                                    <button class="text-slate-400 press-effect" @onclick="CancelEditLabel" title="Cancel">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(counterpartyLabel))
+                            {
+                                <button class="flex items-center gap-1 mt-1 group" @onclick="StartEditLabel">
                                     <svg class="w-3 h-3 text-dgb-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
                                     </svg>
-                                    <span class="text-[10px] font-medium text-dgb-500">@counterpartyLabel</span>
-                                </div>
+                                    <span class="text-[10px] font-medium text-dgb-500 group-hover:underline">@counterpartyLabel</span>
+                                    <svg class="w-2.5 h-2.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
+                                    </svg>
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="flex items-center gap-1 mt-1 text-[10px] text-slate-400 hover:text-dgb-500 transition-colors" @onclick="StartEditLabel">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+                                    </svg>
+                                    Add label
+                                </button>
                             }
                         </div>
                     </div>
@@ -150,6 +191,9 @@
 
     private bool copied;
     private string? counterpartyLabel;
+    private string? contactName;
+    private bool isEditingLabel;
+    private string editLabelText = "";
     private bool IsSent => Tx?.Direction == DigiByte.Wallet.Models.TransactionDirection.Sent;
 
     protected override async Task OnParametersSetAsync()
@@ -158,11 +202,32 @@
         {
             counterpartyLabel = await LabelService.GetLabelAsync(
                 WalletService.ActiveWallet.Id, Tx.CounterpartyAddress);
+            var contact = await ContactService.GetByAddressAsync(Tx.CounterpartyAddress);
+            contactName = contact?.Name;
         }
         else
         {
             counterpartyLabel = null;
+            contactName = null;
         }
+        isEditingLabel = false;
+        editLabelText = "";
+    }
+
+    private void StartEditLabel()
+    {
+        editLabelText = counterpartyLabel ?? "";
+        isEditingLabel = true;
+    }
+
+    private void CancelEditLabel() => isEditingLabel = false;
+
+    private async Task SaveLabel()
+    {
+        if (Tx?.CounterpartyAddress == null || WalletService.ActiveWallet == null) return;
+        await LabelService.SetLabelAsync(WalletService.ActiveWallet.Id, Tx.CounterpartyAddress, editLabelText);
+        counterpartyLabel = string.IsNullOrWhiteSpace(editLabelText) ? null : editLabelText.Trim();
+        isEditingLabel = false;
     }
 
     private string AddressFormatLabel => Tx?.CounterpartyAddress switch
