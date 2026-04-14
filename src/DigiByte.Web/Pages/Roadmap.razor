@@ -208,6 +208,11 @@
             "Enhanced signing flow \u2014 confirmation panel, 3-step progress animation, retry",
             "Meaningful error messages (401/403/404/5xx with actionable guidance)",
             "Success card with address used + timestamp, Blockchair PDF receipt credit",
+        ]),
+        new("Apr 2026", "DGB-Specific UX", Status.Done, [
+            "Live confirmation countdown — 15s poller, 6-step progress badge, compact + expanded modes",
+            "Persistent Digi-ID login history — IndexedDB, relative timestamps, clear all",
+            "31 new unit tests (ConfirmationPollerTests + DigiIdServiceTests)",
         ]),        new("Apr 2026", "Multi-Wallet Support", Status.Done, [
             "Up to 10 wallets (HD, WIF, Watch-Only) with per-wallet PIN unlock",
             "Wallet switcher pill + bottom sheet picker with swipe-to-dismiss",
@@ -236,6 +241,13 @@
             "Order book + trade matching",
             "Multisig escrow",
             "Real-time trade chat (SignalR)",
+        ]),
+        new("Q2 2026", "Push Notifications", Status.Planned, [
+            "Block-based transaction watcher (IHostedService)",
+            "Web Push API + VAPID (browser notifications when app is closed)",
+            "Client-side notifications (Notification API when app is open)",
+            "Notification preferences (toggle, minimum amount, do not disturb)",
+            "Push subscription management (register/unregister addresses)",
         ]),
         new("Q2 2026", "Security Enhancements", Status.Done, [
             "Spending limits + alerts",

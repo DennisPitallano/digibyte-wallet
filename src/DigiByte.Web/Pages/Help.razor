@@ -162,6 +162,7 @@
                 new("What are fee rates?", "Fees are measured in sat/vB (satoshis per virtual byte). Choose <b>Low</b> (100), <b>Normal</b> (200), or <b>Fast</b> (400). Higher fees get confirmed faster. In Advanced mode, you can set a custom fee rate."),
                 new("Why did my transaction fail?", "Common reasons: insufficient balance (amount + fee exceeds balance), network congestion, or too many unconfirmed UTXOs (too-long-mempool-chain). Wait for pending transactions to confirm and try again."),
                 new("How do I get a PDF receipt?", "Tap any transaction on the Home page to open the detail modal, then tap <b>PDF Receipt</b>. This generates a downloadable PDF via <a href='https://blockchair.com' target='_blank' class='text-dgb-500 underline'>Blockchair</a>, a third-party blockchain explorer. The PDF includes the transaction ID, amounts, addresses, confirmations, and timestamp."),
+                new("How do I track transaction confirmations?", "Each transaction on the Home page shows a live <b>confirmation badge</b>. Pending transactions pulse amber with a dot-bar showing progress toward 6 confirmations (e.g. <b>3 / 6 conf</b>). Once confirmed, the badge turns green. Tap any transaction to open the detail modal — it shows a full 6-step progress bar with a callout explaining DigiByte's ~15-second block time. The wallet polls every 15 seconds automatically while any transactions are pending."),
             ]),
 
         new("contacts-payments", "Contacts & Payments", "Address book, BIP21 payment requests", "bg-indigo-50 dark:bg-indigo-900/20",
@@ -252,6 +253,8 @@
                 new("What does 'Could not reach server' mean?", "The authentication server is unreachable. This could be a <b>network issue</b> on your end, or the website's server may be down. Check your internet connection and try again. If the problem persists, the website may be experiencing downtime."),
                 new("Can I retry a failed authentication?", "Yes. When authentication fails, tap <b>Try Again</b> to re-sign and resend without needing to re-scan the QR code. If the challenge has expired, you'll need to scan a new one from the website."),
                 new("Which sites support Digi-ID?", "Any website that implements the Digi-ID protocol. Examples include <b>DigiScope</b> (<code>digiscope.me</code>) and other DigiByte community services. Look for a \"Login with Digi-ID\" button or QR code on supported sites."),
+                new("Where can I see my Digi-ID login history?", "After a successful authentication, the login is saved to your login history — visible at the bottom of the <b>ID</b> page. Each entry shows the <b>domain</b>, the <b>address</b> used (truncated), and a <b>relative timestamp</b> (e.g. \"5m ago\", \"3h ago\"). Tap any entry to see the full date. History is saved to IndexedDB and persists across sessions (up to 50 entries)."),
+                new("How do I clear my Digi-ID history?", "Scroll to the bottom of the <b>ID</b> page and tap <b>Clear all</b> in the login history panel. This removes all saved entries from IndexedDB and cannot be undone."),
             ]),
 
         new("consolidation", "UTXO Consolidation", "Merge UTXOs, fee breakdown, future savings", "bg-teal-50 dark:bg-teal-900/20",

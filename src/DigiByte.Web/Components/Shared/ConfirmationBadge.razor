@@ -1,0 +1,102 @@
+@if (Expanded)
+{
+    @* Extended view for the detail modal *@
+    <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-400 dark:text-slate-500">Status</span>
+            @if (Confirmations == 0)
+            {
+                <span class="flex items-center gap-1.5 font-medium text-amber-500">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    Pending
+                </span>
+            }
+            else if (Confirmations >= 6)
+            {
+                <span class="flex items-center gap-1.5 font-medium text-green-500">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                    Confirmed
+                </span>
+            }
+            else
+            {
+                <span class="font-medium text-dgb-500">@Confirmations / 6 confirmations</span>
+            }
+        </div>
+
+        @* 6-segment progress bar *@
+        <div class="flex gap-1">
+            @for (int i = 1; i <= 6; i++)
+            {
+                var idx = i;
+                var filled = idx <= Confirmations;
+                var next = idx == Confirmations + 1 && Confirmations < 6;
+                <div class="flex-1 h-1.5 rounded-full @(filled ? "bg-green-500" : next ? "bg-dgb-400 animate-pulse" : "bg-slate-200 dark:bg-dgb-800") transition-all duration-500"></div>
+            }
+        </div>
+
+        @* DGB speed context *@
+        @if (Confirmations < 6)
+        {
+            <div class="flex items-center justify-center gap-1.5 bg-dgb-50/60 dark:bg-dgb-900/40 rounded-lg px-3 py-1.5">
+                <svg class="w-3 h-3 text-dgb-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                </svg>
+                @if (Confirmations == 0)
+                {
+                    <span class="text-[10px] text-dgb-500 dark:text-dgb-400 font-medium">DigiByte blocks every ~15 seconds</span>
+                }
+                else
+                {
+                    <span class="text-[10px] text-dgb-500 dark:text-dgb-400 font-medium">
+                        @(6 - Confirmations) more · ~@((6 - Confirmations) * 15)s at DGB's 15s block time
+                    </span>
+                }
+            </div>
+        }
+    </div>
+}
+else
+{
+    @* Compact inline display for transaction list rows *@
+    @if (Confirmations == 0)
+    {
+        <span class="text-[9px] font-semibold text-amber-500 flex items-center gap-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0"></span>
+            Pending
+        </span>
+    }
+    else if (Confirmations >= 6)
+    {
+        <span class="text-[9px] font-semibold text-green-500 flex items-center gap-0.5">
+            <svg class="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+            Confirmed
+        </span>
+    }
+    else
+    {
+        <div class="flex flex-col items-end gap-0.5">
+            <span class="text-[9px] text-dgb-500 dark:text-dgb-400 font-semibold">@Confirmations / 6 conf</span>
+            <div class="flex gap-0.5">
+                @for (int i = 1; i <= 6; i++)
+                {
+                    <div class="w-2.5 h-0.5 rounded-full @(i <= Confirmations ? "bg-dgb-500" : "bg-slate-200 dark:bg-dgb-700")"></div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Confirmations { get; set; }
+
+    /// <summary>
+    /// When true renders the expanded 6-step progress bar with DGB speed context.
+    /// When false renders the compact inline badge for use in list rows.
+    /// </summary>
+    [Parameter] public bool Expanded { get; set; }
+}

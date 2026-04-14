@@ -8,6 +8,7 @@
 @inject MemoryCacheService Cache
 @inject IBlockchainService Blockchain
 @inject ISecureStorage Storage
+@inject TransactionTracker TxTracker
 
 <PageTitle>DigiByte Wallet — Self-Custodial DGB Wallet</PageTitle>
 
@@ -372,7 +373,7 @@
                                 <p class="text-xs font-bold @(tx.Direction == TransactionDirection.Sent ? "text-red-500" : "text-green-500")">
                                     @(tx.Direction == TransactionDirection.Sent ? "-" : "+")@tx.AmountDgb.ToString("N4") DGB
                                 </p>
-                                <p class="text-[9px] text-slate-400">@tx.Confirmations conf</p>
+                                <ConfirmationBadge Confirmations="tx.Confirmations" />
                             </div>
                         </div>
                     </Virtualize>
@@ -583,9 +584,71 @@
 
     public async ValueTask DisposeAsync()
     {
+        // Stop pending-tx confirmation poller
+        if (_confirmationPollTimer != null)
+        {
+            await _confirmationPollTimer.DisposeAsync();
+            _confirmationPollTimer = null;
+        }
         // Restore page scroll when leaving this page
         try { await JS.InvokeVoidAsync("domHelpers.restoreScroll"); }
         catch { }
+    }
+
+    // ── Pending-transaction confirmation polling ────────────────────────────
+
+    private System.Threading.Timer? _confirmationPollTimer;
+
+    /// <summary>
+    /// Starts a 15-second repeating timer that re-fetches confirmations for any
+    /// unconfirmed transactions, mirroring DGB's ~15-second block time so the UI
+    /// updates automatically without a manual pull-to-refresh.
+    /// </summary>
+    private void StartConfirmationPoller()
+    {
+        if (_confirmationPollTimer != null) return; // already running
+        _confirmationPollTimer = new System.Threading.Timer(
+            async _ => await PollPendingConfirmationsAsync(),
+            null,
+            dueTime: TimeSpan.FromSeconds(15),
+            period: TimeSpan.FromSeconds(15));
+    }
+
+    private void StopConfirmationPoller()
+    {
+        _confirmationPollTimer?.Dispose();
+        _confirmationPollTimer = null;
+    }
+
+    private async Task PollPendingConfirmationsAsync()
+    {
+        try
+        {
+            var hasPending = transactions.Any(t => t.Confirmations < 6);
+            if (!hasPending)
+            {
+                StopConfirmationPoller();
+                return;
+            }
+
+            TxTracker.SetActiveWallet(ActiveWalletId);
+            await TxTracker.UpdateConfirmationsAsync(Blockchain);
+            var updated = await TxTracker.GetAllAsync();
+
+            // Merge updated confirmations into the current list
+            foreach (var tx in transactions)
+            {
+                var fresh = updated.FirstOrDefault(u => u.TxId == tx.TxId);
+                if (fresh != null && fresh.Confirmations != tx.Confirmations)
+                    tx.Confirmations = fresh.Confirmations;
+            }
+
+            await InvokeAsync(StateHasChanged);
+
+            if (!transactions.Any(t => t.Confirmations < 6))
+                StopConfirmationPoller();
+        }
+        catch { /* ignore transient errors — will retry next interval */ }
     }
 
     /// <summary>Load balance, txs, and price from IndexedDB cache for instant display.</summary>
@@ -714,6 +777,12 @@
         try
         {
             transactions = await WalletService.GetTransactionHistoryAsync();
+
+            // Start poller if any txs are still under 6 confirmations
+            if (transactions.Any(t => t.Confirmations < 6))
+                StartConfirmationPoller();
+            else
+                StopConfirmationPoller();
         }
         catch { txFetchFailed = true; }
         finally { isLoadingTx = false; StateHasChanged(); }

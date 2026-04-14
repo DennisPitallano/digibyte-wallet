@@ -278,6 +278,16 @@ UI Sections:
   → Quick contacts horizontal scroll → SendToContact(addr) → /send?to=addr
   → Transaction list (Virtualize for infinite scroll)
   → OpenTxDetail(tx) → TransactionDetailModal
+
+Confirmation poller (15-second timer):
+  → Started after LoadTransactionsAsync() when any tx has Confirmations < 6
+  → PollPendingConfirmationsAsync():
+    1. Filter txs where Confirmations < 6
+    2. For each: TransactionTracker.UpdateConfirmationsAsync(txId)
+    3. Fetch current confirmation count from Esplora
+    4. If count changed → update tx.Confirmations + persist to IndexedDB
+    5. StateHasChanged() → ConfirmationBadge re-renders
+  → Timer stops once all txs reach 6+ confirmations or page is disposed
 ```
 
 ### Send (`/send`)
@@ -402,7 +412,17 @@ Approve:
     2. Sign challenge message with derived key
     3. POST signature to callback URL
     4. Success → show "Authenticated with {domain}"
-    5. Save to recent logins list
+    5. Prepend entry (domain, address, UTC timestamp) to history list
+    6. Trim to 50 entries → SaveAsync("digiid_login_history") → IndexedDB
+    7. Error → show error message + "Try Again" button
+
+Login history:
+  → OnInitializedAsync() → LoadHistoryAsync():
+    1. Storage.GetAsync("digiid_login_history") → deserialize JSON
+    2. Render entries: domain, truncated address (dgb1abc…xyz), relative time
+  → ClearHistoryAsync():
+    1. Clear list in memory
+    2. Storage.RemoveAsync("digiid_login_history")
 
 Manual entry:
   → Paste digiid:// URI → press Sign → same flow as scan

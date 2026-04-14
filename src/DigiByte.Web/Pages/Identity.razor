@@ -3,6 +3,7 @@
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject IConfiguration Config
+@inject ISecureStorage Storage
 
 <PageTitle>Digi-ID</PageTitle>
 
@@ -259,19 +260,28 @@
     @if (authHistory.Count > 0)
     {
         <div class="slide-up-delay-3">
-            <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Recent Logins</h3>
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Login History</h3>
+                <button class="text-[11px] text-red-400 hover:text-red-500 font-medium transition-colors press-effect"
+                        @onclick="ClearHistoryAsync">Clear all</button>
+            </div>
             <div class="flex flex-col gap-1.5">
-                @foreach (var entry in authHistory.Take(5))
+                @foreach (var entry in authHistory)
                 {
+                    var e = entry;
                     <div class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
-                        <div class="w-8 h-8 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
+                        <div class="w-8 h-8 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
                             <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3" />
                             </svg>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-slate-900 dark:text-white truncate">@entry.Domain</p>
-                            <p class="text-xs text-slate-400 dark:text-slate-500">@entry.Timestamp.ToString("MMM d, h:mm tt")</p>
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@e.Domain</p>
+                            <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">@TruncateAddress(e.Address)</p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400">@FormatRelativeTime(e.Timestamp)</p>
+                            <p class="text-[9px] text-slate-300 dark:text-slate-600">@e.Timestamp.ToLocalTime().ToString("MMM d, h:mm tt")</p>
                         </div>
                     </div>
                 }
@@ -285,6 +295,9 @@
 @code {
     private enum AuthResult { None, Success, Failed }
 
+    private const string HistoryStorageKey = "digiid_login_history";
+    private const int MaxHistoryEntries = 50;
+
     private string digiIdUri = "";
     private string? parseError;
     private bool isAuthenticating;
@@ -297,6 +310,38 @@
     private bool showScanner;
     private DigiByte.Crypto.DigiId.DigiIdRequest? pendingRequest;
     private List<AuthHistoryEntry> authHistory = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        try
+        {
+            var json = await Storage.GetAsync(HistoryStorageKey);
+            if (json != null)
+                authHistory = System.Text.Json.JsonSerializer.Deserialize<List<AuthHistoryEntry>>(json) ?? [];
+        }
+        catch { /* non-critical — start fresh if storage fails */ }
+    }
+
+    private async Task SaveHistoryAsync()
+    {
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(authHistory);
+            await Storage.SetAsync(HistoryStorageKey, json);
+        }
+        catch { }
+    }
+
+    private async Task ClearHistoryAsync()
+    {
+        authHistory.Clear();
+        await Storage.RemoveAsync(HistoryStorageKey);
+    }
 
     private void ScanDigiId()
     {
@@ -424,8 +469,13 @@
             {
                 Domain = pendingRequest.Domain,
                 Address = response.Address,
-                Timestamp = DateTime.Now,
+                Timestamp = DateTime.UtcNow,
             });
+
+            // Keep last MaxHistoryEntries, then persist
+            if (authHistory.Count > MaxHistoryEntries)
+                authHistory = authHistory.Take(MaxHistoryEntries).ToList();
+            await SaveHistoryAsync();
 
             pendingRequest = null;
             authResult = AuthResult.Success;
@@ -461,5 +511,21 @@
         public required string Domain { get; init; }
         public required string Address { get; init; }
         public required DateTime Timestamp { get; init; }
+    }
+
+    private static string TruncateAddress(string address)
+    {
+        if (address.Length <= 16) return address;
+        return $"{address[..8]}…{address[^6..]}";
+    }
+
+    private static string FormatRelativeTime(DateTime utcTime)
+    {
+        var diff = DateTime.UtcNow - utcTime;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return utcTime.ToLocalTime().ToString("MMM d");
     }
 }

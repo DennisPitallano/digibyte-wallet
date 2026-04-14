@@ -4,6 +4,19 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.9.0-beta.1] - 2026-04-16
+
+### Added
+- **Live confirmation countdown** — Every pending transaction on the Home page shows a real-time `ConfirmationBadge` component (compact: pulsing amber `3 / 6 conf` + 6-dot mini-bar; confirmed: green tick). A 15-second `System.Threading.Timer` polls `TransactionTracker.UpdateConfirmationsAsync` for all transactions with fewer than 6 confirmations; timer stops automatically when all are confirmed or the page is disposed.
+- **Expanded confirmation view** — The transaction detail modal shows a full 6-step progress bar with a DGB speed callout ("~15s blocks — typically confirmed in ~90s").
+- **Persistent Digi-ID login history** — Each successful Digi-ID authentication is saved to IndexedDB (`digiid_login_history`, capped at 50 entries). The history panel on the ID page shows domain, truncated address, and relative timestamp ("5m ago", "3h ago", "2d ago"). A "Clear all" button wipes the stored history.
+- **31 new unit tests** — `ConfirmationPollerTests` (8 tests: pending update, fully-confirmed skip, tx-not-found, multiple partial updates, persist-to-disk, empty history, mixed confirmed/pending, same-count no-write) + `DigiIdServiceTests` (23 tests: 9 ParseUri, 6 DeriveSiteIndex, 8 Sign)
+
+### Changed
+- **Help Center updated** — Two new Q&As in the "Sending & Receiving" section (confirmation tracking) and two new Q&As in the "Digi-ID" section (login history & clear history)
+- **Roadmap updated** — New "DGB-Specific UX" milestone (Apr 2026, Done): confirmation countdown + Digi-ID history + 31 tests
+- **Process flows updated** — Home page flow extended with confirmation poller steps; Digi-ID flow extended with login history persistence and clear steps
+
 ## [0.7.0-beta.1] - 2026-04-12
 
 ### Added

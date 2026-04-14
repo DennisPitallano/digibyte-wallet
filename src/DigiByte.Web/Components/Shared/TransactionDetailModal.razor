@@ -37,12 +37,7 @@
             @* Details *@
             <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 flex flex-col gap-2.5">
                 @* Confirmations *@
-                <div class="flex justify-between text-xs">
-                    <span class="text-slate-400 dark:text-slate-500">Status</span>
-                    <span class="font-medium @(Tx.Confirmations > 0 ? "text-green-500" : "text-amber-500")">
-                        @(Tx.Confirmations > 6 ? "Confirmed" : Tx.Confirmations > 0 ? $"{Tx.Confirmations} confirmations" : "Pending")
-                    </span>
-                </div>
+                <ConfirmationBadge Confirmations="Tx.Confirmations" Expanded="true" />
 
                 @* Fee *@
                 @if (Tx.FeeSatoshis > 0)
