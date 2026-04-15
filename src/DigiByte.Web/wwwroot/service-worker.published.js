@@ -34,24 +34,33 @@ const manifestUrlList = self.assetsManifest.assets.map(asset => new URL(asset.ur
 async function onInstall(event) {
     console.info('Service worker: Install');
 
-    // Do NOT call self.skipWaiting() here — let the page show the update banner
-    // and let the user decide when to activate the new version.
-    // The PwaUpdateBanner component will post SKIP_WAITING when the user clicks "Update".
-
-    // Fetch and cache all matching items from the assets manifest
-    const assetsRequests = self.assetsManifest.assets
+    // Cache assets individually — don't let one failed fetch kill the entire install.
+    // cache.addAll() is all-or-nothing; this approach caches what it can.
+    const cache = await caches.open(cacheName);
+    const assets = self.assetsManifest.assets
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
-        .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
-        .map(asset => new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
-    await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
+        .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)));
+
+    await Promise.all(assets.map(async asset => {
+        try {
+            const request = new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' });
+            const response = await fetch(request);
+            if (response.ok) await cache.put(request, response);
+        } catch {
+            console.warn('SW install: failed to cache', asset.url);
+        }
+    }));
+
+    // Force activate — unstick users on old versions
+    self.skipWaiting();
 }
 
 async function onActivate(event) {
     console.info('Service worker: Activate');
 
-    // Do NOT call clients.claim() here — it causes the page to reload before
-    // the update banner can show. The controllerchange listener in index.html
-    // handles the reload after the user clicks "Update".
+    // Claim all clients so they immediately use the new SW + new cached assets.
+    // This triggers controllerchange → page reload with fresh index.html.
+    await self.clients.claim();
 
     // Delete unused caches
     const cacheKeys = await caches.keys();
@@ -80,7 +89,20 @@ async function onFetch(event) {
     const cache = await caches.open(cacheName);
     const cachedResponse = await cache.match(cacheRequest);
 
-    return cachedResponse || fetch(request);
+    if (cachedResponse) return cachedResponse;
+
+    // Network fetch — catch errors to avoid unhandled rejection spam
+    try {
+        return await fetch(request);
+    } catch {
+        // Offline and not in cache — return a basic offline response for navigations
+        if (request.mode === 'navigate') {
+            const offlineCache = await caches.open(cacheName);
+            const fallback = await offlineCache.match('index.html');
+            if (fallback) return fallback;
+        }
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+    }
 }
 
 async function networkFirstWithCache(request) {
