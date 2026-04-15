@@ -34,6 +34,10 @@ const manifestUrlList = self.assetsManifest.assets.map(asset => new URL(asset.ur
 async function onInstall(event) {
     console.info('Service worker: Install');
 
+    // Take over immediately — do not wait for all tabs to close.
+    // This ensures every new deployment is applied as soon as the SW installs.
+    self.skipWaiting();
+
     // Fetch and cache all matching items from the assets manifest
     const assetsRequests = self.assetsManifest.assets
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
@@ -44,6 +48,9 @@ async function onInstall(event) {
 
 async function onActivate(event) {
     console.info('Service worker: Activate');
+
+    // Claim all open clients so they switch to this SW without a reload
+    await clients.claim();
 
     // Delete unused caches
     const cacheKeys = await caches.keys();
