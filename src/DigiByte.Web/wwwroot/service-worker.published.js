@@ -49,8 +49,9 @@ async function onInstall(event) {
 async function onActivate(event) {
     console.info('Service worker: Activate');
 
-    // Claim all open clients so they switch to this SW without a reload
-    await clients.claim();
+    // Do NOT call clients.claim() here — it causes the page to reload before
+    // the update banner can show. The controllerchange listener in index.html
+    // handles the reload after the user clicks "Update".
 
     // Delete unused caches
     const cacheKeys = await caches.keys();
