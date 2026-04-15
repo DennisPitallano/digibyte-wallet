@@ -128,13 +128,11 @@
             // Check for updates every 60 minutes
             setInterval(() => reg.update(), 60 * 60 * 1000);
 
-            // Detect when a new service worker is waiting
+            // Detect when a new service worker is waiting and apply immediately
             function onNewSW(sw) {
                 if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-                    window._swWaiting = sw;
-                    if (window._pwaUpdateCallback) {
-                        window._pwaUpdateCallback.invokeMethodAsync('OnUpdateAvailable');
-                    }
+                    // Auto-skip waiting — reload will fire via controllerchange
+                    sw.postMessage({ type: 'SKIP_WAITING' });
                 }
             }
 
