@@ -34,9 +34,9 @@ const manifestUrlList = self.assetsManifest.assets.map(asset => new URL(asset.ur
 async function onInstall(event) {
     console.info('Service worker: Install');
 
-    // Take over immediately — do not wait for all tabs to close.
-    // This ensures every new deployment is applied as soon as the SW installs.
-    self.skipWaiting();
+    // Do NOT call self.skipWaiting() here — let the page show the update banner
+    // and let the user decide when to activate the new version.
+    // The PwaUpdateBanner component will post SKIP_WAITING when the user clicks "Update".
 
     // Fetch and cache all matching items from the assets manifest
     const assetsRequests = self.assetsManifest.assets
