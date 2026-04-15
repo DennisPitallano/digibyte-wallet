@@ -167,6 +167,28 @@
                 setTimeout(() => { if (!refreshing) { refreshing = true; location.reload(); } }, 2000);
             }
         };
+
+        // Force-check for a new service worker version and return true if one is waiting
+        window.pwaCheckForUpdate = async () => {
+            const reg = await navigator.serviceWorker.getRegistration('/');
+            if (!reg) return false;
+            await reg.update();
+            // Give the browser a moment to fetch and compare service-worker.js
+            await new Promise(r => setTimeout(r, 1500));
+            return !!(reg.waiting || reg.installing);
+        };
+
+        // Skip waiting on any waiting SW and let the controllerchange listener reload
+        window.pwaApplyUpdate = () => {
+            navigator.serviceWorker.getRegistration('/').then(reg => {
+                const sw = reg?.waiting || reg?.installing;
+                if (sw) {
+                    sw.postMessage({ type: 'SKIP_WAITING' });
+                } else {
+                    location.reload();
+                }
+            });
+        };
     </script>
 </body>
 

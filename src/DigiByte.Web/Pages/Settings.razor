@@ -404,6 +404,39 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400">Tutorials, how-tos & support</p>
                     </div>
                 </a>
+
+                @* Check for Updates *@
+                <button class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800
+                               hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left disabled:opacity-60"
+                        @onclick="CheckForUpdateAsync" disabled="@_updateChecking">
+                    <div class="w-9 h-9 rounded-xl @(_updateFound ? "bg-green-50 dark:bg-green-900/20" : "bg-sky-50 dark:bg-sky-900/20") flex items-center justify-center">
+                        @if (_updateChecking)
+                        {
+                            <svg class="w-5 h-5 text-sky-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                        }
+                        else if (_updateFound)
+                        {
+                            <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="w-5 h-5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                        }
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold @(_updateFound ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white")">
+                            @(_updateChecking ? "Checking..." : _updateFound ? "Applying update..." : _updateMessage ?? "Check for Updates")
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Force check &amp; apply latest version</p>
+                    </div>
+                </button>
             </div>
         </div>
 
@@ -488,6 +521,11 @@
     private bool cacheCleared;
     private bool showLanguageToast;
 
+    // Update check state
+    private bool _updateChecking;
+    private bool _updateFound;
+    private string? _updateMessage;
+
     // Biometric state
     private bool biometricSupported;
     private bool biometricEnabled;
@@ -537,6 +575,46 @@
     private async Task ToggleTheme() => await Theme.ToggleAsync();
 
     private void GoToBackup() => Nav.NavigateTo("/backup-seed");
+
+    private async Task CheckForUpdateAsync()
+    {
+        _updateChecking = true;
+        _updateFound = false;
+        _updateMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Ask the service worker registration to check for a new version
+            var hasUpdate = await JS.InvokeAsync<bool>("pwaCheckForUpdate");
+            if (hasUpdate)
+            {
+                _updateFound = true;
+                _updateMessage = "Update found! Reloading...";
+                StateHasChanged();
+                await Task.Delay(1200);
+                await JS.InvokeVoidAsync("pwaApplyUpdate");
+            }
+            else
+            {
+                _updateMessage = "Already up to date ✓";
+            }
+        }
+        catch
+        {
+            _updateMessage = "Could not check — try again";
+        }
+        finally
+        {
+            _updateChecking = false;
+            StateHasChanged();
+            // Clear the status message after a few seconds
+            await Task.Delay(4000);
+            _updateMessage = null;
+            _updateFound = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task OnDisplayModeChanged(ChangeEventArgs e)
     {
