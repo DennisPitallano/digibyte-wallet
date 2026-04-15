@@ -105,7 +105,70 @@
         </div>
     </section>
 
-    @* ===== 6. Replay button ===== *@
+    @* ===== 6. Confirmation Badge — Block Chain ===== *@
+    <section>
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Confirmation Badge — Block Chain</h3>
+
+        @* Interactive stepper — Expanded mode *@
+        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 mb-3">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Expanded (detail modal)</span>
+                <span class="text-xs font-mono text-dgb-500">@_previewConf / 6 conf</span>
+            </div>
+
+            <ConfirmationBadge Confirmations="_previewConf" Expanded="true" />
+
+            @* Step controls *@
+            <div class="flex items-center gap-2 mt-4">
+                <button class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300
+                               hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect disabled:opacity-40"
+                        disabled="@(_previewConf <= 0)"
+                        @onclick="() => { _previewConf = Math.Max(0, _previewConf - 1); }">
+                    ← Prev block
+                </button>
+                <button class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-dgb-500 text-white
+                               hover:bg-dgb-600 transition-colors press-effect disabled:opacity-40"
+                        disabled="@(_previewConf >= 6)"
+                        @onclick="() => { _previewConf = Math.Min(6, _previewConf + 1); }">
+                    Next block →
+                </button>
+            </div>
+
+            @* Auto-simulate *@
+            <div class="flex gap-2 mt-2">
+                <button class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg
+                               @(_simulating ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400")
+                               hover:opacity-80 transition-colors press-effect"
+                        @onclick="ToggleSimulate">
+                    @(_simulating ? "⏸ Stop simulation" : "▶ Simulate polling (1.5s)")
+                </button>
+                <button class="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-500
+                               hover:bg-slate-200 transition-colors press-effect"
+                        @onclick="() => { _previewConf = 0; }">
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        @* All compact states side-by-side *@
+        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-3">Compact (tx list row) — all states</span>
+            <div class="flex flex-wrap gap-4">
+                @for (int c = 0; c <= 6; c++)
+                {
+                    var confs = c;
+                    <div class="flex flex-col items-center gap-1.5">
+                        <div class="h-10 flex items-center">
+                            <ConfirmationBadge Confirmations="confs" Expanded="false" />
+                        </div>
+                        <span class="text-[9px] text-slate-400">@confs conf</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    @* ===== 7. Replay button ===== *@
     <section>
         <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Replay Animations</h3>
         <button class="px-4 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl hover:bg-dgb-600 transition-colors press-effect"
@@ -125,6 +188,37 @@
 @code {
     private bool showSuccess;
     private bool animKey = true;
+
+    // Confirmation badge preview
+    private int _previewConf = 0;
+    private bool _simulating = false;
+    private System.Threading.CancellationTokenSource? _simCts;
+
+    private async Task ToggleSimulate()
+    {
+        if (_simulating)
+        {
+            _simCts?.Cancel();
+            _simulating = false;
+            return;
+        }
+
+        _previewConf = 0;
+        _simulating = true;
+        _simCts = new System.Threading.CancellationTokenSource();
+        var token = _simCts.Token;
+
+        while (_previewConf < 6 && !token.IsCancellationRequested)
+        {
+            await Task.Delay(1500, token).ContinueWith(_ => { });
+            if (token.IsCancellationRequested) break;
+            _previewConf++;
+            StateHasChanged();
+        }
+
+        _simulating = false;
+        StateHasChanged();
+    }
 
     private async Task ShowSuccess()
     {
