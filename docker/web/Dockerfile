@@ -1,11 +1,18 @@
 # DigiByte Web — Multi-stage .NET 10 Blazor WASM + Nginx
 
 # === Build stage ===
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Use node:20-alpine as the base so Node.js/npm are pre-installed,
+# avoiding apt-get network calls that can fail in restricted build environments.
+FROM node:20-alpine AS build
 WORKDIR /src
 
-# Install Node.js for Tailwind CSS build
-RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*
+# Install .NET SDK 10 runtime dependencies, then use the official install script
+RUN apk add --no-cache bash icu-libs krb5-libs libgcc libintl libssl3 libstdc++ zlib wget \
+    && wget -qO /tmp/dotnet-install.sh https://dot.net/v1/dotnet-install.sh \
+    && chmod +x /tmp/dotnet-install.sh \
+    && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/local/dotnet \
+    && ln -s /usr/local/dotnet/dotnet /usr/local/bin/dotnet \
+    && rm /tmp/dotnet-install.sh
 
 # Copy solution and project files first (for layer caching)
 COPY DigiByte.slnx .
