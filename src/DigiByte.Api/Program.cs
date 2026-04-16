@@ -69,7 +69,7 @@ app.MapGroup("/api/price")
 
 // Digi-ID callback proxy (avoids CORS when posting signed auth to third-party servers)
 app.MapGroup("/api/digiid")
-    .MapDigiIdEndpoints();
+    .MapDigiIdEndpoints(app.Configuration);
 
 // Health check
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));

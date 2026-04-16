@@ -4,8 +4,21 @@ namespace DigiByte.Api.Endpoints;
 
 public static class DigiIdEndpoints
 {
-    public static RouteGroupBuilder MapDigiIdEndpoints(this RouteGroupBuilder group)
+    public static RouteGroupBuilder MapDigiIdEndpoints(this RouteGroupBuilder group, IConfiguration config)
     {
+        // GET /api/digiid/redirect — Handle deep link redirect from digiid:// protocol
+        // Third-party sites can link here so clicking it opens the wallet with the URI pre-filled.
+        // Example: /api/digiid/redirect?uri=digiid://example.com/callback?x=abc123
+        group.MapGet("/redirect", (string? uri) =>
+        {
+            if (string.IsNullOrEmpty(uri) || !uri.StartsWith("digiid://", StringComparison.OrdinalIgnoreCase))
+                return Results.BadRequest(new { error = "Missing or invalid 'uri' parameter. Must start with digiid://" });
+
+            var appUrl = config["ClientWebUrl"] ?? "https://dgbwallet.app";
+            var redirectUrl = $"{appUrl.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(uri)}";
+            return Results.Redirect(redirectUrl);
+        });
+
         // POST /api/digiid/callback — proxy the signed Digi-ID response to the third-party callback
         // This avoids CORS issues when the browser can't POST directly to the callback server.
         group.MapPost("/callback", async (

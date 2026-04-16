@@ -314,6 +314,27 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadHistoryAsync();
+        
+        // Auto-populate from query parameter if present
+        // Sources: PWA protocol handler (?uri=web+digiid:...) or API redirect (?uri=digiid://...)
+        var navUri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(navUri.Query);
+        var incomingUri = query["uri"];
+        
+        if (!string.IsNullOrEmpty(incomingUri))
+        {
+            // PWA protocol_handlers use "web+digiid" scheme — normalize to "digiid"
+            if (incomingUri.StartsWith("web+digiid://", StringComparison.OrdinalIgnoreCase))
+                incomingUri = "digiid://" + incomingUri.Substring("web+digiid://".Length);
+
+            if (incomingUri.StartsWith("digiid://", StringComparison.OrdinalIgnoreCase))
+            {
+                digiIdUri = incomingUri;
+                StateHasChanged();
+                await Task.Delay(100); // brief delay for UI to render
+                await AuthenticateAsync();
+            }
+        }
     }
 
     private async Task LoadHistoryAsync()

@@ -41,5 +41,11 @@
       "type": "image/png",
       "sizes": "48x48"
     }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+digiid",
+      "url": "/identity?uri=%s"
+    }
   ]
 }
