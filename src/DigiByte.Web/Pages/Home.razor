@@ -290,7 +290,13 @@
 
             @* Transaction Header *@
             <div class="flex items-center justify-between mt-2 mb-2">
-                <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Transactions</h3>
+                <div class="flex items-center gap-1.5">
+                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Transactions</h3>
+                    @if (transactions.Count > 0)
+                    {
+                        <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500">(@transactions.Count)</span>
+                    }
+                </div>
                 @if (isLoadingTx)
                 {
                     <div class="w-2.5 h-2.5 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
