@@ -1,0 +1,132 @@
+@page "/merchant/signin"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject IHttpClientFactory HttpFactory
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using System.Net.Http.Json
+
+<PageTitle>Sign in — DigiPay</PageTitle>
+
+<link rel="stylesheet" href="css/checkout.css" />
+
+<main class="dp-checkout">
+    <div class="dp-card">
+        <div class="dp-row dp-row--center">
+            <div>
+                <div class="dp-eyebrow">DIGIPAY</div>
+                <div class="dp-merchant">Sign in with Digi-ID</div>
+            </div>
+        </div>
+
+        @if (loadError != null)
+        {
+            <p class="dp-muted dp-center">@loadError</p>
+        }
+        else if (challenge == null)
+        {
+            <p class="dp-muted dp-center">Loading…</p>
+        }
+        else if (signed != null)
+        {
+            <div class="dp-terminal">
+                <div class="dp-terminal__icon dp-terminal__icon--ok">✓</div>
+                <h3>Signed in</h3>
+                <p>Welcome back, <strong>@signed.DisplayName</strong>.</p>
+                <p class="dp-terminal__txid">@signed.MerchantId</p>
+            </div>
+        }
+        else
+        {
+            <p class="dp-muted dp-center">Scan the QR with your DigiByte wallet to sign in. The page will advance automatically.</p>
+
+            <div class="dp-qr"><img src="@qrDataUrl" alt="Scan to sign in" /></div>
+
+            <a href="@challenge.Uri" class="dp-button">Open in wallet</a>
+
+            <div class="dp-expiry">Polling for signature… @pollCount</div>
+        }
+    </div>
+</main>
+
+@code {
+    private ChallengeResponse? challenge;
+    private SignedResponse? signed;
+    private string? qrDataUrl;
+    private string? loadError;
+    private int pollCount;
+    private System.Threading.Timer? poller;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            challenge = await http.GetFromJsonAsync<ChallengeResponse>("/v1/pay/auth/challenge");
+            if (challenge != null) qrDataUrl = GenerateQr(challenge.Uri);
+        }
+        catch (Exception ex) { loadError = $"Could not start sign-in: {ex.Message}"; }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender || challenge is null || poller is not null) return;
+        poller = new System.Threading.Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+    }
+
+    private async Task PollAsync()
+    {
+        if (challenge is null || signed is not null) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetAsync($"/v1/pay/auth/poll/{challenge.Nonce}");
+            if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                await InvokeAsync(() => { pollCount++; StateHasChanged(); });
+                return;
+            }
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                await InvokeAsync(() =>
+                {
+                    loadError = "Sign-in expired. Refresh to try again.";
+                    StateHasChanged();
+                });
+                poller?.Dispose();
+                return;
+            }
+            if (response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadFromJsonAsync<SignedResponse>();
+                if (body is null) return;
+                await InvokeAsync(async () =>
+                {
+                    signed = body;
+                    await JS.InvokeVoidAsync("localStorage.setItem", "digipay-token", body.Token);
+                    await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
+                    StateHasChanged();
+                });
+                poller?.Dispose();
+            }
+        }
+        catch { /* transient — keep polling */ }
+    }
+
+    private static string GenerateQr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        poller?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    private record ChallengeResponse(string Nonce, string Uri, DateTime ExpiresAt);
+    private record SignedResponse(string Status, string MerchantId, string DisplayName, string Token);
+}

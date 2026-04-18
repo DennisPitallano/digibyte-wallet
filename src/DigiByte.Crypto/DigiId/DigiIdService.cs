@@ -95,6 +95,52 @@ public class DigiIdService
     }
 
     /// <summary>
+    /// Verifies a Digi-ID response: recovers the public key from the compact signature
+    /// and checks the derived Legacy address matches the claimed one.
+    /// Returns true if the signature is valid for the given uri + address.
+    /// </summary>
+    public static bool Verify(string address, string originalUri, string signatureBase64)
+    {
+        if (string.IsNullOrWhiteSpace(address) ||
+            string.IsNullOrWhiteSpace(originalUri) ||
+            string.IsNullOrWhiteSpace(signatureBase64))
+            return false;
+
+        byte[] sigBytes;
+        try { sigBytes = Convert.FromBase64String(signatureBase64); }
+        catch { return false; }
+
+        if (sigBytes.Length != 65) return false;
+
+        // Compute the same double-SHA256 digest that Sign() produced.
+        var messageBytes = Encoding.UTF8.GetBytes(originalUri);
+        var magic = "DigiByte Signed Message:\n"u8;
+
+        using var ms = new MemoryStream();
+        WriteVarInt(ms, (ulong)magic.Length);
+        ms.Write(magic);
+        WriteVarInt(ms, (ulong)messageBytes.Length);
+        ms.Write(messageBytes);
+        var hash = new uint256(Hashes.SHA256(Hashes.SHA256(ms.ToArray())));
+
+        // First byte encodes recovery id + compressed flag.
+        // Valid header range: 27..34 (uncompressed 27-30, compressed 31-34).
+        var header = sigBytes[0];
+        if (header < 27 || header > 34) return false;
+        var recoveryId = (header - 27) & 3;
+        var rs = new byte[64];
+        Buffer.BlockCopy(sigBytes, 1, rs, 0, 64);
+
+        PubKey recovered;
+        try { recovered = PubKey.RecoverCompact(hash, new CompactSignature(recoveryId, rs)); }
+        catch { return false; }
+
+        // Digi-ID always uses Legacy (P2PKH) on mainnet.
+        var derived = recovered.GetAddress(ScriptPubKeyType.Legacy, DigiByteNetwork.Mainnet).ToString();
+        return string.Equals(derived, address.Trim(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Writes a Bitcoin-style variable-length integer to the stream.
     /// </summary>
     private static void WriteVarInt(Stream s, ulong value)

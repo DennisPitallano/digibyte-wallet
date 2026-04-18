@@ -4,6 +4,9 @@ public class PayMerchant
 {
     public required string Id { get; init; }
     public required string DisplayName { get; set; }
+    // Digi-ID address acts as the merchant's stable identity.
+    // Null for merchants created via the (legacy / SDK) unauthenticated API-key path.
+    public string? DigiIdAddress { get; set; }
     // Exactly one of Xpub / ReceiveAddress is populated.
     // Xpub: fresh address per session via BIP84 derivation (proper isolation).
     // ReceiveAddress: single reused address (simpler onboarding, ambiguity if

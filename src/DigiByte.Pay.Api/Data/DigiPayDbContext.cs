@@ -15,6 +15,8 @@ public class DigiPayDbContext : DbContext
         {
             e.HasKey(m => m.Id);
             e.HasIndex(m => m.ApiKeyPrefix).IsUnique();
+            e.HasIndex(m => m.DigiIdAddress);
+            e.Property(m => m.DigiIdAddress).HasMaxLength(80);
             e.Property(m => m.DisplayName).HasMaxLength(120).IsRequired();
             e.Property(m => m.Xpub).HasMaxLength(200);
             e.Property(m => m.ReceiveAddress).HasMaxLength(80);

@@ -1,3 +1,4 @@
+using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Endpoints;
 using DigiByte.Pay.Api.Hubs;
@@ -33,6 +34,7 @@ builder.Services.AddHttpClient("DigiPayWebhook", client =>
 });
 
 builder.Services.AddSingleton<CheckoutNotifier>();
+builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();
 builder.Services.AddHostedService<InvoiceMonitor>();
 
@@ -79,6 +81,7 @@ app.MapGet("/api/health", () => Results.Ok(new
 }));
 
 app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration);
+app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration);
 app.MapHub<CheckoutHub>("/hubs/checkout");
 
 app.Run();
