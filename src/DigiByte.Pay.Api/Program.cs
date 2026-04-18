@@ -1,5 +1,7 @@
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Endpoints;
+using DigiByte.Pay.Api.Hubs;
+using DigiByte.Pay.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +20,21 @@ builder.Services.AddMemoryCache();
 var digipayDb = builder.Configuration["DigiPay:DbPath"] ?? "digipay.db";
 builder.Services.AddDbContext<DigiPayDbContext>(opt =>
     opt.UseSqlite($"Data Source={digipayDb}"));
+
+builder.Services.AddHttpClient("DigiPayChain", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay/0.1");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddHttpClient("DigiPayWebhook", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay-Webhook/0.1");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
+builder.Services.AddSingleton<CheckoutNotifier>();
+builder.Services.AddScoped<WebhookDispatcher>();
+builder.Services.AddHostedService<InvoiceMonitor>();
 
 // CORS scoped to the Pay.Web origin (and whatever else gets added via ClientOrigin).
 builder.Services.AddCors(options =>
@@ -62,5 +79,6 @@ app.MapGet("/api/health", () => Results.Ok(new
 }));
 
 app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration);
+app.MapHub<CheckoutHub>("/hubs/checkout");
 
 app.Run();
