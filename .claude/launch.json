@@ -12,6 +12,18 @@
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "src/DigiByte.NodeApi/DigiByte.NodeApi.csproj", "--urls", "http://localhost:5260"],
       "port": 5260
+    },
+    {
+      "name": "digipay-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj", "--urls", "http://localhost:5252"],
+      "port": 5252
+    },
+    {
+      "name": "digipay-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/DigiByte.Pay.Api/DigiByte.Pay.Api.csproj", "--urls", "http://localhost:5008"],
+      "port": 5008
     }
   ]
 }
