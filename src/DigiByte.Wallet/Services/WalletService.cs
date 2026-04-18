@@ -419,6 +419,20 @@ public class WalletService : IWalletService
     }
 
     /// <summary>
+    /// Returns the account-level extended public key (xpub) for the active wallet,
+    /// or null for WIF single-key wallets which have no HD structure.
+    /// Safe to share externally: enables watch-only address derivation (BIP84 0/index)
+    /// but cannot sign transactions.
+    /// </summary>
+    public Task<string?> GetAccountXpubAsync()
+    {
+        EnsureUnlocked();
+        if (_hd is null) return Task.FromResult<string?>(null);
+        var xpub = _hd.GetAccountExtPubKey().ToString(EffectiveNetwork);
+        return Task.FromResult<string?>(xpub);
+    }
+
+    /// <summary>
     /// Get all addresses for this wallet. For WIF wallets, returns both Legacy and SegWit.
     /// Results are cached per wallet — HD derivation (elliptic curve math) is only done once.
     /// </summary>

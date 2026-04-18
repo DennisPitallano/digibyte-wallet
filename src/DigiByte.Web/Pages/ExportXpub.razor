@@ -1,0 +1,109 @@
+@page "/settings/xpub"
+@inject WalletService WalletService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Share xpub</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-5">
+    <div class="slide-up">
+        <button class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 mb-2" @onclick='() => Nav.NavigateTo("/settings")'>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+            Settings
+        </button>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Share account xpub</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Watch-only extended public key for this wallet. Paste it into DigiPay or any compatible service.</p>
+    </div>
+
+    <div class="slide-up-delay-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-2xl p-4 text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+        <p class="font-semibold mb-1">What an xpub does — and doesn't — expose</p>
+        <ul class="flex flex-col gap-1 list-disc list-inside">
+            <li>Whoever has it can see every address + balance this wallet derives.</li>
+            <li>They <strong>cannot</strong> move funds. Your seed stays on this device.</li>
+            <li>For DigiPay, pasting this lets the gateway hand out a fresh address per invoice (proper privacy) while payments still settle directly into your wallet.</li>
+        </ul>
+    </div>
+
+    @if (isWif)
+    {
+        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-2xl p-4 text-sm text-amber-700 dark:text-amber-300">
+            This wallet was imported from a single private key (WIF) so it has no xpub. Use the receive address directly — DigiPay's single-address mode handles this.
+        </div>
+    }
+    else if (xpub != null)
+    {
+        <div class="slide-up-delay-2 bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-5 shadow-sm flex flex-col items-center gap-4">
+            <div class="bg-white rounded-2xl p-3 shadow-inner">
+                <img src="@qrDataUrl" alt="Account xpub QR" class="w-56 h-56 rounded-lg" />
+            </div>
+            <div class="w-full">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Account xpub</p>
+                <p class="font-mono text-xs text-slate-700 dark:text-slate-300 break-all bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800 select-all">
+                    @xpub
+                </p>
+            </div>
+            <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl transition-colors"
+                    @onclick="CopyAsync">
+                @(copied ? "Copied ✓" : "Copy xpub")
+            </button>
+        </div>
+    }
+    else
+    {
+        <p class="text-sm text-slate-500 dark:text-slate-400">Loading…</p>
+    }
+</div>
+</AuthGuard>
+
+@code {
+    private string? xpub;
+    private bool isWif;
+    private string? qrDataUrl;
+    private bool copied;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // AuthGuard handles the unlock redirect; don't derive until a wallet is actually open.
+        if (!WalletService.IsUnlocked) return;
+
+        if (WalletService.ActiveWallet?.WalletType == "privatekey")
+        {
+            isWif = true;
+            return;
+        }
+        var value = await WalletService.GetAccountXpubAsync();
+        if (string.IsNullOrEmpty(value))
+        {
+            isWif = true;
+            return;
+        }
+        xpub = value;
+        qrDataUrl = GenerateQr(value);
+    }
+
+    private async Task CopyAsync()
+    {
+        if (xpub is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", xpub);
+            copied = true;
+            StateHasChanged();
+            await Task.Delay(1500);
+            copied = false;
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private static string GenerateQr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(5))}";
+    }
+}
