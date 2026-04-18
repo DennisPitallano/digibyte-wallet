@@ -100,6 +100,7 @@
             {
                 var body = await response.Content.ReadFromJsonAsync<SignedResponse>();
                 if (body is null) return;
+                poller?.Dispose();
                 await InvokeAsync(async () =>
                 {
                     signed = body;
@@ -107,7 +108,12 @@
                     await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
                     StateHasChanged();
                 });
-                poller?.Dispose();
+                // Brief "Signed in" confirmation, then hand off to the dashboard.
+                // Use a full reload so localStorage reads on the next page happen cleanly
+                // in the new InteractiveServer circuit.
+                await Task.Delay(1200);
+                await InvokeAsync(async () =>
+                    await JS.InvokeVoidAsync("eval", "window.location.href = '/merchant'"));
             }
         }
         catch { /* transient — keep polling */ }

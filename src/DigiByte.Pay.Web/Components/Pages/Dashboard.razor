@@ -1,0 +1,277 @@
+@page "/merchant"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpFactory
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@using System.Net.Http.Json
+
+<PageTitle>Dashboard — DigiPay</PageTitle>
+
+<link rel="stylesheet" href="css/checkout.css" />
+<link rel="stylesheet" href="css/dashboard.css" />
+
+<main class="dp-dashboard">
+    @if (bootstrapError != null)
+    {
+        <div class="dp-card dp-card--error"><p>@bootstrapError</p></div>
+    }
+    else if (me == null)
+    {
+        <p class="dp-muted">Loading…</p>
+    }
+    else
+    {
+        <header class="dp-dash__header">
+            <div>
+                <div class="dp-eyebrow">DIGIPAY</div>
+                <h1>@me.DisplayName</h1>
+                <p class="dp-dash__subtitle">
+                    @if (!string.IsNullOrEmpty(me.DigiIdAddress)) { <span class="dp-mono">@me.DigiIdAddress</span> }
+                    · @me.Network
+                </p>
+            </div>
+            <button class="dp-btn dp-btn--ghost" @onclick="SignOutAsync">Sign out</button>
+        </header>
+
+        @if (!me.HasReceive)
+        {
+            <section class="dp-card">
+                <h2>Configure where to receive payments</h2>
+                <p class="dp-muted">Paste a DigiByte address for a simple shared-address setup, or a BIP84 xpub for a fresh address per session (recommended).</p>
+                <input @bind="receiveInput" placeholder="dgb1… or xpub…" class="dp-input dp-input--mono" />
+                <button class="dp-btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
+                    @(busy ? "Saving…" : "Save")
+                </button>
+                @if (patchError != null) { <p class="dp-error">@patchError</p> }
+            </section>
+        }
+        else
+        {
+            <section class="dp-card dp-card--compact">
+                <div class="dp-row">
+                    <div>
+                        <div class="dp-eyebrow">Receiving</div>
+                        <div class="dp-dash__receive">@me.ReceivePreview</div>
+                        <div class="dp-muted">@(me.ReceiveMode == "xpub" ? "Fresh address per session" : "Single reused address")</div>
+                    </div>
+                    <button class="dp-btn dp-btn--ghost" @onclick="() => showEditReceive = !showEditReceive">
+                        @(showEditReceive ? "Cancel" : "Change")
+                    </button>
+                </div>
+                @if (showEditReceive)
+                {
+                    <div class="dp-dash__edit">
+                        <input @bind="receiveInput" placeholder="dgb1… or xpub…" class="dp-input dp-input--mono" />
+                        <button class="dp-btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
+                            @(busy ? "Saving…" : "Save")
+                        </button>
+                        @if (patchError != null) { <p class="dp-error">@patchError</p> }
+                    </div>
+                }
+            </section>
+
+            <section class="dp-card">
+                <h2>New session</h2>
+                <div class="dp-dash__create">
+                    <input @bind="newAmount" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="dp-input" />
+                    <input @bind="newLabel" placeholder="Label" class="dp-input" />
+                    <input @bind="newMemo" placeholder="Memo / invoice #" class="dp-input" />
+                </div>
+                <button class="dp-btn" @onclick="CreateSessionAsync" disabled="@(busy || newAmount <= 0)">
+                    @(busy ? "Creating…" : "Create session")
+                </button>
+                @if (createError != null) { <p class="dp-error">@createError</p> }
+                @if (createdSession != null)
+                {
+                    <div class="dp-dash__created">
+                        <div class="dp-eyebrow">Checkout URL</div>
+                        <a href="@createdSession.CheckoutUrl" target="_blank" class="dp-mono">@createdSession.CheckoutUrl</a>
+                    </div>
+                }
+            </section>
+
+            <section class="dp-card">
+                <div class="dp-row">
+                    <h2>Sessions</h2>
+                    <button class="dp-btn dp-btn--ghost" @onclick="LoadSessionsAsync" disabled="@loadingSessions">
+                        @(loadingSessions ? "…" : "Refresh")
+                    </button>
+                </div>
+                @if (sessions == null)
+                {
+                    <p class="dp-muted">Loading…</p>
+                }
+                else if (sessions.Count == 0)
+                {
+                    <p class="dp-muted">No sessions yet.</p>
+                }
+                else
+                {
+                    <ul class="dp-dash__sessions">
+                        @foreach (var s in sessions)
+                        {
+                            <li>
+                                <a href="@s.CheckoutUrl" target="_blank" class="dp-dash__session">
+                                    <div>
+                                        <div class="dp-dash__session-amount">@s.Amount.ToString("0.########") DGB</div>
+                                        <div class="dp-mono dp-dash__session-addr">@s.Address</div>
+                                        @if (!string.IsNullOrEmpty(s.Label)) { <div class="dp-muted">@s.Label</div> }
+                                    </div>
+                                    <div class="dp-dash__session-meta">
+                                        <CheckoutStatusPill Status="@s.Status" />
+                                        <div class="dp-muted">@s.CreatedAt.ToLocalTime().ToString("MMM d, HH:mm")</div>
+                                    </div>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+    }
+</main>
+
+@code {
+    private string? token;
+    private MeDto? me;
+    private List<SessionRow>? sessions;
+    private string? bootstrapError;
+
+    private string receiveInput = "";
+    private bool showEditReceive;
+    private string? patchError;
+
+    private decimal newAmount;
+    private string newLabel = "";
+    private string newMemo = "";
+    private CreatedSession? createdSession;
+    private string? createError;
+
+    private bool busy;
+    private bool loadingSessions;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || me != null || bootstrapError != null) return;
+        try
+        {
+            token = await JS.InvokeAsync<string?>("localStorage.getItem", "digipay-token");
+            if (string.IsNullOrEmpty(token))
+            {
+                Nav.NavigateTo("/merchant/signin");
+                return;
+            }
+            await LoadMeAsync();
+            if (me is not null && me.HasReceive) await LoadSessionsAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex) { bootstrapError = ex.Message; StateHasChanged(); }
+    }
+
+    private HttpRequestMessage AuthedRequest(HttpMethod method, string path, HttpContent? content = null)
+    {
+        var req = new HttpRequestMessage(method, path) { Content = content };
+        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+        return req;
+    }
+
+    private async Task LoadMeAsync()
+    {
+        var http = HttpFactory.CreateClient("PayApi");
+        var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/me/"));
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
+            Nav.NavigateTo("/merchant/signin");
+            return;
+        }
+        response.EnsureSuccessStatusCode();
+        me = await response.Content.ReadFromJsonAsync<MeDto>();
+    }
+
+    private async Task LoadSessionsAsync()
+    {
+        loadingSessions = true; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/sessions?take=25"));
+            if (response.IsSuccessStatusCode)
+            {
+                var payload = await response.Content.ReadFromJsonAsync<SessionList>();
+                if (payload != null) sessions = payload.Sessions;
+            }
+        }
+        finally { loadingSessions = false; StateHasChanged(); }
+    }
+
+    private async Task SaveReceiveAsync()
+    {
+        busy = true; patchError = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { addressOrXpub = receiveInput.Trim() });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                patchError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            me = await response.Content.ReadFromJsonAsync<MeDto>();
+            receiveInput = "";
+            showEditReceive = false;
+            if (me?.HasReceive == true) await LoadSessionsAsync();
+        }
+        catch (Exception ex) { patchError = ex.Message; }
+        finally { busy = false; StateHasChanged(); }
+    }
+
+    private async Task CreateSessionAsync()
+    {
+        busy = true; createError = null; createdSession = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new
+            {
+                amount = newAmount,
+                label = string.IsNullOrWhiteSpace(newLabel) ? null : newLabel,
+                memo = string.IsNullOrWhiteSpace(newMemo) ? null : newMemo,
+            });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/sessions", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                createError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            createdSession = await response.Content.ReadFromJsonAsync<CreatedSession>();
+            newAmount = 0; newLabel = ""; newMemo = "";
+            await LoadSessionsAsync();
+        }
+        catch (Exception ex) { createError = ex.Message; }
+        finally { busy = false; StateHasChanged(); }
+    }
+
+    private async Task SignOutAsync()
+    {
+        await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
+        await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-merchant-id");
+        Nav.NavigateTo("/");
+    }
+
+    private record MeDto(string Id, string DisplayName, string? DigiIdAddress, string Network,
+        string ReceiveMode, bool HasReceive, string? ReceivePreview,
+        string? WebhookUrl, bool HasWebhookSecret, DateTime CreatedAt);
+
+    private record SessionList(int Total, int Take, int Skip, List<SessionRow> Sessions);
+
+    private record SessionRow(string Id, string Address, long AmountSatoshis, decimal Amount,
+        string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
+        string Status, DateTime CreatedAt, DateTime ExpiresAt,
+        long ReceivedSatoshis, int Confirmations, string? PaidTxid,
+        string Uri, string CheckoutUrl);
+
+    private record CreatedSession(string Id, string Address, decimal Amount, string Status,
+        string Uri, string CheckoutUrl);
+}

@@ -86,10 +86,14 @@ public static class PaymentsEndpoints
                 merchant.NextAddressIndex = index + 1;
                 address = MerchantAddressService.DeriveAddress(merchant.Xpub, merchant.Network, index);
             }
-            else
+            else if (!string.IsNullOrEmpty(merchant.ReceiveAddress))
             {
                 index = 0;
-                address = merchant.ReceiveAddress!;
+                address = merchant.ReceiveAddress;
+            }
+            else
+            {
+                return Results.BadRequest(new { error = "merchant has no receive address or xpub configured — set one via PATCH /v1/pay/me" });
             }
             var amountSats = (long)Math.Round(body.Amount.Value * 100_000_000m);
 
