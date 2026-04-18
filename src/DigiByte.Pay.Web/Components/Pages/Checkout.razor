@@ -1,0 +1,160 @@
+@page "/pay/{SessionId}"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject IHttpClientFactory HttpFactory
+@inject PayApiUrl PayApi
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Net.Http.Json
+
+<PageTitle>@PageTitleText</PageTitle>
+
+<link rel="stylesheet" href="css/checkout.css" />
+
+<main class="dp-checkout">
+    @if (loadError != null)
+    {
+        <div class="dp-card dp-card--error">
+            <h2>Payment link unavailable</h2>
+            <p>@loadError</p>
+        </div>
+    }
+    else if (session == null)
+    {
+        <div class="dp-card"><p class="dp-muted">Loading…</p></div>
+    }
+    else
+    {
+        <div class="dp-card">
+            <header class="dp-row">
+                <div>
+                    <div class="dp-eyebrow">PAY</div>
+                    <div class="dp-merchant">@(merchantName ?? "Merchant")</div>
+                </div>
+                <CheckoutStatusPill Status="@session.Status" />
+            </header>
+
+            <div class="dp-amount">@FormatDgb(session.AmountSatoshis) DGB</div>
+
+            @if (IsTerminal(session.Status))
+            {
+                <TerminalState Status="@session.Status" Txid="@session.PaidTxid" />
+            }
+            else
+            {
+                <div class="dp-qr"><img src="@qrDataUrl" alt="Scan to pay" /></div>
+                <a href="@session.Uri" class="dp-button">Open in wallet</a>
+                <div class="dp-address">@session.Address</div>
+                <div class="dp-expiry">Expires in @timeLeft</div>
+            }
+        </div>
+    }
+</main>
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+
+    private SessionDto? session;
+    private string? merchantName;
+    private string? loadError;
+    private string? qrDataUrl;
+    private string timeLeft = "—";
+    private Microsoft.AspNetCore.SignalR.Client.HubConnection? hub;
+    private System.Threading.Timer? tick;
+
+    private string PageTitleText => merchantName is null ? "Pay" : $"Pay {merchantName}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetFromJsonAsync<GetSessionResponse>($"/v1/pay/sessions/{SessionId}");
+            session = response?.Session;
+            merchantName = response?.MerchantName;
+            if (session == null) { loadError = "Session not found."; return; }
+            qrDataUrl = GenerateQr(session.Uri);
+        }
+        catch (Exception ex) { loadError = $"Could not load session: {ex.Message}"; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || session is null || IsTerminal(session.Status)) return;
+        StartCountdown();
+        await ConnectHubAsync();
+    }
+
+    private async Task ConnectHubAsync()
+    {
+        if (hub is not null) return;
+        hub = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
+            .WithUrl($"{PayApi.Value}/hubs/checkout")
+            .WithAutomaticReconnect()
+            .Build();
+        hub.On<StatusUpdate>("StatusChanged", OnStatusChanged);
+        await hub.StartAsync();
+        await hub.InvokeAsync("SubscribeToSession", SessionId);
+    }
+
+    private async Task OnStatusChanged(StatusUpdate update)
+    {
+        if (session == null) return;
+        await InvokeAsync(() =>
+        {
+            session = session with
+            {
+                Status = update.Status,
+                ReceivedSatoshis = update.ReceivedSatoshis,
+                Confirmations = update.Confirmations,
+                PaidTxid = update.Txid ?? session.PaidTxid,
+            };
+            StateHasChanged();
+        });
+    }
+
+    private void StartCountdown()
+    {
+        tick = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                if (session == null) return;
+                var remaining = session.ExpiresAt - DateTime.UtcNow;
+                timeLeft = remaining.TotalSeconds <= 0 ? "expired"
+                    : $"{(int)remaining.TotalMinutes}:{remaining.Seconds:00}";
+                StateHasChanged();
+            });
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    private static string GenerateQr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
+    }
+
+    private static string FormatDgb(long sats) =>
+        (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static bool IsTerminal(string status) =>
+        status is "confirmed" or "expired" or "underpaid";
+
+    public async ValueTask DisposeAsync()
+    {
+        tick?.Dispose();
+        if (hub != null) await hub.DisposeAsync();
+    }
+
+    public record GetSessionResponse(SessionDto Session, string? MerchantName);
+
+    public record SessionDto(
+        string Id, string Address, long AmountSatoshis, decimal Amount,
+        string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
+        string Status, DateTime CreatedAt, DateTime ExpiresAt,
+        long ReceivedSatoshis, int Confirmations, string? PaidTxid,
+        string Uri, string CheckoutUrl);
+
+    public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
+}

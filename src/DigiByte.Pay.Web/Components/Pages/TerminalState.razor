@@ -1,0 +1,26 @@
+@{
+    var (icon, iconClass, heading, body) = Status switch
+    {
+        "confirmed" => ("✓", "dp-terminal__icon--ok", "Payment confirmed",
+            "The merchant has been notified. You can close this page."),
+        "expired" => ("⏱", "dp-terminal__icon--neutral", "Session expired",
+            "This payment window has closed. Go back to the merchant to start a new one."),
+        "underpaid" => ("!", "dp-terminal__icon--warn", "Underpaid",
+            "The received amount was less than the invoice. The merchant will be in touch."),
+        _ => ("•", "dp-terminal__icon--neutral", "", ""),
+    };
+}
+<div class="dp-terminal">
+    <div class="dp-terminal__icon @iconClass">@icon</div>
+    <h3>@heading</h3>
+    <p>@body</p>
+    @if (!string.IsNullOrEmpty(Txid))
+    {
+        <p class="dp-terminal__txid">@Txid</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Status { get; set; } = "";
+    [Parameter] public string? Txid { get; set; }
+}

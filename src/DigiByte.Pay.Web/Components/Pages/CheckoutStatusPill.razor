@@ -1,0 +1,16 @@
+@{
+    var (cssClass, label) = Status switch
+    {
+        "seen" => ("dp-pill dp-pill--seen", "Detected"),
+        "paid" => ("dp-pill dp-pill--paid", "Paid"),
+        "confirmed" => ("dp-pill dp-pill--confirmed", "Confirmed"),
+        "underpaid" => ("dp-pill dp-pill--warn", "Underpaid"),
+        "expired" => ("dp-pill dp-pill--neutral", "Expired"),
+        _ => ("dp-pill dp-pill--neutral", "Waiting"),
+    };
+}
+<div class="@cssClass"><span class="dp-pill__dot"></span>@label</div>
+
+@code {
+    [Parameter] public string Status { get; set; } = "pending";
+}

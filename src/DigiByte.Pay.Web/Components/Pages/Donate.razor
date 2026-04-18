@@ -1,0 +1,96 @@
+@page "/pay/button"
+@using DigiByte.Crypto.Addresses
+
+<PageTitle>@(string.IsNullOrEmpty(Name) ? "Pay with DigiByte" : $"Tip {Name}")</PageTitle>
+
+<link rel="stylesheet" href="css/checkout.css" />
+
+<main class="dp-checkout">
+    @if (!isValid)
+    {
+        <div class="dp-card dp-card--error">
+            <h2>Invalid donation link</h2>
+            <p>Missing or invalid <code>to</code> parameter.</p>
+        </div>
+    }
+    else
+    {
+        <div class="dp-card">
+            <div class="dp-row dp-row--center">
+                <div>
+                    <div class="dp-eyebrow">TIP</div>
+                    <div class="dp-merchant">@(string.IsNullOrEmpty(Name) ? "DigiByte" : Name)</div>
+                </div>
+            </div>
+
+            @if (amount > 0)
+            {
+                <div class="dp-amount">@amount.ToString("0.########") DGB</div>
+            }
+
+            <div class="dp-qr"><img src="@qrDataUrl" alt="Scan to pay" /></div>
+
+            <a href="@BipUri" class="dp-button">Open in wallet</a>
+
+            <div class="dp-address">@To</div>
+
+            @if (!string.IsNullOrEmpty(Label))
+            {
+                <p class="dp-muted dp-center">@Label</p>
+            }
+        </div>
+    }
+</main>
+
+@code {
+    [Parameter, SupplyParameterFromQuery] public string? To { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "amount")] public string? AmountParam { get; set; }
+    [Parameter, SupplyParameterFromQuery] public string? Label { get; set; }
+    [Parameter, SupplyParameterFromQuery] public string? Name { get; set; }
+
+    private bool isValid;
+    private decimal amount;
+    private string? qrDataUrl;
+    private string BipUri = "";
+
+    protected override void OnInitialized()
+    {
+        if (string.IsNullOrWhiteSpace(To) || !AddressValidator.IsValid(To)) { isValid = false; return; }
+        isValid = true;
+
+        if (!string.IsNullOrWhiteSpace(AmountParam)
+            && decimal.TryParse(AmountParam, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            && parsed > 0)
+        {
+            amount = parsed;
+        }
+
+        BipUri = BuildBip21();
+        qrDataUrl = GenerateQr(BipUri);
+    }
+
+    private string BuildBip21()
+    {
+        var sb = new System.Text.StringBuilder("digibyte:").Append(To);
+        var first = true;
+        void Add(string key, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            sb.Append(first ? '?' : '&').Append(key).Append('=').Append(Uri.EscapeDataString(value));
+            first = false;
+        }
+        if (amount > 0)
+            Add("amount", amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture));
+        Add("label", Name);
+        Add("message", Label);
+        return sb.ToString();
+    }
+
+    private static string GenerateQr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
+    }
+}
