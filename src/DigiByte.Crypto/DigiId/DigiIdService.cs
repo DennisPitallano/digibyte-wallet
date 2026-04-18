@@ -39,7 +39,9 @@ public class DigiIdService
                 return null;
 
             var callbackScheme = unsecure ? "http" : "https";
-            var callbackUrl = $"{callbackScheme}://{httpUri.Host}{httpUri.AbsolutePath}";
+            // Use Authority (host + port) so non-default ports survive — otherwise
+            // digiid://localhost:5252/... collapses to http://localhost/... (port 80).
+            var callbackUrl = $"{callbackScheme}://{httpUri.Authority}{httpUri.AbsolutePath}";
             if (!string.IsNullOrEmpty(httpUri.Query))
                 callbackUrl += httpUri.Query;
 
