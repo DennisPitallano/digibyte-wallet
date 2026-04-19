@@ -113,6 +113,7 @@ app.MapGet("/api/health", () => Results.Ok(new
 app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration);
 app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration);
 app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints();
+app.MapGroup("/v1/pay/stores").MapStoresEndpoints();
 app.MapHub<CheckoutHub>("/hubs/checkout");
 
 app.Run();

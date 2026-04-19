@@ -41,25 +41,36 @@ public static class PaymentsEndpoints
             {
                 Id = id,
                 DisplayName = body.DisplayName.Trim(),
-                Xpub = kind == MerchantAddressService.MerchantKeyKind.Xpub ? key.Trim() : null,
-                ReceiveAddress = kind == MerchantAddressService.MerchantKeyKind.Address ? key.Trim() : null,
-                Network = network,
-                WebhookUrl = body.WebhookUrl,
-                WebhookSecret = string.IsNullOrWhiteSpace(body.WebhookUrl) ? null : RandomId(32),
                 ApiKeyPrefix = keyPrefix,
                 ApiKeyHash = keyHash,
             };
             db.Merchants.Add(merchant);
+
+            // SDK-registered merchants get one store with the receive they provided.
+            var storeId = $"sto_{RandomId(16)}";
+            var webhookSecret = string.IsNullOrWhiteSpace(body.WebhookUrl) ? null : RandomId(32);
+            db.Stores.Add(new PayStore
+            {
+                Id = storeId,
+                MerchantId = id,
+                Name = body.DisplayName.Trim(),
+                Network = network,
+                Xpub = kind == MerchantAddressService.MerchantKeyKind.Xpub ? key.Trim() : null,
+                ReceiveAddress = kind == MerchantAddressService.MerchantKeyKind.Address ? key.Trim() : null,
+                WebhookUrl = body.WebhookUrl,
+                WebhookSecret = webhookSecret,
+            });
             await db.SaveChangesAsync();
 
             return Results.Ok(new
             {
                 merchant.Id,
                 merchant.DisplayName,
-                merchant.Network,
+                storeId,
+                network,
                 mode = kind.Value.ToString().ToLowerInvariant(),
                 apiKey = $"{keyPrefix}_{keySecret}", // shown once
-                webhookSecret = merchant.WebhookSecret,
+                webhookSecret,
             });
         });
 
@@ -78,25 +89,40 @@ public static class PaymentsEndpoints
             if (body.Amount is null || body.Amount <= 0)
                 return Results.BadRequest(new { error = "amount (DGB) must be > 0" });
 
+            // Resolve target store. Explicit storeId wins; otherwise fall back to the
+            // merchant's first (default) store so older integrations keep working.
+            PayStore? store;
+            if (!string.IsNullOrWhiteSpace(body.StoreId))
+            {
+                store = await db.Stores.FirstOrDefaultAsync(s => s.Id == body.StoreId && s.MerchantId == merchant.Id);
+                if (store is null) return Results.BadRequest(new { error = "store not found for this merchant" });
+            }
+            else
+            {
+                store = await db.Stores.Where(s => s.MerchantId == merchant.Id)
+                    .OrderBy(s => s.CreatedAt).FirstOrDefaultAsync();
+                if (store is null) return Results.BadRequest(new { error = "merchant has no stores" });
+            }
+
             // Resolve the receive address:
             // - Xpub mode: allocate next index, derive m/.../0/index (per-session privacy).
             // - Address mode: reuse the single stored address (no derivation).
             int index;
             string address;
-            if (!string.IsNullOrEmpty(merchant.Xpub))
+            if (!string.IsNullOrEmpty(store.Xpub))
             {
-                index = merchant.NextAddressIndex;
-                merchant.NextAddressIndex = index + 1;
-                address = MerchantAddressService.DeriveAddress(merchant.Xpub, merchant.Network, index);
+                index = store.NextAddressIndex;
+                store.NextAddressIndex = index + 1;
+                address = MerchantAddressService.DeriveAddress(store.Xpub, store.Network, index);
             }
-            else if (!string.IsNullOrEmpty(merchant.ReceiveAddress))
+            else if (!string.IsNullOrEmpty(store.ReceiveAddress))
             {
                 index = 0;
-                address = merchant.ReceiveAddress;
+                address = store.ReceiveAddress;
             }
             else
             {
-                return Results.BadRequest(new { error = "merchant has no receive address or xpub configured — set one via PATCH /v1/pay/me" });
+                return Results.BadRequest(new { error = "store has no receive address or xpub configured — PATCH /v1/pay/stores/{id} first" });
             }
             var amountSats = (long)Math.Round(body.Amount.Value * 100_000_000m);
 
@@ -104,6 +130,7 @@ public static class PaymentsEndpoints
             {
                 Id = $"ses_{RandomId(16)}",
                 MerchantId = merchant.Id,
+                StoreId = store.Id,
                 AddressIndex = index,
                 Address = address,
                 AmountSatoshis = amountSats,
@@ -112,7 +139,7 @@ public static class PaymentsEndpoints
                 DgbPriceAtCreation = body.DgbPriceAtCreation,
                 Label = body.Label,
                 Memo = body.Memo,
-                ExpiresAt = DateTime.UtcNow.Add(ResolveExpiry(body.ExpiresInSeconds, merchant)),
+                ExpiresAt = DateTime.UtcNow.Add(ResolveExpiry(body.ExpiresInSeconds, store)),
             };
 
             db.Sessions.Add(session);
@@ -129,6 +156,7 @@ public static class PaymentsEndpoints
             HttpRequest http,
             DigiPayDbContext db,
             string? status = null,
+            string? storeId = null,
             int take = 25,
             int skip = 0) =>
         {
@@ -139,6 +167,8 @@ public static class PaymentsEndpoints
             skip = Math.Max(skip, 0);
 
             var query = db.Sessions.AsNoTracking().Where(s => s.MerchantId == merchant.Id);
+            if (!string.IsNullOrWhiteSpace(storeId))
+                query = query.Where(s => s.StoreId == storeId);
             if (!string.IsNullOrWhiteSpace(status)
                 && Enum.TryParse<PaySessionStatus>(status, ignoreCase: true, out var parsedStatus))
             {
@@ -179,13 +209,13 @@ public static class PaymentsEndpoints
         return group;
     }
 
-    private static TimeSpan ResolveExpiry(int? requestedSeconds, PayMerchant merchant)
+    private static TimeSpan ResolveExpiry(int? requestedSeconds, PayStore store)
     {
         // Explicit per-session override wins, clamped to avoid abuse.
         if (requestedSeconds is > 0 and <= 24 * 3600)
             return TimeSpan.FromSeconds(requestedSeconds.Value);
-        // Merchant's preferred default, clamped 1 min – 24 h.
-        if (merchant.DefaultSessionExpiryMinutes is int mins and > 0 and <= 24 * 60)
+        // Store's preferred default, clamped 1 min – 24 h.
+        if (store.DefaultSessionExpiryMinutes is int mins and > 0 and <= 24 * 60)
             return TimeSpan.FromMinutes(mins);
         return DefaultExpiry;
     }
@@ -216,6 +246,7 @@ public static class PaymentsEndpoints
     private static object ToDto(PaySession s, string checkoutUrl) => new
     {
         s.Id,
+        s.StoreId,
         s.Address,
         s.AmountSatoshis,
         Amount = s.AmountSatoshis / 100_000_000m,
@@ -255,6 +286,7 @@ public record CreateMerchantRequest(
 
 public record CreateSessionRequest(
     decimal? Amount,
+    string? StoreId,
     string? FiatCurrency,
     decimal? FiatAmount,
     decimal? DgbPriceAtCreation,

@@ -7,6 +7,7 @@ public class DigiPayDbContext : DbContext
     public DigiPayDbContext(DbContextOptions<DigiPayDbContext> options) : base(options) { }
 
     public DbSet<PayMerchant> Merchants => Set<PayMerchant>();
+    public DbSet<PayStore> Stores => Set<PayStore>();
     public DbSet<PaySession> Sessions => Set<PaySession>();
     public DbSet<MerchantSession> MerchantSessions => Set<MerchantSession>();
 
@@ -19,19 +20,30 @@ public class DigiPayDbContext : DbContext
             e.HasIndex(m => m.DigiIdAddress);
             e.Property(m => m.DigiIdAddress).HasMaxLength(80);
             e.Property(m => m.DisplayName).HasMaxLength(120).IsRequired();
-            e.Property(m => m.Xpub).HasMaxLength(200);
-            e.Property(m => m.ReceiveAddress).HasMaxLength(80);
-            e.Property(m => m.Network).HasMaxLength(20).IsRequired();
             e.Property(m => m.ApiKeyPrefix).HasMaxLength(32).IsRequired();
             e.Property(m => m.ApiKeyHash).HasMaxLength(128).IsRequired();
+        });
+
+        modelBuilder.Entity<PayStore>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => s.MerchantId);
+            e.Property(s => s.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(s => s.Name).HasMaxLength(120).IsRequired();
+            e.Property(s => s.Network).HasMaxLength(20).IsRequired();
+            e.Property(s => s.Xpub).HasMaxLength(200);
+            e.Property(s => s.ReceiveAddress).HasMaxLength(80);
         });
 
         modelBuilder.Entity<PaySession>(e =>
         {
             e.HasKey(s => s.Id);
             e.HasIndex(s => s.MerchantId);
+            e.HasIndex(s => s.StoreId);
             e.HasIndex(s => s.Status);
             e.HasIndex(s => s.Address);
+            e.Property(s => s.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(s => s.StoreId).HasMaxLength(32).IsRequired();
             e.Property(s => s.Address).HasMaxLength(80).IsRequired();
             e.Property(s => s.Label).HasMaxLength(200);
             e.Property(s => s.Memo).HasMaxLength(200);

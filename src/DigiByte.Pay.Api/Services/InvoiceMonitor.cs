@@ -93,12 +93,13 @@ public class InvoiceMonitor : BackgroundService
         var scope = _scopeFactory.CreateScope();
         var webhookDispatcher = scope.ServiceProvider.GetRequiredService<WebhookDispatcher>();
 
-        var merchant = await db.Merchants.AsNoTracking().FirstOrDefaultAsync(m => m.Id == session.MerchantId, ct);
-        if (merchant is null) return;
+        // Store carries the network + webhook config; merchant is implicit via StoreId.
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == session.StoreId, ct);
+        if (store is null) return;
 
         // Poll the chain first. A payment arriving right at the expiry deadline must still
         // be honoured — the wallet has no idea about session state, it just signed and sent.
-        var chain = GetChainService(merchant.Network);
+        var chain = GetChainService(store.Network);
         var txs = await chain.GetAddressTransactionsAsync(session.Address);
 
         TransactionInfo? paymentTx = null;
@@ -121,7 +122,7 @@ public class InvoiceMonitor : BackgroundService
             {
                 session.Status = PaySessionStatus.Expired;
                 await PublishAsync(notifier, session, ct);
-                await webhookDispatcher.DispatchAsync(merchant, session, "session.expired", ct);
+                await webhookDispatcher.DispatchAsync(store, session, "session.expired", ct);
             }
             return;
         }
@@ -161,7 +162,7 @@ public class InvoiceMonitor : BackgroundService
             if (session.Status != previous)
             {
                 var eventName = "session." + session.Status.ToString().ToLowerInvariant();
-                await webhookDispatcher.DispatchAsync(merchant, session, eventName, ct);
+                await webhookDispatcher.DispatchAsync(store, session, eventName, ct);
             }
         }
     }

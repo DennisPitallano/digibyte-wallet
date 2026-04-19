@@ -1,5 +1,14 @@
 namespace DigiByte.Pay.Api.Data;
 
+/// <summary>
+/// A merchant / account. Owns one or more <see cref="PayStore"/>s, each of which
+/// carries its own receive config, webhook, and sessions.
+///
+/// Keyed by <see cref="DigiIdAddress"/> after Digi-ID sign-in. The API key
+/// here is account-scoped (not per-store) — all stores owned by the account
+/// share this key. Per-store keys can be added later without breaking the
+/// account-level one.
+/// </summary>
 public class PayMerchant
 {
     public required string Id { get; init; }
@@ -7,19 +16,6 @@ public class PayMerchant
     // Digi-ID address acts as the merchant's stable identity.
     // Null for merchants created via the (legacy / SDK) unauthenticated API-key path.
     public string? DigiIdAddress { get; set; }
-    // Exactly one of Xpub / ReceiveAddress is populated.
-    // Xpub: fresh address per session via BIP84 derivation (proper isolation).
-    // ReceiveAddress: single reused address (simpler onboarding, ambiguity if
-    //   multiple sessions are open simultaneously).
-    public string? Xpub { get; set; }
-    public string? ReceiveAddress { get; set; }
-    public required string Network { get; set; } = "mainnet";
-    public int NextAddressIndex { get; set; }
-    // Per-merchant default for how long pending sessions stay open before expiring,
-    // in minutes. Null falls back to the global default (30 min).
-    public int? DefaultSessionExpiryMinutes { get; set; }
-    public string? WebhookUrl { get; set; }
-    public string? WebhookSecret { get; set; }
     public required string ApiKeyPrefix { get; set; }
     public required string ApiKeyHash { get; set; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;

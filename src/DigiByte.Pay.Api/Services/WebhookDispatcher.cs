@@ -35,12 +35,12 @@ public class WebhookDispatcher
     }
 
     public async Task DispatchAsync(
-        PayMerchant merchant,
+        PayStore store,
         PaySession session,
         string eventName,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(merchant.WebhookUrl) || string.IsNullOrWhiteSpace(merchant.WebhookSecret))
+        if (string.IsNullOrWhiteSpace(store.WebhookUrl) || string.IsNullOrWhiteSpace(store.WebhookSecret))
             return;
 
         var payload = new
@@ -51,6 +51,7 @@ public class WebhookDispatcher
             {
                 id = session.Id,
                 merchantId = session.MerchantId,
+                storeId = session.StoreId,
                 address = session.Address,
                 amountSatoshis = session.AmountSatoshis,
                 amount = session.AmountSatoshis / 100_000_000m,
@@ -68,10 +69,10 @@ public class WebhookDispatcher
         };
 
         var body = JsonSerializer.Serialize(payload, JsonOptions);
-        var signature = Sign(body, merchant.WebhookSecret);
+        var signature = Sign(body, store.WebhookSecret);
         var deliveryId = Guid.NewGuid().ToString("N");
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, merchant.WebhookUrl)
+        using var request = new HttpRequestMessage(HttpMethod.Post, store.WebhookUrl)
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
@@ -86,18 +87,18 @@ public class WebhookDispatcher
             if (response.IsSuccessStatusCode)
             {
                 _logger.LogInformation("Webhook {Event} → {Url} [{Status}] session={SessionId}",
-                    eventName, merchant.WebhookUrl, (int)response.StatusCode, session.Id);
+                    eventName, store.WebhookUrl, (int)response.StatusCode, session.Id);
             }
             else
             {
                 _logger.LogWarning("Webhook {Event} → {Url} failed [{Status}] session={SessionId}",
-                    eventName, merchant.WebhookUrl, (int)response.StatusCode, session.Id);
+                    eventName, store.WebhookUrl, (int)response.StatusCode, session.Id);
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Webhook {Event} → {Url} threw (session={SessionId})",
-                eventName, merchant.WebhookUrl, session.Id);
+                eventName, store.WebhookUrl, session.Id);
         }
     }
 

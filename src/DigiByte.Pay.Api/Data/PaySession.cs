@@ -14,6 +14,7 @@ public class PaySession
 {
     public required string Id { get; init; }
     public required string MerchantId { get; init; }
+    public required string StoreId { get; init; }
     public required int AddressIndex { get; init; }
     public required string Address { get; init; }
     public required long AmountSatoshis { get; init; }

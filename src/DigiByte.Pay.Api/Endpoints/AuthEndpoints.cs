@@ -60,11 +60,19 @@ public static class AuthEndpoints
                     Id = $"mer_{RandomId(16)}",
                     DisplayName = $"Merchant {body.Address[..8]}…",
                     DigiIdAddress = body.Address,
-                    Network = "mainnet",
                     ApiKeyPrefix = apiPrefix,
                     ApiKeyHash = apiHash,
                 };
                 db.Merchants.Add(merchant);
+                // Every merchant starts with a Default Store; dashboards & older session-create
+                // calls that omit storeId transparently use it.
+                db.Stores.Add(new PayStore
+                {
+                    Id = $"sto_{RandomId(16)}",
+                    MerchantId = merchant.Id,
+                    Name = "Default Store",
+                    Network = "mainnet",
+                });
                 await db.SaveChangesAsync();
             }
 
