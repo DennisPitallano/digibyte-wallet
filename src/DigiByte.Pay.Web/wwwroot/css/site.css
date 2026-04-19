@@ -11,6 +11,26 @@
 .dp-nav__cta { padding: 0.5rem 0.875rem; background: var(--dp-accent); color: #fff !important; border-radius: 0.5rem; font-weight: 600 !important; font-size: 0.8125rem !important; }
 .dp-nav__cta:hover { background: var(--dp-accent-hover); }
 
+/* Mobile nav tuning: cramped 3-link + CTA + brand doesn't fit below ~540px.
+   Drop the secondary links — the hero below has dedicated CTAs for each. */
+@media (max-width: 540px) {
+    .dp-nav__inner { gap: 0.75rem; padding: 0.75rem 1rem; }
+    .dp-nav__links { display: none; }
+    .dp-nav__brand { font-size: 0.9375rem; }
+}
+
+/* Smaller horizontal margins on docs pages for phones. */
+@media (max-width: 540px) {
+    .dp-hero { padding: 3rem 1rem 2rem; }
+    .dp-section { padding: 2rem 1rem; }
+    .dp-docs { padding: 2rem 1rem 3rem; }
+    .dp-docs h1 { font-size: 1.5rem; }
+    .dp-docs h2 { font-size: 1.125rem; margin: 2rem 0 0.5rem; }
+    .dp-docs pre { padding: 0.875rem 1rem; font-size: 0.75rem; }
+    .dp-hero__ctas { flex-direction: column; align-items: stretch; }
+    .dp-hero__ctas a { justify-content: center; }
+}
+
 .dp-site__main { flex: 1; }
 
 .dp-hero { max-width: 1100px; margin: 0 auto; padding: 5rem 1.25rem 3rem; text-align: center; }
