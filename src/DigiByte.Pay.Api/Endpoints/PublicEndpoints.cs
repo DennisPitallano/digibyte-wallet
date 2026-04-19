@@ -30,13 +30,24 @@ public static class PublicEndpoints
             if (_cached is not null && DateTime.UtcNow - _cachedAt < CacheFor)
                 return Results.Ok(_cached);
 
-            var merchants = await db.Merchants.AsNoTracking().CountAsync();
-            var stores = await db.Stores.AsNoTracking().CountAsync();
-            var sessions = await db.Sessions.AsNoTracking().CountAsync();
-            var paid = await db.Sessions.AsNoTracking()
+            // Exclude demo / synthetic test rows from the public marketing numbers.
+            //   mer_demo_*, sto_demo_*, ses_demo_*  — /v1/pay/test/demo-session (TestEndpoints)
+            //   ses_test_*                          — webhook.test synthetic events
+            // If a real merchant ever id-collides with these prefixes we'd under-count, but
+            // the id alphabet + length makes that astronomically unlikely.
+            var merchants = await db.Merchants.AsNoTracking()
+                .Where(m => !m.Id.StartsWith("mer_demo_"))
+                .CountAsync();
+            var stores = await db.Stores.AsNoTracking()
+                .Where(s => !s.Id.StartsWith("sto_demo_"))
+                .CountAsync();
+            var realSessions = db.Sessions.AsNoTracking()
+                .Where(s => !s.Id.StartsWith("ses_demo_") && !s.Id.StartsWith("ses_test_"));
+            var sessions = await realSessions.CountAsync();
+            var paid = await realSessions
                 .Where(s => s.Status == PaySessionStatus.Paid || s.Status == PaySessionStatus.Confirmed)
                 .CountAsync();
-            var totalSatoshis = await db.Sessions.AsNoTracking()
+            var totalSatoshis = await realSessions
                 .Where(s => s.Status == PaySessionStatus.Paid || s.Status == PaySessionStatus.Confirmed)
                 .SumAsync(s => (long?)s.ReceivedSatoshis) ?? 0L;
 
