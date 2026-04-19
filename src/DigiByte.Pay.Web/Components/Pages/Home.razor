@@ -30,6 +30,54 @@
                     How it works
                 </a>
             </div>
+            <p class="mt-5 text-xs text-slate-500 dark:text-slate-400">
+                New to DigiByte? Grab a wallet first —
+                <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a>.
+            </p>
+        </section>
+
+        @* The problem DigiPay solves — contrasted with the status quo so the value prop is concrete, not abstract. *@
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">The problem</p>
+            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight max-w-3xl mx-auto">Why accepting crypto is usually painful</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 max-w-4xl mx-auto">
+                <div class="bg-white dark:bg-dgb-900 border border-red-200 dark:border-red-800/40 rounded-xl p-5 sm:p-6">
+                    <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-red-500 dark:text-red-400 mb-2">Without DigiPay</div>
+                    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
+                        <li>Custodial gateway holds your funds and takes a cut, plus KYC forms.</li>
+                        <li>Every customer sees the same address — anyone can see your revenue.</li>
+                        <li>You build the mempool watcher, webhook signer, and retry queue yourself.</li>
+                        <li>Self-hosted BTCPay is powerful but heavy — needs a full node + hours to configure.</li>
+                        <li>Price volatility during payment means you either eat the swing or ship reconciliation code.</li>
+                    </ul>
+                </div>
+                <div class="bg-white dark:bg-dgb-900 border border-emerald-200 dark:border-emerald-800/30 rounded-xl p-5 sm:p-6">
+                    <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-300 mb-2">With DigiPay</div>
+                    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
+                        <li>Non-custodial by design — you paste an xpub, funds flow straight to your wallet.</li>
+                        <li>Fresh receive address per invoice via BIP84 derivation. Nothing links between payments.</li>
+                        <li>Hosted checkout, signed webhooks, late-payment reconciliation all handled.</li>
+                        <li>No node needed — DigiPay queries DigiByte explorers on your behalf.</li>
+                        <li>Sign in with your wallet (Digi-ID). No password, no email, no KYC.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        @* Use cases — four concrete shapes so visitors self-identify immediately. *@
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Use cases</p>
+            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">Who this is for</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-5 max-w-5xl mx-auto">
+                <Feature IconName="package" Title="Online storefronts"
+                    Body="Drop in a REST call from your checkout — create a session, redirect to the hosted page, listen for the session.paid webhook. Works with any stack: PHP, Node, Rust, Ruby — the API is plain HTTP." />
+                <Feature IconName="gift" Title="Creators and tip jars"
+                    Body="Two-line embed on your blog, Patreon, stream overlay. Static address (or rotating from xpub), optional default amount, live QR. Zero backend required." />
+                <Feature IconName="code" Title="SaaS & API-driven invoicing"
+                    Body="Headless: POST /v1/pay/sessions from your billing cron, attach the DGB amount to an existing invoice ID, reconcile on webhook. Late payments auto-reconcile up to 3 days." />
+                <Feature IconName="users" Title="Communities & events"
+                    Body="Multiple stores per account — run a tip jar, a merch shop, and an event ticket stand from one dashboard, each with its own address and webhook." />
+            </div>
         </section>
 
         @* Features *@
@@ -37,17 +85,17 @@
             <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">What you get</p>
             <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">Everything you need, nothing you don't</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <Feature Icon="⚡" Title="Hosted checkout"
+                <Feature IconName="zap" Title="Hosted checkout"
                     Body="A buyer-facing page with QR + wallet deep link. Live status via SignalR — no polling your merchant UI." />
-                <Feature Icon="🔐" Title="Non-custodial"
+                <Feature IconName="shield" Title="Non-custodial"
                     Body="Payments go straight to your wallet. DigiPay never holds keys or funds — you don't need to trust us with anything." />
-                <Feature Icon="🔔" Title="Signed webhooks"
-                    Body="HMAC-SHA256 POST on every state change: seen, paid, confirmed, expired, underpaid. Late payments reconcile for 3 days." />
-                <Feature Icon="🔘" Title="Donation button"
+                <Feature IconName="bell" Title="Signed webhooks"
+                    Body="HMAC-SHA256 POST on every state change: seen, paid, confirmed, expired, underpaid. Failed deliveries show in the dashboard with one-click replay." />
+                <Feature IconName="gift" Title="Donation button"
                     Body="Zero-backend tip jar — paste a single anchor tag or a data-attribute on any page." />
-                <Feature Icon="📦" Title="7 KB JS embed"
+                <Feature IconName="package" Title="7 KB JS embed"
                     Body="Drop-in script opens the checkout as a modal on the merchant's own page — buyer never leaves your site." />
-                <Feature Icon="🆔" Title="Sign in with Digi-ID"
+                <Feature IconName="fingerprint" Title="Sign in with Digi-ID"
                     Body="No password, no email, no KYC. Your DigiByte wallet is your account — sign a challenge, you're in." />
             </div>
         </section>
@@ -76,6 +124,102 @@
             </div>
         </section>
 
+        @* Status + Roadmap — honesty about current build so early adopters know what they're buying. *@
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Status &amp; Roadmap</p>
+            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">What's shipped, what's next</h2>
+
+            <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                @* Shipped — v0 developer preview *@
+                <div class="bg-white dark:bg-dgb-900 border border-emerald-200 dark:border-emerald-800/30 rounded-xl p-5 sm:p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                            <Icon Name="check" Class="w-4 h-4" />
+                        </div>
+                        <div>
+                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-300">Shipped · v0 preview</div>
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Available today</div>
+                        </div>
+                    </div>
+                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
+                        <li>Digi-ID sign-in with 30-day sessions</li>
+                        <li>Multi-store dashboard (one account, many shops)</li>
+                        <li>BIP84 xpub derivation + single-address modes</li>
+                        <li>Hosted checkout with live status (SignalR) + QR + "Open in wallet"</li>
+                        <li>Signed webhooks (HMAC-SHA256) with delivery log + one-click replay</li>
+                        <li>Per-merchant API keys (create, revoke, show-once secret)</li>
+                        <li>Donation button generator — hosted page, JS embed, raw BIP21</li>
+                        <li>REST API + OpenAPI docs + 7 KB embed widget</li>
+                        <li>Late-payment reconciliation (3-day grace window)</li>
+                    </ul>
+                </div>
+
+                @* In progress — v1 public preview *@
+                <div class="bg-white dark:bg-dgb-900 border border-amber-200 dark:border-amber-800/40 rounded-xl p-5 sm:p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                            <Icon Name="clock" Class="w-4 h-4" />
+                        </div>
+                        <div>
+                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-amber-700 dark:text-amber-300">In progress · v1</div>
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Next few weeks</div>
+                        </div>
+                    </div>
+                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
+                        <li>Automatic webhook retries with exponential backoff + dead-letter</li>
+                        <li>Rate limits + abuse guards on public endpoints</li>
+                        <li>Fiat price lock at session creation (USD/EUR/GBP), locked amount enforced at settlement</li>
+                        <li>CSV export of sessions + deliveries for bookkeeping</li>
+                        <li>Production deployment at <span class="font-mono">pay.dgbwallet.app</span> (Postgres-backed)</li>
+                    </ul>
+                </div>
+
+                @* Planned — v2 *@
+                <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-5 sm:p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-dgb-500/10 text-dgb-500 flex items-center justify-center shrink-0">
+                            <Icon Name="package" Class="w-4 h-4" />
+                        </div>
+                        <div>
+                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-dgb-500">Planned · v2</div>
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">CMS &amp; SDK reach</div>
+                        </div>
+                    </div>
+                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
+                        <li>WooCommerce plugin (PHP)</li>
+                        <li>First-party SDKs: Node, .NET, Python</li>
+                        <li>Refund helper (generates outgoing-tx URI — non-custodial so you sign it)</li>
+                        <li>Per-key scopes (<span class="font-mono">read:sessions</span> vs <span class="font-mono">write:sessions</span>)</li>
+                        <li>Invoice-level audit log (who viewed / paid / received the webhook)</li>
+                    </ul>
+                </div>
+
+                @* Later — v3 *@
+                <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-5 sm:p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
+                            <Icon Name="rocket" Class="w-4 h-4" />
+                        </div>
+                        <div>
+                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-slate-500 dark:text-slate-400">Later · v3+</div>
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Expansion</div>
+                        </div>
+                    </div>
+                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
+                        <li>Shopify app</li>
+                        <li>POS mode (dedicated tablet checkout)</li>
+                        <li>Subscriptions &amp; recurring re-auth</li>
+                        <li>Optional custodial settlement layer with fiat on-ramp partner</li>
+                        <li>DigiAssets + smart contract payment flows</li>
+                    </ul>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-6 max-w-2xl mx-auto">
+                DigiPay is open source. Roadmap order can shift based on merchant demand — if something below is blocking you, raise it on the repo and it climbs the list.
+            </p>
+        </section>
+
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center">
             <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight">Ready?</h2>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
@@ -88,6 +232,10 @@
                     API reference
                 </a>
             </div>
+            <p class="mt-5 text-xs text-slate-500 dark:text-slate-400">
+                Need a DigiByte wallet to sign in? Install one at
+                <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a>.
+            </p>
         </section>
     </main>
 
