@@ -44,17 +44,18 @@ DigiPay.close();</pre>
     <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="2.5" data-name="Creator">Tip 2.5 DGB</span>
 
     <h2>5. Full lifecycle simulation</h2>
-    <p>Walks a real session through all its state transitions without needing a chain tx. Uses dev-only endpoints — not available in production.</p>
+    <p>Walks a real session through all its state transitions without needing a chain tx. Uses dev-only endpoints — not available in production. Renders the checkout inline (not as a modal) so the Advance buttons stay reachable.</p>
     <div class="row">
-        <button id="sim-start">1. Create session + open modal</button>
+        <button id="sim-start">1. Create session</button>
         <button id="sim-advance" disabled>2. Advance state →</button>
         <button id="sim-reset" disabled>Reset</button>
     </div>
     <div id="sim-status" style="margin-top: 0.5rem; font-size: 0.875rem; color: #475569;">
-        Not started. Click "Create session + open modal" to begin.
+        Not started. Click "Create session" to begin.
     </div>
+    <div id="sim-preview" style="margin-top: 1rem; display: none; border-radius: 20px; overflow: hidden; background: #001529; box-shadow: 0 12px 32px rgba(0,0,0,0.12); max-width: 460px;"></div>
     <p style="font-size: 0.8125rem; color: #64748b; margin-top: 0.5rem;">
-        Each click on "Advance state" fires a SignalR push to the open checkout — you'll see the status pill flip in real time (pending → detected → paid → confirmed). The QR / countdown stay live throughout.
+        Each Advance click walks the session pending → detected → paid → confirmed. The status pill flips, QR / countdown stay live throughout.
     </p>
 
     <script src="/embed/digipay.js"></script>
@@ -84,16 +85,27 @@ DigiPay.close();</pre>
             var advanceBtn = document.getElementById('sim-advance');
             var resetBtn = document.getElementById('sim-reset');
             var status = document.getElementById('sim-status');
+            var preview = document.getElementById('sim-preview');
 
             // The iframe's checkout-countdown.js posts "ready" when its message
             // listener is installed. Replay the last-known status if the user
             // clicked Advance before the iframe finished loading.
             var lastStatusMsg = null;
+
+            function currentIframe() {
+                return preview.querySelector('iframe');
+            }
+
             window.addEventListener('message', function (e) {
-                if (!e.data || e.data.type !== 'digipay-checkout-ready') return;
-                if (!lastStatusMsg) return;
-                var iframe = document.querySelector('.digipay-modal iframe');
-                if (iframe) iframe.contentWindow.postMessage(lastStatusMsg, '*');
+                var iframe = currentIframe();
+                if (!iframe || e.source !== iframe.contentWindow) return;
+                if (e.data && e.data.type === 'digipay-checkout-ready' && lastStatusMsg) {
+                    iframe.contentWindow.postMessage(lastStatusMsg, '*');
+                } else if (e.data && e.data.type === 'digipay-checkout-size') {
+                    // Resize the inline preview the same way the modal does.
+                    var h = Number(e.data.height);
+                    if (isFinite(h) && h > 0) preview.style.height = Math.min(h, 800) + 'px';
+                }
             });
 
             // The Pay.Api runs on a different port than Pay.Web in dev, so we
@@ -118,8 +130,19 @@ DigiPay.close();</pre>
                     if (!r.ok) throw new Error('HTTP ' + r.res.status);
                     var body = await r.res.json();
                     simSes = { id: body.sessionId, api: r.api };
-                    status.innerHTML = 'Session <code>' + simSes.id + '</code> created. Opening checkout…';
-                    DigiPay.checkout({ sessionId: simSes.id });
+                    status.innerHTML = 'Session <code>' + simSes.id + '</code> created.';
+                    // Mount the checkout as an inline iframe (not a modal) so the
+                    // Advance / Reset buttons stay reachable while the preview
+                    // is showing. Height auto-fits via the same postMessage
+                    // protocol the modal uses — see currentIframe() listener.
+                    preview.innerHTML = '';
+                    preview.style.display = 'block';
+                    preview.style.height = '620px';
+                    var iframe = document.createElement('iframe');
+                    iframe.src = apiOrigin.replace(/:5008$/, ':5252') + '/pay/' + encodeURIComponent(simSes.id);
+                    iframe.style.cssText = 'width:100%;height:100%;border:0;display:block;';
+                    iframe.setAttribute('allow', 'clipboard-write');
+                    preview.appendChild(iframe);
                     advanceBtn.disabled = false;
                     resetBtn.disabled = false;
                     startBtn.disabled = true;
@@ -151,7 +174,7 @@ DigiPay.close();</pre>
                         paidTxid: body.paidTxid,
                     };
                     lastStatusMsg = msg;
-                    var iframe = document.querySelector('.digipay-modal iframe');
+                    var iframe = currentIframe();
                     if (iframe) iframe.contentWindow.postMessage(msg, '*');
                     if (body.status === 'confirmed') advanceBtn.disabled = true;
                 } catch (e) {
@@ -162,11 +185,12 @@ DigiPay.close();</pre>
             resetBtn.addEventListener('click', function () {
                 simSes = null;
                 lastStatusMsg = null;
-                DigiPay.close();
+                preview.innerHTML = '';
+                preview.style.display = 'none';
                 startBtn.disabled = false;
                 advanceBtn.disabled = true;
                 resetBtn.disabled = true;
-                status.textContent = 'Reset. Click "Create session + open modal" to run again.';
+                status.textContent = 'Reset. Click "Create session" to run again.';
             });
         })();
     </script>
