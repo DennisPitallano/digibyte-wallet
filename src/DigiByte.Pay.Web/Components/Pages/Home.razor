@@ -134,99 +134,91 @@
             </div>
         </section>
 
-        @* Status + Roadmap — honesty about current build so early adopters know what they're buying. *@
+        @* Status + Roadmap — vertical timeline (same visual pattern as the main
+           wallet's /roadmap page). Gradient line down the left, status-coloured
+           dots, per-item checkmark / spinner / empty-circle markers. *@
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
             <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Status &amp; Roadmap</p>
             <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">What's shipped, what's next</h2>
 
-            <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                @* Shipped — v0 developer preview *@
-                <div class="bg-white dark:bg-dgb-900 border border-emerald-200 dark:border-emerald-800/30 rounded-xl p-5 sm:p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                            <Icon Name="check" Class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-300">Shipped · v0 preview</div>
-                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Available today</div>
-                        </div>
-                    </div>
-                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
-                        <li>Digi-ID sign-in with 30-day sessions</li>
-                        <li>Multi-store dashboard (one account, many shops)</li>
-                        <li>BIP84 xpub derivation + single-address modes</li>
-                        <li>Hosted checkout with live status (SignalR) + QR + "Open in wallet"</li>
-                        <li>Signed webhooks (HMAC-SHA256) with delivery log + one-click replay</li>
-                        <li>Per-merchant API keys (create, revoke, show-once secret)</li>
-                        <li>Donation button generator — hosted page, JS embed, raw BIP21</li>
-                        <li>REST API + OpenAPI docs + 7 KB embed widget</li>
-                        <li>Late-payment reconciliation (3-day grace window)</li>
-                    </ul>
-                </div>
+            <div class="max-w-2xl mx-auto relative ml-3">
+                @* Vertical gradient line behind the dots: green at the top
+                   (shipped) fading through dgb-blue (in progress) to slate
+                   (planned / later). *@
+                <div class="absolute left-[7px] top-2 bottom-2 w-[2px] bg-gradient-to-b from-emerald-400 via-dgb-500 to-slate-300 dark:to-dgb-800"></div>
 
-                @* In progress — v1 public preview *@
-                <div class="bg-white dark:bg-dgb-900 border border-amber-200 dark:border-amber-800/40 rounded-xl p-5 sm:p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                            <Icon Name="clock" Class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-amber-700 dark:text-amber-300">In progress · v1</div>
-                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Next few weeks</div>
-                        </div>
-                    </div>
-                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
-                        <li>Automatic webhook retries with exponential backoff + dead-letter</li>
-                        <li>Rate limits + abuse guards on public endpoints</li>
-                        <li>Fiat price lock at session creation (USD/EUR/GBP), locked amount enforced at settlement</li>
-                        <li>CSV export of sessions + deliveries for bookkeeping</li>
-                        <li>Production deployment at <span class="font-mono">pay.dgbwallet.app</span> (Postgres-backed)</li>
-                    </ul>
-                </div>
+                @foreach (var m in milestones)
+                {
+                    var dotColor = m.Status switch
+                    {
+                        RoadmapStatus.Done => "bg-emerald-500",
+                        RoadmapStatus.InProgress => "bg-dgb-500 animate-dp-pulse",
+                        _ => "bg-slate-300 dark:bg-dgb-800",
+                    };
+                    var cardBorder = m.Status switch
+                    {
+                        RoadmapStatus.Done => "border-emerald-100 dark:border-emerald-900/30",
+                        RoadmapStatus.InProgress => "border-dgb-200 dark:border-dgb-800",
+                        _ => "border-slate-200 dark:border-dgb-800/60",
+                    };
+                    var cardBg = m.Status switch
+                    {
+                        RoadmapStatus.Done => "bg-emerald-50/50 dark:bg-emerald-900/10",
+                        RoadmapStatus.InProgress => "bg-dgb-500/5 dark:bg-dgb-900/20",
+                        _ => "bg-white dark:bg-dgb-900/40",
+                    };
+                    var dateBadge = m.Status switch
+                    {
+                        RoadmapStatus.Done => "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30",
+                        RoadmapStatus.InProgress => "text-dgb-500 bg-dgb-500/10",
+                        _ => "text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-dgb-800",
+                    };
 
-                @* Planned — v2 *@
-                <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-5 sm:p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-dgb-500/10 text-dgb-500 flex items-center justify-center shrink-0">
-                            <Icon Name="package" Class="w-4 h-4" />
+                    <div class="relative flex gap-3 pb-5">
+                        @* Dot — border matches the page bg so the line appears to pass behind it. *@
+                        <div class="relative z-10 mt-1.5 shrink-0">
+                            <div class="w-4 h-4 rounded-full border-2 border-slate-50 dark:border-dgb-950 @dotColor shadow-sm"></div>
                         </div>
-                        <div>
-                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-dgb-500">Planned · v2</div>
-                            <div class="text-sm font-semibold text-slate-900 dark:text-white">CMS &amp; SDK reach</div>
-                        </div>
-                    </div>
-                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
-                        <li>WooCommerce plugin (PHP)</li>
-                        <li>First-party SDKs: Node, .NET, Python</li>
-                        <li>Refund helper (generates outgoing-tx URI — non-custodial so you sign it)</li>
-                        <li>Per-key scopes (<span class="font-mono">read:sessions</span> vs <span class="font-mono">write:sessions</span>)</li>
-                        <li>Invoice-level audit log (who viewed / paid / received the webhook)</li>
-                    </ul>
-                </div>
 
-                @* Later — v3 *@
-                <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-5 sm:p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
-                            <Icon Name="rocket" Class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-slate-500 dark:text-slate-400">Later · v3+</div>
-                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Expansion</div>
+                        <div class="flex-1 rounded-xl border @cardBorder @cardBg px-4 py-3">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                <span class="text-[0.625rem] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md @dateBadge">@m.Date</span>
+                                @if (m.Status == RoadmapStatus.InProgress)
+                                {
+                                    <span class="text-[0.625rem] font-bold text-dgb-500 uppercase tracking-widest">In progress</span>
+                                }
+                            </div>
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white leading-snug m-0">@m.Title</p>
+                            @if (m.Items.Length > 0)
+                            {
+                                <ul class="mt-2 flex flex-col gap-1 list-none p-0 m-0">
+                                    @foreach (var item in m.Items)
+                                    {
+                                        <li class="flex items-start gap-2">
+                                            @if (m.Status == RoadmapStatus.Done)
+                                            {
+                                                <svg class="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                            }
+                                            else if (m.Status == RoadmapStatus.InProgress)
+                                            {
+                                                <div class="w-3 h-3 border-[1.5px] border-dgb-500 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5"></div>
+                                            }
+                                            else
+                                            {
+                                                <div class="w-3 h-3 rounded-full border-[1.5px] border-slate-300 dark:border-dgb-700 shrink-0 mt-0.5"></div>
+                                            }
+                                            <span class="text-xs text-slate-600 dark:text-slate-400 leading-snug">@item</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
                         </div>
                     </div>
-                    <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
-                        <li>Shopify app</li>
-                        <li>POS mode (dedicated tablet checkout)</li>
-                        <li>Subscriptions &amp; recurring re-auth</li>
-                        <li>Optional custodial settlement layer with fiat on-ramp partner</li>
-                        <li>DigiAssets + smart contract payment flows</li>
-                    </ul>
-                </div>
+                }
             </div>
 
-            <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-6 max-w-2xl mx-auto">
-                DigiPay is open source. Roadmap order can shift based on merchant demand — if something below is blocking you, raise it on the repo and it climbs the list.
+            <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4 max-w-2xl mx-auto">
+                DigiPay is open source. Roadmap order can shift based on merchant demand — if something here is blocking you, raise it on the repo and it climbs the list.
             </p>
         </section>
 
@@ -287,3 +279,49 @@
 
     <SiteFooter />
 </div>
+
+@code {
+    private enum RoadmapStatus { Done, InProgress, Planned }
+
+    private record Milestone(string Date, string Title, RoadmapStatus Status, string[] Items);
+
+    private Milestone[] milestones = new[]
+    {
+        new Milestone("Apr 2026", "v0 preview — available today", RoadmapStatus.Done, new[]
+        {
+            "Digi-ID sign-in with 30-day sessions",
+            "Multi-store dashboard (one account, many shops)",
+            "BIP84 xpub derivation + single-address modes",
+            "Hosted checkout with live status (SignalR) + QR + Open in wallet",
+            "Signed webhooks (HMAC-SHA256) with delivery log + one-click replay",
+            "Per-merchant API keys (create, revoke, show-once secret)",
+            "Donation button generator — hosted page, JS embed, raw BIP21",
+            "REST API + OpenAPI docs + 7 KB embed widget",
+            "Late-payment reconciliation (3-day grace window)",
+        }),
+        new Milestone("Q2 2026", "v1 — public developer preview", RoadmapStatus.InProgress, new[]
+        {
+            "Automatic webhook retries with exponential backoff + dead-letter",
+            "Rate limits + abuse guards on public endpoints",
+            "Fiat price lock at session creation (USD/EUR/GBP), locked amount enforced at settlement",
+            "CSV export of sessions + deliveries for bookkeeping",
+            "Production deployment at pay.dgbwallet.app (Postgres-backed)",
+        }),
+        new Milestone("Q3 2026", "v2 — CMS & SDK reach", RoadmapStatus.Planned, new[]
+        {
+            "WooCommerce plugin (PHP)",
+            "First-party SDKs: Node, .NET, Python",
+            "Refund helper (generates outgoing-tx URI — non-custodial so you sign it)",
+            "Per-key scopes (read:sessions vs write:sessions)",
+            "Invoice-level audit log (who viewed / paid / received the webhook)",
+        }),
+        new Milestone("Q4 2026+", "v3 — expansion", RoadmapStatus.Planned, new[]
+        {
+            "Shopify app",
+            "POS mode (dedicated tablet checkout)",
+            "Subscriptions & recurring re-auth",
+            "Optional custodial settlement layer with fiat on-ramp partner",
+            "DigiAssets + smart contract payment flows",
+        }),
+    };
+}
