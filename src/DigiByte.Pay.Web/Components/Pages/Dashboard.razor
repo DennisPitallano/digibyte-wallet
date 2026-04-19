@@ -88,7 +88,32 @@ else
                     </button>
                 }
             </nav>
-            <div class="border-t border-slate-200 dark:border-dgb-800 pt-3 flex flex-col gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+
+            @* External resources — open in new tab so the merchant keeps their session /
+               scroll position on whichever dashboard tab they were reading. *@
+            <div class="border-t border-slate-200 dark:border-dgb-800 pt-3 mt-3 flex flex-col gap-0.5">
+                <div class="@Eyebrow px-3 mb-1">Resources</div>
+                <a href="/docs" target="_blank" rel="noopener"
+                   class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white no-underline transition-colors">
+                    <Icon Name="book" Class="w-4 h-4 shrink-0" />
+                    <span class="flex-1">How it works</span>
+                    <Icon Name="external-link" Class="w-3 h-3 shrink-0 opacity-60" />
+                </a>
+                <a href="/docs/api" target="_blank" rel="noopener"
+                   class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white no-underline transition-colors">
+                    <Icon Name="code" Class="w-4 h-4 shrink-0" />
+                    <span class="flex-1">API reference</span>
+                    <Icon Name="external-link" Class="w-3 h-3 shrink-0 opacity-60" />
+                </a>
+                <a href="/embed/demo.html" target="_blank" rel="noopener"
+                   class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white no-underline transition-colors">
+                    <Icon Name="gift" Class="w-4 h-4 shrink-0" />
+                    <span class="flex-1">Embed demo</span>
+                    <Icon Name="external-link" Class="w-3 h-3 shrink-0 opacity-60" />
+                </a>
+            </div>
+
+            <div class="border-t border-slate-200 dark:border-dgb-800 pt-3 mt-3 flex flex-col gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 <div>@account.DisplayName</div>
                 @if (!string.IsNullOrEmpty(account.DigiIdAddress))
                 {
