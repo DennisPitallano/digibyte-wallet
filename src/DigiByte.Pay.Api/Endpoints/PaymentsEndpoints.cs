@@ -41,10 +41,19 @@ public static class PaymentsEndpoints
             {
                 Id = id,
                 DisplayName = body.DisplayName.Trim(),
+                // Legacy columns; PayApiKeys is the source of truth for auth.
                 ApiKeyPrefix = keyPrefix,
                 ApiKeyHash = keyHash,
             };
             db.Merchants.Add(merchant);
+            db.ApiKeys.Add(new PayApiKey
+            {
+                Id = $"key_{RandomId(16)}",
+                MerchantId = id,
+                Prefix = keyPrefix,
+                Hash = keyHash,
+                Label = "SDK initial key",
+            });
 
             // SDK-registered merchants get one store with the receive they provided.
             var storeId = $"sto_{RandomId(16)}";

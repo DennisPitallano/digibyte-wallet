@@ -304,6 +304,79 @@ else
                     </ul>
                 </section>
             }
+            else if (activeTab == "apikeys")
+            {
+                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">API keys</h1></div>
+                <p class="@Muted mb-6">Long-lived tokens for SDK / server-to-server use. Secrets are shown <strong>once</strong> at creation — store them in your secrets manager.</p>
+
+                @if (createdKey is not null)
+                {
+                    <section class="@Card mb-4 border-emerald-200 dark:border-emerald-800/30 bg-emerald-50 dark:bg-emerald-900/20">
+                        <h2 class="@H2 text-emerald-700 dark:text-emerald-300">New key created — copy it now</h2>
+                        <p class="@Muted m-0">This is the only time the secret will be shown. After you dismiss this card, only the prefix remains visible.</p>
+                        <pre class="@Pre break-all">@createdKey.ApiKey</pre>
+                        <div class="flex gap-2 flex-wrap">
+                            <button class="@Btn" @onclick="CopyCreatedKeyAsync">@(createdKeyCopied ? "Copied ✓" : "Copy")</button>
+                            <button class="@BtnGhost" @onclick="() => { createdKey = null; createdKeyCopied = false; }">Dismiss</button>
+                        </div>
+                    </section>
+                }
+
+                <section class="@Card">
+                    <h2 class="@H2">Generate new key</h2>
+                    <div class="flex flex-col sm:flex-row sm:items-end gap-2">
+                        <div class="flex-1">
+                            <input @bind="newKeyLabel" placeholder="Label (e.g. production, ci)" class="@Input" maxlength="80" />
+                            <div class="@Muted text-[0.6875rem] mt-1">Optional — just to help you tell keys apart.</div>
+                        </div>
+                        <button class="@Btn sm:shrink-0" @onclick="CreateApiKeyAsync" disabled="@creatingKey">
+                            @(creatingKey ? "Creating…" : "Generate key")
+                        </button>
+                    </div>
+                    @if (apiKeyError != null) { <p class="text-xs text-red-500 m-0">@apiKeyError</p> }
+                </section>
+
+                <section class="@Card mt-4">
+                    <h2 class="@H2">Your keys</h2>
+                    @if (loadingKeys && apiKeys is null)
+                    {
+                        <p class="@Muted m-0">Loading…</p>
+                    }
+                    else if (apiKeys is null || apiKeys.Count == 0)
+                    {
+                        <p class="@Muted m-0">No keys yet. Generate one above to start using the SDK or REST API.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-none p-0 m-0 flex flex-col gap-2">
+                            @foreach (var k in apiKeys)
+                            {
+                                <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg @(k.IsRevoked ? "border-slate-200 dark:border-dgb-800 opacity-50" : "border-slate-200 dark:border-dgb-800")">
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-sm text-slate-900 dark:text-white">
+                                            @(string.IsNullOrEmpty(k.Label) ? "(no label)" : k.Label)
+                                            @if (k.IsRevoked) { <span class="text-xs text-red-500 dark:text-red-400 font-medium"> · revoked</span> }
+                                        </div>
+                                        <div class="font-mono text-xs text-slate-500 dark:text-slate-400 my-0.5 break-all">@k.Prefix…</div>
+                                        <div class="@Muted">
+                                            Created @k.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")
+                                            @(k.LastUsedAt is null ? " · never used" : $" · last used {k.LastUsedAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}")
+                                            @(k.RevokedAt is null ? "" : $" · revoked {k.RevokedAt.Value.ToLocalTime():yyyy-MM-dd}")
+                                        </div>
+                                    </div>
+                                    @if (!k.IsRevoked)
+                                    {
+                                        <button class="@BtnGhost text-xs py-1.5 px-3 text-red-500 dark:text-red-400 border-red-200 dark:border-red-800/40 shrink-0"
+                                                @onclick="() => RevokeApiKeyAsync(k.Id)">
+                                            Revoke
+                                        </button>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+            }
             else if (activeTab == "settings")
             {
                 <div class="flex items-baseline justify-between mb-1">
@@ -387,6 +460,7 @@ else
         new TabDef("donation",  "Donation button", "🔘"),
         new TabDef("webhook",   "Webhook",         "🔔"),
         new TabDef("stores",    "Stores",          "🏪"),
+        new TabDef("apikeys",   "API keys",        "🔑"),
         new TabDef("settings",  "Settings",        "⚙"),
     };
     private string activeTab = "overview";
@@ -449,6 +523,15 @@ else
     private bool storeBusy;
     private string? storeError;
 
+    // API keys tab
+    private List<ApiKeyListDto>? apiKeys;
+    private string newKeyLabel = "";
+    private bool creatingKey;
+    private bool loadingKeys;
+    private string? apiKeyError;
+    private CreatedApiKeyDto? createdKey;
+    private bool createdKeyCopied;
+
     private bool busy;
     private bool loadingSessions;
 
@@ -469,6 +552,8 @@ else
                 activeStoreId = stores[0].Id;
                 await LoadActiveStoreContextAsync();
             }
+            // Account-scoped (not store-scoped), load once at bootstrap.
+            await LoadApiKeysAsync();
             StateHasChanged();
         }
         catch (Exception ex) { bootstrapError = ex.Message; StateHasChanged(); }
@@ -779,6 +864,69 @@ else
         catch (Exception ex) { storeError = ex.Message; StateHasChanged(); }
     }
 
+    private async Task LoadApiKeysAsync()
+    {
+        loadingKeys = true; apiKeyError = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/api-keys"));
+            if (response.IsSuccessStatusCode)
+            {
+                apiKeys = await response.Content.ReadFromJsonAsync<List<ApiKeyListDto>>() ?? new();
+            }
+        }
+        catch (Exception ex) { apiKeyError = ex.Message; }
+        finally { loadingKeys = false; StateHasChanged(); }
+    }
+
+    private async Task CreateApiKeyAsync()
+    {
+        creatingKey = true; apiKeyError = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var label = string.IsNullOrWhiteSpace(newKeyLabel) ? null : newKeyLabel.Trim();
+            var content = JsonContent.Create(new { label });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/api-keys", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                apiKeyError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            createdKey = await response.Content.ReadFromJsonAsync<CreatedApiKeyDto>();
+            createdKeyCopied = false;
+            newKeyLabel = "";
+            await LoadApiKeysAsync();
+        }
+        catch (Exception ex) { apiKeyError = ex.Message; }
+        finally { creatingKey = false; StateHasChanged(); }
+    }
+
+    private async Task RevokeApiKeyAsync(string id)
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/api-keys/{id}"));
+            if (!response.IsSuccessStatusCode) { apiKeyError = await response.Content.ReadAsStringAsync(); StateHasChanged(); return; }
+            await LoadApiKeysAsync();
+        }
+        catch (Exception ex) { apiKeyError = ex.Message; StateHasChanged(); }
+    }
+
+    private async Task CopyCreatedKeyAsync()
+    {
+        if (createdKey is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", createdKey.ApiKey);
+            createdKeyCopied = true;
+            StateHasChanged();
+        }
+        catch { }
+    }
+
     private async Task SignOutAsync()
     {
         if (!string.IsNullOrEmpty(token))
@@ -814,4 +962,10 @@ else
         string Uri, string CheckoutUrl);
 
     private record DonationAddressDto(string Address, string Mode);
+
+    private record ApiKeyListDto(string Id, string? Label, string Prefix,
+        DateTime CreatedAt, DateTime? LastUsedAt, DateTime? RevokedAt, bool IsRevoked);
+
+    private record CreatedApiKeyDto(string Id, string? Label, string Prefix,
+        DateTime CreatedAt, string ApiKey);
 }

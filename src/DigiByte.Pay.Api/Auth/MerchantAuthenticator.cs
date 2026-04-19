@@ -50,9 +50,15 @@ public static class MerchantAuthenticator
 
     private static async Task<PayMerchant?> AuthenticateApiKeyAsync(string prefix, string hash, DigiPayDbContext db)
     {
-        var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.ApiKeyPrefix == prefix);
-        if (merchant is null) return null;
-        return FixedEquals(merchant.ApiKeyHash, hash) ? merchant : null;
+        // Active (non-revoked) keys only. Multiple keys per merchant are allowed;
+        // each is independently revocable without disturbing the others.
+        var key = await db.ApiKeys.FirstOrDefaultAsync(k => k.Prefix == prefix && k.RevokedAt == null);
+        if (key is null) return null;
+        if (!FixedEquals(key.Hash, hash)) return null;
+
+        key.LastUsedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return await db.Merchants.FirstOrDefaultAsync(m => m.Id == key.MerchantId);
     }
 
     public static string HashSecret(string secret) =>

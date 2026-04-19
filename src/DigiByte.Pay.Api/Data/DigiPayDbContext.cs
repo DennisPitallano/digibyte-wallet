@@ -10,6 +10,7 @@ public class DigiPayDbContext : DbContext
     public DbSet<PayStore> Stores => Set<PayStore>();
     public DbSet<PaySession> Sessions => Set<PaySession>();
     public DbSet<MerchantSession> MerchantSessions => Set<MerchantSession>();
+    public DbSet<PayApiKey> ApiKeys => Set<PayApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,6 +60,17 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.MerchantId).HasMaxLength(32).IsRequired();
             e.Property(s => s.TokenPrefix).HasMaxLength(32).IsRequired();
             e.Property(s => s.TokenHash).HasMaxLength(128).IsRequired();
+        });
+
+        modelBuilder.Entity<PayApiKey>(e =>
+        {
+            e.HasKey(k => k.Id);
+            e.HasIndex(k => k.Prefix).IsUnique();
+            e.HasIndex(k => k.MerchantId);
+            e.Property(k => k.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(k => k.Prefix).HasMaxLength(32).IsRequired();
+            e.Property(k => k.Hash).HasMaxLength(128).IsRequired();
+            e.Property(k => k.Label).HasMaxLength(80);
         });
     }
 }

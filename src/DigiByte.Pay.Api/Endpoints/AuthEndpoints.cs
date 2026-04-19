@@ -48,20 +48,21 @@ public static class AuthEndpoints
             if (!DigiIdService.Verify(body.Address, body.Uri, body.Signature))
                 return Results.BadRequest(new { error = "signature verification failed" });
 
-            // Stable merchant identity = Digi-ID address. Create on first sign-in —
-            // existing merchants' API keys are left intact (so server-to-server
-            // integrations keep working across browser sign-ins).
+            // Stable merchant identity = Digi-ID address. Create on first sign-in.
+            // Note: we do NOT mint an API key here — API keys are a deliberate action
+            // from the dashboard (so the raw secret can be shown to the user once).
+            // The legacy ApiKeyPrefix/Hash columns get placeholder values; they're no
+            // longer used for authentication (PayApiKeys table is the source of truth).
             var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.DigiIdAddress == body.Address);
             if (merchant is null)
             {
-                var (apiPrefix, _, apiHash) = MerchantAuthenticator.GenerateApiKey();
                 merchant = new PayMerchant
                 {
                     Id = $"mer_{RandomId(16)}",
                     DisplayName = $"Merchant {body.Address[..8]}…",
                     DigiIdAddress = body.Address,
-                    ApiKeyPrefix = apiPrefix,
-                    ApiKeyHash = apiHash,
+                    ApiKeyPrefix = $"legacy_unused_{RandomId(8)}",
+                    ApiKeyHash = "unused",
                 };
                 db.Merchants.Add(merchant);
                 // Every merchant starts with a Default Store; dashboards & older session-create

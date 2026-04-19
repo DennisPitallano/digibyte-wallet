@@ -88,6 +88,28 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DigiPayDbContext>();
     db.Database.EnsureCreated();
+
+    // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.
+    // Seed a PayApiKey row for any merchant that doesn't yet have one, so existing
+    // SDK integrations keep working after the auth lookup moved to PayApiKeys.
+    // Skips placeholder rows created by post-refactor Digi-ID sign-ins (prefix like
+    // "legacy_unused_*") — those merchants deliberately have no API key yet.
+    var backfillNeeded = await db.Merchants
+        .Where(m => !m.ApiKeyPrefix.StartsWith("legacy_unused_"))
+        .Where(m => !db.ApiKeys.Any(k => k.Prefix == m.ApiKeyPrefix))
+        .ToListAsync();
+    foreach (var m in backfillNeeded)
+    {
+        db.ApiKeys.Add(new DigiByte.Pay.Api.Data.PayApiKey
+        {
+            Id = $"key_bfill{m.Id[^10..]}",
+            MerchantId = m.Id,
+            Prefix = m.ApiKeyPrefix,
+            Hash = m.ApiKeyHash,
+            Label = "Initial key (backfilled)",
+        });
+    }
+    if (backfillNeeded.Count > 0) await db.SaveChangesAsync();
 }
 
 if (app.Environment.IsDevelopment())
@@ -114,6 +136,7 @@ app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration);
 app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration);
 app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints();
 app.MapGroup("/v1/pay/stores").MapStoresEndpoints();
+app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints();
 app.MapHub<CheckoutHub>("/hubs/checkout");
 
 app.Run();
