@@ -127,6 +127,49 @@
                     </ul>
                 }
             </section>
+
+            <section class="dp-card">
+                <h2>Donation button</h2>
+                <p class="dp-muted">Static BIP21 link — no session created, no tracking. Any DigiByte wallet can pay. Tips land at your donation address (reused across all clicks).</p>
+                @if (donationAddress is null)
+                {
+                    <p class="dp-muted">Loading address…</p>
+                }
+                else
+                {
+                    <div class="dp-mono" style="font-size: 0.6875rem; padding: 0.5rem 0.75rem; background: var(--dp-bg); border: 1px solid var(--dp-border); border-radius: 0.5rem;">@donationAddress</div>
+                    <div class="dp-dash__create">
+                        <input @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="Amount (opt)" class="dp-input" />
+                        <input @bind="donName" @bind:event="oninput" placeholder="Name (opt)" class="dp-input" />
+                        <input @bind="donButtonText" @bind:event="oninput" placeholder="Button text" class="dp-input" />
+                    </div>
+                    <div class="dp-eyebrow" style="margin-top: 0.5rem;">Preview</div>
+                    <div style="padding: 1rem; background: var(--dp-bg); border: 1px solid var(--dp-border); border-radius: 0.5rem; text-align: center;">
+                        <a href="@DonationUrl" target="_blank" class="dp-btn" style="display: inline-block; width: auto; text-decoration: none;">
+                            @(string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText)
+                        </a>
+                    </div>
+                    <div class="dp-eyebrow">HTML snippet</div>
+                    <pre style="background: #0f172a; color: #e2e8f0; padding: 0.75rem; border-radius: 0.5rem; font-size: 0.6875rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0;">@DonationSnippet</pre>
+                    <button class="dp-btn dp-btn--ghost" @onclick="CopyDonationSnippetAsync">@(donCopied ? "Copied ✓" : "Copy snippet")</button>
+                }
+            </section>
+
+            <section class="dp-card">
+                <h2>Webhook</h2>
+                <p class="dp-muted">POST with HMAC-SHA256 signature on session state changes (seen → paid → confirmed → expired / underpaid). Header: <span class="dp-mono">X-DigiPay-Signature: sha256=…</span></p>
+                <input @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="dp-input" />
+                <div class="dp-dash__create" style="grid-template-columns: 1fr 1fr;">
+                    <button class="dp-btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (me?.WebhookUrl ?? ""))">
+                        @(webhookBusy ? "Saving…" : "Save")
+                    </button>
+                    <button class="dp-btn dp-btn--ghost" @onclick="TestWebhookAsync" disabled="@(webhookBusy || string.IsNullOrWhiteSpace(me?.WebhookUrl))">
+                        Send test event
+                    </button>
+                </div>
+                @if (webhookMessage != null) { <p class="dp-muted">@webhookMessage</p> }
+                @if (webhookError != null) { <p class="dp-error">@webhookError</p> }
+            </section>
         }
     }
 </main>
@@ -147,6 +190,17 @@
     private CreatedSession? createdSession;
     private string? createError;
 
+    private string? donationAddress;
+    private decimal donAmount;
+    private string donName = "";
+    private string donButtonText = "Tip DGB";
+    private bool donCopied;
+
+    private string webhookInput = "";
+    private bool webhookBusy;
+    private string? webhookMessage;
+    private string? webhookError;
+
     private bool busy;
     private bool loadingSessions;
 
@@ -162,7 +216,12 @@
                 return;
             }
             await LoadMeAsync();
-            if (me is not null && me.HasReceive) await LoadSessionsAsync();
+            if (me is not null && me.HasReceive)
+            {
+                webhookInput = me.WebhookUrl ?? "";
+                await LoadSessionsAsync();
+                await LoadDonationAddressAsync();
+            }
             StateHasChanged();
         }
         catch (Exception ex) { bootstrapError = ex.Message; StateHasChanged(); }
@@ -205,6 +264,97 @@
         finally { loadingSessions = false; StateHasChanged(); }
     }
 
+    private async Task LoadDonationAddressAsync()
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/me/donation-address"));
+            if (response.IsSuccessStatusCode)
+            {
+                var dto = await response.Content.ReadFromJsonAsync<DonationAddressDto>();
+                donationAddress = dto?.Address;
+            }
+        }
+        catch { /* non-fatal */ }
+    }
+
+    private string WebBase => Nav.BaseUri.TrimEnd('/');
+
+    private string DonationUrl
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(donationAddress)) return "#";
+            var sb = new System.Text.StringBuilder($"{WebBase}/pay/button?to=")
+                .Append(Uri.EscapeDataString(donationAddress));
+            if (donAmount > 0)
+                sb.Append("&amount=").Append(donAmount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture));
+            if (!string.IsNullOrWhiteSpace(donName))
+                sb.Append("&name=").Append(Uri.EscapeDataString(donName));
+            return sb.ToString();
+        }
+    }
+
+    private string DonationSnippet =>
+        $"<a href=\"{DonationUrl}\" target=\"_blank\" rel=\"noopener\">{System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText)}</a>";
+
+    private async Task CopyDonationSnippetAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", DonationSnippet);
+            donCopied = true;
+            StateHasChanged();
+            await Task.Delay(1500);
+            donCopied = false;
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task SaveWebhookAsync()
+    {
+        webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { webhookUrl = webhookInput.Trim() });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                webhookError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            me = await response.Content.ReadFromJsonAsync<MeDto>();
+            webhookMessage = string.IsNullOrWhiteSpace(me?.WebhookUrl)
+                ? "Webhook cleared."
+                : "Webhook saved.";
+        }
+        catch (Exception ex) { webhookError = ex.Message; }
+        finally { webhookBusy = false; StateHasChanged(); }
+    }
+
+    private async Task TestWebhookAsync()
+    {
+        webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/me/webhook/test"));
+            if (!response.IsSuccessStatusCode)
+            {
+                webhookError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            webhookMessage = "Test event dispatched — check your server logs for a 'webhook.test' POST.";
+        }
+        catch (Exception ex) { webhookError = ex.Message; }
+        finally { webhookBusy = false; StateHasChanged(); }
+    }
+
+    private record DonationAddressDto(string Address, string Mode);
+
     private async Task SaveReceiveAsync()
     {
         busy = true; patchError = null; StateHasChanged();
@@ -221,7 +371,11 @@
             me = await response.Content.ReadFromJsonAsync<MeDto>();
             receiveInput = "";
             showEditReceive = false;
-            if (me?.HasReceive == true) await LoadSessionsAsync();
+            if (me?.HasReceive == true)
+            {
+                await LoadSessionsAsync();
+                await LoadDonationAddressAsync();
+            }
         }
         catch (Exception ex) { patchError = ex.Message; }
         finally { busy = false; StateHasChanged(); }

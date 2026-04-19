@@ -22,6 +22,57 @@ public static class MerchantMeEndpoints
             return merchant is null ? Results.Unauthorized() : Results.Ok(ToDto(merchant));
         });
 
+        // A stable address for donation / tip buttons.
+        // - Address mode: the merchant's single configured address.
+        // - Xpub mode: index 0 of the receive chain. Reused across all tips (that's the
+        //   tradeoff of a static button) but never collides with a tracked invoice,
+        //   because invoice sessions allocate from NextAddressIndex which we bump past 0
+        //   when this is first asked for.
+        group.MapGet("/donation-address", async (HttpRequest http, DigiPayDbContext db) =>
+        {
+            var merchant = await AuthenticateAsync(http, db);
+            if (merchant is null) return Results.Unauthorized();
+            if (!string.IsNullOrEmpty(merchant.ReceiveAddress))
+                return Results.Ok(new { address = merchant.ReceiveAddress, mode = "address" });
+            if (!string.IsNullOrEmpty(merchant.Xpub))
+            {
+                var address = MerchantAddressService.DeriveAddress(merchant.Xpub, merchant.Network, 0);
+                if (merchant.NextAddressIndex == 0)
+                {
+                    merchant.NextAddressIndex = 1; // reserve index 0 for the donation button
+                    await db.SaveChangesAsync();
+                }
+                return Results.Ok(new { address, mode = "xpub" });
+            }
+            return Results.BadRequest(new { error = "merchant has no receive configured" });
+        });
+
+        // Fire a synthetic "webhook.test" event at the merchant's configured WebhookUrl so
+        // they can verify their handler + HMAC verification without waiting for a real payment.
+        group.MapPost("/webhook/test", async (
+            HttpRequest http,
+            DigiPayDbContext db,
+            Services.WebhookDispatcher dispatcher) =>
+        {
+            var merchant = await AuthenticateAsync(http, db);
+            if (merchant is null) return Results.Unauthorized();
+            if (string.IsNullOrWhiteSpace(merchant.WebhookUrl))
+                return Results.BadRequest(new { error = "merchant has no webhookUrl configured" });
+
+            var dummy = new PaySession
+            {
+                Id = "ses_test_" + Guid.NewGuid().ToString("N")[..12],
+                MerchantId = merchant.Id,
+                AddressIndex = 0,
+                Address = merchant.ReceiveAddress ?? "dgb1qtest",
+                AmountSatoshis = 100_000_000,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+                Label = "test",
+            };
+            await dispatcher.DispatchAsync(merchant, dummy, "webhook.test");
+            return Results.Ok(new { ok = true, webhookUrl = merchant.WebhookUrl });
+        });
+
         group.MapPatch("", async (
             UpdateMeRequest body,
             HttpRequest http,
