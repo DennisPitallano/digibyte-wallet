@@ -1,0 +1,162 @@
+@page "/docs/api"
+
+<PageTitle>API reference — DigiPay</PageTitle>
+
+<link rel="stylesheet" href="css/checkout.css" />
+<link rel="stylesheet" href="css/site.css" />
+
+<div class="dp-site">
+    <SiteNav />
+
+    <main class="dp-site__main">
+        <article class="dp-docs">
+            <h1>API reference</h1>
+            <p class="dp-docs__lead">DigiPay speaks plain REST. All endpoints live under <code>/v1/pay</code>. Authenticated endpoints take a Bearer API key that DigiPay mints for you when you sign in with Digi-ID.</p>
+
+            <h2>Authentication</h2>
+            <p>Every merchant-scoped endpoint requires a Bearer token in the <code>Authorization</code> header:</p>
+<pre><code>Authorization: Bearer dgp_{prefix}_{secret}</code></pre>
+            <p>Get your key from the merchant dashboard after signing in with Digi-ID. The token is stored hashed server-side (SHA-256) and compared in constant time; losing it is equivalent to losing your API access, not your funds.</p>
+
+            <h2>Sessions</h2>
+
+            <div class="dp-endpoint">
+                <div class="dp-endpoint__line">
+                    <span class="dp-endpoint__method dp-endpoint__method--post">POST</span>
+                    /v1/pay/sessions
+                </div>
+                <p>Create a new payment session. Returns a session record including a <code>checkout_url</code> you can redirect buyers to.</p>
+<pre><code>{
+  "amount": 12.5,               // required, DGB
+  "label": "Order #4201",       // optional, shown on checkout
+  "memo": "inv-001",            // optional, merchant-private invoice number
+  "fiatCurrency": "USD",        // optional, not yet enforced by price lock
+  "fiatAmount": 5.00,           // optional
+  "expiresInSeconds": 1800      // optional, overrides merchant default
+}</code></pre>
+                <p>Response includes the derived <code>address</code>, a BIP21 <code>uri</code>, the hosted <code>checkoutUrl</code>, and <code>expiresAt</code>.</p>
+            </div>
+
+            <div class="dp-endpoint">
+                <div class="dp-endpoint__line">
+                    <span class="dp-endpoint__method dp-endpoint__method--get">GET</span>
+                    /v1/pay/sessions
+                </div>
+                <p>List your sessions, newest first. Supports <code>?status=pending|seen|paid|confirmed|expired|underpaid</code>, <code>?take=1..100</code> (default 25), <code>?skip=0..</code>.</p>
+            </div>
+
+            <div class="dp-endpoint">
+                <div class="dp-endpoint__line">
+                    <span class="dp-endpoint__method dp-endpoint__method--get">GET</span>
+                    /v1/pay/sessions/{id}
+                </div>
+                <p>Public read of a session's current state. No auth required — the session id is random and contains no secret. Used by the hosted checkout page.</p>
+            </div>
+
+            <h2>Merchant profile</h2>
+
+            <div class="dp-endpoint">
+                <div class="dp-endpoint__line">
+                    <span class="dp-endpoint__method dp-endpoint__method--get">GET</span>
+                    /v1/pay/me
+                </div>
+                <p>Returns the authenticated merchant: id, display name, Digi-ID address, receive mode, webhook config, default expiry.</p>
+            </div>
+
+            <div class="dp-endpoint">
+                <div class="dp-endpoint__line">
+                    <span class="dp-endpoint__method dp-endpoint__method--patch">PATCH</span>
+                    /v1/pay/me
+                </div>
+                <p>Update any subset of:</p>
+<pre><code>{
+  "displayName": "My Shop",
+  "addressOrXpub": "xpub6...",         // or "dgb1..."
+  "network": "mainnet",                // mainnet | testnet | regtest
+  "webhookUrl": "https://...",         // auto-generates a secret on first set
+  "defaultSessionExpiryMinutes": 45    // 1..1440
+}</code></pre>
+            </div>
+
+            <div class="dp-endpoint">
+                <div class="dp-endpoint__line">
+                    <span class="dp-endpoint__method dp-endpoint__method--get">GET</span>
+                    /v1/pay/me/donation-address
+                </div>
+                <p>Returns a stable address for donation buttons. In xpub mode this is derive index 0 (reserved — invoice sessions start at index 1). In address mode it's the configured address.</p>
+            </div>
+
+            <div class="dp-endpoint">
+                <div class="dp-endpoint__line">
+                    <span class="dp-endpoint__method dp-endpoint__method--post">POST</span>
+                    /v1/pay/me/webhook/test
+                </div>
+                <p>Fires a synthetic <code>webhook.test</code> event at your configured webhook URL. Useful for verifying your HMAC check.</p>
+            </div>
+
+            <h2>Webhooks</h2>
+            <p>DigiPay POSTs signed JSON to your configured <code>webhookUrl</code> on every state change. Fire-and-forget, 10-second timeout, no retries yet — treat the webhook as a hint, always confirm state by calling <code>GET /v1/pay/sessions/{id}</code> if your logic is money-critical.</p>
+            <p>Body:</p>
+<pre><code>{
+  "event": "session.paid",
+  "timestamp": "2026-04-19T12:34:56Z",
+  "session": {
+    "id": "ses_...",
+    "merchantId": "mer_...",
+    "address": "dgb1q...",
+    "amountSatoshis": 1250000000,
+    "amount": 12.5,
+    "status": "paid",
+    "receivedSatoshis": 1250000000,
+    "confirmations": 1,
+    "paidTxid": "...",
+    "createdAt": "...",
+    "expiresAt": "..."
+  }
+}</code></pre>
+
+            <h3>Signature verification</h3>
+            <p>Compute <code>HMAC_SHA256(secret, rawBody)</code> as hex, prefix with <code>sha256=</code>, and constant-time compare with the incoming <code>X-DigiPay-Signature</code> header. Example in Node:</p>
+<pre><code>const crypto = require('crypto');
+
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =&gt; {
+  const expected = 'sha256=' +
+    crypto.createHmac('sha256', process.env.DIGIPAY_SECRET)
+          .update(req.body).digest('hex');
+  const provided = req.headers['x-digipay-signature'];
+  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided))) {
+    return res.status(401).end();
+  }
+  const event = JSON.parse(req.body.toString());
+  // ... reconcile event.session.id in your database ...
+  res.status(200).end();
+});</code></pre>
+
+            <h2>Embed widget</h2>
+            <p>The JS embed is hosted at <code>/embed/digipay.js</code>. ~7 KB, no dependencies, derives its own origin from the <code>&lt;script src&gt;</code>.</p>
+            <p>Programmatic:</p>
+<pre><code>DigiPay.checkout({ sessionId: 'ses_abc' });  // opens iframe modal
+DigiPay.close();                              // dismiss it
+const a = DigiPay.button({ address: 'dgb1...', amount: 5, name: 'Shop' });
+document.body.appendChild(a);</code></pre>
+            <p>Declarative:</p>
+<pre><code>&lt;button data-digipay-checkout data-session-id="ses_abc"&gt;Pay&lt;/button&gt;
+&lt;span data-digipay-button data-address="dgb1..." data-amount="5"&gt;Tip&lt;/span&gt;</code></pre>
+            <p>Auto-binds on <code>DOMContentLoaded</code>; call <code>DigiPay.bind(rootEl)</code> after injecting new elements dynamically.</p>
+
+            <h2>Status codes</h2>
+            <ul>
+                <li><code>200</code> — success.</li>
+                <li><code>400</code> — validation error, body includes <code>{ "error": "…" }</code>.</li>
+                <li><code>401</code> — missing or invalid Bearer token.</li>
+                <li><code>404</code> — session / endpoint not found.</li>
+                <li><code>409</code> — challenge already resolved (Digi-ID flows).</li>
+            </ul>
+
+            <h2>Questions?</h2>
+            <p>The source is open. Clone the repo, file an issue, or just run DigiPay yourself — it's designed to self-host in a single container with a SQLite file.</p>
+        </article>
+    </main>
+
+    <SiteFooter />
+</div>

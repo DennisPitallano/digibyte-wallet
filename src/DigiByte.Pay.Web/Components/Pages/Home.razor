@@ -1,22 +1,111 @@
 @page "/"
 
-<PageTitle>DigiPay</PageTitle>
+<PageTitle>DigiPay — accept DigiByte on your site</PageTitle>
 
 <link rel="stylesheet" href="css/checkout.css" />
+<link rel="stylesheet" href="css/site.css" />
 
-<main class="dp-checkout">
-    <div class="dp-card">
-        <div class="dp-row dp-row--center">
-            <div>
-                <div class="dp-eyebrow">DIGIPAY</div>
-                <div class="dp-merchant">Accept DigiByte on your site</div>
+<div class="dp-site">
+    <SiteNav />
+
+    <main class="dp-site__main">
+        <section class="dp-hero">
+            <div class="dp-hero__eyebrow">Non-custodial · Digi-ID auth · 15-second blocks</div>
+            <h1>Accept DigiByte on your site.<br />Without holding a cent of it.</h1>
+            <p>
+                DigiPay derives a fresh address per invoice from your wallet's xpub, watches the chain,
+                and notifies your server the moment a payment lands. Sign in with Digi-ID, paste an
+                xpub, start accepting DGB in under a minute.
+            </p>
+            <div class="dp-hero__ctas">
+                <a href="/merchant/signin" class="primary">Start accepting DGB →</a>
+                <a href="/docs" class="secondary">How it works</a>
             </div>
-        </div>
+        </section>
 
-        <p class="dp-muted dp-center">Pluggable, non-custodial payment gateway. Register once with Digi-ID, add an address or xpub, and start accepting DGB.</p>
+        <section class="dp-section">
+            <p class="dp-section__eyebrow">What you get</p>
+            <h2>Everything you need, nothing you don't</h2>
+            <div class="dp-features">
+                <div class="dp-feature">
+                    <div class="dp-feature__icon">⚡</div>
+                    <h3>Hosted checkout</h3>
+                    <p>A buyer-facing page with QR + wallet deep link. Live status via SignalR — no polling your merchant UI.</p>
+                </div>
+                <div class="dp-feature">
+                    <div class="dp-feature__icon">🔐</div>
+                    <h3>Non-custodial</h3>
+                    <p>Payments go straight to your wallet. DigiPay never holds keys or funds — you don't need to trust us with anything.</p>
+                </div>
+                <div class="dp-feature">
+                    <div class="dp-feature__icon">🔔</div>
+                    <h3>Signed webhooks</h3>
+                    <p>HMAC-SHA256 POST on every state change: seen, paid, confirmed, expired, underpaid. Late payments reconcile for 3 days.</p>
+                </div>
+                <div class="dp-feature">
+                    <div class="dp-feature__icon">🔘</div>
+                    <h3>Donation button</h3>
+                    <p>Zero-backend tip jar — paste a single <code>&lt;a&gt;</code> tag or a data-attribute on any page.</p>
+                </div>
+                <div class="dp-feature">
+                    <div class="dp-feature__icon">📦</div>
+                    <h3>7 KB JS embed</h3>
+                    <p>Drop-in script opens the checkout as a modal on the merchant's own page — buyer never leaves your site.</p>
+                </div>
+                <div class="dp-feature">
+                    <div class="dp-feature__icon">🆔</div>
+                    <h3>Sign in with Digi-ID</h3>
+                    <p>No password, no email, no KYC. Your DigiByte wallet is your account — sign a challenge, you're in.</p>
+                </div>
+            </div>
+        </section>
 
-        <a href="/merchant/signin" class="dp-button">Sign in with Digi-ID</a>
+        <section class="dp-section">
+            <p class="dp-section__eyebrow">How it works</p>
+            <h2>From zero to first payment in four steps</h2>
+            <div class="dp-steps">
+                <div class="dp-step">
+                    <div class="dp-step__n">1</div>
+                    <div>
+                        <h3>Sign in with Digi-ID</h3>
+                        <p>Scan a QR with your DigiByte wallet. No account, no password — your wallet is your identity.</p>
+                    </div>
+                </div>
+                <div class="dp-step">
+                    <div class="dp-step__n">2</div>
+                    <div>
+                        <h3>Paste an xpub or address</h3>
+                        <p>Account-level xpub gives you a fresh address per invoice (recommended). A single address works too for tip jars.</p>
+                    </div>
+                </div>
+                <div class="dp-step">
+                    <div class="dp-step__n">3</div>
+                    <div>
+                        <h3>Create a session</h3>
+                        <p>One POST from your server returns a <code>checkout_url</code>. Redirect your buyer there, or open it as a modal with our 7 KB embed.</p>
+                    </div>
+                </div>
+                <div class="dp-step">
+                    <div class="dp-step__n">4</div>
+                    <div>
+                        <h3>Get paid, get notified</h3>
+                        <p>Buyer pays. DigiPay detects the tx in the mempool, tracks confirmations, and POSTs a signed webhook to your server at each state change.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="/docs" class="dp-hero__ctas" style="display: inline-flex;"><span class="secondary">Read the tutorial</span></a>
+            </div>
+        </section>
 
-        <p class="dp-muted dp-center" style="font-size: 0.6875rem;">No account? Signing in creates one automatically.</p>
-    </div>
-</main>
+        <section class="dp-section" style="text-align: center;">
+            <h2>Ready?</h2>
+            <div class="dp-hero__ctas" style="margin-top: 0;">
+                <a href="/merchant/signin" class="primary">Start accepting DGB</a>
+                <a href="/docs/api" class="secondary">API reference</a>
+            </div>
+        </section>
+    </main>
+
+    <SiteFooter />
+</div>

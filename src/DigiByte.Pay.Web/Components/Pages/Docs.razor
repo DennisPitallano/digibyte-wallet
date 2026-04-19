@@ -1,0 +1,73 @@
+@page "/docs"
+
+<PageTitle>How it works — DigiPay</PageTitle>
+
+<link rel="stylesheet" href="css/checkout.css" />
+<link rel="stylesheet" href="css/site.css" />
+
+<div class="dp-site">
+    <SiteNav />
+
+    <main class="dp-site__main">
+        <article class="dp-docs">
+            <h1>How it works</h1>
+            <p class="dp-docs__lead">A DigiPay invoice flows through five states: <code>pending → seen → paid → confirmed</code>, plus <code>expired</code> or <code>underpaid</code> as terminal error cases. Here's the full lifecycle, from merchant sign-up to webhook delivery.</p>
+
+            <h2>1. Sign up with Digi-ID</h2>
+            <p>There's no password flow. You scan a QR with your DigiByte wallet, the wallet signs a challenge URI, and DigiPay creates a merchant record keyed by your Digi-ID address.</p>
+            <p>Your Digi-ID address is just a public address — not a spending key — so this is purely for identity. No funds are ever linked to it.</p>
+
+            <h2>2. Configure where to receive payments</h2>
+            <p>Two modes, pick one:</p>
+            <ul>
+                <li><strong>Xpub (recommended).</strong> Paste your BIP84 account-level extended public key (<code>xpub6...</code>). DigiPay derives a fresh address at <code>m/0/n</code> for every invoice — no reuse, no collision, proper per-invoice isolation.</li>
+                <li><strong>Single address.</strong> Paste one <code>dgb1…</code>. All invoices (and tips) share it. Simpler but your tx history is linked. Fine for a tip jar.</li>
+            </ul>
+            <p>You can copy the xpub from your DigiByte Wallet app: <em>Settings → Share xpub (watch-only)</em>.</p>
+
+            <h2>3. Create a session</h2>
+            <p>From your server, POST to <code>/v1/pay/sessions</code> with the amount in DGB. You get back an invoice URL your buyer can load, plus a BIP21 URI any DigiByte wallet understands.</p>
+<pre><code>curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \
+  -H "Authorization: Bearer $DIGIPAY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 12.5, "label": "Order #4201"}'</code></pre>
+
+            <p>Redirect the buyer to the returned <code>checkout_url</code>, or open it in-page with the JS embed:</p>
+<pre><code>&lt;script src="https://pay.dgbwallet.app/embed/digipay.js"&gt;&lt;/script&gt;
+&lt;button data-digipay-checkout data-session-id="ses_..."&gt;Pay with DigiByte&lt;/button&gt;</code></pre>
+
+            <h2>4. What the buyer sees</h2>
+            <p>The hosted checkout shows a QR code, an "Open in wallet" deep link, a countdown to expiry (default 30 minutes), and a live status pill. The pill updates in real time via SignalR as the tx moves through states:</p>
+            <ul>
+                <li><strong>Waiting</strong> — no tx detected yet.</li>
+                <li><strong>Detected</strong> — tx is in the mempool.</li>
+                <li><strong>Paid</strong> — one confirmation. Usually ~15 seconds on DigiByte.</li>
+                <li><strong>Confirmed</strong> — six confirmations. Fully settled.</li>
+            </ul>
+
+            <h2>5. Receive webhooks</h2>
+            <p>Every state change hits your webhook URL with a signed POST. Verify with HMAC-SHA256 using the secret DigiPay generated when you saved the webhook URL:</p>
+<pre><code>const expected = crypto.createHmac('sha256', secret)
+  .update(rawBody).digest('hex');
+const provided = req.headers['x-digipay-signature'].replace('sha256=', '');
+if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided))) {
+  return res.status(401).end();
+}</code></pre>
+
+            <p>Headers on every webhook:</p>
+            <ul>
+                <li><code>X-DigiPay-Event</code> — <code>session.seen</code>, <code>session.paid</code>, <code>session.confirmed</code>, <code>session.expired</code>, <code>session.underpaid</code>.</li>
+                <li><code>X-DigiPay-Signature</code> — <code>sha256=…</code> of the raw body.</li>
+                <li><code>X-DigiPay-Delivery</code> — unique id for idempotency.</li>
+            </ul>
+
+            <h2>6. Late payments</h2>
+            <p>If a buyer pays after expiry, DigiPay still reconciles — we keep polling expired sessions for three days. The webhook fires with the normal <code>session.paid</code> event, so your server doesn't need special-case code for this.</p>
+
+            <h2>Next</h2>
+            <p>Ready to build? Head to the <a href="/docs/api">API reference</a> for the full endpoint list, or <a href="/merchant/signin">sign in</a> and try it.</p>
+        </article>
+    </main>
+
+    <SiteFooter />
+</div>
