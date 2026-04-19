@@ -26,10 +26,23 @@
         else
         {
             <div data-digipay-measure class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm">
+                @* Header: session label (if provided) is the primary identity,
+                   store/merchant name sits smaller underneath. Falls back to just
+                   "PAY / Store" when no label is set on the session. *@
                 <header class="w-full flex items-start justify-between gap-4">
-                    <div>
-                        <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">PAY</div>
-                        <div class="text-sm font-bold">@(merchantName ?? "Merchant")</div>
+                    <div class="min-w-0">
+                        @if (!string.IsNullOrWhiteSpace(session.Label))
+                        {
+                            <div class="text-base sm:text-lg font-bold leading-tight break-words">@session.Label</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                @(merchantName ?? "Merchant")
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">PAY</div>
+                            <div class="text-sm font-bold">@(merchantName ?? "Merchant")</div>
+                        }
                     </div>
                     <CheckoutStatusPill Status="@session.Status" />
                 </header>
@@ -42,8 +55,16 @@
                 }
                 else
                 {
-                    <div class="bg-white p-3 rounded-2xl shadow-inner">
+                    @* QR with DigiByte logo centered on top. The QR is generated with
+                       ECC level H (30% error correction) so the covered modules stay
+                       recoverable — the logo only occupies the middle ~18% of area. *@
+                    <div class="relative bg-white p-3 rounded-2xl shadow-inner">
                         <img src="@qrDataUrl" alt="Scan to pay" class="block w-56 h-56 rounded-lg" />
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div class="bg-white rounded-xl p-1.5 shadow-sm">
+                                <img src="/digibyte-logo.svg" alt="" class="block w-9 h-9" />
+                            </div>
+                        </div>
                     </div>
                     <a href="@session.Uri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
                     <div class="w-full font-mono text-[0.6875rem] text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800">@session.Address</div>
@@ -123,8 +144,10 @@
 
     private static string GenerateQr(string content)
     {
+        // ECC level H (30% error correction) so the DigiByte logo overlay in the
+        // UI covers the centre without making the code unscannable.
         using var gen = new QRCoder.QRCodeGenerator();
-        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.H);
         using var qr = new QRCoder.PngByteQRCode(data);
         return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
     }

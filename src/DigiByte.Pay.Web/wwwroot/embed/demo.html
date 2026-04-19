@@ -43,6 +43,20 @@ DigiPay.close();</pre>
     <pre>&lt;span data-digipay-button data-address="dgb1..." data-amount="2.5"&gt;Tip&lt;/span&gt;</pre>
     <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="2.5" data-name="Creator">Tip 2.5 DGB</span>
 
+    <h2>5. Full lifecycle simulation</h2>
+    <p>Walks a real session through all its state transitions without needing a chain tx. Uses dev-only endpoints — not available in production.</p>
+    <div class="row">
+        <button id="sim-start">1. Create session + open modal</button>
+        <button id="sim-advance" disabled>2. Advance state →</button>
+        <button id="sim-reset" disabled>Reset</button>
+    </div>
+    <div id="sim-status" style="margin-top: 0.5rem; font-size: 0.875rem; color: #475569;">
+        Not started. Click "Create session + open modal" to begin.
+    </div>
+    <p style="font-size: 0.8125rem; color: #64748b; margin-top: 0.5rem;">
+        Each click on "Advance state" fires a SignalR push to the open checkout — you'll see the status pill flip in real time (pending → detected → paid → confirmed). The QR / countdown stay live throughout.
+    </p>
+
     <script src="/embed/digipay.js"></script>
     <script>
         // Sync the session-id input value to the data attribute so the declarative button works.
@@ -59,6 +73,85 @@ DigiPay.close();</pre>
                 text: 'Tip 5 DGB',
             })
         );
+
+        // Full lifecycle simulation — requires the dev-only /v1/pay/test/* endpoints.
+        // The embed iframe loads Checkout.razor from the same origin as digipay.js
+        // (derived from this script's src), so that's where we POST too.
+        (function () {
+            var apiOrigin = new URL(document.querySelector('script[src$="digipay.js"]').src).origin;
+            var simSes = null;
+            var startBtn = document.getElementById('sim-start');
+            var advanceBtn = document.getElementById('sim-advance');
+            var resetBtn = document.getElementById('sim-reset');
+            var status = document.getElementById('sim-status');
+
+            // The Pay.Api runs on a different port than Pay.Web in dev, so we
+            // probe a couple of common ones. In prod this endpoint is 404 anyway.
+            var apiCandidates = [apiOrigin.replace(/:\d+$/, ':5008'), apiOrigin];
+
+            async function tryFetch(path, init) {
+                var lastErr;
+                for (var i = 0; i < apiCandidates.length; i++) {
+                    try {
+                        var r = await fetch(apiCandidates[i] + path, init);
+                        if (r.status !== 404) return { ok: r.ok, res: r, api: apiCandidates[i] };
+                    } catch (e) { lastErr = e; }
+                }
+                throw lastErr || new Error('No API candidate responded');
+            }
+
+            startBtn.addEventListener('click', async function () {
+                status.textContent = 'Creating session…';
+                try {
+                    var r = await tryFetch('/v1/pay/test/demo-session', { method: 'POST' });
+                    if (!r.ok) throw new Error('HTTP ' + r.res.status);
+                    var body = await r.res.json();
+                    simSes = { id: body.sessionId, api: r.api };
+                    status.innerHTML = 'Session <code>' + simSes.id + '</code> created. Opening checkout…';
+                    DigiPay.checkout({ sessionId: simSes.id });
+                    advanceBtn.disabled = false;
+                    resetBtn.disabled = false;
+                    startBtn.disabled = true;
+                } catch (e) {
+                    status.textContent = 'Failed to create session: ' + e.message + ' (test endpoints only work in dev)';
+                }
+            });
+
+            advanceBtn.addEventListener('click', async function () {
+                if (!simSes) return;
+                status.textContent = 'Advancing state…';
+                try {
+                    var r = await fetch(simSes.api + '/v1/pay/test/sessions/' + simSes.id + '/advance', { method: 'POST' });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    var body = await r.json();
+                    status.innerHTML = 'State now <strong>' + body.status + '</strong>' +
+                        (body.confirmations ? ' · ' + body.confirmations + ' conf' : '') +
+                        (body.paidTxid ? ' · txid <code>' + body.paidTxid.slice(0, 16) + '…</code>' : '');
+                    // Tell the iframe's checkout-countdown.js listener to flip the
+                    // pill — Blazor's SignalR circuit doesn't reliably hydrate in
+                    // an iframe, so we bypass it for the demo.
+                    var iframe = document.querySelector('.digipay-modal iframe');
+                    if (iframe) iframe.contentWindow.postMessage({
+                        type: 'digipay-demo-status',
+                        status: body.status,
+                        confirmations: body.confirmations,
+                        paidTxid: body.paidTxid,
+                    }, '*');
+                    if (body.status === 'confirmed') advanceBtn.disabled = true;
+                } catch (e) {
+                    status.textContent = 'Advance failed: ' + e.message;
+                }
+            });
+
+            resetBtn.addEventListener('click', function () {
+                simSes = null;
+                DigiPay.close();
+                startBtn.disabled = false;
+                advanceBtn.disabled = true;
+                resetBtn.disabled = true;
+                status.textContent = 'Reset. Click "Create session + open modal" to run again.';
+            });
+        })();
     </script>
 </body>
 </html>
