@@ -31,8 +31,14 @@ RUN dotnet restore src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj
 # the Docker build uses the compiled wwwroot/css/tailwind.css that's already
 # in the repo. Keeps the runtime image free of Node.
 COPY . .
+# Publish re-restores intentionally — Blazor Web App relies on package-
+# contributed static web assets (_framework/blazor.web.js ships from
+# Microsoft.AspNetCore.Components.Server) and the MSBuild targets that
+# merge those into wwwroot/ don't always fire cleanly under --no-restore
+# when the original restore ran in a separate Docker layer. Cost is one
+# extra cached restore, pay-off is a working interactive render.
 RUN dotnet publish src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj \
-    -c Release -o /app/publish --no-restore
+    -c Release -o /app/publish
 
 # === Runtime stage ===
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
