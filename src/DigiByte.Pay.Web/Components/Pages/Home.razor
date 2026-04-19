@@ -230,6 +230,36 @@
             </p>
         </section>
 
+        @* Support card — doubles as a live demo of the donation button widget.
+           The <div data-digipay-button> below is replaced by digipay.js at
+           mount with the real production-styled button, so visitors literally
+           see (and can click) what their own site will look like. *@
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <div class="max-w-3xl mx-auto bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-6 sm:p-8 text-center">
+                <p class="text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Support the project</p>
+                <h2 class="text-xl sm:text-2xl font-bold mb-3 tracking-tight">Built by humans, runs on DigiByte</h2>
+                <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed mb-6 max-w-xl mx-auto">
+                    If DigiPay saves you from writing a payment gateway yourself, throw us a few DGB. 100% of donations fund infrastructure and continued development — the button below uses DigiPay itself, so you're also seeing a live demo.
+                </p>
+                <div class="flex justify-center">
+                    <div data-digipay-button
+                         data-address="dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa"
+                         data-name="DigiPay"
+                         data-label="Thanks for supporting DigiPay!">
+                        Tip DGB
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-4">
+                    Or copy the address: <span class="font-mono text-[0.6875rem] break-all">dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa</span>
+                </p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    <a href="/docs#donation-button" class="text-dgb-500 hover:underline">Want one of these on your own site?</a>
+                </p>
+            </div>
+            @* Mount the widget so the placeholder above becomes a real button. *@
+            <script src="/embed/digipay.js"></script>
+        </section>
+
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center">
             <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight" data-auth-show="out">Ready?</h2>
             <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight" data-auth-show="in">Jump back in</h2>
