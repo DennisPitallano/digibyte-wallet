@@ -8,6 +8,7 @@ public class DigiPayDbContext : DbContext
 
     public DbSet<PayMerchant> Merchants => Set<PayMerchant>();
     public DbSet<PaySession> Sessions => Set<PaySession>();
+    public DbSet<MerchantSession> MerchantSessions => Set<MerchantSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +37,16 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.Memo).HasMaxLength(200);
             e.Property(s => s.FiatCurrency).HasMaxLength(10);
             e.Property(s => s.PaidTxid).HasMaxLength(80);
+        });
+
+        modelBuilder.Entity<MerchantSession>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => s.TokenPrefix).IsUnique();
+            e.HasIndex(s => s.MerchantId);
+            e.Property(s => s.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(s => s.TokenPrefix).HasMaxLength(32).IsRequired();
+            e.Property(s => s.TokenHash).HasMaxLength(128).IsRequired();
         });
     }
 }

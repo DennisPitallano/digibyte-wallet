@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Services;
 using Microsoft.EntityFrameworkCore;
@@ -181,22 +182,8 @@ public static class MerchantMeEndpoints
 
     // Copy of the auth helper from PaymentsEndpoints. Kept duplicated for now —
     // once Digi-ID session tokens and API keys diverge we'll extract a shared authenticator.
-    internal static async Task<PayMerchant?> AuthenticateAsync(HttpRequest http, DigiPayDbContext db)
-    {
-        var header = http.Headers.Authorization.ToString();
-        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return null;
-        var token = header["Bearer ".Length..].Trim();
-        var underscore = token.LastIndexOf('_');
-        if (underscore <= 0 || underscore == token.Length - 1) return null;
-        var prefix = token[..underscore];
-        var secret = token[(underscore + 1)..];
-        var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.ApiKeyPrefix == prefix);
-        if (merchant is null) return null;
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret))).ToLowerInvariant();
-        return CryptographicOperations.FixedTimeEquals(
-            Encoding.ASCII.GetBytes(hash),
-            Encoding.ASCII.GetBytes(merchant.ApiKeyHash)) ? merchant : null;
-    }
+    internal static Task<PayMerchant?> AuthenticateAsync(HttpRequest http, DigiPayDbContext db) =>
+        MerchantAuthenticator.AuthenticateAsync(http, db);
 }
 
 public record UpdateMeRequest(

@@ -18,9 +18,39 @@ builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();
 
-var digipayDb = builder.Configuration["DigiPay:DbPath"] ?? "digipay.db";
+// Database provider:
+//   - DigiPay:ConnectionString (Postgres)  — production / deploy target
+//   - DigiPay:DbPath (SQLite file)         — dev convenience when Postgres
+//     isn't available locally
+// Provider chosen by whether the value looks like a connection string.
+var pgConnectionString = builder.Configuration["DigiPay:ConnectionString"]
+    ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 builder.Services.AddDbContext<DigiPayDbContext>(opt =>
-    opt.UseSqlite($"Data Source={digipayDb}"));
+{
+    if (!string.IsNullOrWhiteSpace(pgConnectionString))
+    {
+        opt.UseNpgsql(NormalisePostgresUrl(pgConnectionString));
+    }
+    else
+    {
+        var sqlitePath = builder.Configuration["DigiPay:DbPath"] ?? "digipay.db";
+        opt.UseSqlite($"Data Source={sqlitePath}");
+    }
+});
+
+// Railway & many PaaS expose Postgres as a URL (postgres://user:pass@host:port/db)
+// but Npgsql expects key=value form. Translate on the fly when needed.
+static string NormalisePostgresUrl(string value)
+{
+    if (!value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+        && !value.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        return value;
+    var uri = new Uri(value);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var db = uri.AbsolutePath.TrimStart('/');
+    var sslMode = uri.Query.Contains("sslmode=", StringComparison.OrdinalIgnoreCase) ? "" : "SSL Mode=Require;Trust Server Certificate=true;";
+    return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={db};Username={Uri.UnescapeDataString(userInfo[0])};Password={Uri.UnescapeDataString(userInfo.Length > 1 ? userInfo[1] : "")};{sslMode}";
+}
 
 builder.Services.AddHttpClient("DigiPayChain", client =>
 {

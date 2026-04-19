@@ -226,6 +226,17 @@ else
                 <p class="@Muted mb-6">Receive address, session defaults, and merchant profile.</p>
 
                 <section class="@Card">
+                    <h2 class="@H2">Profile</h2>
+                    <p class="@Muted m-0">Display name shown to buyers on the hosted checkout page and in webhook payloads.</p>
+                    <input @bind="nameInput" placeholder="@me.DisplayName" class="@Input" maxlength="120" />
+                    <button class="@Btn self-start" @onclick="SaveNameAsync" disabled="@(nameBusy || string.IsNullOrWhiteSpace(nameInput) || nameInput.Trim() == me.DisplayName)">
+                        @(nameBusy ? "Saving…" : "Save")
+                    </button>
+                    @if (nameMessage != null) { <p class="@Muted m-0">@nameMessage</p> }
+                    @if (nameError != null) { <p class="text-xs text-red-500 m-0">@nameError</p> }
+                </section>
+
+                <section class="@Card mt-4">
                     <h2 class="@H2">Receive</h2>
                     @if (me.HasReceive)
                     {
@@ -320,6 +331,11 @@ else
     private bool expiryBusy;
     private string? expiryMessage;
     private string? expiryError;
+
+    private string nameInput = "";
+    private bool nameBusy;
+    private string? nameMessage;
+    private string? nameError;
 
     private bool busy;
     private bool loadingSessions;
@@ -560,8 +576,40 @@ else
         finally { expiryBusy = false; StateHasChanged(); }
     }
 
+    private async Task SaveNameAsync()
+    {
+        nameBusy = true; nameError = null; nameMessage = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { displayName = nameInput.Trim() });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                nameError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            me = await response.Content.ReadFromJsonAsync<MeDto>();
+            nameMessage = "Saved.";
+            nameInput = "";
+        }
+        catch (Exception ex) { nameError = ex.Message; }
+        finally { nameBusy = false; StateHasChanged(); }
+    }
+
     private async Task SignOutAsync()
     {
+        // Invalidate the server-side session token so it can't be reused
+        // from a stale copy of the browser state.
+        if (!string.IsNullOrEmpty(token))
+        {
+            try
+            {
+                var http = HttpFactory.CreateClient("PayApi");
+                await http.SendAsync(AuthedRequest(HttpMethod.Delete, "/v1/pay/auth/session"));
+            }
+            catch { /* best-effort; always clear local state next */ }
+        }
         await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
         await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-merchant-id");
         Nav.NavigateTo("/");

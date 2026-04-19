@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using DigiByte.Crypto.DigiId;
 using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
@@ -50,41 +48,65 @@ public static class AuthEndpoints
             if (!DigiIdService.Verify(body.Address, body.Uri, body.Signature))
                 return Results.BadRequest(new { error = "signature verification failed" });
 
-            // Stable merchant identity = Digi-ID address. Create on first sign-in.
+            // Stable merchant identity = Digi-ID address. Create on first sign-in —
+            // existing merchants' API keys are left intact (so server-to-server
+            // integrations keep working across browser sign-ins).
             var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.DigiIdAddress == body.Address);
-            string? plaintextKey = null;
             if (merchant is null)
             {
-                var (prefix, secret, hash) = GenerateApiKey();
-                plaintextKey = $"{prefix}_{secret}";
+                var (apiPrefix, _, apiHash) = MerchantAuthenticator.GenerateApiKey();
                 merchant = new PayMerchant
                 {
                     Id = $"mer_{RandomId(16)}",
                     DisplayName = $"Merchant {body.Address[..8]}…",
                     DigiIdAddress = body.Address,
                     Network = "mainnet",
-                    ApiKeyPrefix = prefix,
-                    ApiKeyHash = hash,
+                    ApiKeyPrefix = apiPrefix,
+                    ApiKeyHash = apiHash,
                 };
                 db.Merchants.Add(merchant);
                 await db.SaveChangesAsync();
             }
-            else
+
+            // Mint a per-browser session token. Separate from API keys so revoking
+            // a browser's access doesn't break SDK/server integrations.
+            var (sPrefix, sSecret, sHash) = MerchantAuthenticator.GenerateSessionToken();
+            var merchantSession = new MerchantSession
             {
-                // Returning merchant — rotate a new key for this session (old key hash
-                // stays valid until the merchant rotates). v0: just issue a fresh one.
-                var (prefix, secret, hash) = GenerateApiKey();
-                plaintextKey = $"{prefix}_{secret}";
-                merchant.ApiKeyPrefix = prefix;
-                merchant.ApiKeyHash = hash;
-                await db.SaveChangesAsync();
-            }
+                Id = $"sess_{RandomId(16)}",
+                MerchantId = merchant.Id,
+                TokenPrefix = sPrefix,
+                TokenHash = sHash,
+                ExpiresAt = DateTime.UtcNow.Add(MerchantAuthenticator.SessionLifetime),
+            };
+            db.MerchantSessions.Add(merchantSession);
+            await db.SaveChangesAsync();
 
             entry.Status = ChallengeStatus.Signed;
             entry.MerchantId = merchant.Id;
-            entry.SessionApiKey = plaintextKey;
+            entry.SessionApiKey = $"{sPrefix}_{sSecret}";
             entry.DisplayName = merchant.DisplayName;
 
+            return Results.Ok(new { ok = true });
+        });
+
+        // DELETE /v1/pay/auth/session — sign out: invalidates the current session token.
+        group.MapDelete("/session", async (HttpRequest http, DigiPayDbContext db) =>
+        {
+            var header = http.Headers.Authorization.ToString();
+            if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return Results.Unauthorized();
+            var token = header["Bearer ".Length..].Trim();
+            var underscore = token.LastIndexOf('_');
+            if (underscore <= 0) return Results.BadRequest();
+            var prefix = token[..underscore];
+            if (!prefix.StartsWith("dps_", StringComparison.Ordinal)) return Results.BadRequest(new { error = "only session tokens can be signed out" });
+
+            var session = await db.MerchantSessions.FirstOrDefaultAsync(s => s.TokenPrefix == prefix);
+            if (session is not null)
+            {
+                db.MerchantSessions.Remove(session);
+                await db.SaveChangesAsync();
+            }
             return Results.Ok(new { ok = true });
         });
 
@@ -112,19 +134,11 @@ public static class AuthEndpoints
         return group;
     }
 
-    private static (string Prefix, string Secret, string Hash) GenerateApiKey()
-    {
-        var prefix = $"dgp_{RandomId(10)}";
-        var secret = RandomId(32);
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret))).ToLowerInvariant();
-        return (prefix, secret, hash);
-    }
-
     private static string RandomId(int lengthChars)
     {
         const string alphabet = "abcdefghijkmnpqrstuvwxyz23456789";
         Span<byte> bytes = stackalloc byte[lengthChars];
-        RandomNumberGenerator.Fill(bytes);
+        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
         var chars = new char[lengthChars];
         for (int i = 0; i < lengthChars; i++) chars[i] = alphabet[bytes[i] % alphabet.Length];
         return new string(chars);
