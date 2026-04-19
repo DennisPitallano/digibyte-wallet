@@ -7,18 +7,17 @@ WORKDIR /src
 
 # Copy csproj files up front so `dotnet restore` can be cached independently
 # of source changes. Pay.Api depends on DigiByte.Crypto + DigiByte.Wallet
-# (it reuses NBitcoin derivation + blockchain services), so those come along.
+# (it reuses NBitcoin derivation + blockchain services); those are pulled
+# in transitively via the solution.
 COPY DigiByte.slnx .
 COPY src/DigiByte.Pay.Api/DigiByte.Pay.Api.csproj src/DigiByte.Pay.Api/
+COPY src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj src/DigiByte.Pay.Web/
 COPY src/DigiByte.Wallet/DigiByte.Wallet.csproj src/DigiByte.Wallet/
 COPY src/DigiByte.Crypto/DigiByte.Crypto.csproj src/DigiByte.Crypto/
 COPY src/DigiByte.P2P.Shared/DigiByte.P2P.Shared.csproj src/DigiByte.P2P.Shared/
-# Sibling csprojs referenced from the solution — need to exist for restore
-# to resolve them, even though we don't build them into the Pay.Api image.
 COPY src/DigiByte.Api/DigiByte.Api.csproj src/DigiByte.Api/
 COPY src/DigiByte.NodeApi/DigiByte.NodeApi.csproj src/DigiByte.NodeApi/
 COPY src/DigiByte.Web/DigiByte.Web.csproj src/DigiByte.Web/
-COPY src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj src/DigiByte.Pay.Web/
 COPY tests/DigiByte.Crypto.Tests/DigiByte.Crypto.Tests.csproj tests/DigiByte.Crypto.Tests/
 COPY tests/DigiByte.Wallet.Tests/DigiByte.Wallet.Tests.csproj tests/DigiByte.Wallet.Tests/
 COPY tests/DigiByte.Api.Tests/DigiByte.Api.Tests.csproj tests/DigiByte.Api.Tests/

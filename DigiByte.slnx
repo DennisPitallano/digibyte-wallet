@@ -4,6 +4,8 @@
     <Project Path="src/DigiByte.Crypto/DigiByte.Crypto.csproj" />
     <Project Path="src/DigiByte.NodeApi/DigiByte.NodeApi.csproj" />
     <Project Path="src/DigiByte.P2P.Shared/DigiByte.P2P.Shared.csproj" />
+    <Project Path="src/DigiByte.Pay.Api/DigiByte.Pay.Api.csproj" />
+    <Project Path="src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj" />
     <Project Path="src/DigiByte.Wallet/DigiByte.Wallet.csproj" />
     <Project Path="src/DigiByte.Web/DigiByte.Web.csproj" />
   </Folder>
