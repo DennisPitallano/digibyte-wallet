@@ -197,15 +197,21 @@ public static class StoresEndpoints
 
         // GET /v1/pay/stores/{storeId}/webhook-deliveries — recent delivery attempts.
         // Returned newest-first; default 25 rows to match sessions pagination.
+        // Optional ?sessionId= filter narrows to a single session's delivery chain
+        // (including manual replays, which carry the same SessionId with incremented Attempt).
         group.MapGet("/{storeId}/webhook-deliveries", async (
-            string storeId, HttpRequest http, DigiPayDbContext db, int take = 25) =>
+            string storeId, HttpRequest http, DigiPayDbContext db,
+            int take = 25, string? sessionId = null) =>
         {
             var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
             if (err is not null) return err;
 
             take = Math.Clamp(take, 1, 100);
-            var rows = await db.WebhookDeliveries.AsNoTracking()
-                .Where(d => d.StoreId == store!.Id)
+            var query = db.WebhookDeliveries.AsNoTracking()
+                .Where(d => d.StoreId == store!.Id);
+            if (!string.IsNullOrWhiteSpace(sessionId))
+                query = query.Where(d => d.SessionId == sessionId);
+            var rows = await query
                 .OrderByDescending(d => d.CreatedAt)
                 .Take(take)
                 .ToListAsync();

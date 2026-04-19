@@ -174,8 +174,10 @@ else
                         <ul class="list-none p-0 m-0 flex flex-col gap-2">
                             @foreach (var s in sessions)
                             {
+                                @* Click opens the merchant detail page (timeline + webhook log);
+                                   checkoutUrl is available from the detail page's Links card. *@
                                 <li>
-                                    <a href="@s.CheckoutUrl" target="_blank"
+                                    <a href="@($"/merchant/sessions/{s.Id}")"
                                        class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 p-3 border border-slate-200 dark:border-dgb-800 rounded-lg no-underline text-inherit hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
                                         <div class="min-w-0">
                                             <div class="font-bold text-[0.9375rem] tabular-nums">@s.Amount.ToString("0.########") DGB</div>
@@ -1175,6 +1177,7 @@ else
     private record SessionRow(string Id, string? StoreId, string Address, long AmountSatoshis, decimal Amount,
         string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
+        DateTime? SeenAt, DateTime? PaidAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl);
 

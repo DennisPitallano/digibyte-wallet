@@ -266,6 +266,8 @@ public static class PaymentsEndpoints
         Status = s.Status.ToString().ToLowerInvariant(),
         s.CreatedAt,
         s.ExpiresAt,
+        s.SeenAt,
+        s.PaidAt,
         s.ReceivedSatoshis,
         s.Confirmations,
         s.PaidTxid,

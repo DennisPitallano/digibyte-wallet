@@ -1,0 +1,326 @@
+@page "/merchant/sessions/{SessionId}"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpFactory
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@using System.Net.Http.Json
+
+<PageTitle>@(session?.Id ?? SessionId) — DigiPay</PageTitle>
+
+@{
+    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
+    const string BtnGhost = "px-4 py-2.5 bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-dgb-800 font-semibold rounded-lg text-sm disabled:opacity-50 transition-colors";
+    const string Eyebrow = "text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400";
+    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
+    const string Mono = "font-mono text-[0.6875rem] break-all";
+    const string H2 = "text-base font-bold text-slate-900 dark:text-white m-0";
+    const string H1 = "text-xl sm:text-2xl font-bold tracking-tight m-0";
+}
+
+@if (bootstrapError != null)
+{
+    <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+        <div class="@Card text-center max-w-md">
+            <p class="text-sm text-red-500 m-0">@bootstrapError</p>
+            <a href="/merchant" class="text-dgb-500 hover:underline text-sm">← Back to dashboard</a>
+        </div>
+    </main>
+}
+else if (session == null)
+{
+    <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+        <p class="@Muted m-0">Loading…</p>
+    </main>
+}
+else
+{
+    <div class="min-h-dvh bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+        <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 flex flex-col gap-4">
+            @* Header — back link + session id + status *@
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
+                <div class="min-w-0">
+                    <a href="/merchant" class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white no-underline">← Dashboard</a>
+                    <h1 class="@H1 mt-1">Session</h1>
+                    <div class="@Mono text-slate-500 dark:text-slate-400 mt-1">@session.Id</div>
+                </div>
+                <div class="shrink-0">
+                    <CheckoutStatusPill Status="@session.Status" />
+                </div>
+            </div>
+
+            @* Primary details *@
+            <section class="@Card">
+                <h2 class="@H2">Payment</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <div class="@Eyebrow">Amount</div>
+                        <div class="text-2xl font-bold tabular-nums">@session.Amount.ToString("0.########") DGB</div>
+                        @if (session.FiatAmount is decimal fa && !string.IsNullOrEmpty(session.FiatCurrency))
+                        {
+                            <div class="@Muted">~ @fa.ToString("0.00") @session.FiatCurrency (at session creation)</div>
+                        }
+                        <div class="@Muted mt-1">@session.ReceivedSatoshis / @session.AmountSatoshis sats received · @session.Confirmations conf</div>
+                    </div>
+                    <div>
+                        <div class="@Eyebrow">Address</div>
+                        <div class="@Mono">@session.Address</div>
+                        <button class="@BtnGhost text-xs py-1.5 px-3 mt-1" @onclick='() => CopyAsync("address", session.Address)'>@(copiedField == "address" ? "Copied ✓" : "Copy")</button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(session.Label))
+                {
+                    <div>
+                        <div class="@Eyebrow">Label</div>
+                        <div class="text-sm">@session.Label</div>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(session.Memo))
+                {
+                    <div>
+                        <div class="@Eyebrow">Memo (private)</div>
+                        <div class="text-sm">@session.Memo</div>
+                    </div>
+                }
+            </section>
+
+            @* Timeline — a reached step means the transition actually happened; unreached
+               steps still show so merchants can see what's pending / skipped. Expiry only
+               renders as "reached" if we actually hit that terminal state. *@
+            <section class="@Card">
+                <h2 class="@H2">Timeline</h2>
+                <ul class="list-none p-0 m-0 flex flex-col gap-2">
+                    @{
+                        var expired = session.Status == "expired";
+                        RenderFragment timelineRow(bool reached, string label, DateTime? at, bool isTerminalNegative = false) =>
+                            @<li class="flex items-start gap-3">
+                                <span class="shrink-0 mt-0.5 w-2.5 h-2.5 rounded-full @(reached ? (isTerminalNegative ? "bg-red-500" : "bg-emerald-500") : "bg-slate-300 dark:bg-dgb-800")"></span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm @(reached ? "text-slate-900 dark:text-white font-medium" : "text-slate-400 dark:text-slate-500")">@label</div>
+                                    @if (at is DateTime t)
+                                    {
+                                        <div class="@Muted">@t.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                    }
+                                    else if (!reached)
+                                    {
+                                        <div class="@Muted">pending</div>
+                                    }
+                                </div>
+                            </li>;
+                    }
+                    @timelineRow(true, "Created", session.CreatedAt)
+                    @timelineRow(session.SeenAt is not null, "Detected in mempool", session.SeenAt)
+                    @timelineRow(session.PaidAt is not null, "Paid (1 confirmation)", session.PaidAt)
+                    @timelineRow(session.Confirmations >= 6, "Confirmed (6 confirmations)", session.Confirmations >= 6 ? session.PaidAt : null)
+                    @timelineRow(expired, expired ? "Expired" : $"Expires at {session.ExpiresAt.ToLocalTime():yyyy-MM-dd HH:mm}", expired ? session.ExpiresAt : null, isTerminalNegative: true)
+                </ul>
+            </section>
+
+            @* Paid tx details — only when a txid exists *@
+            @if (!string.IsNullOrEmpty(session.PaidTxid))
+            {
+                <section class="@Card">
+                    <h2 class="@H2">Transaction</h2>
+                    <div class="@Mono">@session.PaidTxid</div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick='() => CopyAsync("txid", session.PaidTxid!)'>@(copiedField == "txid" ? "Copied ✓" : "Copy txid")</button>
+                        <a href="@($"https://digiexplorer.info/tx/{session.PaidTxid}")" target="_blank" rel="noopener"
+                           class="@BtnGhost text-xs py-1.5 px-3 no-underline">View on DigiExplorer ↗</a>
+                    </div>
+                </section>
+            }
+
+            @* Links — BIP21 URI + checkout URL *@
+            <section class="@Card">
+                <h2 class="@H2">Links</h2>
+                <div>
+                    <div class="@Eyebrow">Checkout URL <span class="@Muted">(public, safe to share)</span></div>
+                    <div class="@Mono">@session.CheckoutUrl</div>
+                    <div class="flex gap-2 flex-wrap mt-1">
+                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick='() => CopyAsync("checkout", session.CheckoutUrl)'>@(copiedField == "checkout" ? "Copied ✓" : "Copy")</button>
+                        <a href="@session.CheckoutUrl" target="_blank" rel="noopener" class="@BtnGhost text-xs py-1.5 px-3 no-underline">Open ↗</a>
+                    </div>
+                </div>
+                <div>
+                    <div class="@Eyebrow">BIP21 URI</div>
+                    <div class="@Mono">@session.Uri</div>
+                    <button class="@BtnGhost text-xs py-1.5 px-3 mt-1" @onclick='() => CopyAsync("uri", session.Uri)'>@(copiedField == "uri" ? "Copied ✓" : "Copy")</button>
+                </div>
+            </section>
+
+            @* Webhook deliveries filtered to this session *@
+            <section class="@Card">
+                <div class="flex items-baseline justify-between">
+                    <h2 class="@H2">Webhook deliveries</h2>
+                    <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries">
+                        @(loadingDeliveries ? "…" : "Refresh")
+                    </button>
+                </div>
+                <p class="@Muted m-0">Every delivery attempt that's referenced this session. Replays create a new row with the attempt number bumped.</p>
+                @if (deliveries is null)
+                {
+                    <p class="@Muted m-0">Loading…</p>
+                }
+                else if (deliveries.Count == 0)
+                {
+                    <p class="@Muted m-0">No webhook deliveries for this session — either no webhook is configured for the store, or no state change has fired yet.</p>
+                }
+                else
+                {
+                    <ul class="list-none p-0 m-0 flex flex-col gap-2">
+                        @foreach (var d in deliveries)
+                        {
+                            var pillBg = d.Success
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                : (d.StatusCode is null
+                                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300");
+                            <li class="p-3 border border-slate-200 dark:border-dgb-800 rounded-lg">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full @pillBg">@(d.StatusCode?.ToString() ?? "network err")</span>
+                                            <span class="font-semibold text-sm text-slate-900 dark:text-white">@d.EventName</span>
+                                            @if (d.Attempt > 1) { <span class="@Muted">· attempt @d.Attempt</span> }
+                                        </div>
+                                        <div class="@Muted mt-1">
+                                            @d.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                            @(d.DurationMs is null ? "" : $" · {d.DurationMs}ms")
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(d.ErrorMessage))
+                                        {
+                                            <div class="@Mono text-red-500 dark:text-red-400 mt-1">@d.ErrorMessage</div>
+                                        }
+                                        else if (!string.IsNullOrEmpty(d.ResponseSnippet))
+                                        {
+                                            <div class="@Mono text-slate-500 dark:text-slate-400 mt-1 max-w-xl">@(d.ResponseSnippet.Length > 160 ? d.ResponseSnippet[..160] + "…" : d.ResponseSnippet)</div>
+                                        }
+                                    </div>
+                                    <button class="@BtnGhost text-xs py-1.5 px-3 shrink-0" @onclick="() => ReplayDeliveryAsync(d.Id)" disabled="@(replayingId == d.Id)">
+                                        @(replayingId == d.Id ? "Replaying…" : "Replay")
+                                    </button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        </main>
+    </div>
+}
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+
+    private string? token;
+    private SessionDto? session;
+    private List<WebhookDeliveryDto>? deliveries;
+    private bool loadingDeliveries;
+    private string replayingId = "";
+    private string copiedField = "";
+    private string? bootstrapError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || session != null || bootstrapError != null) return;
+        try
+        {
+            token = await JS.InvokeAsync<string?>("localStorage.getItem", "digipay-token");
+            if (string.IsNullOrEmpty(token))
+            {
+                Nav.NavigateTo("/merchant/signin");
+                return;
+            }
+            await LoadSessionAsync();
+            if (session is not null) await LoadDeliveriesAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex) { bootstrapError = ex.Message; StateHasChanged(); }
+    }
+
+    private HttpRequestMessage AuthedRequest(HttpMethod method, string path)
+    {
+        var req = new HttpRequestMessage(method, path);
+        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+        return req;
+    }
+
+    private async Task LoadSessionAsync()
+    {
+        // /v1/pay/sessions/{id} is a public read — no auth needed to resolve. We
+        // still send the token so future authorization rules (e.g. restricting memo
+        // visibility to the owning merchant) can tighten here without a client change.
+        var http = HttpFactory.CreateClient("PayApi");
+        var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, $"/v1/pay/sessions/{SessionId}"));
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            bootstrapError = $"Session {SessionId} not found.";
+            return;
+        }
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<SessionResponse>();
+        session = payload?.Session;
+    }
+
+    private async Task LoadDeliveriesAsync()
+    {
+        if (session is null) return;
+        loadingDeliveries = true; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            // Scoped to the session's store + filtered server-side by sessionId so this
+            // works for stores with high webhook traffic.
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get,
+                $"/v1/pay/stores/{session.StoreId}/webhook-deliveries?sessionId={Uri.EscapeDataString(session.Id)}"));
+            if (response.IsSuccessStatusCode)
+            {
+                deliveries = await response.Content.ReadFromJsonAsync<List<WebhookDeliveryDto>>() ?? new();
+            }
+        }
+        catch { /* non-fatal */ }
+        finally { loadingDeliveries = false; StateHasChanged(); }
+    }
+
+    private async Task ReplayDeliveryAsync(string deliveryId)
+    {
+        if (session is null) return;
+        replayingId = deliveryId; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            await http.SendAsync(AuthedRequest(HttpMethod.Post,
+                $"/v1/pay/stores/{session.StoreId}/webhook-deliveries/{deliveryId}/replay"));
+            await LoadDeliveriesAsync();
+        }
+        catch { }
+        finally { replayingId = ""; StateHasChanged(); }
+    }
+
+    private async Task CopyAsync(string field, string value)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", value);
+            copiedField = field;
+            StateHasChanged();
+            await Task.Delay(1500);
+            if (copiedField == field) copiedField = "";
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private record SessionResponse(SessionDto Session, string? MerchantName);
+
+    private record SessionDto(string Id, string StoreId, string Address, long AmountSatoshis, decimal Amount,
+        string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
+        string Status, DateTime CreatedAt, DateTime ExpiresAt,
+        DateTime? SeenAt, DateTime? PaidAt,
+        long ReceivedSatoshis, int Confirmations, string? PaidTxid,
+        string Uri, string CheckoutUrl);
+
+    private record WebhookDeliveryDto(string Id, string StoreId, string? SessionId,
+        string EventName, string Url, int Attempt, int? StatusCode, string? ErrorMessage,
+        int? DurationMs, string? ResponseSnippet,
+        DateTime CreatedAt, DateTime? DeliveredAt, bool Success);
+}
