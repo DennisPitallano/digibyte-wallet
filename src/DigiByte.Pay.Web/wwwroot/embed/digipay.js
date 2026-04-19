@@ -38,14 +38,20 @@
         overlay.style.cssText =
             'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2147483647;' +
             'display:flex;align-items:center;justify-content:center;padding:16px;' +
-            'animation:digipayFadeIn 150ms ease-out;';
+            'animation:digipayFadeIn 160ms ease-out;';
         overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
 
         var container = document.createElement('div');
+        // Start tight: a sensible fallback so empty iframes don't collapse to
+        // 150px. The real height arrives via postMessage once the checkout
+        // page's body scrollHeight stabilises, at which point we shrink/grow.
         container.style.cssText =
-            'position:relative;width:100%;max-width:460px;height:min(720px,90vh);' +
+            'position:relative;width:100%;max-width:460px;height:620px;max-height:90vh;' +
             'background:#001529;border-radius:20px;overflow:hidden;' +
-            'box-shadow:0 24px 48px rgba(0,0,0,0.4);';
+            'box-shadow:0 24px 48px rgba(0,0,0,0.4);' +
+            'transform-origin:center;' +
+            'animation:digipayScaleIn 200ms cubic-bezier(0.16,1,0.3,1);' +
+            'transition:height 180ms ease-out;';
 
         var closeBtn = document.createElement('button');
         closeBtn.innerHTML = '&times;';
@@ -71,7 +77,9 @@
         if (!document.getElementById('__digipay_styles')) {
             var style = document.createElement('style');
             style.id = '__digipay_styles';
-            style.textContent = '@keyframes digipayFadeIn{from{opacity:0}to{opacity:1}}';
+            style.textContent =
+                '@keyframes digipayFadeIn{from{opacity:0}to{opacity:1}}' +
+                '@keyframes digipayScaleIn{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}';
             document.head.appendChild(style);
         }
 
@@ -80,12 +88,26 @@
         var onKey = function (e) { if (e.key === 'Escape') closeModal(); };
         document.addEventListener('keydown', onKey);
 
-        activeModal = { overlay: overlay, onKey: onKey };
+        // Listen for the iframe's self-reported content height and resize to match.
+        // Clamped to viewport so tall content scrolls inside the iframe rather than
+        // the modal overflowing the screen.
+        var onMessage = function (e) {
+            if (!e.data || e.data.type !== 'digipay-checkout-size') return;
+            if (e.source !== iframe.contentWindow) return;
+            var h = Number(e.data.height);
+            if (!isFinite(h) || h <= 0) return;
+            var clamped = Math.min(h, Math.floor(window.innerHeight * 0.9));
+            container.style.height = clamped + 'px';
+        };
+        window.addEventListener('message', onMessage);
+
+        activeModal = { overlay: overlay, onKey: onKey, onMessage: onMessage };
     }
 
     function closeModal() {
         if (!activeModal) return;
         document.removeEventListener('keydown', activeModal.onKey);
+        if (activeModal.onMessage) window.removeEventListener('message', activeModal.onMessage);
         activeModal.overlay.remove();
         activeModal = null;
     }
