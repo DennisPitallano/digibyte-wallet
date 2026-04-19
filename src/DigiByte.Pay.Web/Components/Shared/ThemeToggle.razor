@@ -1,0 +1,13 @@
+@* Plain HTML button — delegates to the theme.js loaded in App.razor.
+   Works on SSR pages without requiring InteractiveServer. *@
+<button type="button"
+        class="dp-theme-toggle @(ExtraClass)"
+        aria-label="Toggle dark mode"
+        data-dp-theme-toggle
+        onclick="DigiPayTheme.toggle()">
+    <span data-dp-theme-label>☾</span>
+</button>
+
+@code {
+    [Parameter] public string? ExtraClass { get; set; }
+}

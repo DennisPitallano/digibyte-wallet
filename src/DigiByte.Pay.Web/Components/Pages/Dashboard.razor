@@ -30,6 +30,7 @@ else
             </button>
             <div class="dp-admin__topbar-brand"><span class="dp-admin__brand-dot"></span> DigiPay</div>
             <div class="dp-admin__topbar-spacer"></div>
+            <ThemeToggle />
             <div class="dp-admin__topbar-merchant">
                 <strong>@me.DisplayName</strong>
                 <button class="dp-btn dp-btn--ghost" style="padding:0.25rem 0.5rem;font-size:0.6875rem;margin-top:0.125rem;" @onclick="SignOutAsync">Sign out</button>
@@ -56,7 +57,10 @@ else
                 {
                     <div class="dp-mono">@(me.DigiIdAddress.Length > 14 ? me.DigiIdAddress[..8] + "…" + me.DigiIdAddress[^4..] : me.DigiIdAddress)</div>
                 }
-                <button class="dp-btn dp-btn--ghost" style="margin-top:0.25rem;" @onclick="SignOutAsync">Sign out</button>
+                <div style="display:flex;gap:0.375rem;margin-top:0.25rem;align-items:stretch;">
+                    <button class="dp-btn dp-btn--ghost" style="flex:1;" @onclick="SignOutAsync">Sign out</button>
+                    <ThemeToggle />
+                </div>
             </div>
         </aside>
 
