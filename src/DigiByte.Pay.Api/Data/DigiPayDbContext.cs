@@ -11,6 +11,7 @@ public class DigiPayDbContext : DbContext
     public DbSet<PaySession> Sessions => Set<PaySession>();
     public DbSet<MerchantSession> MerchantSessions => Set<MerchantSession>();
     public DbSet<PayApiKey> ApiKeys => Set<PayApiKey>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +72,20 @@ public class DigiPayDbContext : DbContext
             e.Property(k => k.Prefix).HasMaxLength(32).IsRequired();
             e.Property(k => k.Hash).HasMaxLength(128).IsRequired();
             e.Property(k => k.Label).HasMaxLength(80);
+        });
+
+        modelBuilder.Entity<WebhookDelivery>(e =>
+        {
+            e.HasKey(d => d.Id);
+            e.HasIndex(d => d.StoreId);
+            e.HasIndex(d => new { d.StoreId, d.CreatedAt });
+            e.Ignore(d => d.Success); // computed from StatusCode
+            e.Property(d => d.StoreId).HasMaxLength(32).IsRequired();
+            e.Property(d => d.SessionId).HasMaxLength(32);
+            e.Property(d => d.EventName).HasMaxLength(60).IsRequired();
+            e.Property(d => d.Url).HasMaxLength(500).IsRequired();
+            e.Property(d => d.ResponseSnippet).HasMaxLength(2048);
+            e.Property(d => d.ErrorMessage).HasMaxLength(500);
         });
     }
 }

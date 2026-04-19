@@ -184,12 +184,81 @@ public static class StoresEndpoints
                 ExpiresAt = DateTime.UtcNow.AddMinutes(10),
                 Label = "test",
             };
-            await dispatcher.DispatchAsync(store, dummy, "webhook.test");
-            return Results.Ok(new { ok = true, webhookUrl = store.WebhookUrl });
+            var delivery = await dispatcher.DispatchAsync(store, dummy, "webhook.test");
+            return Results.Ok(new
+            {
+                ok = true,
+                webhookUrl = store.WebhookUrl,
+                deliveryId = delivery?.Id,
+                statusCode = delivery?.StatusCode,
+                error = delivery?.ErrorMessage,
+            });
+        });
+
+        // GET /v1/pay/stores/{storeId}/webhook-deliveries — recent delivery attempts.
+        // Returned newest-first; default 25 rows to match sessions pagination.
+        group.MapGet("/{storeId}/webhook-deliveries", async (
+            string storeId, HttpRequest http, DigiPayDbContext db, int take = 25) =>
+        {
+            var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
+            if (err is not null) return err;
+
+            take = Math.Clamp(take, 1, 100);
+            var rows = await db.WebhookDeliveries.AsNoTracking()
+                .Where(d => d.StoreId == store!.Id)
+                .OrderByDescending(d => d.CreatedAt)
+                .Take(take)
+                .ToListAsync();
+            return Results.Ok(rows.Select(DeliveryDto));
+        });
+
+        // POST /v1/pay/stores/{storeId}/webhook-deliveries/{deliveryId}/replay
+        // Re-fires a previous delivery using the same event + session payload.
+        // Creates a new row with Attempt incremented so the audit trail is preserved.
+        group.MapPost("/{storeId}/webhook-deliveries/{deliveryId}/replay", async (
+            string storeId, string deliveryId,
+            HttpRequest http, DigiPayDbContext db, WebhookDispatcher dispatcher) =>
+        {
+            var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
+            if (err is not null) return err;
+            if (string.IsNullOrWhiteSpace(store!.WebhookUrl))
+                return Results.BadRequest(new { error = "store has no webhookUrl configured" });
+
+            var prev = await db.WebhookDeliveries.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == deliveryId && d.StoreId == store.Id);
+            if (prev is null) return Results.NotFound(new { error = "delivery not found" });
+
+            // Synthetic events (webhook.test) don't persist a session — nothing to replay.
+            if (string.IsNullOrEmpty(prev.SessionId))
+                return Results.BadRequest(new { error = "test deliveries can't be replayed — fire a fresh test instead" });
+
+            var session = await db.Sessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == prev.SessionId);
+            if (session is null)
+                return Results.BadRequest(new { error = "original session no longer exists" });
+
+            var fresh = await dispatcher.ReplayAsync(prev, store, session);
+            return Results.Ok(DeliveryDto(fresh!));
         });
 
         return group;
     }
+
+    internal static object DeliveryDto(WebhookDelivery d) => new
+    {
+        d.Id,
+        d.StoreId,
+        d.SessionId,
+        d.EventName,
+        d.Url,
+        d.Attempt,
+        d.StatusCode,
+        d.ErrorMessage,
+        d.DurationMs,
+        d.ResponseSnippet,
+        d.CreatedAt,
+        d.DeliveredAt,
+        Success = d.StatusCode is >= 200 and < 300,
+    };
 
     private static async Task<(PayMerchant? Merchant, PayStore? Store, IResult? Error)> LoadOwnedAsync(
         string storeId, HttpRequest http, DigiPayDbContext db, bool tracked = false)

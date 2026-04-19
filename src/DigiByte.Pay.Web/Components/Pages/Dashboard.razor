@@ -251,6 +251,68 @@ else
                     @if (webhookMessage != null) { <p class="@Muted m-0">@webhookMessage</p> }
                     @if (webhookError != null) { <p class="text-xs text-red-500 m-0">@webhookError</p> }
                 </section>
+
+                <section class="@Card mt-4">
+                    <div class="flex items-baseline justify-between">
+                        <h2 class="@H2">Delivery log</h2>
+                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries">
+                            @(loadingDeliveries ? "…" : "Refresh")
+                        </button>
+                    </div>
+                    <p class="@Muted m-0">Last 25 delivery attempts for this store. Replays re-fire the event with the same payload and add a new row to the log.</p>
+                    @if (deliveries is null)
+                    {
+                        <p class="@Muted m-0">Loading…</p>
+                    }
+                    else if (deliveries.Count == 0)
+                    {
+                        <p class="@Muted m-0">No deliveries yet. Save a webhook URL and send a test event to see it here.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-none p-0 m-0 flex flex-col gap-2">
+                            @foreach (var d in deliveries)
+                            {
+                                var pillBg = d.Success
+                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                    : (d.StatusCode is null
+                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300");
+                                var pillLabel = d.StatusCode?.ToString() ?? "network err";
+                                <li class="p-3 border border-slate-200 dark:border-dgb-800 rounded-lg">
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span class="text-xs font-semibold px-2 py-0.5 rounded-full @pillBg">@pillLabel</span>
+                                                <span class="font-semibold text-sm text-slate-900 dark:text-white">@d.EventName</span>
+                                                @if (d.Attempt > 1) { <span class="@Muted">· attempt @d.Attempt</span> }
+                                            </div>
+                                            <div class="@Muted mt-1">
+                                                @d.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                                @(d.DurationMs is null ? "" : $" · {d.DurationMs}ms")
+                                                @(string.IsNullOrEmpty(d.SessionId) ? "" : $" · {d.SessionId}")
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(d.ErrorMessage))
+                                            {
+                                                <div class="font-mono text-xs text-red-500 dark:text-red-400 mt-1 break-all">@d.ErrorMessage</div>
+                                            }
+                                            else if (!string.IsNullOrEmpty(d.ResponseSnippet))
+                                            {
+                                                <div class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 break-all max-w-xl">@(d.ResponseSnippet.Length > 160 ? d.ResponseSnippet[..160] + "…" : d.ResponseSnippet)</div>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(d.SessionId) && !d.SessionId.StartsWith("ses_test_"))
+                                        {
+                                            <button class="@BtnGhost text-xs py-1.5 px-3 shrink-0" @onclick="() => ReplayDeliveryAsync(d.Id)" disabled="@replayingId.Equals(d.Id)">
+                                                @(replayingId == d.Id ? "Replaying…" : "Replay")
+                                            </button>
+                                        }
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
             }
             else if (activeTab == "stores")
             {
@@ -503,6 +565,10 @@ else
     private string? webhookMessage;
     private string? webhookError;
 
+    private List<WebhookDeliveryDto>? deliveries;
+    private bool loadingDeliveries;
+    private string replayingId = "";
+
     private int? expiryInput;
     private bool expiryBusy;
     private string? expiryMessage;
@@ -591,6 +657,7 @@ else
         webhookInput = activeStore.WebhookUrl ?? "";
         expiryInput = activeStore.DefaultSessionExpiryMinutes;
         await LoadSessionsAsync();
+        await LoadDeliveriesAsync();
         if (activeStore.HasReceive) await LoadDonationAddressAsync();
         else donationAddress = null;
     }
@@ -600,6 +667,7 @@ else
         // Reset store-scoped state, reload everything for the new active store.
         donationAddress = null;
         sessions = null;
+        deliveries = null;
         createdSession = null;
         showEditReceive = false;
         receiveInput = "";
@@ -761,10 +829,49 @@ else
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, $"/v1/pay/stores/{activeStoreId}/webhook/test"));
             if (!response.IsSuccessStatusCode) { webhookError = await response.Content.ReadAsStringAsync(); return; }
-            webhookMessage = "Test event dispatched — check your server logs for a 'webhook.test' POST.";
+            webhookMessage = "Test event dispatched — see the delivery log below for the result.";
+            await LoadDeliveriesAsync();
         }
         catch (Exception ex) { webhookError = ex.Message; }
         finally { webhookBusy = false; StateHasChanged(); }
+    }
+
+    private async Task LoadDeliveriesAsync()
+    {
+        if (activeStore is null) return;
+        loadingDeliveries = true; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get,
+                $"/v1/pay/stores/{activeStoreId}/webhook-deliveries"));
+            if (response.IsSuccessStatusCode)
+            {
+                deliveries = await response.Content.ReadFromJsonAsync<List<WebhookDeliveryDto>>() ?? new();
+            }
+        }
+        catch { /* non-fatal; the ref stays null and the tab shows "loading…" */ }
+        finally { loadingDeliveries = false; StateHasChanged(); }
+    }
+
+    private async Task ReplayDeliveryAsync(string deliveryId)
+    {
+        if (activeStore is null) return;
+        replayingId = deliveryId; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post,
+                $"/v1/pay/stores/{activeStoreId}/webhook-deliveries/{deliveryId}/replay"));
+            if (!response.IsSuccessStatusCode)
+            {
+                webhookError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            await LoadDeliveriesAsync();
+        }
+        catch (Exception ex) { webhookError = ex.Message; }
+        finally { replayingId = ""; StateHasChanged(); }
     }
 
     private async Task SaveExpiryAsync()
@@ -968,4 +1075,9 @@ else
 
     private record CreatedApiKeyDto(string Id, string? Label, string Prefix,
         DateTime CreatedAt, string ApiKey);
+
+    private record WebhookDeliveryDto(string Id, string StoreId, string? SessionId,
+        string EventName, string Url, int Attempt, int? StatusCode, string? ErrorMessage,
+        int? DurationMs, string? ResponseSnippet,
+        DateTime CreatedAt, DateTime? DeliveredAt, bool Success);
 }
