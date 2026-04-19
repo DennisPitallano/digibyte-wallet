@@ -2,17 +2,26 @@
 
 @{
     var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
-    string cls(string p) => path == p || (p.Length > 1 && path.StartsWith(p)) ? "is-active" : "";
+    string cls(string p) => path == p || (p.Length > 1 && path.StartsWith(p))
+        ? "text-slate-900 dark:text-white"
+        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
 }
 
-<nav class="dp-nav">
-    <div class="dp-nav__inner">
-        <a href="/" class="dp-nav__brand"><span class="dp-nav__brand-dot"></span> DigiPay</a>
-        <div class="dp-nav__links">
-            <a href="/docs" class="@cls("/docs")">How it works</a>
-            <a href="/docs/api" class="@cls("/docs/api")">Developers</a>
+<nav class="border-b border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-6">
+        <a href="/" class="flex items-center gap-2 font-bold text-slate-900 dark:text-white no-underline text-[0.9375rem] sm:text-base">
+            <span class="w-2.5 h-2.5 rounded-full bg-dgb-500 shrink-0"></span>
+            DigiPay
+        </a>
+        <div class="hidden sm:flex gap-5 flex-1">
+            <a href="/docs" class="@cls("/docs") text-sm font-medium no-underline transition-colors">How it works</a>
+            <a href="/docs/api" class="@cls("/docs/api") text-sm font-medium no-underline transition-colors">Developers</a>
         </div>
+        <div class="flex-1 sm:hidden"></div>
         <ThemeToggle />
-        <a href="/merchant/signin" class="dp-nav__cta">Sign in</a>
+        <a href="/merchant/signin"
+           class="px-3 py-2 bg-dgb-500 hover:bg-dgb-600 text-white no-underline rounded-lg text-[0.8125rem] font-semibold transition-colors">
+            Sign in
+        </a>
     </div>
 </nav>

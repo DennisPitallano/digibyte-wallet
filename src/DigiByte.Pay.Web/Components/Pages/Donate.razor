@@ -3,43 +3,43 @@
 
 <PageTitle>@(string.IsNullOrEmpty(Name) ? "Pay with DigiByte" : $"Tip {Name}")</PageTitle>
 
-<link rel="stylesheet" href="css/checkout.css" />
-
-<main class="dp-checkout">
-    @if (!isValid)
-    {
-        <div class="dp-card dp-card--error">
-            <h2>Invalid donation link</h2>
-            <p>Missing or invalid <code>to</code> parameter.</p>
-        </div>
-    }
-    else
-    {
-        <div class="dp-card">
-            <div class="dp-row dp-row--center">
-                <div>
-                    <div class="dp-eyebrow">TIP</div>
-                    <div class="dp-merchant">@(string.IsNullOrEmpty(Name) ? "DigiByte" : Name)</div>
-                </div>
+<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <div class="w-full max-w-md">
+        @if (!isValid)
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 text-center shadow-sm">
+                <h2 class="text-lg font-bold m-0 mb-2">Invalid donation link</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Missing or invalid <code class="px-1 bg-slate-100 dark:bg-dgb-800 rounded">to</code> parameter.</p>
             </div>
+        }
+        else
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm">
+                <div class="text-center">
+                    <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">TIP</div>
+                    <div class="text-sm font-bold">@(string.IsNullOrEmpty(Name) ? "DigiByte" : Name)</div>
+                </div>
 
-            @if (amount > 0)
-            {
-                <div class="dp-amount">@amount.ToString("0.########") DGB</div>
-            }
+                @if (amount > 0)
+                {
+                    <div class="text-3xl sm:text-4xl font-bold tabular-nums">@amount.ToString("0.########") DGB</div>
+                }
 
-            <div class="dp-qr"><img src="@qrDataUrl" alt="Scan to pay" /></div>
+                <div class="bg-white p-3 rounded-2xl shadow-inner">
+                    <img src="@qrDataUrl" alt="Scan to pay" class="block w-56 h-56 rounded-lg" />
+                </div>
 
-            <a href="@BipUri" class="dp-button">Open in wallet</a>
+                <a href="@BipUri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
 
-            <div class="dp-address">@To</div>
+                <div class="w-full font-mono text-[0.6875rem] text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800">@To</div>
 
-            @if (!string.IsNullOrEmpty(Label))
-            {
-                <p class="dp-muted dp-center">@Label</p>
-            }
-        </div>
-    }
+                @if (!string.IsNullOrEmpty(Label))
+                {
+                    <p class="text-xs text-center text-slate-500 dark:text-slate-400 m-0">@Label</p>
+                }
+            </div>
+        }
+    </div>
 </main>
 
 @code {

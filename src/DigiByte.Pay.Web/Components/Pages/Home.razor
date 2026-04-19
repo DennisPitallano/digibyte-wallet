@@ -2,107 +2,88 @@
 
 <PageTitle>DigiPay — accept DigiByte on your site</PageTitle>
 
-<link rel="stylesheet" href="css/checkout.css" />
-<link rel="stylesheet" href="css/site.css" />
-
-<div class="dp-site">
+<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
     <SiteNav />
 
-    <main class="dp-site__main">
-        <section class="dp-hero">
-            <div class="dp-hero__eyebrow">Non-custodial · Digi-ID auth · 15-second blocks</div>
-            <h1>Accept DigiByte on your site.<br />Without holding a cent of it.</h1>
-            <p>
+    <main class="flex-1">
+        @* Hero *@
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-10 sm:pb-16 text-center">
+            <div class="inline-block px-3 py-1 bg-dgb-500/10 text-dgb-500 rounded-full text-xs font-semibold mb-5">
+                Non-custodial · Digi-ID auth · 15-second blocks
+            </div>
+            <h1 class="text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight max-w-4xl mx-auto">
+                Accept DigiByte on your site.<br class="hidden sm:block" />
+                <span class="sm:inline"> Without holding a cent of it.</span>
+            </h1>
+            <p class="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
                 DigiPay derives a fresh address per invoice from your wallet's xpub, watches the chain,
                 and notifies your server the moment a payment lands. Sign in with Digi-ID, paste an
                 xpub, start accepting DGB in under a minute.
             </p>
-            <div class="dp-hero__ctas">
-                <a href="/merchant/signin" class="primary">Start accepting DGB →</a>
-                <a href="/docs" class="secondary">How it works</a>
+            <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+                <a href="/merchant/signin"
+                   class="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                    Start accepting DGB →
+                </a>
+                <a href="/docs"
+                   class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm sm:text-base no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                    How it works
+                </a>
             </div>
         </section>
 
-        <section class="dp-section">
-            <p class="dp-section__eyebrow">What you get</p>
-            <h2>Everything you need, nothing you don't</h2>
-            <div class="dp-features">
-                <div class="dp-feature">
-                    <div class="dp-feature__icon">⚡</div>
-                    <h3>Hosted checkout</h3>
-                    <p>A buyer-facing page with QR + wallet deep link. Live status via SignalR — no polling your merchant UI.</p>
-                </div>
-                <div class="dp-feature">
-                    <div class="dp-feature__icon">🔐</div>
-                    <h3>Non-custodial</h3>
-                    <p>Payments go straight to your wallet. DigiPay never holds keys or funds — you don't need to trust us with anything.</p>
-                </div>
-                <div class="dp-feature">
-                    <div class="dp-feature__icon">🔔</div>
-                    <h3>Signed webhooks</h3>
-                    <p>HMAC-SHA256 POST on every state change: seen, paid, confirmed, expired, underpaid. Late payments reconcile for 3 days.</p>
-                </div>
-                <div class="dp-feature">
-                    <div class="dp-feature__icon">🔘</div>
-                    <h3>Donation button</h3>
-                    <p>Zero-backend tip jar — paste a single <code>&lt;a&gt;</code> tag or a data-attribute on any page.</p>
-                </div>
-                <div class="dp-feature">
-                    <div class="dp-feature__icon">📦</div>
-                    <h3>7 KB JS embed</h3>
-                    <p>Drop-in script opens the checkout as a modal on the merchant's own page — buyer never leaves your site.</p>
-                </div>
-                <div class="dp-feature">
-                    <div class="dp-feature__icon">🆔</div>
-                    <h3>Sign in with Digi-ID</h3>
-                    <p>No password, no email, no KYC. Your DigiByte wallet is your account — sign a challenge, you're in.</p>
-                </div>
+        @* Features *@
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">What you get</p>
+            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">Everything you need, nothing you don't</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                <Feature Icon="⚡" Title="Hosted checkout"
+                    Body="A buyer-facing page with QR + wallet deep link. Live status via SignalR — no polling your merchant UI." />
+                <Feature Icon="🔐" Title="Non-custodial"
+                    Body="Payments go straight to your wallet. DigiPay never holds keys or funds — you don't need to trust us with anything." />
+                <Feature Icon="🔔" Title="Signed webhooks"
+                    Body="HMAC-SHA256 POST on every state change: seen, paid, confirmed, expired, underpaid. Late payments reconcile for 3 days." />
+                <Feature Icon="🔘" Title="Donation button"
+                    Body="Zero-backend tip jar — paste a single anchor tag or a data-attribute on any page." />
+                <Feature Icon="📦" Title="7 KB JS embed"
+                    Body="Drop-in script opens the checkout as a modal on the merchant's own page — buyer never leaves your site." />
+                <Feature Icon="🆔" Title="Sign in with Digi-ID"
+                    Body="No password, no email, no KYC. Your DigiByte wallet is your account — sign a challenge, you're in." />
             </div>
         </section>
 
-        <section class="dp-section">
-            <p class="dp-section__eyebrow">How it works</p>
-            <h2>From zero to first payment in four steps</h2>
-            <div class="dp-steps">
-                <div class="dp-step">
-                    <div class="dp-step__n">1</div>
-                    <div>
-                        <h3>Sign in with Digi-ID</h3>
-                        <p>Scan a QR with your DigiByte wallet. No account, no password — your wallet is your identity.</p>
-                    </div>
-                </div>
-                <div class="dp-step">
-                    <div class="dp-step__n">2</div>
-                    <div>
-                        <h3>Paste an xpub or address</h3>
-                        <p>Account-level xpub gives you a fresh address per invoice (recommended). A single address works too for tip jars.</p>
-                    </div>
-                </div>
-                <div class="dp-step">
-                    <div class="dp-step__n">3</div>
-                    <div>
-                        <h3>Create a session</h3>
-                        <p>One POST from your server returns a <code>checkout_url</code>. Redirect your buyer there, or open it as a modal with our 7 KB embed.</p>
-                    </div>
-                </div>
-                <div class="dp-step">
-                    <div class="dp-step__n">4</div>
-                    <div>
-                        <h3>Get paid, get notified</h3>
-                        <p>Buyer pays. DigiPay detects the tx in the mempool, tracks confirmations, and POSTs a signed webhook to your server at each state change.</p>
-                    </div>
-                </div>
+        @* Steps *@
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">How it works</p>
+            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">From zero to first payment in four steps</h2>
+            <div class="grid gap-3 max-w-2xl mx-auto">
+                <Step N="1" Title="Sign in with Digi-ID"
+                    Body="Scan a QR with your DigiByte wallet. No account, no password — your wallet is your identity." />
+                <Step N="2" Title="Paste an xpub or address"
+                    Body="Account-level xpub gives you a fresh address per invoice (recommended). A single address works too for tip jars." />
+                <Step N="3" Title="Create a session"
+                    Body="One POST from your server returns a checkout_url. Redirect your buyer there, or open it as a modal with our 7 KB embed." />
+                <Step N="4" Title="Get paid, get notified"
+                    Body="Buyer pays. DigiPay detects the tx in the mempool, tracks confirmations, and POSTs a signed webhook to your server at each state change." />
             </div>
-            <div style="text-align: center; margin-top: 2rem;">
-                <a href="/docs" class="dp-hero__ctas" style="display: inline-flex;"><span class="secondary">Read the tutorial</span></a>
+            <div class="text-center mt-8">
+                <a href="/docs" class="inline-flex items-center justify-center px-5 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                    Read the tutorial
+                </a>
             </div>
         </section>
 
-        <section class="dp-section" style="text-align: center;">
-            <h2>Ready?</h2>
-            <div class="dp-hero__ctas" style="margin-top: 0;">
-                <a href="/merchant/signin" class="primary">Start accepting DGB</a>
-                <a href="/docs/api" class="secondary">API reference</a>
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center">
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight">Ready?</h2>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <a href="/merchant/signin"
+                   class="inline-flex items-center justify-center px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                    Start accepting DGB
+                </a>
+                <a href="/docs/api"
+                   class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm sm:text-base no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                    API reference
+                </a>
             </div>
         </section>
     </main>

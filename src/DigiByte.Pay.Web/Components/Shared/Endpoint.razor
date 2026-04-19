@@ -1,0 +1,23 @@
+@{
+    var (bg, fg) = Method switch
+    {
+        "GET"    => ("bg-emerald-100 dark:bg-emerald-900/30", "text-emerald-700 dark:text-emerald-300"),
+        "POST"   => ("bg-blue-100 dark:bg-blue-900/30",       "text-blue-700 dark:text-blue-300"),
+        "PATCH"  => ("bg-amber-100 dark:bg-amber-900/30",     "text-amber-700 dark:text-amber-300"),
+        "DELETE" => ("bg-red-100 dark:bg-red-900/30",         "text-red-700 dark:text-red-300"),
+        _        => ("bg-slate-100 dark:bg-slate-800",        "text-slate-700 dark:text-slate-300"),
+    };
+}
+<div class="my-5 p-4 sm:p-5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl">
+    <div class="flex items-center gap-2 mb-3 font-mono text-[0.8125rem] sm:text-sm flex-wrap">
+        <span class="@bg @fg px-2 py-0.5 rounded text-[0.6875rem] font-bold tracking-wider">@Method</span>
+        <span class="break-all">@Path</span>
+    </div>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string Method { get; set; } = "GET";
+    [Parameter] public string Path { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

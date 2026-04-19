@@ -8,44 +8,44 @@
 
 <PageTitle>Sign in — DigiPay</PageTitle>
 
-<link rel="stylesheet" href="css/checkout.css" />
-
-<main class="dp-checkout">
-    <div class="dp-card">
-        <div class="dp-row dp-row--center">
-            <div>
-                <div class="dp-eyebrow">DIGIPAY</div>
-                <div class="dp-merchant">Sign in with Digi-ID</div>
+<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <div class="w-full max-w-md">
+        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm">
+            <div class="text-center">
+                <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">DIGIPAY</div>
+                <div class="text-sm font-bold">Sign in with Digi-ID</div>
             </div>
+
+            @if (loadError != null)
+            {
+                <p class="text-xs text-center text-slate-500 dark:text-slate-400 m-0">@loadError</p>
+            }
+            else if (challenge == null)
+            {
+                <p class="text-xs text-center text-slate-500 dark:text-slate-400 m-0">Loading…</p>
+            }
+            else if (signed != null)
+            {
+                <div class="flex flex-col items-center gap-3 py-6 text-center">
+                    <div class="w-14 h-14 rounded-full bg-emerald-500 text-white text-2xl font-bold flex items-center justify-center">✓</div>
+                    <h3 class="text-base font-bold m-0 text-slate-900 dark:text-white">Signed in</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs m-0">Welcome back, <strong>@signed.DisplayName</strong>.</p>
+                    <p class="text-[0.625rem] font-mono text-slate-400 dark:text-slate-500 break-all m-0">@signed.MerchantId</p>
+                </div>
+            }
+            else
+            {
+                <p class="text-xs text-center text-slate-500 dark:text-slate-400 m-0">Scan the QR with your DigiByte wallet to sign in. The page will advance automatically.</p>
+
+                <div class="bg-white p-3 rounded-2xl shadow-inner">
+                    <img src="@qrDataUrl" alt="Scan to sign in" class="block w-56 h-56 rounded-lg" />
+                </div>
+
+                <a href="@challenge.Uri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
+
+                <div class="text-[0.6875rem] text-slate-500 dark:text-slate-400">Polling for signature… @pollCount</div>
+            }
         </div>
-
-        @if (loadError != null)
-        {
-            <p class="dp-muted dp-center">@loadError</p>
-        }
-        else if (challenge == null)
-        {
-            <p class="dp-muted dp-center">Loading…</p>
-        }
-        else if (signed != null)
-        {
-            <div class="dp-terminal">
-                <div class="dp-terminal__icon dp-terminal__icon--ok">✓</div>
-                <h3>Signed in</h3>
-                <p>Welcome back, <strong>@signed.DisplayName</strong>.</p>
-                <p class="dp-terminal__txid">@signed.MerchantId</p>
-            </div>
-        }
-        else
-        {
-            <p class="dp-muted dp-center">Scan the QR with your DigiByte wallet to sign in. The page will advance automatically.</p>
-
-            <div class="dp-qr"><img src="@qrDataUrl" alt="Scan to sign in" /></div>
-
-            <a href="@challenge.Uri" class="dp-button">Open in wallet</a>
-
-            <div class="dp-expiry">Polling for signature… @pollCount</div>
-        }
     </div>
 </main>
 

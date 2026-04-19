@@ -1,15 +1,18 @@
 @{
-    var (cssClass, label) = Status switch
+    var (cls, dotCls, label, pulse) = Status switch
     {
-        "seen" => ("dp-pill dp-pill--seen", "Detected"),
-        "paid" => ("dp-pill dp-pill--paid", "Paid"),
-        "confirmed" => ("dp-pill dp-pill--confirmed", "Confirmed"),
-        "underpaid" => ("dp-pill dp-pill--warn", "Underpaid"),
-        "expired" => ("dp-pill dp-pill--neutral", "Expired"),
-        _ => ("dp-pill dp-pill--neutral", "Waiting"),
+        "seen"      => ("bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300",     "bg-amber-500",   "Detected",  true),
+        "paid"      => ("bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300", "bg-emerald-500", "Paid",      true),
+        "confirmed" => ("bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300", "bg-emerald-500", "Confirmed", false),
+        "underpaid" => ("bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300",             "bg-red-500",     "Underpaid", false),
+        "expired"   => ("bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300",          "bg-slate-400",   "Expired",   false),
+        _           => ("bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300",          "bg-slate-400",   "Waiting",   false),
     };
 }
-<div class="@cssClass"><span class="dp-pill__dot"></span>@label</div>
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[0.6875rem] font-semibold @cls">
+    <span class="w-1.5 h-1.5 rounded-full @dotCls @(pulse ? "animate-dp-pulse" : "")"></span>
+    @label
+</div>
 
 @code {
     [Parameter] public string Status { get; set; } = "pending";

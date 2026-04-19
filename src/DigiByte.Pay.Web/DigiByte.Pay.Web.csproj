@@ -16,4 +16,9 @@
     <ProjectReference Include="..\DigiByte.Crypto\DigiByte.Crypto.csproj" />
   </ItemGroup>
 
+  <!-- Rebuild Tailwind CSS on build (purged & minified) -->
+  <Target Name="BuildTailwindCSS" BeforeTargets="Build" Condition="Exists('node_modules/.package-lock.json')">
+    <Exec Command="npx tailwindcss -i ./wwwroot/css/tailwind-input.css -o ./wwwroot/css/tailwind.css --minify" />
+  </Target>
+
 </Project>

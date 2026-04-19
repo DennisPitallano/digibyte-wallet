@@ -8,46 +8,50 @@
 
 <PageTitle>@PageTitleText</PageTitle>
 
-<link rel="stylesheet" href="css/checkout.css" />
+<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <div class="w-full max-w-md">
+        @if (loadError != null)
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 text-center shadow-sm">
+                <h2 class="text-lg font-bold m-0 mb-2">Payment link unavailable</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">@loadError</p>
+            </div>
+        }
+        else if (session == null)
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 text-center shadow-sm">
+                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Loading…</p>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm">
+                <header class="w-full flex items-start justify-between gap-4">
+                    <div>
+                        <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">PAY</div>
+                        <div class="text-sm font-bold">@(merchantName ?? "Merchant")</div>
+                    </div>
+                    <CheckoutStatusPill Status="@session.Status" />
+                </header>
 
-<main class="dp-checkout">
-    @if (loadError != null)
-    {
-        <div class="dp-card dp-card--error">
-            <h2>Payment link unavailable</h2>
-            <p>@loadError</p>
-        </div>
-    }
-    else if (session == null)
-    {
-        <div class="dp-card"><p class="dp-muted">Loading…</p></div>
-    }
-    else
-    {
-        <div class="dp-card">
-            <header class="dp-row">
-                <div>
-                    <div class="dp-eyebrow">PAY</div>
-                    <div class="dp-merchant">@(merchantName ?? "Merchant")</div>
-                </div>
-                <CheckoutStatusPill Status="@session.Status" />
-            </header>
+                <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatDgb(session.AmountSatoshis) DGB</div>
 
-            <div class="dp-amount">@FormatDgb(session.AmountSatoshis) DGB</div>
-
-            @if (IsTerminal(session.Status))
-            {
-                <TerminalState Status="@session.Status" Txid="@session.PaidTxid" />
-            }
-            else
-            {
-                <div class="dp-qr"><img src="@qrDataUrl" alt="Scan to pay" /></div>
-                <a href="@session.Uri" class="dp-button">Open in wallet</a>
-                <div class="dp-address">@session.Address</div>
-                <div class="dp-expiry">Expires in @timeLeft</div>
-            }
-        </div>
-    }
+                @if (IsTerminal(session.Status))
+                {
+                    <TerminalState Status="@session.Status" Txid="@session.PaidTxid" />
+                }
+                else
+                {
+                    <div class="bg-white p-3 rounded-2xl shadow-inner">
+                        <img src="@qrDataUrl" alt="Scan to pay" class="block w-56 h-56 rounded-lg" />
+                    </div>
+                    <a href="@session.Uri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
+                    <div class="w-full font-mono text-[0.6875rem] text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800">@session.Address</div>
+                    <div class="text-[0.6875rem] text-slate-500 dark:text-slate-400">Expires in @timeLeft</div>
+                }
+            </div>
+        }
+    </div>
 </main>
 
 @code {
