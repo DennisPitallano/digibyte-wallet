@@ -85,6 +85,17 @@ DigiPay.close();</pre>
             var resetBtn = document.getElementById('sim-reset');
             var status = document.getElementById('sim-status');
 
+            // The iframe's checkout-countdown.js posts "ready" when its message
+            // listener is installed. Replay the last-known status if the user
+            // clicked Advance before the iframe finished loading.
+            var lastStatusMsg = null;
+            window.addEventListener('message', function (e) {
+                if (!e.data || e.data.type !== 'digipay-checkout-ready') return;
+                if (!lastStatusMsg) return;
+                var iframe = document.querySelector('.digipay-modal iframe');
+                if (iframe) iframe.contentWindow.postMessage(lastStatusMsg, '*');
+            });
+
             // The Pay.Api runs on a different port than Pay.Web in dev, so we
             // probe a couple of common ones. In prod this endpoint is 404 anyway.
             var apiCandidates = [apiOrigin.replace(/:\d+$/, ':5008'), apiOrigin];
@@ -129,14 +140,19 @@ DigiPay.close();</pre>
                         (body.paidTxid ? ' · txid <code>' + body.paidTxid.slice(0, 16) + '…</code>' : '');
                     // Tell the iframe's checkout-countdown.js listener to flip the
                     // pill — Blazor's SignalR circuit doesn't reliably hydrate in
-                    // an iframe, so we bypass it for the demo.
-                    var iframe = document.querySelector('.digipay-modal iframe');
-                    if (iframe) iframe.contentWindow.postMessage({
+                    // an iframe, so we bypass it for the demo. We also remember
+                    // the last message so the "ready" ping from the iframe can
+                    // replay it — covers the race where the user clicks Advance
+                    // before the iframe's JS listener is installed.
+                    var msg = {
                         type: 'digipay-demo-status',
                         status: body.status,
                         confirmations: body.confirmations,
                         paidTxid: body.paidTxid,
-                    }, '*');
+                    };
+                    lastStatusMsg = msg;
+                    var iframe = document.querySelector('.digipay-modal iframe');
+                    if (iframe) iframe.contentWindow.postMessage(msg, '*');
                     if (body.status === 'confirmed') advanceBtn.disabled = true;
                 } catch (e) {
                     status.textContent = 'Advance failed: ' + e.message;
@@ -145,6 +161,7 @@ DigiPay.close();</pre>
 
             resetBtn.addEventListener('click', function () {
                 simSes = null;
+                lastStatusMsg = null;
                 DigiPay.close();
                 startBtn.disabled = false;
                 advanceBtn.disabled = true;

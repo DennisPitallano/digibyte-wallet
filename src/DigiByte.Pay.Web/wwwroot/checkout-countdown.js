@@ -49,6 +49,14 @@
     // an iframe, SignalR pushes never reach our Checkout.razor. The demo's
     // advance button posts the new status here and we update the pill DOM
     // directly — pure additive, the production SignalR path is untouched.
+    //
+    // Announce readiness so the parent knows when it can reliably postMessage
+    // us — covers the race where Advance is clicked before the iframe's JS
+    // listener is installed. The parent can queue its last state update and
+    // replay it on receipt of this ping.
+    if (window.parent !== window) {
+        try { window.parent.postMessage({ type: 'digipay-checkout-ready' }, '*'); } catch (_) { }
+    }
     window.addEventListener('message', function (e) {
         if (!e.data || e.data.type !== 'digipay-demo-status') return;
         var status = String(e.data.status || '').toLowerCase();
