@@ -22,13 +22,29 @@ else if (me == null)
 else
 {
     <div class="dp-admin">
-        <aside class="dp-admin__aside">
+        @* Mobile top bar — only visible <720px via CSS. Hamburger toggles the off-canvas sidebar. *@
+        <header class="dp-admin__topbar">
+            <button class="dp-admin__hamburger @(sidebarOpen ? "is-open" : "")"
+                    @onclick="() => sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="dp-admin__topbar-brand"><span class="dp-admin__brand-dot"></span> DigiPay</div>
+            <div class="dp-admin__topbar-spacer"></div>
+            <div class="dp-admin__topbar-merchant">
+                <strong>@me.DisplayName</strong>
+                <button class="dp-btn dp-btn--ghost" style="padding:0.25rem 0.5rem;font-size:0.6875rem;margin-top:0.125rem;" @onclick="SignOutAsync">Sign out</button>
+            </div>
+        </header>
+
+        <div class="dp-admin__backdrop @(sidebarOpen ? "is-open" : "")" @onclick="() => sidebarOpen = false"></div>
+
+        <aside class="dp-admin__aside @(sidebarOpen ? "is-open" : "")">
             <div class="dp-admin__brand"><span class="dp-admin__brand-dot"></span> DigiPay</div>
             <nav class="dp-admin__nav">
                 @foreach (var tab in tabs)
                 {
                     var t = tab;
-                    <button class="@(activeTab == t.Key ? "is-active" : "")" @onclick="() => activeTab = t.Key">
+                    <button class="@(activeTab == t.Key ? "is-active" : "")" @onclick="() => SwitchTab(t.Key)">
                         <span class="dp-admin__nav-icon">@t.Icon</span>
                         @t.Label
                     </button>
@@ -55,7 +71,7 @@ else
                     <section class="dp-card">
                         <h2>Configure where to receive payments</h2>
                         <p class="dp-muted">Before you can create sessions, set a DigiByte address or BIP84 xpub in Settings.</p>
-                        <button class="dp-btn" @onclick='() => activeTab = "settings"'>Go to Settings</button>
+                        <button class="dp-btn" @onclick='() => SwitchTab("settings")'>Go to Settings</button>
                     </section>
                 }
                 else
@@ -250,6 +266,13 @@ else
         new TabDef("settings",  "Settings",        "⚙"),
     };
     private string activeTab = "overview";
+    private bool sidebarOpen;
+
+    private void SwitchTab(string key)
+    {
+        activeTab = key;
+        sidebarOpen = false; // auto-dismiss the mobile drawer after a tab click
+    }
 
     private string? token;
     private MeDto? me;
