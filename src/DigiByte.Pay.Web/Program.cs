@@ -49,6 +49,17 @@ if (!app.Environment.IsProduction())
 
 app.UseAntiforgery();
 
+// Uniform /api/health across every service in the deployment — Railway's
+// healthcheck default in railway.toml hits this path, and Pay.Api +
+// DigiByte.Api + NodeApi all already serve it. Keeps the [deploy] block
+// in railway.toml valid for Pay.Web too.
+app.MapGet("/api/health", () => Results.Ok(new
+{
+    service = "DigiByte.Pay.Web",
+    status = "healthy",
+    timestamp = DateTime.UtcNow,
+}));
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
