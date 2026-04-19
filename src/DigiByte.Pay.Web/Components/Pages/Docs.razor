@@ -29,7 +29,7 @@
             <DocsHeading>3. Create a session</DocsHeading>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">From your server, POST to <InlineCode>/v1/pay/sessions</InlineCode> with the amount in DGB. You get back an invoice URL your buyer can load, plus a BIP21 URI any DigiByte wallet understands.</p>
             <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"amount\": 12.5, \"label\": \"Order #4201\"}'")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Redirect the buyer to the returned <InlineCode>checkout_url</InlineCode>, or open it in-page with the JS embed:</p>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Redirect the buyer to the returned <InlineCode>checkout_url</InlineCode>, or open it in-page with the JS embed (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">live demo →</a>):</p>
             <CodeBlock>@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<button data-digipay-checkout data-session-id=\"ses_...\">Pay with DigiByte</button>")</CodeBlock>
 
             <DocsHeading>4. What the buyer sees</DocsHeading>

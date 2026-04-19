@@ -64,7 +64,10 @@
             <CodeBlock>@("const crypto = require('crypto');\n\napp.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {\n  const expected = 'sha256=' +\n    crypto.createHmac('sha256', process.env.DIGIPAY_SECRET)\n          .update(req.body).digest('hex');\n  const provided = req.headers['x-digipay-signature'];\n  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided))) {\n    return res.status(401).end();\n  }\n  const event = JSON.parse(req.body.toString());\n  // ... reconcile event.session.id in your database ...\n  res.status(200).end();\n});")</CodeBlock>
 
             <DocsHeading>Embed widget</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">The JS embed is hosted at <InlineCode>/embed/digipay.js</InlineCode>. ~7 KB, no dependencies, derives its own origin from the script src.</p>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                The JS embed is hosted at <InlineCode>/embed/digipay.js</InlineCode>. ~7 KB, no dependencies, derives its own origin from the script src.
+                <a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">Try it live →</a>
+            </p>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-2">Programmatic:</p>
             <CodeBlock>@("DigiPay.checkout({ sessionId: 'ses_abc' });  // opens iframe modal\nDigiPay.close();                              // dismiss it\nconst a = DigiPay.button({ address: 'dgb1...', amount: 5, name: 'Shop' });\ndocument.body.appendChild(a);")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2">Declarative:</p>
