@@ -16,6 +16,13 @@
         <div class="hidden sm:flex gap-5 flex-1 items-center">
             <a href="/docs" class="@cls("/docs") text-sm font-medium no-underline transition-colors">How it works</a>
             <a href="/docs/api" class="@cls("/docs/api") text-sm font-medium no-underline transition-colors">Developers</a>
+            @* Only surfaced when signed in — the boot script sets
+               data-digipay-auth on <html>, the CSS in App.razor toggles visibility. *@
+            <a href="/merchant" data-auth-show="in"
+               class="@cls("/merchant") text-sm font-medium no-underline transition-colors inline-flex items-center gap-1">
+                <Icon Name="dashboard" Class="w-3.5 h-3.5" />
+                Dashboard
+            </a>
             @* Outbound — the main DigiByte wallet PWA lives on its own domain. *@
             <a href="https://dgbwallet.app" target="_blank" rel="noopener"
                class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-sm font-medium no-underline transition-colors inline-flex items-center gap-1">
@@ -25,9 +32,16 @@
         </div>
         <div class="flex-1 sm:hidden"></div>
         <ThemeToggle />
-        <a href="/merchant/signin"
+        @* Signed out: "Sign in" CTA. Signed in: "Dashboard" CTA so mobile users
+           (who don't see the inline nav link above) also get a one-tap path. *@
+        <a href="/merchant/signin" data-auth-show="out"
            class="px-3 py-2 bg-dgb-500 hover:bg-dgb-600 text-white no-underline rounded-lg text-[0.8125rem] font-semibold transition-colors">
             Sign in
+        </a>
+        <a href="/merchant" data-auth-show="in"
+           class="px-3 py-2 bg-dgb-500 hover:bg-dgb-600 text-white no-underline rounded-lg text-[0.8125rem] font-semibold transition-colors inline-flex items-center gap-1.5">
+            <Icon Name="dashboard" Class="w-3.5 h-3.5" />
+            Dashboard
         </a>
     </div>
 </nav>

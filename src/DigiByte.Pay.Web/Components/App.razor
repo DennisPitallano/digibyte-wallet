@@ -13,6 +13,10 @@
     @* Theme boot script — must run synchronously in <head> to set data-theme
        on <html> before first paint. Prevents FOUC on the initial SSR render. *@
     <script src="@Assets["theme.js"]"></script>
+    @* Auth-state boot — same pattern, sets data-digipay-auth="yes|no" from
+       localStorage so the nav can show Dashboard vs Sign-in via CSS alone. *@
+    <script src="@Assets["auth-state.js"]"></script>
+    <link rel="stylesheet" href="@Assets["auth-state.css"]" />
 </head>
 
 <body>

@@ -1,0 +1,12 @@
+/*!
+ * Visibility rules paired with auth-state.js. The boot script sets
+ * <html data-digipay-auth="yes|no"> synchronously in <head>, and these
+ * rules toggle which [data-auth-show] variant is visible.
+ *
+ * Before JS runs (or if JS is blocked), both variants are hidden so you
+ * never flash the wrong CTA. Boot is synchronous so the gap is zero
+ * frames in practice.
+ */
+html:not([data-digipay-auth]) [data-auth-show] { visibility: hidden; }
+html[data-digipay-auth="yes"] [data-auth-show="out"] { display: none !important; }
+html[data-digipay-auth="no"]  [data-auth-show="in"]  { display: none !important; }

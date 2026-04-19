@@ -21,16 +21,26 @@
                 xpub, start accepting DGB in under a minute.
             </p>
             <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-                <a href="/merchant/signin"
+                @* Primary CTA swaps based on auth state — boot script sets
+                   data-digipay-auth on <html> before paint, CSS hides whichever
+                   variant doesn't match. *@
+                <a href="/merchant/signin" data-auth-show="out"
                    class="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
                     Start accepting DGB →
+                </a>
+                <a href="/merchant" data-auth-show="in"
+                   class="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                    <Icon Name="dashboard" Class="w-4 h-4" />
+                    Open dashboard →
                 </a>
                 <a href="/docs"
                    class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm sm:text-base no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
                     How it works
                 </a>
             </div>
-            <p class="mt-5 text-xs text-slate-500 dark:text-slate-400">
+            @* Only pitch the wallet to signed-out visitors — signed-in merchants
+               already have a wallet (they signed in with Digi-ID). *@
+            <p class="mt-5 text-xs text-slate-500 dark:text-slate-400" data-auth-show="out">
                 New to DigiByte? Grab a wallet first —
                 <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a>.
             </p>
@@ -221,18 +231,24 @@
         </section>
 
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center">
-            <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight">Ready?</h2>
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight" data-auth-show="out">Ready?</h2>
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight" data-auth-show="in">Jump back in</h2>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                <a href="/merchant/signin"
+                <a href="/merchant/signin" data-auth-show="out"
                    class="inline-flex items-center justify-center px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
                     Start accepting DGB
+                </a>
+                <a href="/merchant" data-auth-show="in"
+                   class="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                    <Icon Name="dashboard" Class="w-4 h-4" />
+                    Open dashboard
                 </a>
                 <a href="/docs/api"
                    class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm sm:text-base no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
                     API reference
                 </a>
             </div>
-            <p class="mt-5 text-xs text-slate-500 dark:text-slate-400">
+            <p class="mt-5 text-xs text-slate-500 dark:text-slate-400" data-auth-show="out">
                 Need a DigiByte wallet to sign in? Install one at
                 <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a>.
             </p>
