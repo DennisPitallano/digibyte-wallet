@@ -1,0 +1,28 @@
+@* Branded loader: DigiByte logo nested inside a spinning dgb-blue ring.
+   Use for page-level "Loading…" states (Dashboard bootstrap, Checkout
+   session fetch, Session detail fetch). For tiny inline loaders a plain
+   "Loading…" or "…" string is still fine. *@
+<div class="flex flex-col items-center justify-center @Class">
+    <div class="relative w-14 h-14">
+        @* Static track, then spinning arc overlaid — same trick Tailwind's
+           docs spinner uses but shaped to the square tile so it frames the
+           logo nicely. *@
+        <div class="absolute inset-0 rounded-2xl border-2 border-dgb-500/15"></div>
+        <div class="absolute inset-0 rounded-2xl border-2 border-dgb-500 border-r-transparent border-b-transparent animate-spin"></div>
+        <div class="absolute inset-0 flex items-center justify-center">
+            <img src="/digibyte-logo.svg" alt="" class="w-8 h-8" aria-hidden="true" />
+        </div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Text))
+    {
+        <p class="text-xs text-slate-500 dark:text-slate-400 m-0 mt-3">@Text</p>
+    }
+</div>
+
+@code {
+    /// <summary>Optional text shown under the spinner. Skip for compact spots.</summary>
+    [Parameter] public string? Text { get; set; } = "Loading…";
+    /// <summary>Extra utility classes on the wrapper — e.g. "py-10 gap-3" for pages,
+    /// "py-4" for in-card spots. Default is page-level spacing.</summary>
+    [Parameter] public string Class { get; set; } = "py-10 gap-3";
+}
