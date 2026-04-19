@@ -37,9 +37,9 @@ else
     <div class="min-h-dvh bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans md:grid md:grid-cols-[240px_1fr]">
         @* Mobile top bar *@
         <header class="md:hidden sticky top-0 z-[15] bg-white dark:bg-dgb-900 border-b border-slate-200 dark:border-dgb-800 px-3 py-2.5 flex items-center gap-2.5">
-            <button class="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-dgb-800 rounded-lg text-lg leading-none"
+            <button class="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-dgb-800 rounded-lg"
                     @onclick="() => sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">
-                @(sidebarOpen ? "×" : "☰")
+                <Icon Name="@(sidebarOpen ? "close" : "menu")" Class="w-4 h-4" />
             </button>
             <div class="flex items-center gap-1.5 font-bold text-[0.9375rem]">
                 <span class="w-2 h-2 rounded-full bg-dgb-500"></span> DigiPay
@@ -81,9 +81,9 @@ else
                 {
                     var t = tab;
                     var active = activeTab == t.Key;
-                    <button class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors @(active ? "bg-dgb-500/10 text-dgb-500 font-semibold" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white")"
+                    <button class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors @(active ? "bg-dgb-500/10 text-dgb-500 font-semibold" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white")"
                             @onclick="() => SwitchTab(t.Key)">
-                        <span class="w-4 h-4 shrink-0 text-center">@t.Icon</span>
+                        <Icon Name="@t.Icon" Class="w-4 h-4 shrink-0" />
                         @t.Label
                     </button>
                 }
@@ -444,15 +444,16 @@ else
 
                 <section class="@Card">
                     <h2 class="@H2">Generate new key</h2>
-                    <div class="flex flex-col sm:flex-row sm:items-end gap-2">
-                        <div class="flex-1">
-                            <input @bind="newKeyLabel" placeholder="Label (e.g. production, ci)" class="@Input" maxlength="80" />
-                            <div class="@Muted text-[0.6875rem] mt-1">Optional — just to help you tell keys apart.</div>
-                        </div>
+                    @* Input + button share a row so baselines align; hint flows below so it
+                       doesn't push the button off the input's centerline. *@
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input @bind="newKeyLabel" placeholder="Label (e.g. production, ci)"
+                               class="@Input flex-1" maxlength="80" />
                         <button class="@Btn sm:shrink-0" @onclick="CreateApiKeyAsync" disabled="@creatingKey">
                             @(creatingKey ? "Creating…" : "Generate key")
                         </button>
                     </div>
+                    <div class="@Muted text-[0.6875rem] mt-0.5">Optional — just to help you tell keys apart.</div>
                     @if (apiKeyError != null) { <p class="text-xs text-red-500 m-0">@apiKeyError</p> }
                 </section>
 
@@ -554,15 +555,14 @@ else
                 <section class="@Card mt-4">
                     <h2 class="@H2">Default session expiry</h2>
                     <p class="@Muted m-0">How long a pending session stays open before it expires. Defaults to 30 minutes. Late payments (up to 3 days past expiry) still reconcile automatically.</p>
-                    <div class="flex flex-col sm:flex-row sm:items-end gap-2">
-                        <div class="flex-1">
-                            <input @bind="expiryInput" type="number" min="1" max="1440" placeholder="30" class="@Input" />
-                            <div class="@Muted text-[0.6875rem] mt-1">Minutes (1–1440). Blank = global default (30).</div>
-                        </div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input @bind="expiryInput" type="number" min="1" max="1440" placeholder="30"
+                               class="@Input flex-1" />
                         <button class="@Btn sm:shrink-0" @onclick="SaveExpiryAsync" disabled="@expiryBusy">
                             @(expiryBusy ? "Saving…" : "Save")
                         </button>
                     </div>
+                    <div class="@Muted text-[0.6875rem] mt-0.5">Minutes (1–1440). Blank = global default (30).</div>
                     @if (expiryMessage != null) { <p class="@Muted m-0">@expiryMessage</p> }
                     @if (expiryError != null) { <p class="text-xs text-red-500 m-0">@expiryError</p> }
                 </section>
@@ -575,13 +575,13 @@ else
     private record TabDef(string Key, string Label, string Icon);
     private readonly TabDef[] tabs = new[]
     {
-        new TabDef("overview",  "Overview",        "▣"),
-        new TabDef("sessions",  "Sessions",        "📋"),
-        new TabDef("donation",  "Donation button", "🔘"),
-        new TabDef("webhook",   "Webhook",         "🔔"),
-        new TabDef("stores",    "Stores",          "🏪"),
-        new TabDef("apikeys",   "API keys",        "🔑"),
-        new TabDef("settings",  "Settings",        "⚙"),
+        new TabDef("overview",  "Overview",        "dashboard"),
+        new TabDef("sessions",  "Sessions",        "list"),
+        new TabDef("donation",  "Donation button", "gift"),
+        new TabDef("webhook",   "Webhook",         "bell"),
+        new TabDef("stores",    "Stores",          "store"),
+        new TabDef("apikeys",   "API keys",        "key"),
+        new TabDef("settings",  "Settings",        "settings"),
     };
     private string activeTab = "overview";
     private bool sidebarOpen;
