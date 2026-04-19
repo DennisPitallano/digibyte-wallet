@@ -199,36 +199,92 @@ else
                     <h1 class="@H1">Donation button</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
                 </div>
-                <p class="@Muted mb-6">Static BIP21 link — no session created, no tracking. Any DigiByte wallet can pay. Tips reuse this store's donation address.</p>
+                <p class="@Muted mb-6">A permanent, session-less tip button for your site. Reuses this store's donation address — any DigiByte wallet can pay.</p>
 
-                <section class="@Card">
-                    @if (donationAddress is null) { <p class="@Muted m-0">Loading address…</p> }
-                    else
-                    {
+                @if (donationAddress is null)
+                {
+                    <section class="@Card"><p class="@Muted m-0">Loading donation address…</p></section>
+                }
+                else
+                {
+                    <section class="@Card">
+                        <h2 class="@H2">Configure</h2>
+                        <div class="@Eyebrow">Donation address <span class="@Muted">(from this store)</span></div>
                         <div class="font-mono text-[0.6875rem] px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg break-all">@donationAddress</div>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <input @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="Amount (opt)" class="@Input" />
-                            <input @bind="donName" @bind:event="oninput" placeholder="Name (opt)" class="@Input" />
-                            <input @bind="donButtonText" @bind:event="oninput" placeholder="Button text" class="@Input" />
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <div class="@Eyebrow">Amount <span class="@Muted">(DGB, optional)</span></div>
+                                <input @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="0" class="@Input" />
+                            </div>
+                            <div>
+                                <div class="@Eyebrow">Your name <span class="@Muted">(optional)</span></div>
+                                <input @bind="donName" @bind:event="oninput" placeholder="e.g. Acme Coffee" class="@Input" maxlength="80" />
+                            </div>
+                            <div>
+                                <div class="@Eyebrow">Message / label <span class="@Muted">(optional)</span></div>
+                                <input @bind="donLabel" @bind:event="oninput" placeholder="e.g. Thanks for the tip!" class="@Input" maxlength="120" />
+                            </div>
+                            <div>
+                                <div class="@Eyebrow">Button text</div>
+                                <input @bind="donButtonText" @bind:event="oninput" placeholder="Tip DGB" class="@Input" maxlength="40" />
+                            </div>
+                        </div>
+                    </section>
+
+                    @* Variant 1 — hosted button page (zero-JS, universal) *@
+                    <section class="@Card mt-4">
+                        <div class="flex items-start justify-between gap-2 flex-wrap">
+                            <div>
+                                <h2 class="@H2">Hosted button page</h2>
+                                <p class="@Muted m-0">Links to a DigiPay-hosted page with a QR + "Open in wallet" button. Works anywhere HTML works — email, static sites, CMS blocks. No JavaScript needed.</p>
+                            </div>
+                            <span class="text-[0.625rem] font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 shrink-0">Recommended</span>
                         </div>
                         <div class="@Eyebrow mt-1">Preview</div>
                         <div class="p-4 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-center">
-                            <a href="@DonationUrl" target="_blank" class="inline-block px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg no-underline text-sm">
-                                @(string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText)
+                            <a href="@DonationHostedUrl" target="_blank" rel="noopener"
+                               class="inline-block px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg no-underline text-sm">
+                                @DonationButtonLabel
                             </a>
                         </div>
                         <div class="@Eyebrow">HTML snippet</div>
-                        <pre class="@Pre">@DonationSnippet</pre>
-                        <button class="@BtnGhost" @onclick="CopyDonationSnippetAsync">@(donCopied ? "Copied ✓" : "Copy snippet")</button>
-                    }
-                </section>
+                        <pre class="@Pre">@DonationHostedSnippet</pre>
+                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("hosted", DonationHostedSnippet)'>@(copiedSnippet == "hosted" ? "Copied ✓" : "Copy snippet")</button>
+                    </section>
 
-                <section class="@Card mt-4">
-                    <h2 class="@H2">JS embed widget</h2>
-                    <p class="@Muted m-0">Drop this on your site for an in-page checkout modal (keeps the buyer on your domain).</p>
-                    <pre class="@Pre">@EmbedSnippet</pre>
-                    <button class="@BtnGhost" @onclick="CopyEmbedSnippetAsync">@(embedCopied ? "Copied ✓" : "Copy snippet")</button>
-                </section>
+                    @* Variant 2 — embed widget (JS-rendered, drop-in styling) *@
+                    <section class="@Card mt-4">
+                        <h2 class="@H2">Embed widget</h2>
+                        <p class="@Muted m-0">Include <code class="px-1 bg-slate-100 dark:bg-dgb-800 rounded text-[0.6875rem]">digipay.js</code> once and drop a <code class="px-1 bg-slate-100 dark:bg-dgb-800 rounded text-[0.6875rem]">data-digipay-button</code> element anywhere — the widget swaps it for a pre-styled button that opens the hosted page in a new tab.</p>
+                        <div class="@Eyebrow mt-1">Preview</div>
+                        <div class="p-4 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-center">
+                            @* The widget's real output uses inline styles — match them so preview = reality. *@
+                            <a href="@DonationHostedUrl" target="_blank" rel="noopener"
+                               style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:#0066ff;color:#fff;border-radius:10px;text-decoration:none;font:600 14px system-ui,-apple-system,Segoe UI,sans-serif;">
+                                @DonationButtonLabel
+                            </a>
+                        </div>
+                        <div class="@Eyebrow">HTML snippet</div>
+                        <pre class="@Pre">@DonationWidgetSnippet</pre>
+                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("widget", DonationWidgetSnippet)'>@(copiedSnippet == "widget" ? "Copied ✓" : "Copy snippet")</button>
+                    </section>
+
+                    @* Variant 3 — raw BIP21 (direct OS wallet handoff) *@
+                    <section class="@Card mt-4">
+                        <h2 class="@H2">Raw BIP21 link</h2>
+                        <p class="@Muted m-0">Direct <code class="px-1 bg-slate-100 dark:bg-dgb-800 rounded text-[0.6875rem]">digibyte:</code> protocol URI. Clicking on mobile opens the default DGB wallet immediately — no intermediate page. Desktop behavior depends on installed protocol handlers.</p>
+                        <div class="@Eyebrow mt-1">Preview</div>
+                        <div class="p-4 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-center">
+                            <a href="@DonationBip21Uri"
+                               class="inline-block px-4 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-900 dark:text-white font-semibold rounded-lg no-underline text-sm border border-slate-200 dark:border-dgb-800">
+                                @DonationButtonLabel
+                            </a>
+                        </div>
+                        <div class="@Eyebrow">HTML snippet</div>
+                        <pre class="@Pre">@DonationBip21Snippet</pre>
+                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("bip21", DonationBip21Snippet)'>@(copiedSnippet == "bip21" ? "Copied ✓" : "Copy snippet")</button>
+                    </section>
+                }
             }
             else if (activeTab == "webhook")
             {
@@ -556,9 +612,10 @@ else
     private string? donationAddress;
     private decimal donAmount;
     private string donName = "";
+    private string donLabel = "";
     private string donButtonText = "Tip DGB";
-    private bool donCopied;
-    private bool embedCopied;
+    /// <summary>Which variant's snippet was last copied; drives the "Copied ✓" feedback.</summary>
+    private string copiedSnippet = "";
 
     private string webhookInput = "";
     private bool webhookBusy;
@@ -729,7 +786,11 @@ else
 
     private string WebBase => Nav.BaseUri.TrimEnd('/');
 
-    private string DonationUrl
+    private string DonationButtonLabel =>
+        string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText;
+
+    /// <summary>URL to the DigiPay-hosted /pay/button page with address + optional params.</summary>
+    private string DonationHostedUrl
     {
         get
         {
@@ -740,24 +801,76 @@ else
                 sb.Append("&amount=").Append(donAmount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture));
             if (!string.IsNullOrWhiteSpace(donName))
                 sb.Append("&name=").Append(Uri.EscapeDataString(donName));
+            if (!string.IsNullOrWhiteSpace(donLabel))
+                sb.Append("&label=").Append(Uri.EscapeDataString(donLabel));
             return sb.ToString();
         }
     }
 
-    private string DonationSnippet =>
-        $"<a href=\"{DonationUrl}\" target=\"_blank\" rel=\"noopener\">{System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText)}</a>";
-
-    private string EmbedSnippet =>
-        $"<script src=\"{WebBase}/embed/digipay.js?v=0.1\"></script>\n<button data-digipay-checkout data-session-id=\"SESSION_ID\">Pay with DigiByte</button>";
-
-    private async Task CopyDonationSnippetAsync()
+    /// <summary>Direct BIP21 `digibyte:` URI — bypasses the hosted page, opens OS wallet handler.</summary>
+    private string DonationBip21Uri
     {
-        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", DonationSnippet); donCopied = true; StateHasChanged(); await Task.Delay(1500); donCopied = false; StateHasChanged(); } catch { }
+        get
+        {
+            if (string.IsNullOrEmpty(donationAddress)) return "#";
+            var sb = new System.Text.StringBuilder("digibyte:").Append(donationAddress);
+            var sep = "?";
+            if (donAmount > 0)
+            {
+                sb.Append(sep).Append("amount=").Append(donAmount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture));
+                sep = "&";
+            }
+            if (!string.IsNullOrWhiteSpace(donName))
+            {
+                sb.Append(sep).Append("label=").Append(Uri.EscapeDataString(donName));
+                sep = "&";
+            }
+            if (!string.IsNullOrWhiteSpace(donLabel))
+            {
+                sb.Append(sep).Append("message=").Append(Uri.EscapeDataString(donLabel));
+            }
+            return sb.ToString();
+        }
     }
 
-    private async Task CopyEmbedSnippetAsync()
+    // Snippet strings — exactly what the merchant pastes into their site.
+    private string DonationHostedSnippet =>
+        $"<a href=\"{DonationHostedUrl}\" target=\"_blank\" rel=\"noopener\">{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</a>";
+
+    private string DonationWidgetSnippet
     {
-        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", EmbedSnippet); embedCopied = true; StateHasChanged(); await Task.Delay(1500); embedCopied = false; StateHasChanged(); } catch { }
+        get
+        {
+            var attrs = new System.Text.StringBuilder()
+                .Append(" data-address=\"").Append(donationAddress).Append('"');
+            if (donAmount > 0)
+                attrs.Append(" data-amount=\"").Append(donAmount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture)).Append('"');
+            if (!string.IsNullOrWhiteSpace(donName))
+                attrs.Append(" data-name=\"").Append(System.Net.WebUtility.HtmlEncode(donName)).Append('"');
+            if (!string.IsNullOrWhiteSpace(donLabel))
+                attrs.Append(" data-label=\"").Append(System.Net.WebUtility.HtmlEncode(donLabel)).Append('"');
+            return
+                $"<script src=\"{WebBase}/embed/digipay.js?v=0.1\"></script>\n" +
+                $"<div data-digipay-button{attrs}>{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</div>";
+        }
+    }
+
+    private string DonationBip21Snippet =>
+        $"<a href=\"{System.Net.WebUtility.HtmlEncode(DonationBip21Uri)}\">{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</a>";
+
+    /// <summary>Copy a variant's snippet to the clipboard and flash "Copied ✓" for 1.5s.</summary>
+    private async Task CopySnippetAsync(string variant, string snippet)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", snippet);
+            copiedSnippet = variant;
+            StateHasChanged();
+            await Task.Delay(1500);
+            if (copiedSnippet == variant) copiedSnippet = "";
+            StateHasChanged();
+        }
+        catch { }
     }
 
     private async Task SaveReceiveAsync()
