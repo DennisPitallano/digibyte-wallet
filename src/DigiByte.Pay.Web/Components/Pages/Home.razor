@@ -1,4 +1,6 @@
 @page "/"
+@inject IHttpClientFactory HttpFactory
+@using System.Net.Http.Json
 
 <PageTitle>DigiPay — accept DigiByte on your site</PageTitle>
 
@@ -45,6 +47,34 @@
                 <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a>.
             </p>
         </section>
+
+        @* Public stats strip. Aggregates only — no merchant ids, no sessions —
+           so privacy is preserved while still giving visitors a read on momentum.
+           Fetched server-side during SSR; renders 0s if the API is down rather
+           than a spinner, so the strip layout doesn't shift on slow loads. *@
+        @if (stats is not null)
+        {
+            <section class="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Merchants.ToString("N0")</div>
+                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Merchants</div>
+                    </div>
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Stores.ToString("N0")</div>
+                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Stores</div>
+                    </div>
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Sessions.ToString("N0")</div>
+                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Sessions</div>
+                    </div>
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.TotalDgb.ToString("N0")</div>
+                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">DGB processed</div>
+                    </div>
+                </div>
+            </section>
+        }
 
         @* The problem DigiPay solves — contrasted with the status quo so the value prop is concrete, not abstract. *@
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
@@ -281,6 +311,23 @@
 </div>
 
 @code {
+    private StatsDto? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Best-effort — if the API is unreachable during SSR we silently skip
+        // rendering the strip rather than blocking the home page load.
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            stats = await http.GetFromJsonAsync<StatsDto>("/v1/pay/public/stats", cts.Token);
+        }
+        catch { /* swallow — strip just won't render */ }
+    }
+
+    private record StatsDto(int Merchants, int Stores, int Sessions, int PaidSessions, decimal TotalDgb, DateTime GeneratedAt);
+
     private enum RoadmapStatus { Done, InProgress, Planned }
 
     private record Milestone(string Date, string Title, RoadmapStatus Status, string[] Items);

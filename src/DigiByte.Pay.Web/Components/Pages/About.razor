@@ -1,0 +1,204 @@
+@page "/about"
+@inject IHttpClientFactory HttpFactory
+
+<PageTitle>About — DigiPay</PageTitle>
+
+<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <SiteNav />
+
+    <main class="flex-1">
+        <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8">
+
+            @* Hero — same visual language as the wallet About page (logo +
+               name + tagline + badges) so the two surfaces read as siblings. *@
+            <div class="flex flex-col items-center gap-3 text-center">
+                <div class="w-14 h-14 rounded-2xl bg-dgb-500/10 flex items-center justify-center">
+                    <img src="/digibyte-logo.svg" alt="DigiByte" class="w-10 h-10" />
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                    Digi<span class="text-dgb-500">Pay</span>
+                </h1>
+                <p class="text-base text-slate-600 dark:text-slate-400 max-w-md leading-relaxed">
+                    A non-custodial DigiByte payment gateway. Drop it on any site and accept DGB in under a minute — DigiPay never holds your keys or funds.
+                </p>
+                <div class="flex flex-wrap justify-center gap-2 mt-1">
+                    <span class="text-[10px] font-bold text-dgb-500 bg-dgb-500/10 border border-dgb-500/20 px-2 py-1 rounded-full">v0 preview</span>
+                    <span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/40 px-2 py-1 rounded-full">MIT License</span>
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-dgb-800 border border-slate-200/60 dark:border-dgb-700/40 px-2 py-1 rounded-full">.NET 10 + Blazor SSR</span>
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-dgb-800 border border-slate-200/60 dark:border-dgb-700/40 px-2 py-1 rounded-full">Non-custodial</span>
+                </div>
+            </div>
+
+            @* Pitch — what DigiPay is, in one paragraph *@
+            <section class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6">
+                <h2 class="text-base font-bold mb-2">What DigiPay is</h2>
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0">
+                    DigiPay is the payment gateway half of the <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a> project. The wallet is for users; DigiPay is for merchants — the same stack, the same team, the same chain. Paste an xpub or a receive address, sign in with Digi-ID, get a REST API + hosted checkout + signed webhooks. No custody, no KYC, no middleman.
+                </p>
+            </section>
+
+            @* Quick links — wallet, docs, github, digibyte.org. Same card
+               layout the wallet About uses so muscle memory transfers. *@
+            <section class="flex flex-col gap-2">
+                <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Links</h2>
+
+                <a href="https://dgbwallet.app" target="_blank" rel="noopener"
+                   class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline">
+                    <div class="w-9 h-9 rounded-lg bg-dgb-500 flex items-center justify-center shrink-0">
+                        <img src="/digibyte-logo.svg" alt="" class="w-5 h-5" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">DigiByte Wallet</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 m-0">dgbwallet.app — companion PWA for buyers and merchants</p>
+                    </div>
+                    <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                </a>
+
+                <a href="/docs"
+                   class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline">
+                    <div class="w-9 h-9 rounded-lg bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center shrink-0 text-teal-500 dark:text-teal-400">
+                        <Icon Name="book" Class="w-5 h-5" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">Documentation</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 m-0">Tutorial, API reference, embed guide</p>
+                    </div>
+                </a>
+
+                <a href="https://github.com/DennisPitallano/digibyte-wallet" target="_blank" rel="noopener"
+                   class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline">
+                    <div class="w-9 h-9 rounded-lg bg-slate-900 dark:bg-white flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white dark:text-slate-900" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">GitHub repository</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 m-0">DennisPitallano/digibyte-wallet — issues, PRs, source</p>
+                    </div>
+                    <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                </a>
+
+                <a href="https://www.digibyte.org" target="_blank" rel="noopener"
+                   class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline">
+                    <div class="w-9 h-9 rounded-lg bg-dgb-500 flex items-center justify-center shrink-0">
+                        <img src="/digibyte-logo.svg" alt="" class="w-5 h-5" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">DigiByte.org</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 m-0">Official DigiByte website</p>
+                    </div>
+                    <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                </a>
+            </section>
+
+            @* Contributors pulled live from GitHub — shared repo with the
+               wallet, so the same humans show up on both About pages. *@
+            <section>
+                <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Contributors</h2>
+                @if (isLoadingContributors)
+                {
+                    <div class="flex gap-2">
+                        @for (int i = 0; i < 4; i++)
+                        {
+                            <div class="w-12 h-12 rounded-full bg-slate-200 dark:bg-dgb-800 animate-dp-pulse"></div>
+                        }
+                    </div>
+                }
+                else if (contributors.Count > 0)
+                {
+                    <div class="flex flex-wrap gap-3">
+                        @foreach (var c in contributors)
+                        {
+                            <a href="@c.HtmlUrl" target="_blank" rel="noopener" title="@c.Login (@c.Contributions commits)"
+                               class="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-white dark:hover:bg-dgb-800 transition-colors no-underline">
+                                <img src="@c.AvatarUrl" alt="@c.Login" class="w-12 h-12 rounded-full border-2 border-white dark:border-dgb-800 shadow-sm" />
+                                <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300">@c.Login</span>
+                                <span class="text-[10px] text-slate-400 dark:text-slate-500">@c.Contributions commits</span>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-xs text-slate-400">Could not load contributors.</p>
+                }
+
+                @* AI Contributor — explicit credit since a lot of this was
+                   built pair-programming with Claude. Same nod the wallet
+                   About makes. *@
+                <div class="mt-3 flex items-center gap-3 p-3 bg-dgb-500/5 dark:bg-dgb-900/30 rounded-xl border border-dgb-500/10 dark:border-dgb-800">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-dgb-500 to-dgb-700 flex items-center justify-center text-white text-xs font-bold">AI</div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">Claude (Anthropic)</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 m-0">AI pair programmer — architecture, code, and docs</p>
+                    </div>
+                </div>
+            </section>
+
+            @* Tech stack chips *@
+            <section>
+                <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Built with</h2>
+                <div class="flex flex-wrap gap-1.5">
+                    @foreach (var tech in techStack)
+                    {
+                        <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 px-2.5 py-1 rounded-full">@tech</span>
+                    }
+                </div>
+            </section>
+
+            @* Attribution — Part of the wallet project *@
+            <section class="text-center text-xs text-slate-500 dark:text-slate-400 pt-2">
+                Part of the <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a> project.
+                Built by <a href="https://github.com/DennisPitallano" target="_blank" rel="noopener" class="hover:underline">@("@DennisPitallano")</a> and contributors.
+            </section>
+        </article>
+    </main>
+
+    <SiteFooter />
+</div>
+
+@code {
+    private List<GitHubContributor> contributors = new();
+    private bool isLoadingContributors = true;
+
+    private string[] techStack = {
+        ".NET 10", "Blazor SSR + InteractiveServer", "Entity Framework Core",
+        "Postgres / SQLite", "NBitcoin", "QRCoder", "SignalR",
+        "Tailwind CSS", "DigiByte Core", "Scalar / OpenAPI",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Shared repo with the main wallet — same contributors graph.
+            var http = HttpFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                "https://api.github.com/repos/DennisPitallano/digibyte-wallet/contributors");
+            request.Headers.Add("User-Agent", "DigiPay");
+            request.Headers.Add("Accept", "application/vnd.github.v3+json");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            var resp = await http.SendAsync(request, cts.Token);
+            if (resp.IsSuccessStatusCode)
+            {
+                var list = await resp.Content.ReadFromJsonAsync<List<GitHubContributor>>(cancellationToken: cts.Token);
+                contributors = list ?? new();
+            }
+        }
+        catch { /* offline / rate-limited — fall through to empty-state */ }
+        finally { isLoadingContributors = false; }
+    }
+
+    private class GitHubContributor
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("login")]
+        public string Login { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("avatar_url")]
+        public string AvatarUrl { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("html_url")]
+        public string HtmlUrl { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("contributions")]
+        public int Contributions { get; set; }
+    }
+}

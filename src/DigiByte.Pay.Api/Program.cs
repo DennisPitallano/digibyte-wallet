@@ -137,6 +137,7 @@ app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration);
 app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints();
 app.MapGroup("/v1/pay/stores").MapStoresEndpoints();
 app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints();
+app.MapGroup("/v1/pay/public").MapPublicEndpoints();
 if (app.Environment.IsDevelopment())
 {
     // Only in dev — see TestEndpoints.cs. The /demo-session route is
