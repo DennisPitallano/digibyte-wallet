@@ -35,3 +35,9 @@ packages/
 # Node.js (Tailwind CSS build)
 node_modules/
 package-lock.json
+
+# Claude Code local worktrees — agent scratch space, not source
+.claude/worktrees/
+
+# Local scratch files
+src/chainz-cookies.txt
