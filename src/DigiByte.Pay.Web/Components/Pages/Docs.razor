@@ -18,17 +18,17 @@
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">There's no password flow. You scan a QR with your DigiByte wallet, the wallet signs a challenge URI, and DigiPay creates a merchant record keyed by your Digi-ID address.</p>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300">Your Digi-ID address is just a public address — not a spending key — so this is purely for identity. No funds are ever linked to it.</p>
 
-            <DocsHeading>2. Configure where to receive payments</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Two modes, pick one:</p>
+            <DocsHeading>2. Configure a store</DocsHeading>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Every account starts with a Default Store. Add more if you run multiple shops — each store has its own receive address, webhook, and sessions. For each store, set a receive target in one of two modes:</p>
             <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5">
-                <li><strong>Xpub (recommended).</strong> Paste your BIP84 account-level extended public key (<InlineCode>xpub6...</InlineCode>). DigiPay derives a fresh address at <InlineCode>m/0/n</InlineCode> for every invoice — no reuse, no collision, proper per-invoice isolation.</li>
-                <li><strong>Single address.</strong> Paste one <InlineCode>dgb1…</InlineCode>. All invoices (and tips) share it. Simpler but your tx history is linked. Fine for a tip jar.</li>
+                <li><strong>Xpub (recommended).</strong> Paste your BIP84 account-level extended public key (<InlineCode>xpub6...</InlineCode>). DigiPay derives a fresh address at <InlineCode>m/0/n</InlineCode> for every invoice — no reuse, proper per-invoice isolation.</li>
+                <li><strong>Single address.</strong> Paste one <InlineCode>dgb1…</InlineCode>. All invoices share it. Simpler but your tx history is linked. Fine for a tip jar.</li>
             </ul>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">You can copy the xpub from your DigiByte Wallet app: <em>Settings → Share xpub (watch-only)</em>.</p>
 
             <DocsHeading>3. Create a session</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">From your server, POST to <InlineCode>/v1/pay/sessions</InlineCode> with the amount in DGB. You get back an invoice URL your buyer can load, plus a BIP21 URI any DigiByte wallet understands.</p>
-            <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"amount\": 12.5, \"label\": \"Order #4201\"}'")</CodeBlock>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Create an API key from the dashboard's <em>API keys</em> tab (the raw secret is shown once — save it). From your server, POST to <InlineCode>/v1/pay/sessions</InlineCode> with the amount in DGB. You get back an invoice URL your buyer can load, plus a BIP21 URI any DigiByte wallet understands.</p>
+            <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"amount\": 12.5,\n    \"storeId\": \"sto_…\",       // optional — defaults to first store\n    \"label\": \"Order #4201\"\n  }'")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Redirect the buyer to the returned <InlineCode>checkout_url</InlineCode>, or open it in-page with the JS embed (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">live demo →</a>):</p>
             <CodeBlock>@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<button data-digipay-checkout data-session-id=\"ses_...\">Pay with DigiByte</button>")</CodeBlock>
 
@@ -42,7 +42,7 @@
             </ul>
 
             <DocsHeading>5. Receive webhooks</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Every state change hits your webhook URL with a signed POST. Verify with HMAC-SHA256 using the secret DigiPay generated when you saved the webhook URL:</p>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Every state change hits the store's webhook URL with a signed POST. Every attempt is recorded in the dashboard's delivery log — if your receiver was down, hit <em>Replay</em> and DigiPay re-sends the exact same payload. Verify the signature with HMAC-SHA256 using the secret DigiPay generated when you saved the webhook URL:</p>
             <CodeBlock>@("const expected = crypto.createHmac('sha256', secret)\n  .update(rawBody).digest('hex');\nconst provided = req.headers['x-digipay-signature'].replace('sha256=', '');\nif (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided))) {\n  return res.status(401).end();\n}")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Headers on every webhook:</p>
             <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5">
