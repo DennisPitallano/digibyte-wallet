@@ -52,6 +52,11 @@ public class InvoiceMonitor : BackgroundService
         }
     }
 
+    // Grace window for rescuing payments that arrive after a session was marked Expired.
+    // Merchant's funds will land on-chain regardless; this keeps the session status honest
+    // by flipping expired → paid/confirmed when a late tx lands against the invoice address.
+    private static readonly TimeSpan LatePaymentGrace = TimeSpan.FromDays(3);
+
     private async Task TickAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
@@ -59,9 +64,13 @@ public class InvoiceMonitor : BackgroundService
         var notifier = scope.ServiceProvider.GetRequiredService<CheckoutNotifier>();
 
         var now = DateTime.UtcNow;
-        var openStatuses = new[] { PaySessionStatus.Pending, PaySessionStatus.Seen, PaySessionStatus.Paid };
+        var graceCutoff = now - LatePaymentGrace;
         var sessions = await db.Sessions
-            .Where(s => openStatuses.Contains(s.Status))
+            .Where(s =>
+                s.Status == PaySessionStatus.Pending
+                || s.Status == PaySessionStatus.Seen
+                || s.Status == PaySessionStatus.Paid
+                || (s.Status == PaySessionStatus.Expired && s.ExpiresAt > graceCutoff))
             .ToListAsync(ct);
 
         foreach (var session in sessions)
@@ -84,25 +93,14 @@ public class InvoiceMonitor : BackgroundService
         var scope = _scopeFactory.CreateScope();
         var webhookDispatcher = scope.ServiceProvider.GetRequiredService<WebhookDispatcher>();
 
-        // Expire pending sessions that never saw a payment
-        if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
-        {
-            session.Status = PaySessionStatus.Expired;
-            await PublishAsync(notifier, session, ct);
-            var merchantForExpiry = await db.Merchants.AsNoTracking().FirstOrDefaultAsync(m => m.Id == session.MerchantId, ct);
-            if (merchantForExpiry is not null)
-                await webhookDispatcher.DispatchAsync(merchantForExpiry, session, "session.expired", ct);
-            return;
-        }
-
         var merchant = await db.Merchants.AsNoTracking().FirstOrDefaultAsync(m => m.Id == session.MerchantId, ct);
         if (merchant is null) return;
 
+        // Poll the chain first. A payment arriving right at the expiry deadline must still
+        // be honoured — the wallet has no idea about session state, it just signed and sent.
         var chain = GetChainService(merchant.Network);
         var txs = await chain.GetAddressTransactionsAsync(session.Address);
 
-        // Find the first transaction that has an output paying our invoice address.
-        // Sum all matching outputs in case wallet split across multiple.
         TransactionInfo? paymentTx = null;
         long receivedSats = 0;
         foreach (var tx in txs)
@@ -116,7 +114,17 @@ public class InvoiceMonitor : BackgroundService
             }
         }
 
-        if (paymentTx is null) return;
+        if (paymentTx is null)
+        {
+            // No payment on chain yet. Expire pending sessions past their deadline.
+            if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
+            {
+                session.Status = PaySessionStatus.Expired;
+                await PublishAsync(notifier, session, ct);
+                await webhookDispatcher.DispatchAsync(merchant, session, "session.expired", ct);
+            }
+            return;
+        }
 
         var confirmations = paymentTx.Confirmations;
         session.ReceivedSatoshis = receivedSats;

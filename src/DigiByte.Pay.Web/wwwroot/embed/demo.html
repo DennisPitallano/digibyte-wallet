@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DigiPay embed demo</title>
+    <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #0f172a; }
+        h1 { margin-bottom: 0.25rem; }
+        h2 { margin-top: 2.5rem; font-size: 1.125rem; }
+        p { color: #475569; }
+        pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; font-size: 0.8125rem; overflow-x: auto; }
+        input { padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font: inherit; width: 100%; box-sizing: border-box; }
+        .row { display: flex; gap: 0.5rem; align-items: center; margin: 0.75rem 0; }
+        .row > input { flex: 1; }
+        button { padding: 0.5rem 1rem; background: #0066ff; color: #fff; border: 0; border-radius: 0.5rem; font: 600 14px system-ui; cursor: pointer; }
+        button:hover { background: #0052cc; }
+    </style>
+</head>
+<body>
+    <h1>DigiPay embed demo</h1>
+    <p>This page exercises <code>digipay.js</code>. It's not a merchant-facing page — just a harness.</p>
+
+    <h2>1. Declarative checkout trigger</h2>
+    <p>Any element with <code>data-digipay-checkout</code> + <code>data-session-id</code> opens the hosted checkout as an in-page modal on click.</p>
+    <pre>&lt;script src="/embed/digipay.js"&gt;&lt;/script&gt;
+&lt;button data-digipay-checkout data-session-id="ses_..."&gt;Pay with DigiByte&lt;/button&gt;</pre>
+    <div class="row">
+        <input id="ses" placeholder="ses_xxxxxxx" />
+        <button data-digipay-checkout id="trigger">Pay with DigiByte</button>
+    </div>
+
+    <h2>2. Programmatic API</h2>
+    <pre>DigiPay.checkout({ sessionId: 'ses_...' });
+DigiPay.close();</pre>
+    <button onclick="DigiPay.checkout({ sessionId: document.getElementById('ses').value })">Open via DigiPay.checkout()</button>
+
+    <h2>3. Donation / tip button</h2>
+    <pre>DigiPay.button({ address: 'dgb1...', amount: 5, name: 'Creator' });</pre>
+    <div id="tipjar"></div>
+
+    <h2>4. Declarative button</h2>
+    <pre>&lt;span data-digipay-button data-address="dgb1..." data-amount="2.5"&gt;Tip&lt;/span&gt;</pre>
+    <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="2.5" data-name="Creator">Tip 2.5 DGB</span>
+
+    <script src="/embed/digipay.js"></script>
+    <script>
+        // Sync the session-id input value to the data attribute so the declarative button works.
+        document.getElementById('ses').addEventListener('input', function () {
+            document.getElementById('trigger').setAttribute('data-session-id', this.value);
+        });
+
+        // Programmatic tip-jar example.
+        document.getElementById('tipjar').appendChild(
+            DigiPay.button({
+                address: 'dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8',
+                amount: 5,
+                name: 'Creator',
+                text: 'Tip 5 DGB',
+            })
+        );
+    </script>
+</body>
+</html>

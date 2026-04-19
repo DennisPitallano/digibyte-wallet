@@ -5,176 +5,252 @@
 @inject NavigationManager Nav
 @using System.Net.Http.Json
 
-<PageTitle>Dashboard — DigiPay</PageTitle>
+<PageTitle>@(me?.DisplayName ?? "Dashboard") — DigiPay</PageTitle>
 
 <link rel="stylesheet" href="css/checkout.css" />
 <link rel="stylesheet" href="css/dashboard.css" />
+<link rel="stylesheet" href="css/admin.css" />
 
-<main class="dp-dashboard">
-    @if (bootstrapError != null)
-    {
-        <div class="dp-card dp-card--error"><p>@bootstrapError</p></div>
-    }
-    else if (me == null)
-    {
-        <p class="dp-muted">Loading…</p>
-    }
-    else
-    {
-        <header class="dp-dash__header">
-            <div>
-                <div class="dp-eyebrow">DIGIPAY</div>
-                <h1>@me.DisplayName</h1>
-                <p class="dp-dash__subtitle">
-                    @if (!string.IsNullOrEmpty(me.DigiIdAddress)) { <span class="dp-mono">@me.DigiIdAddress</span> }
-                    · @me.Network
-                </p>
+@if (bootstrapError != null)
+{
+    <main class="dp-checkout"><div class="dp-card dp-card--error"><p>@bootstrapError</p></div></main>
+}
+else if (me == null)
+{
+    <main class="dp-checkout"><p class="dp-muted">Loading…</p></main>
+}
+else
+{
+    <div class="dp-admin">
+        <aside class="dp-admin__aside">
+            <div class="dp-admin__brand"><span class="dp-admin__brand-dot"></span> DigiPay</div>
+            <nav class="dp-admin__nav">
+                @foreach (var tab in tabs)
+                {
+                    var t = tab;
+                    <button class="@(activeTab == t.Key ? "is-active" : "")" @onclick="() => activeTab = t.Key">
+                        <span class="dp-admin__nav-icon">@t.Icon</span>
+                        @t.Label
+                    </button>
+                }
+            </nav>
+            <div class="dp-admin__footer">
+                <div>@me.DisplayName</div>
+                @if (!string.IsNullOrEmpty(me.DigiIdAddress))
+                {
+                    <div class="dp-mono">@(me.DigiIdAddress.Length > 14 ? me.DigiIdAddress[..8] + "…" + me.DigiIdAddress[^4..] : me.DigiIdAddress)</div>
+                }
+                <button class="dp-btn dp-btn--ghost" style="margin-top:0.25rem;" @onclick="SignOutAsync">Sign out</button>
             </div>
-            <button class="dp-btn dp-btn--ghost" @onclick="SignOutAsync">Sign out</button>
-        </header>
+        </aside>
 
-        @if (!me.HasReceive)
-        {
-            <section class="dp-card">
-                <h2>Configure where to receive payments</h2>
-                <p class="dp-muted">Paste a DigiByte address for a simple shared-address setup, or a BIP84 xpub for a fresh address per session (recommended).</p>
-                <input @bind="receiveInput" placeholder="dgb1… or xpub…" class="dp-input dp-input--mono" />
-                <button class="dp-btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
-                    @(busy ? "Saving…" : "Save")
-                </button>
-                @if (patchError != null) { <p class="dp-error">@patchError</p> }
-            </section>
-        }
-        else
-        {
-            <section class="dp-card dp-card--compact">
-                <div class="dp-row">
-                    <div>
-                        <div class="dp-eyebrow">Receiving</div>
-                        <div class="dp-dash__receive">@me.ReceivePreview</div>
-                        <div class="dp-muted">@(me.ReceiveMode == "xpub" ? "Fresh address per session" : "Single reused address")</div>
+        <main class="dp-admin__main">
+            @if (activeTab == "overview")
+            {
+                <div class="dp-admin__heading"><h1>Overview</h1></div>
+                <p class="dp-admin__subtitle">Summary of your DigiPay activity.</p>
+
+                @if (!me.HasReceive)
+                {
+                    <section class="dp-card">
+                        <h2>Configure where to receive payments</h2>
+                        <p class="dp-muted">Before you can create sessions, set a DigiByte address or BIP84 xpub in Settings.</p>
+                        <button class="dp-btn" @onclick='() => activeTab = "settings"'>Go to Settings</button>
+                    </section>
+                }
+                else
+                {
+                    <div class="dp-admin__stats">
+                        <div class="dp-admin__stat">
+                            <div class="dp-admin__stat-label">Total sessions</div>
+                            <div class="dp-admin__stat-value">@(sessions?.Count ?? 0)</div>
+                        </div>
+                        <div class="dp-admin__stat">
+                            <div class="dp-admin__stat-label">Paid / Confirmed</div>
+                            <div class="dp-admin__stat-value">@CountBy("paid", "confirmed")</div>
+                        </div>
+                        <div class="dp-admin__stat">
+                            <div class="dp-admin__stat-label">Pending</div>
+                            <div class="dp-admin__stat-value">@CountBy("pending", "seen")</div>
+                        </div>
+                        <div class="dp-admin__stat">
+                            <div class="dp-admin__stat-label">Expired</div>
+                            <div class="dp-admin__stat-value">@CountBy("expired", "underpaid")</div>
+                        </div>
                     </div>
-                    <button class="dp-btn dp-btn--ghost" @onclick="() => showEditReceive = !showEditReceive">
-                        @(showEditReceive ? "Cancel" : "Change")
+
+                    <section class="dp-card">
+                        <h2>New session</h2>
+                        <div class="dp-dash__create">
+                            <input @bind="newAmount" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="dp-input" />
+                            <input @bind="newLabel" placeholder="Label" class="dp-input" />
+                            <input @bind="newMemo" placeholder="Memo / invoice #" class="dp-input" />
+                        </div>
+                        <button class="dp-btn" @onclick="CreateSessionAsync" disabled="@(busy || newAmount <= 0)">
+                            @(busy ? "Creating…" : "Create session")
+                        </button>
+                        @if (createError != null) { <p class="dp-error">@createError</p> }
+                        @if (createdSession != null)
+                        {
+                            <div class="dp-dash__created">
+                                <div class="dp-eyebrow">Checkout URL</div>
+                                <a href="@createdSession.CheckoutUrl" target="_blank" class="dp-mono">@createdSession.CheckoutUrl</a>
+                            </div>
+                        }
+                    </section>
+                }
+            }
+            else if (activeTab == "sessions")
+            {
+                <div class="dp-admin__heading">
+                    <h1>Sessions</h1>
+                    <button class="dp-btn dp-btn--ghost" @onclick="LoadSessionsAsync" disabled="@loadingSessions">
+                        @(loadingSessions ? "…" : "Refresh")
                     </button>
                 </div>
-                @if (showEditReceive)
-                {
-                    <div class="dp-dash__edit">
+                <p class="dp-admin__subtitle">Every checkout session you've created, newest first.</p>
+
+                <section class="dp-card">
+                    @if (sessions == null) { <p class="dp-muted">Loading…</p> }
+                    else if (sessions.Count == 0) { <p class="dp-muted">No sessions yet.</p> }
+                    else
+                    {
+                        <ul class="dp-dash__sessions">
+                            @foreach (var s in sessions)
+                            {
+                                <li>
+                                    <a href="@s.CheckoutUrl" target="_blank" class="dp-dash__session">
+                                        <div>
+                                            <div class="dp-dash__session-amount">@s.Amount.ToString("0.########") DGB</div>
+                                            <div class="dp-mono dp-dash__session-addr">@s.Address</div>
+                                            @if (!string.IsNullOrEmpty(s.Label)) { <div class="dp-muted">@s.Label</div> }
+                                        </div>
+                                        <div class="dp-dash__session-meta">
+                                            <CheckoutStatusPill Status="@s.Status" />
+                                            <div class="dp-muted">@s.CreatedAt.ToLocalTime().ToString("MMM d, HH:mm")</div>
+                                        </div>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+            }
+            else if (activeTab == "donation")
+            {
+                <div class="dp-admin__heading"><h1>Donation button</h1></div>
+                <p class="dp-admin__subtitle">Static BIP21 link — no session created, no tracking. Any DigiByte wallet can pay. Tips reuse your donation address.</p>
+
+                <section class="dp-card">
+                    @if (donationAddress is null) { <p class="dp-muted">Loading address…</p> }
+                    else
+                    {
+                        <div class="dp-mono" style="font-size: 0.6875rem; padding: 0.5rem 0.75rem; background: var(--dp-bg); border: 1px solid var(--dp-border); border-radius: 0.5rem;">@donationAddress</div>
+                        <div class="dp-dash__create">
+                            <input @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="Amount (opt)" class="dp-input" />
+                            <input @bind="donName" @bind:event="oninput" placeholder="Name (opt)" class="dp-input" />
+                            <input @bind="donButtonText" @bind:event="oninput" placeholder="Button text" class="dp-input" />
+                        </div>
+                        <div class="dp-eyebrow" style="margin-top: 0.5rem;">Preview</div>
+                        <div style="padding: 1rem; background: var(--dp-bg); border: 1px solid var(--dp-border); border-radius: 0.5rem; text-align: center;">
+                            <a href="@DonationUrl" target="_blank" class="dp-btn" style="display: inline-block; width: auto; text-decoration: none;">
+                                @(string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText)
+                            </a>
+                        </div>
+                        <div class="dp-eyebrow">HTML snippet</div>
+                        <pre style="background: #0f172a; color: #e2e8f0; padding: 0.75rem; border-radius: 0.5rem; font-size: 0.6875rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0;">@DonationSnippet</pre>
+                        <button class="dp-btn dp-btn--ghost" @onclick="CopyDonationSnippetAsync">@(donCopied ? "Copied ✓" : "Copy snippet")</button>
+                    }
+                </section>
+
+                <section class="dp-card">
+                    <h2>JS embed widget</h2>
+                    <p class="dp-muted">Drop this on your site for an in-page checkout modal (keeps the buyer on your domain).</p>
+                    <pre style="background: #0f172a; color: #e2e8f0; padding: 0.75rem; border-radius: 0.5rem; font-size: 0.6875rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0;">@EmbedSnippet</pre>
+                    <button class="dp-btn dp-btn--ghost" @onclick="CopyEmbedSnippetAsync">@(embedCopied ? "Copied ✓" : "Copy snippet")</button>
+                </section>
+            }
+            else if (activeTab == "webhook")
+            {
+                <div class="dp-admin__heading"><h1>Webhook</h1></div>
+                <p class="dp-admin__subtitle">POST with HMAC-SHA256 signature on session state changes (seen → paid → confirmed → expired / underpaid). Header: <span class="dp-mono">X-DigiPay-Signature: sha256=…</span></p>
+
+                <section class="dp-card">
+                    <input @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="dp-input" />
+                    <div class="dp-dash__create" style="grid-template-columns: 1fr 1fr;">
+                        <button class="dp-btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (me.WebhookUrl ?? ""))">
+                            @(webhookBusy ? "Saving…" : "Save")
+                        </button>
+                        <button class="dp-btn dp-btn--ghost" @onclick="TestWebhookAsync" disabled="@(webhookBusy || string.IsNullOrWhiteSpace(me.WebhookUrl))">
+                            Send test event
+                        </button>
+                    </div>
+                    @if (webhookMessage != null) { <p class="dp-muted">@webhookMessage</p> }
+                    @if (webhookError != null) { <p class="dp-error">@webhookError</p> }
+                </section>
+            }
+            else if (activeTab == "settings")
+            {
+                <div class="dp-admin__heading"><h1>Settings</h1></div>
+                <p class="dp-admin__subtitle">Receive address, session defaults, and merchant profile.</p>
+
+                <section class="dp-card">
+                    <h2>Receive</h2>
+                    @if (me.HasReceive)
+                    {
+                        <div class="dp-row">
+                            <div>
+                                <div class="dp-eyebrow">Current</div>
+                                <div class="dp-dash__receive">@me.ReceivePreview</div>
+                                <div class="dp-muted">@(me.ReceiveMode == "xpub" ? "Fresh address per session" : "Single reused address")</div>
+                            </div>
+                            <button class="dp-btn dp-btn--ghost" @onclick="() => showEditReceive = !showEditReceive">
+                                @(showEditReceive ? "Cancel" : "Change")
+                            </button>
+                        </div>
+                    }
+                    @if (!me.HasReceive || showEditReceive)
+                    {
                         <input @bind="receiveInput" placeholder="dgb1… or xpub…" class="dp-input dp-input--mono" />
                         <button class="dp-btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
                             @(busy ? "Saving…" : "Save")
                         </button>
                         @if (patchError != null) { <p class="dp-error">@patchError</p> }
-                    </div>
-                }
-            </section>
+                    }
+                </section>
 
-            <section class="dp-card">
-                <h2>New session</h2>
-                <div class="dp-dash__create">
-                    <input @bind="newAmount" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="dp-input" />
-                    <input @bind="newLabel" placeholder="Label" class="dp-input" />
-                    <input @bind="newMemo" placeholder="Memo / invoice #" class="dp-input" />
-                </div>
-                <button class="dp-btn" @onclick="CreateSessionAsync" disabled="@(busy || newAmount <= 0)">
-                    @(busy ? "Creating…" : "Create session")
-                </button>
-                @if (createError != null) { <p class="dp-error">@createError</p> }
-                @if (createdSession != null)
-                {
-                    <div class="dp-dash__created">
-                        <div class="dp-eyebrow">Checkout URL</div>
-                        <a href="@createdSession.CheckoutUrl" target="_blank" class="dp-mono">@createdSession.CheckoutUrl</a>
+                <section class="dp-card">
+                    <h2>Default session expiry</h2>
+                    <p class="dp-muted">How long a pending session stays open before it expires. Defaults to 30 minutes. Late payments (up to 3 days past expiry) still reconcile automatically.</p>
+                    <div class="dp-row" style="align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <input @bind="expiryInput" type="number" min="1" max="1440" placeholder="30" class="dp-input" />
+                            <div class="dp-muted" style="font-size: 0.6875rem; margin-top: 0.25rem;">Minutes (1–1440). Blank = global default (30).</div>
+                        </div>
+                        <button class="dp-btn" @onclick="SaveExpiryAsync" disabled="@expiryBusy">
+                            @(expiryBusy ? "Saving…" : "Save")
+                        </button>
                     </div>
-                }
-            </section>
-
-            <section class="dp-card">
-                <div class="dp-row">
-                    <h2>Sessions</h2>
-                    <button class="dp-btn dp-btn--ghost" @onclick="LoadSessionsAsync" disabled="@loadingSessions">
-                        @(loadingSessions ? "…" : "Refresh")
-                    </button>
-                </div>
-                @if (sessions == null)
-                {
-                    <p class="dp-muted">Loading…</p>
-                }
-                else if (sessions.Count == 0)
-                {
-                    <p class="dp-muted">No sessions yet.</p>
-                }
-                else
-                {
-                    <ul class="dp-dash__sessions">
-                        @foreach (var s in sessions)
-                        {
-                            <li>
-                                <a href="@s.CheckoutUrl" target="_blank" class="dp-dash__session">
-                                    <div>
-                                        <div class="dp-dash__session-amount">@s.Amount.ToString("0.########") DGB</div>
-                                        <div class="dp-mono dp-dash__session-addr">@s.Address</div>
-                                        @if (!string.IsNullOrEmpty(s.Label)) { <div class="dp-muted">@s.Label</div> }
-                                    </div>
-                                    <div class="dp-dash__session-meta">
-                                        <CheckoutStatusPill Status="@s.Status" />
-                                        <div class="dp-muted">@s.CreatedAt.ToLocalTime().ToString("MMM d, HH:mm")</div>
-                                    </div>
-                                </a>
-                            </li>
-                        }
-                    </ul>
-                }
-            </section>
-
-            <section class="dp-card">
-                <h2>Donation button</h2>
-                <p class="dp-muted">Static BIP21 link — no session created, no tracking. Any DigiByte wallet can pay. Tips land at your donation address (reused across all clicks).</p>
-                @if (donationAddress is null)
-                {
-                    <p class="dp-muted">Loading address…</p>
-                }
-                else
-                {
-                    <div class="dp-mono" style="font-size: 0.6875rem; padding: 0.5rem 0.75rem; background: var(--dp-bg); border: 1px solid var(--dp-border); border-radius: 0.5rem;">@donationAddress</div>
-                    <div class="dp-dash__create">
-                        <input @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="Amount (opt)" class="dp-input" />
-                        <input @bind="donName" @bind:event="oninput" placeholder="Name (opt)" class="dp-input" />
-                        <input @bind="donButtonText" @bind:event="oninput" placeholder="Button text" class="dp-input" />
-                    </div>
-                    <div class="dp-eyebrow" style="margin-top: 0.5rem;">Preview</div>
-                    <div style="padding: 1rem; background: var(--dp-bg); border: 1px solid var(--dp-border); border-radius: 0.5rem; text-align: center;">
-                        <a href="@DonationUrl" target="_blank" class="dp-btn" style="display: inline-block; width: auto; text-decoration: none;">
-                            @(string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText)
-                        </a>
-                    </div>
-                    <div class="dp-eyebrow">HTML snippet</div>
-                    <pre style="background: #0f172a; color: #e2e8f0; padding: 0.75rem; border-radius: 0.5rem; font-size: 0.6875rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0;">@DonationSnippet</pre>
-                    <button class="dp-btn dp-btn--ghost" @onclick="CopyDonationSnippetAsync">@(donCopied ? "Copied ✓" : "Copy snippet")</button>
-                }
-            </section>
-
-            <section class="dp-card">
-                <h2>Webhook</h2>
-                <p class="dp-muted">POST with HMAC-SHA256 signature on session state changes (seen → paid → confirmed → expired / underpaid). Header: <span class="dp-mono">X-DigiPay-Signature: sha256=…</span></p>
-                <input @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="dp-input" />
-                <div class="dp-dash__create" style="grid-template-columns: 1fr 1fr;">
-                    <button class="dp-btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (me?.WebhookUrl ?? ""))">
-                        @(webhookBusy ? "Saving…" : "Save")
-                    </button>
-                    <button class="dp-btn dp-btn--ghost" @onclick="TestWebhookAsync" disabled="@(webhookBusy || string.IsNullOrWhiteSpace(me?.WebhookUrl))">
-                        Send test event
-                    </button>
-                </div>
-                @if (webhookMessage != null) { <p class="dp-muted">@webhookMessage</p> }
-                @if (webhookError != null) { <p class="dp-error">@webhookError</p> }
-            </section>
-        }
-    }
-</main>
+                    @if (expiryMessage != null) { <p class="dp-muted">@expiryMessage</p> }
+                    @if (expiryError != null) { <p class="dp-error">@expiryError</p> }
+                </section>
+            }
+        </main>
+    </div>
+}
 
 @code {
+    private record TabDef(string Key, string Label, string Icon);
+    private readonly TabDef[] tabs = new[]
+    {
+        new TabDef("overview",  "Overview",        "▣"),
+        new TabDef("sessions",  "Sessions",        "📋"),
+        new TabDef("donation",  "Donation button", "🔘"),
+        new TabDef("webhook",   "Webhook",         "🔔"),
+        new TabDef("settings",  "Settings",        "⚙"),
+    };
+    private string activeTab = "overview";
+
     private string? token;
     private MeDto? me;
     private List<SessionRow>? sessions;
@@ -195,11 +271,17 @@
     private string donName = "";
     private string donButtonText = "Tip DGB";
     private bool donCopied;
+    private bool embedCopied;
 
     private string webhookInput = "";
     private bool webhookBusy;
     private string? webhookMessage;
     private string? webhookError;
+
+    private int? expiryInput;
+    private bool expiryBusy;
+    private string? expiryMessage;
+    private string? expiryError;
 
     private bool busy;
     private bool loadingSessions;
@@ -219,6 +301,7 @@
             if (me is not null && me.HasReceive)
             {
                 webhookInput = me.WebhookUrl ?? "";
+                expiryInput = me.DefaultSessionExpiryMinutes;
                 await LoadSessionsAsync();
                 await LoadDonationAddressAsync();
             }
@@ -226,6 +309,9 @@
         }
         catch (Exception ex) { bootstrapError = ex.Message; StateHasChanged(); }
     }
+
+    private int CountBy(params string[] statuses) =>
+        sessions?.Count(s => statuses.Contains(s.Status)) ?? 0;
 
     private HttpRequestMessage AuthedRequest(HttpMethod method, string path, HttpContent? content = null)
     {
@@ -276,7 +362,7 @@
                 donationAddress = dto?.Address;
             }
         }
-        catch { /* non-fatal */ }
+        catch { }
     }
 
     private string WebBase => Nav.BaseUri.TrimEnd('/');
@@ -299,61 +385,32 @@
     private string DonationSnippet =>
         $"<a href=\"{DonationUrl}\" target=\"_blank\" rel=\"noopener\">{System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText)}</a>";
 
+    private string EmbedSnippet =>
+        $"<script src=\"{WebBase}/embed/digipay.js?v=0.1\"></script>\n<button data-digipay-checkout data-session-id=\"SESSION_ID\">Pay with DigiByte</button>";
+
     private async Task CopyDonationSnippetAsync()
     {
         try
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", DonationSnippet);
-            donCopied = true;
-            StateHasChanged();
+            donCopied = true; StateHasChanged();
             await Task.Delay(1500);
-            donCopied = false;
-            StateHasChanged();
+            donCopied = false; StateHasChanged();
         }
         catch { }
     }
 
-    private async Task SaveWebhookAsync()
+    private async Task CopyEmbedSnippetAsync()
     {
-        webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
         try
         {
-            var http = HttpFactory.CreateClient("PayApi");
-            var content = JsonContent.Create(new { webhookUrl = webhookInput.Trim() });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
-            if (!response.IsSuccessStatusCode)
-            {
-                webhookError = await response.Content.ReadAsStringAsync();
-                return;
-            }
-            me = await response.Content.ReadFromJsonAsync<MeDto>();
-            webhookMessage = string.IsNullOrWhiteSpace(me?.WebhookUrl)
-                ? "Webhook cleared."
-                : "Webhook saved.";
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", EmbedSnippet);
+            embedCopied = true; StateHasChanged();
+            await Task.Delay(1500);
+            embedCopied = false; StateHasChanged();
         }
-        catch (Exception ex) { webhookError = ex.Message; }
-        finally { webhookBusy = false; StateHasChanged(); }
+        catch { }
     }
-
-    private async Task TestWebhookAsync()
-    {
-        webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
-        try
-        {
-            var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/me/webhook/test"));
-            if (!response.IsSuccessStatusCode)
-            {
-                webhookError = await response.Content.ReadAsStringAsync();
-                return;
-            }
-            webhookMessage = "Test event dispatched — check your server logs for a 'webhook.test' POST.";
-        }
-        catch (Exception ex) { webhookError = ex.Message; }
-        finally { webhookBusy = false; StateHasChanged(); }
-    }
-
-    private record DonationAddressDto(string Address, string Mode);
 
     private async Task SaveReceiveAsync()
     {
@@ -407,6 +464,64 @@
         finally { busy = false; StateHasChanged(); }
     }
 
+    private async Task SaveWebhookAsync()
+    {
+        webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { webhookUrl = webhookInput.Trim() });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                webhookError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            me = await response.Content.ReadFromJsonAsync<MeDto>();
+            webhookMessage = string.IsNullOrWhiteSpace(me?.WebhookUrl) ? "Webhook cleared." : "Webhook saved.";
+        }
+        catch (Exception ex) { webhookError = ex.Message; }
+        finally { webhookBusy = false; StateHasChanged(); }
+    }
+
+    private async Task TestWebhookAsync()
+    {
+        webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/me/webhook/test"));
+            if (!response.IsSuccessStatusCode)
+            {
+                webhookError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            webhookMessage = "Test event dispatched — check your server logs for a 'webhook.test' POST.";
+        }
+        catch (Exception ex) { webhookError = ex.Message; }
+        finally { webhookBusy = false; StateHasChanged(); }
+    }
+
+    private async Task SaveExpiryAsync()
+    {
+        expiryBusy = true; expiryError = null; expiryMessage = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { defaultSessionExpiryMinutes = expiryInput });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                expiryError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            me = await response.Content.ReadFromJsonAsync<MeDto>();
+            expiryMessage = me?.DefaultSessionExpiryMinutes is int m ? $"Default is now {m} minutes." : "Using global default (30 minutes).";
+        }
+        catch (Exception ex) { expiryError = ex.Message; }
+        finally { expiryBusy = false; StateHasChanged(); }
+    }
+
     private async Task SignOutAsync()
     {
         await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
@@ -416,7 +531,8 @@
 
     private record MeDto(string Id, string DisplayName, string? DigiIdAddress, string Network,
         string ReceiveMode, bool HasReceive, string? ReceivePreview,
-        string? WebhookUrl, bool HasWebhookSecret, DateTime CreatedAt);
+        string? WebhookUrl, bool HasWebhookSecret,
+        int? DefaultSessionExpiryMinutes, DateTime CreatedAt);
 
     private record SessionList(int Total, int Take, int Skip, List<SessionRow> Sessions);
 
@@ -428,4 +544,6 @@
 
     private record CreatedSession(string Id, string Address, decimal Amount, string Status,
         string Uri, string CheckoutUrl);
+
+    private record DonationAddressDto(string Address, string Mode);
 }

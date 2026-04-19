@@ -124,6 +124,14 @@ public static class MerchantMeEndpoints
                 }
             }
 
+            if (body.DefaultSessionExpiryMinutes is not null)
+            {
+                var mins = body.DefaultSessionExpiryMinutes.Value;
+                if (mins is < 1 or > 24 * 60)
+                    return Results.BadRequest(new { error = "defaultSessionExpiryMinutes must be 1-1440" });
+                merchant.DefaultSessionExpiryMinutes = mins;
+            }
+
             if (body.WebhookUrl is not null)
             {
                 var trimmed = body.WebhookUrl.Trim();
@@ -167,6 +175,7 @@ public static class MerchantMeEndpoints
             : null,
         m.WebhookUrl,
         HasWebhookSecret = !string.IsNullOrEmpty(m.WebhookSecret),
+        m.DefaultSessionExpiryMinutes,
         m.CreatedAt,
     };
 
@@ -190,4 +199,9 @@ public static class MerchantMeEndpoints
     }
 }
 
-public record UpdateMeRequest(string? DisplayName, string? Network, string? AddressOrXpub, string? WebhookUrl);
+public record UpdateMeRequest(
+    string? DisplayName,
+    string? Network,
+    string? AddressOrXpub,
+    string? WebhookUrl,
+    int? DefaultSessionExpiryMinutes);

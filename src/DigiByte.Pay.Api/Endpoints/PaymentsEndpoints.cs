@@ -8,8 +8,10 @@ namespace DigiByte.Pay.Api.Endpoints;
 
 public static class PaymentsEndpoints
 {
-    // 10-minute default price-lock / wait window before a pending session expires
-    private static readonly TimeSpan DefaultExpiry = TimeSpan.FromMinutes(10);
+    // Price-lock / wait window before a pending session is marked expired.
+    // 30m matches BTCPay/BitPay; too short and buyers lose orders mid-flow.
+    // Per-merchant override via PayMerchant.DefaultSessionExpiryMinutes.
+    private static readonly TimeSpan DefaultExpiry = TimeSpan.FromMinutes(30);
 
     public static RouteGroupBuilder MapPaymentsEndpoints(this RouteGroupBuilder group, IConfiguration config)
     {
@@ -109,10 +111,7 @@ public static class PaymentsEndpoints
                 DgbPriceAtCreation = body.DgbPriceAtCreation,
                 Label = body.Label,
                 Memo = body.Memo,
-                ExpiresAt = DateTime.UtcNow.Add(
-                    body.ExpiresInSeconds is > 0 and <= 3600
-                        ? TimeSpan.FromSeconds(body.ExpiresInSeconds.Value)
-                        : DefaultExpiry),
+                ExpiresAt = DateTime.UtcNow.Add(ResolveExpiry(body.ExpiresInSeconds, merchant)),
             };
 
             db.Sessions.Add(session);
@@ -177,6 +176,17 @@ public static class PaymentsEndpoints
         });
 
         return group;
+    }
+
+    private static TimeSpan ResolveExpiry(int? requestedSeconds, PayMerchant merchant)
+    {
+        // Explicit per-session override wins, clamped to avoid abuse.
+        if (requestedSeconds is > 0 and <= 24 * 3600)
+            return TimeSpan.FromSeconds(requestedSeconds.Value);
+        // Merchant's preferred default, clamped 1 min – 24 h.
+        if (merchant.DefaultSessionExpiryMinutes is int mins and > 0 and <= 24 * 60)
+            return TimeSpan.FromMinutes(mins);
+        return DefaultExpiry;
     }
 
     private static async Task<PayMerchant?> AuthenticateAsync(HttpRequest http, DigiPayDbContext db)

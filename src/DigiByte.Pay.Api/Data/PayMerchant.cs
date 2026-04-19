@@ -15,6 +15,9 @@ public class PayMerchant
     public string? ReceiveAddress { get; set; }
     public required string Network { get; set; } = "mainnet";
     public int NextAddressIndex { get; set; }
+    // Per-merchant default for how long pending sessions stay open before expiring,
+    // in minutes. Null falls back to the global default (30 min).
+    public int? DefaultSessionExpiryMinutes { get; set; }
     public string? WebhookUrl { get; set; }
     public string? WebhookSecret { get; set; }
     public required string ApiKeyPrefix { get; set; }
