@@ -33,6 +33,24 @@
     // Run synchronously at script load time so the initial render matches.
     apply(resolve());
 
+    // Blazor Web App's "enhanced navigation" swaps DOM content but the new
+    // server-rendered <html> has no data-theme attribute (server can't read
+    // localStorage). Blazor's diff strips our attribute during the swap.
+    // Watch <html>'s attributes and restore data-theme if it gets cleared.
+    try {
+        var observer = new MutationObserver(function () {
+            if (document.documentElement.getAttribute('data-theme') !== resolve()) {
+                apply(resolve());
+            }
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    } catch (_) { }
+
+    // Defensive: also reapply on every Blazor enhanced-nav event we know of.
+    ['enhancedload', 'blazor-enhanced-load'].forEach(function (n) {
+        document.addEventListener(n, function () { apply(resolve()); });
+    });
+
     // Keep following OS changes when the user hasn't opted out.
     if (global.matchMedia) {
         global.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
