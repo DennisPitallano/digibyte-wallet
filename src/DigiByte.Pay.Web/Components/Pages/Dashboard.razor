@@ -5,7 +5,7 @@
 @inject NavigationManager Nav
 @using System.Net.Http.Json
 
-<PageTitle>@(me?.DisplayName ?? "Dashboard") — DigiPay</PageTitle>
+<PageTitle>@(account?.DisplayName ?? "Dashboard") — DigiPay</PageTitle>
 
 @* Shared class strings for consistency *@
 @{
@@ -26,7 +26,7 @@
         <div class="@Card text-center"><p class="text-sm text-red-500 m-0">@bootstrapError</p></div>
     </main>
 }
-else if (me == null)
+else if (account == null)
 {
     <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
         <p class="@Muted m-0">Loading…</p>
@@ -47,7 +47,7 @@ else
             <div class="flex-1"></div>
             <ThemeToggle />
             <div class="text-right">
-                <div class="text-[0.8125rem] font-semibold truncate max-w-[8rem]">@me.DisplayName</div>
+                <div class="text-[0.8125rem] font-semibold truncate max-w-[8rem]">@account.DisplayName</div>
                 <button class="px-2 py-0.5 text-[0.6875rem] font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-dgb-800 rounded transition-colors hover:bg-slate-50 dark:hover:bg-dgb-800"
                         @onclick="SignOutAsync">Sign out</button>
             </div>
@@ -58,9 +58,24 @@ else
 
         @* Sidebar *@
         <aside class="bg-white dark:bg-dgb-900 border-r border-slate-200 dark:border-dgb-800 md:sticky md:top-0 md:self-start md:h-dvh md:z-20 fixed left-0 top-0 bottom-0 w-64 z-20 transition-transform flex flex-col gap-1 p-5 md:p-3 @(sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full") md:translate-x-0 md:shadow-none">
-            <div class="flex items-center gap-2 pb-4 mb-3 border-b border-slate-200 dark:border-dgb-800 font-bold text-base">
+            <div class="flex items-center gap-2 pb-3 mb-2 border-b border-slate-200 dark:border-dgb-800 font-bold text-base">
                 <span class="w-2.5 h-2.5 rounded-full bg-dgb-500"></span> DigiPay
             </div>
+
+            @* Store switcher — visible only when the account has at least one store *@
+            @if (stores.Count > 0)
+            {
+                <div class="mb-2">
+                    <label class="@Eyebrow block mb-1 px-1">Active store</label>
+                    <select class="@Input text-[0.8125rem] py-1.5" @bind="activeStoreId" @bind:after="OnActiveStoreChangedAsync">
+                        @foreach (var s in stores)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+
             <nav class="flex flex-col gap-0.5 flex-1">
                 @foreach (var tab in tabs)
                 {
@@ -74,10 +89,10 @@ else
                 }
             </nav>
             <div class="border-t border-slate-200 dark:border-dgb-800 pt-3 flex flex-col gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <div>@me.DisplayName</div>
-                @if (!string.IsNullOrEmpty(me.DigiIdAddress))
+                <div>@account.DisplayName</div>
+                @if (!string.IsNullOrEmpty(account.DigiIdAddress))
                 {
-                    <div class="font-mono text-[0.625rem]">@(me.DigiIdAddress.Length > 14 ? me.DigiIdAddress[..8] + "…" + me.DigiIdAddress[^4..] : me.DigiIdAddress)</div>
+                    <div class="font-mono text-[0.625rem]">@(account.DigiIdAddress.Length > 14 ? account.DigiIdAddress[..8] + "…" + account.DigiIdAddress[^4..] : account.DigiIdAddress)</div>
                 }
                 <div class="flex gap-1.5 items-stretch mt-1">
                     <button class="@BtnGhost flex-1 text-xs py-2" @onclick="SignOutAsync">Sign out</button>
@@ -87,16 +102,27 @@ else
         </aside>
 
         <main class="p-4 sm:p-8 max-w-5xl box-border">
-            @if (activeTab == "overview")
+            @if (activeStore is null)
             {
-                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1"><h1 class="@H1">Overview</h1></div>
-                <p class="@Muted mb-6">Summary of your DigiPay activity.</p>
+                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">No stores</h1></div>
+                <p class="@Muted mb-6">You don't have any stores yet. One should have been created automatically at sign-in.</p>
+                <section class="@Card">
+                    <button class="@Btn self-start" @onclick='() => SwitchTab("stores")'>Create your first store</button>
+                </section>
+            }
+            else if (activeTab == "overview")
+            {
+                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1">
+                    <h1 class="@H1">Overview</h1>
+                    <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
+                </div>
+                <p class="@Muted mb-6">Summary of this store's activity.</p>
 
-                @if (!me.HasReceive)
+                @if (!activeStore.HasReceive)
                 {
                     <section class="@Card">
                         <h2 class="@H2">Configure where to receive payments</h2>
-                        <p class="@Muted m-0">Before you can create sessions, set a DigiByte address or BIP84 xpub in Settings.</p>
+                        <p class="@Muted m-0">Before you can create sessions for this store, set a DigiByte address or BIP84 xpub in Settings.</p>
                         <button class="@Btn self-start" @onclick='() => SwitchTab("settings")'>Go to Settings</button>
                     </section>
                 }
@@ -138,7 +164,7 @@ else
                         @(loadingSessions ? "…" : "Refresh")
                     </button>
                 </div>
-                <p class="@Muted mb-6">Every checkout session you've created, newest first.</p>
+                <p class="@Muted mb-6">Sessions for <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>, newest first.</p>
 
                 <section class="@Card">
                     @if (sessions == null) { <p class="@Muted m-0">Loading…</p> }
@@ -169,8 +195,11 @@ else
             }
             else if (activeTab == "donation")
             {
-                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Donation button</h1></div>
-                <p class="@Muted mb-6">Static BIP21 link — no session created, no tracking. Any DigiByte wallet can pay. Tips reuse your donation address.</p>
+                <div class="flex items-baseline justify-between mb-1">
+                    <h1 class="@H1">Donation button</h1>
+                    <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
+                </div>
+                <p class="@Muted mb-6">Static BIP21 link — no session created, no tracking. Any DigiByte wallet can pay. Tips reuse this store's donation address.</p>
 
                 <section class="@Card">
                     @if (donationAddress is null) { <p class="@Muted m-0">Loading address…</p> }
@@ -203,16 +232,19 @@ else
             }
             else if (activeTab == "webhook")
             {
-                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Webhook</h1></div>
-                <p class="@Muted mb-6">POST with HMAC-SHA256 signature on session state changes (seen → paid → confirmed → expired / underpaid). Header: <span class="font-mono">X-DigiPay-Signature: sha256=…</span></p>
+                <div class="flex items-baseline justify-between mb-1">
+                    <h1 class="@H1">Webhook</h1>
+                    <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
+                </div>
+                <p class="@Muted mb-6">POST with HMAC-SHA256 signature on session state changes. Each store has its own webhook URL and secret. Header: <span class="font-mono">X-DigiPay-Signature: sha256=…</span></p>
 
                 <section class="@Card">
                     <input @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="@Input" />
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button class="@Btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (me.WebhookUrl ?? ""))">
+                        <button class="@Btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (activeStore.WebhookUrl ?? ""))">
                             @(webhookBusy ? "Saving…" : "Save")
                         </button>
-                        <button class="@BtnGhost" @onclick="TestWebhookAsync" disabled="@(webhookBusy || string.IsNullOrWhiteSpace(me.WebhookUrl))">
+                        <button class="@BtnGhost" @onclick="TestWebhookAsync" disabled="@(webhookBusy || string.IsNullOrWhiteSpace(activeStore.WebhookUrl))">
                             Send test event
                         </button>
                     </div>
@@ -220,16 +252,71 @@ else
                     @if (webhookError != null) { <p class="text-xs text-red-500 m-0">@webhookError</p> }
                 </section>
             }
-            else if (activeTab == "settings")
+            else if (activeTab == "stores")
             {
-                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Settings</h1></div>
-                <p class="@Muted mb-6">Receive address, session defaults, and merchant profile.</p>
+                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Stores</h1></div>
+                <p class="@Muted mb-6">Each store has its own receive address, webhook config, and sessions. You can run multiple shops from one account.</p>
 
                 <section class="@Card">
-                    <h2 class="@H2">Profile</h2>
-                    <p class="@Muted m-0">Display name shown to buyers on the hosted checkout page and in webhook payloads.</p>
-                    <input @bind="nameInput" placeholder="@me.DisplayName" class="@Input" maxlength="120" />
-                    <button class="@Btn self-start" @onclick="SaveNameAsync" disabled="@(nameBusy || string.IsNullOrWhiteSpace(nameInput) || nameInput.Trim() == me.DisplayName)">
+                    <h2 class="@H2">Add a new store</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+                        <input @bind="newStoreName" placeholder="Store name" class="@Input" />
+                        <select @bind="newStoreNetwork" class="@Input sm:w-32">
+                            <option value="mainnet">mainnet</option>
+                            <option value="testnet">testnet</option>
+                            <option value="regtest">regtest</option>
+                        </select>
+                        <button class="@Btn" @onclick="AddStoreAsync" disabled="@(storeBusy || string.IsNullOrWhiteSpace(newStoreName))">
+                            @(storeBusy ? "Adding…" : "Add store")
+                        </button>
+                    </div>
+                    @if (storeError != null) { <p class="text-xs text-red-500 m-0">@storeError</p> }
+                </section>
+
+                <section class="@Card mt-4">
+                    <h2 class="@H2">Your stores</h2>
+                    <ul class="list-none p-0 m-0 flex flex-col gap-2">
+                        @foreach (var s in stores)
+                        {
+                            var isActive = s.Id == activeStoreId;
+                            <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg @(isActive ? "border-dgb-500 bg-dgb-500/5" : "border-slate-200 dark:border-dgb-800")">
+                                <div class="min-w-0">
+                                    <div class="font-semibold text-sm text-slate-900 dark:text-white">@s.Name @(isActive ? "· active" : "")</div>
+                                    <div class="@Muted">
+                                        @s.Network ·
+                                        @(s.HasReceive ? $"receiving to {s.ReceivePreview}" : "no receive configured")
+                                        @(string.IsNullOrEmpty(s.WebhookUrl) ? "" : " · webhook set")
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 shrink-0">
+                                    @if (!isActive)
+                                    {
+                                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="() => SetActiveAsync(s.Id)">Switch to</button>
+                                    }
+                                    <button class="@BtnGhost text-xs py-1.5 px-3 text-red-500 dark:text-red-400 border-red-200 dark:border-red-800/40"
+                                            @onclick="() => DeleteStoreAsync(s.Id)"
+                                            disabled="@(stores.Count <= 1)">
+                                        Delete
+                                    </button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+            else if (activeTab == "settings")
+            {
+                <div class="flex items-baseline justify-between mb-1">
+                    <h1 class="@H1">Settings</h1>
+                    <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
+                </div>
+                <p class="@Muted mb-6">Account profile + settings for the active store.</p>
+
+                <section class="@Card">
+                    <h2 class="@H2">Profile (account)</h2>
+                    <p class="@Muted m-0">Display name for you as a DigiPay account owner. Store-facing names are set per store below.</p>
+                    <input @bind="nameInput" placeholder="@account.DisplayName" class="@Input" maxlength="120" />
+                    <button class="@Btn self-start" @onclick="SaveNameAsync" disabled="@(nameBusy || string.IsNullOrWhiteSpace(nameInput) || nameInput.Trim() == account.DisplayName)">
                         @(nameBusy ? "Saving…" : "Save")
                     </button>
                     @if (nameMessage != null) { <p class="@Muted m-0">@nameMessage</p> }
@@ -237,21 +324,31 @@ else
                 </section>
 
                 <section class="@Card mt-4">
+                    <h2 class="@H2">Store name</h2>
+                    <p class="@Muted m-0">Shown to buyers on the hosted checkout and in webhook payloads.</p>
+                    <input @bind="storeNameInput" placeholder="@activeStore.Name" class="@Input" maxlength="120" />
+                    <button class="@Btn self-start" @onclick="SaveStoreNameAsync" disabled="@(storeNameBusy || string.IsNullOrWhiteSpace(storeNameInput) || storeNameInput.Trim() == activeStore.Name)">
+                        @(storeNameBusy ? "Saving…" : "Save")
+                    </button>
+                    @if (storeNameError != null) { <p class="text-xs text-red-500 m-0">@storeNameError</p> }
+                </section>
+
+                <section class="@Card mt-4">
                     <h2 class="@H2">Receive</h2>
-                    @if (me.HasReceive)
+                    @if (activeStore.HasReceive)
                     {
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div class="min-w-0">
                                 <div class="@Eyebrow">Current</div>
-                                <div class="font-mono text-sm font-semibold my-0.5 break-all">@me.ReceivePreview</div>
-                                <div class="@Muted">@(me.ReceiveMode == "xpub" ? "Fresh address per session" : "Single reused address")</div>
+                                <div class="font-mono text-sm font-semibold my-0.5 break-all">@activeStore.ReceivePreview</div>
+                                <div class="@Muted">@(activeStore.ReceiveMode == "xpub" ? "Fresh address per session" : "Single reused address")</div>
                             </div>
                             <button class="@BtnGhost shrink-0" @onclick="() => showEditReceive = !showEditReceive">
                                 @(showEditReceive ? "Cancel" : "Change")
                             </button>
                         </div>
                     }
-                    @if (!me.HasReceive || showEditReceive)
+                    @if (!activeStore.HasReceive || showEditReceive)
                     {
                         <input @bind="receiveInput" placeholder="dgb1… or xpub…" class="@Input font-mono text-xs" />
                         <button class="@Btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
@@ -289,6 +386,7 @@ else
         new TabDef("sessions",  "Sessions",        "📋"),
         new TabDef("donation",  "Donation button", "🔘"),
         new TabDef("webhook",   "Webhook",         "🔔"),
+        new TabDef("stores",    "Stores",          "🏪"),
         new TabDef("settings",  "Settings",        "⚙"),
     };
     private string activeTab = "overview";
@@ -297,11 +395,15 @@ else
     private void SwitchTab(string key)
     {
         activeTab = key;
-        sidebarOpen = false; // auto-dismiss the mobile drawer after a tab click
+        sidebarOpen = false;
     }
 
     private string? token;
-    private MeDto? me;
+    private AccountDto? account;
+    private List<StoreDto> stores = new();
+    private string activeStoreId = "";
+    private StoreDto? activeStore => stores.FirstOrDefault(s => s.Id == activeStoreId);
+
     private List<SessionRow>? sessions;
     private string? bootstrapError;
 
@@ -337,12 +439,22 @@ else
     private string? nameMessage;
     private string? nameError;
 
+    private string storeNameInput = "";
+    private bool storeNameBusy;
+    private string? storeNameError;
+
+    // Stores tab — create new
+    private string newStoreName = "";
+    private string newStoreNetwork = "mainnet";
+    private bool storeBusy;
+    private string? storeError;
+
     private bool busy;
     private bool loadingSessions;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || me != null || bootstrapError != null) return;
+        if (!firstRender || account != null || bootstrapError != null) return;
         try
         {
             token = await JS.InvokeAsync<string?>("localStorage.getItem", "digipay-token");
@@ -351,13 +463,11 @@ else
                 Nav.NavigateTo("/merchant/signin");
                 return;
             }
-            await LoadMeAsync();
-            if (me is not null && me.HasReceive)
+            await LoadAccountAsync();
+            if (account is not null && stores.Count > 0)
             {
-                webhookInput = me.WebhookUrl ?? "";
-                expiryInput = me.DefaultSessionExpiryMinutes;
-                await LoadSessionsAsync();
-                await LoadDonationAddressAsync();
+                activeStoreId = stores[0].Id;
+                await LoadActiveStoreContextAsync();
             }
             StateHasChanged();
         }
@@ -374,7 +484,7 @@ else
         return req;
     }
 
-    private async Task LoadMeAsync()
+    private async Task LoadAccountAsync()
     {
         var http = HttpFactory.CreateClient("PayApi");
         var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/me/"));
@@ -385,16 +495,51 @@ else
             return;
         }
         response.EnsureSuccessStatusCode();
-        me = await response.Content.ReadFromJsonAsync<MeDto>();
+        var dto = await response.Content.ReadFromJsonAsync<AccountDto>();
+        account = dto;
+        stores = dto?.Stores?.ToList() ?? new();
+    }
+
+    private async Task LoadActiveStoreContextAsync()
+    {
+        if (activeStore is null) return;
+        webhookInput = activeStore.WebhookUrl ?? "";
+        expiryInput = activeStore.DefaultSessionExpiryMinutes;
+        await LoadSessionsAsync();
+        if (activeStore.HasReceive) await LoadDonationAddressAsync();
+        else donationAddress = null;
+    }
+
+    private async Task OnActiveStoreChangedAsync()
+    {
+        // Reset store-scoped state, reload everything for the new active store.
+        donationAddress = null;
+        sessions = null;
+        createdSession = null;
+        showEditReceive = false;
+        receiveInput = "";
+        storeNameInput = "";
+        webhookMessage = webhookError = null;
+        expiryMessage = expiryError = null;
+        await LoadActiveStoreContextAsync();
+        StateHasChanged();
+    }
+
+    private async Task SetActiveAsync(string storeId)
+    {
+        activeStoreId = storeId;
+        await OnActiveStoreChangedAsync();
     }
 
     private async Task LoadSessionsAsync()
     {
+        if (activeStore is null) return;
         loadingSessions = true; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/sessions?take=25"));
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get,
+                $"/v1/pay/sessions?take=25&storeId={Uri.EscapeDataString(activeStoreId)}"));
             if (response.IsSuccessStatusCode)
             {
                 var payload = await response.Content.ReadFromJsonAsync<SessionList>();
@@ -406,10 +551,12 @@ else
 
     private async Task LoadDonationAddressAsync()
     {
+        if (activeStore is null) return;
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/me/donation-address"));
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get,
+                $"/v1/pay/stores/{activeStoreId}/donation-address"));
             if (response.IsSuccessStatusCode)
             {
                 var dto = await response.Content.ReadFromJsonAsync<DonationAddressDto>();
@@ -417,6 +564,14 @@ else
             }
         }
         catch { }
+    }
+
+    private async Task RefreshStoreAsync()
+    {
+        // Re-fetch account so the stores list (and active store's fields) stay fresh.
+        await LoadAccountAsync();
+        if (!stores.Any(s => s.Id == activeStoreId) && stores.Count > 0)
+            activeStoreId = stores[0].Id;
     }
 
     private string WebBase => Nav.BaseUri.TrimEnd('/');
@@ -444,49 +599,28 @@ else
 
     private async Task CopyDonationSnippetAsync()
     {
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", DonationSnippet);
-            donCopied = true; StateHasChanged();
-            await Task.Delay(1500);
-            donCopied = false; StateHasChanged();
-        }
-        catch { }
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", DonationSnippet); donCopied = true; StateHasChanged(); await Task.Delay(1500); donCopied = false; StateHasChanged(); } catch { }
     }
 
     private async Task CopyEmbedSnippetAsync()
     {
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", EmbedSnippet);
-            embedCopied = true; StateHasChanged();
-            await Task.Delay(1500);
-            embedCopied = false; StateHasChanged();
-        }
-        catch { }
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", EmbedSnippet); embedCopied = true; StateHasChanged(); await Task.Delay(1500); embedCopied = false; StateHasChanged(); } catch { }
     }
 
     private async Task SaveReceiveAsync()
     {
+        if (activeStore is null) return;
         busy = true; patchError = null; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             var content = JsonContent.Create(new { addressOrXpub = receiveInput.Trim() });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
-            if (!response.IsSuccessStatusCode)
-            {
-                patchError = await response.Content.ReadAsStringAsync();
-                return;
-            }
-            me = await response.Content.ReadFromJsonAsync<MeDto>();
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
+            if (!response.IsSuccessStatusCode) { patchError = await response.Content.ReadAsStringAsync(); return; }
+            await RefreshStoreAsync();
             receiveInput = "";
             showEditReceive = false;
-            if (me?.HasReceive == true)
-            {
-                await LoadSessionsAsync();
-                await LoadDonationAddressAsync();
-            }
+            if (activeStore?.HasReceive == true) { await LoadSessionsAsync(); await LoadDonationAddressAsync(); }
         }
         catch (Exception ex) { patchError = ex.Message; }
         finally { busy = false; StateHasChanged(); }
@@ -494,6 +628,7 @@ else
 
     private async Task CreateSessionAsync()
     {
+        if (activeStore is null) return;
         busy = true; createError = null; createdSession = null; StateHasChanged();
         try
         {
@@ -501,15 +636,12 @@ else
             var content = JsonContent.Create(new
             {
                 amount = newAmount,
+                storeId = activeStoreId,
                 label = string.IsNullOrWhiteSpace(newLabel) ? null : newLabel,
                 memo = string.IsNullOrWhiteSpace(newMemo) ? null : newMemo,
             });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/sessions", content));
-            if (!response.IsSuccessStatusCode)
-            {
-                createError = await response.Content.ReadAsStringAsync();
-                return;
-            }
+            if (!response.IsSuccessStatusCode) { createError = await response.Content.ReadAsStringAsync(); return; }
             createdSession = await response.Content.ReadFromJsonAsync<CreatedSession>();
             newAmount = 0; newLabel = ""; newMemo = "";
             await LoadSessionsAsync();
@@ -520,19 +652,16 @@ else
 
     private async Task SaveWebhookAsync()
     {
+        if (activeStore is null) return;
         webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             var content = JsonContent.Create(new { webhookUrl = webhookInput.Trim() });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
-            if (!response.IsSuccessStatusCode)
-            {
-                webhookError = await response.Content.ReadAsStringAsync();
-                return;
-            }
-            me = await response.Content.ReadFromJsonAsync<MeDto>();
-            webhookMessage = string.IsNullOrWhiteSpace(me?.WebhookUrl) ? "Webhook cleared." : "Webhook saved.";
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
+            if (!response.IsSuccessStatusCode) { webhookError = await response.Content.ReadAsStringAsync(); return; }
+            await RefreshStoreAsync();
+            webhookMessage = string.IsNullOrWhiteSpace(activeStore?.WebhookUrl) ? "Webhook cleared." : "Webhook saved.";
         }
         catch (Exception ex) { webhookError = ex.Message; }
         finally { webhookBusy = false; StateHasChanged(); }
@@ -540,16 +669,13 @@ else
 
     private async Task TestWebhookAsync()
     {
+        if (activeStore is null) return;
         webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/me/webhook/test"));
-            if (!response.IsSuccessStatusCode)
-            {
-                webhookError = await response.Content.ReadAsStringAsync();
-                return;
-            }
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, $"/v1/pay/stores/{activeStoreId}/webhook/test"));
+            if (!response.IsSuccessStatusCode) { webhookError = await response.Content.ReadAsStringAsync(); return; }
             webhookMessage = "Test event dispatched — check your server logs for a 'webhook.test' POST.";
         }
         catch (Exception ex) { webhookError = ex.Message; }
@@ -558,19 +684,16 @@ else
 
     private async Task SaveExpiryAsync()
     {
+        if (activeStore is null) return;
         expiryBusy = true; expiryError = null; expiryMessage = null; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             var content = JsonContent.Create(new { defaultSessionExpiryMinutes = expiryInput });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
-            if (!response.IsSuccessStatusCode)
-            {
-                expiryError = await response.Content.ReadAsStringAsync();
-                return;
-            }
-            me = await response.Content.ReadFromJsonAsync<MeDto>();
-            expiryMessage = me?.DefaultSessionExpiryMinutes is int m ? $"Default is now {m} minutes." : "Using global default (30 minutes).";
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
+            if (!response.IsSuccessStatusCode) { expiryError = await response.Content.ReadAsStringAsync(); return; }
+            await RefreshStoreAsync();
+            expiryMessage = activeStore?.DefaultSessionExpiryMinutes is int m ? $"Default is now {m} minutes." : "Using global default (30 minutes).";
         }
         catch (Exception ex) { expiryError = ex.Message; }
         finally { expiryBusy = false; StateHasChanged(); }
@@ -584,12 +707,8 @@ else
             var http = HttpFactory.CreateClient("PayApi");
             var content = JsonContent.Create(new { displayName = nameInput.Trim() });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
-            if (!response.IsSuccessStatusCode)
-            {
-                nameError = await response.Content.ReadAsStringAsync();
-                return;
-            }
-            me = await response.Content.ReadFromJsonAsync<MeDto>();
+            if (!response.IsSuccessStatusCode) { nameError = await response.Content.ReadAsStringAsync(); return; }
+            await LoadAccountAsync();
             nameMessage = "Saved.";
             nameInput = "";
         }
@@ -597,10 +716,71 @@ else
         finally { nameBusy = false; StateHasChanged(); }
     }
 
+    private async Task SaveStoreNameAsync()
+    {
+        if (activeStore is null) return;
+        storeNameBusy = true; storeNameError = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { name = storeNameInput.Trim() });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
+            if (!response.IsSuccessStatusCode) { storeNameError = await response.Content.ReadAsStringAsync(); return; }
+            await RefreshStoreAsync();
+            storeNameInput = "";
+        }
+        catch (Exception ex) { storeNameError = ex.Message; }
+        finally { storeNameBusy = false; StateHasChanged(); }
+    }
+
+    private async Task AddStoreAsync()
+    {
+        storeBusy = true; storeError = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { name = newStoreName.Trim(), network = newStoreNetwork });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/stores", content));
+            if (!response.IsSuccessStatusCode) { storeError = await response.Content.ReadAsStringAsync(); return; }
+            var created = await response.Content.ReadFromJsonAsync<StoreDto>();
+            await LoadAccountAsync();
+            if (created is not null)
+            {
+                activeStoreId = created.Id;
+                await LoadActiveStoreContextAsync();
+            }
+            newStoreName = "";
+        }
+        catch (Exception ex) { storeError = ex.Message; }
+        finally { storeBusy = false; StateHasChanged(); }
+    }
+
+    private async Task DeleteStoreAsync(string storeId)
+    {
+        if (stores.Count <= 1) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/stores/{storeId}"));
+            if (!response.IsSuccessStatusCode)
+            {
+                storeError = await response.Content.ReadAsStringAsync();
+                StateHasChanged();
+                return;
+            }
+            await LoadAccountAsync();
+            if (activeStoreId == storeId && stores.Count > 0)
+            {
+                activeStoreId = stores[0].Id;
+                await LoadActiveStoreContextAsync();
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex) { storeError = ex.Message; StateHasChanged(); }
+    }
+
     private async Task SignOutAsync()
     {
-        // Invalidate the server-side session token so it can't be reused
-        // from a stale copy of the browser state.
         if (!string.IsNullOrEmpty(token))
         {
             try
@@ -608,27 +788,29 @@ else
                 var http = HttpFactory.CreateClient("PayApi");
                 await http.SendAsync(AuthedRequest(HttpMethod.Delete, "/v1/pay/auth/session"));
             }
-            catch { /* best-effort; always clear local state next */ }
+            catch { }
         }
         await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
         await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-merchant-id");
         Nav.NavigateTo("/");
     }
 
-    private record MeDto(string Id, string DisplayName, string? DigiIdAddress, string Network,
+    private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, DateTime CreatedAt, List<StoreDto>? Stores);
+
+    private record StoreDto(string Id, string MerchantId, string Name, string Network,
         string ReceiveMode, bool HasReceive, string? ReceivePreview,
         string? WebhookUrl, bool HasWebhookSecret,
         int? DefaultSessionExpiryMinutes, DateTime CreatedAt);
 
     private record SessionList(int Total, int Take, int Skip, List<SessionRow> Sessions);
 
-    private record SessionRow(string Id, string Address, long AmountSatoshis, decimal Amount,
+    private record SessionRow(string Id, string? StoreId, string Address, long AmountSatoshis, decimal Amount,
         string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl);
 
-    private record CreatedSession(string Id, string Address, decimal Amount, string Status,
+    private record CreatedSession(string Id, string? StoreId, string Address, decimal Amount, string Status,
         string Uri, string CheckoutUrl);
 
     private record DonationAddressDto(string Address, string Mode);
