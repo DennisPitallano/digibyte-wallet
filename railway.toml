@@ -1,6 +1,8 @@
 # Railway configuration for DigiByte services
-# This project deploys as FOUR separate Railway services from this monorepo.
+# This project deploys as SIX separate Railway services from this monorepo.
 # See below for per-service setup instructions.
+#
+# ─── Main wallet stack ──────────────────────────────────────────────────────
 #
 # Service 1: digibyte-api
 #   Dockerfile: docker/api/Dockerfile
@@ -21,9 +23,42 @@
 #   Override entrypoint in Railway service settings:
 #     /bin/bash /etc/digibyte/entrypoint-mainnet.sh
 #   Required volume: mount to /root/.digibyte (50+ GB for initial sync, ~2 GB pruned)
-#   Required env vars (set in Railway dashboard, NOT here):
-#     - No env vars needed — config is baked into the image
 #   Change RPC password in digibyte-mainnet.conf before deploying!
+#
+# ─── DigiPay stack ──────────────────────────────────────────────────────────
+#
+# Service 5: digipay-api
+#   Dockerfile: docker/pay-api/Dockerfile
+#   Health check: /api/health
+#   Depends on a Railway Postgres addon in the same project.
+#   Required env vars:
+#     DigiPay__ConnectionString or DATABASE_URL — Postgres. Railway's addon
+#         sets DATABASE_URL automatically; Program.cs normalises the
+#         postgres:// URL into Npgsql key=value form.
+#     DigiPay__DigiIdDomain  — public hostname the wallet signs against,
+#         e.g. "pay.dgbwallet.app"
+#     ClientWebUrl           — public URL of Pay.Web (used in checkoutUrl
+#         responses), e.g. "https://pay.dgbwallet.app"
+#     ClientOrigin           — comma-separated CORS origins. Minimum:
+#         the Pay.Web public URL. Example:
+#         "https://pay.dgbwallet.app,https://dgbwallet.app"
+#     ASPNETCORE_ENVIRONMENT=Production  — Railway sets this by default; gates
+#         off the /v1/pay/test/* demo endpoints.
+#
+# Service 6: digipay-web
+#   Dockerfile: docker/pay-web/Dockerfile
+#   Blazor SSR + InteractiveServer (needs the ASP.NET Core runtime, NOT
+#   the static Nginx pattern the main wallet uses).
+#   Health check: /
+#   Required env vars:
+#     DigiPay__ApiUrl        — internal URL of digipay-api, e.g. the
+#         private Railway networking address:
+#         "http://digipay-api.railway.internal:8080"
+#         or the public one "https://api.pay.dgbwallet.app"
+#     ASPNETCORE_ENVIRONMENT=Production
+#
+#   Custom domains: set pay.dgbwallet.app on digipay-web and
+#   api.pay.dgbwallet.app on digipay-api (or keep the api internal).
 
 [build]
 # Default builder — each Railway service overrides the Dockerfile path
