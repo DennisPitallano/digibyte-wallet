@@ -17,6 +17,9 @@
        localStorage so the nav can show Dashboard vs Sign-in via CSS alone. *@
     <script src="@Assets["auth-state.js"]"></script>
     <link rel="stylesheet" href="@Assets["auth-state.css"]" />
+    @* Checkout countdown — pure JS so the timer works inside the embed iframe
+       where Blazor's InteractiveServer circuit can't reliably hydrate. *@
+    <script src="@Assets["checkout-countdown.js"]"></script>
 </head>
 
 <body>

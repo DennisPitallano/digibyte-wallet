@@ -47,7 +47,12 @@
                     </div>
                     <a href="@session.Uri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
                     <div class="w-full font-mono text-[0.6875rem] text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800">@session.Address</div>
-                    <div class="text-[0.6875rem] text-slate-500 dark:text-slate-400">Expires in @timeLeft</div>
+                    @* ISO-8601 UTC goes to the attribute; checkout-countdown.js rewrites
+                       the inner span's text every second. Avoids a server timer + circuit
+                       round-trip, which was broken inside the embed iframe. *@
+                    <div class="text-[0.6875rem] text-slate-500 dark:text-slate-400">
+                        Expires in <span data-digipay-expires="@session.ExpiresAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)">—</span>
+                    </div>
                 }
             </div>
         }
@@ -61,9 +66,10 @@
     private string? merchantName;
     private string? loadError;
     private string? qrDataUrl;
-    private string timeLeft = "—";
+    // Expiry countdown lives purely client-side (see wwwroot/checkout-countdown.js)
+    // because Blazor's InteractiveServer circuit doesn't reliably hydrate inside
+    // the embed iframe — a server-timer pattern leaves the user stuck on "—".
     private Microsoft.AspNetCore.SignalR.Client.HubConnection? hub;
-    private System.Threading.Timer? tick;
 
     private string PageTitleText => merchantName is null ? "Pay" : $"Pay {merchantName}";
 
@@ -84,7 +90,6 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || session is null || IsTerminal(session.Status)) return;
-        StartCountdown();
         await ConnectHubAsync();
     }
 
@@ -116,21 +121,6 @@
         });
     }
 
-    private void StartCountdown()
-    {
-        tick = new System.Threading.Timer(_ =>
-        {
-            InvokeAsync(() =>
-            {
-                if (session == null) return;
-                var remaining = session.ExpiresAt - DateTime.UtcNow;
-                timeLeft = remaining.TotalSeconds <= 0 ? "expired"
-                    : $"{(int)remaining.TotalMinutes}:{remaining.Seconds:00}";
-                StateHasChanged();
-            });
-        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
-    }
-
     private static string GenerateQr(string content)
     {
         using var gen = new QRCoder.QRCodeGenerator();
@@ -147,7 +137,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        tick?.Dispose();
         if (hub != null) await hub.DisposeAsync();
     }
 
