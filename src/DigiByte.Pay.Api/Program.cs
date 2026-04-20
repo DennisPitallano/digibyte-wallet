@@ -4,6 +4,7 @@ using DigiByte.Pay.Api.Endpoints;
 using DigiByte.Pay.Api.Hubs;
 using DigiByte.Pay.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,9 +16,60 @@ if (port is not null)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
-builder.Services.AddOpenApi();
+// OpenAPI — customise document info so Scalar shows a proper title,
+// description, contact link, and license instead of the auto-generated
+// "DigiByte.Pay.Api | v1".
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, _, _) =>
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "DigiPay API",
+            Version = "v1",
+            Description =
+                "REST API for DigiByte payments. Merchants register once, create checkout sessions " +
+                "per customer, and receive webhook notifications when payment state changes.\n\n" +
+                "**Auth.** Every endpoint outside `public/*` and `test/*` expects " +
+                "`Authorization: Bearer {prefix}_{secret}` where `{prefix}` is `dgp_` (long-lived " +
+                "API key) or `dps_` (browser session token). Only SHA-256 hashes are stored " +
+                "server-side — secrets are shown once on creation.",
+            Contact = new OpenApiContact
+            {
+                Name = "DigiByte Pay",
+                Url = new Uri("https://pay.dgbwallet.app"),
+            },
+            License = new OpenApiLicense
+            {
+                Name = "MIT",
+                Url = new Uri("https://github.com/DennisPitallano/digibyte-wallet/blob/main/LICENSE"),
+            },
+        };
+        return Task.CompletedTask;
+    });
+});
 builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();
+
+// Rate limiter — keeps the unauthenticated sandbox endpoints from becoming
+// a DB-growth vector. 20 req/min per IP is plenty for someone kicking the
+// tyres on /embed/demo.html; scripted abuse bounces off 429 quickly.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("sandbox", httpContext =>
+    {
+        var key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon";
+        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            key,
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            });
+    });
+});
 
 // Database provider:
 //   - DigiPay:ConnectionString (Postgres)  — production / deploy target
@@ -131,6 +183,7 @@ app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
 });
 
 app.UseCors("PayWebClient");
+app.UseRateLimiter();
 
 // Operational liveness probe. Excluded from the OpenAPI description — not
 // something integrators build against.
@@ -156,17 +209,20 @@ app.MapGet("/api/health", () => Results.Ok(new
 //     /v1/pay/auth/*      — Digi-ID sign-in flow, only meaningful in-browser
 //     /v1/pay/me          — self lookup for the signed-in merchant session
 //     /v1/pay/api-keys/*  — managed via the dashboard, not integrators
-app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration);
+// Tags drive Scalar's left-side navigation grouping. The default behaviour
+// lumps everything under the assembly name — naming each group puts the
+// integrator-facing surface into meaningful sections.
+app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration).WithTags("Sessions");
 app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration).ExcludeFromDescription();
 app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints().ExcludeFromDescription();
-app.MapGroup("/v1/pay/stores").MapStoresEndpoints();
+app.MapGroup("/v1/pay/stores").MapStoresEndpoints().WithTags("Stores & webhooks");
 app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints().ExcludeFromDescription();
-app.MapGroup("/v1/pay/public").MapPublicEndpoints();
+app.MapGroup("/v1/pay/public").MapPublicEndpoints().WithTags("Public");
 // Sandbox/demo endpoints. These are unauthenticated on purpose (they back
 // the /embed/demo.html harness so visitors can see the checkout flow end-to-end).
 // Safety comes from the endpoints themselves: /advance refuses any id that
 // isn't a ses_demo_* session, so real merchant sessions can't be flipped.
-app.MapGroup("/v1/pay/test").MapTestEndpoints();
+app.MapGroup("/v1/pay/test").MapTestEndpoints().WithTags("Sandbox").RequireRateLimiting("sandbox");
 app.MapHub<CheckoutHub>("/hubs/checkout");
 
 app.Run();
