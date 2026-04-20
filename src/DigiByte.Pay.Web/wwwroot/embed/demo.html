@@ -43,20 +43,27 @@ DigiPay.close();</pre>
     <pre>&lt;span data-digipay-button data-address="dgb1..." data-amount="2.5"&gt;Tip&lt;/span&gt;</pre>
     <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="2.5" data-name="Creator">Tip 2.5 DGB</span>
 
-    <h2>5. Full lifecycle simulation</h2>
-    <p>Walks a real session through all its state transitions without needing a chain tx. Uses dev-only endpoints — not available in production. Renders the checkout inline (not as a modal) so the Advance buttons stay reachable.</p>
-    <div class="row">
-        <button id="sim-start">1. Create session</button>
-        <button id="sim-advance" disabled>2. Advance state →</button>
-        <button id="sim-reset" disabled>Reset</button>
-    </div>
-    <div id="sim-status" style="margin-top: 0.5rem; font-size: 0.875rem; color: #475569;">
-        Not started. Click "Create session" to begin.
-    </div>
-    <div id="sim-preview" style="margin-top: 1rem; display: none; border-radius: 20px; overflow: hidden; background: #001529; box-shadow: 0 12px 32px rgba(0,0,0,0.12); max-width: 460px;"></div>
-    <p style="font-size: 0.8125rem; color: #64748b; margin-top: 0.5rem;">
-        Each Advance click walks the session pending → detected → paid → confirmed. The status pill flips, QR / countdown stay live throughout.
-    </p>
+    <!-- Section 5 is a dev-only harness — the /v1/pay/test/* endpoints it hits
+         are gated on ASPNETCORE_ENVIRONMENT=Development. The script below
+         reveals this section only on localhost; in prod it stays hidden so
+         visitors to pay.dgbwallet.app don't see a broken "Create session →
+         HTTP 400" flow. -->
+    <section id="sim-section" style="display: none;">
+        <h2>5. Full lifecycle simulation <span style="font-size: 0.75rem; font-weight: 500; color: #64748b; background: #f1f5f9; padding: 0.125rem 0.5rem; border-radius: 0.25rem; vertical-align: middle;">dev only</span></h2>
+        <p>Walks a real session through all its state transitions without needing a chain tx. Uses dev-only endpoints — not available in production. Renders the checkout inline (not as a modal) so the Advance buttons stay reachable.</p>
+        <div class="row">
+            <button id="sim-start">1. Create session</button>
+            <button id="sim-advance" disabled>2. Advance state →</button>
+            <button id="sim-reset" disabled>Reset</button>
+        </div>
+        <div id="sim-status" style="margin-top: 0.5rem; font-size: 0.875rem; color: #475569;">
+            Not started. Click "Create session" to begin.
+        </div>
+        <div id="sim-preview" style="margin-top: 1rem; display: none; border-radius: 20px; overflow: hidden; background: #001529; box-shadow: 0 12px 32px rgba(0,0,0,0.12); max-width: 460px;"></div>
+        <p style="font-size: 0.8125rem; color: #64748b; margin-top: 0.5rem;">
+            Each Advance click walks the session pending → detected → paid → confirmed. The status pill flips, QR / countdown stay live throughout.
+        </p>
+    </section>
 
     <script src="/embed/digipay.js"></script>
     <script>
@@ -76,6 +83,18 @@ DigiPay.close();</pre>
         );
 
         // Full lifecycle simulation — requires the dev-only /v1/pay/test/* endpoints.
+        // Only unhide on localhost (or when ?sim=1 is passed) so prod visitors
+        // don't see the simulation section attempting to POST into 404/400-land.
+        (function () {
+            var host = location.hostname;
+            var isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.local');
+            if (isLocal || /[?&]sim=1\b/.test(location.search)) {
+                document.getElementById('sim-section').style.display = '';
+            } else {
+                return; // Stay hidden and skip wiring up the handlers.
+            }
+        })();
+
         // The embed iframe loads Checkout.razor from the same origin as digipay.js
         // (derived from this script's src), so that's where we POST too.
         (function () {
