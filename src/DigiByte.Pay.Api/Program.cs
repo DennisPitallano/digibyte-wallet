@@ -4,6 +4,7 @@ using DigiByte.Pay.Api.Endpoints;
 using DigiByte.Pay.Api.Hubs;
 using DigiByte.Pay.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -112,10 +113,16 @@ using (var scope = app.Services.CreateScope())
     if (backfillNeeded.Count > 0) await db.SaveChangesAsync();
 }
 
-if (app.Environment.IsDevelopment())
+// OpenAPI + Scalar reference — exposed in all environments so merchants
+// have a live, interactive reference for the REST API at /scalar (and
+// the raw OpenAPI doc at /openapi/v1.json).
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
 {
-    app.MapOpenApi();
-}
+    options.Title = "DigiPay API";
+    options.Theme = ScalarTheme.BluePlanet;
+    options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
+});
 
 app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
 {
