@@ -154,12 +154,20 @@ DigiPay.close();</pre>
                     // protocol the modal uses — see currentIframe() listener.
                     preview.innerHTML = '';
                     preview.style.display = 'block';
-                    preview.style.height = '620px';
+                    // Start generous so Blazor hydration and QR decode don't briefly
+                    // overflow the iframe (which would flash a native scrollbar).
+                    // postMessage below shrinks us to the real card height.
+                    preview.style.height = '760px';
                     var iframe = document.createElement('iframe');
                     // The checkout page is served by Pay.Web (this origin),
                     // not the API — so the iframe always loads from pageOrigin.
                     iframe.src = pageOrigin + '/pay/' + encodeURIComponent(simSes.id);
                     iframe.style.cssText = 'width:100%;height:100%;border:0;display:block;';
+                    // scrolling="no" suppresses the iframe's native scrollbar during
+                    // the gap between first paint and the postMessage-driven resize.
+                    // The resize listener keeps the iframe sized to content so nothing
+                    // actually gets clipped.
+                    iframe.setAttribute('scrolling', 'no');
                     iframe.setAttribute('allow', 'clipboard-write');
                     preview.appendChild(iframe);
                     advanceBtn.disabled = false;
