@@ -16,9 +16,11 @@ if (port is not null)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
-// OpenAPI — customise document info so Scalar shows a proper title,
-// description, contact link, and license instead of the auto-generated
-// "DigiByte.Pay.Api | v1".
+// OpenAPI — customise document info + register a Bearer security scheme
+// so Scalar shows a proper title/description and an Authorize button that
+// injects Authorization: Bearer {prefix}_{secret} on every authenticated
+// endpoint. The sandbox and public groups opt out via a per-operation
+// transformer so their lock icons don't show up.
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, _, _) =>
@@ -45,6 +47,61 @@ builder.Services.AddOpenApi(options =>
                 Url = new Uri("https://github.com/DennisPitallano/digibyte-wallet/blob/main/LICENSE"),
             },
         };
+
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "dgp_… or dps_…",
+            Description = "API key (dgp_…) for server-side integrations, or session token (dps_…) minted by Digi-ID sign-in.",
+        };
+
+        // Apply Bearer as the default requirement; public/sandbox endpoints
+        // clear it below in the operation transformer.
+        document.Security ??= new List<OpenApiSecurityRequirement>();
+        document.Security.Add(new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document, null)] = new List<string>(),
+        });
+        return Task.CompletedTask;
+    });
+    options.AddOperationTransformer((operation, context, _) =>
+    {
+        var path = context.Description.RelativePath ?? string.Empty;
+        var isUnauth = path.StartsWith("v1/pay/public", StringComparison.Ordinal)
+            || path.StartsWith("v1/pay/test", StringComparison.Ordinal)
+            || path == "v1/pay/merchants";
+
+        // These endpoints are documented as unauthenticated — Register (self-
+        // serve account creation), Public stats, and the Sandbox.
+        if (isUnauth)
+        {
+            operation.Security = new List<OpenApiSecurityRequirement>();
+        }
+
+        // Canonical error responses. Every endpoint can 400 on malformed input;
+        // authenticated endpoints can also 401 (bad key) and 404 (resource
+        // belongs to a different merchant → we return 404 over 403 to avoid
+        // leaking existence). Spelled out here so Scalar shows them without
+        // having to decorate every individual endpoint.
+        operation.Responses ??= new OpenApiResponses();
+        if (!operation.Responses.ContainsKey("400"))
+            operation.Responses["400"] = new OpenApiResponse { Description = "Bad request — validation failed or malformed input." };
+        if (!isUnauth)
+        {
+            if (!operation.Responses.ContainsKey("401"))
+                operation.Responses["401"] = new OpenApiResponse { Description = "Missing or invalid Bearer token." };
+            if (!operation.Responses.ContainsKey("404"))
+                operation.Responses["404"] = new OpenApiResponse { Description = "Resource not found (or not owned by the authenticated merchant)." };
+        }
+        // Sandbox is rate-limited per IP; call that out in the doc.
+        if (path.StartsWith("v1/pay/test", StringComparison.Ordinal)
+            && !operation.Responses.ContainsKey("429"))
+        {
+            operation.Responses["429"] = new OpenApiResponse { Description = "Rate limit exceeded — sandbox is capped at 20 requests/minute per IP." };
+        }
         return Task.CompletedTask;
     });
 });
@@ -120,6 +177,7 @@ builder.Services.AddSingleton<CheckoutNotifier>();
 builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();
 builder.Services.AddHostedService<InvoiceMonitor>();
+builder.Services.AddHostedService<DemoDataJanitor>();
 
 // CORS scoped to the Pay.Web origin (and whatever else gets added via ClientOrigin).
 builder.Services.AddCors(options =>
@@ -174,6 +232,14 @@ app.MapScalarApiReference(options =>
     options.Title = "DigiPay API";
     options.Theme = ScalarTheme.BluePlanet;
     options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
+    // Public URL of the Pay.Web favicon so the Scalar tab icon matches the
+    // rest of the DigiPay surface. Falls back to the relative path if the
+    // public URL isn't configured (fine in dev, Railway-internal in prod
+    // won't resolve from the browser — but the tab still gets a sensible
+    // default from Scalar either way).
+    var favicon = app.Configuration["DigiPay:FaviconUrl"]
+        ?? "https://pay.dgbwallet.app/favicon.svg";
+    options.Favicon = favicon;
 });
 
 app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions

@@ -56,6 +56,7 @@ if (app.Environment.IsDevelopment())
         options.Title = "DigiByte Node API";
         options.Theme = ScalarTheme.BluePlanet;
         options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
+        options.Favicon = "https://dgbwallet.app/favicon.svg";
     });
 }
 
