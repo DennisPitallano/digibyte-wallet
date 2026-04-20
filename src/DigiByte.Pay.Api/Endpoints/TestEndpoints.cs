@@ -8,14 +8,17 @@ using Microsoft.EntityFrameworkCore;
 namespace DigiByte.Pay.Api.Endpoints;
 
 /// <summary>
-/// Dev/demo-only endpoints. Used by the embed demo page's "Full simulation"
+/// Public sandbox endpoints. Used by the embed demo page's "Full simulation"
 /// section to walk a checkout through its full lifecycle without needing a
-/// real chain transaction. Routes are only registered when
-/// <see cref="IHostEnvironment.IsDevelopment"/> is true, so prod deployments
-/// get 404s here even if the demo page tries.
+/// real chain transaction.
 ///
-/// NB: these bypass the normal auth model (<c>POST /demo-session</c> is
-/// unauthenticated), which is exactly why they stay dev-only.
+/// These bypass the normal auth model by design — they're the public demo.
+/// Safety rails:
+///   • /demo-session always creates a brand-new merchant/store/session tagged
+///     with *_demo_* ids, so nothing it creates can collide with real data.
+///   • /advance refuses any id that doesn't start with ses_demo_ — real
+///     merchant sessions can never be flipped through this endpoint.
+///   • PublicEndpoints filters ses_demo_* out of any public listings.
 /// </summary>
 public static class TestEndpoints
 {
@@ -72,6 +75,12 @@ public static class TestEndpoints
         group.MapPost("/sessions/{id}/advance", async (
             string id, DigiPayDbContext db, CheckoutNotifier notifier) =>
         {
+            // Hard safety rail: this unauthenticated endpoint must never be able
+            // to mutate a real merchant's session. Demo sessions always carry
+            // the ses_demo_ prefix (see /demo-session above).
+            if (!id.StartsWith("ses_demo_", StringComparison.Ordinal))
+                return Results.BadRequest(new { error = "advance is only valid for demo sessions" });
+
             var session = await db.Sessions.FirstOrDefaultAsync(s => s.Id == id);
             if (session is null) return Results.NotFound();
 

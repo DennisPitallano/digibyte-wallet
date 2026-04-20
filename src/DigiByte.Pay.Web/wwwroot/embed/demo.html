@@ -43,14 +43,13 @@ DigiPay.close();</pre>
     <pre>&lt;span data-digipay-button data-address="dgb1..." data-amount="2.5"&gt;Tip&lt;/span&gt;</pre>
     <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="2.5" data-name="Creator">Tip 2.5 DGB</span>
 
-    <!-- Section 5 is a dev-only harness — the /v1/pay/test/* endpoints it hits
-         are gated on ASPNETCORE_ENVIRONMENT=Development. The script below
-         reveals this section only on localhost; in prod it stays hidden so
-         visitors to pay.dgbwallet.app don't see a broken "Create session →
-         HTTP 400" flow. -->
-    <section id="sim-section" style="display: none;">
-        <h2>5. Full lifecycle simulation <span style="font-size: 0.75rem; font-weight: 500; color: #64748b; background: #f1f5f9; padding: 0.125rem 0.5rem; border-radius: 0.25rem; vertical-align: middle;">dev only</span></h2>
-        <p>Walks a real session through all its state transitions without needing a chain tx. Uses dev-only endpoints — not available in production. Renders the checkout inline (not as a modal) so the Advance buttons stay reachable.</p>
+    <!-- Section 5 is a live sandbox. It hits /v1/pay/test/* which is public
+         but guarded: /demo-session always mints a fresh ses_demo_* session,
+         and /advance refuses anything that isn't a ses_demo_* id so real
+         merchant sessions can never be mutated from here. -->
+    <section id="sim-section">
+        <h2>5. Full lifecycle simulation <span style="font-size: 0.75rem; font-weight: 500; color: #0369a1; background: #e0f2fe; padding: 0.125rem 0.5rem; border-radius: 0.25rem; vertical-align: middle;">live sandbox</span></h2>
+        <p>Walks a fresh sandbox session through all its state transitions without needing a chain tx. Renders the checkout inline (not as a modal) so the Advance buttons stay reachable.</p>
         <div class="row">
             <button id="sim-start">1. Create session</button>
             <button id="sim-advance" disabled>2. Advance state →</button>
@@ -82,23 +81,26 @@ DigiPay.close();</pre>
             })
         );
 
-        // Full lifecycle simulation — requires the dev-only /v1/pay/test/* endpoints.
-        // Only unhide on localhost (or when ?sim=1 is passed) so prod visitors
-        // don't see the simulation section attempting to POST into 404/400-land.
+        // Full lifecycle simulation — hits the public /v1/pay/test/* sandbox on
+        // the Pay.Api service.
         (function () {
+            // Pay.Web (this page) and Pay.Api live on different origins in both
+            // dev and prod. Resolve the API origin from the page hostname:
+            //   localhost:5252 → localhost:5008
+            //   pay.dgbwallet.app → api.pay.dgbwallet.app
+            // (Kept as a candidate list so we can also fall back to same-origin
+            // for odd deployments where Pay.Api is reverse-proxied under Pay.Web.)
+            var pageOrigin = location.origin;
+            var apiCandidates = [];
             var host = location.hostname;
             var isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.local');
-            if (isLocal || /[?&]sim=1\b/.test(location.search)) {
-                document.getElementById('sim-section').style.display = '';
+            if (isLocal) {
+                apiCandidates.push(pageOrigin.replace(/:\d+$/, ':5008'));
             } else {
-                return; // Stay hidden and skip wiring up the handlers.
+                apiCandidates.push(location.protocol + '//api.' + host);
             }
-        })();
+            apiCandidates.push(pageOrigin);
 
-        // The embed iframe loads Checkout.razor from the same origin as digipay.js
-        // (derived from this script's src), so that's where we POST too.
-        (function () {
-            var apiOrigin = new URL(document.querySelector('script[src$="digipay.js"]').src).origin;
             var simSes = null;
             var startBtn = document.getElementById('sim-start');
             var advanceBtn = document.getElementById('sim-advance');
@@ -127,10 +129,6 @@ DigiPay.close();</pre>
                 }
             });
 
-            // The Pay.Api runs on a different port than Pay.Web in dev, so we
-            // probe a couple of common ones. In prod this endpoint is 404 anyway.
-            var apiCandidates = [apiOrigin.replace(/:\d+$/, ':5008'), apiOrigin];
-
             async function tryFetch(path, init) {
                 var lastErr;
                 for (var i = 0; i < apiCandidates.length; i++) {
@@ -158,7 +156,9 @@ DigiPay.close();</pre>
                     preview.style.display = 'block';
                     preview.style.height = '620px';
                     var iframe = document.createElement('iframe');
-                    iframe.src = apiOrigin.replace(/:5008$/, ':5252') + '/pay/' + encodeURIComponent(simSes.id);
+                    // The checkout page is served by Pay.Web (this origin),
+                    // not the API — so the iframe always loads from pageOrigin.
+                    iframe.src = pageOrigin + '/pay/' + encodeURIComponent(simSes.id);
                     iframe.style.cssText = 'width:100%;height:100%;border:0;display:block;';
                     iframe.setAttribute('allow', 'clipboard-write');
                     preview.appendChild(iframe);
@@ -166,7 +166,7 @@ DigiPay.close();</pre>
                     resetBtn.disabled = false;
                     startBtn.disabled = true;
                 } catch (e) {
-                    status.textContent = 'Failed to create session: ' + e.message + ' (test endpoints only work in dev)';
+                    status.textContent = 'Failed to create session: ' + e.message;
                 }
             });
 
