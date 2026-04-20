@@ -132,18 +132,35 @@ app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
 
 app.UseCors("PayWebClient");
 
+// Operational liveness probe. Excluded from the OpenAPI description — not
+// something integrators build against.
 app.MapGet("/api/health", () => Results.Ok(new
 {
     service = "DigiByte.Pay.Api",
     status = "healthy",
     timestamp = DateTime.UtcNow,
-}));
+}))
+.ExcludeFromDescription();
 
+// The OpenAPI description is the integrator reference surfaced on Scalar.
+// Endpoint groups that only make sense to the dashboard or the Digi-ID
+// browser flow are hidden so the doc stays focused on server-to-server use.
+//
+//   PUBLIC in docs (server integrators):
+//     /v1/pay/*           — register + sessions (the core flow)
+//     /v1/pay/stores/*    — store CRUD + webhook test/replay
+//     /v1/pay/public/*    — unauthenticated stats
+//     /v1/pay/test/*      — sandbox endpoints so devs can try end-to-end
+//
+//   HIDDEN from docs (browser/dashboard only):
+//     /v1/pay/auth/*      — Digi-ID sign-in flow, only meaningful in-browser
+//     /v1/pay/me          — self lookup for the signed-in merchant session
+//     /v1/pay/api-keys/*  — managed via the dashboard, not integrators
 app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration);
-app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration);
-app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints();
+app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration).ExcludeFromDescription();
+app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints().ExcludeFromDescription();
 app.MapGroup("/v1/pay/stores").MapStoresEndpoints();
-app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints();
+app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints().ExcludeFromDescription();
 app.MapGroup("/v1/pay/public").MapPublicEndpoints();
 // Sandbox/demo endpoints. These are unauthenticated on purpose (they back
 // the /embed/demo.html harness so visitors can see the checkout flow end-to-end).
