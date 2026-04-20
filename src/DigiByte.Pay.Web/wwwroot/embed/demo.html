@@ -27,6 +27,7 @@
 &lt;button data-digipay-checkout data-session-id="ses_..."&gt;Pay with DigiByte&lt;/button&gt;</pre>
     <div class="row">
         <input id="ses" placeholder="ses_xxxxxxx" />
+        <button id="mint-demo-ses" type="button" style="background:#0ea5e9;" title="Create a fresh sandbox session and fill the input">Create demo session</button>
         <button data-digipay-checkout id="trigger">Pay with DigiByte</button>
     </div>
 
@@ -66,9 +67,58 @@ DigiPay.close();</pre>
 
     <script src="/embed/digipay.js"></script>
     <script>
+        // Resolve the Pay.Api origin from the page hostname. Shared by the
+        // "Create demo session" button in section 1 and the simulation in section 5.
+        //   localhost:5252 → localhost:5008
+        //   pay.dgbwallet.app → api.pay.dgbwallet.app
+        // Kept as a candidate list so we can fall back to same-origin for odd
+        // deployments where Pay.Api is reverse-proxied under Pay.Web.
+        var DEMO_HOST = location.hostname;
+        var DEMO_IS_LOCAL = DEMO_HOST === 'localhost' || DEMO_HOST === '127.0.0.1' || DEMO_HOST === '[::1]' || DEMO_HOST.endsWith('.local');
+        var DEMO_API_CANDIDATES = DEMO_IS_LOCAL
+            ? [location.origin.replace(/:\d+$/, ':5008'), location.origin]
+            : [location.protocol + '//api.' + DEMO_HOST, location.origin];
+
+        async function demoApiFetch(path, init) {
+            var lastErr;
+            for (var i = 0; i < DEMO_API_CANDIDATES.length; i++) {
+                try {
+                    var r = await fetch(DEMO_API_CANDIDATES[i] + path, init);
+                    if (r.status !== 404) return { ok: r.ok, res: r, api: DEMO_API_CANDIDATES[i] };
+                } catch (e) { lastErr = e; }
+            }
+            throw lastErr || new Error('No API candidate responded');
+        }
+
         // Sync the session-id input value to the data attribute so the declarative button works.
         document.getElementById('ses').addEventListener('input', function () {
             document.getElementById('trigger').setAttribute('data-session-id', this.value);
+        });
+
+        // "Create demo session" button — mints a sandbox session via the same
+        // /v1/pay/test/demo-session endpoint section 5 uses and drops the id
+        // straight into the input so the declarative and programmatic triggers
+        // are ready to click without typing anything.
+        document.getElementById('mint-demo-ses').addEventListener('click', async function () {
+            var btn = this;
+            var input = document.getElementById('ses');
+            var original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Creating…';
+            try {
+                var r = await demoApiFetch('/v1/pay/test/demo-session', { method: 'POST' });
+                if (!r.ok) throw new Error('HTTP ' + r.res.status);
+                var body = await r.res.json();
+                input.value = body.sessionId;
+                // Fire 'input' so the trigger button's data-session-id updates.
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                btn.textContent = 'Created ✓';
+                setTimeout(function () { btn.textContent = original; btn.disabled = false; }, 1500);
+            } catch (e) {
+                btn.textContent = 'Failed — retry';
+                btn.disabled = false;
+                input.placeholder = 'Failed: ' + e.message;
+            }
         });
 
         // Programmatic tip-jar example.
@@ -84,23 +134,7 @@ DigiPay.close();</pre>
         // Full lifecycle simulation — hits the public /v1/pay/test/* sandbox on
         // the Pay.Api service.
         (function () {
-            // Pay.Web (this page) and Pay.Api live on different origins in both
-            // dev and prod. Resolve the API origin from the page hostname:
-            //   localhost:5252 → localhost:5008
-            //   pay.dgbwallet.app → api.pay.dgbwallet.app
-            // (Kept as a candidate list so we can also fall back to same-origin
-            // for odd deployments where Pay.Api is reverse-proxied under Pay.Web.)
             var pageOrigin = location.origin;
-            var apiCandidates = [];
-            var host = location.hostname;
-            var isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.local');
-            if (isLocal) {
-                apiCandidates.push(pageOrigin.replace(/:\d+$/, ':5008'));
-            } else {
-                apiCandidates.push(location.protocol + '//api.' + host);
-            }
-            apiCandidates.push(pageOrigin);
-
             var simSes = null;
             var startBtn = document.getElementById('sim-start');
             var advanceBtn = document.getElementById('sim-advance');
@@ -129,21 +163,10 @@ DigiPay.close();</pre>
                 }
             });
 
-            async function tryFetch(path, init) {
-                var lastErr;
-                for (var i = 0; i < apiCandidates.length; i++) {
-                    try {
-                        var r = await fetch(apiCandidates[i] + path, init);
-                        if (r.status !== 404) return { ok: r.ok, res: r, api: apiCandidates[i] };
-                    } catch (e) { lastErr = e; }
-                }
-                throw lastErr || new Error('No API candidate responded');
-            }
-
             startBtn.addEventListener('click', async function () {
                 status.textContent = 'Creating session…';
                 try {
-                    var r = await tryFetch('/v1/pay/test/demo-session', { method: 'POST' });
+                    var r = await demoApiFetch('/v1/pay/test/demo-session', { method: 'POST' });
                     if (!r.ok) throw new Error('HTTP ' + r.res.status);
                     var body = await r.res.json();
                     simSes = { id: body.sessionId, api: r.api };
