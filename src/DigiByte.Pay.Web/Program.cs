@@ -18,8 +18,15 @@ builder.Services.AddRazorComponents()
 // Pay.Api base URL — the source of truth for sessions + SignalR.
 // Override with DigiPay:ApiUrl in production.
 var payApiUrl = builder.Configuration["DigiPay:ApiUrl"] ?? "http://localhost:5008";
+// Separate public URL for links the browser has to reach — e.g. the Scalar
+// reference at /scalar. When DigiPay:ApiUrl points at Railway's private
+// network (digipay-api.railway.internal:8080) the browser can't resolve it,
+// so prod deployments should set DigiPay:ApiPublicUrl to api.pay.dgbwallet.app.
+// Falls back to the internal URL if not configured (fine in dev).
+var payApiPublicUrl = builder.Configuration["DigiPay:ApiPublicUrl"] ?? payApiUrl;
 builder.Services.AddHttpClient("PayApi", c => c.BaseAddress = new Uri(payApiUrl));
 builder.Services.AddSingleton(new PayApiUrl(payApiUrl));
+builder.Services.AddSingleton(new PayApiPublicUrl(payApiPublicUrl));
 
 var app = builder.Build();
 
@@ -67,3 +74,4 @@ app.MapRazorComponents<App>()
 app.Run();
 
 public record PayApiUrl(string Value);
+public record PayApiPublicUrl(string Value);
