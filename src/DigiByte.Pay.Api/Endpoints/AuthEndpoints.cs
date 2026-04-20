@@ -24,7 +24,15 @@ public static class AuthEndpoints
             store.Prune();
             var nonce = RandomId(24);
             var domain = cfg["DigiPay:DigiIdDomain"] ?? "localhost:5252";
-            var uri = $"digiid://{domain}/v1/pay/auth/callback?x={nonce}&u=1";
+            // Digi-ID's u=1 flag tells the wallet to POST over plain HTTP. Only safe
+            // for localhost dev; on a real hostname the edge (Railway) only serves
+            // HTTPS and its HTTP→HTTPS redirect rejects POST with 405.
+            var unsecure = domain.StartsWith("localhost", StringComparison.OrdinalIgnoreCase)
+                || domain.StartsWith("127.0.0.1", StringComparison.Ordinal)
+                || domain.StartsWith("[::1]", StringComparison.Ordinal);
+            var uri = unsecure
+                ? $"digiid://{domain}/v1/pay/auth/callback?x={nonce}&u=1"
+                : $"digiid://{domain}/v1/pay/auth/callback?x={nonce}";
             var entry = store.Create(uri);
             return Results.Ok(new { nonce = entry.Nonce, uri = entry.Uri, expiresAt = entry.ExpiresAt });
         });
