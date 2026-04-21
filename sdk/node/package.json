@@ -1,0 +1,44 @@
+{
+  "name": "@dgbwallet/digipay",
+  "version": "0.1.0",
+  "description": "Official Node.js SDK for DigiPay — accept DigiByte payments on your site.",
+  "keywords": ["digibyte", "dgb", "crypto", "payment", "digipay", "non-custodial", "checkout"],
+  "homepage": "https://pay.dgbwallet.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DennisPitallano/digibyte-wallet.git",
+    "directory": "sdk/node"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"const fs=require('fs'),p=require('path');const dir='dist/cjs';for(const f of fs.readdirSync(dir)){if(f.endsWith('.js'))fs.renameSync(p.join(dir,f),p.join(dir,f.replace(/\\.js$/,'.cjs')))}\"",
+    "test": "node --test tests/**/*.test.js",
+    "clean": "rimraf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.4.0"
+  }
+}
