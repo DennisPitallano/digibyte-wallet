@@ -36,8 +36,14 @@
     else if (xpub != null)
     {
         <div class="slide-up-delay-2 bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-5 shadow-sm flex flex-col items-center gap-4">
-            <div class="bg-white rounded-2xl p-3 shadow-inner">
+            @* DigiByte mark centred — ECCLevel.H compensates for the punched-out centre. *@
+            <div class="relative bg-white rounded-2xl p-3 shadow-inner">
                 <img src="@qrDataUrl" alt="Account xpub QR" class="w-56 h-56 rounded-lg" />
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div class="bg-white rounded-full p-1.5 shadow-md">
+                        <DigiLogo Size="32" />
+                    </div>
+                </div>
             </div>
             <div class="w-full">
                 <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Account xpub</p>
@@ -102,7 +108,8 @@
     private static string GenerateQr(string content)
     {
         using var gen = new QRCoder.QRCodeGenerator();
-        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        // Level H (~30% redundancy) so the centred DigiByte mark doesn't corrupt the code.
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.H);
         using var qr = new QRCoder.PngByteQRCode(data);
         return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(5))}";
     }
