@@ -201,6 +201,14 @@
             "Merchant Dashboard cards (/payments, /settings) use the DigiPay sibling mark",
             "DigiByte-marked QR codes everywhere (Receive, Payments, ExportXpub, Home, Donate, Signin, Checkout) at ECC level H so the centre logo can't corrupt the code",
         ]),
+        new("Apr 2026", "DigiPay SDKs shipped", Status.Done, [
+            "@dgbwallet/digipay on npm — Node 18+, ESM + CJS, zero deps",
+            "digipay on PyPI — Python 3.10+, py.typed, trusted-publisher releases",
+            "DigiPay on NuGet — net8.0 + net9.0 (forward-compatible with net10), SourceLink-enabled",
+            "Identical surface across all three: DigiPay client, verify_webhook helper, DigiPayError with HTTP status preserved",
+            "Tag-triggered publishing workflows (sdk-{lang}-v*) — version/tag guards, npm provenance attestations",
+            "Public SDKs landing at pay.dgbwallet.app/sdks with install cards, feature matrix, and per-language quickstarts",
+        ]),
         new("Q2 2026", "Internationalization", Status.InProgress, [
             "Multi-language support — targeting 10 locales (2 shipped so far: en, es)",
         ]),

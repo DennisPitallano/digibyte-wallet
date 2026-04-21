@@ -1,6 +1,14 @@
-# DigiByte Wallet
+# DigiByte Wallet + DigiPay
 
-**[dgbwallet.app](https://dgbwallet.app)**
+This monorepo hosts two complementary products for the DigiByte ecosystem, plus first-party client SDKs:
+
+| Product | URL | What it is |
+|---|---|---|
+| **DigiByte Wallet** | [dgbwallet.app](https://dgbwallet.app) | Self-custodial Blazor WASM PWA wallet. All crypto operations happen in-browser; keys never leave the device. |
+| **DigiPay** | [pay.dgbwallet.app](https://pay.dgbwallet.app) | Non-custodial payment gateway for merchants. Derives a fresh address per invoice from your xpub, watches the chain, signs webhooks on state changes. |
+| **DigiPay SDKs** | [npm](https://www.npmjs.com/package/@dgbwallet/digipay) · [PyPI](https://pypi.org/project/digipay/) · [NuGet](https://www.nuget.org/packages/DigiPay/) | Official client libraries for Node, Python, and .NET. Zero runtime dependencies; identical surface across languages. |
+
+## DigiByte Wallet
 
 A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with Blazor WebAssembly (.NET 10). All cryptographic operations happen in the browser — private keys never leave your device.
 
@@ -44,7 +52,13 @@ digibyte-wallet/
 │   ├── DigiByte.Web/             # Blazor WASM PWA (the wallet UI)
 │   ├── DigiByte.Api/             # Backend API: CoinGecko price proxy, P2P marketplace, SignalR
 │   ├── DigiByte.NodeApi/         # Node RPC wrapper (87 methods + Scalar)
+│   ├── DigiByte.Pay.Api/         # DigiPay REST API + webhook dispatcher + retrier
+│   ├── DigiByte.Pay.Web/         # DigiPay merchant dashboard + hosted checkout (Blazor SSR)
 │   └── DigiByte.P2P.Shared/      # Shared models for P2P exchange
+├── sdk/
+│   ├── node/                     # @dgbwallet/digipay (npm) — TS, ESM+CJS, zero deps
+│   ├── python/                   # digipay (PyPI) — 3.10+, stdlib only
+│   └── dotnet/                   # DigiPay (NuGet) — net8.0 + net9.0, SourceLink
 ├── tests/
 │   ├── DigiByte.Crypto.Tests/    # xUnit — crypto, HD keys, addresses
 │   ├── DigiByte.Wallet.Tests/    # xUnit — wallet service
@@ -365,6 +379,33 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 
 ---
 
+## DigiPay SDKs
+
+Accept DGB payments in your app without hand-rolling the REST + HMAC dance. All three libraries ship with identical surface, zero runtime dependencies, and a single `DigiPayError` type that preserves the HTTP status for typed error handling.
+
+```bash
+npm install @dgbwallet/digipay          # Node 18+, ESM + CJS
+pip install digipay                      # Python 3.10+
+dotnet add package DigiPay               # net8.0 + net9.0 (compatible with net10)
+```
+
+Quick usage (Node — Python / .NET are identical shape):
+
+```ts
+import { DigiPay, verifyWebhook } from '@dgbwallet/digipay';
+
+const dp = new DigiPay({ apiKey: process.env.DIGIPAY_KEY });
+const session = await dp.sessions.create({ amount: 5, label: 'Order #1234' });
+console.log(session.checkoutUrl);
+
+// …and in your webhook handler:
+const event = verifyWebhook({ rawBody, signature, secret });
+```
+
+Full docs + quickstarts for each language: [**pay.dgbwallet.app/sdks**](https://pay.dgbwallet.app/sdks).
+
+Source lives in [`sdk/node`](sdk/node), [`sdk/python`](sdk/python), [`sdk/dotnet`](sdk/dotnet). Releases are tag-triggered (`sdk-{node,python,dotnet}-v*`) — see [`sdk/RELEASING.md`](sdk/RELEASING.md).
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — Design decisions, project structure, blockchain service chain, Docker/deployment
@@ -372,6 +413,7 @@ Test projects use **xUnit** with **coverlet** for code coverage.
 - [Protocol Compliance](docs/COMPLIANCE.md) — BIP compliance matrix, network parameters, address formats, regulatory considerations
 - [Process Flows](docs/PROCESS_FLOWS.md) — Per-page technical flows, user flows, backend operation matrix
 - [Roadmap](docs/ROADMAP.md) — Development phases, completed features, planned work
+- [Releasing the SDKs](sdk/RELEASING.md) — How to cut a new version on npm / PyPI / NuGet
 - [Contributing](CONTRIBUTING.md) — How to contribute
 - [Changelog](CHANGELOG.md) — Release history
 - [Code of Conduct](CODE_OF_CONDUCT.md)
