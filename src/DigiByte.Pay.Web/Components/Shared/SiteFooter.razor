@@ -1,4 +1,18 @@
+@inject IConfiguration Config
+@{
+    var telegramUrl = Config["Community:TelegramUrl"] ?? "https://t.me/DigiByteProject";
+}
+
 <footer class="border-t border-slate-200 dark:border-dgb-800 mt-16 py-8 px-4 text-center text-slate-500 dark:text-slate-400 text-[0.8125rem]">
+    @* Telegram subscribe pill. Visible on every page, sits above the
+       nav list so it reads as a distinct CTA rather than one more link. *@
+    <a href="@telegramUrl" target="_blank" rel="noopener"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 mb-3 rounded-full bg-[#229ED9]/10 hover:bg-[#229ED9]/15 text-[#229ED9] dark:text-[#4ec0e6] text-xs font-semibold no-underline transition-colors">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0Zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.833.94Z" />
+        </svg>
+        Join on Telegram
+    </a>
     <div class="space-x-2">
         <a href="/" class="hover:text-slate-900 dark:hover:text-white no-underline">Home</a>·
         <a href="/docs" class="hover:text-slate-900 dark:hover:text-white no-underline">How it works</a>·
