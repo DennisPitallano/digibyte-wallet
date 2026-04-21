@@ -33,7 +33,7 @@
     "build": "npm run build:esm && npm run build:cjs",
     "build:esm": "tsc -p tsconfig.esm.json",
     "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"const fs=require('fs'),p=require('path');const dir='dist/cjs';for(const f of fs.readdirSync(dir)){if(f.endsWith('.js'))fs.renameSync(p.join(dir,f),p.join(dir,f.replace(/\\.js$/,'.cjs')))}\"",
-    "test": "node --test tests/**/*.test.js",
+    "test": "node --test tests/",
     "clean": "rimraf dist"
   },
   "devDependencies": {
