@@ -1,0 +1,73 @@
+name: Publish Python SDK
+
+# Triggered by pushing a tag like `sdk-python-v0.1.0`. The tag version
+# MUST match both `pyproject.toml` and the __version__ constant in
+# src/digipay/__init__.py — the workflow guards against mismatch so we
+# can't accidentally upload a stale build under a newer tag.
+#
+# One-time setup before the first run:
+#   1. Create/claim the `digipay` project name on PyPI
+#   2. Register this workflow as a trusted publisher on PyPI:
+#      Project → Publishing → Add a pending publisher
+#        Owner:        DennisPitallano
+#        Repository:   digibyte-wallet
+#        Workflow:     publish-sdk-python.yml
+#        Environment:  pypi
+#   3. Add a GitHub environment called `pypi` (no secrets needed —
+#      PyPI authenticates via OIDC). Optionally add required reviewers.
+#   4. Tag and push: git tag sdk-python-v0.1.0 && git push origin sdk-python-v0.1.0
+#
+# No PyPI API token is stored — trusted publishing uses GitHub OIDC to
+# authenticate this specific workflow to PyPI, which is both more
+# secure and less to rotate.
+on:
+  push:
+    tags:
+      - 'sdk-python-v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/digipay
+    # id-token: write is what the OIDC exchange needs.
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify tag matches package version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/sdk-python-v}"
+          PYPROJECT=$(python -c "import tomllib; print(tomllib.loads(open('pyproject.toml','rb').read().decode())['project']['version'])")
+          DUNDER=$(python -c "import re,pathlib; m=re.search(r'__version__\s*=\s*[\"\\']([^\"\\']+)', pathlib.Path('src/digipay/__init__.py').read_text()); print(m.group(1))")
+          if [ "$TAG" != "$PYPROJECT" ] || [ "$TAG" != "$DUNDER" ]; then
+            echo "::error::Version mismatch — tag=$TAG pyproject=$PYPROJECT __version__=$DUNDER"
+            exit 1
+          fi
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build
+
+      - name: Run tests
+        run: python -m unittest discover tests
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      # Official PyPA action — uses the OIDC trusted-publisher flow when
+      # no user/password is supplied, which is our setup. No NPM_TOKEN
+      # equivalent to manage.
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdk/python/dist
