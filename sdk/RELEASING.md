@@ -25,6 +25,15 @@ One runbook for every language SDK under `sdk/`. The pattern is the same: bump v
 
 No token needed — PyPI trusted publishing uses GitHub's OIDC.
 
+### .NET (`DigiPay` on NuGet)
+
+1. Own the `DigiPay` package name on nuget.org (or swap `PackageId` in `sdk/dotnet/DigiPay/DigiPay.csproj` for an available name and re-run steps 2-3 with the new name).
+2. nuget.org → Account → API Keys → Create:
+   - Scope: **Push new packages and updates**
+   - Glob pattern: `DigiPay*`
+   - Expiration: 365 days (rotate annually)
+3. Repo Settings → Secrets → Actions → `NUGET_API_KEY`
+
 ## Cutting a release
 
 Pick the next version following [SemVer](https://semver.org/):
@@ -85,9 +94,35 @@ Watch the Actions tab; when green:
 pip index versions digipay
 ```
 
+### .NET
+
+```bash
+cd sdk/dotnet
+
+# 1. Bump <Version>, <AssemblyVersion>, <FileVersion> in DigiPay/DigiPay.csproj.
+#    (Only <Version> affects the NuGet package; the others are for strong-name
+#    binding compat — keeping them in lockstep is convention.)
+#    Also bump the SdkVersion constant in DigiPayClient.cs (User-Agent header).
+
+# 2. Commit + tag.
+cd ../..
+git add sdk/dotnet/DigiPay/DigiPay.csproj sdk/dotnet/DigiPay/DigiPayClient.cs
+git commit -m "chore(sdk-dotnet): release 0.1.1"
+git tag sdk-dotnet-v0.1.1
+git push origin main sdk-dotnet-v0.1.1
+```
+
+The `publish-sdk-dotnet` workflow runs: restore → build → test → `dotnet pack` → `dotnet nuget push --skip-duplicate`. Failed version-match bails before publishing.
+
+Watch the Actions tab; when green:
+
+```bash
+dotnet package search DigiPay --exact-match
+```
+
 ## Rollback
 
-npm + PyPI are both append-only. "Rollback" means publishing a new patch that reverts the change:
+npm, PyPI, and NuGet are all append-only. "Rollback" means publishing a new patch that reverts the change:
 
 ```bash
 cd sdk/node
@@ -97,7 +132,7 @@ git tag sdk-node-v0.1.2
 git push origin main sdk-node-v0.1.2
 ```
 
-`npm unpublish` and PyPI's yank exist but are heavily discouraged — every downstream lockfile will break.
+`npm unpublish`, PyPI's yank, and NuGet's list-as-deprecated exist but are heavily discouraged — every downstream lockfile will break.
 
 ## Trying before release
 
@@ -113,4 +148,10 @@ cd sdk/python
 python -m build                  # dist/digipay-0.1.0-py3-none-any.whl
 cd /tmp/my-test-app
 pip install ~/digibyte-wallet/sdk/python/dist/digipay-0.1.0-py3-none-any.whl
+
+# .NET
+cd sdk/dotnet
+dotnet pack DigiPay/DigiPay.csproj --configuration Release --output ./nupkg
+cd /tmp/my-test-app
+dotnet add package DigiPay --source ~/digibyte-wallet/sdk/dotnet/nupkg --version 0.1.0
 ```

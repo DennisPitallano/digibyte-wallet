@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Multi-targeting: net8.0 is the current LTS (supported through Nov 2026)
+      so integrators on stable LTS can consume the SDK without dragging in
+      a newer runtime. net9.0 added for people on the current release track.
+    -->
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!--
+      CS1591 = missing XML comment on public member. We write docs on
+      the API surface (DigiPayClient, WebhookVerifier, DigiPayError) but
+      the wire DTOs (Session, Store, WebhookDelivery, ...) have names
+      that map 1:1 to the REST API's documented fields — copy-pasting
+      the REST docs onto each record positional parameter doesn't add
+      signal, so drop this warning rather than noise up the code.
+    -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- NuGet package metadata — used by `dotnet pack`. -->
+    <PackageId>DigiPay</PackageId>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Authors>DigiByte Pay</Authors>
+    <Company>DigiByte Pay</Company>
+    <Description>Official .NET SDK for DigiPay — accept DigiByte payments on your site. Non-custodial, zero external dependencies, typed.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://pay.dgbwallet.app</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/DennisPitallano/digibyte-wallet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>digibyte dgb crypto payment digipay non-custodial checkout</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!--
+      SourceLink — consumers stepping into the SDK with a debugger jump
+      straight to the GitHub source at the commit the package was built
+      from. Zero runtime cost; purely metadata.
+    -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      SourceLink support for GitHub. IsImplicitlyDefined so it doesn't
+      appear as a runtime dependency for consumers.
+    -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
