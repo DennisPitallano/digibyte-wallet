@@ -54,8 +54,16 @@
             <DocsHeading>6. Late payments</DocsHeading>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300">If a buyer pays after expiry, DigiPay still reconciles — we keep polling expired sessions for three days. The webhook fires with the normal <InlineCode>session.paid</InlineCode> event, so your server doesn't need special-case code for this.</p>
 
+            <DocsHeading>SDKs</DocsHeading>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">If you're on Node, Python, or .NET, skip the hand-rolling — the <a href="/sdks" class="text-dgb-500 hover:underline">official SDKs</a> wrap everything described above (create session, verify webhook, list deliveries, replay, CSV export) behind a typed client. All three are zero-deps, behave identically, and map HTTP errors to a single <InlineCode>DigiPayError</InlineCode> so try/catch shape is portable.</p>
+            <ul class="space-y-1 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3">
+                <li><strong>Node</strong> — <InlineCode>npm install @("@dgbwallet/digipay")</InlineCode> (Node 18+, ESM + CJS)</li>
+                <li><strong>Python</strong> — <InlineCode>pip install digipay</InlineCode> (Python 3.10+, <InlineCode>py.typed</InlineCode>)</li>
+                <li><strong>.NET</strong> — <InlineCode>dotnet add package DigiPay</InlineCode> (net8.0 + net9.0, forward-compatible with net10)</li>
+            </ul>
+
             <DocsHeading>Next</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300">Ready to build? Head to the <a href="/docs/api" class="text-dgb-500 hover:underline">API reference</a> for the full endpoint list, or <a href="/merchant/signin" class="text-dgb-500 hover:underline">sign in</a> and try it.</p>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300">Ready to build? Pick an <a href="/sdks" class="text-dgb-500 hover:underline">SDK</a> for your stack, or go straight to the <a href="/docs/api" class="text-dgb-500 hover:underline">API reference</a> for the full endpoint list. Already decided? <a href="/merchant/signin" class="text-dgb-500 hover:underline">Sign in</a> and try it.</p>
         </article>
     </main>
 

@@ -41,6 +41,18 @@
                     How it works
                 </a>
             </div>
+            @* SDK availability strip — sits below the CTAs so integrators
+               scanning for their stack see "yes, there's a package for me"
+               immediately without clicking through to /sdks first. *@
+            <div class="mt-5 flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-[0.6875rem] sm:text-xs text-slate-500 dark:text-slate-400 slide-up-delay-4">
+                <span class="font-semibold text-slate-700 dark:text-slate-300">SDKs:</span>
+                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">@("@dgbwallet/digipay")</a>
+                <span class="opacity-40">·</span>
+                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">digipay</a>
+                <span class="opacity-40">·</span>
+                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">DigiPay</a>
+                <a href="/sdks" class="text-dgb-500 hover:underline font-semibold">All three →</a>
+            </div>
             @* Only pitch the wallet to signed-out visitors — signed-in merchants
                already have a wallet (they signed in with Digi-ID). *@
             <p class="mt-5 text-xs text-slate-500 dark:text-slate-400" data-auth-show="out">
@@ -382,10 +394,17 @@
             "Automatic webhook retries — backoff schedule 1m / 5m / 30m / 2h / 6h then dead-letter; transient failures (network / 5xx / 408 / 429) auto-retry, permanent 4xx stays failed for manual replay",
             "CSV export of sessions + deliveries for bookkeeping (?format=csv on both list endpoints; one-click download buttons in the dashboard)",
         }),
-        new Milestone("Q3 2026", "v2 — CMS & SDK reach", RoadmapStatus.Planned, new[]
+        new Milestone("Apr 2026", "First-party SDKs", RoadmapStatus.Done, new[]
+        {
+            "@dgbwallet/digipay on npm — Node 18+, ESM + CJS, zero deps",
+            "digipay on PyPI — Python 3.10+, py.typed, trusted-publisher releases",
+            "DigiPay on NuGet — net8.0 + net9.0 (forward-compatible with net10), SourceLink-enabled",
+            "Identical surface across all three: DigiPay client + webhook verifier + DigiPayError with HTTP status preserved; same 8-test behaviour-parity suite on each",
+            "Tag-triggered publishing (sdk-{lang}-v*) with version/tag guards and provenance attestations where the registry supports them",
+        }),
+        new Milestone("Q3 2026", "v2 — CMS & webhook reach", RoadmapStatus.InProgress, new[]
         {
             "WooCommerce plugin (PHP)",
-            "First-party SDKs: Node, .NET, Python",
             "Refund helper (generates outgoing-tx URI — non-custodial so you sign it)",
             "Per-key scopes (read:sessions vs write:sessions)",
             "Invoice-level audit log (who viewed / paid / received the webhook)",
