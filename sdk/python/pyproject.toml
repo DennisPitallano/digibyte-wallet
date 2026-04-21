@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "digipay"
+version = "0.1.0"
+description = "Official Python SDK for DigiPay — accept DigiByte payments on your site."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "DigiByte Pay" }]
+keywords = ["digibyte", "dgb", "crypto", "payment", "digipay", "non-custodial", "checkout"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+    "Typing :: Typed",
+]
+# Zero runtime deps — standard library only (urllib, hmac, json, hashlib).
+dependencies = []
+
+[project.urls]
+Homepage = "https://pay.dgbwallet.app"
+Repository = "https://github.com/DennisPitallano/digibyte-wallet"
+Issues = "https://github.com/DennisPitallano/digibyte-wallet/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/digipay"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/digipay", "README.md", "tests"]
