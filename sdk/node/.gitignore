@@ -2,3 +2,9 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# The repo's root .gitignore ignores every package-lock.json globally
+# (wallet Blazor projects use the lockfile as a transient build artefact).
+# For the published SDK we DO want it in source control so CI can use
+# `npm ci` for reproducible builds and provenance attestations.
+!package-lock.json
