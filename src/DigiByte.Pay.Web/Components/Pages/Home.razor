@@ -379,6 +379,7 @@
             "Refund helper (generates outgoing-tx URI — non-custodial so you sign it)",
             "Per-key scopes (read:sessions vs write:sessions)",
             "Invoice-level audit log (who viewed / paid / received the webhook)",
+            "Telegram payment notifications — per-store bot token + chat, fans out from the existing webhook dispatcher",
         }),
         new Milestone("Q4 2026+", "v3 — expansion", RoadmapStatus.Planned, new[]
         {
@@ -387,6 +388,7 @@
             "Subscriptions & recurring re-auth",
             "Optional custodial settlement layer with fiat on-ramp partner",
             "DigiAssets + smart contract payment flows",
+            "Telegram Mini App merchant dashboard — manage sessions and invoices inside Telegram",
         }),
     };
 }
