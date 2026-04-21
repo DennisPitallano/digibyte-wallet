@@ -26,6 +26,8 @@
     @* Checkout countdown — pure JS so the timer works inside the embed iframe
        where Blazor's InteractiveServer circuit can't reliably hydrate. *@
     <script src="@Assets["checkout-countdown.js"]"></script>
+    @* Browser-side blob → file download for the dashboard's CSV export buttons. *@
+    <script src="@Assets["download.js"]"></script>
 </head>
 
 <body>
