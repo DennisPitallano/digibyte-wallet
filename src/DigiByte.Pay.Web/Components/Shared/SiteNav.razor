@@ -2,7 +2,10 @@
 
 @{
     var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
-    string cls(string p) => path == p || (p.Length > 1 && path.StartsWith(p))
+    // Exact-match highlighting. Previously used StartsWith which would have
+    // lit both "How it works" (/docs) and "API" (/docs/api) on the API page.
+    // All current nav entries are flat routes so exact match is sufficient.
+    string cls(string p) => path == p
         ? "text-slate-900 dark:text-white"
         : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
 }
@@ -21,7 +24,8 @@
         </a>
         <div class="hidden sm:flex gap-5 flex-1 items-center">
             <a href="/docs" class="@cls("/docs") text-sm font-medium no-underline transition-colors">How it works</a>
-            <a href="/docs/api" class="@cls("/docs/api") text-sm font-medium no-underline transition-colors">Developers</a>
+            <a href="/sdks" class="@cls("/sdks") text-sm font-medium no-underline transition-colors">SDKs</a>
+            <a href="/docs/api" class="@cls("/docs/api") text-sm font-medium no-underline transition-colors">API</a>
             <a href="/about" class="@cls("/about") text-sm font-medium no-underline transition-colors">About</a>
             @* Outbound — the main DigiByte wallet PWA lives on its own domain.
                Dashboard access is via the blue pill on the right (shown when

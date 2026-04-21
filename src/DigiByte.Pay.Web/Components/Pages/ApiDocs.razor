@@ -36,10 +36,13 @@
     <main class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
             <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2 slide-up">API reference</h1>
-            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-6 slide-up-delay-1">
+            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-4 slide-up-delay-1">
                 DigiPay speaks plain REST. All endpoints live under <InlineCode>/v1/pay</InlineCode>.
                 An account (merchant) owns one or more stores; most per-shop config (receive
                 address, webhook, session defaults) is scoped to a store.
+            </p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 slide-up-delay-1">
+                On Node / Python / .NET? Skip the hand-rolling — <a href="/sdks" class="text-dgb-500 hover:underline font-medium">grab a first-party SDK</a>. One-line install, typed, zero deps.
             </p>
 
             @* Live OpenAPI / Scalar callout — prefer sending integrators to the

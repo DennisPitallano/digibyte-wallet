@@ -1,0 +1,271 @@
+@page "/sdks"
+
+<PageTitle>SDKs — DigiPay</PageTitle>
+
+<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <SiteNav />
+
+    <main class="flex-1 page-enter">
+        <article class="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-10">
+
+            @* Hero *@
+            <header class="text-center flex flex-col gap-3 slide-up">
+                <span class="inline-block self-center px-3 py-1 bg-dgb-500/10 text-dgb-500 rounded-full text-xs font-semibold">
+                    Official SDKs · zero external deps · typed
+                </span>
+                <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                    Accept DGB in one line.
+                </h1>
+                <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                    First-party client libraries for <strong>Node.js</strong>, <strong>Python</strong>, and <strong>.NET</strong>.
+                    Same surface, same error model, same webhook verifier behaviour — pick the stack you already run.
+                </p>
+            </header>
+
+            @* Install cards — one per language *@
+            <section class="grid gap-3 sm:grid-cols-3 slide-up-delay-1">
+                <a href="https://www.npmjs.com/package/@("@dgbwallet/digipay")" target="_blank" rel="noopener"
+                   class="card-hover bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 flex flex-col gap-3 no-underline">
+                    <div class="flex items-center gap-3">
+                        @* npm logo mark *@
+                        <span class="w-10 h-10 rounded-xl bg-[#CB3837] flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6 text-white" viewBox="0 0 780 250" fill="currentColor" aria-hidden="true">
+                                <path d="M240 250h100v-50h100V0H240v250zm100-200h50v100h-50V50zM480 0v200h100V50h50v150h50V50h50v150h50V0H480zM0 200h100V50h50v150h50V0H0v200z" />
+                            </svg>
+                        </span>
+                        <div>
+                            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Node.js</div>
+                            <div class="font-bold text-slate-900 dark:text-white">@("@dgbwallet/digipay")</div>
+                        </div>
+                    </div>
+                    <div class="font-mono text-xs bg-slate-900 text-slate-100 rounded-lg p-3 break-all">
+                        npm install @("@dgbwallet/digipay")
+                    </div>
+                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 pt-1">
+                        <span>Node 18+ · zero deps · ESM + CJS</span>
+                        <span class="text-dgb-500">View on npm →</span>
+                    </div>
+                </a>
+
+                <a href="https://pypi.org/project/digipay/" target="_blank" rel="noopener"
+                   class="card-hover bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 flex flex-col gap-3 no-underline">
+                    <div class="flex items-center gap-3">
+                        @* Python logo mark *@
+                        <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3776AB] to-[#FFD43B] flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 111 110" aria-hidden="true">
+                                <path fill="#fff" d="M54.9 0C26.8 0 28.6 12.2 28.6 12.2v12.6h26.8v3.8H18s-18-2-18 26.1 15.7 27.1 15.7 27.1h9.3V68c0-3.7 3-6.7 6.7-6.7h26.7c10.1 0 18.2-8.3 18.2-18.4V18.4C76.6 8.3 68 0 54.9 0zM40 8.5c2.7 0 4.8 2.2 4.8 4.8s-2.1 4.8-4.8 4.8-4.8-2.1-4.8-4.8S37.3 8.5 40 8.5z" />
+                            </svg>
+                        </span>
+                        <div>
+                            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Python</div>
+                            <div class="font-bold text-slate-900 dark:text-white">digipay</div>
+                        </div>
+                    </div>
+                    <div class="font-mono text-xs bg-slate-900 text-slate-100 rounded-lg p-3 break-all">
+                        pip install digipay
+                    </div>
+                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 pt-1">
+                        <span>Python 3.10+ · zero deps · py.typed</span>
+                        <span class="text-dgb-500">View on PyPI →</span>
+                    </div>
+                </a>
+
+                <a href="https://www.nuget.org/packages/DigiPay/" target="_blank" rel="noopener"
+                   class="card-hover bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 flex flex-col gap-3 no-underline">
+                    <div class="flex items-center gap-3">
+                        @* .NET logo mark *@
+                        <span class="w-10 h-10 rounded-xl bg-[#512BD4] flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M2.49 16.32q-.504 0-.862-.353a1.16 1.16 0 0 1-.358-.852q0-.511.358-.869.357-.358.862-.358.51 0 .871.358.36.358.36.87 0 .504-.36.857-.361.353-.871.353m5.568.207-2.68-4.188q-.207-.321-.344-.497h-.03l.02.3q.034.362.034.801v3.584H3.88V9.47h1.435l2.592 4.081q.327.507.42.696h.02q-.045-.412-.044-.901V9.47h1.166v7.057zm10.087-5.98h-1.983v5.98h-1.2v-5.98h-1.979V9.47h5.163v1.076zM22.45 15.1q-.108.235-.235.47-.127.234-.299.455-.17.221-.412.407-.241.185-.542.323-.3.137-.677.215-.378.078-.823.078-.45 0-.836-.088-.387-.088-.725-.26-.338-.172-.627-.42-.29-.25-.519-.581-.23-.332-.397-.748-.167-.415-.241-.91-.074-.496-.074-1.077 0-.552.078-1.063.078-.51.25-.965.17-.455.426-.856.257-.4.593-.73.337-.332.768-.577.432-.245.951-.382.519-.136 1.122-.136.515 0 .969.112.455.112.856.333.402.221.753.557.352.337.66.795l-1.028.702q-.191-.3-.411-.527-.22-.225-.47-.372-.25-.146-.529-.215-.278-.069-.577-.069-.426 0-.793.151-.367.152-.68.44-.313.29-.564.715-.25.426-.416.96-.166.534-.166 1.186 0 .538.112.998.113.46.314.82.2.362.47.626.269.265.588.44.318.176.666.26.347.083.68.083.377 0 .706-.088.329-.088.607-.25.279-.162.505-.392.226-.23.402-.52l.89.705z" />
+                            </svg>
+                        </span>
+                        <div>
+                            <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">.NET</div>
+                            <div class="font-bold text-slate-900 dark:text-white">DigiPay</div>
+                        </div>
+                    </div>
+                    <div class="font-mono text-xs bg-slate-900 text-slate-100 rounded-lg p-3 break-all">
+                        dotnet add package DigiPay
+                    </div>
+                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 pt-1">
+                        <span>net8.0 + net9.0 · SourceLink</span>
+                        <span class="text-dgb-500">View on NuGet →</span>
+                    </div>
+                </a>
+            </section>
+
+            @* Feature matrix *@
+            <section class="slide-up-delay-2">
+                <h2 class="text-xl font-bold tracking-tight mb-3">What's included</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm border-collapse">
+                        <thead>
+                            <tr class="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-dgb-800">
+                                <th class="py-2 pr-4 font-semibold">Feature</th>
+                                <th class="py-2 px-4 font-semibold text-center">Node</th>
+                                <th class="py-2 px-4 font-semibold text-center">Python</th>
+                                <th class="py-2 px-4 font-semibold text-center">.NET</th>
+                            </tr>
+                        </thead>
+                        <tbody class="[&_td]:py-2 [&_td]:pr-4 [&_td]:border-b [&_td]:border-slate-100 dark:[&_td]:border-dgb-800/60">
+                            <tr>
+                                <td>Self-serve merchant registration</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                            <tr>
+                                <td>Sessions: create / get / list</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                            <tr>
+                                <td>Stores: CRUD + webhook test + replay</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                            <tr>
+                                <td>CSV bookkeeping export</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                            <tr>
+                                <td>Webhook HMAC verifier (constant-time)</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                            <tr>
+                                <td>Typed DTOs for every endpoint</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                            <tr>
+                                <td>Zero runtime dependencies</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                            <tr>
+                                <td>Error mapping (<InlineCode>DigiPayError</InlineCode> w/ HTTP status)</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                                <td class="text-center text-emerald-500">✓</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            @* Quick-start examples *@
+            <section class="slide-up-delay-3">
+                <h2 class="text-xl font-bold tracking-tight mb-4">Create a session</h2>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#CB3837]"></span>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Node</span>
+                        </div>
+                        <CodeBlock>@("import { DigiPay } from '@dgbwallet/digipay';\n\nconst dp = new DigiPay({ apiKey: process.env.DIGIPAY_KEY });\nconst session = await dp.sessions.create({\n  amount: 5,\n  label: 'Order #1234',\n});\nconsole.log(session.checkoutUrl);")</CodeBlock>
+                    </div>
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#3776AB]"></span>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Python</span>
+                        </div>
+                        <CodeBlock>@("import os\nfrom digipay import DigiPay\n\ndp = DigiPay(api_key=os.environ['DIGIPAY_KEY'])\nsession = dp.sessions.create(\n    amount=5, label='Order #1234'\n)\nprint(session['checkoutUrl'])")</CodeBlock>
+                    </div>
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-[#512BD4]"></span>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">.NET</span>
+                        </div>
+                        <CodeBlock>@("using DigiPay;\n\nvar dp = new DigiPayClient(\n    Environment.GetEnvironmentVariable(\"DIGIPAY_KEY\")!);\n\nvar session = await dp.Sessions.CreateAsync(\n    new CreateSessionRequest {\n        Amount = 5m, Label = \"Order #1234\"\n    });\n\nConsole.WriteLine(session.CheckoutUrl);")</CodeBlock>
+                    </div>
+                </div>
+            </section>
+
+            <section class="slide-up-delay-4">
+                <h2 class="text-xl font-bold tracking-tight mb-4">Verify a webhook</h2>
+                <p class="text-sm text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
+                    Every state change POSTs signed JSON to your <InlineCode>webhookUrl</InlineCode>. The SDKs ship a framework-agnostic verifier — hand it the raw bytes, the <InlineCode>X-DigiPay-Signature</InlineCode> header, and the secret; get back a parsed event or a typed error on mismatch.
+                    <strong class="text-slate-900 dark:text-white"> Always verify the raw bytes before your framework parses the body</strong> — reserialization breaks the HMAC.
+                </p>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 flex flex-col gap-2">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Node (Express)</div>
+                        <CodeBlock>@("import express from 'express';\nimport { verifyWebhook, DigiPayError } from '@dgbwallet/digipay';\n\napp.post('/webhook',\n  express.raw({ type: 'application/json' }),\n  (req, res) => {\n    try {\n      const event = verifyWebhook({\n        rawBody: req.body,\n        signature: req.headers['x-digipay-signature'],\n        secret: process.env.DIGIPAY_SECRET,\n      });\n      if (event.event === 'session.paid') {\n        /* mark paid, fulfil, receipt */\n      }\n      res.status(200).end();\n    } catch (err) {\n      if (err instanceof DigiPayError) res.status(err.status).end();\n    }\n  });")</CodeBlock>
+                    </div>
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 flex flex-col gap-2">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Python (Flask)</div>
+                        <CodeBlock>@("from flask import Flask, request, abort\nfrom digipay import verify_webhook, DigiPayError\n\napp = Flask(__name__)\n\n@app.post('/webhook')\ndef webhook():\n    try:\n        event = verify_webhook(\n            raw_body=request.get_data(),\n            signature=request.headers.get(\n                'X-DigiPay-Signature'),\n            secret=os.environ['DIGIPAY_SECRET'],\n        )\n    except DigiPayError as err:\n        abort(err.status)\n    if event['event'] == 'session.paid':\n        ...\n    return '', 200")</CodeBlock>
+                    </div>
+                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4 flex flex-col gap-2">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">.NET (ASP.NET Core)</div>
+                        <CodeBlock>@("using DigiPay;\n\napp.MapPost(\"/webhook\", async (HttpContext ctx) =>\n{\n    using var ms = new MemoryStream();\n    await ctx.Request.Body.CopyToAsync(ms);\n    try\n    {\n        var evt = WebhookVerifier.Verify(\n            ms.ToArray(),\n            ctx.Request.Headers[\n                \"X-DigiPay-Signature\"].FirstOrDefault(),\n            Environment.GetEnvironmentVariable(\n                \"DIGIPAY_SECRET\")!);\n        if (evt.Event == \"session.paid\") { /* ... */ }\n        return Results.Ok();\n    }\n    catch (DigiPayError err)\n    {\n        return Results.StatusCode(err.Status);\n    }\n});")</CodeBlock>
+                    </div>
+                </div>
+            </section>
+
+            @* Links *@
+            <section class="slide-up-delay-5">
+                <h2 class="text-xl font-bold tracking-tight mb-3">Source + docs</h2>
+                <div class="grid sm:grid-cols-3 gap-3">
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/sdk/node" target="_blank" rel="noopener"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="code" Class="w-5 h-5 text-slate-400" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Node source</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">sdk/node/ on GitHub</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/sdk/python" target="_blank" rel="noopener"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="code" Class="w-5 h-5 text-slate-400" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Python source</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">sdk/python/ on GitHub</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/sdk/dotnet" target="_blank" rel="noopener"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="code" Class="w-5 h-5 text-slate-400" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">.NET source</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">sdk/dotnet/ on GitHub</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
+                </div>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 mt-6 leading-relaxed">
+                    Prefer the REST API directly? The full endpoint reference lives on the
+                    <a href="/docs/api" class="text-dgb-500 hover:underline">API page</a> — including the live Scalar explorer and an OpenAPI 3.1 download. All three SDKs are generated against the same spec.
+                </p>
+            </section>
+
+            @* Error handling note *@
+            <section class="slide-up-delay-5 bg-slate-100 dark:bg-dgb-900/50 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5">
+                <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Error handling is identical across languages</h3>
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0">
+                    Every failure raises <InlineCode>DigiPayError</InlineCode> with the HTTP status preserved — branch on the number, not the message.
+                    <code class="inline-block ml-1 text-[0.6875rem]">400</code> = validation,
+                    <code class="inline-block text-[0.6875rem]">401</code> = bad token,
+                    <code class="inline-block text-[0.6875rem]">404</code> = not found or not yours,
+                    <code class="inline-block text-[0.6875rem]">429</code> = sandbox rate-limit,
+                    <code class="inline-block text-[0.6875rem]">≥ 500</code> = server-side (retryable),
+                    <code class="inline-block text-[0.6875rem]">0</code> = network / TLS / timeout.
+                </p>
+            </section>
+
+        </article>
+    </main>
+
+    <SiteFooter />
+</div>
