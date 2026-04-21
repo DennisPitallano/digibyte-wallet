@@ -46,7 +46,9 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - run: node --test tests/**/*.test.js
+      # Pass the directory, not a glob — bash on the runner doesn't expand
+      # `**` by default and Node's --test accepts a directory to recurse.
+      - run: node --test tests/
 
       - name: Publish to npm
         run: npm publish --access public --provenance
