@@ -364,13 +364,23 @@
             "REST API + OpenAPI docs + 7 KB embed widget",
             "Late-payment reconciliation (3-day grace window)",
         }),
+        new Milestone("Apr 2026", "Production + DX polish", RoadmapStatus.Done, new[]
+        {
+            "Production deployment at pay.dgbwallet.app (Postgres-backed)",
+            "Rate limits on public sandbox endpoints (20 req/min per IP)",
+            "Fiat price lock at session creation (USD/EUR/GBP), locked amount enforced at settlement",
+            "Public OpenAPI 3.1 + Scalar reference at /scalar with Bearer security scheme and canonical error responses, grouped by tag (Sessions, Stores & webhooks, Public, Sandbox)",
+            "DemoDataJanitor — 24h sweep of sandbox merchants/stores/sessions so the DB doesn't grow forever",
+            "Distinct DigiPay + dgbwallet product logos (SVG + PNG) wired across favicons, nav, dashboard, PWA manifest",
+            "Unified dashboard header matching the public site's brand treatment; page-wide entrance animations (page-enter / slide-up / scale-in)",
+            "Sign-in page overhaul: DigiByte mark centred on the QR, 3-step checklist, live countdown, copy-challenge fallback",
+            "Webhook signature docs with Node/Python/PHP/C# examples",
+            "Telegram community group + site-wide join link in footer",
+        }),
         new Milestone("Q2 2026", "v1 — public developer preview", RoadmapStatus.InProgress, new[]
         {
             "Automatic webhook retries with exponential backoff + dead-letter",
-            "Rate limits + abuse guards on public endpoints",
-            "Fiat price lock at session creation (USD/EUR/GBP), locked amount enforced at settlement",
             "CSV export of sessions + deliveries for bookkeeping",
-            "Production deployment at pay.dgbwallet.app (Postgres-backed)",
         }),
         new Milestone("Q3 2026", "v2 — CMS & SDK reach", RoadmapStatus.Planned, new[]
         {
