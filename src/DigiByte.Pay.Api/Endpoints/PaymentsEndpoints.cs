@@ -160,19 +160,23 @@ public static class PaymentsEndpoints
 
         // GET /v1/pay/sessions — list sessions for the authenticated merchant.
         // Filters: ?status=pending|seen|paid|confirmed|expired|underpaid
-        // Pagination: ?take (1-100, default 25), ?skip (default 0)
+        // Pagination: ?take (1-100, default 25), ?skip (default 0).
+        // Bookkeeping export: ?format=csv overrides pagination (caps at 10 000
+        // rows for memory safety) and returns a downloadable spreadsheet.
         group.MapGet("/sessions", async (
             HttpRequest http,
             DigiPayDbContext db,
             string? status = null,
             string? storeId = null,
             int take = 25,
-            int skip = 0) =>
+            int skip = 0,
+            string? format = null) =>
         {
             var merchant = await AuthenticateAsync(http, db);
             if (merchant is null) return Results.Unauthorized();
 
-            take = Math.Clamp(take, 1, 100);
+            var wantsCsv = string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase);
+            take = wantsCsv ? Math.Clamp(take, 1, 10_000) : Math.Clamp(take, 1, 100);
             skip = Math.Max(skip, 0);
 
             var query = db.Sessions.AsNoTracking().Where(s => s.MerchantId == merchant.Id);
@@ -182,6 +186,37 @@ public static class PaymentsEndpoints
                 && Enum.TryParse<PaySessionStatus>(status, ignoreCase: true, out var parsedStatus))
             {
                 query = query.Where(s => s.Status == parsedStatus);
+            }
+
+            if (wantsCsv)
+            {
+                // CSV path skips the JSON DTO + checkout-URL building. Columns
+                // are flattened from PaySession; satoshis are converted to DGB
+                // for spreadsheet readability.
+                var csvRows = await query.OrderByDescending(s => s.CreatedAt)
+                    .Take(take).ToListAsync();
+                var sb = new System.Text.StringBuilder(64 + csvRows.Count * 256);
+                CsvWriter.WriteRow(sb, new object?[]
+                {
+                    "id", "storeId", "status", "address", "amountDgb", "fiatCurrency",
+                    "fiatAmount", "label", "memo", "receivedDgb", "confirmations",
+                    "paidTxid", "createdAt", "expiresAt", "seenAt", "paidAt",
+                });
+                foreach (var s in csvRows)
+                {
+                    CsvWriter.WriteRow(sb, new object?[]
+                    {
+                        s.Id, s.StoreId, s.Status.ToString().ToLowerInvariant(),
+                        s.Address, s.AmountSatoshis / 100_000_000m,
+                        s.FiatCurrency, s.FiatAmount, s.Label, s.Memo,
+                        s.ReceivedSatoshis / 100_000_000m, s.Confirmations, s.PaidTxid,
+                        s.CreatedAt, s.ExpiresAt, s.SeenAt, s.PaidAt,
+                    });
+                }
+                var filename = $"digipay-sessions-{DateTime.UtcNow:yyyyMMdd}.csv";
+                return Results.File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()),
+                    contentType: "text/csv; charset=utf-8",
+                    fileDownloadName: filename);
             }
 
             var total = await query.CountAsync();

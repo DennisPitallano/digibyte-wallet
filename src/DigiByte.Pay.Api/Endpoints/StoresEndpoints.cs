@@ -199,14 +199,16 @@ public static class StoresEndpoints
         // Returned newest-first; default 25 rows to match sessions pagination.
         // Optional ?sessionId= filter narrows to a single session's delivery chain
         // (including manual replays, which carry the same SessionId with incremented Attempt).
+        // ?format=csv returns a downloadable spreadsheet (cap 10 000 rows).
         group.MapGet("/{storeId}/webhook-deliveries", async (
             string storeId, HttpRequest http, DigiPayDbContext db,
-            int take = 25, string? sessionId = null) =>
+            int take = 25, string? sessionId = null, string? format = null) =>
         {
             var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
             if (err is not null) return err;
 
-            take = Math.Clamp(take, 1, 100);
+            var wantsCsv = string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase);
+            take = wantsCsv ? Math.Clamp(take, 1, 10_000) : Math.Clamp(take, 1, 100);
             var query = db.WebhookDeliveries.AsNoTracking()
                 .Where(d => d.StoreId == store!.Id);
             if (!string.IsNullOrWhiteSpace(sessionId))
@@ -215,6 +217,36 @@ public static class StoresEndpoints
                 .OrderByDescending(d => d.CreatedAt)
                 .Take(take)
                 .ToListAsync();
+
+            if (wantsCsv)
+            {
+                // Same column shape as DeliveryDto, sans the response snippet
+                // (which is often binary-ish HTML and breaks spreadsheets) —
+                // we keep just its length so merchants can spot suspiciously
+                // empty receivers without having to hand-edit the CSV.
+                var sb = new System.Text.StringBuilder(64 + rows.Count * 192);
+                CsvWriter.WriteRow(sb, new object?[]
+                {
+                    "id", "sessionId", "eventName", "url", "attempt",
+                    "statusCode", "success", "errorMessage", "durationMs",
+                    "responseSnippetLength", "createdAt", "deliveredAt",
+                });
+                foreach (var d in rows)
+                {
+                    var success = d.StatusCode is >= 200 and < 300;
+                    CsvWriter.WriteRow(sb, new object?[]
+                    {
+                        d.Id, d.SessionId, d.EventName, d.Url, d.Attempt,
+                        d.StatusCode, success, d.ErrorMessage, d.DurationMs,
+                        d.ResponseSnippet?.Length ?? 0, d.CreatedAt, d.DeliveredAt,
+                    });
+                }
+                var filename = $"digipay-deliveries-{store!.Id}-{DateTime.UtcNow:yyyyMMdd}.csv";
+                return Results.File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()),
+                    contentType: "text/csv; charset=utf-8",
+                    fileDownloadName: filename);
+            }
+
             return Results.Ok(rows.Select(DeliveryDto));
         });
 

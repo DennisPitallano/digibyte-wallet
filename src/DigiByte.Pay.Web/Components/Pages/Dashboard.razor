@@ -194,9 +194,18 @@ else
             {
                 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
                     <h1 class="@H1">Sessions</h1>
-                    <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadSessionsAsync" disabled="@loadingSessions">
-                        @(loadingSessions ? "…" : "Refresh")
-                    </button>
+                    <div class="flex gap-2">
+                        @* Bookkeeping export — same filter scope as the visible
+                           list (this store, current activeStoreId), capped at
+                           10 000 rows server-side. *@
+                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="ExportSessionsCsvAsync"
+                                title="Download as CSV">
+                            Export CSV
+                        </button>
+                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadSessionsAsync" disabled="@loadingSessions">
+                            @(loadingSessions ? "…" : "Refresh")
+                        </button>
+                    </div>
                 </div>
                 <p class="@Muted mb-6 slide-up-delay-1">Sessions for <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>, newest first.</p>
 
@@ -347,9 +356,15 @@ else
                 <section class="@Card mt-4">
                     <div class="flex items-baseline justify-between">
                         <h2 class="@H2">Delivery log</h2>
-                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries">
-                            @(loadingDeliveries ? "…" : "Refresh")
-                        </button>
+                        <div class="flex gap-2">
+                            <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="ExportDeliveriesCsvAsync"
+                                    title="Download as CSV">
+                                Export CSV
+                            </button>
+                            <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries">
+                                @(loadingDeliveries ? "…" : "Refresh")
+                            </button>
+                        </div>
                     </div>
                     <p class="@Muted m-0">Last 25 delivery attempts for this store. Replays re-fire the event with the same payload and add a new row to the log.</p>
                     @if (deliveries is null)
@@ -793,6 +808,44 @@ else
             }
         }
         finally { loadingSessions = false; StateHasChanged(); }
+    }
+
+    // CSV export: hit the same /sessions endpoint with ?format=csv, hand the
+    // bytes to a tiny JS helper that triggers a Blob download. We do the
+    // fetch server-side (via PayApi HttpClient with the auth header attached)
+    // because the browser can't add a Bearer header to a plain navigation.
+    private async Task ExportSessionsCsvAsync()
+    {
+        if (activeStore is null) return;
+        await DownloadCsvAsync(
+            $"/v1/pay/sessions?format=csv&storeId={Uri.EscapeDataString(activeStoreId)}",
+            $"digipay-sessions-{DateTime.UtcNow:yyyyMMdd}.csv");
+    }
+
+    private async Task ExportDeliveriesCsvAsync()
+    {
+        if (activeStore is null) return;
+        await DownloadCsvAsync(
+            $"/v1/pay/stores/{activeStoreId}/webhook-deliveries?format=csv",
+            $"digipay-deliveries-{activeStoreId}-{DateTime.UtcNow:yyyyMMdd}.csv");
+    }
+
+    private async Task DownloadCsvAsync(string apiPath, string filename)
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, apiPath));
+            if (!response.IsSuccessStatusCode) return;
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            await JS.InvokeVoidAsync("digipayDownloadBlob", filename, "text/csv;charset=utf-8",
+                Convert.ToBase64String(bytes));
+        }
+        catch
+        {
+            // Non-fatal: download failed (network/auth). The merchant can retry —
+            // logging is server-side via the API itself.
+        }
     }
 
     private async Task LoadDonationAddressAsync()
