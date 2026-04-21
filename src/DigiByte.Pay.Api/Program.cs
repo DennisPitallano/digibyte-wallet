@@ -178,6 +178,7 @@ builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();
 builder.Services.AddHostedService<InvoiceMonitor>();
 builder.Services.AddHostedService<DemoDataJanitor>();
+builder.Services.AddHostedService<WebhookRetrier>();
 
 // CORS scoped to the Pay.Web origin (and whatever else gets added via ClientOrigin).
 builder.Services.AddCors(options =>
@@ -199,6 +200,23 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DigiPayDbContext>();
     db.Database.EnsureCreated();
+
+    // Schema shim: EnsureCreated only creates tables that don't exist; it
+    // doesn't add new columns to existing tables. The WebhookRetrier needs a
+    // NextRetryAt column on WebhookDeliveries — try to add it, swallow the
+    // "already exists" error so this is a no-op on fresh DBs (column is in the
+    // model) and a one-shot ALTER on databases created before this change.
+    // When we move to EF migrations, this can go away.
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE \"WebhookDeliveries\" ADD COLUMN \"NextRetryAt\" TIMESTAMP NULL");
+    }
+    catch
+    {
+        // Column already exists, table doesn't exist yet (fresh DB), or
+        // provider rejects the syntax — all safe to ignore.
+    }
 
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.
     // Seed a PayApiKey row for any merchant that doesn't yet have one, so existing
