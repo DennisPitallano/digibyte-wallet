@@ -5,10 +5,14 @@ namespace DigiByte.Pay.Api.Data;
 /// retries and manual replays produce new rows (bumping <see cref="Attempt"/>),
 /// so the table doubles as an audit trail.
 ///
-/// Kept intentionally simple for v0: no queue, no exponential backoff.
-/// The delivery is fired inline from the invoice monitor or an explicit
-/// replay; failures are logged here for the merchant to act on via the
-/// dashboard until we wire proper retry machinery.
+/// Automatic retries: when a delivery fails and the failure is retryable
+/// (network error, 5xx, 408, 429), <see cref="NextRetryAt"/> is populated
+/// on the failed row. A background <c>WebhookRetrier</c> polls for rows
+/// whose <see cref="NextRetryAt"/> has come due, clears the field, and
+/// re-fires via <c>WebhookDispatcher.ReplayAsync</c> — which writes a
+/// fresh row with <see cref="Attempt"/> incremented. Deliveries that
+/// succeed, hit a permanent 4xx, or exhaust the retry schedule leave
+/// <see cref="NextRetryAt"/> null.
 /// </summary>
 public class WebhookDelivery
 {
@@ -32,6 +36,16 @@ public class WebhookDelivery
 
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime? DeliveredAt { get; set; }
+
+    /// <summary>
+    /// UTC time at which the <c>WebhookRetrier</c> should re-dispatch this
+    /// delivery. Null on successful deliveries, permanently-failed 4xx, and
+    /// rows that have already been picked up for retry (the retrier clears
+    /// this before it re-dispatches so the same row isn't retried twice).
+    /// Also null when the retry schedule has been exhausted — that's the
+    /// dead-letter state, visible in the dashboard as a final failed attempt.
+    /// </summary>
+    public DateTime? NextRetryAt { get; set; }
 
     public bool Success => StatusCode is >= 200 and < 300;
 }

@@ -10,9 +10,12 @@ namespace DigiByte.Pay.Api.Services;
 /// Sends state-change notifications to a store's configured <see cref="PayStore.WebhookUrl"/>.
 ///
 /// Every attempt is persisted to <see cref="WebhookDelivery"/> so merchants can see what
-/// happened (status code, response snippet, network errors) from the dashboard and replay
-/// failed deliveries manually. Retry-with-backoff is still deferred — failures stay failed
-/// until the merchant hits replay.
+/// happened (status code, response snippet, network errors) from the dashboard. Failed
+/// deliveries that are retryable (network error, 5xx, 408, 429) get a
+/// <see cref="WebhookDelivery.NextRetryAt"/> stamp — the <c>WebhookRetrier</c> background
+/// service picks those up and re-fires on the schedule below. Permanent 4xx responses
+/// and exhausted retry budgets leave <see cref="WebhookDelivery.NextRetryAt"/> null
+/// (dead-letter) so the merchant can replay manually from the dashboard.
 ///
 /// Receiver verification:
 ///     expected = HMAC_SHA256(secret, rawBody).hex()
@@ -21,6 +24,25 @@ namespace DigiByte.Pay.Api.Services;
 /// </summary>
 public class WebhookDispatcher
 {
+    /// <summary>
+    /// Backoff after attempt N fails. Indexed by (attempt - 1). Exhaustion
+    /// (a <c>null</c> slot or past the end) = dead-letter state.
+    ///
+    /// Total retry window: ~8.5h. Enough to ride out most receiver outages
+    /// without DOSing their service. Manual replay from the dashboard is
+    /// still the escape hatch beyond that.
+    /// </summary>
+    private static readonly TimeSpan?[] RetrySchedule =
+    {
+        TimeSpan.FromMinutes(1),    // after attempt 1 failed — retry in 1 min
+        TimeSpan.FromMinutes(5),    // after attempt 2
+        TimeSpan.FromMinutes(30),   // after attempt 3
+        TimeSpan.FromHours(2),      // after attempt 4
+        TimeSpan.FromHours(6),      // after attempt 5
+        null,                       // after attempt 6 — dead-letter
+    };
+    public static int MaxAttempts => RetrySchedule.Length + 1;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -159,8 +181,45 @@ public class WebhookDispatcher
                 eventName, store.WebhookUrl, session.Id, attempt);
         }
 
+        // Schedule a retry if this attempt failed and the failure mode is one
+        // that's likely to clear up on its own (network error, server error,
+        // rate limit). Permanent 4xx stays dead-letter — if the receiver is
+        // returning 404 it's a config issue and retries won't help.
+        //
+        // Synthetic webhook.test deliveries (session.Id starts with ses_test_)
+        // are explicitly NOT retried — they're a one-shot diagnostic ping for
+        // the merchant, and the dummy session isn't persisted so the retrier
+        // wouldn't be able to rebuild the payload anyway.
+        var isTestPing = session.Id.StartsWith("ses_test_", StringComparison.Ordinal);
+        if (!delivery.Success && !isTestPing && IsRetryable(delivery.StatusCode, delivery.ErrorMessage))
+        {
+            var backoffIndex = attempt - 1;
+            if (backoffIndex < RetrySchedule.Length && RetrySchedule[backoffIndex] is TimeSpan wait)
+            {
+                delivery.NextRetryAt = DateTime.UtcNow + wait;
+            }
+        }
+
         await _db.SaveChangesAsync(ct);
         return delivery;
+    }
+
+    /// <summary>
+    /// True if a failed delivery is worth retrying. Network / timeout / 5xx
+    /// / 408 / 429 are transient enough to re-attempt; everything else (2xx
+    /// success, 3xx redirect treated as non-2xx, other 4xx) is terminal.
+    /// </summary>
+    private static bool IsRetryable(int? statusCode, string? errorMessage)
+    {
+        // Network-layer failure (DNS, TLS, timeout, connection reset).
+        if (errorMessage is not null) return true;
+        // No response at all — treat as transient.
+        if (statusCode is null) return true;
+        // Server-side errors.
+        if (statusCode >= 500) return true;
+        // Explicit transient status codes.
+        if (statusCode == 408 || statusCode == 429) return true;
+        return false;
     }
 
     private static string Sign(string body, string secret)

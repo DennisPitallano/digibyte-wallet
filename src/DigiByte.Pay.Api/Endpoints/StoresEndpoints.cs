@@ -263,6 +263,11 @@ public static class StoresEndpoints
         d.ResponseSnippet,
         d.CreatedAt,
         d.DeliveredAt,
+        // When set, the WebhookRetrier will re-dispatch at the given UTC time.
+        // Null on succeeded deliveries, permanent 4xx, and dead-lettered rows
+        // (retry budget exhausted). Lets the merchant distinguish "still
+        // retrying" from "gave up" at a glance in the dashboard.
+        d.NextRetryAt,
         Success = d.StatusCode is >= 200 and < 300,
     };
 
