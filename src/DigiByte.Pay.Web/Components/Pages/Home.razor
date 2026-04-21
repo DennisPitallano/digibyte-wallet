@@ -377,10 +377,10 @@
             "Webhook signature docs with Node/Python/PHP/C# examples",
             "Telegram community group + site-wide join link in footer",
         }),
-        new Milestone("Q2 2026", "v1 — public developer preview", RoadmapStatus.InProgress, new[]
+        new Milestone("Apr 2026", "v1 — public developer preview", RoadmapStatus.Done, new[]
         {
-            "Automatic webhook retries with exponential backoff + dead-letter",
-            "CSV export of sessions + deliveries for bookkeeping",
+            "Automatic webhook retries — backoff schedule 1m / 5m / 30m / 2h / 6h then dead-letter; transient failures (network / 5xx / 408 / 429) auto-retry, permanent 4xx stays failed for manual replay",
+            "CSV export of sessions + deliveries for bookkeeping (?format=csv on both list endpoints; one-click download buttons in the dashboard)",
         }),
         new Milestone("Q3 2026", "v2 — CMS & SDK reach", RoadmapStatus.Planned, new[]
         {
