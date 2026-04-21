@@ -1,0 +1,58 @@
+name: Publish .NET SDK
+
+# Triggered by pushing a tag like `sdk-dotnet-v0.1.0`. The tag version
+# MUST match the <Version> element in DigiPay.csproj — the workflow
+# guards against mismatch before publishing.
+#
+# One-time setup before the first run:
+#   1. Own the `DigiPay` package name on nuget.org (or swap PackageId
+#      in sdk/dotnet/DigiPay/DigiPay.csproj for an available name).
+#   2. Generate an API key on nuget.org scoped to the DigiPay package:
+#      Account → API Keys → Create → "Push new packages and updates",
+#      glob pattern `DigiPay*`.
+#   3. Add it to repo Settings → Secrets → Actions as `NUGET_API_KEY`.
+#   4. Tag and push: git tag sdk-dotnet-v0.1.0 && git push origin sdk-dotnet-v0.1.0
+on:
+  push:
+    tags:
+      - 'sdk-dotnet-v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: sdk/dotnet
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # Install both target SDKs so multi-targeting restore works.
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Verify tag matches DigiPay.csproj <Version>
+        run: |
+          TAG="${GITHUB_REF#refs/tags/sdk-dotnet-v}"
+          CSPROJ=$(grep -oP '(?<=<Version>)[^<]+' DigiPay/DigiPay.csproj | head -1)
+          if [ "$TAG" != "$CSPROJ" ]; then
+            echo "::error::Tag $TAG doesn't match <Version> $CSPROJ in DigiPay.csproj"
+            exit 1
+          fi
+
+      - run: dotnet restore
+      - run: dotnet build --configuration Release --no-restore
+      - run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Pack
+        run: dotnet pack DigiPay/DigiPay.csproj --configuration Release --no-build --output ./nupkg
+
+      - name: Push to NuGet
+        # --skip-duplicate makes the job idempotent — if someone retries
+        # the workflow after a successful push, it exits 0 instead of
+        # 409'ing on "package version already exists".
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
