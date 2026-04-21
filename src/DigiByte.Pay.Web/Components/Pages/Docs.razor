@@ -5,10 +5,10 @@
 <div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
     <SiteNav />
 
-    <main class="flex-1">
+    <main class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-            <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2">How it works</h1>
-            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8">
+            <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2 slide-up">How it works</h1>
+            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 slide-up-delay-1">
                 A DigiPay invoice flows through five states: <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">pending → seen → paid → confirmed</code>,
                 plus <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">expired</code> or <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">underpaid</code> as terminal error cases.
                 Here's the full lifecycle, from merchant sign-up to webhook delivery.

@@ -35,15 +35,20 @@ else if (account == null)
 else
 {
     <div class="min-h-dvh bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans md:grid md:grid-cols-[240px_1fr]">
-        @* Mobile top bar *@
-        <header class="md:hidden sticky top-0 z-[15] bg-white dark:bg-dgb-900 border-b border-slate-200 dark:border-dgb-800 px-3 py-2.5 flex items-center gap-2.5">
-            <button class="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-dgb-800 rounded-lg"
+        @* Mobile top bar — uses the public-site brand treatment (logo mark +
+           Digi in default colour + Pay in dgb-500) so returning from the
+           website into the dashboard keeps the same visual identity. *@
+        <header class="md:hidden sticky top-0 z-[15] bg-white dark:bg-dgb-900 border-b border-slate-200 dark:border-dgb-800 px-3 py-2.5 flex items-center gap-2.5 fade-in">
+            <button class="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-dgb-800 rounded-lg transition-colors hover:bg-slate-50 dark:hover:bg-dgb-800"
                     @onclick="() => sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">
                 <Icon Name="@(sidebarOpen ? "close" : "menu")" Class="w-4 h-4" />
             </button>
-            <div class="flex items-center gap-1.5 font-bold text-[0.9375rem]">
-                <span class="w-2 h-2 rounded-full bg-dgb-500"></span> DigiPay
-            </div>
+            <a href="/" class="flex items-center gap-2 font-extrabold text-slate-900 dark:text-white no-underline text-[0.9375rem] tracking-tight">
+                <span class="w-7 h-7 rounded-lg bg-dgb-500/10 flex items-center justify-center shrink-0">
+                    <img src="/digibyte-logo.svg" alt="" class="w-5 h-5" />
+                </span>
+                <span>Digi<span class="text-dgb-500">Pay</span></span>
+            </a>
             <div class="flex-1"></div>
             <ThemeToggle />
             <div class="text-right">
@@ -58,9 +63,14 @@ else
 
         @* Sidebar *@
         <aside class="bg-white dark:bg-dgb-900 border-r border-slate-200 dark:border-dgb-800 md:sticky md:top-0 md:self-start md:h-dvh md:z-20 fixed left-0 top-0 bottom-0 w-64 z-20 transition-transform flex flex-col gap-1 p-5 md:p-3 @(sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full") md:translate-x-0 md:shadow-none">
-            <div class="flex items-center gap-2 pb-3 mb-2 border-b border-slate-200 dark:border-dgb-800 font-bold text-base">
-                <span class="w-2.5 h-2.5 rounded-full bg-dgb-500"></span> DigiPay
-            </div>
+            @* Brand mark — matches the public-site SiteNav so the dashboard
+               reads as the same product, not a separate app. *@
+            <a href="/" class="flex items-center gap-2 pb-3 mb-2 border-b border-slate-200 dark:border-dgb-800 font-extrabold text-slate-900 dark:text-white no-underline text-[0.9375rem] tracking-tight">
+                <span class="w-7 h-7 rounded-lg bg-dgb-500/10 flex items-center justify-center shrink-0">
+                    <img src="/digibyte-logo.svg" alt="" class="w-5 h-5" />
+                </span>
+                <span>Digi<span class="text-dgb-500">Pay</span></span>
+            </a>
 
             @* Store switcher — visible only when the account has at least one store *@
             @if (stores.Count > 0)
@@ -126,7 +136,7 @@ else
             </div>
         </aside>
 
-        <main class="p-4 sm:p-8 max-w-5xl box-border">
+        <main class="p-4 sm:p-8 max-w-5xl box-border page-enter">
             @if (activeStore is null)
             {
                 <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">No stores</h1></div>
@@ -137,11 +147,11 @@ else
             }
             else if (activeTab == "overview")
             {
-                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1">
+                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
                     <h1 class="@H1">Overview</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
                 </div>
-                <p class="@Muted mb-6">Summary of this store's activity.</p>
+                <p class="@Muted mb-6 slide-up-delay-1">Summary of this store's activity.</p>
 
                 @if (!activeStore.HasReceive)
                 {
@@ -153,14 +163,16 @@ else
                 }
                 else
                 {
+                    @* Stats row — stagger each card so they cascade in
+                       (delay-2 through -5) beneath the heading. *@
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-                        <Stat Label="Total sessions" Value="@((sessions?.Count ?? 0).ToString())" />
-                        <Stat Label="Paid / Confirmed" Value="@CountBy("paid", "confirmed").ToString()" />
-                        <Stat Label="Pending" Value="@CountBy("pending", "seen").ToString()" />
-                        <Stat Label="Expired" Value="@CountBy("expired", "underpaid").ToString()" />
+                        <div class="slide-up-delay-2"><Stat Label="Total sessions" Value="@((sessions?.Count ?? 0).ToString())" /></div>
+                        <div class="slide-up-delay-3"><Stat Label="Paid / Confirmed" Value="@CountBy("paid", "confirmed").ToString()" /></div>
+                        <div class="slide-up-delay-4"><Stat Label="Pending" Value="@CountBy("pending", "seen").ToString()" /></div>
+                        <div class="slide-up-delay-5"><Stat Label="Expired" Value="@CountBy("expired", "underpaid").ToString()" /></div>
                     </div>
 
-                    <section class="@Card">
+                    <section class="@Card scale-in-delay-2">
                         <h2 class="@H2">New session</h2>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <input @bind="newAmount" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="@Input" />
@@ -183,15 +195,15 @@ else
             }
             else if (activeTab == "sessions")
             {
-                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1">
+                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
                     <h1 class="@H1">Sessions</h1>
                     <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadSessionsAsync" disabled="@loadingSessions">
                         @(loadingSessions ? "…" : "Refresh")
                     </button>
                 </div>
-                <p class="@Muted mb-6">Sessions for <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>, newest first.</p>
+                <p class="@Muted mb-6 slide-up-delay-1">Sessions for <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>, newest first.</p>
 
-                <section class="@Card">
+                <section class="@Card scale-in-delay-1">
                     @if (sessions == null) { <p class="@Muted m-0">Loading…</p> }
                     else if (sessions.Count == 0) { <p class="@Muted m-0">No sessions yet.</p> }
                     else
@@ -222,11 +234,11 @@ else
             }
             else if (activeTab == "donation")
             {
-                <div class="flex items-baseline justify-between mb-1">
+                <div class="flex items-baseline justify-between mb-1 slide-up">
                     <h1 class="@H1">Donation button</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
                 </div>
-                <p class="@Muted mb-6">A permanent, session-less tip button for your site. Reuses this store's donation address — any DigiByte wallet can pay.</p>
+                <p class="@Muted mb-6 slide-up-delay-1">A permanent, session-less tip button for your site. Reuses this store's donation address — any DigiByte wallet can pay.</p>
 
                 @if (donationAddress is null)
                 {
@@ -315,13 +327,13 @@ else
             }
             else if (activeTab == "webhook")
             {
-                <div class="flex items-baseline justify-between mb-1">
+                <div class="flex items-baseline justify-between mb-1 slide-up">
                     <h1 class="@H1">Webhook</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
                 </div>
-                <p class="@Muted mb-6">POST with HMAC-SHA256 signature on session state changes. Each store has its own webhook URL and secret. Header: <span class="font-mono">X-DigiPay-Signature: sha256=…</span></p>
+                <p class="@Muted mb-6 slide-up-delay-1">POST with HMAC-SHA256 signature on session state changes. Each store has its own webhook URL and secret. Header: <span class="font-mono">X-DigiPay-Signature: sha256=…</span></p>
 
-                <section class="@Card">
+                <section class="@Card scale-in-delay-1">
                     <input @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="@Input" />
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button class="@Btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (activeStore.WebhookUrl ?? ""))">
@@ -399,10 +411,10 @@ else
             }
             else if (activeTab == "stores")
             {
-                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Stores</h1></div>
-                <p class="@Muted mb-6">Each store has its own receive address, webhook config, and sessions. You can run multiple shops from one account.</p>
+                <div class="flex items-baseline justify-between mb-1 slide-up"><h1 class="@H1">Stores</h1></div>
+                <p class="@Muted mb-6 slide-up-delay-1">Each store has its own receive address, webhook config, and sessions. You can run multiple shops from one account.</p>
 
-                <section class="@Card">
+                <section class="@Card scale-in-delay-1">
                     <h2 class="@H2">Add a new store</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
                         <input @bind="newStoreName" placeholder="Store name" class="@Input" />
@@ -451,8 +463,8 @@ else
             }
             else if (activeTab == "apikeys")
             {
-                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">API keys</h1></div>
-                <p class="@Muted mb-6">Long-lived tokens for SDK / server-to-server use. Secrets are shown <strong>once</strong> at creation — store them in your secrets manager.</p>
+                <div class="flex items-baseline justify-between mb-1 slide-up"><h1 class="@H1">API keys</h1></div>
+                <p class="@Muted mb-6 slide-up-delay-1">Long-lived tokens for SDK / server-to-server use. Secrets are shown <strong>once</strong> at creation — store them in your secrets manager.</p>
 
                 @if (createdKey is not null)
                 {
@@ -525,13 +537,13 @@ else
             }
             else if (activeTab == "settings")
             {
-                <div class="flex items-baseline justify-between mb-1">
+                <div class="flex items-baseline justify-between mb-1 slide-up">
                     <h1 class="@H1">Settings</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
                 </div>
-                <p class="@Muted mb-6">Account profile + settings for the active store.</p>
+                <p class="@Muted mb-6 slide-up-delay-1">Account profile + settings for the active store.</p>
 
-                <section class="@Card">
+                <section class="@Card scale-in-delay-1">
                     <h2 class="@H2">Profile (account)</h2>
                     <p class="@Muted m-0">Display name for you as a DigiPay account owner. Store-facing names are set per store below.</p>
                     <input @bind="nameInput" placeholder="@account.DisplayName" class="@Input" maxlength="120" />

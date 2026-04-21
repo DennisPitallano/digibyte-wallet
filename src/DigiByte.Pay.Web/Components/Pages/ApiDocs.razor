@@ -6,10 +6,10 @@
 <div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
     <SiteNav />
 
-    <main class="flex-1">
+    <main class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-            <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2">API reference</h1>
-            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+            <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2 slide-up">API reference</h1>
+            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-6 slide-up-delay-1">
                 DigiPay speaks plain REST. All endpoints live under <InlineCode>/v1/pay</InlineCode>.
                 An account (merchant) owns one or more stores; most per-shop config (receive
                 address, webhook, session defaults) is scoped to a store.

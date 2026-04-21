@@ -3,7 +3,7 @@
 
 <PageTitle>@(string.IsNullOrEmpty(Name) ? "Pay with DigiByte" : $"Tip {Name}")</PageTitle>
 
-<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans page-enter">
     <div class="w-full max-w-md">
         @if (!isValid)
         {
