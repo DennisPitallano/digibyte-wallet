@@ -1,8 +1,15 @@
 @page "/about"
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject IConfiguration Config
 
 <PageTitle>About — DigiByte Wallet</PageTitle>
+
+@{
+    // Configurable — swap the URL via wwwroot/appsettings.json (Community:TelegramUrl)
+    // without a code change if a dedicated dgbwallet group is spun up later.
+    var telegramUrl = Config["Community:TelegramUrl"] ?? "https://t.me/DigiByteProject";
+}
 
 <div class="flex flex-col gap-5">
     <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
@@ -64,6 +71,24 @@
             <div class="flex-1">
                 <p class="text-sm font-semibold text-slate-900 dark:text-white">DigiByte.org</p>
                 <p class="text-xs text-slate-400">Official DigiByte website</p>
+            </div>
+            <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+        </a>
+
+        @* Community Telegram — low-friction place for support questions, AMAs,
+           and roadmap chatter. Configurable via Community:TelegramUrl. *@
+        <a href="@telegramUrl" target="_blank" rel="noopener"
+           class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+            <div class="w-8 h-8 rounded-lg bg-[#229ED9] flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0Zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.833.94Z" />
+                </svg>
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">Telegram community</p>
+                <p class="text-xs text-slate-400">Support, AMAs, and roadmap chat</p>
             </div>
             <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />

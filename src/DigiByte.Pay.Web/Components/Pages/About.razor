@@ -1,7 +1,14 @@
 @page "/about"
 @inject IHttpClientFactory HttpFactory
+@inject IConfiguration Config
 
 <PageTitle>About — DigiPay</PageTitle>
+
+@{
+    // Configurable so the canonical group can be swapped without a code change
+    // (e.g. if a dedicated dgbwallet group is spun up later).
+    var telegramUrl = Config["Community:TelegramUrl"] ?? "https://t.me/DigiByteProject";
+}
 
 <div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
     <SiteNav />
@@ -87,6 +94,22 @@
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">DigiByte.org</p>
                         <p class="text-xs text-slate-500 dark:text-slate-400 m-0">Official DigiByte website</p>
+                    </div>
+                    <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                </a>
+
+                @* Community Telegram — low-friction place for support questions,
+                   AMAs, and roadmap chatter. Configurable via Community:TelegramUrl. *@
+                <a href="@telegramUrl" target="_blank" rel="noopener"
+                   class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline">
+                    <div class="w-9 h-9 rounded-lg bg-[#229ED9] flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0Zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.833.94Z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">Telegram community</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 m-0">Support, AMAs, and roadmap chat</p>
                     </div>
                     <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
                 </a>
