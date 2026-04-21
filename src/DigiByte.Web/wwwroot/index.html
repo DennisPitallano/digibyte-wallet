@@ -16,14 +16,14 @@
     <meta property="og:url" content="https://dgbwallet.app/" />
     <meta property="og:title" content="DigiByte Wallet — Self-Custodial DGB Wallet" />
     <meta property="og:description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
-    <meta property="og:image" content="https://dgbwallet.app/icon-512.png" />
+    <meta property="og:image" content="https://dgbwallet.app/dgbwallet-logo-512.png" />
     <meta property="og:site_name" content="DigiByte Wallet" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="DigiByte Wallet — Self-Custodial DGB Wallet" />
     <meta name="twitter:description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
-    <meta name="twitter:image" content="https://dgbwallet.app/icon-512.png" />
+    <meta name="twitter:image" content="https://dgbwallet.app/dgbwallet-logo-512.png" />
 
     <!-- Security headers -->
     <meta http-equiv="Content-Security-Policy"
@@ -59,12 +59,15 @@
 
     <script src="js/theme.js"></script>
     <link rel="stylesheet" href="css/app.css" />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <!-- Product-specific wallet mark. Separate from the DigiByte chain
+         favicon.svg so the browser tab reads as dgbwallet, not as the
+         Foundation. Fallback chain: SVG → 192px PNG. -->
+    <link rel="icon" type="image/svg+xml" href="dgbwallet-logo.svg" />
+    <link rel="icon" type="image/png" href="dgbwallet-logo-192.png" />
     <link href="DigiByte.Web.styles.css" rel="stylesheet" />
     <link href="manifest.webmanifest" rel="manifest" />
-    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="dgbwallet-logo-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="dgbwallet-logo-192.png" />
     <script type="importmap"></script>
 
     <!-- Structured Data -->

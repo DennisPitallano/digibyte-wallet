@@ -13,33 +13,34 @@
   "categories": ["finance", "crypto"],
   "icons": [
     {
-      "src": "icon-512.png",
+      "src": "dgbwallet-logo-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "dgbwallet-logo-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
     },
     {
-      "src": "icon-192.png",
+      "src": "dgbwallet-logo-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "icon-192.png",
+      "src": "dgbwallet-logo-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "maskable"
     },
     {
-      "src": "favicon.png",
-      "type": "image/png",
-      "sizes": "48x48"
+      "src": "dgbwallet-logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
     }
   ],
   "protocol_handlers": [

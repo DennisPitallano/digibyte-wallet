@@ -5,9 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <link rel="icon" type="image/svg+xml" href="@Assets["favicon.svg"]" />
-    <link rel="icon" type="image/png" href="@Assets["favicon.png"]" />
-    <link rel="apple-touch-icon" href="@Assets["favicon.png"]" />
+    @* Product favicon — the DigiPay-specific mark (receipt + arrow) so
+       a pinned tab reads as DigiPay, not as the DigiByte chain itself.
+       SVG first, PNG fallback at 192px for older browsers + Apple touch. *@
+    <link rel="icon" type="image/svg+xml" href="@Assets["digipay-logo.svg"]" />
+    <link rel="icon" type="image/png" href="@Assets["digipay-logo-192.png"]" />
+    <link rel="apple-touch-icon" href="@Assets["digipay-logo-192.png"]" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["css/tailwind.css"]" />
     <link rel="stylesheet" href="@Assets["DigiByte.Pay.Web.styles.css"]" />
