@@ -8,26 +8,39 @@
 
 <PageTitle>Sign in — DigiPay</PageTitle>
 
-<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+<main class="min-h-dvh flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-slate-50 to-dgb-50 dark:from-dgb-950 dark:via-dgb-950 dark:to-dgb-900 text-slate-900 dark:text-white font-sans">
     <div class="w-full max-w-md">
-        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm">
-            <div class="text-center">
-                <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">DIGIPAY</div>
-                <div class="text-sm font-bold">Sign in with Digi-ID</div>
+        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 sm:p-8 flex flex-col items-center gap-5 shadow-xl shadow-dgb-500/5">
+            @* Brand header *@
+            <div class="flex flex-col items-center gap-1 text-center">
+                <div class="text-[0.6875rem] font-bold tracking-[0.2em] text-dgb-500 uppercase">DIGIPAY</div>
+                <h1 class="text-lg sm:text-xl font-bold tracking-tight m-0">Sign in with Digi-ID</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400 m-0 max-w-xs">No passwords — your DigiByte wallet signs a one-time challenge.</p>
             </div>
 
             @if (loadError != null)
             {
-                <p class="text-xs text-center text-slate-500 dark:text-slate-400 m-0">@loadError</p>
+                <div class="w-full flex flex-col items-center gap-3 py-4 text-center">
+                    <div class="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                    </div>
+                    <p class="text-sm font-medium text-slate-900 dark:text-white m-0">@loadError</p>
+                    <button type="button" @onclick="RestartAsync"
+                            class="mt-1 px-4 py-2 rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold transition-colors">
+                        Try again
+                    </button>
+                </div>
             }
             else if (challenge == null)
             {
-                <Loader Text="Generating sign-in challenge…" Class="py-4 gap-3" />
+                <Loader Text="Generating sign-in challenge…" Class="py-6 gap-3" />
             }
             else if (signed != null)
             {
-                <div class="flex flex-col items-center gap-3 py-6 text-center">
-                    <div class="w-14 h-14 rounded-full bg-emerald-500 text-white text-2xl font-bold flex items-center justify-center">✓</div>
+                <div class="flex flex-col items-center gap-3 py-6 text-center w-full">
+                    <div class="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 scale-in">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    </div>
                     <h3 class="text-base font-bold m-0 text-slate-900 dark:text-white">Signed in</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs m-0">Welcome back, <strong>@signed.DisplayName</strong>.</p>
                     <p class="text-[0.625rem] font-mono text-slate-400 dark:text-slate-500 break-all m-0">@signed.MerchantId</p>
@@ -35,17 +48,62 @@
             }
             else
             {
-                <p class="text-xs text-center text-slate-500 dark:text-slate-400 m-0">Scan the QR with your DigiByte wallet to sign in. The page will advance automatically.</p>
-
-                <div class="bg-white p-3 rounded-2xl shadow-inner">
-                    <img src="@qrDataUrl" alt="Scan to sign in" class="block w-56 h-56 rounded-lg" />
+                @* QR with Digi-ID mark centred. Uses error-correction level H so the
+                   punched-out logo doesn't corrupt the code. *@
+                <div class="relative bg-white p-3 rounded-2xl shadow-inner ring-1 ring-slate-100 dark:ring-0">
+                    <img src="@qrDataUrl" alt="Scan with your DigiByte wallet" class="block w-60 h-60 rounded-lg" />
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="bg-white rounded-xl p-1.5 shadow-md ring-1 ring-slate-200">
+                            <svg class="w-10 h-10" viewBox="0 0 479.8 479.8" aria-hidden="true">
+                                <circle cx="239.9" cy="239.9" r="239.9" fill="#002352" />
+                                <circle cx="239.9" cy="239.9" r="219.5" fill="#002352" stroke="#06c" stroke-miterlimit="10" stroke-width="40.8" />
+                                <path fill="#fff" d="M116.9 182.9h155s53.5-.5 16.5 68.5c0 0-27 54-94 53l36.1-92.2a7.3 7.3 0 0 0-6.6-10l-47.5-.8-60 146s20 2 31 1l-6 15h28.3a3.8 3.8 0 0 0 3.6-2.5l5.1-13.5 12-1-7 17H211a5 5 0 0 0 4.7-3.2l7.7-19.8s84-14 122-82c0 0 51-79-9-107a116 116 0 0 0-37-10l7-17.3a3.4 3.4 0 0 0-3.1-4.7h-25.9l-8 21h-11l6.2-16.3a3.5 3.5 0 0 0-3.2-4.7h-26l-8 21h-80.8a12 12 0 0 0-10.6 6.3z" />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
 
-                <a href="@challenge.Uri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
+                @* Three-step checklist — makes the flow explicit for first-time users *@
+                <ol class="w-full grid grid-cols-3 gap-2 text-center" aria-label="Sign-in steps">
+                    <li class="flex flex-col items-center gap-1.5">
+                        <div class="w-7 h-7 rounded-full bg-dgb-500 text-white text-xs font-bold flex items-center justify-center">1</div>
+                        <div class="text-[0.6875rem] font-semibold text-slate-700 dark:text-slate-300 leading-tight">Open your<br />DGB wallet</div>
+                    </li>
+                    <li class="flex flex-col items-center gap-1.5">
+                        <div class="w-7 h-7 rounded-full bg-dgb-500 text-white text-xs font-bold flex items-center justify-center">2</div>
+                        <div class="text-[0.6875rem] font-semibold text-slate-700 dark:text-slate-300 leading-tight">Scan this<br />QR code</div>
+                    </li>
+                    <li class="flex flex-col items-center gap-1.5">
+                        <div class="w-7 h-7 rounded-full @(pollCount > 0 ? "bg-emerald-500" : "bg-slate-300 dark:bg-dgb-700") text-white text-xs font-bold flex items-center justify-center transition-colors">3</div>
+                        <div class="text-[0.6875rem] font-semibold text-slate-700 dark:text-slate-300 leading-tight">Approve<br />in wallet</div>
+                    </li>
+                </ol>
 
-                <div class="text-[0.6875rem] text-slate-500 dark:text-slate-400">Polling for signature… @pollCount</div>
+                @* Status line — animated dot + elapsed seconds so the user knows we're live *@
+                <div class="flex items-center justify-center gap-2 text-[0.6875rem] text-slate-500 dark:text-slate-400">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-dgb-500 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-dgb-500"></span>
+                    </span>
+                    <span>Waiting for signature · expires in <span class="font-mono">@FormatRemaining()</span></span>
+                </div>
+
+                @* Secondary: copy URI. Removed the "Open in wallet" deeplink — Digi-ID
+                   is a scan-from-another-device flow, and offering a same-device link
+                   muddled the primary instruction. *@
+                <button type="button" @onclick="CopyUriAsync"
+                        class="inline-flex items-center gap-2 text-[0.75rem] font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 dark:hover:text-dgb-400 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
+                    @(copied ? "Copied!" : "Copy challenge URI")
+                </button>
             }
         </div>
+
+        @* Soft footer — where to get a wallet that supports Digi-ID *@
+        <p class="text-center text-[0.6875rem] text-slate-400 dark:text-slate-500 mt-6 m-0">
+            Don't have a wallet?
+            <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">Get DGB Wallet →</a>
+        </p>
     </div>
 </main>
 
@@ -55,23 +113,45 @@
     private string? qrDataUrl;
     private string? loadError;
     private int pollCount;
+    private bool copied;
     private System.Threading.Timer? poller;
+    private System.Threading.Timer? ticker;
 
     protected override async Task OnInitializedAsync()
     {
+        await StartChallengeAsync();
+    }
+
+    private async Task StartChallengeAsync()
+    {
+        loadError = null;
+        challenge = null;
+        signed = null;
+        qrDataUrl = null;
+        pollCount = 0;
+
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             challenge = await http.GetFromJsonAsync<ChallengeResponse>("/v1/pay/auth/challenge");
             if (challenge != null) qrDataUrl = GenerateQr(challenge.Uri);
         }
-        catch (Exception ex) { loadError = $"Could not start sign-in: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            loadError = $"Could not start sign-in: {ex.Message}";
+        }
     }
 
     protected override void OnAfterRender(bool firstRender)
     {
-        if (!firstRender || challenge is null || poller is not null) return;
-        poller = new System.Threading.Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        if (!firstRender || challenge is null) return;
+        poller ??= new System.Threading.Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        // Re-render every second so the "expires in" countdown ticks without
+        // coupling it to the 2s poll cadence.
+        ticker ??= new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     private async Task PollAsync()
@@ -90,17 +170,19 @@
             {
                 await InvokeAsync(() =>
                 {
-                    loadError = "Sign-in expired. Refresh to try again.";
+                    loadError = "Sign-in expired. Tap Try again to get a fresh challenge.";
                     StateHasChanged();
                 });
-                poller?.Dispose();
+                poller?.Dispose(); poller = null;
+                ticker?.Dispose(); ticker = null;
                 return;
             }
             if (response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadFromJsonAsync<SignedResponse>();
                 if (body is null) return;
-                poller?.Dispose();
+                poller?.Dispose(); poller = null;
+                ticker?.Dispose(); ticker = null;
                 await InvokeAsync(async () =>
                 {
                     signed = body;
@@ -108,9 +190,6 @@
                     await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
                     StateHasChanged();
                 });
-                // Brief "Signed in" confirmation, then hand off to the dashboard.
-                // Use a full reload so localStorage reads on the next page happen cleanly
-                // in the new InteractiveServer circuit.
                 await Task.Delay(1200);
                 await InvokeAsync(async () =>
                     await JS.InvokeVoidAsync("eval", "window.location.href = '/merchant'"));
@@ -119,10 +198,43 @@
         catch { /* transient — keep polling */ }
     }
 
+    private async Task CopyUriAsync()
+    {
+        if (challenge is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", challenge.Uri);
+            copied = true;
+            StateHasChanged();
+            await Task.Delay(1600);
+            copied = false;
+            StateHasChanged();
+        }
+        catch { /* clipboard API blocked — silent */ }
+    }
+
+    private async Task RestartAsync()
+    {
+        poller?.Dispose(); poller = null;
+        ticker?.Dispose(); ticker = null;
+        await StartChallengeAsync();
+        // OnAfterRender will rewire the timers.
+    }
+
+    private string FormatRemaining()
+    {
+        if (challenge is null) return "—";
+        var remaining = challenge.ExpiresAt - DateTime.UtcNow;
+        if (remaining <= TimeSpan.Zero) return "0:00";
+        return $"{remaining.Minutes}:{remaining.Seconds:D2}";
+    }
+
     private static string GenerateQr(string content)
     {
         using var gen = new QRCoder.QRCodeGenerator();
-        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        // Level H (~30% redundancy) so the centred Digi-ID mark doesn't
+        // corrupt the code; the extra data density is fine at 240×240.
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.H);
         using var qr = new QRCoder.PngByteQRCode(data);
         return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
     }
@@ -130,6 +242,7 @@
     public ValueTask DisposeAsync()
     {
         poller?.Dispose();
+        ticker?.Dispose();
         return ValueTask.CompletedTask;
     }
 
