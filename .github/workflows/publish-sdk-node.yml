@@ -1,0 +1,54 @@
+name: Publish Node SDK
+
+# Triggered by pushing a tag like `sdk-node-v0.1.0`. The tag version MUST
+# match the `version` field in sdk/node/package.json — the workflow
+# guards against mismatch so we can't accidentally publish a stale build
+# under a newer tag.
+#
+# One-time setup before the first run:
+#   1. Create the @dgbwallet org on npm (or claim the existing one)
+#   2. Generate an automation token: npm profile → Access Tokens → Automation
+#   3. Add it to repo Settings → Secrets → Actions as NPM_TOKEN
+#   4. Tag and push: git tag sdk-node-v0.1.0 && git push origin sdk-node-v0.1.0
+on:
+  push:
+    tags:
+      - 'sdk-node-v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # GitHub's OIDC requires id-token: write for provenance attestations
+    # (npm supports them since 2023 — gives users a verifiable chain from
+    # the published tarball back to this workflow run).
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: sdk/node
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/sdk-node-v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag $TAG doesn't match package.json version $PKG"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+      - run: node --test tests/**/*.test.js
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
