@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="@Assets["css/tailwind.css"]" />
     <link rel="stylesheet" href="@Assets["DigiByte.Pay.Web.styles.css"]" />
     <ImportMap />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer"/>
     @* Theme boot script — must run synchronously in <head> to set data-theme
        on <html> before first paint. Prevents FOUC on the initial SSR render. *@
     <script src="@Assets["theme.js"]"></script>
@@ -31,7 +31,7 @@
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>

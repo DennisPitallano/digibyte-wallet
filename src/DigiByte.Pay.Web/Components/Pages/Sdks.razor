@@ -1,11 +1,10 @@
 @page "/sdks"
 @rendermode InteractiveServer
+@inject IJSRuntime JS
 <PageTitle>SDKs — DigiPay</PageTitle>
 
 <HeadContent>
-    @* Progressive-enhancement script for tabs, copy buttons, and live
-       version badges. Loads at the tail of <head> so the DOM is ready
-       by the time it runs. *@
+    @* Version-badge fetch is a one-shot JS call; tabs/copy are Blazor. *@
     <script src="/sdks-page.js" defer></script>
 </HeadContent>
 
@@ -57,9 +56,9 @@
                         <div class="font-mono text-xs bg-slate-900 text-slate-100 rounded-lg px-3 py-3 pr-16 break-all">
                             <span class="text-slate-500 select-none">$ </span>npm install @("@dgbwallet/digipay")
                         </div>
-                        <button type="button" data-copy="npm install @@dgbwallet/digipay" data-label="Copy"
-                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold text-slate-400 hover:text-slate-100 transition-colors px-2 py-1">
-                            Copy
+                        <button type="button" @onclick='() => CopyAsync("npm", NpmInstall)'
+                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold @(copiedKey == "npm" ? "text-emerald-500" : "text-slate-400 hover:text-slate-100") transition-colors px-2 py-1">
+                            @(copiedKey == "npm" ? "Copied ✓" : "Copy")
                         </button>
                     </div>
                     <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400">
@@ -86,9 +85,9 @@
                         <div class="font-mono text-xs bg-slate-900 text-slate-100 rounded-lg px-3 py-3 pr-16 break-all">
                             <span class="text-slate-500 select-none">$ </span>pip install digipay
                         </div>
-                        <button type="button" data-copy="pip install digipay" data-label="Copy"
-                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold text-slate-400 hover:text-slate-100 transition-colors px-2 py-1">
-                            Copy
+                        <button type="button" @onclick='() => CopyAsync("pip", "pip install digipay")'
+                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold @(copiedKey == "pip" ? "text-emerald-500" : "text-slate-400 hover:text-slate-100") transition-colors px-2 py-1">
+                            @(copiedKey == "pip" ? "Copied ✓" : "Copy")
                         </button>
                     </div>
                     <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400">
@@ -115,9 +114,9 @@
                         <div class="font-mono text-xs bg-slate-900 text-slate-100 rounded-lg px-3 py-3 pr-16 break-all">
                             <span class="text-slate-500 select-none">$ </span>dotnet add package DigiPay
                         </div>
-                        <button type="button" data-copy="dotnet add package DigiPay" data-label="Copy"
-                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold text-slate-400 hover:text-slate-100 transition-colors px-2 py-1">
-                            Copy
+                        <button type="button" @onclick='() => CopyAsync("dotnet", "dotnet add package DigiPay")'
+                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold @(copiedKey == "dotnet" ? "text-emerald-500" : "text-slate-400 hover:text-slate-100") transition-colors px-2 py-1">
+                            @(copiedKey == "dotnet" ? "Copied ✓" : "Copy")
                         </button>
                     </div>
                     <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400">
@@ -159,51 +158,69 @@
                container width. Progressive enhancement: without JS, the
                first pane stays open and the rest fall through as plain
                sections (see defaults on hidden attr below). *@
-            <section class="slide-up-delay-3" data-tabs>
+            <section class="slide-up-delay-3">
                 <h2 class="text-xl font-bold tracking-tight mb-3">Create a session</h2>
                 <div role="tablist" aria-label="Language" class="inline-flex gap-1 p-1 bg-slate-100 dark:bg-dgb-900 rounded-lg mb-3">
-                    <button role="tab" aria-selected="true" aria-controls="create-node" tabindex="0"
-                            class="px-3 py-1.5 rounded-md text-sm font-medium bg-dgb-500 text-white transition-colors">Node</button>
-                    <button role="tab" aria-selected="false" aria-controls="create-python" tabindex="-1"
-                            class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors">Python</button>
-                    <button role="tab" aria-selected="false" aria-controls="create-dotnet" tabindex="-1"
-                            class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors">.NET</button>
+                    <button role="tab" aria-selected="@(createTab == "node")" tabindex="@(createTab == "node" ? 0 : -1)" @onclick='() => createTab = "node"'
+                            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(createTab == "node" ? "bg-dgb-500 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800")">Node</button>
+                    <button role="tab" aria-selected="@(createTab == "python")" tabindex="@(createTab == "python" ? 0 : -1)" @onclick='() => createTab = "python"'
+                            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(createTab == "python" ? "bg-dgb-500 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800")">Python</button>
+                    <button role="tab" aria-selected="@(createTab == "dotnet")" tabindex="@(createTab == "dotnet" ? 0 : -1)" @onclick='() => createTab = "dotnet"'
+                            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(createTab == "dotnet" ? "bg-dgb-500 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800")">.NET</button>
                 </div>
-                <div id="create-node" role="tabpanel">
-                    <CodeBlock>@("import { DigiPay } from '@dgbwallet/digipay';\n\nconst dp = new DigiPay({ apiKey: process.env.DIGIPAY_KEY });\nconst session = await dp.sessions.create({\n  amount: 5,\n  label: 'Order #1234',\n});\nconsole.log(session.checkoutUrl);")</CodeBlock>
-                </div>
-                <div id="create-python" role="tabpanel" hidden>
-                    <CodeBlock>@("import os\nfrom digipay import DigiPay\n\ndp = DigiPay(api_key=os.environ['DIGIPAY_KEY'])\nsession = dp.sessions.create(\n    amount=5,\n    label='Order #1234',\n)\nprint(session['checkoutUrl'])")</CodeBlock>
-                </div>
-                <div id="create-dotnet" role="tabpanel" hidden>
-                    <CodeBlock>@("using DigiPay;\n\nusing var dp = new DigiPayClient(\n    Environment.GetEnvironmentVariable(\"DIGIPAY_KEY\")!);\n\nvar session = await dp.Sessions.CreateAsync(\n    new CreateSessionRequest {\n        Amount = 5m,\n        Label = \"Order #1234\",\n    });\n\nConsole.WriteLine(session.CheckoutUrl);")</CodeBlock>
-                </div>
+                @if (createTab == "node")
+                {
+                    <div role="tabpanel">
+                        <CodeBlock>@("import { DigiPay } from '@dgbwallet/digipay';\n\nconst dp = new DigiPay({ apiKey: process.env.DIGIPAY_KEY });\nconst session = await dp.sessions.create({\n  amount: 5,\n  label: 'Order #1234',\n});\nconsole.log(session.checkoutUrl);")</CodeBlock>
+                    </div>
+                }
+                else if (createTab == "python")
+                {
+                    <div role="tabpanel">
+                        <CodeBlock>@("import os\nfrom digipay import DigiPay\n\ndp = DigiPay(api_key=os.environ['DIGIPAY_KEY'])\nsession = dp.sessions.create(\n    amount=5,\n    label='Order #1234',\n)\nprint(session['checkoutUrl'])")</CodeBlock>
+                    </div>
+                }
+                else
+                {
+                    <div role="tabpanel">
+                        <CodeBlock>@("using DigiPay;\n\nusing var dp = new DigiPayClient(\n    Environment.GetEnvironmentVariable(\"DIGIPAY_KEY\")!);\n\nvar session = await dp.Sessions.CreateAsync(\n    new CreateSessionRequest {\n        Amount = 5m,\n        Label = \"Order #1234\",\n    });\n\nConsole.WriteLine(session.CheckoutUrl);")</CodeBlock>
+                    </div>
+                }
             </section>
 
             @* Verify a webhook — same pattern. *@
-            <section class="slide-up-delay-4" data-tabs>
+            <section class="slide-up-delay-4">
                 <h2 class="text-xl font-bold tracking-tight mb-3">Verify a webhook</h2>
                 <p class="text-sm text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
                     Every state change POSTs signed JSON to your <InlineCode>webhookUrl</InlineCode>. The SDKs ship a framework-agnostic verifier — hand it the raw bytes, the <InlineCode>X-DigiPay-Signature</InlineCode> header, and the secret; get back a parsed event or a typed error on mismatch.
                     <strong class="text-slate-900 dark:text-white"> Always verify the raw bytes before your framework parses the body</strong> — reserialization breaks the HMAC.
                 </p>
                 <div role="tablist" aria-label="Framework" class="inline-flex gap-1 p-1 bg-slate-100 dark:bg-dgb-900 rounded-lg mb-3">
-                    <button role="tab" aria-selected="true" aria-controls="verify-node" tabindex="0"
-                            class="px-3 py-1.5 rounded-md text-sm font-medium bg-dgb-500 text-white transition-colors">Node · Express</button>
-                    <button role="tab" aria-selected="false" aria-controls="verify-python" tabindex="-1"
-                            class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors">Python · Flask</button>
-                    <button role="tab" aria-selected="false" aria-controls="verify-dotnet" tabindex="-1"
-                            class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors">.NET · ASP.NET Core</button>
+                    <button role="tab" aria-selected="@(verifyTab == "node")" tabindex="@(verifyTab == "node" ? 0 : -1)" @onclick='() => verifyTab = "node"'
+                            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(verifyTab == "node" ? "bg-dgb-500 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800")">Node · Express</button>
+                    <button role="tab" aria-selected="@(verifyTab == "python")" tabindex="@(verifyTab == "python" ? 0 : -1)" @onclick='() => verifyTab = "python"'
+                            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(verifyTab == "python" ? "bg-dgb-500 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800")">Python · Flask</button>
+                    <button role="tab" aria-selected="@(verifyTab == "dotnet")" tabindex="@(verifyTab == "dotnet" ? 0 : -1)" @onclick='() => verifyTab = "dotnet"'
+                            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors @(verifyTab == "dotnet" ? "bg-dgb-500 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dgb-800")">.NET · ASP.NET Core</button>
                 </div>
-                <div id="verify-node" role="tabpanel">
-                    <CodeBlock>@("import express from 'express';\nimport { verifyWebhook, DigiPayError } from '@dgbwallet/digipay';\n\napp.post('/webhook',\n  express.raw({ type: 'application/json' }),\n  (req, res) => {\n    try {\n      const event = verifyWebhook({\n        rawBody: req.body,\n        signature: req.headers['x-digipay-signature'],\n        secret: process.env.DIGIPAY_SECRET,\n      });\n      if (event.event === 'session.paid') {\n        // mark paid, fulfil, send receipt…\n      }\n      res.status(200).end();\n    } catch (err) {\n      if (err instanceof DigiPayError) res.status(err.status).end();\n    }\n  });")</CodeBlock>
-                </div>
-                <div id="verify-python" role="tabpanel" hidden>
-                    <CodeBlock>@("import os\nfrom flask import Flask, request, abort\nfrom digipay import verify_webhook, DigiPayError\n\napp = Flask(__name__)\n\n@app.post('/webhook')\ndef webhook():\n    try:\n        event = verify_webhook(\n            raw_body=request.get_data(),\n            signature=request.headers.get('X-DigiPay-Signature'),\n            secret=os.environ['DIGIPAY_SECRET'],\n        )\n    except DigiPayError as err:\n        abort(err.status)\n    if event['event'] == 'session.paid':\n        # mark paid, fulfil, send receipt…\n        pass\n    return '', 200")</CodeBlock>
-                </div>
-                <div id="verify-dotnet" role="tabpanel" hidden>
-                    <CodeBlock>@("using DigiPay;\n\napp.MapPost(\"/webhook\", async (HttpContext ctx) =>\n{\n    using var ms = new MemoryStream();\n    await ctx.Request.Body.CopyToAsync(ms);\n    try\n    {\n        var evt = WebhookVerifier.Verify(\n            ms.ToArray(),\n            ctx.Request.Headers[\"X-DigiPay-Signature\"].FirstOrDefault(),\n            Environment.GetEnvironmentVariable(\"DIGIPAY_SECRET\")!);\n        if (evt.Event == \"session.paid\")\n        {\n            // mark paid, fulfil, send receipt…\n        }\n        return Results.Ok();\n    }\n    catch (DigiPayError err)\n    {\n        return Results.StatusCode(err.Status);\n    }\n});")</CodeBlock>
-                </div>
+                @if (verifyTab == "node")
+                {
+                    <div role="tabpanel">
+                        <CodeBlock>@("import express from 'express';\nimport { verifyWebhook, DigiPayError } from '@dgbwallet/digipay';\n\napp.post('/webhook',\n  express.raw({ type: 'application/json' }),\n  (req, res) => {\n    try {\n      const event = verifyWebhook({\n        rawBody: req.body,\n        signature: req.headers['x-digipay-signature'],\n        secret: process.env.DIGIPAY_SECRET,\n      });\n      if (event.event === 'session.paid') {\n        // mark paid, fulfil, send receipt…\n      }\n      res.status(200).end();\n    } catch (err) {\n      if (err instanceof DigiPayError) res.status(err.status).end();\n    }\n  });")</CodeBlock>
+                    </div>
+                }
+                else if (verifyTab == "python")
+                {
+                    <div role="tabpanel">
+                        <CodeBlock>@("import os\nfrom flask import Flask, request, abort\nfrom digipay import verify_webhook, DigiPayError\n\napp = Flask(__name__)\n\n@app.post('/webhook')\ndef webhook():\n    try:\n        event = verify_webhook(\n            raw_body=request.get_data(),\n            signature=request.headers.get('X-DigiPay-Signature'),\n            secret=os.environ['DIGIPAY_SECRET'],\n        )\n    except DigiPayError as err:\n        abort(err.status)\n    if event['event'] == 'session.paid':\n        # mark paid, fulfil, send receipt…\n        pass\n    return '', 200")</CodeBlock>
+                    </div>
+                }
+                else
+                {
+                    <div role="tabpanel">
+                        <CodeBlock>@("using DigiPay;\n\napp.MapPost(\"/webhook\", async (HttpContext ctx) =>\n{\n    using var ms = new MemoryStream();\n    await ctx.Request.Body.CopyToAsync(ms);\n    try\n    {\n        var evt = WebhookVerifier.Verify(\n            ms.ToArray(),\n            ctx.Request.Headers[\"X-DigiPay-Signature\"].FirstOrDefault(),\n            Environment.GetEnvironmentVariable(\"DIGIPAY_SECRET\")!);\n        if (evt.Event == \"session.paid\")\n        {\n            // mark paid, fulfil, send receipt…\n        }\n        return Results.Ok();\n    }\n    catch (DigiPayError err)\n    {\n        return Results.StatusCode(err.Status);\n    }\n});")</CodeBlock>
+                    </div>
+                }
             </section>
 
             @* DigiPayError status cheatsheet — easier to scan as a table
@@ -279,3 +296,36 @@
 
     <SiteFooter />
 </div>
+
+@code {
+    private const string NpmInstall = "npm install @dgbwallet/digipay";
+    private string createTab = "node";
+    private string verifyTab = "node";
+    private string? copiedKey;
+    private CancellationTokenSource? copyResetCts;
+
+    private async Task CopyAsync(string key, string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch
+        {
+            // Clipboard API unavailable (old browser / insecure context) — silent no-op.
+        }
+
+        copiedKey = key;
+        copyResetCts?.Cancel();
+        copyResetCts = new CancellationTokenSource();
+        var token = copyResetCts.Token;
+        _ = Task.Delay(1500, token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled)
+            {
+                copiedKey = null;
+                InvokeAsync(StateHasChanged);
+            }
+        }, TaskScheduler.Default);
+    }
+}

@@ -1,3 +1,48 @@
+// Version badges for /sdks — one-shot fetch of the currently-published
+// version from npm / PyPI / NuGet. Tabs and copy buttons are handled by
+// Blazor (@rendermode InteractiveServer) in Sdks.razor.
+
+(function () {
+    const REGISTRY_ENDPOINTS = {
+        npm: 'https://registry.npmjs.org/@dgbwallet/digipay/latest',
+        pypi: 'https://pypi.org/pypi/digipay/json',
+        nuget: 'https://api.nuget.org/v3-flatcontainer/digipay/index.json',
+    };
+
+    async function fetchVersion(registry) {
+        try {
+            const res = await fetch(REGISTRY_ENDPOINTS[registry], { cache: 'no-cache' });
+            if (!res.ok) return null;
+            const body = await res.json();
+            if (registry === 'npm') return body.version;
+            if (registry === 'pypi') return body.info?.version;
+            if (registry === 'nuget') {
+                const versions = body.versions || [];
+                return versions.length ? versions[versions.length - 1] : null;
+            }
+        } catch {
+            return null;
+        }
+    }
+
+    async function initVersionBadges() {
+        const badges = document.querySelectorAll('[data-version-badge]');
+        await Promise.all(Array.from(badges).map(async (el) => {
+            const registry = el.getAttribute('data-version-badge');
+            const version = await fetchVersion(registry);
+            if (version) {
+                el.textContent = 'v' + version;
+                el.classList.remove('opacity-0');
+            }
+        }));
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initVersionBadges);
+    } else {
+        initVersionBadges();
+    }
+})();
 // Progressive-enhancement helpers for /sdks. Runs on the static SSR
 // markup — no Blazor interactivity required, which keeps the page
 // fully cacheable.
