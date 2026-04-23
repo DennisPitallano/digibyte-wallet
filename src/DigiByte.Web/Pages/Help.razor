@@ -5,10 +5,16 @@
 <PageTitle>Help Center — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-4">
-    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-        Back
-    </button>
+    <div class="flex items-center justify-between -mb-2">
+        <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors" @onclick="GoBack">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            Back
+        </button>
+        <a href="/" class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.5 1.5 0 0 1 2.121 0L22.28 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
+            Home
+        </a>
+    </div>
     <div class="slide-up">
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Help Center</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Tutorials, how-tos, and support for DigiByte Wallet.</p>
@@ -109,7 +115,20 @@
     private string feedbackBody = "";
     private HashSet<string> openSections = [];
 
-    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
+    private async Task GoBack()
+    {
+        // If the user navigated directly to /help (shared link, typed URL, new tab),
+        // history.back() would leave the app. Fall back to the home page in that case.
+        var canGoBack = await JS.InvokeAsync<bool>("domHelpers.canGoBackInApp");
+        if (canGoBack)
+        {
+            await JS.InvokeVoidAsync("history.back");
+        }
+        else
+        {
+            Nav.NavigateTo("/");
+        }
+    }
 
     private void ToggleSection(string id)
     {
@@ -143,11 +162,41 @@
         new("getting-started", "Getting Started", "Install, create wallet, set PIN", "bg-green-50 dark:bg-green-900/20",
             "<svg class=\"w-5 h-5 text-green-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z\" /></svg>",
             [
-                new("How do I install the wallet?", "Visit <b>dgbwallet.app</b> in your browser. On Chrome/Edge, tap the install banner or use the browser menu → \"Install app\". On iOS Safari, tap Share → \"Add to Home Screen\". The wallet works offline once installed."),
+                new("How do I install the wallet?", "Visit <b>dgbwallet.app</b> in your browser. On Chrome/Edge, tap the install banner or use the browser menu → \"Install app\". On iOS Safari, tap Share → \"Add to Home Screen\". For step-by-step tutorials per device, see the <b>Install as App (PWA)</b> section below."),
                 new("How do I create a new wallet?", "Tap <b>Create New Wallet</b> on the welcome screen. The app generates 24 secret words (your recovery phrase). Write them down on paper — this is your only backup. Confirm 3 random words, then set a 6-digit PIN."),
                 new("What is a recovery phrase?", "A 24-word BIP39 mnemonic that can restore your wallet on any compatible app. <b>Never share it</b> with anyone. If you lose it and forget your PIN, your funds are permanently lost."),
                 new("What does the PIN do?", "The 6-digit PIN encrypts your wallet data with AES-256-GCM. You need it to unlock the app and authorize transactions. After 3 wrong attempts, there's an exponential lockout (15s → 30s → 60s → 120s)."),
                 new("How do I recover a wallet from a seed phrase?", "Tap <b>Recover Existing Wallet</b> on the welcome screen. You have two input modes:<br/><b>Paste All</b> — paste your entire phrase into a single text area (accepts space, comma, or newline-separated words).<br/><b>Word by Word</b> — enter each word in a numbered grid with BIP39 auto-suggest. As you type, matching words appear in a dropdown — use arrow keys and Enter to select. Toggle between 12 and 24 words. Both modes support a show/hide toggle to mask your phrase for privacy."),
+            ]),
+
+        new("install-pwa", "Install as App (PWA)", "Android, iOS, Windows, macOS, Linux install guides", "bg-sky-50 dark:bg-sky-900/20",
+            "<svg class=\"w-5 h-5 text-sky-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3\" /></svg>",
+            [
+                new("What is a PWA and why install it?", "DigiByte Wallet is a <b>Progressive Web App</b> — a website that installs like a native app. Benefits:<ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Home-screen icon</b> and standalone window (no browser bar)</li><li><b>Offline support</b> — the app shell loads without internet</li><li><b>Faster launches</b> than opening the browser each time</li><li><b>No app store</b> — no review delays, no tracking, no commission</li><li><b>Auto-updates</b> silently in the background</li></ul>Your wallet data stays in the same browser origin — installing does not move or duplicate your keys."),
+
+                new("Android — Chrome, Edge or Brave", "<b>Step by step:</b><ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Chrome (or Edge/Brave).</li><li>Wait a few seconds — an <b>Install App</b> banner usually appears at the bottom of the screen. Tap it.</li><li>If no banner appears, tap the <b>⋮ menu</b> (top-right) → <b>Install app</b> (or <b>Add to Home screen</b>).</li><li>Confirm <b>Install</b> in the dialog.</li><li>The DigiByte icon appears in your app drawer and home screen. Open it — the app launches full-screen with no browser UI.</li></ol>"),
+
+                new("Android — Samsung Internet & Firefox", "<b>Samsung Internet:</b> Tap the <b>☰ menu</b> → <b>Add page to</b> → <b>Home screen</b>. Choose <b>Add</b> when prompted.<br/><br/><b>Firefox for Android:</b> Tap the <b>⋮ menu</b> → <b>Install</b> (if available). Firefox's PWA support is limited — Chrome/Edge/Brave give the best experience."),
+
+                new("iPhone & iPad — Safari", "On iOS and iPadOS, PWAs <b>must be installed from Safari</b> (Chrome and Firefox on iOS cannot install web apps).<ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an up-arrow) in the bottom toolbar — or top-right on iPad.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Edit the name if you like, then tap <b>Add</b> (top-right).</li><li>The DigiByte icon appears on your home screen. Tap it to launch — the app opens full-screen.</li></ol><b>Note:</b> On iOS 16.4+, installed PWAs get their own storage, notifications, and badge support."),
+
+                new("Windows — Edge or Chrome", "<ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Microsoft Edge or Google Chrome.</li><li>Look for the <b>install icon</b> (a monitor with a down-arrow, or a ⊕ symbol) on the right side of the address bar. Click it.</li><li>Alternatively: <b>Edge</b> — menu (…) → <b>Apps</b> → <b>Install this site as an app</b>. <b>Chrome</b> — menu (⋮) → <b>Cast, save and share</b> → <b>Install page as app</b>.</li><li>Click <b>Install</b> in the confirmation dialog.</li><li>The app pins to your Start menu and (optionally) taskbar. Launch it like any other Windows app.</li></ol>"),
+
+                new("macOS — Safari, Chrome or Edge", "<b>Safari 17+ (macOS Sonoma or newer):</b><ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Safari.</li><li>From the menu bar: <b>File</b> → <b>Add to Dock</b>.</li><li>Edit the name, then click <b>Add</b>. The app appears in your Dock and Launchpad.</li></ol><b>Chrome or Edge:</b><ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Click the <b>install icon</b> in the address bar, or use the menu → <b>Cast, save and share</b> → <b>Install page as app</b>.</li><li>Click <b>Install</b>. The app is added to your Applications folder.</li></ol>"),
+
+                new("Linux — Chrome, Edge or Brave", "<ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Chrome, Edge, Brave, or Vivaldi.</li><li>Click the <b>install icon</b> in the address bar, or use the menu → <b>Install DigiByte Wallet…</b></li><li>Confirm <b>Install</b>. A <code>.desktop</code> entry is created in your applications menu (GNOME Activities, KDE launcher, etc.).</li><li>Pin it to your dock/taskbar for quick access.</li></ol><b>Firefox on Linux</b> does not currently support PWA installation — use a Chromium-based browser for the full experience."),
+
+                new("ChromeOS — Chrome", "On a Chromebook, install the same way as Windows: click the <b>install icon</b> in the address bar, or go to menu (⋮) → <b>Cast, save and share</b> → <b>Install page as app</b>. The wallet launches like any ChromeOS app and appears in your launcher."),
+
+                new("How do I update the installed app?", "Updates are <b>automatic</b>. The service worker checks for new versions in the background. When a new version is ready, a banner appears inside the app asking you to reload — tap <b>Update</b> and the latest version loads immediately. You never need to reinstall."),
+
+                new("Does installing create a copy of my wallet?", "No. A PWA runs from the same browser origin as the website, so your <b>seed phrase, PIN, contacts, and transaction history stay in the same IndexedDB storage</b>. Whether you open dgbwallet.app in your browser or through the installed icon, you see the same wallet. Uninstalling the PWA does not delete your wallet data unless you also clear site data for the origin."),
+
+                new("How do I uninstall the PWA?", "<b>Android:</b> long-press the icon → <b>Uninstall</b> (or drag to the trash).<br/><b>iOS/iPadOS:</b> long-press the icon → <b>Remove App</b> → <b>Delete from Home Screen</b>.<br/><b>Windows:</b> Start menu → right-click the app → <b>Uninstall</b>. Or in Edge/Chrome: <code>edge://apps</code> / <code>chrome://apps</code> → right-click → <b>Uninstall</b>.<br/><b>macOS:</b> drag from Applications or the Dock to the Trash.<br/><b>Linux:</b> menu (⋮) inside the app → <b>Uninstall DigiByte Wallet</b>, or remove the <code>.desktop</code> file.<br/><br/><b>Tip:</b> uninstalling removes the shortcut, not your wallet. Your seed phrase is still encrypted in browser storage. To fully remove wallet data, also delete the wallet from Settings or clear site data for dgbwallet.app."),
+
+                new("The install button or banner isn't showing — why?", "<b>Common causes:</b><ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Already installed</b> — if the app is already installed on this device/browser, the install prompt is hidden. Check your app list.</li><li><b>Unsupported browser</b> — Firefox (desktop), Chrome on iOS, and some in-app browsers (Facebook, Instagram) cannot install PWAs. Use Safari on iOS, or Chrome/Edge/Brave elsewhere.</li><li><b>Not using HTTPS</b> — if you're running locally on plain <code>http://</code>, the browser blocks installation. The production site (<code>dgbwallet.app</code>) is fully HTTPS.</li><li><b>Dismissed recently</b> — Chrome hides the banner for a cooldown period after you dismiss it. Use the browser menu → <b>Install app</b> instead.</li><li><b>Engagement heuristics</b> — some browsers require a few seconds of interaction before showing the banner. Scroll or tap something, then check the menu.</li></ul>"),
+
+                new("Can I install on a work/managed device?", "Some corporate MDM (Mobile Device Management) policies block PWA installation or home-screen icons. If the install option is missing and your device is enrolled in a work profile, contact your IT admin. You can still use the wallet as a regular website in the browser."),
             ]),
 
         new("sending-receiving", "Sending & Receiving", "Send DGB, batch send, receive, QR codes, fees", "bg-dgb-50 dark:bg-dgb-900/30",
