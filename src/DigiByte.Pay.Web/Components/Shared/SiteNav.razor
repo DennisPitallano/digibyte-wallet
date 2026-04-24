@@ -51,5 +51,36 @@
             <Icon Name="dashboard" Class="w-3.5 h-3.5" />
             Dashboard
         </a>
+        @* Mobile hamburger — uses a hidden checkbox so the panel stays open on
+           tap without needing JS or InteractiveServer. Closes when the user
+           navigates via anchor clicks or taps the overlay. *@
+        <input type="checkbox" id="sitenav-mobile" class="peer hidden" />
+        <label for="sitenav-mobile"
+               class="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 dark:border-dgb-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+               aria-label="Open navigation">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="w-5 h-5">
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </label>
+        <label for="sitenav-mobile"
+               class="hidden peer-checked:block sm:!hidden fixed inset-0 bg-black/40 z-40"
+               aria-hidden="true"></label>
+        <div class="hidden peer-checked:flex sm:!hidden fixed inset-x-0 top-[56px] z-50 flex-col gap-1 p-3 bg-white dark:bg-dgb-900 border-b border-slate-200 dark:border-dgb-800 shadow-lg">
+            <a href="/features" class="@cls("/features") px-3 py-2 rounded-lg text-sm font-medium no-underline">Features</a>
+            <a href="/docs" class="@cls("/docs") px-3 py-2 rounded-lg text-sm font-medium no-underline">How it works</a>
+            <a href="/docs/pos" class="@cls("/docs/pos") px-3 py-2 rounded-lg text-sm font-medium no-underline">POS</a>
+            <a href="/sdks" class="@cls("/sdks") px-3 py-2 rounded-lg text-sm font-medium no-underline">SDKs</a>
+            <a href="/docs/api" class="@cls("/docs/api") px-3 py-2 rounded-lg text-sm font-medium no-underline">API</a>
+            <a href="/about" class="@cls("/about") px-3 py-2 rounded-lg text-sm font-medium no-underline">About</a>
+            <a href="https://dgbwallet.app" target="_blank" rel="noopener"
+               class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-slate-500 dark:text-slate-400 inline-flex items-center gap-1">
+                Wallet
+                <Icon Name="external-link" Class="w-3 h-3 opacity-60" />
+            </a>
+        </div>
     </div>
 </nav>
