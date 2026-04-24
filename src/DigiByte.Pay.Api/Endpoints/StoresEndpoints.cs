@@ -26,7 +26,7 @@ public static class StoresEndpoints
             return Results.Ok(stores.Select(MerchantMeEndpoints.StoreDto));
         });
 
-        group.MapPost("", async (CreateStoreRequest body, HttpRequest http, DigiPayDbContext db) =>
+        group.MapPost("", async (CreateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
             var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
             if (merchant is null) return Results.Unauthorized();
@@ -46,6 +46,11 @@ public static class StoresEndpoints
             };
             db.Stores.Add(store);
             await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant.Id, "store.create", "Store", store.Id,
+                summary: $"Created store \"{store.Name}\" ({network})",
+                metadata: new { name = store.Name, network });
+
             return Results.Ok(MerchantMeEndpoints.StoreDto(store));
         });
 
@@ -57,16 +62,18 @@ public static class StoresEndpoints
         });
 
         group.MapPatch("/{storeId}", async (
-            string storeId, UpdateStoreRequest body, HttpRequest http, DigiPayDbContext db) =>
+            string storeId, UpdateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
             if (err is not null) return err;
 
+            var changed = new List<string>();
             if (body.Name is not null)
             {
                 var trimmed = body.Name.Trim();
                 if (trimmed.Length == 0 || trimmed.Length > 120)
                     return Results.BadRequest(new { error = "name must be 1-120 chars" });
+                if (store!.Name != trimmed) changed.Add("name");
                 store!.Name = trimmed;
             }
             if (body.Network is not null)
@@ -74,6 +81,7 @@ public static class StoresEndpoints
                 var net = body.Network.ToLowerInvariant();
                 if (net is not ("mainnet" or "testnet" or "regtest"))
                     return Results.BadRequest(new { error = "network must be mainnet | testnet | regtest" });
+                if (store!.Network != net) changed.Add("network");
                 store!.Network = net;
             }
             if (body.AddressOrXpub is not null)
@@ -101,6 +109,7 @@ public static class StoresEndpoints
                         store.Xpub = null;
                     }
                 }
+                changed.Add("receive");
             }
             if (body.WebhookUrl is not null)
             {
@@ -120,28 +129,45 @@ public static class StoresEndpoints
                         store.WebhookSecret = Convert.ToHexString(bytes).ToLowerInvariant();
                     }
                 }
+                changed.Add("webhook");
             }
             if (body.DefaultSessionExpiryMinutes is not null)
             {
                 var mins = body.DefaultSessionExpiryMinutes.Value;
                 if (mins is < 1 or > 24 * 60)
                     return Results.BadRequest(new { error = "defaultSessionExpiryMinutes must be 1-1440" });
+                if (store!.DefaultSessionExpiryMinutes != mins) changed.Add("expiry");
                 store!.DefaultSessionExpiryMinutes = mins;
             }
 
             await db.SaveChangesAsync();
+
+            if (changed.Count > 0)
+            {
+                await audit.LogAsync(merchant!.Id, "store.update", "Store", store!.Id,
+                    summary: $"Updated store \"{store.Name}\" ({string.Join(", ", changed)})",
+                    metadata: new { fields = changed });
+            }
+
             return Results.Ok(MerchantMeEndpoints.StoreDto(store!));
         });
 
-        group.MapDelete("/{storeId}", async (string storeId, HttpRequest http, DigiPayDbContext db) =>
+        group.MapDelete("/{storeId}", async (string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
             if (err is not null) return err;
             // Guardrail: don't orphan the account — force at least one store to remain.
             var count = await db.Stores.CountAsync(s => s.MerchantId == merchant!.Id);
             if (count <= 1) return Results.BadRequest(new { error = "cannot delete your only store" });
+            var snapshotName = store!.Name;
+            var snapshotNetwork = store.Network;
             db.Stores.Remove(store!);
             await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant!.Id, "store.delete", "Store", storeId,
+                summary: $"Deleted store \"{snapshotName}\"",
+                metadata: new { name = snapshotName, network = snapshotNetwork });
+
             return Results.Ok(new { ok = true });
         });
 
@@ -278,7 +304,122 @@ public static class StoresEndpoints
             return Results.Ok(DeliveryDto(fresh!));
         });
 
+        // GET /v1/pay/stores/{storeId}/analytics?days=30
+        // Aggregated sales data for the dashboard chart. Returns one bucket per
+        // UTC day for the requested window (default 30, max 365). We count both
+        // sessions and confirmed DGB so the front-end can toggle between volume
+        // (session count) and revenue (DGB) with one payload.
+        //
+        // Why server-side: the sessions list is paginated/capped at 10k, so a
+        // naïve client-side rollup would miss older data. Pushing the GROUP BY
+        // to Postgres keeps the response tiny and accurate.
+        group.MapGet("/{storeId}/analytics", async (
+            string storeId, HttpRequest http, DigiPayDbContext db, int days = 30) =>
+        {
+            var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
+            if (err is not null) return err;
+
+            days = Math.Clamp(days, 1, 365);
+            var now = DateTime.UtcNow;
+            var since = now.Date.AddDays(-(days - 1));
+
+            // Pull every session in window once; aggregate in-memory. For a
+            // typical store this is hundreds of rows — cheap, and avoids
+            // provider-specific date truncation SQL.
+            var rows = await db.Sessions.AsNoTracking()
+                .Where(s => s.StoreId == store!.Id && s.CreatedAt >= since)
+                .Select(s => new { s.CreatedAt, s.Status, s.AmountSatoshis })
+                .ToListAsync();
+
+            // Dense series: emit every day in range even when zero so the chart
+            // draws a continuous line. Day key = UTC midnight.
+            var buckets = Enumerable.Range(0, days)
+                .Select(i => since.AddDays(i))
+                .ToDictionary(d => d, d => new DayBucket { Day = d });
+            foreach (var r in rows)
+            {
+                var key = r.CreatedAt.Date;
+                if (!buckets.TryGetValue(key, out var bucket)) continue;
+                bucket.Total++;
+                if (r.Status is PaySessionStatus.Paid or PaySessionStatus.Confirmed)
+                {
+                    bucket.Paid++;
+                    bucket.VolumeSats += r.AmountSatoshis;
+                }
+                else if (r.Status is PaySessionStatus.Refunded)
+                {
+                    bucket.Refunded++;
+                }
+                else if (r.Status is PaySessionStatus.Voided)
+                {
+                    bucket.Voided++;
+                }
+                else if (r.Status is PaySessionStatus.Expired or PaySessionStatus.Underpaid)
+                {
+                    bucket.Failed++;
+                }
+            }
+
+            // Top-line KPIs — derived over the same window as the chart so the
+            // summary and the bars always agree.
+            //
+            // A refunded session was paid first; counting it only in the
+            // "Refunded" bucket would zero out the refund rate. So for KPI
+            // purposes "successful" = paid + refunded (both received funds).
+            var totalCurrentlyPaid = buckets.Values.Sum(b => (long)b.Paid);
+            var totalRefunded = buckets.Values.Sum(b => (long)b.Refunded);
+            var totalSuccess = totalCurrentlyPaid + totalRefunded;
+            var totalSessions = buckets.Values.Sum(b => (long)b.Total);
+            var grossSats = buckets.Values.Sum(b => b.VolumeSats);
+            var conversionPct = totalSessions == 0
+                ? 0m
+                : Math.Round((decimal)totalSuccess / totalSessions * 100m, 1);
+            var refundRatePct = totalSuccess == 0
+                ? 0m
+                : Math.Round((decimal)totalRefunded / totalSuccess * 100m, 1);
+
+            return Results.Ok(new
+            {
+                storeId = store!.Id,
+                days,
+                since,
+                until = now,
+                summary = new
+                {
+                    totalSessions,
+                    totalPaid = totalSuccess,
+                    totalRefunded,
+                    grossVolumeDgb = grossSats / 100_000_000m,
+                    conversionPct,
+                    refundRatePct,
+                },
+                series = buckets.Values
+                    .OrderBy(b => b.Day)
+                    .Select(b => new
+                    {
+                        day = b.Day,
+                        total = b.Total,
+                        paid = b.Paid,
+                        refunded = b.Refunded,
+                        voided = b.Voided,
+                        failed = b.Failed,
+                        volumeDgb = b.VolumeSats / 100_000_000m,
+                    }),
+            });
+        });
+
         return group;
+    }
+
+    private sealed class DayBucket
+    {
+        public DateTime Day { get; set; }
+        public int Total { get; set; }
+        public int Paid { get; set; }
+        public int Refunded { get; set; }
+        public int Voided { get; set; }
+        public int Failed { get; set; }
+        public long VolumeSats { get; set; }
     }
 
     internal static object DeliveryDto(WebhookDelivery d) => new

@@ -47,11 +47,49 @@
                     <CheckoutStatusPill Status="@session.Status" />
                 </header>
 
-                <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatDgb(session.AmountSatoshis) DGB</div>
+                @if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
+                {
+                    @* Fiat-priced session: merchant keyed in a fiat amount (e.g. 12.50 EUR)
+                       and we quoted a DGB equivalent at creation time. Lead with the fiat
+                       number the customer recognises; DGB sub-line is what actually gets paid. *@
+                    <div class="flex flex-col items-center gap-1">
+                        <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatFiat(fiatAmt) <span class="text-slate-500 dark:text-slate-400 text-2xl sm:text-3xl font-semibold">@session.FiatCurrency!.ToUpperInvariant()</span></div>
+                        <div class="text-sm text-slate-500 dark:text-slate-400 tabular-nums">≈ @FormatDgb(session.AmountSatoshis) DGB</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatDgb(session.AmountSatoshis) DGB</div>
+                }
+
+                @* Price-volatility notice. The DGB amount is locked at session
+                   creation, so if the live price has moved meaningfully the
+                   customer's fiat outlay differs from the sticker price — we
+                   surface the direction + magnitude so they can decide whether
+                   to pay now or ask the merchant to re-quote. Only meaningful
+                   for fiat-priced sessions with a recorded quote. *@
+                @if (priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !IsTerminal(session.Status))
+                {
+                    var pricierNow = drift > 0;
+                    <div class="w-full text-xs rounded-xl px-3 py-2 border flex items-start gap-2 @(pricierNow ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-200" : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-200")">
+                        <span aria-hidden="true">@(pricierNow ? "⚠" : "↓")</span>
+                        <span>
+                            DGB has moved <strong>@drift.ToString("+0.0;-0.0;0.0")%</strong> since this invoice was issued.
+                            @if (pricierNow)
+                            {
+                                <text> Paying now costs a bit more in @session.FiatCurrency!.ToUpperInvariant() than the sticker price.</text>
+                            }
+                            else
+                            {
+                                <text> Paying now is slightly cheaper in @session.FiatCurrency!.ToUpperInvariant() than the sticker price.</text>
+                            }
+                        </span>
+                    </div>
+                }
 
                 @if (IsTerminal(session.Status))
                 {
-                    <TerminalState Status="@session.Status" Txid="@session.PaidTxid" />
+                    <TerminalState Status="@session.Status" Txid="@session.PaidTxid" SessionId="@session.Id" />
                 }
                 else
                 {
@@ -87,6 +125,11 @@
     private string? merchantName;
     private string? loadError;
     private string? qrDataUrl;
+    // Drift between quote-time and current DGB price. Null until the live
+    // price is fetched; |value| > DriftThreshold pops the volatility banner.
+    // Recomputed on SignalR StatusChanged so a slow confirm also refreshes it.
+    private decimal? priceDriftPct;
+    private const decimal DriftThreshold = 3m; // percent; ±3% feels right for 30-min windows
     // Expiry countdown lives purely client-side (see wwwroot/checkout-countdown.js)
     // because Blazor's InteractiveServer circuit doesn't reliably hydrate inside
     // the embed iframe — a server-timer pattern leaves the user stuck on "—".
@@ -104,8 +147,29 @@
             merchantName = response?.MerchantName;
             if (session == null) { loadError = "Session not found."; return; }
             qrDataUrl = GenerateQr(session.Uri);
+            await RefreshPriceDriftAsync();
         }
         catch (Exception ex) { loadError = $"Could not load session: {ex.Message}"; }
+    }
+
+    // Fetch the live DGB price for the session's fiat and compare it to the
+    // quote recorded at session creation. Silent-fail — if the price service
+    // is down we just don't show the banner. No-op for pure-DGB sessions.
+    private async Task RefreshPriceDriftAsync()
+    {
+        if (session is null) return;
+        if (session.DgbPriceAtCreation is not { } quote || quote <= 0m) return;
+        if (string.IsNullOrWhiteSpace(session.FiatCurrency)) return;
+        if (IsTerminal(session.Status)) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var quoteDto = await http.GetFromJsonAsync<PriceQuoteDto>(
+                $"/v1/pay/public/price?currency={Uri.EscapeDataString(session.FiatCurrency)}");
+            if (quoteDto is null || quoteDto.DgbPrice <= 0m) return;
+            priceDriftPct = (quoteDto.DgbPrice - quote) / quote * 100m;
+        }
+        catch { /* swallow — banner just stays hidden */ }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -140,6 +204,9 @@
             };
             StateHasChanged();
         });
+        // A pending → pending update (e.g. a periodic nudge) is a good moment
+        // to re-check drift; terminal transitions short-circuit inside.
+        await RefreshPriceDriftAsync();
     }
 
     private static string GenerateQr(string content)
@@ -155,8 +222,11 @@
     private static string FormatDgb(long sats) =>
         (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
 
+    private static string FormatFiat(decimal amount) =>
+        amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
     private static bool IsTerminal(string status) =>
-        status is "confirmed" or "expired" or "underpaid";
+        status is "confirmed" or "expired" or "underpaid" or "refunded" or "voided";
 
     public async ValueTask DisposeAsync()
     {
@@ -167,10 +237,16 @@
 
     public record SessionDto(
         string Id, string Address, long AmountSatoshis, decimal Amount,
-        string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
+        string? FiatCurrency, decimal? FiatAmount, decimal? DgbPriceAtCreation,
+        string? Label, string? Memo,
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl);
 
     public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
+
+    // Minimal shape for /v1/pay/public/price — only the number we need, casing
+    // matches the API's camelCase JSON.
+    public record PriceQuoteDto(
+        [property: System.Text.Json.Serialization.JsonPropertyName("dgbPrice")] decimal DgbPrice);
 }

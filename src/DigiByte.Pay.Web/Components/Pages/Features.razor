@@ -1,0 +1,498 @@
+@page "/features"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+<PageTitle>Features tour — DigiPay</PageTitle>
+
+@* Non-technical product tour of the DigiPay POS feature set (Apr 2026),
+   plus a live end-to-end payment simulation so first-time visitors can
+   see the whole flow without signing up. Designed for store owners,
+   treasurers, and anyone evaluating DigiPay before wiring up an API
+   key. Pure Blazor — no external JS dependencies. *@
+
+@{
+    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 shadow-sm";
+    const string CardTight = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-4";
+    const string Eyebrow = "text-[0.6875rem] uppercase tracking-widest font-bold text-dgb-500";
+    const string Muted = "text-sm text-slate-600 dark:text-slate-400 leading-relaxed";
+    const string BtnPrimary = "inline-flex items-center gap-2 px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+    const string BtnGhost = "inline-flex items-center gap-2 px-4 py-2.5 bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-dgb-800 font-semibold rounded-lg text-sm transition-colors";
+    const string Pill = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold";
+    // Cache-bust screenshots — bump whenever images are regenerated so browsers pull the fresh version.
+    const string ImgV = "?v=2026-04-24";
+}
+
+<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <SiteNav />
+
+    <main class="flex-1 page-enter">
+        @* ---------- Hero ---------- *@
+        <section class="max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-6">
+            <div class="@Eyebrow mb-3 slide-up">Product tour · April 2026</div>
+            <h1 class="text-3xl sm:text-5xl font-bold tracking-tight mb-4 slide-up-delay-1">
+                Everything you can do with <span class="text-dgb-500">DigiPay</span>
+            </h1>
+            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-3xl slide-up-delay-2">
+                Accept DigiByte at the counter, online, or embedded in your app — with live fiat pricing,
+                refunds, analytics, and a full audit trail. No custody, no chargebacks, no middlemen.
+                This page walks you through the whole product in plain English.
+            </p>
+            <div class="flex flex-wrap gap-2 mt-6 slide-up-delay-3">
+                <a href="/features#tour" class="@BtnPrimary">Start the tour</a>
+                <a href="/features#sim" class="@BtnGhost">Try the live simulation</a>
+                <a href="/merchant/signin" class="@BtnGhost">Sign in →</a>
+            </div>
+        </section>
+
+        @* ---------- Tab navigator ---------- *@
+        <section id="tour" class="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-10 scroll-mt-20">
+            <div class="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+                @foreach (var t in tabs)
+                {
+                    var key = t.Key;
+                    var active = activeTab == key;
+                    <button type="button"
+                            class="shrink-0 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap @(active ? "bg-dgb-500/10 text-dgb-500 border-dgb-500/30" : "bg-white dark:bg-dgb-900 hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-dgb-800")"
+                            @onclick="() => activeTab = key">
+                        @t.Badge @t.Label
+                    </button>
+                }
+            </div>
+
+            @* ---------- Tab panels ---------- *@
+            <div class="mt-6">
+                @if (activeTab == "checkout")
+                {
+                    <FeaturePanel Eyebrow="Hosted checkout" Title="One link, one QR, paid."
+                                  Summary="Your customer scans a QR with any DigiByte wallet — or taps an &quot;Open in wallet&quot; button on their phone. The page shows live status: waiting → detected → paid → confirmed. No sign-up, no app download."
+                                  ImgSrc="@($"/img/features/checkout.png{ImgV}")"
+                                  ImgAlt="Hosted checkout page with fiat amount, DGB amount, expiry timer, and status pill.">
+                        <ChildContent>
+                            <ul class="space-y-2 @Muted list-disc pl-5">
+                                <li><strong>Live fiat conversion.</strong> Amount in EUR/USD/PHP/… is locked at invoice time using a public CoinGecko proxy.</li>
+                                <li><strong>Drift guard.</strong> If DGB price moves more than ±3% before payment, a banner warns the buyer before they confirm.</li>
+                                <li><strong>Late-payment grace window.</strong> We keep polling expired invoices for 3 days; if the buyer paid anyway, it still reconciles.</li>
+                                <li><strong>Embed or redirect.</strong> Redirect to <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">checkout_url</code>, or drop a button with our 4-line JS embed.</li>
+                            </ul>
+                        </ChildContent>
+                    </FeaturePanel>
+                }
+                else if (activeTab == "pos")
+                {
+                    <FeaturePanel Eyebrow="POS mode" Title="Turn any tablet into a countertop terminal."
+                                  Summary="Pair a tablet once with a 6-character code. The tablet remembers itself and shows a fullscreen amount pad at opening time. Built for staff who have never heard of crypto."
+                                  ImgSrc="@($"/img/features/dashboard-pos.png{ImgV}")"
+                                  ImgAlt="Dashboard POS pairing screen with a pairing code shown.">
+                        <ChildContent>
+                            <ul class="space-y-2 @Muted list-disc pl-5">
+                                <li><strong>Zero friction pairing.</strong> Type the 6-letter code once. No passwords on the tablet — ever.</li>
+                                <li><strong>Tip presets.</strong> 0 / 10 / 15 / 20 % buttons, or a custom amount. Staff never touch calculators.</li>
+                                <li><strong>Shift close report.</strong> End-of-day summary with paid count and gross volume, exportable.</li>
+                                <li><strong>Multi-currency amount pad.</strong> Enter in the local fiat — the tablet shows the DGB amount to the customer.</li>
+                            </ul>
+                            <div class="mt-4">
+                                <a href="/docs/pos" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dgb-500/10 hover:bg-dgb-500/20 text-dgb-500 no-underline rounded-lg text-xs font-semibold transition-colors">
+                                    Read the full POS guide →
+                                </a>
+                            </div>
+                        </ChildContent>
+                    </FeaturePanel>
+                }
+                else if (activeTab == "refund")
+                {
+                    <FeaturePanel Eyebrow="Refunds & voids" Title="Cancel or reverse — with an audit trail."
+                                  Summary="Crypto isn't automatically reversible, so refunds happen off-platform: you send DGB back from your wallet and stamp the txid into DigiPay. Voids cancel unpaid sessions. Both fire webhooks and land in the audit log."
+                                  ImgSrc="@($"/img/features/dashboard-sessions.png{ImgV}")"
+                                  ImgAlt="Sessions list with Refund and Void action buttons.">
+                        <ChildContent>
+                            <ul class="space-y-2 @Muted list-disc pl-5">
+                                <li><strong>Refund</strong> — for Paid / Confirmed sessions. Record the refund txid + a note; the session flips to <span class="@Pill bg-indigo-500/10 text-indigo-500">Refunded</span>.</li>
+                                <li><strong>Void</strong> — for Pending / Seen sessions. Collapses the expiry so the chain monitor stops polling; session becomes <span class="@Pill bg-slate-500/15 text-slate-500">Voided</span>.</li>
+                                <li><strong>Webhooks fire.</strong> <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">session.refunded</code> and <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">session.voided</code> events go out on the store's webhook URL.</li>
+                                <li><strong>Everything audited.</strong> Actor, IP, and reason land in the <a href="#" @onclick='() => activeTab = "audit"' @onclick:preventDefault class="text-dgb-500 hover:underline">Audit log</a>.</li>
+                            </ul>
+                        </ChildContent>
+                    </FeaturePanel>
+                }
+                else if (activeTab == "analytics")
+                {
+                    <FeaturePanel Eyebrow="Analytics" Title="See what's working, see what's not."
+                                  Summary="KPI tiles, a stacked bar chart of daily outcomes, and a smooth area chart of gross DGB received per day. Window toggle for 7 / 30 / 90 days. No external analytics SaaS — stays 100% on your Pay.Api."
+                                  ImgSrc="@($"/img/features/dashboard-analytics.png{ImgV}")"
+                                  ImgAlt="Analytics panel showing KPI tiles, a stacked bar chart, and an area chart of daily DGB volume.">
+                        <ChildContent>
+                            <ul class="space-y-2 @Muted list-disc pl-5">
+                                <li><strong>Four KPI tiles.</strong> Paid sessions, gross volume (DGB), conversion rate, refund rate.</li>
+                                <li><strong>Stacked bar chart.</strong> Every day shows Paid / Refunded / Voided / Expired at a glance.</li>
+                                <li><strong>Volume area chart.</strong> Daily DGB actually received (excluding refunds).</li>
+                                <li><strong>7 / 30 / 90 day toggle.</strong> Switch the window without a round trip — re-fetches in place.</li>
+                            </ul>
+                        </ChildContent>
+                    </FeaturePanel>
+                }
+                else if (activeTab == "audit")
+                {
+                    <FeaturePanel Eyebrow="Audit log" Title="Who did what, when, from where."
+                                  Summary="An append-only trail of every sensitive action — refunds, voids, store edits, API key changes. Colour-coded action badges, actor token prefix (never the secret), IP, and a fully expandable JSON metadata blob. Compliance-ready out of the box."
+                                  ImgSrc="@($"/img/features/dashboard-audit.png{ImgV}")"
+                                  ImgAlt="Audit log table with a store.update entry expanded to show JSON metadata.">
+                        <ChildContent>
+                            <ul class="space-y-2 @Muted list-disc pl-5">
+                                <li><strong>7 event types tracked.</strong> <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">session.refund</code>, <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">session.void</code>, <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">store.create / update / delete</code>, <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">key.create / revoke</code>.</li>
+                                <li><strong>Actor types.</strong> <span class="@Pill bg-emerald-500/10 text-emerald-500">ApiKey</span> (server-to-server), <span class="@Pill bg-indigo-500/10 text-indigo-500">Session</span> (dashboard user), <span class="@Pill bg-slate-500/15 text-slate-500">System</span> (background jobs).</li>
+                                <li><strong>Append-only.</strong> No update or delete path exists. Rows are never mutated.</li>
+                                <li><strong>Cursor-paginated.</strong> Deep history stays stable across inserts. Load-older button fetches the next page.</li>
+                            </ul>
+                        </ChildContent>
+                    </FeaturePanel>
+                }
+                else if (activeTab == "webhooks")
+                {
+                    <FeaturePanel Eyebrow="Webhooks" Title="Signed POSTs, replayable deliveries."
+                                  Summary="Every state change POSTs to your URL with an HMAC-SHA256 signature. Failed deliveries get automatic retries on a back-off schedule; any delivery is manually replayable from the dashboard with a single click."
+                                  ImgSrc="@($"/img/features/dashboard-webhook.png{ImgV}")"
+                                  ImgAlt="Webhook configuration panel with delivery log and export CSV.">
+                        <ChildContent>
+                            <ul class="space-y-2 @Muted list-disc pl-5">
+                                <li><strong>HMAC signed.</strong> <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">X-DigiPay-Signature: sha256=…</code> — verify with <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">timingSafeEqual</code>.</li>
+                                <li><strong>Idempotency built in.</strong> Each delivery has a unique <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">X-DigiPay-Delivery</code> id — dedupe on your side.</li>
+                                <li><strong>Automatic retries</strong> on 5xx / network errors with back-off; dead-letter visible in the log.</li>
+                                <li><strong>One-click replay</strong> — re-fires the exact same payload and adds a new audit row.</li>
+                            </ul>
+                        </ChildContent>
+                    </FeaturePanel>
+                }
+                else if (activeTab == "security")
+                {
+                    <FeaturePanel Eyebrow="Security & ops" Title="Production-ready from day one."
+                                  Summary="DigiPay is non-custodial — we never hold your keys. We ship with rate limiting, EF migrations, HTTPS redirect guards, and a fully documented OpenAPI 3.1 surface (rendered live with Scalar)."
+                                  ImgSrc="@($"/img/features/dashboard-overview.png{ImgV}")"
+                                  ImgAlt="Dashboard overview with store health stats.">
+                        <ChildContent>
+                            <ul class="space-y-2 @Muted list-disc pl-5">
+                                <li><strong>Non-custodial.</strong> Funds go straight to your xpub or single address. We never touch a private key.</li>
+                                <li><strong>Rate-limited.</strong> Auth (10/min), register (5/min), claim (20/min), sandbox (20/min) — all per-IP.</li>
+                                <li><strong>EF migrations</strong> with automatic baselining — upgrade Postgres-backed deployments without downtime.</li>
+                                <li><strong>OpenAPI 3.1 + Scalar.</strong> Every public endpoint is <a href="/docs/api" class="text-dgb-500 hover:underline">browsable and callable in the browser</a>.</li>
+                            </ul>
+                        </ChildContent>
+                    </FeaturePanel>
+                }
+            </div>
+        </section>
+
+        @* ---------- Live simulation ---------- *@
+        <section id="sim" class="max-w-5xl mx-auto px-4 sm:px-6 py-10 scroll-mt-20">
+            <div class="@Eyebrow mb-2">Interactive</div>
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Live payment simulation</h2>
+            <p class="@Muted max-w-3xl mb-6">
+                A scripted playthrough of a real checkout, step by step. No server calls, no wallet
+                needed — just click through and see exactly what your customer would experience.
+            </p>
+
+            <div class="grid md:grid-cols-[1fr_20rem] gap-6 items-start">
+                <div class="@Card">
+                    @* Simulated phone frame *@
+                    <div class="mx-auto w-full max-w-sm rounded-[2rem] border-[10px] border-slate-900 dark:border-black bg-slate-50 dark:bg-dgb-950 shadow-lg overflow-hidden">
+                        <div class="bg-white dark:bg-dgb-900 border-b border-slate-200 dark:border-dgb-800 px-4 py-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-xs font-bold tracking-tight text-slate-500 dark:text-slate-400">POS Test Shop</div>
+                                    <div class="text-sm font-bold">Order #@simOrderNumber</div>
+                                </div>
+                                <div class="@Pill @StatusPillClass(simStatus)">@StatusLabel(simStatus)</div>
+                            </div>
+                        </div>
+
+                        <div class="px-4 py-5 flex flex-col items-center gap-3">
+                            <div class="text-center">
+                                <div class="text-3xl font-extrabold tracking-tight">€@simFiatAmount.ToString("F2")</div>
+                                <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">≈ @simDgbAmount.ToString("F2") DGB</div>
+                            </div>
+
+                            @if (simStatus is SimStatus.Pending or SimStatus.Seen)
+                            {
+                                <div class="w-36 h-36 bg-white rounded-xl border border-slate-200 flex items-center justify-center">
+                                    <svg viewBox="0 0 100 100" class="w-32 h-32" aria-label="QR code placeholder" xmlns="http://www.w3.org/2000/svg">
+                                        <rect width="100" height="100" fill="white" />
+                                        @for (int y = 0; y < 25; y++)
+                                        {
+                                            for (int x = 0; x < 25; x++)
+                                            {
+                                                if (((x + y + x * y) % 3) == 0)
+                                                {
+                                                    <rect x="@(x * 4)" y="@(y * 4)" width="4" height="4" fill="#000" />
+                                                }
+                                            }
+                                        }
+                                    </svg>
+                                </div>
+                                <div class="text-[0.6875rem] text-slate-500 dark:text-slate-400 text-center">
+                                    Scan with any DigiByte wallet, or tap below.
+                                </div>
+                            }
+                            else if (simStatus is SimStatus.Paid or SimStatus.Confirmed)
+                            {
+                                <div class="w-36 h-36 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                    <svg class="w-16 h-16 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                    @(simStatus == SimStatus.Paid ? "Payment received" : "Fully confirmed")
+                                </div>
+                                @if (!string.IsNullOrEmpty(simTxid))
+                                {
+                                    <div class="text-[0.6875rem] font-mono text-slate-500 dark:text-slate-400 truncate max-w-full" title="@simTxid">@simTxid</div>
+                                }
+                            }
+                            else if (simStatus == SimStatus.Expired)
+                            {
+                                <div class="w-36 h-36 rounded-full bg-amber-500/10 flex items-center justify-center">
+                                    <svg class="w-16 h-16 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path stroke-linecap="round" d="M12 6v6l4 2" />
+                                    </svg>
+                                </div>
+                                <div class="text-sm font-semibold text-amber-600 dark:text-amber-400">Expired</div>
+                                <div class="text-[0.6875rem] text-slate-500 text-center">This invoice window has closed.</div>
+                            }
+                            else if (simStatus == SimStatus.Refunded)
+                            {
+                                <div class="w-36 h-36 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                                    <svg class="w-16 h-16 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h13a4 4 0 0 1 4 4v3" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 6l-4 4 4 4" />
+                                    </svg>
+                                </div>
+                                <div class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Refunded</div>
+                                <div class="text-[0.6875rem] text-slate-500">Merchant returned @simDgbAmount.ToString("F2") DGB.</div>
+                            }
+
+                            <div class="text-[0.6875rem] text-slate-400 font-mono">@simMessage</div>
+                        </div>
+                    </div>
+                </div>
+
+                @* Sidebar: controls + timeline *@
+                <aside class="flex flex-col gap-4">
+                    <div class="@CardTight">
+                        <div class="@Eyebrow mb-2">Step @(simStepIndex + 1) / @simSteps.Length</div>
+                        <div class="text-sm font-semibold mb-1">@simSteps[simStepIndex].Title</div>
+                        <p class="@Muted text-xs mb-3">@simSteps[simStepIndex].Description</p>
+                        <div class="flex gap-2">
+                            <button class="@BtnPrimary text-xs py-1.5 px-3"
+                                    @onclick="AdvanceSim"
+                                    disabled="@(simStepIndex >= simSteps.Length - 1)">
+                                Next step →
+                            </button>
+                            <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="ResetSim">Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="@CardTight">
+                        <div class="@Eyebrow mb-2">Timeline</div>
+                        <ol class="space-y-1.5">
+                            @for (int i = 0; i < simSteps.Length; i++)
+                            {
+                                var done = i < simStepIndex;
+                                var current = i == simStepIndex;
+                                var label = simSteps[i].Title;
+                                <li class="flex items-center gap-2 text-xs">
+                                    <span class="w-2 h-2 rounded-full shrink-0 @(current ? "bg-dgb-500 ring-4 ring-dgb-500/20" : done ? "bg-emerald-500" : "bg-slate-300 dark:bg-dgb-700")"></span>
+                                    <span class="@(current ? "font-semibold text-slate-900 dark:text-white" : done ? "text-slate-500 dark:text-slate-400 line-through" : "text-slate-400 dark:text-slate-500")">@label</span>
+                                </li>
+                            }
+                        </ol>
+                    </div>
+
+                    <div class="@CardTight">
+                        <div class="@Eyebrow mb-2">Webhooks fired</div>
+                        @if (simWebhooks.Count == 0)
+                        {
+                            <p class="@Muted text-xs m-0">No events yet.</p>
+                        }
+                        else
+                        {
+                            <ul class="space-y-1">
+                                @foreach (var w in simWebhooks)
+                                {
+                                    <li class="text-[0.6875rem] font-mono flex items-center gap-1.5">
+                                        <span class="@Pill @WebhookPillClass(w)">@w</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        @* ---------- Roadmap ---------- *@
+        <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+            <div class="@Eyebrow mb-2">What's next</div>
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Roadmap</h2>
+            <p class="@Muted max-w-3xl mb-6">
+                Shipped this release, and what's coming. Priority-ordered by merchant impact.
+            </p>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+                @foreach (var item in roadmap)
+                {
+                    <div class="@Card">
+                        <div class="flex items-start justify-between gap-3 mb-2">
+                            <h3 class="text-base font-bold m-0">@item.Title</h3>
+                            <span class="@Pill @StatusClass(item.Status)">@item.Status</span>
+                        </div>
+                        <p class="@Muted m-0">@item.Description</p>
+                    </div>
+                }
+            </div>
+        </section>
+
+        @* ---------- CTA ---------- *@
+        <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+            <div class="@Card text-center">
+                <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-2">Ready to take DigiByte at the counter?</h2>
+                <p class="@Muted max-w-2xl mx-auto mb-4">
+                    Signing up takes 30 seconds and needs nothing more than a DigiByte wallet for Digi-ID.
+                </p>
+                <div class="flex flex-wrap gap-2 justify-center">
+                    <a href="/merchant/signin" class="@BtnPrimary">Get started →</a>
+                    <a href="/docs" class="@BtnGhost">How it works</a>
+                    <a href="/docs/api" class="@BtnGhost">API reference</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <SiteFooter />
+</div>
+
+@code {
+    private record Tab(string Key, string Label, string? Badge = null);
+    private readonly Tab[] tabs = new[]
+    {
+        new Tab("checkout",  "Hosted checkout"),
+        new Tab("pos",       "POS mode"),
+        new Tab("refund",    "Refunds & voids"),
+        new Tab("analytics", "Analytics"),
+        new Tab("audit",     "Audit log", "new"),
+        new Tab("webhooks",  "Webhooks"),
+        new Tab("security",  "Security & ops"),
+    };
+    private string activeTab = "checkout";
+
+    // ---------- simulation ----------
+    private enum SimStatus { Pending, Seen, Paid, Confirmed, Expired, Refunded }
+    private record SimStep(string Title, string Description, SimStatus Status, string Message, string? Webhook, string? Txid = null);
+
+    private SimStep[] simSteps = Array.Empty<SimStep>();
+    private int simStepIndex = 0;
+    private decimal simFiatAmount = 12.50m;
+    private decimal simDgbAmount = 3125.00m;
+    private string simOrderNumber = "4201";
+    private SimStatus simStatus => simSteps[simStepIndex].Status;
+    private string simMessage => simSteps[simStepIndex].Message;
+    private string? simTxid => simSteps.Take(simStepIndex + 1).Select(s => s.Txid).LastOrDefault(t => t is not null);
+    private List<string> simWebhooks = new();
+
+    protected override void OnInitialized()
+    {
+        ResetSim();
+    }
+
+    private void AdvanceSim()
+    {
+        if (simStepIndex >= simSteps.Length - 1) return;
+        simStepIndex++;
+        var wh = simSteps[simStepIndex].Webhook;
+        if (!string.IsNullOrEmpty(wh) && !simWebhooks.Contains(wh))
+            simWebhooks.Add(wh);
+    }
+
+    private void ResetSim()
+    {
+        simStepIndex = 0;
+        simWebhooks.Clear();
+        simSteps = new[]
+        {
+            new SimStep("Invoice created",
+                "Your server calls POST /v1/pay/sessions with €12.50. DigiPay locks the DGB amount using the current rate and returns a checkout URL.",
+                SimStatus.Pending, "Waiting for payment…", null),
+            new SimStep("Customer scans QR",
+                "They open any DigiByte wallet, scan the QR (or tap Open in wallet on mobile), and the tx enters the mempool.",
+                SimStatus.Seen, "Transaction detected in mempool…", "session.seen",
+                "c4de7f12a34bc6de3e9f1d7b5a2c3f7e8b4d1a6c9e5f2a8d3b7c1e4f6a9d2c5"),
+            new SimStep("First confirmation",
+                "~15 seconds later the block containing the tx is mined. The session flips to Paid. Your webhook fires now so your fulfilment system can release the order.",
+                SimStatus.Paid, "1 confirmation · Paid", "session.paid",
+                "c4de7f12a34bc6de3e9f1d7b5a2c3f7e8b4d1a6c9e5f2a8d3b7c1e4f6a9d2c5"),
+            new SimStep("Fully confirmed",
+                "After 6 confirmations (~90 seconds) the session reaches Confirmed. For most goods Paid is already enough — Confirmed is there for larger-ticket items.",
+                SimStatus.Confirmed, "6 confirmations · Confirmed", "session.confirmed",
+                "c4de7f12a34bc6de3e9f1d7b5a2c3f7e8b4d1a6c9e5f2a8d3b7c1e4f6a9d2c5"),
+            new SimStep("Merchant issues refund",
+                "Customer changes their mind. From the dashboard, the merchant sends DGB back from their wallet and stamps the refund txid into DigiPay. Session becomes Refunded, webhook fires, audit log records actor + IP.",
+                SimStatus.Refunded, "Refund on chain · Session closed", "session.refunded",
+                "f7e1a6d3b9c2e5f8a4d7b1c6e3f9a2d5b8c1e4f7a6d3b9c2e5f8a4d7b1c6e3"),
+        };
+    }
+
+    private static string StatusLabel(SimStatus s) => s switch
+    {
+        SimStatus.Pending   => "Waiting",
+        SimStatus.Seen      => "Detected",
+        SimStatus.Paid      => "Paid",
+        SimStatus.Confirmed => "Confirmed",
+        SimStatus.Expired   => "Expired",
+        SimStatus.Refunded  => "Refunded",
+        _ => s.ToString(),
+    };
+
+    private static string StatusPillClass(SimStatus s) => s switch
+    {
+        SimStatus.Pending   => "bg-slate-500/15 text-slate-500",
+        SimStatus.Seen      => "bg-amber-500/10 text-amber-600",
+        SimStatus.Paid      => "bg-emerald-500/10 text-emerald-500",
+        SimStatus.Confirmed => "bg-emerald-500/15 text-emerald-600",
+        SimStatus.Expired   => "bg-amber-500/10 text-amber-600",
+        SimStatus.Refunded  => "bg-indigo-500/10 text-indigo-500",
+        _ => "bg-slate-500/15 text-slate-500",
+    };
+
+    private static string WebhookPillClass(string w) => w switch
+    {
+        "session.seen"      => "bg-amber-500/10 text-amber-600",
+        "session.paid"      => "bg-emerald-500/10 text-emerald-500",
+        "session.confirmed" => "bg-emerald-500/15 text-emerald-600",
+        "session.refunded"  => "bg-indigo-500/10 text-indigo-500",
+        "session.voided"    => "bg-slate-500/15 text-slate-500",
+        _ => "bg-slate-500/15 text-slate-500",
+    };
+
+    // ---------- roadmap ----------
+    private record RoadmapItem(string Title, string Description, string Status);
+    private readonly RoadmapItem[] roadmap = new[]
+    {
+        new RoadmapItem("Hosted checkout", "One-link payments with live fiat conversion, drift guard, late-payment reconciliation.", "Shipped"),
+        new RoadmapItem("POS mode", "Tablet pairing, amount pad, tip presets, shift close reports.", "Shipped"),
+        new RoadmapItem("Refunds & voids", "Off-platform refund recording + void for unpaid sessions, with webhooks.", "Shipped"),
+        new RoadmapItem("Dashboard analytics", "KPI tiles, stacked daily outcome bar chart, DGB volume area chart.", "Shipped"),
+        new RoadmapItem("Audit log", "Append-only trail of void / refund / store / key mutations with actor + IP.", "Shipped"),
+        new RoadmapItem("Rate limiting + migrations", "Per-IP rate limits across auth/register/claim/sandbox, EF migrations with auto-baseline.", "Shipped"),
+        new RoadmapItem("CSV export expansion", "Shift reports, analytics windows, audit log — all downloadable.", "Next"),
+        new RoadmapItem("Email receipts", "SendGrid/SMTP hook on session.confirmed → customer email.", "Next"),
+        new RoadmapItem("Offline queue (POS)", "Tablet queues sessions locally when API unreachable, replays on reconnect.", "Planned"),
+        new RoadmapItem("Internationalisation", "Resource extraction across Pay.Web + POS kiosk.", "Planned"),
+        new RoadmapItem("Payout / sweep automation", "Auto-consolidate per-session addresses into merchant treasury.", "Planned"),
+    };
+
+    private static string StatusClass(string status) => status switch
+    {
+        "Shipped" => "bg-emerald-500/10 text-emerald-500",
+        "Next"    => "bg-dgb-500/10 text-dgb-500",
+        "Planned" => "bg-slate-500/15 text-slate-500",
+        _         => "bg-slate-500/15 text-slate-500",
+    };
+}

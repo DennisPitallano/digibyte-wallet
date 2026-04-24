@@ -114,6 +114,11 @@ public class WebhookDispatcher
                 receivedSatoshis = session.ReceivedSatoshis,
                 confirmations = session.Confirmations,
                 paidTxid = session.PaidTxid,
+                // Null for non-refunded/voided states; set by the merchant-initiated
+                // refund/void endpoints. Subscribers use these to reconcile downstream.
+                refundTxid = session.RefundTxid,
+                refundedAt = session.RefundedAt,
+                refundNote = session.RefundNote,
                 createdAt = session.CreatedAt,
                 expiresAt = session.ExpiresAt,
             },

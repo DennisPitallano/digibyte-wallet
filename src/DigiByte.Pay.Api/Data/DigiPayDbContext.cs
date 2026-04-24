@@ -12,6 +12,7 @@ public class DigiPayDbContext : DbContext
     public DbSet<MerchantSession> MerchantSessions => Set<MerchantSession>();
     public DbSet<PayApiKey> ApiKeys => Set<PayApiKey>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +52,9 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.Memo).HasMaxLength(200);
             e.Property(s => s.FiatCurrency).HasMaxLength(10);
             e.Property(s => s.PaidTxid).HasMaxLength(80);
+            e.Property(s => s.Source).HasMaxLength(32);
+            e.Property(s => s.RefundTxid).HasMaxLength(128);
+            e.Property(s => s.RefundNote).HasMaxLength(512);
         });
 
         modelBuilder.Entity<MerchantSession>(e =>
@@ -86,6 +90,22 @@ public class DigiPayDbContext : DbContext
             e.Property(d => d.Url).HasMaxLength(500).IsRequired();
             e.Property(d => d.ResponseSnippet).HasMaxLength(2048);
             e.Property(d => d.ErrorMessage).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<AuditEvent>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasIndex(a => new { a.MerchantId, a.CreatedAt });
+            e.HasIndex(a => new { a.MerchantId, a.TargetType, a.TargetId });
+            e.Property(a => a.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(a => a.ActorType).HasMaxLength(16).IsRequired();
+            e.Property(a => a.ActorId).HasMaxLength(80);
+            e.Property(a => a.ActorIp).HasMaxLength(64);
+            e.Property(a => a.Action).HasMaxLength(60).IsRequired();
+            e.Property(a => a.TargetType).HasMaxLength(20).IsRequired();
+            e.Property(a => a.TargetId).HasMaxLength(64).IsRequired();
+            e.Property(a => a.Summary).HasMaxLength(512);
+            e.Property(a => a.Metadata).HasMaxLength(2048);
         });
     }
 }

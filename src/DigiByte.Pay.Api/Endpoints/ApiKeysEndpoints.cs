@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
+using DigiByte.Pay.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigiByte.Pay.Api.Endpoints;
@@ -30,7 +31,7 @@ public static class ApiKeysEndpoints
             return Results.Ok(keys.Select(ToListDto));
         });
 
-        group.MapPost("", async (CreateApiKeyRequest body, HttpRequest http, DigiPayDbContext db) =>
+        group.MapPost("", async (CreateApiKeyRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
             var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
             if (merchant is null) return Results.Unauthorized();
@@ -51,6 +52,10 @@ public static class ApiKeysEndpoints
             db.ApiKeys.Add(key);
             await db.SaveChangesAsync();
 
+            await audit.LogAsync(merchant.Id, "key.create", "ApiKey", key.Id,
+                summary: $"Created API key {prefix} ({label ?? "unlabelled"})",
+                metadata: new { prefix, label });
+
             // Secret is returned ONCE here; the client is responsible for storing it.
             return Results.Ok(new
             {
@@ -62,7 +67,7 @@ public static class ApiKeysEndpoints
             });
         });
 
-        group.MapDelete("/{id}", async (string id, HttpRequest http, DigiPayDbContext db) =>
+        group.MapDelete("/{id}", async (string id, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
             var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
             if (merchant is null) return Results.Unauthorized();
@@ -74,6 +79,11 @@ public static class ApiKeysEndpoints
 
             key.RevokedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant.Id, "key.revoke", "ApiKey", key.Id,
+                summary: $"Revoked API key {key.Prefix} ({key.Label ?? "unlabelled"})",
+                metadata: new { prefix = key.Prefix, label = key.Label });
+
             return Results.Ok(new { ok = true });
         });
 

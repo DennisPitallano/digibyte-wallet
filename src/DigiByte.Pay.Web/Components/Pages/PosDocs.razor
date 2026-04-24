@@ -1,0 +1,192 @@
+@page "/docs/pos"
+
+<PageTitle>POS mode — DigiPay</PageTitle>
+
+<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <SiteNav />
+
+    <main class="flex-1 page-enter">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 grid lg:grid-cols-[220px,1fr] gap-8">
+
+            @* ----- Sidebar menu ----- *@
+            <aside class="lg:sticky lg:top-6 self-start">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">POS guide</p>
+                <nav class="flex flex-col text-sm">
+                    <a href="/docs/pos#overview" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">1. What is POS mode?</a>
+                    <a href="/docs/pos#pair" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">2. Pair a tablet</a>
+                    <a href="/docs/pos#take-payment" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">3. Take a payment</a>
+                    <a href="/docs/pos#refund-void" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">4. Refund or void</a>
+                    <a href="/docs/pos#shift-close" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">5. End-of-day close</a>
+                    <a href="/docs/pos#audit" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">6. Audit trail</a>
+                    <a href="/docs/pos#manage-devices" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">7. Manage devices</a>
+                    <a href="/docs/pos#faq" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">FAQ</a>
+                    <div class="mt-4 border-t border-slate-200 dark:border-dgb-800 pt-3 flex flex-col gap-1">
+                        <a href="/features" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">← Back to Features</a>
+                        <a href="/docs" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">How it works (API)</a>
+                        <a href="/docs/api" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">API reference</a>
+                    </div>
+                </nav>
+            </aside>
+
+            @* ----- Content ----- *@
+            <article class="max-w-3xl">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-dgb-500 mb-2">Point-of-sale guide · Apr 2026</p>
+                <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3 slide-up">DigiPay POS mode</h1>
+                <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 slide-up-delay-1">
+                    Turn any tablet, phone, or spare laptop into a countertop DigiByte terminal in under a minute.
+                    Staff don't need a DigiPay account — they pair the device once, then tap amounts all day.
+                    You (the owner) stay in full control from the dashboard.
+                </p>
+
+                @* ---------- 1. Overview ---------- *@
+                <section id="overview" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">1. What is POS mode?</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        POS mode is a merchant-owned device that creates DigiPay sessions on the fly. The customer sees a QR + amount;
+                        your staff sees an amount pad. Payments flow straight to your wallet — DigiPay never holds funds.
+                    </p>
+                    <div class="grid sm:grid-cols-3 gap-3 mt-4">
+                        <div class="p-4 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                            <p class="text-xs font-bold uppercase tracking-wider text-dgb-500 mb-1">Non-custodial</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">DGB lands in your wallet instantly. DigiPay never touches the keys.</p>
+                        </div>
+                        <div class="p-4 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                            <p class="text-xs font-bold uppercase tracking-wider text-dgb-500 mb-1">No staff login</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">Staff only sees the amount pad. They can't see revenue, refunds, or API keys.</p>
+                        </div>
+                        <div class="p-4 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                            <p class="text-xs font-bold uppercase tracking-wider text-dgb-500 mb-1">Works offline-ready</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">Device remembers itself across reboots. Offline queue on the roadmap.</p>
+                        </div>
+                    </div>
+                </section>
+
+                @* ---------- 2. Pair a tablet ---------- *@
+                <section id="pair" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">2. Pair a tablet</h2>
+                    <ol class="space-y-3 leading-relaxed text-slate-700 dark:text-slate-300 list-decimal pl-5 mb-4">
+                        <li>In the dashboard, open the <strong>POS</strong> tab and give the device a label (e.g. <em>Front counter</em>).</li>
+                        <li>Click <strong>Generate pairing code</strong>. A 6-character code appears — it's valid for 10 minutes and can only be used once.</li>
+                        <li>On the tablet, browse to <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">pay.dgbwallet.app/pos</code>.</li>
+                        <li>Type the pairing code. The tablet remembers itself from that point — no further sign-in is needed.</li>
+                        <li>Add the page to the home screen. On Safari: <em>Share → Add to Home Screen</em>. On Chrome: <em>⋮ → Install app</em>. It launches full-screen like a native app.</li>
+                    </ol>
+                    <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Tip:</strong> run multiple counters on separate codes — each device shows up in the dashboard with its label, last-seen, and a Revoke button.
+                    </div>
+                </section>
+
+                @* ---------- 3. Take a payment ---------- *@
+                <section id="take-payment" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">3. Take a payment</h2>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="/img/features/pos-kiosk.png?v=2026-04-24"
+                             alt="POS kiosk with keypad, amount, tip presets, and Charge button"
+                             loading="lazy"
+                             class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            The paired tablet — amount pad, tip presets, and live DGB conversion.
+                        </figcaption>
+                    </figure>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">On the paired tablet:</p>
+                    <ol class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-decimal pl-5 mb-4">
+                        <li>Tap the amount in your local currency. Optionally tap a tip preset (0 / 10 / 15 / 20 %) or a custom tip.</li>
+                        <li>Hit <strong>Charge</strong>. The tablet generates a DigiPay session and shows a fullscreen QR with the DGB amount locked at the current rate.</li>
+                        <li>The customer scans with any DigiByte wallet (or taps <em>Open in wallet</em> on mobile).</li>
+                        <li>Status updates live: <em>Waiting → Detected → Paid → Confirmed</em>. When it hits Paid the tablet auto-returns to the amount pad after 3 seconds.</li>
+                    </ol>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300">Sessions created from POS are tagged with a <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-[10px] font-bold">POS</span> chip in the dashboard's <em>Sessions</em> list, with the device name in the tooltip.</p>
+                </section>
+
+                @* ---------- 4. Refund / void ---------- *@
+                <section id="refund-void" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">4. Refund or void</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Crypto is not automatically reversible. Refunds happen off-platform — you send DGB back from your wallet and stamp the transaction ID into DigiPay so your records match.
+                    </p>
+                    <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3">
+                        <li><strong>Refund</strong> — only available for <em>Paid</em> or <em>Confirmed</em> sessions. Open the session in the dashboard, paste the refund txid + reason, and the session flips to <span class="inline-flex px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[11px] font-semibold">Refunded</span>.</li>
+                        <li><strong>Void</strong> — only for <em>Pending</em> or <em>Seen</em> sessions. Collapses the expiry so the chain watcher stops polling. Session becomes <span class="inline-flex px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-500 text-[11px] font-semibold">Voided</span>.</li>
+                        <li><strong>Webhooks fire.</strong> <code class="font-mono text-xs">session.refunded</code> and <code class="font-mono text-xs">session.voided</code> events POST to your store's webhook URL.</li>
+                    </ul>
+                </section>
+
+                @* ---------- 5. Shift close ---------- *@
+                <section id="shift-close" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">5. End-of-day close</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        On the tablet, tap the ⋮ menu → <strong>Shift close</strong>. It prints a summary of the shift so far:
+                    </p>
+                    <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3">
+                        <li>Paid count, refunded count, voided count</li>
+                        <li>Gross volume (DGB) and approximate fiat at close rate</li>
+                        <li>Average ticket and tip percentage</li>
+                        <li>Start + end timestamps</li>
+                    </ul>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300">The same window is also available to the owner from the <em>Analytics</em> tab with longer ranges (7 / 30 / 90 / 365 days).</p>
+                </section>
+
+                @* ---------- 6. Audit trail ---------- *@
+                <section id="audit" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">6. Audit trail</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Every mutation coming out of the POS — refund, void, store rename, API-key creation — is written to the append-only audit log
+                        with the acting device (token prefix only, never the secret), the IP, and a compact JSON metadata blob.
+                    </p>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300">Open the dashboard's <strong>Audit log</strong> tab to filter by action, expand metadata, or paginate backwards through history.</p>
+                </section>
+
+                @* ---------- 7. Manage devices ---------- *@
+                <section id="manage-devices" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">7. Manage devices</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">The dashboard's <em>POS</em> tab lists every paired device:</p>
+                    <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3">
+                        <li><strong>Label</strong> — what you called it when pairing.</li>
+                        <li><strong>Last seen</strong> — the last time the tablet successfully created a session.</li>
+                        <li><strong>Revoke</strong> — invalidates the device token. The tablet drops back to the pairing screen on its next request.</li>
+                    </ul>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300">If a tablet is lost or stolen, hit <strong>Revoke</strong> immediately — the device can't create or access sessions once the token is invalidated.</p>
+                </section>
+
+                @* ---------- FAQ ---------- *@
+                <section id="faq" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">FAQ</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="font-semibold text-slate-900 dark:text-white mb-1">Do I need a separate hardware terminal?</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">No. Any browser-capable device works — iPad, Android tablet, cheap Windows tablet, Chromebook, even a phone.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-900 dark:text-white mb-1">What happens if the internet drops mid-sale?</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">The tablet can't create a new session without the API, but in-flight sessions continue — the customer's wallet still broadcasts to the chain, and DigiPay reconciles when you come back online. An offline queue is on the roadmap.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-900 dark:text-white mb-1">Can staff see the store's revenue or refund sessions?</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">No. The POS token only permits creating sessions and reading the session it just created. Refunds and revoke actions require the dashboard (which needs the owner's Digi-ID).</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-900 dark:text-white mb-1">Can I run POS on a customer's phone?</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">Don't. POS devices hold a long-lived session token. Pair only devices your business owns.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-900 dark:text-white mb-1">Does it support multiple currencies?</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 m-0">Yes. The amount pad lets staff enter in the store's local fiat; the DGB amount is derived and locked at session creation time.</p>
+                        </div>
+                    </div>
+                </section>
+
+                @* ---------- CTA ---------- *@
+                <section class="mt-12 p-6 bg-gradient-to-br from-dgb-500/10 to-dgb-500/5 border border-dgb-500/20 rounded-2xl text-center">
+                    <h2 class="text-xl font-bold mb-2">Ready to go live?</h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4 m-0">Pair your first tablet from the dashboard's POS tab.</p>
+                    <div class="flex flex-wrap gap-2 justify-center">
+                        <a href="/merchant" class="inline-flex items-center gap-1.5 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white no-underline rounded-lg text-sm font-semibold transition-colors">Open dashboard</a>
+                        <a href="/features" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-400 text-slate-700 dark:text-slate-300 no-underline rounded-lg text-sm font-semibold transition-colors">See all features</a>
+                    </div>
+                </section>
+            </article>
+        </div>
+    </main>
+
+    <SiteFooter />
+</div>

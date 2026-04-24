@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
+using DigiByte.Pay.Api.Hubs;
 using DigiByte.Pay.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -81,7 +82,7 @@ public static class PaymentsEndpoints
                 apiKey = $"{keyPrefix}_{keySecret}", // shown once
                 webhookSecret,
             });
-        });
+        }).RequireRateLimiting("register");
 
         // POST /v1/pay/sessions — create a payment session.
         // Auth: Bearer {apiKey}. The apiKey is split "{prefix}_{secret}"; we look up
@@ -135,6 +136,30 @@ public static class PaymentsEndpoints
             }
             var amountSats = (long)Math.Round(body.Amount.Value * 100_000_000m);
 
+            // Stamp the session's origin when it was created by a POS-paired
+            // API key (label starts with "POS"). Lets the dashboard separate
+            // countertop sales from online/SDK orders without a second table.
+            // Pairing keys are labelled either "POS" (no device name) or
+            // "POS — Front counter"; we strip the "POS — " prefix so the
+            // Source column ends up as "pos" or "pos:Front counter".
+            var keyLabel = await MerchantAuthenticator.GetAuthenticatingApiKeyLabelAsync(http, db);
+            string? source = null;
+            if (keyLabel is not null && keyLabel.StartsWith("POS", StringComparison.OrdinalIgnoreCase))
+            {
+                const string sep = "POS — ";
+                if (keyLabel.StartsWith(sep, StringComparison.OrdinalIgnoreCase) && keyLabel.Length > sep.Length)
+                {
+                    var device = keyLabel[sep.Length..].Trim();
+                    // Source column is 32 chars — leave room for the "pos:" prefix.
+                    if (device.Length > 27) device = device[..27];
+                    source = $"pos:{device}";
+                }
+                else
+                {
+                    source = "pos";
+                }
+            }
+
             var session = new PaySession
             {
                 Id = $"ses_{RandomId(16)}",
@@ -149,6 +174,7 @@ public static class PaymentsEndpoints
                 Label = body.Label,
                 Memo = body.Memo,
                 ExpiresAt = DateTime.UtcNow.Add(ResolveExpiry(body.ExpiresInSeconds, store)),
+                Source = source,
             };
 
             db.Sessions.Add(session);
@@ -200,7 +226,7 @@ public static class PaymentsEndpoints
                 {
                     "id", "storeId", "status", "address", "amountDgb", "fiatCurrency",
                     "fiatAmount", "label", "memo", "receivedDgb", "confirmations",
-                    "paidTxid", "createdAt", "expiresAt", "seenAt", "paidAt",
+                    "paidTxid", "createdAt", "expiresAt", "seenAt", "paidAt", "source",
                 });
                 foreach (var s in csvRows)
                 {
@@ -210,7 +236,7 @@ public static class PaymentsEndpoints
                         s.Address, s.AmountSatoshis / 100_000_000m,
                         s.FiatCurrency, s.FiatAmount, s.Label, s.Memo,
                         s.ReceivedSatoshis / 100_000_000m, s.Confirmations, s.PaidTxid,
-                        s.CreatedAt, s.ExpiresAt, s.SeenAt, s.PaidAt,
+                        s.CreatedAt, s.ExpiresAt, s.SeenAt, s.PaidAt, s.Source,
                     });
                 }
                 var filename = $"digipay-sessions-{DateTime.UtcNow:yyyyMMdd}.csv";
@@ -248,6 +274,112 @@ public static class PaymentsEndpoints
                 Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}"),
                 MerchantName = merchant?.DisplayName,
             });
+        });
+
+        // POST /v1/pay/sessions/{id}/refund — record an off-platform refund.
+        //
+        // Crypto refunds aren't automatic reversals — the merchant sends DGB
+        // back to the customer from their own wallet and then stamps the txid
+        // here so the dashboard, webhooks, and receipts stay in sync. Only
+        // Paid / Confirmed sessions are refundable; already-refunded sessions
+        // are idempotent no-ops (returns 409 so the UI can surface it).
+        group.MapPost("/sessions/{id}/refund", async (
+            string id,
+            HttpRequest http,
+            DigiPayDbContext db,
+            WebhookDispatcher dispatcher,
+            CheckoutNotifier notifier,
+            AuditLogger audit,
+            RefundRequest body) =>
+        {
+            var merchant = await AuthenticateAsync(http, db);
+            if (merchant is null) return Results.Unauthorized();
+
+            var session = await db.Sessions.FirstOrDefaultAsync(s => s.Id == id && s.MerchantId == merchant.Id);
+            if (session is null) return Results.NotFound();
+
+            if (session.Status is not (PaySessionStatus.Paid or PaySessionStatus.Confirmed))
+                return Results.Conflict(new { error = $"session is {session.Status.ToString().ToLowerInvariant()} and cannot be refunded" });
+
+            var txid = body.Txid?.Trim();
+            if (string.IsNullOrWhiteSpace(txid) || txid.Length is < 32 or > 128)
+                return Results.BadRequest(new { error = "txid is required (32–128 chars)" });
+
+            session.Status = PaySessionStatus.Refunded;
+            session.RefundTxid = txid;
+            session.RefundedAt = DateTime.UtcNow;
+            session.RefundNote = string.IsNullOrWhiteSpace(body.Note) ? null
+                : (body.Note.Length > 512 ? body.Note[..512] : body.Note);
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant.Id, "session.refund", "Session", session.Id,
+                summary: $"Refunded session {session.Id} ({session.AmountSatoshis / 100_000_000m:0.########} DGB)",
+                metadata: new { txid, note = session.RefundNote, amountSatoshis = session.AmountSatoshis });
+
+            var store = await db.Stores.FirstOrDefaultAsync(s => s.Id == session.StoreId);
+            if (store is not null) await dispatcher.DispatchAsync(store, session, "session.refunded");
+            await notifier.PublishAsync(new CheckoutStatusUpdate
+            {
+                SessionId = session.Id,
+                Status = session.Status.ToString().ToLowerInvariant(),
+                ReceivedSatoshis = session.ReceivedSatoshis,
+                Confirmations = session.Confirmations,
+                Txid = session.PaidTxid,
+            });
+
+            var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
+            return Results.Ok(ToDto(session, $"{checkoutBase}/pay/{session.Id}"));
+        });
+
+        // POST /v1/pay/sessions/{id}/void — cancel an unpaid session.
+        //
+        // Only valid for Pending / Seen sessions that never reached Paid.
+        // Terminal-negative: clients should stop polling and the checkout
+        // page shows "cancelled by merchant". We also shrink ExpiresAt so
+        // the InvoiceMonitor grace window doesn't resurrect it.
+        group.MapPost("/sessions/{id}/void", async (
+            string id,
+            HttpRequest http,
+            DigiPayDbContext db,
+            WebhookDispatcher dispatcher,
+            CheckoutNotifier notifier,
+            AuditLogger audit,
+            VoidRequest? body) =>
+        {
+            var merchant = await AuthenticateAsync(http, db);
+            if (merchant is null) return Results.Unauthorized();
+
+            var session = await db.Sessions.FirstOrDefaultAsync(s => s.Id == id && s.MerchantId == merchant.Id);
+            if (session is null) return Results.NotFound();
+
+            if (session.Status is not (PaySessionStatus.Pending or PaySessionStatus.Seen))
+                return Results.Conflict(new { error = $"session is {session.Status.ToString().ToLowerInvariant()} and cannot be voided" });
+
+            session.Status = PaySessionStatus.Voided;
+            session.RefundedAt = DateTime.UtcNow;
+            if (!string.IsNullOrWhiteSpace(body?.Note))
+                session.RefundNote = body.Note.Length > 512 ? body.Note[..512] : body.Note;
+            // Collapse the expiry so the monitor stops polling the chain for this one.
+            if (session.ExpiresAt > DateTime.UtcNow) session.ExpiresAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant.Id, "session.void", "Session", session.Id,
+                summary: $"Voided session {session.Id}",
+                metadata: new { note = session.RefundNote });
+
+            var store = await db.Stores.FirstOrDefaultAsync(s => s.Id == session.StoreId);
+            if (store is not null) await dispatcher.DispatchAsync(store, session, "session.voided");
+            await notifier.PublishAsync(new CheckoutStatusUpdate
+            {
+                SessionId = session.Id,
+                Status = session.Status.ToString().ToLowerInvariant(),
+                ReceivedSatoshis = session.ReceivedSatoshis,
+                Confirmations = session.Confirmations,
+                Txid = session.PaidTxid,
+            });
+
+            var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
+            return Results.Ok(ToDto(session, $"{checkoutBase}/pay/{session.Id}"));
         });
 
         return group;
@@ -296,6 +428,11 @@ public static class PaymentsEndpoints
         Amount = s.AmountSatoshis / 100_000_000m,
         s.FiatCurrency,
         s.FiatAmount,
+        // Exposed so the hosted checkout can warn the buyer if the live DGB
+        // price has drifted meaningfully from the quote — volatility guard
+        // is a pure client-side compare (see Checkout.razor). Null for
+        // pure-DGB sessions where no fiat quote was ever made.
+        s.DgbPriceAtCreation,
         s.Label,
         s.Memo,
         Status = s.Status.ToString().ToLowerInvariant(),
@@ -306,6 +443,14 @@ public static class PaymentsEndpoints
         s.ReceivedSatoshis,
         s.Confirmations,
         s.PaidTxid,
+        s.Source,
+        // Refund/void audit. Nulls on non-refunded sessions; fields get set
+        // together by POST /sessions/{id}/refund. Void doesn't populate txid,
+        // only RefundNote + RefundedAt (we reuse the same columns to avoid a
+        // parallel set of Voided* fields — Status disambiguates).
+        s.RefundTxid,
+        s.RefundedAt,
+        s.RefundNote,
         Uri = BuildBip21(s),
         CheckoutUrl = checkoutUrl,
     };
@@ -339,3 +484,6 @@ public record CreateSessionRequest(
     string? Label,
     string? Memo,
     int? ExpiresInSeconds);
+
+public record RefundRequest(string? Txid, string? Note);
+public record VoidRequest(string? Note);

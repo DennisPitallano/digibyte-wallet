@@ -28,6 +28,10 @@
     <script src="@Assets["checkout-countdown.js"]"></script>
     @* Browser-side blob → file download for the dashboard's CSV export buttons. *@
     <script src="@Assets["download.js"]"></script>
+    @* Kiosk-side state for the POS page (/pos) — tiny localStorage wrapper
+       + confirmation beep. Loaded site-wide so a reconnecting circuit can
+       call window.digipayPos before the InteractiveServer hub is up. *@
+    <script src="@Assets["pos-store.js"]"></script>
 </head>
 
 <body>

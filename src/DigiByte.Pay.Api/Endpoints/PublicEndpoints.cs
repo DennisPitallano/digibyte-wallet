@@ -1,5 +1,7 @@
+using System.Text.Json;
 using DigiByte.Pay.Api.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DigiByte.Pay.Api.Endpoints;
 
@@ -67,8 +69,106 @@ public static class PublicEndpoints
             return Results.Ok(snapshot);
         });
 
+        // GET /v1/pay/public/price?currency=eur
+        // Proxied CoinGecko spot price for the POS tablet's fiat mode.
+        // Public (no auth) so paired kiosks don't need to carry the API key
+        // just for a rate lookup; 30-second cache makes us a thin wrapper —
+        // never more than 2 CoinGecko hits/minute per currency no matter how
+        // many tablets are paired.
+        group.MapGet("/price", async (
+            string? currency,
+            IHttpClientFactory httpFactory,
+            IMemoryCache cache) =>
+        {
+            var cur = (currency ?? "usd").Trim().ToLowerInvariant();
+            // Tight allow-list — anything not here bounces before we hit
+            // CoinGecko, so we can't be used as an open proxy.
+            if (!SupportedFiatCurrencies.Contains(cur))
+                return Results.BadRequest(new { error = "unsupported currency" });
+
+            // Two-tier cache:
+            //   fresh (60s)  — return immediately, no upstream call.
+            //   stale (10m)  — kept around so we can serve last-known price if
+            //                  CoinGecko is rate-limiting or down. This is
+            //                  what keeps kiosks usable during a 429 storm.
+            // 60s is the right fresh window for a POS: fiat/DGB rates don't
+            // move fast enough at till-level granularity to matter within a
+            // minute, and it cuts our CoinGecko call budget by ~2x vs. 30s.
+            var freshKey = $"digipay.price.fresh:{cur}";
+            var staleKey = $"digipay.price.stale:{cur}";
+            var lockKey  = $"digipay.price.lock:{cur}";
+
+            if (cache.TryGetValue(freshKey, out PriceSnapshot? fresh) && fresh is not null)
+                return Results.Ok(fresh);
+
+            // Single-flight: only one request per currency hits CoinGecko at a
+            // time, even if 50 tablets race in simultaneously. Everyone else
+            // waits and gets the just-fetched value.
+            var gate = cache.GetOrCreate(lockKey, e =>
+            {
+                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+                return new SemaphoreSlim(1, 1);
+            })!;
+            await gate.WaitAsync();
+            try
+            {
+                // Re-check: another caller may have just populated it.
+                if (cache.TryGetValue(freshKey, out PriceSnapshot? after) && after is not null)
+                    return Results.Ok(after);
+
+                try
+                {
+                    var http = httpFactory.CreateClient("DigiPayChain");
+                    var url = $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={cur}";
+                    var resp = await http.GetAsync(url);
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
+                        if (json.TryGetProperty("digibyte", out var dgb)
+                            && dgb.TryGetProperty(cur, out var priceEl))
+                        {
+                            var price = priceEl.GetDecimal();
+                            var snapshot = new PriceSnapshot(cur.ToUpperInvariant(), price, DateTime.UtcNow);
+                            cache.Set(freshKey, snapshot, TimeSpan.FromSeconds(60));
+                            cache.Set(staleKey, snapshot, TimeSpan.FromMinutes(10));
+                            return Results.Ok(snapshot);
+                        }
+                    }
+                }
+                catch
+                {
+                    // fall through to stale fallback
+                }
+
+                // Upstream failed (rate-limit, network, bad payload). Serve
+                // the last known price if we have one — kiosks keep working
+                // and the slight staleness is clearly surfaced by FetchedAt.
+                if (cache.TryGetValue(staleKey, out PriceSnapshot? stale) && stale is not null)
+                    return Results.Ok(stale);
+
+                return Results.StatusCode(502);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        });
+
         return group;
     }
+
+    /// <summary>
+    /// Narrow allow-list of fiat currencies we'll proxy a price quote for.
+    /// Matches the set we're willing to ship in the POS currency selector;
+    /// deliberately excludes anything that would require additional compliance
+    /// thinking (e.g. USDT pegs). CoinGecko supports these out of the box.
+    /// </summary>
+    private static readonly HashSet<string> SupportedFiatCurrencies = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "usd", "eur", "gbp", "cad", "aud", "jpy", "chf", "sek", "nok", "dkk", "php", "ngn", "zar",
+    };
+
+    public record PriceSnapshot(string Currency, decimal DgbPrice, DateTime FetchedAt);
 
     public record StatsSnapshot(
         int Merchants,

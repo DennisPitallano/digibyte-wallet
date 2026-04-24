@@ -1,0 +1,31 @@
+@* A two-column feature tour panel: eyebrow + title + summary + bullets on
+   the left, screenshot on the right. Stacks on mobile. Used by the
+   Features.razor tour page. *@
+
+<div class="grid md:grid-cols-2 gap-6 items-start">
+    <div class="order-2 md:order-1">
+        <div class="text-[0.6875rem] uppercase tracking-widest font-bold text-dgb-500 mb-2">@Eyebrow</div>
+        <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">@Title</h2>
+        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-4">@Summary</p>
+        @ChildContent
+    </div>
+    <div class="order-1 md:order-2">
+        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl shadow-sm overflow-hidden">
+            <img src="@ImgSrc" alt="@ImgAlt" loading="lazy" class="w-full h-auto block" />
+        </div>
+        @if (!string.IsNullOrEmpty(Caption))
+        {
+            <p class="text-[0.6875rem] text-slate-500 dark:text-slate-400 mt-2 text-center italic">@Caption</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Eyebrow { get; set; } = "";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Summary { get; set; } = "";
+    [Parameter, EditorRequired] public string ImgSrc { get; set; } = "";
+    [Parameter, EditorRequired] public string ImgAlt { get; set; } = "";
+    [Parameter] public string? Caption { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

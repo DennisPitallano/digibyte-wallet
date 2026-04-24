@@ -1,0 +1,265 @@
+@* Dashboard analytics panel — KPI tiles + stacked bar chart of daily
+   sessions (paid / refunded / voided / failed) with an optional DGB volume
+   line overlay. Data comes from GET /v1/pay/stores/{id}/analytics?days=N
+   and is re-fetched when StoreId or the range toggle changes. *@
+@inject IHttpClientFactory HttpFactory
+@using System.Net.Http.Json
+
+@{
+    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
+    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
+    const string H2 = "text-base font-bold text-slate-900 dark:text-white m-0";
+}
+
+<div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
+    <h1 class="text-xl sm:text-2xl font-bold tracking-tight m-0">Analytics</h1>
+    <div class="flex items-center gap-2">
+        @foreach (var opt in new[] { 7, 30, 90 })
+        {
+            var o = opt;
+            var active = days == o;
+            <button type="button"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors @(active ? "bg-dgb-500/10 text-dgb-500 border-dgb-500/30" : "bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-dgb-800")"
+                    @onclick="() => ChangeRangeAsync(o)"
+                    disabled="@loading">
+                Last @o d
+            </button>
+        }
+    </div>
+</div>
+<p class="@Muted mb-6 slide-up-delay-1">
+    Sales and conversion trends for this store.
+    @if (data is not null)
+    {
+        <span> Window: <strong class="text-slate-900 dark:text-white">@data.Since.ToLocalTime().ToString("MMM d") – @data.Until.ToLocalTime().ToString("MMM d")</strong>.</span>
+    }
+</p>
+
+@if (error is not null)
+{
+    <section class="@Card">
+        <p class="text-sm text-red-500 m-0">@error</p>
+    </section>
+}
+else if (data is null)
+{
+    <section class="@Card">
+        <p class="@Muted m-0">Loading…</p>
+    </section>
+}
+else
+{
+    @* KPI tiles — summary numbers for the selected window. *@
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div class="slide-up-delay-2">
+            <Stat Label="Paid sessions" Value="@data.Summary.TotalPaid.ToString("N0")" />
+        </div>
+        <div class="slide-up-delay-3">
+            <Stat Label="Gross volume" Value="@($"{data.Summary.GrossVolumeDgb:N2} DGB")" />
+        </div>
+        <div class="slide-up-delay-4">
+            <Stat Label="Conversion" Value="@($"{data.Summary.ConversionPct:0.#}%")" />
+        </div>
+        <div class="slide-up-delay-5">
+            <Stat Label="Refund rate" Value="@($"{data.Summary.RefundRatePct:0.#}%")" />
+        </div>
+    </div>
+
+    <section class="@Card scale-in-delay-1 mb-4">
+        <div class="flex items-baseline justify-between gap-2 flex-wrap">
+            <h2 class="@H2">Sessions per day</h2>
+            <span class="@Muted">Stacked by outcome</span>
+        </div>
+        @if (data.Summary.TotalSessions == 0)
+        {
+            <p class="@Muted m-0">No activity in this window yet.</p>
+        }
+        else
+        {
+            <ApexChart TItem="DayPoint"
+                       Options="sessionsOptions"
+                       @ref="sessionsChart">
+                <ApexPointSeries TItem="DayPoint"
+                                 Items="data.Series"
+                                 Name="Paid"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 YValue="@(e => (decimal)e.Paid)" />
+                <ApexPointSeries TItem="DayPoint"
+                                 Items="data.Series"
+                                 Name="Refunded"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 YValue="@(e => (decimal)e.Refunded)" />
+                <ApexPointSeries TItem="DayPoint"
+                                 Items="data.Series"
+                                 Name="Voided"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 YValue="@(e => (decimal)e.Voided)" />
+                <ApexPointSeries TItem="DayPoint"
+                                 Items="data.Series"
+                                 Name="Expired / underpaid"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 YValue="@(e => (decimal)e.Failed)" />
+            </ApexChart>
+        }
+    </section>
+
+    <section class="@Card scale-in-delay-2">
+        <div class="flex items-baseline justify-between gap-2 flex-wrap">
+            <h2 class="@H2">Gross volume</h2>
+            <span class="@Muted">DGB received per day (paid only)</span>
+        </div>
+        @if (data.Summary.GrossVolumeDgb == 0)
+        {
+            <p class="@Muted m-0">No paid volume in this window.</p>
+        }
+        else
+        {
+            <ApexChart TItem="DayPoint"
+                       Options="volumeOptions"
+                       @ref="volumeChart">
+                <ApexPointSeries TItem="DayPoint"
+                                 Items="data.Series"
+                                 Name="DGB"
+                                 SeriesType="SeriesType.Area"
+                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 YValue="@(e => e.VolumeDgb)" />
+            </ApexChart>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Token { get; set; } = "";
+    [Parameter, EditorRequired] public string StoreId { get; set; } = "";
+
+    private int days = 30;
+    private AnalyticsDto? data;
+    private bool loading;
+    private string? error;
+
+    private ApexChart<DayPoint>? sessionsChart;
+    private ApexChart<DayPoint>? volumeChart;
+    private ApexChartOptions<DayPoint> sessionsOptions = default!;
+    private ApexChartOptions<DayPoint> volumeOptions = default!;
+
+    protected override void OnInitialized()
+    {
+        // ApexCharts options are configured once — Items/series are bound in the
+        // markup. Stacked bars + dgb-500 palette keeps it consistent with the
+        // rest of the dashboard branding.
+        sessionsOptions = new ApexChartOptions<DayPoint>
+        {
+            Chart = new Chart
+            {
+                Stacked = true,
+                Toolbar = new Toolbar { Show = false },
+                FontFamily = "inherit",
+                Background = "transparent",
+            },
+            Colors = new List<string> { "#0062cc", "#6366f1", "#64748b", "#f59e0b" },
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar { ColumnWidth = "60%", BorderRadius = 4 },
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Legend = new Legend { Position = LegendPosition.Top, HorizontalAlign = ApexCharts.Align.Right },
+            Grid = new Grid { BorderColor = "rgba(148,163,184,0.2)" },
+            Xaxis = new XAxis { Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") } } },
+            Yaxis = new List<YAxis> { new() { Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") }, Formatter = "function(v){return v.toFixed(0);}" } } },
+            Theme = new Theme { Mode = Mode.Light },
+        };
+
+        volumeOptions = new ApexChartOptions<DayPoint>
+        {
+            Chart = new Chart
+            {
+                Toolbar = new Toolbar { Show = false },
+                FontFamily = "inherit",
+                Background = "transparent",
+                Sparkline = new ChartSparkline { Enabled = false },
+            },
+            Colors = new List<string> { "#0062cc" },
+            DataLabels = new DataLabels { Enabled = false },
+            Stroke = new Stroke { Curve = Curve.Smooth, Width = 2 },
+            Fill = new Fill { Type = new List<FillType> { FillType.Gradient }, Gradient = new FillGradient { OpacityFrom = 0.35, OpacityTo = 0.05 } },
+            Legend = new Legend { Show = false },
+            Grid = new Grid { BorderColor = "rgba(148,163,184,0.2)" },
+            Xaxis = new XAxis { Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") } } },
+            Yaxis = new List<YAxis> { new() { Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") }, Formatter = "function(v){return v.toFixed(2);}" } } },
+            Theme = new Theme { Mode = Mode.Light },
+        };
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(StoreId) && data?.StoreId != StoreId)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task ChangeRangeAsync(int newDays)
+    {
+        if (days == newDays) return;
+        days = newDays;
+        data = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrEmpty(Token) || string.IsNullOrEmpty(StoreId)) return;
+        loading = true;
+        error = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var req = new HttpRequestMessage(HttpMethod.Get, $"/v1/pay/stores/{StoreId}/analytics?days={days}");
+            req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {Token}");
+            var response = await http.SendAsync(req);
+            if (!response.IsSuccessStatusCode)
+            {
+                error = $"Failed to load analytics ({(int)response.StatusCode}).";
+                return;
+            }
+            data = await response.Content.ReadFromJsonAsync<AnalyticsDto>();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    public record AnalyticsDto(
+        string StoreId,
+        int Days,
+        DateTime Since,
+        DateTime Until,
+        SummaryDto Summary,
+        List<DayPoint> Series);
+
+    public record SummaryDto(
+        long TotalSessions,
+        long TotalPaid,
+        long TotalRefunded,
+        decimal GrossVolumeDgb,
+        decimal ConversionPct,
+        decimal RefundRatePct);
+
+    public record DayPoint(
+        DateTime Day,
+        int Total,
+        int Paid,
+        int Refunded,
+        int Voided,
+        int Failed,
+        decimal VolumeDgb);
+}

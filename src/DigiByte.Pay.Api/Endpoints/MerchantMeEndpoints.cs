@@ -47,6 +47,52 @@ public static class MerchantMeEndpoints
             return Results.Ok(new { merchant.Id, merchant.DisplayName, merchant.DigiIdAddress });
         });
 
+        // GET /v1/pay/me/audit?limit=50&cursor={iso-utc}
+        //
+        // Merchant-scoped audit trail. Reverse-chronological, cursor-paginated
+        // on CreatedAt so deep history stays stable across inserts.
+        group.MapGet("/audit", async (HttpRequest http, DigiPayDbContext db, int? limit, string? cursor) =>
+        {
+            var merchant = await AuthenticateAsync(http, db);
+            if (merchant is null) return Results.Unauthorized();
+
+            var take = Math.Clamp(limit ?? 50, 1, 200);
+            DateTime? before = null;
+            if (!string.IsNullOrWhiteSpace(cursor) && DateTime.TryParse(cursor,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out var parsed))
+            {
+                before = parsed;
+            }
+
+            var q = db.AuditEvents.AsNoTracking()
+                .Where(a => a.MerchantId == merchant.Id);
+            if (before is not null) q = q.Where(a => a.CreatedAt < before);
+
+            var rows = await q.OrderByDescending(a => a.CreatedAt).Take(take + 1).ToListAsync();
+            var hasMore = rows.Count > take;
+            if (hasMore) rows.RemoveAt(rows.Count - 1);
+
+            return Results.Ok(new
+            {
+                items = rows.Select(a => new
+                {
+                    a.Id,
+                    a.Action,
+                    a.ActorType,
+                    a.ActorId,
+                    a.ActorIp,
+                    a.TargetType,
+                    a.TargetId,
+                    a.Summary,
+                    a.Metadata,
+                    a.CreatedAt,
+                }),
+                nextCursor = hasMore ? rows[^1].CreatedAt.ToString("O") : null,
+            });
+        });
+
         return group;
     }
 

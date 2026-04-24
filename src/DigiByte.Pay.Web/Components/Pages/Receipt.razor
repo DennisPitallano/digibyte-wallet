@@ -1,0 +1,148 @@
+@page "/pay/{SessionId}/receipt"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpFactory
+@using System.Globalization
+@using System.Net.Http.Json
+
+@* Customer-facing confirmation page. Shown after a payment reaches "paid"
+   or "confirmed" state — gives the buyer a printable proof-of-payment with
+   amount, txid, explorer link and a QR of the txid so a counterparty can
+   verify on-chain from a phone. Intentionally self-contained (no SignalR,
+   no countdown) — this is a read-only artifact, not a live view. *@
+
+<PageTitle>@PageTitleText</PageTitle>
+
+<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans page-enter print:bg-white print:text-black print:p-0">
+    <div class="w-full max-w-md">
+        @if (loadError != null)
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 text-center shadow-sm">
+                <h2 class="text-lg font-bold m-0 mb-2">Receipt unavailable</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">@loadError</p>
+            </div>
+        }
+        else if (session == null)
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-8 text-center shadow-sm">
+                <Loader Text="Loading receipt…" />
+            </div>
+        }
+        else if (string.IsNullOrEmpty(session.PaidTxid))
+        {
+            @* Status is still pending/seen/expired — there's nothing to show on a
+               receipt yet. Send the customer back to the live checkout. *@
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 text-center shadow-sm">
+                <h2 class="text-lg font-bold m-0 mb-2">No payment yet</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 m-0 mb-4">This session hasn't been paid. The receipt will appear here once the transaction broadcasts.</p>
+                <a href="@($"/pay/{session.Id}")" class="inline-block py-2 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline">Back to checkout</a>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm print:shadow-none print:border-0 print:rounded-none">
+                @* Header — success tick + merchant identity. In print view the
+                   border/shadow drop away so it reads like a plain paper receipt. *@
+                <div class="flex items-center justify-center w-14 h-14 rounded-full text-white text-2xl font-bold bg-emerald-500 print:bg-emerald-600">✓</div>
+                <div class="text-center">
+                    <div class="text-lg font-bold">@(session.Status == "confirmed" ? "Payment confirmed" : "Payment received")</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400 print:text-slate-700">@(merchantName ?? "Merchant")</div>
+                </div>
+
+                @* Amount block. Mirrors Checkout's rules: fiat-priced sessions lead
+                   with fiat and show DGB as a subline; pure DGB sessions just show DGB. *@
+                @if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
+                {
+                    <div class="flex flex-col items-center gap-1">
+                        <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatFiat(fiatAmt) <span class="text-slate-500 dark:text-slate-400 text-2xl sm:text-3xl font-semibold print:text-slate-700">@session.FiatCurrency!.ToUpperInvariant()</span></div>
+                        <div class="text-sm text-slate-500 dark:text-slate-400 tabular-nums print:text-slate-700">@FormatDgb(session.AmountSatoshis) DGB</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatDgb(session.AmountSatoshis) DGB</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(session.Label))
+                {
+                    <div class="text-sm text-center break-words w-full">@session.Label</div>
+                }
+
+                @* QR of the txid so a counterparty can scan and verify on an explorer
+                   from their phone — handy when the receipt is printed on paper. *@
+                <div class="bg-white p-3 rounded-2xl shadow-inner print:shadow-none">
+                    <img src="@qrDataUrl" alt="Transaction QR" class="block w-40 h-40" />
+                </div>
+
+                <div class="w-full text-[0.6875rem] font-mono text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-600 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800 print:bg-white print:text-black">@session.PaidTxid</div>
+
+                <div class="w-full text-xs text-slate-500 dark:text-slate-400 grid grid-cols-2 gap-y-1 print:text-slate-700">
+                    <div>Session</div><div class="font-mono text-right break-all">@session.Id</div>
+                    <div>Paid at</div><div class="text-right tabular-nums">@session.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</div>
+                    <div>Confirmations</div><div class="text-right tabular-nums">@session.Confirmations</div>
+                </div>
+
+                <div class="w-full flex flex-col sm:flex-row gap-2 print:hidden">
+                    <a href="@($"https://digiexplorer.info/tx/{session.PaidTxid}")" target="_blank" rel="noopener" class="flex-1 text-center py-2.5 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline">View on DigiExplorer ↗</a>
+                    <button type="button" @onclick="PrintAsync" class="flex-1 py-2.5 px-4 bg-slate-100 dark:bg-dgb-800 hover:bg-slate-200 dark:hover:bg-dgb-700 text-slate-900 dark:text-white font-semibold rounded-xl">Print</button>
+                </div>
+            </div>
+        }
+    </div>
+</main>
+
+@code {
+    [Parameter] public string SessionId { get; set; } = "";
+
+    [Inject] private Microsoft.JSInterop.IJSRuntime JS { get; set; } = default!;
+
+    private SessionDto? session;
+    private string? merchantName;
+    private string? loadError;
+    private string? qrDataUrl;
+
+    private string PageTitleText => merchantName is null ? "Receipt" : $"Receipt — {merchantName}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetFromJsonAsync<GetSessionResponse>($"/v1/pay/sessions/{SessionId}");
+            session = response?.Session;
+            merchantName = response?.MerchantName;
+            if (session == null) { loadError = "Session not found."; return; }
+            if (!string.IsNullOrEmpty(session.PaidTxid))
+            {
+                // Encode the bare txid (not an explorer URL) so scanners that map
+                // hex → explorer themselves still work, and we stay explorer-agnostic.
+                qrDataUrl = GenerateQr(session.PaidTxid);
+            }
+        }
+        catch (Exception ex) { loadError = $"Could not load receipt: {ex.Message}"; }
+    }
+
+    private async Task PrintAsync() => await JS.InvokeVoidAsync("window.print");
+
+    private static string GenerateQr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
+    }
+
+    private static string FormatDgb(long sats) =>
+        (sats / 100_000_000m).ToString("0.########", CultureInfo.InvariantCulture);
+
+    private static string FormatFiat(decimal amount) =>
+        amount.ToString("0.00", CultureInfo.InvariantCulture);
+
+    public record GetSessionResponse(SessionDto Session, string? MerchantName);
+
+    public record SessionDto(
+        string Id, string Address, long AmountSatoshis, decimal Amount,
+        string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
+        string Status, DateTime CreatedAt, DateTime ExpiresAt,
+        long ReceivedSatoshis, int Confirmations, string? PaidTxid,
+        string Uri, string CheckoutUrl);
+}

@@ -7,6 +7,10 @@
             "This payment window has closed. Go back to the merchant to start a new one."),
         "underpaid" => ("!", "bg-red-500", "Underpaid",
             "The received amount was less than the invoice. The merchant will be in touch."),
+        "refunded"  => ("↩", "bg-indigo-500", "Refunded",
+            "The merchant has sent the amount back on-chain. Check your wallet."),
+        "voided"    => ("⊘", "bg-slate-500", "Cancelled by merchant",
+            "The merchant cancelled this invoice before payment. Nothing was charged."),
         _ => ("•", "bg-slate-400", "", ""),
     };
 }
@@ -17,10 +21,18 @@
     @if (!string.IsNullOrEmpty(Txid))
     {
         <p class="text-[0.625rem] font-mono text-slate-400 dark:text-slate-500 break-all">@Txid</p>
+        @* Buyer-facing permalink. Confirmed sessions are the common case; we also
+           expose it for "paid" (1-conf) so the customer can grab proof immediately
+           and doesn't need to wait the ~15 min to 6 confs just to print. *@
+        @if (!string.IsNullOrEmpty(SessionId))
+        {
+            <a href="@($"/pay/{SessionId}/receipt")" class="text-xs font-semibold text-dgb-500 hover:text-dgb-600 no-underline">View receipt →</a>
+        }
     }
 </div>
 
 @code {
     [Parameter] public string Status { get; set; } = "";
     [Parameter] public string? Txid { get; set; }
+    [Parameter] public string? SessionId { get; set; }
 }

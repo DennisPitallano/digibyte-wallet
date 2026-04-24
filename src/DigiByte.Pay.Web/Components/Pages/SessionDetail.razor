@@ -43,7 +43,20 @@ else
                     <h1 class="@H1 mt-1">Session</h1>
                     <div class="@Mono text-slate-500 dark:text-slate-400 mt-1">@session.Id</div>
                 </div>
-                <div class="shrink-0">
+                <div class="shrink-0 flex items-center gap-2">
+                    @if (session.Source is not null && session.Source.StartsWith("pos", StringComparison.OrdinalIgnoreCase))
+                    {
+                        @* Same chip as the dashboard list. On the detail page we can
+                           afford to print the device name inline too, since there's room. *@
+                        var deviceName = session.Source.Length > 4 && session.Source[3] == ':'
+                            ? session.Source[4..]
+                            : null;
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-dgb-500/10 text-dgb-500"
+                              title="Created from a paired POS tablet">
+                            <Icon Name="zap" Class="w-3 h-3" />
+                            @if (!string.IsNullOrEmpty(deviceName)) { <span>POS · @deviceName</span> } else { <span>POS</span> }
+                        </span>
+                    }
                     <CheckoutStatusPill Status="@session.Status" />
                 </div>
             </div>
@@ -204,8 +217,104 @@ else
                     </ul>
                 }
             </section>
+
+            @* Merchant actions — refund (Paid/Confirmed) and void (Pending/Seen).
+               Refunded/voided sessions show the recorded note + timestamp so the
+               audit trail is visible without re-querying the DB. Kept below
+               everything else because it's an occasional action, not the
+               primary workflow. *@
+            <section class="@Card">
+                <h2 class="@H2">Actions</h2>
+                @if (session.Status is "refunded")
+                {
+                    <div class="text-sm">
+                        Refunded @(session.RefundedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "").
+                        @if (!string.IsNullOrEmpty(session.RefundTxid))
+                        {
+                            <div class="@Eyebrow mt-2">Refund txid</div>
+                            <div class="@Mono">@session.RefundTxid</div>
+                            <a href="@($"https://digiexplorer.info/tx/{session.RefundTxid}")" target="_blank" rel="noopener"
+                               class="@BtnGhost text-xs py-1.5 px-3 no-underline mt-1 inline-block">View on DigiExplorer ↗</a>
+                        }
+                        @if (!string.IsNullOrEmpty(session.RefundNote))
+                        {
+                            <div class="@Eyebrow mt-2">Note</div>
+                            <div class="text-sm">@session.RefundNote</div>
+                        }
+                    </div>
+                }
+                else if (session.Status is "voided")
+                {
+                    <div class="text-sm">
+                        Voided @(session.RefundedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "").
+                        @if (!string.IsNullOrEmpty(session.RefundNote))
+                        {
+                            <div class="@Eyebrow mt-2">Note</div>
+                            <div class="text-sm">@session.RefundNote</div>
+                        }
+                    </div>
+                }
+                else if (session.Status is "paid" or "confirmed")
+                {
+                    <p class="@Muted m-0">Refunds aren't automatic — send DGB back to the customer from your wallet, then paste the txid here to keep the dashboard + webhooks in sync.</p>
+                    <button class="@BtnGhost text-xs py-1.5 px-3 self-start" @onclick="OpenRefundDialog">Record refund</button>
+                }
+                else if (session.Status is "pending" or "seen")
+                {
+                    <p class="@Muted m-0">Cancel this invoice before payment. The customer's checkout page flips to "Cancelled by merchant".</p>
+                    <button class="@BtnGhost text-xs py-1.5 px-3 self-start" @onclick="OpenVoidDialog">Void session</button>
+                }
+                else
+                {
+                    <p class="@Muted m-0">No actions available for @session.Status sessions.</p>
+                }
+                @if (!string.IsNullOrEmpty(actionError))
+                {
+                    <p class="text-sm text-red-500 m-0">@actionError</p>
+                }
+            </section>
         </main>
     </div>
+
+    @if (showRefundDialog)
+    {
+        <div class="fixed inset-0 bg-slate-900/60 z-40 flex items-center justify-center p-4" @onclick="CloseDialogs">
+            <div class="bg-white dark:bg-dgb-900 rounded-2xl shadow-xl w-full max-w-md p-6 flex flex-col gap-3" @onclick:stopPropagation="true">
+                <h3 class="text-lg font-bold m-0">Record refund</h3>
+                <p class="@Muted m-0">Paste the DGB refund transaction id. We'll mark this session <strong>refunded</strong>, fire a <InlineCode>session.refunded</InlineCode> webhook, and store the note for your records.</p>
+                <label class="@Eyebrow">Refund txid</label>
+                <input type="text" @bind="refundTxid" placeholder="e.g. a1b2c3…" class="px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg font-mono text-xs" />
+                <label class="@Eyebrow">Note (optional)</label>
+                <input type="text" @bind="refundNote" placeholder="Duplicate order, customer request…" class="px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-sm" />
+                <div class="flex gap-2 justify-end mt-2">
+                    <button class="@BtnGhost" @onclick="CloseDialogs">Cancel</button>
+                    <button class="px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg text-sm disabled:opacity-50"
+                            @onclick="SubmitRefundAsync" disabled="@(submittingAction || string.IsNullOrWhiteSpace(refundTxid))">
+                        @(submittingAction ? "Saving…" : "Record refund")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (showVoidDialog)
+    {
+        <div class="fixed inset-0 bg-slate-900/60 z-40 flex items-center justify-center p-4" @onclick="CloseDialogs">
+            <div class="bg-white dark:bg-dgb-900 rounded-2xl shadow-xl w-full max-w-md p-6 flex flex-col gap-3" @onclick:stopPropagation="true">
+                <h3 class="text-lg font-bold m-0">Void this session?</h3>
+                <p class="@Muted m-0">Only unpaid sessions can be voided. This cancels the invoice and stops polling the chain for it.</p>
+                <label class="@Eyebrow">Note (optional)</label>
+                <input type="text" @bind="voidNote" placeholder="Reason (shown in dashboard only)" class="px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-sm" />
+                <div class="flex gap-2 justify-end mt-2">
+                    <button class="@BtnGhost" @onclick="CloseDialogs">Cancel</button>
+                    <button class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg text-sm disabled:opacity-50"
+                            @onclick="SubmitVoidAsync" disabled="@submittingAction">
+                        @(submittingAction ? "Voiding…" : "Void session")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -218,6 +327,17 @@ else
     private string replayingId = "";
     private string copiedField = "";
     private string? bootstrapError;
+
+    // Refund/void dialog state. We deliberately keep txid + note on the outer
+    // component (not the dialog markup) so a user can close-and-reopen the
+    // dialog without losing what they typed.
+    private bool showRefundDialog;
+    private bool showVoidDialog;
+    private string refundTxid = "";
+    private string refundNote = "";
+    private string voidNote = "";
+    private bool submittingAction;
+    private string? actionError;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -296,6 +416,74 @@ else
         finally { replayingId = ""; StateHasChanged(); }
     }
 
+    private void OpenRefundDialog()
+    {
+        actionError = null;
+        refundTxid = "";
+        refundNote = "";
+        showRefundDialog = true;
+    }
+
+    private void OpenVoidDialog()
+    {
+        actionError = null;
+        voidNote = "";
+        showVoidDialog = true;
+    }
+
+    private void CloseDialogs()
+    {
+        showRefundDialog = false;
+        showVoidDialog = false;
+        submittingAction = false;
+    }
+
+    private async Task SubmitRefundAsync()
+    {
+        if (session is null || string.IsNullOrWhiteSpace(refundTxid)) return;
+        submittingAction = true; actionError = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var req = AuthedRequest(HttpMethod.Post, $"/v1/pay/sessions/{session.Id}/refund");
+            req.Content = JsonContent.Create(new { txid = refundTxid.Trim(), note = refundNote });
+            var resp = await http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode)
+            {
+                actionError = $"Refund failed ({(int)resp.StatusCode}): {await resp.Content.ReadAsStringAsync()}";
+                return;
+            }
+            showRefundDialog = false;
+            await LoadSessionAsync();
+            await LoadDeliveriesAsync();
+        }
+        catch (Exception ex) { actionError = ex.Message; }
+        finally { submittingAction = false; StateHasChanged(); }
+    }
+
+    private async Task SubmitVoidAsync()
+    {
+        if (session is null) return;
+        submittingAction = true; actionError = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var req = AuthedRequest(HttpMethod.Post, $"/v1/pay/sessions/{session.Id}/void");
+            req.Content = JsonContent.Create(new { note = voidNote });
+            var resp = await http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode)
+            {
+                actionError = $"Void failed ({(int)resp.StatusCode}): {await resp.Content.ReadAsStringAsync()}";
+                return;
+            }
+            showVoidDialog = false;
+            await LoadSessionAsync();
+            await LoadDeliveriesAsync();
+        }
+        catch (Exception ex) { actionError = ex.Message; }
+        finally { submittingAction = false; StateHasChanged(); }
+    }
+
     private async Task CopyAsync(string field, string value)
     {
         try
@@ -317,7 +505,8 @@ else
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         DateTime? SeenAt, DateTime? PaidAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
-        string Uri, string CheckoutUrl);
+        string Uri, string CheckoutUrl, string? Source = null,
+        string? RefundTxid = null, DateTime? RefundedAt = null, string? RefundNote = null);
 
     private record WebhookDeliveryDto(string Id, string StoreId, string? SessionId,
         string EventName, string Url, int Attempt, int? StatusCode, string? ErrorMessage,

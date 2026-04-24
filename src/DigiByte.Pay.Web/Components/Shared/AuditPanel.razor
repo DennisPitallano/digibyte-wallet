@@ -1,0 +1,235 @@
+@* Merchant-scoped audit log panel. Lists recent sensitive actions
+   (void / refund / store & key mutations) with actor, IP, target, and
+   an expandable metadata blob. Cursor-paginated on CreatedAt — pressing
+   "Load older" fetches the next page. *@
+@inject IHttpClientFactory HttpFactory
+@using System.Net.Http.Json
+@using System.Text.Json
+
+@{
+    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
+    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
+    const string BtnGhost = "px-3 py-1.5 text-xs font-semibold rounded-lg border bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-dgb-800 disabled:opacity-50 transition-colors";
+}
+
+<div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
+    <h1 class="text-xl sm:text-2xl font-bold tracking-tight m-0">Audit log</h1>
+    <button type="button" class="@BtnGhost" @onclick="RefreshAsync" disabled="@loading">
+        Refresh
+    </button>
+</div>
+<p class="@Muted mb-6 slide-up-delay-1">
+    Every void, refund, store edit, and API key change across your account — with actor, IP, and timestamp.
+    Append-only. Shown newest first.
+</p>
+
+@if (error is not null)
+{
+    <section class="@Card">
+        <p class="text-sm text-red-500 m-0">@error</p>
+    </section>
+}
+else if (items is null)
+{
+    <section class="@Card">
+        <p class="@Muted m-0">Loading…</p>
+    </section>
+}
+else if (items.Count == 0)
+{
+    <section class="@Card">
+        <p class="@Muted m-0">No audit events recorded yet. Perform a sensitive action (void, refund, store edit) to populate this log.</p>
+    </section>
+}
+else
+{
+    <section class="@Card p-0 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+                <thead class="bg-slate-50 dark:bg-dgb-950 text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">
+                    <tr>
+                        <th class="text-left px-4 py-2.5 font-bold">When</th>
+                        <th class="text-left px-4 py-2.5 font-bold">Action</th>
+                        <th class="text-left px-4 py-2.5 font-bold">Target</th>
+                        <th class="text-left px-4 py-2.5 font-bold">Actor</th>
+                        <th class="text-left px-4 py-2.5 font-bold">IP</th>
+                        <th class="text-left px-4 py-2.5 font-bold"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ev in items)
+                    {
+                        var expanded = expandedId == ev.Id;
+                        <tr class="border-t border-slate-100 dark:border-dgb-800 align-top">
+                            <td class="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                                <div class="font-mono text-xs">@ev.CreatedAt.ToLocalTime().ToString("MMM d, HH:mm:ss")</div>
+                                <div class="text-[0.6875rem] text-slate-400">@Relative(ev.CreatedAt)</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold @ActionBadgeClass(ev.Action)">
+                                    @ev.Action
+                                </span>
+                                @if (!string.IsNullOrEmpty(ev.Summary))
+                                {
+                                    <div class="@Muted mt-1 max-w-md truncate" title="@ev.Summary">@ev.Summary</div>
+                                }
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
+                                <div>@ev.TargetType</div>
+                                <div class="text-[0.6875rem] text-slate-400 truncate max-w-[14rem]" title="@ev.TargetId">@ev.TargetId</div>
+                            </td>
+                            <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                                <div class="font-semibold">@ev.ActorType</div>
+                                @if (!string.IsNullOrEmpty(ev.ActorId))
+                                {
+                                    <div class="text-[0.6875rem] font-mono text-slate-400 truncate max-w-[10rem]" title="@ev.ActorId">@ev.ActorId</div>
+                                }
+                            </td>
+                            <td class="px-4 py-3 text-xs font-mono text-slate-500 dark:text-slate-400">
+                                @(ev.ActorIp ?? "—")
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @if (!string.IsNullOrEmpty(ev.Metadata))
+                                {
+                                    <button class="@BtnGhost text-[0.6875rem] py-1 px-2"
+                                            @onclick="() => Toggle(ev.Id)">
+                                        @(expanded ? "Hide" : "Details")
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                        @if (expanded && !string.IsNullOrEmpty(ev.Metadata))
+                        {
+                            <tr class="border-t border-slate-100 dark:border-dgb-800 bg-slate-50 dark:bg-dgb-950">
+                                <td colspan="6" class="px-4 py-3">
+                                    <pre class="bg-slate-900 text-slate-100 rounded-lg p-3 text-[0.6875rem] font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed">@PrettyJson(ev.Metadata)</pre>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @if (nextCursor is not null)
+    {
+        <div class="flex justify-center mt-4">
+            <button class="@BtnGhost" @onclick="LoadMoreAsync" disabled="@loading">
+                @(loading ? "Loading…" : "Load older")
+            </button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public string Token { get; set; } = string.Empty;
+
+    private List<AuditEventDto>? items;
+    private string? nextCursor;
+    private string? error;
+    private bool loading;
+    private string? expandedId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync(reset: true);
+    }
+
+    private Task RefreshAsync() => LoadAsync(reset: true);
+
+    private async Task LoadMoreAsync()
+    {
+        if (nextCursor is null) return;
+        await LoadAsync(reset: false);
+    }
+
+    private async Task LoadAsync(bool reset)
+    {
+        if (string.IsNullOrEmpty(Token)) return;
+        loading = true;
+        error = null;
+        if (reset) { items = null; nextCursor = null; expandedId = null; }
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var url = $"/v1/pay/me/audit?limit=50";
+            if (!reset && nextCursor is not null)
+                url += $"&cursor={Uri.EscapeDataString(nextCursor)}";
+            var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {Token}");
+            var response = await http.SendAsync(req);
+            if (!response.IsSuccessStatusCode)
+            {
+                error = $"Failed to load audit log ({(int)response.StatusCode}).";
+                return;
+            }
+            var page = await response.Content.ReadFromJsonAsync<AuditPage>();
+            if (page is null) { error = "Empty response."; return; }
+            if (reset || items is null)
+                items = page.Items.ToList();
+            else
+                items.AddRange(page.Items);
+            nextCursor = page.NextCursor;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Toggle(string id)
+    {
+        expandedId = expandedId == id ? null : id;
+    }
+
+    private static string Relative(DateTime utc)
+    {
+        var delta = DateTime.UtcNow - utc;
+        if (delta.TotalSeconds < 60) return "just now";
+        if (delta.TotalMinutes < 60) return $"{(int)delta.TotalMinutes}m ago";
+        if (delta.TotalHours < 24) return $"{(int)delta.TotalHours}h ago";
+        if (delta.TotalDays < 30) return $"{(int)delta.TotalDays}d ago";
+        return utc.ToLocalTime().ToString("MMM d, yyyy");
+    }
+
+    private static string ActionBadgeClass(string action) => action switch
+    {
+        "session.refund" => "bg-indigo-500/10 text-indigo-500",
+        "session.void"   => "bg-slate-500/15 text-slate-500",
+        "store.delete"   => "bg-red-500/10 text-red-500",
+        "store.create"   => "bg-emerald-500/10 text-emerald-500",
+        "store.update"   => "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        "key.create"     => "bg-emerald-500/10 text-emerald-500",
+        "key.revoke"     => "bg-red-500/10 text-red-500",
+        _                => "bg-slate-500/15 text-slate-500",
+    };
+
+    private static string PrettyJson(string raw)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch { return raw; }
+    }
+
+    private record AuditPage(List<AuditEventDto> Items, string? NextCursor);
+
+    private record AuditEventDto(
+        string Id,
+        string Action,
+        string ActorType,
+        string? ActorId,
+        string? ActorIp,
+        string TargetType,
+        string TargetId,
+        string? Summary,
+        string? Metadata,
+        DateTime CreatedAt);
+}

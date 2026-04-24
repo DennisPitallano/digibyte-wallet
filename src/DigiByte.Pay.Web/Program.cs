@@ -1,5 +1,6 @@
 using DigiByte.Pay.Web.Components;
 using Microsoft.AspNetCore.HttpOverrides;
+using ApexCharts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,10 @@ if (port is not null)
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// ApexCharts — client-side chart lib; service registration wires up the
+// JS interop singleton used by <ApexChart>.
+builder.Services.AddApexCharts();
 
 // Pay.Api base URL — the source of truth for sessions + SignalR.
 // Override with DigiPay:ApiUrl in production.
@@ -46,12 +51,20 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
-// HTTPS redirect only outside prod — Railway's edge already terminates TLS.
-// Redirecting again at the app layer causes 307 loops when the forwarded
-// scheme isn't correctly applied.
+// HTTPS redirect only outside prod (Railway's edge terminates TLS — redirecting
+// again at the app layer causes 307 loops when the forwarded scheme isn't
+// applied) AND only when an https:// URL is actually bound. Without this guard,
+// `dotnet run --urls http://…` emits a "Failed to determine the https port"
+// warning on every startup.
 if (!app.Environment.IsProduction())
 {
-    app.UseHttpsRedirection();
+    var urls = (app.Urls.Count > 0 ? app.Urls : (builder.Configuration["urls"] ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        .Concat(new[] { Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "" });
+    var hasHttps = urls.Any(u => u.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
+    if (hasHttps)
+    {
+        app.UseHttpsRedirection();
+    }
 }
 
 app.UseAntiforgery();

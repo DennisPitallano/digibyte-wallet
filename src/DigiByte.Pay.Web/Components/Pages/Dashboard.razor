@@ -190,6 +190,17 @@ else
                     </section>
                 }
             }
+            else if (activeTab == "analytics")
+            {
+                @if (activeStore is null)
+                {
+                    <p class="@Muted">Pick a store.</p>
+                }
+                else
+                {
+                    <AnalyticsPanel Token="@(token ?? string.Empty)" StoreId="@activeStoreId" />
+                }
+            }
             else if (activeTab == "sessions")
             {
                 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
@@ -223,7 +234,24 @@ else
                                     <a href="@($"/merchant/sessions/{s.Id}")"
                                        class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 p-3 border border-slate-200 dark:border-dgb-800 rounded-lg no-underline text-inherit hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
                                         <div class="min-w-0">
-                                            <div class="font-bold text-[0.9375rem] tabular-nums">@s.Amount.ToString("0.########") DGB</div>
+                                            <div class="font-bold text-[0.9375rem] tabular-nums flex items-center gap-1.5 flex-wrap">
+                                                @s.Amount.ToString("0.########") DGB
+                                                @if (s.Source is not null && s.Source.StartsWith("pos", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    @* Countertop-origin marker — kept subtle so it reads as
+                                                       a context chip, not a status. Source is "pos" or
+                                                       "pos:DeviceName"; show the device name in the tooltip. *@
+                                                    var deviceName = s.Source.Length > 4 && s.Source[3] == ':'
+                                                        ? s.Source[4..]
+                                                        : null;
+                                                    var tooltip = string.IsNullOrEmpty(deviceName)
+                                                        ? "Created from POS tablet"
+                                                        : $"Created from POS tablet — {deviceName}";
+                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[0.625rem] font-semibold uppercase tracking-wider bg-dgb-500/10 text-dgb-500" title="@tooltip">
+                                                        <Icon Name="zap" Class="w-2.5 h-2.5" />POS
+                                                    </span>
+                                                }
+                                            </div>
                                             <div class="font-mono text-[0.625rem] text-slate-500 dark:text-slate-400 break-all">@s.Address</div>
                                             @if (!string.IsNullOrEmpty(s.Label)) { <div class="@Muted">@s.Label</div> }
                                         </div>
@@ -547,6 +575,83 @@ else
                     }
                 </section>
             }
+            else if (activeTab == "audit")
+            {
+                <AuditPanel Token="@(token ?? string.Empty)" />
+            }
+            else if (activeTab == "pos")
+            {
+                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
+                    <h1 class="@H1">POS mode</h1>
+                    <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore?.Name</strong></span>
+                </div>
+                <p class="@Muted mb-6 slide-up-delay-1">
+                    Turn any tablet into a countertop checkout for <strong class="text-slate-900 dark:text-white">@activeStore?.Name</strong>.
+                    Pair it once with a short code (below) and the tablet remembers itself — no sign-in needed at opening time.
+                </p>
+
+                <section class="@Card scale-in-delay-1">
+                    <h2 class="@H2">Launch on this device</h2>
+                    <p class="@Muted m-0">Opens the POS kiosk on this browser. Add it to your home screen for a full-screen experience.</p>
+                    <a class="@Btn self-start no-underline text-white" href="/pos" target="_blank" rel="noopener">Open POS page ↗</a>
+                </section>
+
+                <section class="@Card mt-4 scale-in-delay-2">
+                    <h2 class="@H2">Pair a new tablet</h2>
+                    <p class="@Muted m-0">Generate a one-time code. On the tablet, go to <code class="font-mono text-xs">/pos</code> and type the code to pair. Codes expire after 10 minutes and can only be used once.</p>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input @bind="newPosDeviceLabel" placeholder="Device label (e.g. Front counter)"
+                               class="@Input flex-1" maxlength="60" />
+                        <button class="@Btn sm:shrink-0" @onclick="CreatePosPairingAsync" disabled="@posPairingBusy">
+                            @(posPairingBusy ? "Generating…" : "Generate code")
+                        </button>
+                    </div>
+                    @if (posPairingError != null) { <p class="text-xs text-red-500 m-0">@posPairingError</p> }
+                    @if (posPairing != null)
+                    {
+                        <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg p-4 flex flex-col items-center gap-2">
+                            <div class="@Eyebrow text-emerald-700 dark:text-emerald-300">Pairing code</div>
+                            <div class="font-mono text-3xl sm:text-4xl tracking-[0.4em] font-bold text-emerald-700 dark:text-emerald-300">@posPairing.Code</div>
+                            <div class="@Muted">Expires @posPairing.ExpiresAt.ToLocalTime().ToString("HH:mm") · @posPairing.DeviceLabel</div>
+                        </div>
+                    }
+                </section>
+
+                <section class="@Card mt-4 scale-in-delay-3">
+                    <h2 class="@H2">Paired devices</h2>
+                    @if (posDevices is null)
+                    {
+                        <p class="@Muted m-0">Loading…</p>
+                    }
+                    else if (posDevices.Count == 0)
+                    {
+                        <p class="@Muted m-0">No tablets paired yet. Generate a code above to get started.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-none p-0 m-0 flex flex-col gap-2">
+                            @foreach (var d in posDevices)
+                            {
+                                <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border border-slate-200 dark:border-dgb-800 rounded-lg">
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-sm text-slate-900 dark:text-white">@(string.IsNullOrEmpty(d.Label) ? "(no label)" : d.Label)</div>
+                                        <div class="font-mono text-xs text-slate-500 dark:text-slate-400 my-0.5 break-all">@d.Prefix…</div>
+                                        <div class="@Muted">
+                                            Paired @d.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")
+                                            @(d.LastUsedAt is null ? " · never used" : $" · last seen {d.LastUsedAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}")
+                                        </div>
+                                    </div>
+                                    <button class="@BtnGhost text-xs py-1.5 px-3 text-red-500 dark:text-red-400 border-red-200 dark:border-red-800/40 shrink-0"
+                                            @onclick="() => RevokeApiKeyAsync(d.Id)">
+                                        Revoke
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    <p class="@Muted text-[0.6875rem] m-0 mt-1">Revoking here is the same as revoking an API key. The tablet will prompt to re-pair on the next sale.</p>
+                </section>
+            }
             else if (activeTab == "settings")
             {
                 <div class="flex items-baseline justify-between mb-1 slide-up">
@@ -625,11 +730,14 @@ else
     private readonly TabDef[] tabs = new[]
     {
         new TabDef("overview",  "Overview",        "dashboard"),
+        new TabDef("analytics", "Analytics",       "chart"),
         new TabDef("sessions",  "Sessions",        "list"),
         new TabDef("donation",  "Donation button", "gift"),
         new TabDef("webhook",   "Webhook",         "bell"),
         new TabDef("stores",    "Stores",          "store"),
         new TabDef("apikeys",   "API keys",        "key"),
+        new TabDef("audit",     "Audit log",       "history"),
+        new TabDef("pos",       "POS mode",        "zap"),
         new TabDef("settings",  "Settings",        "settings"),
     };
     private string activeTab = "overview";
@@ -639,6 +747,9 @@ else
     {
         activeTab = key;
         sidebarOpen = false;
+        // POS tab: lazy-load the paired-device list on first entry and
+        // whenever we come back, so freshly-revoked devices fall off.
+        if (key == "pos") _ = LoadPosDevicesAsync();
     }
 
     private string? token;
@@ -1252,6 +1363,54 @@ else
         Nav.NavigateTo("/");
     }
 
+    // POS pairing state — one-shot code generation + a list of POS-labelled
+    // keys so the merchant can see and revoke paired tablets.
+    private string newPosDeviceLabel = "";
+    private bool posPairingBusy;
+    private string? posPairingError;
+    private PosPairingDto? posPairing;
+    private List<PosDeviceDto>? posDevices;
+
+    private async Task CreatePosPairingAsync()
+    {
+        if (activeStore is null) return;
+        posPairingBusy = true;
+        posPairingError = null;
+        posPairing = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var label = string.IsNullOrWhiteSpace(newPosDeviceLabel) ? null : newPosDeviceLabel.Trim();
+            var body = JsonContent.Create(new { storeId = activeStoreId, deviceLabel = label });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/pos/pairings", body));
+            if (!response.IsSuccessStatusCode)
+            {
+                posPairingError = $"Failed to create pairing ({(int)response.StatusCode}).";
+                return;
+            }
+            posPairing = await response.Content.ReadFromJsonAsync<PosPairingDto>();
+            newPosDeviceLabel = "";
+            await LoadPosDevicesAsync();
+        }
+        catch (Exception ex) { posPairingError = ex.Message; }
+        finally { posPairingBusy = false; }
+    }
+
+    private async Task LoadPosDevicesAsync()
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/pos/devices"));
+            if (response.IsSuccessStatusCode)
+                posDevices = await response.Content.ReadFromJsonAsync<List<PosDeviceDto>>();
+        }
+        catch { posDevices = new(); }
+    }
+
+    private record PosPairingDto(string Code, DateTime ExpiresAt, string StoreId, string StoreName, string DeviceLabel);
+    private record PosDeviceDto(string Id, string? Label, string Prefix, DateTime CreatedAt, DateTime? LastUsedAt);
+
     private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, DateTime CreatedAt, List<StoreDto>? Stores);
 
     private record StoreDto(string Id, string MerchantId, string Name, string Network,
@@ -1266,7 +1425,7 @@ else
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         DateTime? SeenAt, DateTime? PaidAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
-        string Uri, string CheckoutUrl);
+        string Uri, string CheckoutUrl, string? Source = null);
 
     private record CreatedSession(string Id, string? StoreId, string Address, decimal Amount, string Status,
         string Uri, string CheckoutUrl);

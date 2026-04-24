@@ -151,6 +151,42 @@ public static class AuthEndpoints
         return group;
     }
 
+    /// <summary>
+    /// Development-only shortcut: trade a valid API key (dgp_…) for a browser
+    /// session token (dps_…) without going through Digi-ID. Lets us drive the
+    /// dashboard from Playwright / browser tests on machines where no wallet
+    /// is paired. Only mapped when <c>IsDevelopment()</c>, and only accepts
+    /// API keys — it never invents a merchant.
+    /// </summary>
+    public static RouteGroupBuilder MapDevOnlyAuthEndpoints(this RouteGroupBuilder group)
+    {
+        group.MapPost("/dev-signin", async (HttpRequest http, DigiPayDbContext db) =>
+        {
+            var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
+            if (merchant is null) return Results.Unauthorized();
+
+            var (sPrefix, sSecret, sHash) = MerchantAuthenticator.GenerateSessionToken();
+            db.MerchantSessions.Add(new MerchantSession
+            {
+                Id = $"sess_{RandomId(16)}",
+                MerchantId = merchant.Id,
+                TokenPrefix = sPrefix,
+                TokenHash = sHash,
+                ExpiresAt = DateTime.UtcNow.Add(MerchantAuthenticator.SessionLifetime),
+            });
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                token = $"{sPrefix}_{sSecret}",
+                merchantId = merchant.Id,
+                displayName = merchant.DisplayName,
+            });
+        });
+
+        return group;
+    }
+
     private static string RandomId(int lengthChars)
     {
         const string alphabet = "abcdefghijkmnpqrstuvwxyz23456789";

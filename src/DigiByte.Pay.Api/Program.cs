@@ -108,24 +108,33 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();
 
-// Rate limiter — keeps the unauthenticated sandbox endpoints from becoming
-// a DB-growth vector. 20 req/min per IP is plenty for someone kicking the
-// tyres on /embed/demo.html; scripted abuse bounces off 429 quickly.
+// Rate limiter — layered policies keyed to the threat model:
+//   sandbox  (20/min  per IP) — unauthenticated demo/test endpoints, prevents
+//                                DB-growth drive-bys from the public embed.
+//   auth     (10/min  per IP) — Digi-ID challenge/verify; slow online guessing.
+//   register ( 5/min  per IP) — self-serve merchant signup; caps account spam.
+//   claim    (20/min  per IP) — POS pair-code claim; 6-char codes expire in 5min
+//                                but we still want to blunt sustained guessing.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("sandbox", httpContext =>
+    static System.Threading.RateLimiting.RateLimitPartition<string> PerIp(
+        HttpContext ctx, int permit, TimeSpan window)
     {
-        var key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon";
+        var key = ctx.Connection.RemoteIpAddress?.ToString() ?? "anon";
         return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             key,
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
-                PermitLimit = 20,
-                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = permit,
+                Window = window,
                 QueueLimit = 0,
             });
-    });
+    }
+    options.AddPolicy("sandbox",  ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("auth",     ctx => PerIp(ctx, 10, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("register", ctx => PerIp(ctx,  5, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("claim",    ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
 });
 
 // Database provider:
@@ -176,6 +185,8 @@ builder.Services.AddHttpClient("DigiPayWebhook", client =>
 builder.Services.AddSingleton<CheckoutNotifier>();
 builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddHostedService<InvoiceMonitor>();
 builder.Services.AddHostedService<DemoDataJanitor>();
 builder.Services.AddHostedService<WebhookRetrier>();
@@ -199,23 +210,67 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DigiPayDbContext>();
-    db.Database.EnsureCreated();
 
-    // Schema shim: EnsureCreated only creates tables that don't exist; it
-    // doesn't add new columns to existing tables. The WebhookRetrier needs a
-    // NextRetryAt column on WebhookDeliveries — try to add it, swallow the
-    // "already exists" error so this is a no-op on fresh DBs (column is in the
-    // model) and a one-shot ALTER on databases created before this change.
-    // When we move to EF migrations, this can go away.
-    try
+    // Schema strategy:
+    //   Postgres (prod) → EF migrations. On first run against an existing DB
+    //     that was created via EnsureCreated (before migrations were added),
+    //     we baseline by inserting the InitialCreate row into the migrations
+    //     history so Migrate() skips tables that already exist.
+    //   SQLite (dev fallback) → EnsureCreated. Migrations are Npgsql-scoped;
+    //     SQLite devs just get the current model every run.
+    if (db.Database.IsNpgsql())
     {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE \"WebhookDeliveries\" ADD COLUMN \"NextRetryAt\" TIMESTAMP NULL");
+        // Baseline: if the Sessions table exists but __EFMigrationsHistory is
+        // empty (or missing), this DB came from EnsureCreated. Stamp the
+        // initial migration as applied so Migrate() treats it as a no-op.
+        try
+        {
+            var sessionsExists = (await db.Database
+                .SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'Sessions') AS \"Value\"")
+                .ToListAsync()).FirstOrDefault();
+            if (sessionsExists)
+            {
+                var applied = await db.Database.GetAppliedMigrationsAsync();
+                if (!applied.Any())
+                {
+                    var initial = (await db.Database.GetPendingMigrationsAsync()).FirstOrDefault();
+                    if (initial is not null)
+                    {
+                        await db.Database.ExecuteSqlRawAsync(
+                            "CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (\"MigrationId\" VARCHAR(150) PRIMARY KEY, \"ProductVersion\" VARCHAR(32) NOT NULL)");
+                        await db.Database.ExecuteSqlRawAsync(
+                            "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1}) ON CONFLICT DO NOTHING",
+                            initial, "10.0.5");
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Baseline is best-effort; if it fails Migrate() will surface a
+            // clear error on the next line.
+        }
+        await db.Database.MigrateAsync();
     }
-    catch
+    else
     {
-        // Column already exists, table doesn't exist yet (fresh DB), or
-        // provider rejects the syntax — all safe to ignore.
+        db.Database.EnsureCreated();
+    }
+
+    // Legacy schema shims — safety net for dev DBs that were created before
+    // the corresponding column was added AND haven't been dropped. On a DB
+    // created from migrations these are all no-ops. Remove once no dev has
+    // a pre-migration DB lying around.
+    foreach (var col in new[]
+    {
+        "ALTER TABLE \"WebhookDeliveries\" ADD COLUMN \"NextRetryAt\" TIMESTAMP NULL",
+        "ALTER TABLE \"Sessions\" ADD COLUMN \"Source\" VARCHAR(32) NULL",
+        "ALTER TABLE \"Sessions\" ADD COLUMN \"RefundTxid\" VARCHAR(128) NULL",
+        "ALTER TABLE \"Sessions\" ADD COLUMN \"RefundedAt\" TIMESTAMP NULL",
+        "ALTER TABLE \"Sessions\" ADD COLUMN \"RefundNote\" VARCHAR(512) NULL",
+    })
+    {
+        try { await db.Database.ExecuteSqlRawAsync(col); } catch { }
     }
 
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.
@@ -297,10 +352,22 @@ app.MapGet("/api/health", () => Results.Ok(new
 // lumps everything under the assembly name — naming each group puts the
 // integrator-facing surface into meaningful sections.
 app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration).WithTags("Sessions");
-app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration).ExcludeFromDescription();
+app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration).ExcludeFromDescription().RequireRateLimiting("auth");
 app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints().ExcludeFromDescription();
 app.MapGroup("/v1/pay/stores").MapStoresEndpoints().WithTags("Stores & webhooks");
 app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints().ExcludeFromDescription();
+// POS device pairing. /claim is unauthed (it's how a new tablet bootstraps)
+// but rate-limited to blunt brute-force on the 6-char pairing code; the
+// other routes require a merchant-authed token and are management-only.
+app.MapGroup("/v1/pay/pos").MapPosEndpoints().ExcludeFromDescription().RequireRateLimiting("claim");
+// Dev-only: lets the POS kiosk exercise its confirmed / expired / underpaid
+// result screens without a real chain transaction. Merchant-authed so it
+// can only flip the caller's own sessions. Never registered in Production.
+if (app.Environment.IsDevelopment())
+{
+    app.MapGroup("/v1/pay/pos").MapPosDevOnlyEndpoints().ExcludeFromDescription();
+    app.MapGroup("/v1/pay/auth").MapDevOnlyAuthEndpoints().ExcludeFromDescription();
+}
 app.MapGroup("/v1/pay/public").MapPublicEndpoints().WithTags("Public");
 // Sandbox/demo endpoints. These are unauthenticated on purpose (they back
 // the /embed/demo.html harness so visitors can see the checkout flow end-to-end).
