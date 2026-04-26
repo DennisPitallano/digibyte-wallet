@@ -25,16 +25,17 @@
     <meta name="twitter:description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
     <meta name="twitter:image" content="https://dgbwallet.app/dgbwallet-logo-512.png" />
 
-    <!-- Security headers — script-src and style-src no longer carry
-         'unsafe-inline'. Every executable script and stylesheet is loaded
-         from this origin (or a documented third party); see
-         docs/walletscrutiny-self-eval.md for the rationale.
-         The single 'sha256-…' covers the inline <script type="application/ld+json">
-         block below — Schema.org structured data, no executable code. Recompute
-         the hash if that block ever changes. -->
+    <!-- Security headers. style-src is strict; element-level style="…"
+         allowed via style-src-attr. script-src keeps 'unsafe-inline'
+         because Blazor's publish pipeline injects a populated
+         <script type="importmap"> whose hash changes every build with
+         the asset fingerprints — pinning a hash would break the wallet
+         on every deploy. We could compute and inject the hash at
+         publish time as a follow-up; tracked in
+         docs/walletscrutiny-self-eval.md §2.3. -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
-                   script-src 'self' 'wasm-unsafe-eval' 'sha256-9bavI8EbC3zaLAHJbePVI89bUOgWfFdz4BuYNjszAsY=' https://www.googletagmanager.com;
+                   script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com;
                    style-src 'self';
                    style-src-attr 'unsafe-inline';
                    img-src 'self' data: blob: https://avatars.githubusercontent.com https://www.googletagmanager.com;
