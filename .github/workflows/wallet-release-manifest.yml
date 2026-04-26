@@ -60,9 +60,11 @@ jobs:
       - name: Zip published wallet
         # Bundle the published wwwroot/ so a reviewer can download exactly
         # what got deployed and hash it themselves against the manifest.
+        # github.ref_name is already e.g. "wallet-v0.1.0" — don't re-prefix
+        # or the asset ends up as "wallet-wallet-v0.1.0.zip".
         run: |
           cd publish
-          zip -r "../wallet-${{ github.ref_name }}.zip" wwwroot
+          zip -r "../${{ github.ref_name }}.zip" wwwroot
           cd ..
 
       - name: Upload to release
@@ -70,7 +72,7 @@ jobs:
         with:
           files: |
             release-hashes/${{ github.ref_name }}.json
-            wallet-${{ github.ref_name }}.zip
+            ${{ github.ref_name }}.zip
           # Don't fail the job if the release already exists (idempotent
           # retries) — the action will update it.
           fail_on_unmatched_files: true
