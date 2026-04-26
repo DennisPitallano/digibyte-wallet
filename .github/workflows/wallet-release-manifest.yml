@@ -1,0 +1,77 @@
+name: Wallet release-hash manifest
+
+# Triggered by pushing a tag like `wallet-v0.1.0`. Publishes the Blazor
+# WebAssembly bundle, hashes every file in the published `wwwroot/`,
+# and attaches both the manifest and a zipped copy of the bundle to the
+# GitHub Release.
+#
+# This is the verifiable-build evidence WalletScrutiny reviewers (and
+# anyone else) can use to confirm the JS / WASM their browser is loading
+# from dgbwallet.app matches what this commit produces. See
+# docs/walletscrutiny-self-eval.md §3.3 for the rationale.
+on:
+  push:
+    tags:
+      - 'wallet-v*'
+
+jobs:
+  publish-manifest:
+    runs-on: ubuntu-latest
+    permissions:
+      # `contents: write` is required so softprops/action-gh-release can
+      # create / update the GitHub Release. Read-only would be enough to
+      # build but not to attach assets.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # Pinned via global.json — setup-dotnet honours it. The explicit
+          # version below is a fallback in case the global.json file moves
+          # or the action's version-file detection changes.
+          dotnet-version: '10.0.x'
+          global-json-file: global.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Publish wallet (Release)
+        run: |
+          dotnet publish src/DigiByte.Web/DigiByte.Web.csproj \
+            --configuration Release \
+            --output publish \
+            --nologo
+
+      - name: Generate manifest
+        env:
+          # GITHUB_REF_NAME is the tag itself (e.g. "wallet-v0.1.0") with
+          # no refs/tags/ prefix to strip. GITHUB_SHA is the full commit.
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          python tools/generate-release-manifest.py \
+            --asset-root publish/wwwroot \
+            --tag "$TAG" \
+            --commit "$COMMIT" \
+            --output "release-hashes/${TAG}.json"
+
+      - name: Zip published wallet
+        # Bundle the published wwwroot/ so a reviewer can download exactly
+        # what got deployed and hash it themselves against the manifest.
+        run: |
+          cd publish
+          zip -r "../wallet-${{ github.ref_name }}.zip" wwwroot
+          cd ..
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-hashes/${{ github.ref_name }}.json
+            wallet-${{ github.ref_name }}.zip
+          # Don't fail the job if the release already exists (idempotent
+          # retries) — the action will update it.
+          fail_on_unmatched_files: true
+          generate_release_notes: true

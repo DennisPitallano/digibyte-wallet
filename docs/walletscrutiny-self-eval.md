@@ -28,12 +28,14 @@ obvious gaps so the listing lands as cleanly as possible the first time.
     (`rollForward: latestPatch`).
   - ✅ Tailwind + Inter are pinned to exact versions and a
     `package-lock.json` is committed.
-- **Remaining open item, accepted as a known limitation:** the third-party
-  `gtag.js` is still loaded without an SRI hash because Google rotates that
-  file unannounced; pinning a hash would silently break analytics on every
-  rotation. To land *fully green* (no third-party assets without integrity
-  hashes), drop GA from the wallet origin or proxy gtag.js through a
-  versioned same-origin endpoint.
+- **One accepted limitation:** the third-party `gtag.js` is still loaded
+  without an SRI hash. Google rotates that file unannounced; pinning a hash
+  would silently break analytics on every rotation. We've chosen to keep it
+  as-is — the GA bootstrap is in [`js/analytics.js`](../src/DigiByte.Web/wwwroot/js/analytics.js)
+  (no key material ever flows through it) and the script is `async crossorigin`
+  loaded outside the signing path. Reviewers who want a fully-green outcome
+  can either ask us to drop GA or proxy a versioned copy through the wallet
+  origin — both are documented as Option 1 / Option 2 in §2.2.
 
 ---
 
@@ -217,27 +219,30 @@ documented .NET SDK version, and produce a byte-identical assembly.
 Also helpful: a `global.json` pinning the .NET SDK version explicitly so
 "the documented SDK version" is unambiguous.
 
-### 3.3 Asset-hash manifest
+### 3.3 Asset-hash manifest ✓
 
-Once builds are deterministic, publish a per-release manifest under
-`/release-hashes/<tag>.json` (or a GitHub Release asset) listing every file
-shipped with its SHA-256:
+Per-tag manifests are generated automatically by the
+[`wallet-release-manifest.yml`](../.github/workflows/wallet-release-manifest.yml)
+GitHub Action whenever a tag matching `wallet-v*` is pushed. The action:
 
-```json
-{
-  "tag": "v1.2.3",
-  "commit": "abc123…",
-  "assets": [
-    { "path": "/_framework/dotnet.wasm", "sha256": "…" },
-    { "path": "/_framework/blazor.boot.json", "sha256": "…" },
-    { "path": "/js/crypto.js", "sha256": "…" }
-  ]
-}
-```
+1. Publishes the Blazor WebAssembly bundle in `Release` configuration with
+   the .NET SDK pinned by [`global.json`](../global.json).
+2. Runs [`tools/generate-release-manifest.py`](../tools/generate-release-manifest.py)
+   over `publish/wwwroot/` to produce a sorted JSON manifest of every file
+   with its size and SHA-256.
+3. Zips the published bundle.
+4. Attaches both files to the GitHub Release as `wallet-vX.Y.Z.json` and
+   `wallet-vX.Y.Z.zip`.
 
-Reviewers (and savvy users) can then verify what they're running. Blazor's
-own `blazor.boot.json` already lists DLL hashes — extend the manifest to
-cover the wrapping HTML, JS, and CSS.
+A reviewer can then either:
+- Hash what `dgbwallet.app` is actually serving and compare against the
+  manifest, or
+- Build from the tag locally with the pinned SDK and diff their manifest
+  against the published one (only the `generated_at` timestamp should
+  differ).
+
+[`release-hashes/README.md`](../release-hashes/README.md) documents both
+verification recipes with copy-paste commands.
 
 ---
 
@@ -248,8 +253,8 @@ cover the wrapping HTML, JS, and CSS.
 | Self-custodial — keys never leave device | ✅ | Confirmed via code paths above |
 | Source code public | ✅ | <https://github.com/DennisPitallano/digibyte-wallet> |
 | Build instructions in README | ✅ | (verify before submission) |
-| Released binaries match a tagged commit | ⚠ | Tagging is consistent; per-tag hash manifest still TODO |
-| Reproducible build | ✅ | `Deterministic` + `ContinuousIntegrationBuild` set in `Directory.Build.props`; SDK pinned in `global.json` |
+| Released binaries match a tagged commit | ✅ | `wallet-v*` tag triggers `.github/workflows/wallet-release-manifest.yml`; per-tag JSON manifest + zipped bundle attached to GitHub Release |
+| Reproducible build | ✅ | `Deterministic` + `ContinuousIntegrationBuild` set in `Directory.Build.props`; SDK pinned in `global.json`; verification recipe in `release-hashes/README.md` |
 | No third-party script without SRI | ⚠ | Self-hosted scripts ✓; `gtag.js` accepted with documented operational rationale (§2.2) |
 | Strict CSP | ✅ | `'unsafe-inline'` removed from `script-src` and `style-src`; ld+json covered by `sha256-…` hash; element `style="…"` scoped to `style-src-attr` |
 | PWA / offline capable | ✅ | manifest + service worker |
@@ -275,19 +280,26 @@ What's already done:
 4. ✅ **`package-lock.json` committed** under `src/DigiByte.Web/`.
    Tailwind + Inter pinned to exact versions.
 
-What's still left, in priority order:
+5. ✅ **Per-tag release-hash manifest** — `.github/workflows/wallet-release-manifest.yml`
+   generates a JSON manifest + zipped bundle on every `wallet-v*` tag and
+   attaches them to the GitHub Release. Verification recipes are in
+   [`release-hashes/README.md`](../release-hashes/README.md).
+6. ✅ **`SECURITY.md` and `SELF_CUSTODY.md`** at the repo root — short,
+   public-facing summaries that link back here for reviewers who want the
+   full audit.
 
-5. **Drop or proxy Google Analytics.** `gtag.js` is still loaded from
-   `googletagmanager.com` without an SRI hash (§2.2 explains why a hash
-   isn't viable on the canonical URL). Pick one of:
-   - Drop GA from the wallet origin entirely (best for green badge).
-   - Proxy `gtag.js` via a versioned `/g/<release>.js` path on the wallet's
-     own origin and SRI-hash that.
-6. **Publish a release-hash manifest** (`/release-hashes/<tag>.json`) on
-   every tagged release, ideally as a CI step that runs after the build.
-7. **Add `SECURITY.md` and `SELF_CUSTODY.md`** at the repo root summarising
-   the custody architecture (this document is the long form — those should
-   be the short, public-facing version).
+**Accepted limitation:**
+
+7. **Google Analytics** is loaded from `googletagmanager.com` without an
+   SRI hash. Pinning a hash isn't viable on the canonical URL because
+   Google rotates the file unannounced (silent break on every rotation).
+   The bootstrap is in [`js/analytics.js`](../src/DigiByte.Web/wwwroot/js/analytics.js)
+   — no key material flows through it and the script loads outside the
+   signing path. We've documented this as an accepted trade-off rather
+   than removing analytics entirely. If a reviewer wants this closed,
+   the two paths are: drop GA from the wallet origin, or proxy a
+   versioned copy through the wallet's own origin (e.g. `/g/<release>.js`)
+   with an SRI hash.
 
 ## 6. Submission
 
