@@ -26,18 +26,15 @@
     <meta name="twitter:image" content="https://dgbwallet.app/dgbwallet-logo-512.png" />
 
     <!-- Security headers. style-src is strict; element-level style="…"
-         allowed via style-src-attr. script-src is strict; the lone
-         inline <script type="application/ld+json"> below is covered
-         by the sha256 hash listed here.
-
-         At PUBLISH time, tools/inject-csp-hashes.py rewrites this CSP
-         to add a second hash for the <script type="importmap"> that
-         Blazor's publish pipeline injects with the fingerprinted asset
-         names. Dev runs (dotnet run) don't inject the importmap, so
-         the source CSP works as-is locally without the post-processor. -->
+         allowed via style-src-attr. script-src keeps 'unsafe-inline'
+         until the publish-time CSP-hash injector runs as part of every
+         dotnet publish (not just CI) — Blazor's publish pipeline
+         injects a populated <script type="importmap"> whose hash
+         changes every build, so a static hash can't cover it. Tracked
+         as a follow-up in docs/walletscrutiny-self-eval.md §2.3. -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
-                   script-src 'self' 'wasm-unsafe-eval' 'sha256-9bavI8EbC3zaLAHJbePVI89bUOgWfFdz4BuYNjszAsY=' https://www.googletagmanager.com;
+                   script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com;
                    style-src 'self';
                    style-src-attr 'unsafe-inline';
                    img-src 'self' data: blob: https://avatars.githubusercontent.com https://www.googletagmanager.com;
