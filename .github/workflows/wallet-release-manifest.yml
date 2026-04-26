@@ -37,15 +37,30 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Derive version from tag
+      - name: Derive version from tag + verify csproj matches
         # github.ref_name is "wallet-v0.1.1"; strip the "wallet-v" prefix
-        # so the assembly gets InformationalVersion=0.1.1, which is what
-        # AppVersion.cs surfaces in the wallet's UI footer.
+        # so the assembly gets InformationalVersion=0.1.1 (what
+        # AppVersion.cs surfaces in the UI footer).
+        #
+        # Then guard against drift: production redeploys are NOT this
+        # workflow — they're a separate `dotnet publish` from main
+        # without -p:Version=…, so they fall back to the csproj's
+        # literal <Version>. If a maintainer cuts a tag without
+        # bumping csproj, prod ends up showing the wrong version. Fail
+        # loudly here so they don't find out from a screenshot.
         id: version
         run: |
           VERSION="${GITHUB_REF_NAME#wallet-v}"
+          CSPROJ=$(grep -oP '(?<=<Version>)[^<]+' src/DigiByte.Web/DigiByte.Web.csproj | head -1)
+          # CSPROJ may include a pre-release suffix (e.g. "0.1.3-beta.1")
+          # while the tag is just "0.1.3" — match the leading SemVer.
+          CSPROJ_BASE="${CSPROJ%%-*}"
+          if [ "$VERSION" != "$CSPROJ_BASE" ]; then
+            echo "::error::Tag version ($VERSION) doesn't match csproj <Version> ($CSPROJ). Bump src/DigiByte.Web/DigiByte.Web.csproj before tagging."
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: $VERSION (from tag $GITHUB_REF_NAME)"
+          echo "Resolved version: $VERSION (tag $GITHUB_REF_NAME, csproj $CSPROJ)"
 
       - name: Publish wallet (Release)
         run: |
