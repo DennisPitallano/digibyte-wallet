@@ -1,6 +1,11 @@
 # WalletScrutiny submission — DigiByte Wallet
 
-> WalletScrutiny's GitHub presence is a **read-only mirror** with issues
+> **Status: filed** — tracking at
+> <https://gitlab.com/walletscrutiny/walletScrutinyCom/-/work_items/907>.
+> The body below mirrors what was submitted; update + re-link if the
+> review prompts a follow-up version.
+>
+> WalletScrutiny's GitHub presence is a read-only mirror with issues
 > disabled. The canonical project lives on GitLab; submission channels
 > per their [About page](https://walletscrutiny.com/about/) are:
 >
@@ -8,9 +13,6 @@
 >   — open a new issue with "Wallet review request" in the title.
 > - **Email:** info@WalletScrutiny.com
 > - **Discord:** invite link on their About page.
->
-> Copy from the **`---`** marker below into the issue body / email body.
-> Update the version + commit fields with the latest `wallet-v*` tag.
 
 ---
 
