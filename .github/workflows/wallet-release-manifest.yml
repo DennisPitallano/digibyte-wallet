@@ -44,6 +44,20 @@ jobs:
             --output publish \
             --nologo
 
+      - name: Inject CSP hashes for inline scripts
+        # Blazor's publish injects a populated <script type="importmap">
+        # whose contents move on every build (fingerprinted asset names).
+        # The injector reads the published index.html, hashes every
+        # inline <script>, and rewrites the CSP <meta> to enumerate
+        # those hashes — letting us drop 'unsafe-inline' from script-src
+        # without breaking the importmap. Idempotent, runs in <1s.
+        # Must run BEFORE the manifest step so the hashed index.html is
+        # what reviewers see at the production URL and what the manifest
+        # vouches for.
+        run: |
+          python tools/inject-csp-hashes.py \
+            --index-html publish/wwwroot/index.html
+
       - name: Generate manifest
         env:
           # GITHUB_REF_NAME is the tag itself (e.g. "wallet-v0.1.0") with

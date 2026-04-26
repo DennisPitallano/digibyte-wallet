@@ -17,9 +17,12 @@ obvious gaps so the listing lands as cleanly as possible the first time.
   *entirely in the browser*. The Blazor app runs on **WebAssembly**, not Blazor
   Server, so no SignalR circuit ever sees a private key, mnemonic, or PIN.
 - **The four gaps from the original audit have all been closed:**
-  - ✅ CSP now drops `'unsafe-inline'` from `script-src` and `style-src`. The
-    one inline `<script type="application/ld+json">` is covered by a
-    `'sha256-…'` hash; element-level `style="…"` attributes are scoped to
+  - ✅ CSP drops `'unsafe-inline'` from both `script-src` and `style-src`.
+    Inline scripts (Blazor's publish-time `<script type="importmap">` and
+    the static `application/ld+json` Schema.org block) are each covered
+    by a `'sha256-…'` hash; the importmap hash is injected at publish
+    time by [`tools/inject-csp-hashes.py`](../tools/inject-csp-hashes.py).
+    Element-level `style="…"` attributes are scoped to
     `style-src-attr 'unsafe-inline'`.
   - ✅ Repo-wide `Directory.Build.props` sets `<Deterministic>true</…>` and
     `<ContinuousIntegrationBuild>true</…>`, plus `EmbedUntrackedSources`
@@ -137,38 +140,31 @@ that reads IndexedDB.
    tag, accepting the maintenance cost of bumping the hash on every Google
    gtag release.
 
-### 2.3 CSP — **partial ⚠**
+### 2.3 CSP — **strict ✅**
 
-`style-src` is strict (`'self'` only); element-level `style="…"` attributes
-are allowed via `style-src-attr 'unsafe-inline'`. `script-src` does *not*
-yet drop `'unsafe-inline'` because Blazor WebAssembly's publish pipeline
-injects a populated `<script type="importmap">` whose contents — and
-therefore SHA-256 — change on every build with the static-asset
-fingerprints.
+Both `script-src` and `style-src` are strict (no `'unsafe-inline'`).
+Element-level `style="…"` attributes are allowed via
+`style-src-attr 'unsafe-inline'`, which is the granular CSP3 control.
 
-We tried locking it with a static hash; production then failed with:
+Blazor WebAssembly's publish pipeline injects a `<script type="importmap">`
+whose contents — and therefore SHA-256 — change on every build with the
+static-asset fingerprints. We can't hardcode that hash in the source. The
+fix is a publish-time post-processor:
 
-```
-Executing inline script violates the following Content Security Policy
-directive 'script-src 'self' 'wasm-unsafe-eval' 'sha256-…' …'.
-```
+[`tools/inject-csp-hashes.py`](../tools/inject-csp-hashes.py) reads the
+published `index.html`, hashes every inline `<script>` block (importmap +
+the static `application/ld+json` Schema.org block), and rewrites the CSP
+`<meta>` to enumerate those hashes — letting us drop `'unsafe-inline'`
+from `script-src` without breaking the importmap. Idempotent, runs in
+under a second, ~150 lines of stdlib-only Python.
 
-…on every redeploy because the importmap's bytes had moved.
+It's wired into the [`wallet-release-manifest.yml`](../.github/workflows/wallet-release-manifest.yml)
+GitHub Action between `dotnet publish` and the manifest generator, so
+the bytes the manifest vouches for are exactly the bytes the browser
+loads.
 
-**Path to close this in a follow-up:** add a publish-time post-processor
-to the GitHub Action that:
-
-1. Reads the inline `<script type="importmap">` block from the published
-   `index.html`.
-2. Computes its SHA-256.
-3. Rewrites the CSP `<meta>` tag to include both that hash and the
-   existing ld+json hash.
-
-Until that's wired, `'unsafe-inline'` stays on `script-src`. The other
-inline-script paths (GA bootstrap, service-worker registration, splash
-styles) are already external — `'unsafe-inline'` here only buys a
-shipped-by-the-build importmap, which can't carry user-injected
-content.
+Source `index.html` keeps the static `'sha256-…'` for the ld+json block,
+so dev runs (`dotnet run`, no importmap) work without the post-processor.
 
 ### 2.4 PWA + offline capability ✓
 
@@ -270,7 +266,7 @@ verification recipes with copy-paste commands.
 | Released binaries match a tagged commit | ✅ | `wallet-v*` tag triggers `.github/workflows/wallet-release-manifest.yml`; per-tag JSON manifest + zipped bundle attached to GitHub Release |
 | Reproducible build | ✅ | `Deterministic` + `ContinuousIntegrationBuild` set in `Directory.Build.props`; SDK pinned in `global.json`; verification recipe in `release-hashes/README.md` |
 | No third-party script without SRI | ⚠ | Self-hosted scripts ✓; `gtag.js` accepted with documented operational rationale (§2.2) |
-| Strict CSP | ⚠ | `style-src` strict; `script-src` still has `'unsafe-inline'` because Blazor WASM's publish pipeline injects a fingerprinted `<script type="importmap">`. Closing this needs a publish-time CSP-hash injector — see §2.3. |
+| Strict CSP | ✅ | Both `script-src` and `style-src` strict; element `style="…"` scoped to `style-src-attr`. Inline scripts (importmap + ld+json) covered by per-block sha256 hashes injected at publish time by `tools/inject-csp-hashes.py`. |
 | PWA / offline capable | ✅ | manifest + service worker |
 | License clear | ✅ | (verify LICENSE file before submission) |
 | Lockfile committed | ✅ | `src/DigiByte.Web/package-lock.json` committed; Tailwind + Inter pinned to exact versions |
@@ -286,14 +282,13 @@ What's already done:
    `Deterministic`, `ContinuousIntegrationBuild`, `EmbedUntrackedSources`,
    `PublishRepositoryUrl`.
 2. ✅ **`global.json` pins the .NET SDK** to `10.0.201`.
-3. ⚠ **Tightened CSP — partial.** Inline GA bootstrap, service-worker
-   registration, and splash styles all moved out to external files.
-   `style-src` is strict (`'self'` only); element `style="…"`
-   attributes scoped via `style-src-attr`. `script-src` still has
-   `'unsafe-inline'` because Blazor WASM's publish pipeline injects a
-   fingerprinted `<script type="importmap">` whose hash moves on every
-   build; tracked in §2.3 with the proposed publish-time CSP-hash
-   injector.
+3. ✅ **Tightened CSP.** Inline GA bootstrap, service-worker
+   registration, and splash styles moved out to external files. Both
+   `script-src` and `style-src` strict (no `'unsafe-inline'`); element
+   `style="…"` attributes scoped via `style-src-attr`. Blazor's
+   publish-time importmap is covered by a per-build sha256 hash
+   injected by `tools/inject-csp-hashes.py` between `dotnet publish`
+   and manifest generation in the CI workflow.
 4. ✅ **`package-lock.json` committed** under `src/DigiByte.Web/`.
    Tailwind + Inter pinned to exact versions.
 
