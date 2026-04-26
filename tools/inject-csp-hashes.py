@@ -89,24 +89,24 @@ def collect_inline_hashes(html: str) -> list[str]:
 
 
 def patch_script_src(directive: str, hashes: list[str]) -> str:
-    """Rewrite the script-src directive: drop 'unsafe-inline', add the new
-    hashes if they aren't already there. Preserves token order otherwise so
-    diffs stay clean."""
+    """Rewrite the script-src directive: drop 'unsafe-inline' and any
+    pre-existing sha256 tokens, then re-add the freshly-computed ones.
+    The injector is the authoritative source of inline-script hashes
+    against the *published* bytes — source-CSP hashes (which are
+    correct for the dev-mode file) would otherwise stick around as
+    dead entries when the published copy has different bytes (e.g.
+    line-ending normalisation)."""
     tokens = directive.split()
-    # Remove the directive name and 'unsafe-inline', preserving everything else.
     if tokens and tokens[0].lower() == "script-src":
         head, tail = tokens[0], tokens[1:]
     else:
         head, tail = "script-src", tokens
-    tail = [t for t in tail if t != "'unsafe-inline'"]
-    # Drop any pre-existing hashes that aren't in the new set, and add any
-    # new ones that aren't present yet. (Pre-existing other-source tokens
-    # like 'self', 'wasm-unsafe-eval', and origins are kept untouched.)
-    existing_hashes = {t for t in tail if t.startswith("'sha256-")}
-    new_hashes = {f"'{h}'" for h in hashes}
-    tail = [t for t in tail if not t.startswith("'sha256-") or t in new_hashes]
-    for h in new_hashes - existing_hashes:
-        tail.append(h)
+    tail = [
+        t for t in tail
+        if t != "'unsafe-inline'" and not t.startswith("'sha256-")
+    ]
+    for h in hashes:
+        tail.append(f"'{h}'")
     return " ".join([head, *tail])
 
 

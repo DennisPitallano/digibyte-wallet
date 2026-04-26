@@ -40,4 +40,9 @@
     <Exec Command="npx tailwindcss -i ./wwwroot/css/tailwind-input.css -o ./wwwroot/css/tailwind.css --minify" />
   </Target>
 
+  <!-- Inject SHA-256 hashes for inline scripts into the published CSP.
+       Runs after Publish so we hash Blazor's fingerprinted importmap
+       (whose contents move per build). See CspHashInject.targets. -->
+  <Import Project="CspHashInject.targets" />
+
 </Project>

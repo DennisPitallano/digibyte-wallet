@@ -1,0 +1,142 @@
+<Project>
+  <!--
+    Publish-time CSP-hash injector for the wallet index.html.
+
+    Why this lives in MSBuild: Blazor's publish pipeline injects a
+    populated <script type="importmap"> with fingerprinted asset paths,
+    whose SHA-256 changes on every build. We can't hardcode that hash
+    in source. The injector runs after Publish, hashes every inline
+    <script> in the published index.html, and rewrites the CSP <meta>
+    to enumerate those hashes — letting us drop 'unsafe-inline' from
+    script-src no matter who's running dotnet publish (CI, Railway,
+    a developer's laptop).
+
+    Implementation: a Roslyn inline task. No external dependencies, no
+    extra projects to build, no Python required. Same logic as the
+    out-of-band tools/inject-csp-hashes.py (which is kept around for
+    one-off rehearsals against a publish output you didn't produce).
+  -->
+
+  <UsingTask
+      TaskName="InjectCspHashes"
+      TaskFactory="RoslynCodeTaskFactory"
+      AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <IndexHtmlPath ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          if (string.IsNullOrEmpty(IndexHtmlPath))
+          {
+              Log.LogError("InjectCspHashes: IndexHtmlPath is required.");
+              return false;
+          }
+          if (!File.Exists(IndexHtmlPath))
+          {
+              Log.LogMessage(MessageImportance.Low,
+                  $"InjectCspHashes: {IndexHtmlPath} not found, skipping.");
+              return true;
+          }
+
+          var html = File.ReadAllText(IndexHtmlPath, Encoding.UTF8);
+
+          // Strip HTML comments first — our own comments mention <script>
+          // tags by name, and a naive regex would match them.
+          var noComments = Regex.Replace(html, "<!--.*?-->", "",
+              RegexOptions.Singleline);
+
+          // Find every inline <script> (no src=) and hash its body.
+          var scriptRegex = new Regex(
+              @"<script(?<attrs>(?:\s[^>]*?)?)>(?<body>.*?)</script>",
+              RegexOptions.Singleline);
+          var srcRegex = new Regex(@"\bsrc\s*=", RegexOptions.IgnoreCase);
+
+          var hashes = new List<string>();
+          var seen = new HashSet<string>();
+          // SHA256.HashData is .NET 5+; RoslynCodeTaskFactory targets
+          // netstandard2.0, so use the older Create()/ComputeHash() pattern.
+          using (var sha = SHA256.Create())
+          {
+              foreach (Match m in scriptRegex.Matches(noComments))
+              {
+                  var attrs = m.Groups["attrs"].Value;
+                  if (srcRegex.IsMatch(attrs)) continue;
+                  var body = m.Groups["body"].Value;
+                  var digest = sha.ComputeHash(Encoding.UTF8.GetBytes(body));
+                  var token = "'sha256-" + Convert.ToBase64String(digest) + "'";
+                  if (seen.Add(token)) hashes.Add(token);
+              }
+          }
+
+          // Rewrite the CSP <meta> tag's script-src directive: drop
+          // 'unsafe-inline', add any new hashes that aren't already there.
+          var cspRegex = new Regex(
+              "(<meta\\s+http-equiv=\"Content-Security-Policy\"\\s+content=\")([^\"]+)(\")",
+              RegexOptions.IgnoreCase);
+          var cspMatch = cspRegex.Match(html);
+          if (!cspMatch.Success)
+          {
+              Log.LogError(
+                  $"InjectCspHashes: no CSP <meta> tag in {IndexHtmlPath}.");
+              return false;
+          }
+
+          var directives = cspMatch.Groups[2].Value
+              .Split(';')
+              .Select(d => d.Trim())
+              .Where(d => d.Length > 0)
+              .ToList();
+
+          for (int i = 0; i < directives.Count; i++)
+          {
+              if (!directives[i].StartsWith("script-src ",
+                      StringComparison.OrdinalIgnoreCase))
+                  continue;
+              // Drop 'unsafe-inline' AND any pre-existing sha256 tokens —
+              // the task is the authoritative source of inline-script
+              // hashes against the *published* bytes (which differ from
+              // source because of line-ending normalisation, etc.).
+              // Source-CSP hashes that were correct for the dev-mode
+              // file would otherwise stick around as dead entries.
+              var tokens = directives[i].Split(' ')
+                  .Where(t => t != "'unsafe-inline'"
+                              && !t.StartsWith("'sha256-",
+                                  StringComparison.Ordinal))
+                  .ToList();
+              foreach (var h in hashes)
+                  tokens.Add(h);
+              directives[i] = string.Join(" ", tokens);
+          }
+
+          var rebuilt = string.Join(";\n                   ", directives) + ";";
+          var newHtml =
+              html.Substring(0, cspMatch.Groups[2].Index)
+              + rebuilt
+              + html.Substring(cspMatch.Groups[2].Index
+                  + cspMatch.Groups[2].Length);
+
+          File.WriteAllText(IndexHtmlPath, newHtml, new UTF8Encoding(false));
+          Log.LogMessage(MessageImportance.High,
+              $"InjectCspHashes: patched {IndexHtmlPath} with {hashes.Count} inline-script hash(es).");
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!--
+    Run after Publish so the published index.html exists and contains
+    Blazor's fingerprinted importmap. PublishDir is the absolute path
+    to the publish output set by the SDK during `dotnet publish`.
+  -->
+  <Target Name="DigiPayInjectCspHashes" AfterTargets="Publish">
+    <InjectCspHashes IndexHtmlPath="$(PublishDir)wwwroot/index.html" />
+  </Target>
+</Project>
