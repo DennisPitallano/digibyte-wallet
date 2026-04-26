@@ -19,9 +19,9 @@
 **URL:** https://dgbwallet.app
 **Source:** https://github.com/DennisPitallano/digibyte-wallet
 **License:** MIT (see repo `LICENSE`)
-**Version under review:** wallet-v0.1.1
-**Commit:** 6294628 (`origin/main` tip when the tag was cut)
-**Release page:** https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.1.1
+**Version under review:** wallet-v0.1.4
+**Commit:** 4846f84 (`origin/main` tip when the tag was cut)
+**Release page:** https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.1.4
 **Maintainer:** Dennis Pitallano (https://dennispitallano.github.io)
 
 ## Why this is a self-custodial wallet
