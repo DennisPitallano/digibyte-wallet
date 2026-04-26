@@ -37,12 +37,24 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Derive version from tag
+        # github.ref_name is "wallet-v0.1.1"; strip the "wallet-v" prefix
+        # so the assembly gets InformationalVersion=0.1.1, which is what
+        # AppVersion.cs surfaces in the wallet's UI footer.
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#wallet-v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION (from tag $GITHUB_REF_NAME)"
+
       - name: Publish wallet (Release)
         run: |
           dotnet publish src/DigiByte.Web/DigiByte.Web.csproj \
             --configuration Release \
             --output publish \
-            --nologo
+            --nologo \
+            -p:Version=${{ steps.version.outputs.version }} \
+            -p:InformationalVersion=${{ steps.version.outputs.version }}
 
       - name: Inject CSP hashes for inline scripts
         # Blazor's publish injects a populated <script type="importmap">

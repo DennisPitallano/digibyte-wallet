@@ -1,9 +1,16 @@
 # WalletScrutiny submission — DigiByte Wallet
 
-> Draft of the issue body to file at
-> <https://github.com/walletscrutiny/walletScrutinyCom/issues/new>.
-> Copy from the **`---`** marker below into the issue. Update the version
-> + commit fields once a `wallet-v*` tag has been cut.
+> WalletScrutiny's GitHub presence is a **read-only mirror** with issues
+> disabled. The canonical project lives on GitLab; submission channels
+> per their [About page](https://walletscrutiny.com/about/) are:
+>
+> - **GitLab issue:** <https://gitlab.com/walletscrutiny/walletScrutinyCom/-/issues>
+>   — open a new issue with "Wallet review request" in the title.
+> - **Email:** info@WalletScrutiny.com
+> - **Discord:** invite link on their About page.
+>
+> Copy from the **`---`** marker below into the issue body / email body.
+> Update the version + commit fields with the latest `wallet-v*` tag.
 
 ---
 
@@ -12,8 +19,9 @@
 **URL:** https://dgbwallet.app
 **Source:** https://github.com/DennisPitallano/digibyte-wallet
 **License:** MIT (see repo `LICENSE`)
-**Version under review:** _to be filled in once `wallet-v*` is cut_
-**Commit:** _commit hash matching the tag above_
+**Version under review:** wallet-v0.1.1
+**Commit:** 6294628 (`origin/main` tip when the tag was cut)
+**Release page:** https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.1.1
 **Maintainer:** Dennis Pitallano (https://dennispitallano.github.io)
 
 ## Why this is a self-custodial wallet
