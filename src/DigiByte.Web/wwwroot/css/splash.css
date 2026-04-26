@@ -1,0 +1,46 @@
+/* Splash screen shown by the WASM loader before Blazor hydrates.
+ * Lifted out of index.html so the page CSP can drop 'unsafe-inline'
+ * from style-src. Keep this CSS file small — it's render-blocking
+ * on first paint. */
+#splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100dvh;
+    background: linear-gradient(160deg, #001529 0%, #002352 40%, #003d7a 100%);
+    gap: 1.5rem;
+}
+
+#splash svg {
+    filter: drop-shadow(0 0 30px rgba(0, 102, 204, .35));
+}
+
+@keyframes splash-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.06); opacity: .85; }
+}
+
+@keyframes splash-bar {
+    0%   { width: 0; }
+    100% { width: 100%; }
+}
+
+.splash-logo {
+    animation: splash-pulse 2s ease-in-out infinite;
+}
+
+.splash-track {
+    width: 120px;
+    height: 3px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .1);
+    overflow: hidden;
+}
+
+.splash-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #0066CC, #4d94ff);
+    animation: splash-bar 1.8s ease-in-out infinite;
+}

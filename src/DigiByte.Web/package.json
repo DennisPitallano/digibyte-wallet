@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@fontsource-variable/inter": "^5.2.8",
-    "tailwindcss": "^3.4.19"
+    "@fontsource-variable/inter": "5.2.8",
+    "tailwindcss": "3.4.19"
   }
 }

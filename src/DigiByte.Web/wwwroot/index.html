@@ -25,11 +25,18 @@
     <meta name="twitter:description" content="Self-custodial DigiByte wallet with Digi-ID, QR scanning, and P2P trading." />
     <meta name="twitter:image" content="https://dgbwallet.app/dgbwallet-logo-512.png" />
 
-    <!-- Security headers -->
+    <!-- Security headers — script-src and style-src no longer carry
+         'unsafe-inline'. Every executable script and stylesheet is loaded
+         from this origin (or a documented third party); see
+         docs/walletscrutiny-self-eval.md for the rationale.
+         The single 'sha256-…' covers the inline <script type="application/ld+json">
+         block below — Schema.org structured data, no executable code. Recompute
+         the hash if that block ever changes. -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
-                   script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com;
-                   style-src 'self' 'unsafe-inline';
+                   script-src 'self' 'wasm-unsafe-eval' 'sha256-9bavI8EbC3zaLAHJbePVI89bUOgWfFdz4BuYNjszAsY=' https://www.googletagmanager.com;
+                   style-src 'self';
+                   style-src-attr 'unsafe-inline';
                    img-src 'self' data: blob: https://avatars.githubusercontent.com https://www.googletagmanager.com;
                    font-src 'self';
                    connect-src 'self' http://localhost:5007 https://digiexplorer.info https://digibyteblockexplorer.com https://digibyte-api-production.up.railway.app https://api.coingecko.com https://api.github.com https://www.google-analytics.com https://www.googletagmanager.com https://analytics.google.com ws: wss:;
@@ -43,19 +50,20 @@
     <base href="/" />
     <link rel="canonical" href="https://dgbwallet.app/" />
 
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NR6R1MNL9X"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-NR6R1MNL9X');
-    </script>
+    <!-- Google Analytics. The bootstrap (window.dataLayer + gtag config)
+         lives in js/analytics.js so the page CSP can stay strict; gtag.js
+         itself is loaded async from googletagmanager.com without an SRI
+         hash because Google rotates that file unannounced. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NR6R1MNL9X" crossorigin="anonymous"></script>
+    <script src="js/analytics.js" defer></script>
 
     <link rel="preload" id="webassembly" />
 
     <!-- Self-hosted Tailwind (purged & minified) -->
     <link rel="stylesheet" href="css/tailwind.css" />
+    <!-- Splash screen styles — extracted from inline <style> so CSP
+         can drop 'unsafe-inline' on style-src. -->
+    <link rel="stylesheet" href="css/splash.css" />
 
     <script src="js/theme.js"></script>
     <link rel="stylesheet" href="css/app.css" />
@@ -91,15 +99,6 @@
 
 <body class="font-sans bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white antialiased">
     <div id="app">
-        <style>
-            #splash{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:linear-gradient(160deg,#001529 0%,#002352 40%,#003d7a 100%);gap:1.5rem}
-            #splash svg{filter:drop-shadow(0 0 30px rgba(0,102,204,.35))}
-            @keyframes splash-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.06);opacity:.85}}
-            @keyframes splash-bar{0%{width:0}100%{width:100%}}
-            .splash-logo{animation:splash-pulse 2s ease-in-out infinite}
-            .splash-track{width:120px;height:3px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden}
-            .splash-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0066CC,#4d94ff);animation:splash-bar 1.8s ease-in-out infinite}
-        </style>
         <div id="splash">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 479.8 479.8" width="72" height="72" class="splash-logo">
                 <circle cx="239.9" cy="239.9" r="219.5" fill="#002352" stroke="#06c" stroke-miterlimit="10" stroke-width="40.8"/>
@@ -126,75 +125,9 @@
     <script src="js/download.js" defer></script>
     <script src="js/visibility.js" defer></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
-    <script>
-        navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).then(reg => {
-            // Check for updates every 60 minutes
-            setInterval(() => reg.update(), 60 * 60 * 1000);
-
-            // Detect when a new service worker is waiting — notify banner instead of auto-skipping
-            function onNewSW(sw) {
-                if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-                    window._swWaiting = sw;
-                    if (window._pwaUpdateCallback) {
-                        window._pwaUpdateCallback.invokeMethodAsync('OnUpdateAvailable');
-                    }
-                }
-            }
-
-            if (reg.waiting) { onNewSW(reg.waiting); }
-
-            reg.addEventListener('updatefound', () => {
-                const newSW = reg.installing;
-                if (!newSW) return;
-                newSW.addEventListener('statechange', () => onNewSW(newSW));
-            });
-        });
-
-        // Reload once the new SW takes over
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) { refreshing = true; location.reload(); }
-        });
-
-        window.pwaUpdate = {
-            registerCallback: (dotnetRef) => {
-                window._pwaUpdateCallback = dotnetRef;
-                if (window._swWaiting) {
-                    dotnetRef.invokeMethodAsync('OnUpdateAvailable');
-                }
-            },
-            skipWaiting: () => {
-                if (window._swWaiting) {
-                    window._swWaiting.postMessage({ type: 'SKIP_WAITING' });
-                    window._swWaiting = null;
-                }
-                // Fallback: if controllerchange doesn't fire within 2s, force reload
-                setTimeout(() => { if (!refreshing) { refreshing = true; location.reload(); } }, 2000);
-            }
-        };
-
-        // Force-check for a new service worker version and return true if one is waiting
-        window.pwaCheckForUpdate = async () => {
-            const reg = await navigator.serviceWorker.getRegistration('/');
-            if (!reg) return false;
-            await reg.update();
-            // Give the browser a moment to fetch and compare service-worker.js
-            await new Promise(r => setTimeout(r, 1500));
-            return !!(reg.waiting || reg.installing);
-        };
-
-        // Skip waiting on any waiting SW and let the controllerchange listener reload
-        window.pwaApplyUpdate = () => {
-            navigator.serviceWorker.getRegistration('/').then(reg => {
-                const sw = reg?.waiting || reg?.installing;
-                if (sw) {
-                    sw.postMessage({ type: 'SKIP_WAITING' });
-                } else {
-                    location.reload();
-                }
-            });
-        };
-    </script>
+    <!-- PWA service-worker registration + update plumbing.
+         Pulled out of an inline <script> so CSP can drop 'unsafe-inline'. -->
+    <script src="js/pwa-bootstrap.js"></script>
 </body>
 
 </html>

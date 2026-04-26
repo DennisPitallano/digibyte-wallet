@@ -35,6 +35,9 @@ packages/
 # Node.js (Tailwind CSS build)
 node_modules/
 package-lock.json
+# …except the wallet's lockfile, which we *do* commit so WalletScrutiny
+# (and any other reviewer) can reproduce the same Tailwind/Inter outputs.
+!src/DigiByte.Web/package-lock.json
 
 # Claude Code local worktrees — agent scratch space, not source
 .claude/worktrees/

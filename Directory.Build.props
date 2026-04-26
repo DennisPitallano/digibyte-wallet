@@ -1,0 +1,32 @@
+<Project>
+  <!--
+    Repo-wide MSBuild defaults. .NET imports this file for every .csproj in
+    the tree (and subtrees) before the project's own properties, so any
+    project-level setting still wins.
+
+    Why these properties:
+      Deterministic                 — strips PE timestamps and stabilises
+                                      the embedded source paths so two
+                                      builds of the same commit produce
+                                      byte-identical assemblies. Required
+                                      for WalletScrutiny-style reproducible
+                                      build verification.
+      ContinuousIntegrationBuild    — tells SourceLink + the compiler that
+                                      this is a release-shaped build, which
+                                      embeds a normalised commit hash and
+                                      relative paths instead of the user's
+                                      working-copy paths.
+      EmbedUntrackedSources         — bundles any source files that aren't
+                                      committed (rare, but if they exist a
+                                      reviewer needs them to reproduce the
+                                      output).
+      PublishRepositoryUrl          — surfaces the repo URL in NuGet metadata
+                                      so consumers can navigate to the source.
+  -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+</Project>
