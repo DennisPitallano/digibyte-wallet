@@ -1,16 +1,28 @@
+using DigiByte.Pay.Api.Data;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace DigiByte.Pay.Api.Hubs;
 
 /// <summary>
 /// Real-time channel for the hosted DigiPay checkout page.
-/// Each session is a SignalR group keyed by the session id; the InvoiceMonitor
-/// publishes state transitions via <see cref="CheckoutNotifier"/>.
+///
+/// Security model: each session is a SignalR group keyed by session id.
+/// Session ids are random ses_… strings (~80 bits of entropy), so cross-tenant
+/// info leakage requires guessing an active session id — computationally
+/// infeasible. Subscribers must present a real id; we reject unknown ids so
+/// the hub can't be used as an oracle to probe for valid sessions.
 /// </summary>
 public class CheckoutHub : Hub
 {
-    public async Task SubscribeToSession(string sessionId)
+    public async Task SubscribeToSession(string sessionId, DigiPayDbContext db)
     {
+        if (string.IsNullOrWhiteSpace(sessionId)) return;
+        // Cheap existence check: don't bind a connection to a group for an
+        // id that doesn't exist. Prevents a misbehaving client from holding
+        // open arbitrary group memberships and from probing the id space.
+        var exists = await db.Sessions.AsNoTracking().AnyAsync(s => s.Id == sessionId);
+        if (!exists) return;
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
     }
 }

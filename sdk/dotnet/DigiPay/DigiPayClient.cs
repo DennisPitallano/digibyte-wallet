@@ -78,16 +78,19 @@ public sealed class DigiPayClient : IDisposable
     // ---- Shared request helpers -------------------------------------------
 
     internal async Task<T> GetJsonAsync<T>(string path, CancellationToken ct)
-        => await SendJsonAsync<T>(HttpMethod.Get, path, body: null, ct).ConfigureAwait(false);
+        => await SendJsonAsync<T>(HttpMethod.Get, path, body: null, idempotencyKey: null, ct).ConfigureAwait(false);
 
     internal async Task<T> PostJsonAsync<T>(string path, object? body, CancellationToken ct)
-        => await SendJsonAsync<T>(HttpMethod.Post, path, body, ct).ConfigureAwait(false);
+        => await SendJsonAsync<T>(HttpMethod.Post, path, body, idempotencyKey: null, ct).ConfigureAwait(false);
+
+    internal async Task<T> PostJsonAsync<T>(string path, object? body, string? idempotencyKey, CancellationToken ct)
+        => await SendJsonAsync<T>(HttpMethod.Post, path, body, idempotencyKey, ct).ConfigureAwait(false);
 
     internal async Task<T> PatchJsonAsync<T>(string path, object? body, CancellationToken ct)
-        => await SendJsonAsync<T>(new HttpMethod("PATCH"), path, body, ct).ConfigureAwait(false);
+        => await SendJsonAsync<T>(new HttpMethod("PATCH"), path, body, idempotencyKey: null, ct).ConfigureAwait(false);
 
     internal async Task<T> DeleteJsonAsync<T>(string path, CancellationToken ct)
-        => await SendJsonAsync<T>(HttpMethod.Delete, path, body: null, ct).ConfigureAwait(false);
+        => await SendJsonAsync<T>(HttpMethod.Delete, path, body: null, idempotencyKey: null, ct).ConfigureAwait(false);
 
     internal async Task<string> GetStringAsync(string path, CancellationToken ct)
     {
@@ -96,11 +99,13 @@ public sealed class DigiPayClient : IDisposable
         return await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
 
-    private async Task<T> SendJsonAsync<T>(HttpMethod method, string path, object? body, CancellationToken ct)
+    private async Task<T> SendJsonAsync<T>(HttpMethod method, string path, object? body, string? idempotencyKey, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(method, path);
         if (body is not null)
             req.Content = JsonContent.Create(body, options: JsonOptions);
+        if (!string.IsNullOrEmpty(idempotencyKey))
+            req.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
         using var res = await SendAndCheckAsync(req, ct).ConfigureAwait(false);
         var payload = await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct).ConfigureAwait(false);
         return payload ?? throw new DigiPayError($"Empty response body from {path}", (int)res.StatusCode);
@@ -234,7 +239,16 @@ public sealed class SessionsResource
     internal SessionsResource(DigiPayClient client) => _client = client;
 
     public Task<Session> CreateAsync(CreateSessionRequest request, CancellationToken ct = default)
-        => _client.PostJsonAsync<Session>("v1/pay/sessions", request, ct);
+        => _client.PostJsonAsync<Session>("v1/pay/sessions", request, idempotencyKey: null, ct);
+
+    /// <summary>
+    /// Create a session with a Stripe-style idempotency key. The server stores
+    /// (merchant + key) → sessionId for 24h and replays the original session
+    /// on retry, so a network blip can't mint two invoices for the same order.
+    /// Pass an order id, request id, or any opaque ≤255-char string.
+    /// </summary>
+    public Task<Session> CreateAsync(CreateSessionRequest request, string idempotencyKey, CancellationToken ct = default)
+        => _client.PostJsonAsync<Session>("v1/pay/sessions", request, idempotencyKey, ct);
 
     public async Task<Session> GetAsync(string sessionId, CancellationToken ct = default)
     {

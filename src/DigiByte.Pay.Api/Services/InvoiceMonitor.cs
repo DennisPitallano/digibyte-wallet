@@ -92,6 +92,7 @@ public class InvoiceMonitor : BackgroundService
     {
         var scope = _scopeFactory.CreateScope();
         var webhookDispatcher = scope.ServiceProvider.GetRequiredService<WebhookDispatcher>();
+        var auditLogger = scope.ServiceProvider.GetRequiredService<AuditLogger>();
 
         // Store carries the network + webhook config; merchant is implicit via StoreId.
         var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == session.StoreId, ct);
@@ -163,6 +164,30 @@ public class InvoiceMonitor : BackgroundService
             {
                 var eventName = "session." + session.Status.ToString().ToLowerInvariant();
                 await webhookDispatcher.DispatchAsync(store, session, eventName, ct);
+
+                // Late reconciliation: a payment landed against an already-expired
+                // invoice during the grace window. The webhook above keeps the
+                // merchant's integration in sync, but it's worth a separate audit
+                // row so a human reading the audit log later can spot why an
+                // "expired" session is now "paid" without diffing webhook history.
+                if (previous == PaySessionStatus.Expired
+                    && session.Status is PaySessionStatus.Paid or PaySessionStatus.Confirmed)
+                {
+                    await auditLogger.LogAsync(
+                        session.MerchantId,
+                        action: "session.late_reconciled",
+                        targetType: "Session",
+                        targetId: session.Id,
+                        summary: $"Late payment landed on expired session {session.Id} ({session.AmountSatoshis / 100_000_000m:0.########} DGB)",
+                        metadata: new
+                        {
+                            previousStatus = previous.ToString().ToLowerInvariant(),
+                            newStatus = session.Status.ToString().ToLowerInvariant(),
+                            txid = session.PaidTxid,
+                            receivedSatoshis = session.ReceivedSatoshis,
+                            expiresAt = session.ExpiresAt,
+                        });
+                }
             }
         }
     }

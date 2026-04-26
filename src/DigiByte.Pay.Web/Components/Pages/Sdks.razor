@@ -61,9 +61,12 @@
                             @(copiedKey == "npm" ? "Copied ✓" : "Copy")
                         </button>
                     </div>
-                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400">
+                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 gap-2">
                         <span>Node 18+ · zero deps · ESM + CJS</span>
-                        <a href="https://www.npmjs.com/package/@("@dgbwallet/digipay")" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">View on npm →</a>
+                        <div class="flex gap-3 shrink-0">
+                            <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/express-store" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">See sample →</a>
+                            <a href="https://www.npmjs.com/package/@("@dgbwallet/digipay")" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">View on npm →</a>
+                        </div>
                     </div>
                 </div>
 
@@ -90,9 +93,12 @@
                             @(copiedKey == "pip" ? "Copied ✓" : "Copy")
                         </button>
                     </div>
-                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400">
+                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 gap-2">
                         <span>Python 3.10+ · zero deps · py.typed</span>
-                        <a href="https://pypi.org/project/digipay/" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">View on PyPI →</a>
+                        <div class="flex gap-3 shrink-0">
+                            <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/flask-store" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">See sample →</a>
+                            <a href="https://pypi.org/project/digipay/" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">View on PyPI →</a>
+                        </div>
                     </div>
                 </div>
 
@@ -119,9 +125,12 @@
                             @(copiedKey == "dotnet" ? "Copied ✓" : "Copy")
                         </button>
                     </div>
-                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400">
+                    <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 gap-2">
                         <span>net8.0 + net9.0 · SourceLink</span>
-                        <a href="https://www.nuget.org/packages/DigiPay/" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">View on NuGet →</a>
+                        <div class="flex gap-3 shrink-0">
+                            <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/dotnet-store" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">See sample →</a>
+                            <a href="https://www.nuget.org/packages/DigiPay/" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">View on NuGet →</a>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -249,6 +258,82 @@
                             <tr><td class="font-mono text-xs">≥ 500</td><td>Server-side</td><td class="text-emerald-600 dark:text-emerald-400">Yes, with backoff</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            @* End-to-end samples — production-shaped starters that exercise
+               the full checkout lifecycle (create → checkout → webhook → fulfil).
+               Smaller than a tutorial, larger than a snippet, deliberately the
+               first hop after picking a language. *@
+            <section class="slide-up-delay-5 mb-12">
+                <h2 class="text-xl font-bold tracking-tight mb-1">End-to-end samples</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    A one-product mini-store per language. Each is a single-file app showing
+                    session creation, hosted-checkout redirect, and HMAC-verified webhooks —
+                    the three steps every integration needs.
+                </p>
+                <div class="grid sm:grid-cols-3 gap-3">
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/express-store" target="_blank" rel="noopener"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Express mini-store</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Node + TypeScript</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/flask-store" target="_blank" rel="noopener"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Flask mini-store</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Python + Flask</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/dotnet-store" target="_blank" rel="noopener"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">ASP.NET mini-store</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">.NET 8 Minimal API</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
+                </div>
+            </section>
+
+            @* Postman / Insomnia — for the "click around and explore" crowd
+               who'd rather poke at requests in a UI than read curl examples.
+               The hand-curated collection exposes the same endpoints with
+               variables for baseUrl + apiKey, and a test-script that auto-
+               saves new session ids so chained requests work without copy-paste. *@
+            <section class="slide-up-delay-5 mb-12">
+                <h2 class="text-xl font-bold tracking-tight mb-1">Postman / Insomnia</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    Prefer a UI to curl? Import the collection — it covers register, sessions
+                    (create / get / list / refund / void), stores, webhooks, audit, and the
+                    sandbox, with auto-populated variables so chained requests just work.
+                </p>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <a href="/digipay.postman_collection.json" download
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Download collection</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">digipay.postman_collection.json (Postman 2.1)</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
+                    <a href="/docs/api"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="code" Class="w-5 h-5 text-dgb-500" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Live API explorer</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Scalar reference + OpenAPI download</div>
+                        </div>
+                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                    </a>
                 </div>
             </section>
 

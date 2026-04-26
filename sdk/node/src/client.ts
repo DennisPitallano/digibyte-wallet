@@ -85,9 +85,17 @@ export class DigiPay {
 class SessionsResource {
     constructor(private readonly http: HttpClient) { }
 
-    /** Create a new payment session. The returned `checkoutUrl` is the hosted page. */
-    create(params: CreateSessionParams): Promise<Session> {
-        return this.http.request<Session>('POST', '/v1/pay/sessions', params);
+    /**
+     * Create a new payment session. The returned `checkoutUrl` is the hosted page.
+     *
+     * Pass `{ idempotencyKey }` to make the call safely retryable — the server
+     * stores key→sessionId for 24h and returns the original session on replay.
+     * Stripe-shaped: a double-clicked Buy button shouldn't mint two invoices.
+     *
+     *     await dp.sessions.create({ amount: 5 }, { idempotencyKey: orderId });
+     */
+    create(params: CreateSessionParams, opts: { idempotencyKey?: string } = {}): Promise<Session> {
+        return this.http.request<Session>('POST', '/v1/pay/sessions', params, opts);
     }
 
     /** Look up a single session by id. Public read — no auth strictly needed. */

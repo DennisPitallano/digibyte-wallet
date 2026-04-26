@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "DigiPay API",
+    "description": "Hand-curated collection covering the most-used endpoints. Set `baseUrl` and `apiKey` in the collection variables, then fire any request. The `Create session` request stores the new session id into `lastSessionId` so subsequent calls (Get, Refund, Void) just work without copy-paste.\n\nEndpoint reference: https://pay.dgbwallet.app/scalar",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://api.pay.dgbwallet.app", "type": "string" },
+    { "key": "apiKey", "value": "dgp_REPLACE_ME", "type": "string", "description": "Bearer token from Dashboard → API keys. Starts with dgp_." },
+    { "key": "lastSessionId", "value": "", "type": "string", "description": "Auto-populated by the Create session request." },
+    { "key": "lastStoreId", "value": "", "type": "string", "description": "Auto-populated by Register merchant or List stores." }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{apiKey}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Self-serve",
+      "description": "Unauthenticated bootstrapping. Run Register once to get an API key.",
+      "item": [
+        {
+          "name": "Register merchant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.apiKey) { pm.collectionVariables.set('apiKey', j.apiKey); console.log('Saved apiKey to collection variable'); }",
+                  "if (j.storeId) pm.collectionVariables.set('lastStoreId', j.storeId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"displayName\": \"Acme Store\",\n    \"addressOrXpub\": \"dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa\",\n    \"network\": \"mainnet\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/merchants",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "merchants"]
+            },
+            "description": "Creates a merchant + first store + initial API key in one shot. The `apiKey` in the response is shown ONCE — this collection's test script auto-saves it to `{{apiKey}}` so subsequent requests authenticate."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "description": "Hosted checkout sessions — the core of DigiPay.",
+      "item": [
+        {
+          "name": "Create session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('lastSessionId', j.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "Idempotency-Key",
+                "value": "order-{{$timestamp}}",
+                "description": "Optional. Same key within 24h returns the same session — makes retries safe."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 12.5,\n    \"label\": \"Order #4242\",\n    \"memo\": \"customer: alice@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "sessions"]
+            },
+            "description": "Creates a new session and returns its `checkoutUrl` (where the buyer pays) and `uri` (BIP21 — wallet apps understand it). Use the optional `Idempotency-Key` header so a retried request returns the same session instead of double-charging."
+          }
+        },
+        {
+          "name": "Create session (fiat-priced)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 1,\n    \"fiatCurrency\": \"USD\",\n    \"fiatAmount\": 19.99,\n    \"label\": \"Order #4243\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "sessions"]
+            },
+            "description": "Fiat-priced session. The `amount` (DGB) is a placeholder; the customer pays whatever the server quotes at checkout time using the live FX rate."
+          }
+        },
+        {
+          "name": "Get session",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions/{{lastSessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "sessions", "{{lastSessionId}}"]
+            },
+            "description": "Public endpoint — returns the session plus the merchant display name. Used by the hosted checkout page."
+          }
+        },
+        {
+          "name": "List sessions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions?take=25&skip=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "sessions"],
+              "query": [
+                { "key": "take", "value": "25" },
+                { "key": "skip", "value": "0" },
+                { "key": "status", "value": "paid", "disabled": true },
+                { "key": "storeId", "value": "{{lastStoreId}}", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export sessions CSV",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions?format=csv&take=10000",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "sessions"],
+              "query": [
+                { "key": "format", "value": "csv" },
+                { "key": "take", "value": "10000" }
+              ]
+            },
+            "description": "Bookkeeping export. Capped at 10 000 rows server-side."
+          }
+        },
+        {
+          "name": "Refund session",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"txid\": \"REPLACE_with_64_char_dgb_txid\",\n    \"note\": \"Customer requested refund\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions/{{lastSessionId}}/refund",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "sessions", "{{lastSessionId}}", "refund"]
+            },
+            "description": "Records an off-platform DGB refund — you send the funds back from your own wallet, then post the resulting txid here so the dashboard, webhooks, and receipt stay in sync."
+          }
+        },
+        {
+          "name": "Void session",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"note\": \"Customer cancelled\" }" },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions/{{lastSessionId}}/void",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "sessions", "{{lastSessionId}}", "void"]
+            },
+            "description": "Voids an unpaid session. Only valid for `pending` / `seen` / `expired` / `underpaid`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stores",
+      "item": [
+        {
+          "name": "List stores",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const arr = pm.response.json();",
+                  "  if (Array.isArray(arr) && arr[0]?.id) pm.collectionVariables.set('lastStoreId', arr[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores"]
+            }
+          }
+        },
+        {
+          "name": "Update store (set webhook)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"webhookUrl\": \"https://example.com/digipay-webhook\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}"]
+            },
+            "description": "Setting a `webhookUrl` for the first time generates a fresh signing secret — fetch it once via Get store and store it in your secrets manager."
+          }
+        },
+        {
+          "name": "Send test webhook",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/webhook/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "webhook", "test"]
+            },
+            "description": "Fires a synthetic `webhook.test` event so you can verify your receiver's signature handling without waiting for a real payment."
+          }
+        },
+        {
+          "name": "List webhook deliveries",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/webhook-deliveries?take=25",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "webhook-deliveries"],
+              "query": [{ "key": "take", "value": "25" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "item": [
+        {
+          "name": "Get account",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "me"]
+            },
+            "description": "Returns the authenticated merchant's profile + their stores."
+          }
+        },
+        {
+          "name": "Audit log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/me/audit?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "me", "audit"],
+              "query": [{ "key": "limit", "value": "50" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sandbox",
+      "description": "Unauthenticated demo endpoints — backs the embed demo. Capped at 20 req/min/IP.",
+      "item": [
+        {
+          "name": "Create demo session",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/test/demo-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "test", "demo-session"]
+            }
+          }
+        },
+        {
+          "name": "Advance demo session",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/test/sessions/ses_demo_REPLACE/advance",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "test", "sessions", "ses_demo_REPLACE", "advance"]
+            },
+            "description": "Walks a demo session forward one state (pending → seen → paid → confirmed). Demo-only; refuses non-`ses_demo_` ids."
+          }
+        }
+      ]
+    }
+  ]
+}

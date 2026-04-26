@@ -8,10 +8,39 @@
     <main class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
             <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2 slide-up">How it works</h1>
-            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 slide-up-delay-1">
+            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-6 slide-up-delay-1">
                 A DigiPay invoice flows through five states: <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">pending → seen → paid → confirmed</code>,
                 plus <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">expired</code> or <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">underpaid</code> as terminal error cases.
                 Here's the full lifecycle, from merchant sign-up to webhook delivery.
+            </p>
+
+            @* Quick paths for the two most common readers — non-devs who just
+               want a shareable link, and devs who want a working integration to
+               clone. Surface both up-front so neither has to scroll the full
+               tutorial to find their starting point. *@
+            <div class="grid sm:grid-cols-2 gap-3 mb-10 slide-up-delay-2">
+                <a href="/merchant" class="card-hover flex items-start gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                    <Icon Name="link" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-semibold text-slate-900 dark:text-white">Just need a link to share?</div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                            Open the dashboard's <strong class="text-slate-700 dark:text-slate-300">Payment links</strong> tab — no code, generates a checkout URL + QR + email/SMS share buttons.
+                        </div>
+                    </div>
+                </a>
+                <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples" target="_blank" rel="noopener" class="card-hover flex items-start gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                    <Icon Name="package" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-semibold text-slate-900 dark:text-white">Building an integration?</div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                            Clone a single-file <strong class="text-slate-700 dark:text-slate-300">mini-store sample</strong> for Express, Flask, or ASP.NET — checkout + verified webhook in ~150 lines.
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 -mt-6 mb-10 slide-up-delay-2">
+                Or just poke at the API: <a href="/digipay.postman_collection.json" download class="text-dgb-500 hover:underline">download the Postman collection</a>
+                — variables for <InlineCode>baseUrl</InlineCode> + <InlineCode>apiKey</InlineCode>, requests for every endpoint below, no code required.
             </p>
 
             <DocsHeading>1. Sign up with Digi-ID</DocsHeading>
@@ -31,6 +60,14 @@
             <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"amount\": 12.5,\n    \"storeId\": \"sto_…\",       // optional — defaults to first store\n    \"label\": \"Order #4201\"\n  }'")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Redirect the buyer to the returned <InlineCode>checkout_url</InlineCode>, or open it in-page with the JS embed (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">live demo →</a>):</p>
             <CodeBlock>@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<button data-digipay-checkout data-session-id=\"ses_...\">Pay with DigiByte</button>")</CodeBlock>
+
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4">
+                <strong>Make retries safe.</strong> Pass an <InlineCode>Idempotency-Key</InlineCode> header on the create
+                call (any opaque string up to 255 chars — an order id is a natural fit) and DigiPay will return the
+                <em>same</em> session if you call it again with the same key within 24h. Stripe-shaped: a customer
+                double-clicking <em>Buy</em> won't mint two invoices.
+            </p>
+            <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Idempotency-Key: order-4201\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ \"amount\": 12.5, \"label\": \"Order #4201\" }'")</CodeBlock>
 
             <DocsHeading>4. What the buyer sees</DocsHeading>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">The hosted checkout shows a QR code, an "Open in wallet" deep link, a countdown to expiry (default 30 minutes), and a live status pill. The pill updates in real time via SignalR as the tx moves through states:</p>

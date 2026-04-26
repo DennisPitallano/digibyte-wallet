@@ -1,0 +1,21 @@
+{
+  "name": "digipay-express-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal end-to-end DigiPay integration for Node.js + Express. Shop a product, redirect to checkout, fulfil on webhook.",
+  "type": "module",
+  "scripts": {
+    "start": "tsx server.ts",
+    "dev": "tsx watch server.ts"
+  },
+  "dependencies": {
+    "@dgbwallet/digipay": "^0.1.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}

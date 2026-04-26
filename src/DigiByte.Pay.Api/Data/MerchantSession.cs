@@ -19,5 +19,7 @@ public class MerchantSession
     public required string TokenHash { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime LastUsedAt { get; set; } = DateTime.UtcNow;
-    public required DateTime ExpiresAt { get; init; }
+    // Mutable so MerchantAuthenticator can extend it on each successful auth
+    // (sliding session lifetime). Initial value is required at insert time.
+    public required DateTime ExpiresAt { get; set; }
 }

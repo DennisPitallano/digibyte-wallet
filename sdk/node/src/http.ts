@@ -9,6 +9,15 @@ export interface HttpClientOptions {
     timeoutMs: number;
 }
 
+/** Per-request overrides — currently just idempotency support, but typed
+ * as an object so future per-request options (idempotency window, debug
+ * trace, etc.) don't widen the call signature. */
+export interface RequestOpts {
+    /** Sent as the `Idempotency-Key` header. The server scopes it per-merchant
+     * and replays the original response for 24h. Up to 255 chars. */
+    idempotencyKey?: string;
+}
+
 /**
  * Thin wrapper around the global `fetch` (Node 18+) that adds:
  *   • Bearer auth header
@@ -23,8 +32,8 @@ export interface HttpClientOptions {
 export class HttpClient {
     constructor(private readonly opts: HttpClientOptions) { }
 
-    async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-        const res = await this.requestRaw(method, path, body);
+    async request<T>(method: string, path: string, body?: unknown, opts: RequestOpts = {}): Promise<T> {
+        const res = await this.requestRaw(method, path, body, opts);
         const text = await res.text();
         if (!text) return undefined as T;
         try {
@@ -35,7 +44,7 @@ export class HttpClient {
     }
 
     /** For binary/text endpoints (CSV) — returns the raw Response. */
-    async requestRaw(method: string, path: string, body?: unknown): Promise<Response> {
+    async requestRaw(method: string, path: string, body?: unknown, opts: RequestOpts = {}): Promise<Response> {
         const url = new URL(path, this.opts.baseUrl).toString();
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), this.opts.timeoutMs);
@@ -48,6 +57,7 @@ export class HttpClient {
                     'Authorization': `Bearer ${this.opts.apiKey}`,
                     'User-Agent': this.opts.userAgent,
                     ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+                    ...(opts.idempotencyKey ? { 'Idempotency-Key': opts.idempotencyKey } : {}),
                 },
                 body: body !== undefined ? JSON.stringify(body) : undefined,
                 signal: controller.signal,

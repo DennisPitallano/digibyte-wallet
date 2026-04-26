@@ -112,8 +112,15 @@ class _Sessions:
         fiat_currency: str | None = None,
         fiat_amount: float | None = None,
         expiry_minutes: int | None = None,
+        idempotency_key: str | None = None,
     ) -> Session:
-        """Create a new payment session. ``amount`` is DGB (decimal)."""
+        """Create a new payment session. ``amount`` is DGB (decimal).
+
+        Pass ``idempotency_key`` to make the call safely retryable — the
+        server stores key→sessionId for 24h and returns the original
+        session on replay (Stripe-shaped). Useful when a network blip
+        could cause your code to retry past an already-created session.
+        """
         body: dict[str, Any] = {"amount": amount}
         if store_id is not None:
             body["storeId"] = store_id
@@ -127,7 +134,10 @@ class _Sessions:
             body["fiatAmount"] = fiat_amount
         if expiry_minutes is not None:
             body["expiryMinutes"] = expiry_minutes
-        return self._http.request_json("POST", "/v1/pay/sessions", body)
+        return self._http.request_json(
+            "POST", "/v1/pay/sessions", body,
+            idempotency_key=idempotency_key,
+        )
 
     def get(self, session_id: str) -> Session:
         """Look up a single session. Public read — no auth strictly needed

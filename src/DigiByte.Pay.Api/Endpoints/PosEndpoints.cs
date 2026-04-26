@@ -107,12 +107,31 @@ public static class PosEndpoints
             IMemoryCache cache) =>
         {
             if (string.IsNullOrWhiteSpace(body.Code))
-                return Results.BadRequest(new { error = "code is required" });
+                return Results.BadRequest(new { error = "code is required", reason = "missing" });
 
             var normalized = body.Code.Trim().ToUpperInvariant().Replace(" ", "").Replace("-", "");
+            // Format check first: a code that doesn't match our alphabet/length
+            // is almost certainly a typo, not an expired code. Telling the
+            // cashier the difference saves them from asking for a new one
+            // when they only need to retype.
+            if (normalized.Length != CodeLength || normalized.Any(c => !CodeAlphabet.Contains(c)))
+                return Results.NotFound(new
+                {
+                    error = $"that doesn't look like a {CodeLength}-character pairing code — check it carefully and try again",
+                    reason = "malformed",
+                });
+
             var cacheKey = CachePrefix + normalized;
             if (!cache.TryGetValue<PairingEntry>(cacheKey, out var entry) || entry is null)
-                return Results.NotFound(new { error = "pairing code is invalid or expired" });
+                return Results.NotFound(new
+                {
+                    // Cache silently drops expired entries, so from here we can't
+                    // tell "never existed" from "expired or already claimed".
+                    // Bias the message to expiry — the most common case for a
+                    // correctly-formatted code that's no longer redeemable.
+                    error = "pairing code expired or already used — ask your manager for a fresh code",
+                    reason = "expired",
+                });
 
             // Consume the code immediately — even if the DB write below throws,
             // the code is spent. Prevents replay on transient errors.
@@ -218,23 +237,38 @@ public static class PosEndpoints
             // in the background after the shift closes.
             var collected = rows.Where(r =>
                 r.Status == PaySessionStatus.Paid || r.Status == PaySessionStatus.Confirmed).ToList();
+            var expired = rows.Where(r => r.Status == PaySessionStatus.Expired).ToList();
+            var underpaid = rows.Where(r => r.Status == PaySessionStatus.Underpaid).ToList();
 
-            var expiredCount = rows.Count(r => r.Status == PaySessionStatus.Expired);
-            var underpaidCount = rows.Count(r => r.Status == PaySessionStatus.Underpaid);
+            var expiredCount = expired.Count;
+            var underpaidCount = underpaid.Count;
             var pendingCount = rows.Count(r => r.Status == PaySessionStatus.Pending
                 || r.Status == PaySessionStatus.Seen);
 
             var collectedDgb = collected.Sum(r => r.AmountSatoshis) / 100_000_000m;
+            // Lost revenue: what the cashier *would* have taken if the customer
+            // completed those sessions. Underpaid uses the *invoiced* amount,
+            // not the partial received, since that's the figure the cashier
+            // entered and is reasoning about.
+            var expiredDgb = expired.Sum(r => r.AmountSatoshis) / 100_000_000m;
+            var underpaidDgb = underpaid.Sum(r => r.AmountSatoshis) / 100_000_000m;
 
-            // Group collected fiat-quoted sales by currency. Sessions that
-            // were DGB-only contribute to collectedDgb but not to any fiat
-            // bucket — the UI shows those separately.
-            var fiatTotals = collected
-                .Where(r => r.FiatAmount is not null && !string.IsNullOrWhiteSpace(r.FiatCurrency))
-                .GroupBy(r => r.FiatCurrency!.ToUpperInvariant())
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.Sum(r => r.FiatAmount!.Value));
+            // Group fiat-quoted sales by currency. Sessions that were DGB-only
+            // contribute to collectedDgb but not to any fiat bucket — the UI
+            // shows those separately. Computed for collected and the two
+            // "lost" outcomes so cashiers can see why takings are below
+            // expectation, not just that they are.
+            static Dictionary<string, decimal> ByFiat<T>(
+                IEnumerable<T> rows,
+                Func<T, decimal?> amount,
+                Func<T, string?> currency) => rows
+                .Where(r => amount(r) is not null && !string.IsNullOrWhiteSpace(currency(r)))
+                .GroupBy(r => currency(r)!.ToUpperInvariant())
+                .ToDictionary(g => g.Key, g => g.Sum(r => amount(r)!.Value));
+
+            var fiatTotals = ByFiat(collected, r => r.FiatAmount, r => r.FiatCurrency);
+            var expiredFiatTotals = ByFiat(expired, r => r.FiatAmount, r => r.FiatCurrency);
+            var underpaidFiatTotals = ByFiat(underpaid, r => r.FiatAmount, r => r.FiatCurrency);
 
             // Parse tips out of the label (see Pos.razor ChargeAsync). Safe
             // because the format is tightly controlled by our own client;
@@ -260,6 +294,25 @@ public static class PosEndpoints
                     collectedDgb,
                     fiat = fiatTotals,
                     tips = tipTotals,
+                },
+                // Lost-revenue breakdown: same shape as `totals` but for the
+                // "money on the floor" outcomes. Helps the cashier explain a
+                // shortfall ("we had 4 expired and 1 underpaid") rather than
+                // just seeing a low collected number.
+                missed = new
+                {
+                    expired = new
+                    {
+                        count = expiredCount,
+                        dgb = expiredDgb,
+                        fiat = expiredFiatTotals,
+                    },
+                    underpaid = new
+                    {
+                        count = underpaidCount,
+                        dgb = underpaidDgb,
+                        fiat = underpaidFiatTotals,
+                    },
                 },
                 outcomes = new
                 {

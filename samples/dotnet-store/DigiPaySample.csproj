@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DigiPaySample</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Reference the local SDK so the sample builds without publishing.
+         Production users would replace this with:
+         <PackageReference Include="DigiPay" Version="0.1.*" /> -->
+    <ProjectReference Include="..\..\sdk\dotnet\DigiPay\DigiPay.csproj" />
+  </ItemGroup>
+</Project>

@@ -87,6 +87,12 @@ public static class PaymentsEndpoints
         // POST /v1/pay/sessions — create a payment session.
         // Auth: Bearer {apiKey}. The apiKey is split "{prefix}_{secret}"; we look up
         // the merchant by prefix and compare SHA-256(secret) against the stored hash.
+        //
+        // Idempotency: clients can send `Idempotency-Key: <up-to-255-chars>` to make
+        // the request safely retryable. The first call creates a session and stores
+        // the key→sessionId mapping; subsequent calls with the same key (within 24h)
+        // return the *original* session without creating a new one. Scoped per
+        // merchant. Stripe-shaped: payment APIs need this to make double-clicks safe.
         group.MapPost("/sessions", async (
             CreateSessionRequest body,
             HttpRequest http,
@@ -98,6 +104,35 @@ public static class PaymentsEndpoints
 
             if (body.Amount is null || body.Amount <= 0)
                 return Results.BadRequest(new { error = "amount (DGB) must be > 0" });
+
+            // Idempotency replay short-circuit. Looked up before any expensive work
+            // (store resolution, address derivation) so a retry costs one indexed
+            // SELECT. The 24h cutoff matches what Stripe documents publicly.
+            var idempotencyKey = http.Headers["Idempotency-Key"].ToString();
+            if (string.IsNullOrWhiteSpace(idempotencyKey)) idempotencyKey = "";
+            else idempotencyKey = idempotencyKey.Trim();
+            if (idempotencyKey.Length > 255)
+                return Results.BadRequest(new { error = "Idempotency-Key must be 255 chars or fewer" });
+
+            if (idempotencyKey.Length > 0)
+            {
+                var cutoff = DateTime.UtcNow.AddHours(-24);
+                var existing = await db.IdempotencyRecords.AsNoTracking()
+                    .Where(r => r.MerchantId == merchant.Id && r.Key == idempotencyKey && r.CreatedAt >= cutoff)
+                    .FirstOrDefaultAsync();
+                if (existing is not null)
+                {
+                    var prior = await db.Sessions.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Id == existing.SessionId);
+                    if (prior is not null)
+                    {
+                        var checkoutBase0 = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
+                        return Results.Ok(ToDto(prior, $"{checkoutBase0}/pay/{prior.Id}"));
+                    }
+                    // Mapping exists but session was deleted (rare: demo cleanup).
+                    // Fall through and create fresh; we'll overwrite the record.
+                }
+            }
 
             // Resolve target store. Explicit storeId wins; otherwise fall back to the
             // merchant's first (default) store so older integrations keep working.
@@ -178,7 +213,44 @@ public static class PaymentsEndpoints
             };
 
             db.Sessions.Add(session);
-            await db.SaveChangesAsync();
+            // Persist the idempotency mapping in the same SaveChanges so a
+            // partial failure can't leave the session without its mapping (or
+            // vice-versa). The unique (MerchantId, Key) index guards against
+            // a parallel double-submit racing past the lookup above.
+            if (idempotencyKey.Length > 0)
+            {
+                db.IdempotencyRecords.Add(new IdempotencyRecord
+                {
+                    Id = $"idem_{RandomId(16)}",
+                    MerchantId = merchant.Id,
+                    Key = idempotencyKey,
+                    SessionId = session.Id,
+                });
+            }
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException) when (idempotencyKey.Length > 0)
+            {
+                // Race: a concurrent request inserted the same key between our
+                // SELECT and INSERT. The other request's session is the
+                // canonical one — return that instead of erroring out.
+                db.ChangeTracker.Clear();
+                var winner = await db.IdempotencyRecords.AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.MerchantId == merchant.Id && r.Key == idempotencyKey);
+                if (winner is not null)
+                {
+                    var winnerSession = await db.Sessions.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Id == winner.SessionId);
+                    if (winnerSession is not null)
+                    {
+                        var winBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
+                        return Results.Ok(ToDto(winnerSession, $"{winBase}/pay/{winnerSession.Id}"));
+                    }
+                }
+                throw;
+            }
 
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
             return Results.Ok(ToDto(session, $"{checkoutBase}/pay/{session.Id}"));
@@ -216,11 +288,19 @@ public static class PaymentsEndpoints
 
             if (wantsCsv)
             {
-                // CSV path skips the JSON DTO + checkout-URL building. Columns
-                // are flattened from PaySession; satoshis are converted to DGB
-                // for spreadsheet readability.
+                // CSV path projects only the columns it needs so the DB doesn't
+                // ship every PaySession field (xpub-derived address bytes,
+                // refund metadata, etc.) for a 10k-row export.
                 var csvRows = await query.OrderByDescending(s => s.CreatedAt)
-                    .Take(take).ToListAsync();
+                    .Take(take)
+                    .Select(s => new
+                    {
+                        s.Id, s.StoreId, s.Status, s.Address, s.AmountSatoshis,
+                        s.FiatCurrency, s.FiatAmount, s.Label, s.Memo,
+                        s.ReceivedSatoshis, s.Confirmations, s.PaidTxid,
+                        s.CreatedAt, s.ExpiresAt, s.SeenAt, s.PaidAt, s.Source,
+                    })
+                    .ToListAsync();
                 var sb = new System.Text.StringBuilder(64 + csvRows.Count * 256);
                 CsvWriter.WriteRow(sb, new object?[]
                 {

@@ -43,9 +43,20 @@
                     <input @bind="pairCode" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
                            maxlength="8" placeholder="AB2C9D"
                            class="w-full text-center font-mono text-3xl tracking-[0.5em] uppercase bg-slate-900 border border-dgb-800 rounded-xl py-4 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
-                    <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors"
+                    <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors flex items-center justify-center gap-2"
                             @onclick="ClaimPairingAsync" disabled="@(busy || string.IsNullOrWhiteSpace(pairCode))">
-                        @(busy ? "Pairing…" : "Pair this device")
+                        @if (busy)
+                        {
+                            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.25"></circle>
+                                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                            </svg>
+                            <span>Pairing…</span>
+                        }
+                        else
+                        {
+                            <span>Pair this device</span>
+                        }
                     </button>
                 }
                 else
@@ -62,9 +73,20 @@
                     <input @bind="manualStoreId" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                            placeholder="sto_…"
                            class="w-full font-mono text-sm bg-slate-900 border border-dgb-800 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
-                    <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors"
+                    <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors flex items-center justify-center gap-2"
                             @onclick="ApplyManualKeyAsync" disabled="@(busy || string.IsNullOrWhiteSpace(manualApiKey))">
-                        @(busy ? "Checking…" : "Use this key")
+                        @if (busy)
+                        {
+                            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.25"></circle>
+                                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                            </svg>
+                            <span>Checking…</span>
+                        }
+                        else
+                        {
+                            <span>Use this key</span>
+                        }
                     </button>
                 }
 
@@ -422,6 +444,55 @@
                             </div>
                         </div>
                     </div>
+
+                    @* Missed revenue — only when there's something to show, so a
+                       clean shift doesn't render a dead section. Same shape as
+                       collected so the cashier can compare at a glance. *@
+                    @if (shiftReport.Missed is { } missed
+                        && (missed.Expired.Count > 0 || missed.Underpaid.Count > 0))
+                    {
+                        <div>
+                            <div class="text-[0.6875rem] uppercase tracking-widest text-slate-400 mb-1">Missed revenue</div>
+                            <div class="grid grid-cols-2 gap-2">
+                                @if (missed.Expired.Count > 0)
+                                {
+                                    <div class="bg-slate-800/40 border border-slate-700/60 rounded-lg p-2">
+                                        <div class="text-[0.625rem] uppercase tracking-wider text-slate-400 mb-0.5">Expired (@missed.Expired.Count)</div>
+                                        <div class="text-sm font-bold tabular-nums">@FormatDgb8(missed.Expired.Dgb) <span class="text-slate-500 text-xs">DGB</span></div>
+                                        @if (missed.Expired.Fiat is { Count: > 0 })
+                                        {
+                                            <div class="mt-1 flex flex-wrap gap-1">
+                                                @foreach (var kv in missed.Expired.Fiat.OrderBy(k => k.Key))
+                                                {
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 text-[0.625rem] font-semibold tabular-nums">
+                                                        @kv.Value.ToString("0.##") @kv.Key
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                @if (missed.Underpaid.Count > 0)
+                                {
+                                    <div class="bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
+                                        <div class="text-[0.625rem] uppercase tracking-wider text-amber-300/80 mb-0.5">Underpaid (@missed.Underpaid.Count)</div>
+                                        <div class="text-sm font-bold tabular-nums text-amber-200">@FormatDgb8(missed.Underpaid.Dgb) <span class="text-amber-300/70 text-xs">DGB</span></div>
+                                        @if (missed.Underpaid.Fiat is { Count: > 0 })
+                                        {
+                                            <div class="mt-1 flex flex-wrap gap-1">
+                                                @foreach (var kv in missed.Underpaid.Fiat.OrderBy(k => k.Key))
+                                                {
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-200 text-[0.625rem] font-semibold tabular-nums">
+                                                        @kv.Value.ToString("0.##") @kv.Key
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
 
                 <div class="flex gap-2 mt-5">
@@ -813,8 +884,12 @@
             var response = await http.PostAsJsonAsync("/v1/pay/pos/claim", new { code = pairCode.Trim() });
             if (!response.IsSuccessStatusCode)
             {
-                pairError = response.StatusCode == System.Net.HttpStatusCode.NotFound
-                    ? "That pairing code is invalid or has expired."
+                // The API surfaces a structured `error`/`reason` for claim
+                // failures so we can render typo-vs-expired distinctly.
+                ClaimErrorDto? err = null;
+                try { err = await response.Content.ReadFromJsonAsync<ClaimErrorDto>(); } catch { }
+                pairError = !string.IsNullOrWhiteSpace(err?.Error)
+                    ? err!.Error
                     : $"Pairing failed ({(int)response.StatusCode}).";
                 return;
             }
@@ -828,6 +903,8 @@
         catch (Exception ex) { pairError = $"Pairing failed: {ex.Message}"; }
         finally { busy = false; }
     }
+
+    private sealed record ClaimErrorDto(string? Error, string? Reason);
 
     private async Task ApplyManualKeyAsync()
     {
@@ -1250,6 +1327,7 @@
         [property: JsonPropertyName("to")] DateTime To,
         [property: JsonPropertyName("storeId")] string StoreId,
         [property: JsonPropertyName("totals")] ShiftTotals Totals,
+        [property: JsonPropertyName("missed")] ShiftMissed? Missed,
         [property: JsonPropertyName("outcomes")] ShiftOutcomes Outcomes);
 
     public record ShiftTotals(
@@ -1257,6 +1335,15 @@
         [property: JsonPropertyName("collectedDgb")] decimal CollectedDgb,
         [property: JsonPropertyName("fiat")] Dictionary<string, decimal>? Fiat,
         [property: JsonPropertyName("tips")] Dictionary<string, decimal>? Tips);
+
+    public record ShiftMissed(
+        [property: JsonPropertyName("expired")] ShiftMissedBucket Expired,
+        [property: JsonPropertyName("underpaid")] ShiftMissedBucket Underpaid);
+
+    public record ShiftMissedBucket(
+        [property: JsonPropertyName("count")] int Count,
+        [property: JsonPropertyName("dgb")] decimal Dgb,
+        [property: JsonPropertyName("fiat")] Dictionary<string, decimal>? Fiat);
 
     public record ShiftOutcomes(
         [property: JsonPropertyName("collected")] int Collected,

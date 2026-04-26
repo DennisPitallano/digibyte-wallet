@@ -13,6 +13,7 @@ public class DigiPayDbContext : DbContext
     public DbSet<PayApiKey> ApiKeys => Set<PayApiKey>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -106,6 +107,19 @@ public class DigiPayDbContext : DbContext
             e.Property(a => a.TargetId).HasMaxLength(64).IsRequired();
             e.Property(a => a.Summary).HasMaxLength(512);
             e.Property(a => a.Metadata).HasMaxLength(2048);
+        });
+
+        modelBuilder.Entity<IdempotencyRecord>(e =>
+        {
+            e.HasKey(r => r.Id);
+            // Scope: same key from two different merchants must not collide,
+            // so the uniqueness constraint is composite. The CreatedAt index
+            // serves the 24h sweep that prunes stale records.
+            e.HasIndex(r => new { r.MerchantId, r.Key }).IsUnique();
+            e.HasIndex(r => r.CreatedAt);
+            e.Property(r => r.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(r => r.Key).HasMaxLength(255).IsRequired();
+            e.Property(r => r.SessionId).HasMaxLength(32).IsRequired();
         });
     }
 }

@@ -121,6 +121,16 @@ public static class StoresEndpoints
                 }
                 else
                 {
+                    if (trimmed.Length > 2048)
+                        return Results.BadRequest(new { error = "webhookUrl must be 2048 chars or fewer" });
+                    if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+                        return Results.BadRequest(new { error = "webhookUrl must be a valid absolute URL" });
+                    var isHttps = string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+                    var isHttp = string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase);
+                    var isLocalHttp = isHttp && (uri.IsLoopback || string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase));
+                    if (!isHttps && !isLocalHttp)
+                        return Results.BadRequest(new { error = "webhookUrl must use https (http allowed only for localhost)" });
+
                     store!.WebhookUrl = trimmed;
                     if (string.IsNullOrEmpty(store.WebhookSecret))
                     {

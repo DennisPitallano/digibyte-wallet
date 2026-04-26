@@ -266,6 +266,153 @@ else
                     }
                 </section>
             }
+            else if (activeTab == "links")
+            {
+                <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
+                    <h1 class="@H1">Payment links</h1>
+                    <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
+                </div>
+                <p class="@Muted mb-6 slide-up-delay-1">
+                    Generate a shareable checkout URL for an exact amount — send it via SMS, email, WhatsApp,
+                    or a QR-printed receipt. The customer pays with any DigiByte wallet; you watch the status
+                    on the Sessions tab or via webhook.
+                </p>
+
+                @if (!activeStore.HasReceive)
+                {
+                    <section class="@Card scale-in-delay-1">
+                        <h2 class="@H2">Configure where to receive payments</h2>
+                        <p class="@Muted m-0">Set a DigiByte address or BIP84 xpub in Settings before creating links.</p>
+                        <button class="@Btn self-start" @onclick='() => SwitchTab("settings")'>Go to Settings</button>
+                    </section>
+                }
+                else
+                {
+                    <section class="@Card scale-in-delay-1">
+                        <h2 class="@H2">Create a link</h2>
+
+                        @* Currency toggle: DGB (default) vs fiat. Fiat-priced sessions
+                           lock in the DGB amount at the rate the API quotes server-side
+                           when the customer opens the checkout. *@
+                        <div class="flex rounded-lg bg-slate-100 dark:bg-dgb-950 p-1 text-sm font-semibold w-fit">
+                            <button type="button" class="px-3 py-1.5 rounded-md transition-colors @(linkPriceMode == "dgb" ? "bg-white dark:bg-dgb-800 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                                    @onclick='() => linkPriceMode = "dgb"'>DGB</button>
+                            <button type="button" class="px-3 py-1.5 rounded-md transition-colors @(linkPriceMode == "fiat" ? "bg-white dark:bg-dgb-800 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                                    @onclick='() => linkPriceMode = "fiat"'>Fiat</button>
+                        </div>
+
+                        @if (linkPriceMode == "dgb")
+                        {
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input @bind="linkAmountDgb" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="@Input" />
+                                <input @bind="linkLabel" placeholder="Label (shown to payer)" class="@Input" />
+                                <input @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                                <input @bind="linkAmountFiat" type="number" step="0.01" min="0" placeholder="Amount" class="@Input" />
+                                <select @bind="linkFiatCurrency" class="@Input">
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="GBP">GBP</option>
+                                    <option value="CAD">CAD</option>
+                                    <option value="AUD">AUD</option>
+                                    <option value="JPY">JPY</option>
+                                </select>
+                                <input @bind="linkLabel" placeholder="Label" class="@Input" />
+                                <input @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
+                            </div>
+                        }
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
+                            <label class="flex flex-col gap-1">
+                                <span class="@Eyebrow">Expires in (minutes)</span>
+                                <input @bind="linkExpiryMinutes" type="number" min="1" max="1440" placeholder="30" class="@Input" />
+                            </label>
+                            <button class="@Btn" @onclick="CreatePaymentLinkAsync"
+                                    disabled="@(busy || !LinkFormValid)">
+                                @(busy ? "Creating…" : "Create payment link")
+                            </button>
+                        </div>
+
+                        @if (linkError != null) { <p class="text-xs text-red-500 m-0">@linkError</p> }
+                    </section>
+
+                    @if (createdLink is not null)
+                    {
+                        <section class="@Card scale-in-delay-2 mt-4">
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <h2 class="@H2">Share this link</h2>
+                                <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="ResetLinkForm">Create another</button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-start">
+                                @* QR rendered server-side via QRCoder — same approach as
+                                   Receipt.razor. Encoding the bare https URL means any
+                                   phone scanner can open it (no wallet-specific scheme
+                                   needed; the checkout page itself shows the BIP21 QR
+                                   for the wallet step). *@
+                                @if (!string.IsNullOrEmpty(linkQrDataUrl))
+                                {
+                                    <div class="bg-white p-3 rounded-2xl shadow-inner self-start mx-auto md:mx-0">
+                                        <img src="@linkQrDataUrl" alt="Payment link QR" class="block w-40 h-40" />
+                                    </div>
+                                }
+
+                                <div class="flex flex-col gap-3 min-w-0">
+                                    <div>
+                                        <div class="@Eyebrow mb-1">Checkout URL</div>
+                                        <div class="flex gap-2 items-stretch">
+                                            <input class="@Input flex-1 font-mono text-xs" readonly value="@createdLink.CheckoutUrl"
+                                                   @onclick="SelectLinkInputAsync" />
+                                            <button class="@BtnGhost text-xs px-3 shrink-0"
+                                                    @onclick='() => CopySnippetAsync("link", createdLink!.CheckoutUrl)'>
+                                                @(copiedSnippet == "link" ? "Copied ✓" : "Copy")
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-2">
+                                        <a class="@BtnGhost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline"
+                                           href="@createdLink.CheckoutUrl" target="_blank" rel="noopener">
+                                            <Icon Name="external-link" Class="w-3.5 h-3.5" />
+                                            Open
+                                        </a>
+                                        <a class="@BtnGhost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline"
+                                           href="@MailtoHref(createdLink)">
+                                            <Icon Name="bell" Class="w-3.5 h-3.5" />
+                                            Email
+                                        </a>
+                                        <a class="@BtnGhost text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline"
+                                           href="@SmsHref(createdLink)">
+                                            <Icon Name="bell" Class="w-3.5 h-3.5" />
+                                            SMS
+                                        </a>
+                                        <button class="@BtnGhost text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
+                                                @onclick="ShareLinkAsync"
+                                                title="Share via your device's share sheet (if supported)">
+                                            <Icon Name="external-link" Class="w-3.5 h-3.5" />
+                                            Share…
+                                        </button>
+                                    </div>
+
+                                    <div class="text-xs text-slate-500 dark:text-slate-400 grid grid-cols-2 gap-y-0.5 max-w-md">
+                                        <div>Amount</div><div class="text-right tabular-nums">@FormatLinkAmount(createdLink)</div>
+                                        @if (!string.IsNullOrWhiteSpace(createdLink.Label))
+                                        {
+                                            <div>Label</div><div class="text-right truncate" title="@createdLink.Label">@createdLink.Label</div>
+                                        }
+                                        <div>Status</div><div class="text-right capitalize">@createdLink.Status</div>
+                                        <div>Expires</div><div class="text-right tabular-nums">@createdLink.ExpiresAt.ToLocalTime().ToString("MMM d, HH:mm")</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    }
+                }
+            }
             else if (activeTab == "donation")
             {
                 <div class="flex items-baseline justify-between mb-1 slide-up">
@@ -732,6 +879,7 @@ else
         new TabDef("overview",  "Overview",        "dashboard"),
         new TabDef("analytics", "Analytics",       "chart"),
         new TabDef("sessions",  "Sessions",        "list"),
+        new TabDef("links",     "Payment links",   "link"),
         new TabDef("donation",  "Donation button", "gift"),
         new TabDef("webhook",   "Webhook",         "bell"),
         new TabDef("stores",    "Stores",          "store"),
@@ -770,6 +918,23 @@ else
     private string newMemo = "";
     private CreatedSession? createdSession;
     private string? createError;
+
+    // Links tab — payment-link generator (no-code share-a-checkout-URL).
+    // Mirrors CreateSessionAsync but with fiat-priced + custom-expiry support
+    // and a richer result UI (QR + share affordances).
+    private string linkPriceMode = "dgb"; // "dgb" or "fiat"
+    private decimal linkAmountDgb;
+    private decimal linkAmountFiat;
+    private string linkFiatCurrency = "USD";
+    private string linkLabel = "";
+    private string linkMemo = "";
+    private int? linkExpiryMinutes;
+    private SessionRow? createdLink;
+    private string? linkQrDataUrl;
+    private string? linkError;
+    private bool LinkFormValid => linkPriceMode == "dgb"
+        ? linkAmountDgb > 0
+        : linkAmountFiat > 0 && !string.IsNullOrWhiteSpace(linkFiatCurrency);
 
     private string? donationAddress;
     private decimal donAmount;
@@ -1114,6 +1279,117 @@ else
         }
         catch (Exception ex) { createError = ex.Message; }
         finally { busy = false; StateHasChanged(); }
+    }
+
+    private async Task CreatePaymentLinkAsync()
+    {
+        if (activeStore is null || !LinkFormValid) return;
+        busy = true; linkError = null; createdLink = null; linkQrDataUrl = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            // Fiat-priced sessions still need an `amount` (DGB) — the API will
+            // accept any positive value and the customer pays whatever the
+            // server quotes at checkout time. Send a placeholder 1 DGB for fiat
+            // mode so the payload validates; the real number is `fiatAmount`.
+            var amountDgb = linkPriceMode == "dgb" ? linkAmountDgb : 1m;
+            var expirySeconds = (linkExpiryMinutes is int m && m > 0)
+                ? Math.Clamp(m, 1, 1440) * 60
+                : (int?)null;
+            var content = JsonContent.Create(new
+            {
+                amount = amountDgb,
+                storeId = activeStoreId,
+                label = string.IsNullOrWhiteSpace(linkLabel) ? null : linkLabel.Trim(),
+                memo = string.IsNullOrWhiteSpace(linkMemo) ? null : linkMemo.Trim(),
+                fiatCurrency = linkPriceMode == "fiat" ? linkFiatCurrency : null,
+                fiatAmount = linkPriceMode == "fiat" ? (decimal?)linkAmountFiat : null,
+                expiresInSeconds = expirySeconds,
+            });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/sessions", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                linkError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            createdLink = await response.Content.ReadFromJsonAsync<SessionRow>();
+            if (createdLink is not null)
+                linkQrDataUrl = GenerateLinkQr(createdLink.CheckoutUrl);
+            await LoadSessionsAsync();
+        }
+        catch (Exception ex) { linkError = ex.Message; }
+        finally { busy = false; StateHasChanged(); }
+    }
+
+    private void ResetLinkForm()
+    {
+        createdLink = null;
+        linkQrDataUrl = null;
+        linkError = null;
+        linkAmountDgb = 0;
+        linkAmountFiat = 0;
+        linkLabel = "";
+        linkMemo = "";
+        linkExpiryMinutes = null;
+    }
+
+    private static string GenerateLinkQr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
+    }
+
+    private string FormatLinkAmount(SessionRow s)
+    {
+        if (s.FiatAmount is decimal f && !string.IsNullOrWhiteSpace(s.FiatCurrency))
+            return $"{f:0.##} {s.FiatCurrency.ToUpperInvariant()} (≈ {s.Amount:0.########} DGB)";
+        return $"{s.Amount:0.########} DGB";
+    }
+
+    private static string MailtoHref(SessionRow s)
+    {
+        var subject = string.IsNullOrWhiteSpace(s.Label) ? "Payment link" : s.Label;
+        var body = $"Pay here: {s.CheckoutUrl}";
+        return $"mailto:?subject={Uri.EscapeDataString(subject)}&body={Uri.EscapeDataString(body)}";
+    }
+
+    private static string SmsHref(SessionRow s)
+    {
+        // sms: with body= works on iOS / most Android SMS apps; the payer's
+        // device picks the recipient.
+        var body = string.IsNullOrWhiteSpace(s.Label)
+            ? $"Pay here: {s.CheckoutUrl}"
+            : $"{s.Label}: {s.CheckoutUrl}";
+        return $"sms:?body={Uri.EscapeDataString(body)}";
+    }
+
+    private async Task ShareLinkAsync()
+    {
+        if (createdLink is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("digipayShareLink", new
+            {
+                title = string.IsNullOrWhiteSpace(createdLink.Label) ? "Payment link" : createdLink.Label,
+                text = string.IsNullOrWhiteSpace(createdLink.Label) ? "Pay here:" : $"{createdLink.Label}:",
+                url = createdLink.CheckoutUrl,
+            });
+        }
+        catch
+        {
+            // Web Share API unavailable (desktop browsers without it) — fall back
+            // to copying the URL silently. The Copy button is right there too.
+            await CopySnippetAsync("link", createdLink.CheckoutUrl);
+        }
+    }
+
+    private async Task SelectLinkInputAsync()
+    {
+        // Convenience: tapping the URL field selects all so a long-press copy
+        // works on mobile without fiddling with selection handles.
+        try { await JS.InvokeVoidAsync("eval", "document.activeElement?.select?.()"); } catch { }
     }
 
     private async Task SaveWebhookAsync()

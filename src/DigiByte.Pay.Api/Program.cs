@@ -109,12 +109,18 @@ builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();
 
 // Rate limiter — layered policies keyed to the threat model:
-//   sandbox  (20/min  per IP) — unauthenticated demo/test endpoints, prevents
-//                                DB-growth drive-bys from the public embed.
-//   auth     (10/min  per IP) — Digi-ID challenge/verify; slow online guessing.
-//   register ( 5/min  per IP) — self-serve merchant signup; caps account spam.
-//   claim    (20/min  per IP) — POS pair-code claim; 6-char codes expire in 5min
-//                                but we still want to blunt sustained guessing.
+//   sandbox       (20/min  per IP)    — unauthenticated demo/test endpoints, prevents
+//                                       DB-growth drive-bys from the public embed.
+//   auth          (10/min  per IP)    — Digi-ID challenge/verify; slow online guessing.
+//   register      ( 5/min  per IP)    — self-serve merchant signup; caps account spam.
+//   claim         (20/min  per IP)    — POS pair-code claim; 6-char codes expire in 5min
+//                                       but we still want to blunt sustained guessing.
+//   authenticated (120/min per token) — merchant-authed endpoints. Partitioned by the
+//                                       Bearer token's non-secret prefix so a single
+//                                       leaked key can't be used to hammer the API
+//                                       without throttling. Allows enough headroom for
+//                                       a busy POS / dashboard session (multiple polls
+//                                       per second on session detail).
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -131,10 +137,39 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
             });
     }
-    options.AddPolicy("sandbox",  ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
-    options.AddPolicy("auth",     ctx => PerIp(ctx, 10, TimeSpan.FromMinutes(1)));
-    options.AddPolicy("register", ctx => PerIp(ctx,  5, TimeSpan.FromMinutes(1)));
-    options.AddPolicy("claim",    ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
+    static System.Threading.RateLimiting.RateLimitPartition<string> PerToken(
+        HttpContext ctx, int permit, TimeSpan window)
+    {
+        // Partition by the *prefix* portion of the Bearer token (e.g. "dgp_abcdef1234"),
+        // never the full secret. Falls back to per-IP when no Authorization header is
+        // present so unauthenticated callers still get a reasonable cap.
+        var auth = ctx.Request.Headers.Authorization.ToString();
+        string key;
+        if (!string.IsNullOrWhiteSpace(auth) && auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var token = auth["Bearer ".Length..].Trim();
+            var firstUs = token.IndexOf('_');
+            var secondUs = firstUs >= 0 ? token.IndexOf('_', firstUs + 1) : -1;
+            key = secondUs > 0 ? "token:" + token[..secondUs] : "token:" + token;
+        }
+        else
+        {
+            key = "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "anon");
+        }
+        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            key,
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permit,
+                Window = window,
+                QueueLimit = 0,
+            });
+    }
+    options.AddPolicy("sandbox",       ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("auth",          ctx => PerIp(ctx, 10, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("register",      ctx => PerIp(ctx,  5, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("claim",         ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("authenticated", ctx => PerToken(ctx, 120, TimeSpan.FromMinutes(1)));
 });
 
 // Database provider:
@@ -353,9 +388,9 @@ app.MapGet("/api/health", () => Results.Ok(new
 // integrator-facing surface into meaningful sections.
 app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration).WithTags("Sessions");
 app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration).ExcludeFromDescription().RequireRateLimiting("auth");
-app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints().ExcludeFromDescription();
-app.MapGroup("/v1/pay/stores").MapStoresEndpoints().WithTags("Stores & webhooks");
-app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints().ExcludeFromDescription();
+app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints().ExcludeFromDescription().RequireRateLimiting("authenticated");
+app.MapGroup("/v1/pay/stores").MapStoresEndpoints().WithTags("Stores & webhooks").RequireRateLimiting("authenticated");
+app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints().ExcludeFromDescription().RequireRateLimiting("authenticated");
 // POS device pairing. /claim is unauthed (it's how a new tablet bootstraps)
 // but rate-limited to blunt brute-force on the 6-char pairing code; the
 // other routes require a merchant-authed token and are management-only.

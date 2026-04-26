@@ -76,7 +76,10 @@
                 <div class="w-full text-[0.6875rem] font-mono text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-600 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800 print:bg-white print:text-black">@session.PaidTxid</div>
 
                 <div class="w-full text-xs text-slate-500 dark:text-slate-400 grid grid-cols-2 gap-y-1 print:text-slate-700">
-                    <div>Session</div><div class="font-mono text-right break-all">@session.Id</div>
+                    @* Internal session id is useful for support but noise on a customer's
+                       printed copy — hidden in print so only amount, txid, time and
+                       confirmations appear on paper. *@
+                    <div class="print:hidden">Session</div><div class="font-mono text-right break-all print:hidden">@session.Id</div>
                     <div>Paid at</div><div class="text-right tabular-nums">@session.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</div>
                     <div>Confirmations</div><div class="text-right tabular-nums">@session.Confirmations</div>
                 </div>

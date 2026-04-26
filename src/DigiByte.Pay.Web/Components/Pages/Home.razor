@@ -402,10 +402,21 @@
             "Identical surface across all three: DigiPay client + webhook verifier + DigiPayError with HTTP status preserved; same 8-test behaviour-parity suite on each",
             "Tag-triggered publishing (sdk-{lang}-v*) with version/tag guards and provenance attestations where the registry supports them",
         }),
+        new Milestone("Apr 2026", "POS + merchant adoption", RoadmapStatus.Done, new[]
+        {
+            "POS mode — tablet pairing (6-char code, 10-min TTL), amount pad with currency cycler, tip presets, shift-close reports with collected/expired/underpaid breakdown",
+            "Refunds & voids — off-platform refund recording (you send DGB, stamp the txid) and void for unpaid sessions, both fanned out as webhooks",
+            "Dashboard analytics — KPI tiles (gross, sessions, conversion, refund rate), daily stacked-outcome chart, DGB volume chart",
+            "Append-only audit log — every void / refund / store / key mutation with actor + IP, paginated and exportable",
+            "End-to-end sample apps — single-file mini-stores for Express, Flask, and ASP.NET Core covering checkout + HMAC-verified webhooks",
+            "Payment links (no-code) — dashboard tab to mint a shareable checkout URL with QR + email/SMS/Web Share buttons; DGB or fiat priced",
+            "Idempotency keys + Postman collection — Stripe-style Idempotency-Key header on session creation (replay-safe within 24h, scoped per merchant), curated Postman 2.1 collection with auto-saved variables",
+        }),
         new Milestone("Q3 2026", "v2 — CMS & webhook reach", RoadmapStatus.InProgress, new[]
         {
+            "Email receipts — customer email on session.confirmed with txid + amount, opt-in per store; SMTP / SendGrid / Resend pluggable via configuration",
+            "Automated test suite (Pay.Api) — first xUnit project covering idempotency races, webhook HMAC verification, rate-limit policies, and pairing-code expiry",
             "WooCommerce plugin (PHP)",
-            "POS mode (dedicated tablet checkout) — kiosk page with pairing codes, keypad, live QR and auto-return; paired devices manageable from the dashboard",
             "Refund helper (generates outgoing-tx URI — non-custodial so you sign it)",
             "Per-key scopes (read:sessions vs write:sessions)",
             "Invoice-level audit log (who viewed / paid / received the webhook)",
@@ -413,6 +424,7 @@
         }),
         new Milestone("Q4 2026+", "v3 — expansion", RoadmapStatus.Planned, new[]
         {
+            "digipay listen — Stripe-CLI-shaped local webhook tunnel that forwards verified events to your localhost. Distributed via npm / PyPI / NuGet so devs can pick the runtime they already have",
             "Shopify app",
             "Subscriptions & recurring re-auth",
             "Optional custodial settlement layer with fiat on-ramp partner",

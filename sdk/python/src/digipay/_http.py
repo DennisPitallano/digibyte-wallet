@@ -32,8 +32,10 @@ class _HttpClient:
         method: str,
         path: str,
         body: Any = None,
+        *,
+        idempotency_key: str | None = None,
     ) -> Any:
-        raw = self.request_bytes(method, path, body)
+        raw = self.request_bytes(method, path, body, idempotency_key=idempotency_key)
         if not raw:
             return None
         try:
@@ -46,6 +48,8 @@ class _HttpClient:
         method: str,
         path: str,
         body: Any = None,
+        *,
+        idempotency_key: str | None = None,
     ) -> bytes:
         url = f"{self._base_url}{path}"
         data: bytes | None = None
@@ -56,6 +60,8 @@ class _HttpClient:
         if body is not None:
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
 
         req = urlrequest.Request(url, data=data, method=method, headers=headers)
         try:

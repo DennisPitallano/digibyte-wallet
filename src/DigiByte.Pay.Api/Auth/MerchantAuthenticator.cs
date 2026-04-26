@@ -62,10 +62,16 @@ public static class MerchantAuthenticator
     {
         var session = await db.MerchantSessions.FirstOrDefaultAsync(s => s.TokenPrefix == prefix);
         if (session is null) return null;
-        if (DateTime.UtcNow > session.ExpiresAt) return null;
+        var now = DateTime.UtcNow;
+        if (now > session.ExpiresAt) return null;
         if (!FixedEquals(session.TokenHash, hash)) return null;
 
-        session.LastUsedAt = DateTime.UtcNow;
+        session.LastUsedAt = now;
+        // Sliding window: every successful auth pushes ExpiresAt back out to a full
+        // SessionLifetime from now, so an active dashboard never logs the merchant
+        // out mid-session. Once the token is more than SessionLifetime stale it has
+        // already failed the expiry check above, so this can only extend forward.
+        session.ExpiresAt = now + SessionLifetime;
         await db.SaveChangesAsync();
         return await db.Merchants.FirstOrDefaultAsync(m => m.Id == session.MerchantId);
     }
