@@ -10,6 +10,7 @@ webhook, fulfil the order.
 | Node + Express | [`express-store/`](express-store/) | ~120 | [`@dgbwallet/digipay`](../sdk/node) |
 | Python + Flask | [`flask-store/`](flask-store/) | ~140 | [`digipay`](../sdk/python) |
 | ASP.NET Core (Minimal API) | [`dotnet-store/`](dotnet-store/) | ~150 | [`DigiPay`](../sdk/dotnet) |
+| WooCommerce plugin (PHP) | [`woocommerce-plugin/`](woocommerce-plugin/) | ~600 | none — direct REST + HMAC verify |
 
 Each folder has its own README with run instructions. They all expose the same
 three routes:
