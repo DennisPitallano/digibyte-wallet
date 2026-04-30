@@ -158,6 +158,21 @@ else
                     <div class="@Mono">@session.Uri</div>
                     <button class="@BtnGhost text-xs py-1.5 px-3 mt-1" @onclick='() => CopyAsync("uri", session.Uri)'>@(copiedField == "uri" ? "Copied ✓" : "Copy")</button>
                 </div>
+                @if (!string.IsNullOrWhiteSpace(session.ReturnUrl))
+                {
+                    @* Where the buyer is sent back to once payment confirms. Shown
+                       on the merchant detail view so support can verify the right
+                       integration delivered the session — useful when one DigiPay
+                       account fronts multiple shops. *@
+                    <div>
+                        <div class="@Eyebrow">Return URL <span class="@Muted">(buyer is redirected here on success)</span></div>
+                        <div class="@Mono">@session.ReturnUrl</div>
+                        <div class="flex gap-2 flex-wrap mt-1">
+                            <button class="@BtnGhost text-xs py-1.5 px-3" @onclick='() => CopyAsync("returnurl", session.ReturnUrl!)'>@(copiedField == "returnurl" ? "Copied ✓" : "Copy")</button>
+                            <a href="@session.ReturnUrl" target="_blank" rel="noopener" class="@BtnGhost text-xs py-1.5 px-3 no-underline">Open ↗</a>
+                        </div>
+                    </div>
+                }
             </section>
 
             @* Webhook deliveries filtered to this session *@
@@ -506,7 +521,8 @@ else
         DateTime? SeenAt, DateTime? PaidAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl, string? Source = null,
-        string? RefundTxid = null, DateTime? RefundedAt = null, string? RefundNote = null);
+        string? RefundTxid = null, DateTime? RefundedAt = null, string? RefundNote = null,
+        string? ReturnUrl = null);
 
     private record WebhookDeliveryDto(string Id, string StoreId, string? SessionId,
         string EventName, string Url, int Attempt, int? StatusCode, string? ErrorMessage,
