@@ -29,7 +29,23 @@ final class DigiPay_Blocks_Integration extends AbstractPaymentMethodType
 
     public function is_active(): bool
     {
-        return !empty($this->settings['enabled']) && $this->settings['enabled'] === 'yes';
+        // Mirror DigiPay_Gateway::is_available() — the Blocks UI picks this up
+        // to decide whether to render the payment method, and we want the same
+        // hide-when-misconfigured behavior on both checkouts. Re-using the
+        // gateway's check (via WC()->payment_gateways) keeps the rules in one
+        // place; fall back to a config sniff if WC isn't fully bootstrapped.
+        if (function_exists('WC') && WC() !== null && method_exists(WC(), 'payment_gateways')) {
+            $gws = WC()->payment_gateways()->payment_gateways();
+            if (isset($gws[$this->name]) && method_exists($gws[$this->name], 'is_available')) {
+                return (bool) $gws[$this->name]->is_available();
+            }
+        }
+        if (empty($this->settings['enabled']) || $this->settings['enabled'] !== 'yes') {
+            return false;
+        }
+        $api_key = isset($this->settings['api_key']) ? trim((string) $this->settings['api_key']) : '';
+        $secret  = isset($this->settings['webhook_secret']) ? trim((string) $this->settings['webhook_secret']) : '';
+        return $api_key !== '' && $secret !== '';
     }
 
     public function get_payment_method_script_handles(): array

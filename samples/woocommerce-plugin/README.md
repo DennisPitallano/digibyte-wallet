@@ -12,11 +12,29 @@ thank-you page) is on the v2 roadmap.
 
 - A `WC_Payment_Gateway` subclass that creates a DigiPay session at
   `process_payment()` time and redirects to `session.checkoutUrl`.
-- A `wc-api` webhook receiver with **raw-body HMAC verification** — the part
-  most integrations get wrong.
+- A `wc-api` webhook receiver with **raw-body HMAC verification** plus a
+  5-minute timestamp tolerance, so a leaked secret can't be used to replay
+  an old delivery indefinitely.
 - Stripe-style `Idempotency-Key` derived from the WC order id, so a
   double-clicked _Place order_ can't mint two sessions.
+- A WooCommerce **Blocks payment-method registration** so the gateway shows
+  on the new (default since WC 8.3) block-based checkout, not just the
+  classic shortcode checkout.
+- **Fiat-priced orders** automatically converted to DGB at checkout time
+  using a CoinGecko price feed (60s WP-transient cached).
+- A merchant **`returnUrl`** sent on every session — the hosted checkout
+  routes the buyer back to the WC thank-you page after payment confirms.
 - WooCommerce HPOS (custom-order-tables) compatibility declared.
+
+## Requirements
+
+| | |
+|---|---|
+| WordPress | 6.0+ |
+| PHP | 7.4+ |
+| WooCommerce | 7.0+ (8.3+ for block-based checkout — older versions still work via the classic shortcode checkout) |
+| Outbound HTTPS | required for fiat mode (CoinGecko) and `returnUrl` validation |
+| WC store currency (fiat mode) | one of: USD, EUR, GBP, PHP, JPY |
 
 ## Install
 
@@ -51,9 +69,25 @@ Other settings:
 | Setting | Default | Notes |
 |---|---|---|
 | API base URL | `https://pay.dgbwallet.app` | Override only for self-hosted DigiPay or regtest. |
-| Currency mode | `Fiat (recommended)` | Sends WC's order total + currency to DigiPay; the DGB amount is pinned at session-creation time. Switch to `DGB` if the WC store currency itself is DigiByte. |
+| Currency mode | `Fiat (recommended)` | Plugin fetches DGB/<store-currency> from CoinGecko (cached 60s) and sends `amount` + `fiatAmount` + `fiatCurrency` + `dgbPriceAtCreation` together. Supported store currencies: **USD, EUR, GBP, PHP, JPY**. Switch to `DGB` if the WC store currency itself is DigiByte. |
 | Session expiry (seconds) | _(empty — uses DigiPay default of 1800s / 30m)_ | Match your fulfilment SLA. |
 | Debug logging | off | When on, session creation + webhook events are written to _WooCommerce → Status → Logs_ under source `digipay`. |
+
+The gateway is **automatically hidden at checkout** when:
+- the API key or webhook secret is blank, or
+- the store currency isn't supported (fiat mode only).
+
+This avoids the worst-case UX of a buyer clicking _Place order_ and only then
+finding out the gateway is misconfigured.
+
+### Return URL
+
+The plugin always sends `returnUrl = <WC thank-you page>` on session create —
+no admin field. After the buyer confirms payment on DigiPay's hosted
+checkout, they see a "Return to merchant" button and a 5-second
+auto-redirect back to the WC thank-you page (`/checkout/order-received/{id}/...`).
+The URL is order-specific and includes the WC order key, so each buyer is
+sent to their own page.
 
 ## Test locally on regtest
 

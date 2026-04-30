@@ -21,6 +21,11 @@ if (!defined('ABSPATH')) {
  */
 final class DigiPay_Webhook
 {
+    // Reject deliveries whose payload timestamp is more than this many
+    // seconds away from `now`. Defends against replay of an old captured
+    // webhook if the secret leaks. 5 min matches Stripe's default.
+    private const TIMESTAMP_TOLERANCE_SECONDS = 300;
+
     public static function handle(): void
     {
         $raw = file_get_contents('php://input');
@@ -60,6 +65,30 @@ final class DigiPay_Webhook
             ]);
             self::respond(400);
             return;
+        }
+
+        // Freshness check: a leaked secret could otherwise be used to replay
+        // an old captured delivery indefinitely. Pay.Api stamps each payload
+        // with `timestamp` (ISO-8601 UTC); anything outside a 5min window is
+        // rejected. Lenient on missing/malformed timestamps for backward
+        // compatibility with synthetic test fixtures and fixtures captured
+        // before this field existed.
+        if (isset($event['timestamp']) && is_string($event['timestamp']) && $event['timestamp'] !== '') {
+            $event_ts = strtotime($event['timestamp']);
+            if ($event_ts !== false) {
+                $skew = abs(time() - $event_ts);
+                if ($skew > self::TIMESTAMP_TOLERANCE_SECONDS) {
+                    DigiPay_Logger::error('webhook rejected: timestamp out of tolerance', [
+                        'delivery'    => $delivery_header,
+                        'skew_seconds' => $skew,
+                    ]);
+                    // 401 (not 400) so attackers can't distinguish a stale-replay
+                    // rejection from a signature-mismatch — keeps the endpoint
+                    // from being a useful oracle.
+                    self::respond(401);
+                    return;
+                }
+            }
         }
 
         $session = isset($event['session']) && is_array($event['session']) ? $event['session'] : [];

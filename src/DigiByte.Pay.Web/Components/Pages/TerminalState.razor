@@ -30,36 +30,30 @@
         }
     }
 
-    @* Merchant return flow. Only kicks in for the success state ("confirmed")
-       and when the session was created with a returnUrl — null for SDK /
-       direct-API merchants that own their own after-payment page. We render
-       a prominent button immediately and a 5s auto-redirect via a tiny
-       inline script (no Blazor server timer = no SignalR round-trip per tick).
-       The button stays clickable so impatient buyers don't have to wait. *@
+    @* Merchant return flow. Only fires for the success state and when the
+       merchant supplied a returnUrl on session create — null for SDK /
+       direct-API merchants that own their own after-payment page.
+       The countdown logic lives in wwwroot/checkout-countdown.js — that
+       script polls for [data-digipay-return-merchant] elements and arms
+       a one-shot 5s timer. Polling rather than an inline <script> because
+       Blazor's InteractiveServer patches the DOM via diff when SignalR
+       streams a status change, and browsers don't re-execute scripts
+       injected that way. The button stays clickable so impatient buyers
+       don't have to wait the countdown. *@
     @if (Status == "confirmed" && !string.IsNullOrWhiteSpace(ReturnUrl))
     {
-        <a href="@ReturnUrl"
-           class="mt-2 w-full sm:w-auto text-center py-3 px-5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">
-            Return to merchant
-        </a>
-        <p class="text-[0.6875rem] text-slate-500 dark:text-slate-400 m-0">
-            Returning automatically in <span data-digipay-return-countdown>5</span>…
-        </p>
-        <script>
-            (function () {
-                var url = @(System.Text.Json.JsonSerializer.Serialize(ReturnUrl));
-                var counter = document.querySelector('[data-digipay-return-countdown]');
-                var remaining = 5;
-                var timer = setInterval(function () {
-                    remaining -= 1;
-                    if (counter) counter.textContent = remaining;
-                    if (remaining <= 0) {
-                        clearInterval(timer);
-                        window.location.href = url;
-                    }
-                }, 1000);
-            })();
-        </script>
+        <div data-digipay-return-merchant
+             data-digipay-return-url="@ReturnUrl"
+             data-digipay-return-seconds="5"
+             class="w-full flex flex-col items-center gap-2 mt-2">
+            <a href="@ReturnUrl"
+               class="w-full sm:w-auto text-center py-3 px-5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">
+                Return to merchant
+            </a>
+            <p class="text-[0.6875rem] text-slate-500 dark:text-slate-400 m-0">
+                Returning automatically in <span data-digipay-return-countdown>5</span>…
+            </p>
+        </div>
     }
 </div>
 

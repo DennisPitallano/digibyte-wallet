@@ -40,6 +40,39 @@ final class DigiPay_Gateway extends WC_Payment_Gateway
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, [$this, 'process_admin_options']);
     }
 
+    /**
+     * Hide the gateway at checkout when essential config is missing — surfacing
+     * a half-configured DigiPay gateway means the buyer only finds out it's
+     * broken after Place Order, which is the worst possible UX. is_available()
+     * is what WooCommerce calls per-checkout-render; the Blocks integration's
+     * is_active() also picks this up via the same option lookup.
+     */
+    public function is_available(): bool
+    {
+        if (!parent::is_available()) {
+            return false;
+        }
+        $api_key = trim((string) $this->get_option('api_key', ''));
+        $secret  = trim((string) $this->get_option('webhook_secret', ''));
+        if ($api_key === '' || $secret === '') {
+            return false;
+        }
+        // For currency_mode='fiat' the live price has to come back from
+        // CoinGecko in one of the supported denominations. Hiding the
+        // gateway for unsupported store currencies is far less surprising
+        // than failing at process_payment().
+        if ($this->get_option('currency_mode', 'fiat') === 'fiat') {
+            $supported = ['USD', 'EUR', 'GBP', 'PHP', 'JPY'];
+            if (function_exists('get_woocommerce_currency')) {
+                $store = strtoupper((string) get_woocommerce_currency());
+                if (!in_array($store, $supported, true)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     public function init_form_fields(): void
     {
         $this->form_fields = [
