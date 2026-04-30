@@ -28,14 +28,7 @@ final class DigiPay_Gateway extends WC_Payment_Gateway
         $this->has_fields = false;
         $this->supports   = ['products'];
 
-        // Append the plugin version as a cache-buster so admins see the
-        // current icon after a plugin update without manual cache clears.
-        $icon_url   = add_query_arg(
-            'ver',
-            DIGIPAY_WC_VERSION,
-            plugins_url('assets/icon.svg', DIGIPAY_WC_PLUGIN_FILE)
-        );
-        $this->icon = apply_filters('digipay_gateway_icon', $icon_url);
+        $this->icon = apply_filters('digipay_gateway_icon', digipay_icon_url());
 
         $this->init_form_fields();
         $this->init_settings();

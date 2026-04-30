@@ -24,6 +24,29 @@ define('DIGIPAY_WC_PLUGIN_FILE', __FILE__);
 define('DIGIPAY_WC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DIGIPAY_WC_VERSION', '0.1.0');
 
+/**
+ * Cache-buster-decorated URL for the gateway icon.
+ *
+ * Combines the plugin version with the SVG's mtime — version alone wouldn't
+ * bust the cache when the artwork is swapped mid-release. Used by both the
+ * legacy gateway class (WC admin Settings → Payments) and the Blocks payment
+ * method data (customer-facing checkout) so both checkouts agree on the URL.
+ */
+function digipay_icon_url(): string
+{
+    $icon_path = DIGIPAY_WC_PLUGIN_DIR . 'assets/icon.svg';
+    $version   = DIGIPAY_WC_VERSION;
+    $mtime     = file_exists($icon_path) ? @filemtime($icon_path) : false;
+    if ($mtime) {
+        $version .= '.' . $mtime;
+    }
+    return add_query_arg(
+        'ver',
+        $version,
+        plugins_url('assets/icon.svg', DIGIPAY_WC_PLUGIN_FILE)
+    );
+}
+
 // Bootstrap only when WooCommerce is loaded — guards against fatals on
 // activate-without-Woo. Hooked at plugins_loaded:10 so Woo (which loads at 0)
 // is already in scope.
