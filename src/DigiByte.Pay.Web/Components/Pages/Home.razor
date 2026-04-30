@@ -411,12 +411,12 @@
             "End-to-end sample apps — single-file mini-stores for Express, Flask, and ASP.NET Core covering checkout + HMAC-verified webhooks",
             "Payment links (no-code) — dashboard tab to mint a shareable checkout URL with QR + email/SMS/Web Share buttons; DGB or fiat priced",
             "Idempotency keys + Postman collection — Stripe-style Idempotency-Key header on session creation (replay-safe within 24h, scoped per merchant), curated Postman 2.1 collection with auto-saved variables",
+            "WooCommerce plugin (PHP) — drop-in WordPress plugin with WC Blocks-checkout integration, CoinGecko-backed fiat pricing (USD/EUR/GBP/PHP/JPY), HMAC-signed webhooks with 5min replay window, merchant returnUrl round-trip + auto-redirect back to the WC thank-you page",
         }),
         new Milestone("Q3 2026", "v2 — CMS & webhook reach", RoadmapStatus.InProgress, new[]
         {
             "Email receipts — customer email on session.confirmed with txid + amount, opt-in per store; SMTP / SendGrid / Resend pluggable via configuration",
             "Automated test suite (Pay.Api) — first xUnit project covering idempotency races, webhook HMAC verification, rate-limit policies, and pairing-code expiry",
-            "WooCommerce plugin (PHP)",
             "Refund helper (generates outgoing-tx URI — non-custodial so you sign it)",
             "Per-key scopes (read:sessions vs write:sessions)",
             "Invoice-level audit log (who viewed / paid / received the webhook)",

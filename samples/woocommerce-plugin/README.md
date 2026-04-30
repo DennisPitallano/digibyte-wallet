@@ -36,6 +36,29 @@ thank-you page) is on the v2 roadmap.
 | Outbound HTTPS | required for fiat mode (CoinGecko) and `returnUrl` validation |
 | WC store currency (fiat mode) | one of: USD, EUR, GBP, PHP, JPY |
 
+## At a glance
+
+```
+WC checkout ──Place Order──▶ POST /v1/pay/sessions ──▶ DigiPay hosted checkout (QR + address)
+                                                                │
+                                                                │ buyer pays from any DigiByte wallet
+                                                                ▼
+                                       webhook ◀── HMAC-signed event (session.paid, session.confirmed, …)
+                                          │
+                                          ▼
+                              WC order: pending → processing → completed
+                                          │
+                                          │ on session.confirmed
+                                          ▼
+                              "Return to merchant" button + 5s auto-redirect
+                                          │
+                                          ▼
+                              WC thank-you page (order-received/{id}/?key=…)
+```
+
+For a screen-by-screen tour of what the buyer sees end-to-end, see
+[`docs/customer-flow.md`](docs/customer-flow.md).
+
 ## Install
 
 1. Build the plugin ZIP:
@@ -51,8 +74,12 @@ thank-you page) is on the v2 roadmap.
 2. In WordPress admin → _Plugins → Add New → Upload Plugin_, upload the ZIP and
    activate.
 
+   ![Upload Plugin in WP admin](docs/screenshots/01-install-upload.png)
+
 3. Go to _WooCommerce → Settings → Payments → DigiPay (DigiByte)_ and
    configure.
+
+   ![DigiPay settings page in WC admin](docs/screenshots/02-settings.png)
 
 ## Configure
 
@@ -88,6 +115,8 @@ checkout, they see a "Return to merchant" button and a 5-second
 auto-redirect back to the WC thank-you page (`/checkout/order-received/{id}/...`).
 The URL is order-specific and includes the WC order key, so each buyer is
 sent to their own page.
+
+![Hosted checkout — confirmed + Return to merchant](docs/screenshots/05-payment-confirmed.png)
 
 ## Test locally on regtest
 
