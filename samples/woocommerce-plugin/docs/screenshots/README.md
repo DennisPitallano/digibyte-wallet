@@ -14,7 +14,7 @@ drop new captures in place and the docs pick them up automatically.
 | 5 | `05-payment-confirmed.png` | Same hosted page after confirmation: "Payment confirmed" + **Return to merchant** button + countdown. |
 | 6 | `06-thankyou.png` | The WooCommerce thank-you page (`/checkout/order-received/...`) the buyer is auto-redirected to. |
 | 7 | `07-wc-order-admin.png` | _WooCommerce → Orders_ admin showing the order with status _Completed_ and the DigiByte txid in the order notes. |
-| 8 | `08-digipay-dashboard-session.png` | DigiPay dashboard (`pay.dgbwallet.app/sessions`) showing the same session with `Source: woocommerce`. |
+| 8 | `08-digipay-dashboard-session.png` | _(pending — needs merchant auth, doesn't fit the automated `capture.mjs` flow.)_ DigiPay dashboard sessions list showing the WC-sourced session with the "↩ <merchant-host>" chip. Capture manually after signing in to the dashboard. |
 
 ## Capture tips
 

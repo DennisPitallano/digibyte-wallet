@@ -56,67 +56,50 @@ WC checkout ──Place Order──▶ POST /v1/pay/sessions ──▶ DigiPay h
                               WC thank-you page (order-received/{id}/?key=…)
 ```
 
-For a screen-by-screen tour of what the buyer sees end-to-end, see
-[`docs/customer-flow.md`](docs/customer-flow.md).
+📘 **Two walk-throughs with screenshots:**
 
-## Install
+- [Install guide](docs/install-guide.md) — merchant-facing step-by-step. Get
+  from "I want to accept DGB" to a verified test order in ~10 minutes.
+- [Customer flow](docs/customer-flow.md) — what the buyer sees end-to-end,
+  cart → hosted checkout → return to your thank-you page.
 
-1. Build the plugin ZIP:
+## Quickstart
 
-   ```bash
-   cd samples
-   zip -r digipay-for-woocommerce-0.1.0.zip woocommerce-plugin
-   ```
-
-   Or download the prebuilt ZIP from
+1. Download `digipay-for-woocommerce-0.1.0.zip` from
    [GitHub releases](https://github.com/DennisPitallano/digibyte-wallet/releases).
+2. WP admin → _Plugins → Add New → Upload Plugin_ → choose the ZIP →
+   _Install Now_ → _Activate_.
+3. Get an API key + webhook secret from the
+   [DigiPay dashboard](https://pay.dgbwallet.app) (_API keys_ tab + _Webhook_ tab).
+4. WC → _Settings → Payments → DigiPay (DigiByte)_, paste the credentials,
+   tick _Enable_, _Save changes_.
 
-2. In WordPress admin → _Plugins → Add New → Upload Plugin_, upload the ZIP and
-   activate.
+That's it. Place a test order to verify. The full merchant walk-through
+with screenshots is in [`docs/install-guide.md`](docs/install-guide.md).
 
-   ![Upload Plugin in WP admin](docs/screenshots/01-install-upload.png)
+## Settings reference
 
-3. Go to _WooCommerce → Settings → Payments → DigiPay (DigiByte)_ and
-   configure.
-
-   ![DigiPay settings page in WC admin](docs/screenshots/02-settings.png)
-
-## Configure
-
-You'll need two values from your DigiPay dashboard:
-
-1. **API key** — _API keys_ tab → create a key starting with `dgp_…`.
-2. **Webhook secret** — _Webhook_ tab → set the URL to the value the plugin
-   shows on the settings page (looks like
-   `https://your-shop.example/?wc-api=digipay_webhook`) and copy the secret it
-   generates.
-
-Other settings:
+The full walkthrough lives in the [install guide](docs/install-guide.md);
+this is the quick-reference table.
 
 | Setting | Default | Notes |
 |---|---|---|
 | API base URL | `https://pay.dgbwallet.app` | Override only for self-hosted DigiPay or regtest. |
+| API key | _(empty)_ | From _DigiPay dashboard → API keys_. Starts with `dgp_…`. |
+| Webhook secret | _(empty)_ | From _DigiPay dashboard → Webhook_. The plugin's settings page shows the exact webhook URL to register on the dashboard side. |
 | Currency mode | `Fiat (recommended)` | Plugin fetches DGB/<store-currency> from CoinGecko (cached 60s) and sends `amount` + `fiatAmount` + `fiatCurrency` + `dgbPriceAtCreation` together. Supported store currencies: **USD, EUR, GBP, PHP, JPY**. Switch to `DGB` if the WC store currency itself is DigiByte. |
 | Session expiry (seconds) | _(empty — uses DigiPay default of 1800s / 30m)_ | Match your fulfilment SLA. |
 | Debug logging | off | When on, session creation + webhook events are written to _WooCommerce → Status → Logs_ under source `digipay`. |
 
-The gateway is **automatically hidden at checkout** when:
-- the API key or webhook secret is blank, or
-- the store currency isn't supported (fiat mode only).
-
-This avoids the worst-case UX of a buyer clicking _Place order_ and only then
+The gateway **auto-hides at checkout** when API key or webhook secret is
+blank, or when the store currency isn't supported (fiat mode only). This
+avoids the worst-case UX of a buyer clicking _Place order_ and only then
 finding out the gateway is misconfigured.
 
-### Return URL
-
-The plugin always sends `returnUrl = <WC thank-you page>` on session create —
-no admin field. After the buyer confirms payment on DigiPay's hosted
-checkout, they see a "Return to merchant" button and a 5-second
-auto-redirect back to the WC thank-you page (`/checkout/order-received/{id}/...`).
-The URL is order-specific and includes the WC order key, so each buyer is
-sent to their own page.
-
-![Hosted checkout — confirmed + Return to merchant](docs/screenshots/05-payment-confirmed.png)
+The plugin also always sends `returnUrl = <WC thank-you page>` on session
+create — no admin field. After payment confirms on DigiPay's hosted
+checkout, the buyer sees a "Return to merchant" button + 5-second
+auto-redirect back to the WC thank-you page (`/checkout/order-received/{id}/?key=…`).
 
 ## Test locally on regtest
 

@@ -99,14 +99,16 @@ In the WC admin, the order shows:
 - Order notes: a session-created note from `process_payment()`, then
   webhook-driven notes for `session.paid` / `session.confirmed`
 
-In the DigiPay dashboard, the same session shows up under the merchant's
-Sessions tab with `Source: woocommerce`:
+In the DigiPay dashboard's Sessions tab, the same session shows up with
+a small "↩ <merchant-host>" chip next to the order — the plugin sends
+the WC thank-you URL as `returnUrl` on session create, and the
+dashboard surfaces the host so a merchant glancing at the list can spot
+which store the session came from. Useful when one DigiPay account
+fronts multiple WC sites.
 
-![DigiPay dashboard — session with woocommerce source](screenshots/08-digipay-dashboard-session.png)
-
-The `Source` field is set automatically by the plugin via session
-metadata, so dashboard analytics can break out WC orders separately from
-SDK or POS sales.
+> _Dashboard screenshot pending — gated behind the merchant Digi-ID auth
+> flow that didn't fit the headless capture. Tracked in the [screenshot
+> checklist](screenshots/README.md)._
 
 ---
 
