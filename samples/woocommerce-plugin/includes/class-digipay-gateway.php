@@ -134,6 +134,13 @@ final class DigiPay_Gateway extends WC_Payment_Gateway
         $client = new DigiPay_Client($api_key, $base_url);
 
         $params = $this->build_session_params($order);
+        if (is_wp_error($params)) {
+            // Most common cause: fiat-mode and CoinGecko unreachable, or the
+            // store currency isn't in the supported set. Surface the message
+            // verbatim — DigiPay_Price returns user-friendly strings.
+            wc_add_notice($params->get_error_message(), 'error');
+            return ['result' => 'failure'];
+        }
 
         // Idempotency key derived from the order id — re-submitting the same
         // order (a double-clicked Place Order, or a customer hitting "Pay")
@@ -202,9 +209,9 @@ final class DigiPay_Gateway extends WC_Payment_Gateway
     }
 
     /**
-     * @return array<string,mixed>
+     * @return array<string,mixed>|WP_Error
      */
-    private function build_session_params(WC_Order $order): array
+    private function build_session_params(WC_Order $order)
     {
         $mode = (string) $this->get_option('currency_mode', 'fiat');
         $total = (float) $order->get_total();
@@ -227,12 +234,24 @@ final class DigiPay_Gateway extends WC_Payment_Gateway
         ];
 
         if ($mode === 'dgb') {
+            // The WC store currency itself is DGB — order total is already DGB.
             $params['amount'] = $total;
         } else {
-            // Fiat-priced: DigiPay pins the DGB amount at session creation
-            // using the live rate — handles volatility and multi-currency.
-            $params['fiatAmount']   = $total;
-            $params['fiatCurrency'] = strtoupper((string) $order->get_currency());
+            // Fiat-priced: convert WC's order total to DGB at the live
+            // CoinGecko rate (transient-cached 60s) and send all four
+            // fields. Pay.Api requires `amount` (DGB) regardless; the fiat
+            // metadata drives the dashboard view + volatility warning on
+            // the hosted checkout.
+            $currency = strtoupper((string) $order->get_currency());
+            require_once DIGIPAY_WC_PLUGIN_DIR . 'includes/class-digipay-price.php';
+            $conv = DigiPay_Price::fiat_to_dgb($total, $currency);
+            if (is_wp_error($conv)) {
+                return $conv;
+            }
+            $params['amount']             = $conv['amount_dgb'];
+            $params['fiatAmount']         = $total;
+            $params['fiatCurrency']       = $currency;
+            $params['dgbPriceAtCreation'] = $conv['dgb_price'];
         }
 
         $expiry = (string) $this->get_option('expires_in_seconds', '');
