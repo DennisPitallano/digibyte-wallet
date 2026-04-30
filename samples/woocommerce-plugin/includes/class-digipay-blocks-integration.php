@@ -50,11 +50,20 @@ final class DigiPay_Blocks_Integration extends AbstractPaymentMethodType
 
     public function get_payment_method_data(): array
     {
+        // ?ver=<plugin-version> doubles as a cache-buster — the same convention
+        // wp_register_script uses. Without it, swapping the SVG mid-release
+        // doesn't reach browsers that cached the old bytes by URL.
+        $icon = add_query_arg(
+            'ver',
+            DIGIPAY_WC_VERSION,
+            plugins_url('assets/icon.svg', DIGIPAY_WC_PLUGIN_FILE)
+        );
+
         return [
             'title'       => $this->settings['title'] ?? __('DigiByte (DGB)', 'digipay-for-woocommerce'),
             'description' => $this->settings['description'] ?? __('Pay in DigiByte. You\'ll be redirected to a secure DigiPay checkout to complete payment.', 'digipay-for-woocommerce'),
             'supports'    => ['products'],
-            'iconUrl'     => plugins_url('assets/icon.svg', DIGIPAY_WC_PLUGIN_FILE),
+            'iconUrl'     => $icon,
         ];
     }
 }
