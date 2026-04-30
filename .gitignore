@@ -1,6 +1,10 @@
 
 #Ignore thumbnails created by Windows
 Thumbs.db
+
+# Local plugin build output (scripts/build-woocommerce-zip.sh);
+# released ZIPs live on the GitHub Release, not in-tree.
+/dist/
 #Ignore files built by Visual Studio
 *.obj
 *.exe

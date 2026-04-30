@@ -251,6 +251,21 @@ else
                                                         <Icon Name="zap" Class="w-2.5 h-2.5" />POS
                                                     </span>
                                                 }
+                                                @if (!string.IsNullOrWhiteSpace(s.ReturnUrl))
+                                                {
+                                                    @* Buyer is sent back to the merchant's site after payment
+                                                       confirms. Show the host so a merchant glancing at the
+                                                       list can spot which integration the session came from
+                                                       (handy on a multi-shop store with one DigiPay account). *@
+                                                    var host = "merchant";
+                                                    if (System.Uri.TryCreate(s.ReturnUrl, System.UriKind.Absolute, out var ru))
+                                                    {
+                                                        host = ru.Host;
+                                                    }
+                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[0.625rem] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" title="@($"Returns buyer to {s.ReturnUrl}")">
+                                                        <Icon Name="external-link" Class="w-2.5 h-2.5" />@host
+                                                    </span>
+                                                }
                                             </div>
                                             <div class="font-mono text-[0.625rem] text-slate-500 dark:text-slate-400 break-all">@s.Address</div>
                                             @if (!string.IsNullOrEmpty(s.Label)) { <div class="@Muted">@s.Label</div> }
@@ -1701,7 +1716,7 @@ else
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         DateTime? SeenAt, DateTime? PaidAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
-        string Uri, string CheckoutUrl, string? Source = null);
+        string Uri, string CheckoutUrl, string? Source = null, string? ReturnUrl = null);
 
     private record CreatedSession(string Id, string? StoreId, string Address, decimal Amount, string Status,
         string Uri, string CheckoutUrl);

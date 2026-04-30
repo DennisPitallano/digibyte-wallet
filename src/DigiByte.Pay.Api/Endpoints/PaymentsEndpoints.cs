@@ -105,6 +105,26 @@ public static class PaymentsEndpoints
             if (body.Amount is null || body.Amount <= 0)
                 return Results.BadRequest(new { error = "amount (DGB) must be > 0" });
 
+            // Optional returnUrl validation. Mirrors the WebhookUrl rules —
+            // HTTPS in production, HTTP allowed only for localhost (so a dev
+            // running WC on port 8080 can still test the round-trip).
+            string? returnUrl = null;
+            if (!string.IsNullOrWhiteSpace(body.ReturnUrl))
+            {
+                var raw = body.ReturnUrl.Trim();
+                if (raw.Length > 2048)
+                    return Results.BadRequest(new { error = "returnUrl must be 2048 chars or fewer" });
+                if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri)
+                    || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                    return Results.BadRequest(new { error = "returnUrl must be an absolute http(s) URL" });
+                var isLocalhost = uri.Host is "localhost" or "127.0.0.1" or "::1"
+                    || uri.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
+                    || uri.Host.Equals("host.docker.internal", StringComparison.OrdinalIgnoreCase);
+                if (uri.Scheme == Uri.UriSchemeHttp && !isLocalhost)
+                    return Results.BadRequest(new { error = "returnUrl must use https outside of localhost" });
+                returnUrl = uri.ToString();
+            }
+
             // Idempotency replay short-circuit. Looked up before any expensive work
             // (store resolution, address derivation) so a retry costs one indexed
             // SELECT. The 24h cutoff matches what Stripe documents publicly.
@@ -210,6 +230,7 @@ public static class PaymentsEndpoints
                 Memo = body.Memo,
                 ExpiresAt = DateTime.UtcNow.Add(ResolveExpiry(body.ExpiresInSeconds, store)),
                 Source = source,
+                ReturnUrl = returnUrl,
             };
 
             db.Sessions.Add(session);
@@ -531,6 +552,10 @@ public static class PaymentsEndpoints
         s.RefundTxid,
         s.RefundedAt,
         s.RefundNote,
+        // Optional merchant-supplied URL the hosted checkout sends the buyer
+        // back to after payment confirms. Null for SDK / direct-API merchants
+        // who own their own success page.
+        s.ReturnUrl,
         Uri = BuildBip21(s),
         CheckoutUrl = checkoutUrl,
     };
@@ -563,7 +588,8 @@ public record CreateSessionRequest(
     decimal? DgbPriceAtCreation,
     string? Label,
     string? Memo,
-    int? ExpiresInSeconds);
+    int? ExpiresInSeconds,
+    string? ReturnUrl);
 
 public record RefundRequest(string? Txid, string? Note);
 public record VoidRequest(string? Note);

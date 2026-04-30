@@ -303,6 +303,38 @@
                 </div>
             </section>
 
+            @* WooCommerce plugin — the first platform integration. Unlike the
+               three mini-stores above, this one is a drop-in WordPress plugin
+               that runs in real merchant stores; the SDKs aren't involved
+               (it talks to the REST API directly + verifies HMAC). Carded
+               larger so it doesn't read as just another sample. *@
+            <section class="slide-up-delay-5 mb-12">
+                <h2 class="text-xl font-bold tracking-tight mb-1">WooCommerce plugin</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    Drop-in WordPress plugin for the ~40% of e-commerce sites that
+                    run on WooCommerce. Hosted-checkout MVP, WC Blocks-checkout
+                    integration, fiat-priced orders (USD/EUR/GBP/PHP/JPY), HMAC-signed
+                    webhooks with replay protection, and an auto-redirect back to the
+                    WC thank-you page once payment confirms.
+                </p>
+                <a href="/docs/woocommerce"
+                   class="card-hover flex items-center gap-4 p-5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                    <Icon Name="package" Class="w-7 h-7 text-dgb-500 shrink-0" />
+                    <div class="flex-1 min-w-0">
+                        <div class="text-base font-semibold text-slate-900 dark:text-white">DigiPay for WooCommerce</div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">PHP 7.4+ · WooCommerce 7.0+ · GPL-2.0-or-later · GitHub release ZIP install</div>
+                    </div>
+                    <span class="hidden sm:inline-block text-xs font-medium px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 shrink-0">v0.1.0</span>
+                </a>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
+                    Read the <a href="/docs/woocommerce" class="text-dgb-500 hover:underline">install guide</a>
+                    (merchant — install, configure, verify in ~10 min), the
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/blob/main/samples/woocommerce-plugin/docs/customer-flow.md" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">customer flow</a>
+                    (buyer — cart through thank-you page), or browse
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/woocommerce-plugin" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">the plugin source on GitHub</a>.
+                </p>
+            </section>
+
             @* Postman / Insomnia — for the "click around and explore" crowd
                who'd rather poke at requests in a UI than read curl examples.
                The hand-curated collection exposes the same endpoints with

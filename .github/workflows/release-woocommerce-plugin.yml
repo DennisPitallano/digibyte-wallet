@@ -1,0 +1,62 @@
+name: Release WooCommerce plugin
+
+# Triggered by pushing a tag like `samples-woocommerce-v0.1.0`. The tag
+# version MUST match the `Version:` header in the plugin's main file —
+# the build script's --check-version flag enforces this so we can't ship
+# a vX.Y.Z tag carrying mismatched plugin code.
+#
+# Output: a GitHub Release with `digipay-for-woocommerce-<version>.zip`
+# attached, ready for merchants to upload via WP admin → Plugins → Add
+# New → Upload Plugin.
+on:
+  push:
+    tags:
+      - 'samples-woocommerce-v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      # `contents: write` is what creates the Release and uploads the asset.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP for the offline smoke test
+        uses: shivammathur/setup-php@v2
+        with:
+          # 7.4 is the floor declared in the plugin header — test against
+          # exactly that to catch any 8.x-only syntax sneaking in.
+          php-version: '7.4'
+          coverage: none
+
+      - name: Run offline HMAC smoke test
+        run: php samples/woocommerce-plugin/tests/verify.php
+
+      - name: Build plugin ZIP (with version guard)
+        id: build
+        run: |
+          # Strip the `samples-woocommerce-v` prefix from the tag.
+          TAG_VERSION="${GITHUB_REF#refs/tags/samples-woocommerce-v}"
+          chmod +x scripts/build-woocommerce-zip.sh
+          ZIP_PATH="$(scripts/build-woocommerce-zip.sh --check-version "$TAG_VERSION")"
+          echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+          ls -la "$ZIP_PATH"
+
+      - name: Create GitHub Release with ZIP attached
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: DigiPay for WooCommerce v${{ steps.build.outputs.version }}
+          body: |
+            DigiPay for WooCommerce — v${{ steps.build.outputs.version }}
+
+            **Install:** download the ZIP below, then in WordPress admin
+            → Plugins → Add New → Upload Plugin → choose the ZIP →
+            Activate. Then configure under WooCommerce → Settings →
+            Payments → DigiPay (DigiByte).
+
+            See [samples/woocommerce-plugin/README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/samples/woocommerce-plugin/README.md) for setup, regtest E2E, and the edge-case checklist.
+          files: ${{ steps.build.outputs.zip_path }}
+          fail_on_unmatched_files: true

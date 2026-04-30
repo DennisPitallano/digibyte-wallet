@@ -1,0 +1,4 @@
+# Webhook fixture bytes are HMAC-signed; CRLF conversion would invalidate
+# the captured signatures, so these files MUST round-trip as LF on every
+# platform.
+tests/webhook-fixtures/* -text eol=lf

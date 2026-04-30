@@ -1,15 +1,21 @@
-# DigiPay sample apps
+# DigiPay sample apps & integrations
 
-End-to-end mini-store integrations for DigiPay — pick your stack and copy.
-Each app is **single-file**, runs in seconds, and walks through the full
-checkout lifecycle: create a session, redirect to hosted checkout, verify the
-webhook, fulfil the order.
+Pick your stack and copy. The first three are **single-file mini-stores**
+that run in seconds and walk through the full checkout lifecycle: create a
+session, redirect to hosted checkout, verify the webhook, fulfil the order.
+The fourth is a production-shaped **WooCommerce plugin** ready to drop into
+a WP store.
 
-| Stack | Folder | Lines | SDK |
+| Stack | Folder | Kind | SDK |
 |---|---|---|---|
-| Node + Express | [`express-store/`](express-store/) | ~120 | [`@dgbwallet/digipay`](../sdk/node) |
-| Python + Flask | [`flask-store/`](flask-store/) | ~140 | [`digipay`](../sdk/python) |
-| ASP.NET Core (Minimal API) | [`dotnet-store/`](dotnet-store/) | ~150 | [`DigiPay`](../sdk/dotnet) |
+| Node + Express | [`express-store/`](express-store/) | mini-store (~120 lines) | [`@dgbwallet/digipay`](../sdk/node) |
+| Python + Flask | [`flask-store/`](flask-store/) | mini-store (~140 lines) | [`digipay`](../sdk/python) |
+| ASP.NET Core (Minimal API) | [`dotnet-store/`](dotnet-store/) | mini-store (~150 lines) | [`DigiPay`](../sdk/dotnet) |
+| **WooCommerce plugin** | [`woocommerce-plugin/`](woocommerce-plugin/) | drop-in plugin (~600 lines) | none — direct REST + HMAC verify |
+
+The WooCommerce plugin has its own [README](woocommerce-plugin/README.md) and
+a [customer-flow walkthrough](woocommerce-plugin/docs/customer-flow.md) with
+screenshots of every screen between cart and thank-you.
 
 Each folder has its own README with run instructions. They all expose the same
 three routes:

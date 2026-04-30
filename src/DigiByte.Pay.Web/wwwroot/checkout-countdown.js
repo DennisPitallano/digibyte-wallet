@@ -40,6 +40,60 @@
     }
     setInterval(update, 1000);
 
+    // ---------------------------------------------------------------------
+    // Return-to-merchant countdown.
+    //
+    // Same idiom as the expiry countdown above: poll the DOM each second for
+    // a self-describing element rather than rely on an inline <script>. An
+    // inline script wouldn't fire when Blazor's InteractiveServer circuit
+    // patches a "Payment confirmed" panel into the page — browsers don't
+    // re-execute scripts injected via DOM diff. Polling sidesteps that.
+    //
+    // Element shape (rendered by TerminalState.razor when status=confirmed
+    // and the session has a returnUrl):
+    //   <div data-digipay-return-merchant
+    //        data-digipay-return-url="https://shop.example/orders/42/thanks"
+    //        data-digipay-return-seconds="5">
+    //     ...
+    //     <span data-digipay-return-countdown>5</span>
+    //   </div>
+    //
+    // We arm the timer the first time we see an un-armed element, then leave
+    // it alone — re-renders don't reset the countdown.
+    // ---------------------------------------------------------------------
+    function tickReturnMerchant() {
+        var hosts = document.querySelectorAll('[data-digipay-return-merchant]:not([data-digipay-return-armed])');
+        hosts.forEach(function (host) {
+            var url = host.getAttribute('data-digipay-return-url');
+            var seconds = parseInt(host.getAttribute('data-digipay-return-seconds') || '5', 10);
+            if (!url || !(seconds > 0)) return;
+            host.setAttribute('data-digipay-return-armed', '1');
+
+            var counter = host.querySelector('[data-digipay-return-countdown]');
+            var remaining = seconds;
+            if (counter) counter.textContent = String(remaining);
+
+            var t = setInterval(function () {
+                remaining -= 1;
+                if (counter) counter.textContent = String(remaining);
+                if (remaining <= 0) {
+                    clearInterval(t);
+                    // location.assign so browser back-button still works on
+                    // the merchant's page (replace would lose the checkout
+                    // page from history).
+                    try { window.location.assign(url); }
+                    catch (_) { window.location.href = url; }
+                }
+            }, 1000);
+        });
+    }
+    setInterval(tickReturnMerchant, 500);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', tickReturnMerchant);
+    } else {
+        tickReturnMerchant();
+    }
+
     // When the checkout runs inside the embed widget's iframe, post our
     // content height to the parent so it can tighten the modal — otherwise
     // the fixed 720px container leaves big dead zones above and below the

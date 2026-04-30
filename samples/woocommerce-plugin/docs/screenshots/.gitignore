@@ -1,0 +1,4 @@
+# capture.mjs installs playwright on each run; ignore the install detritus
+node_modules/
+package.json
+package-lock.json

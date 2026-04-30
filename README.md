@@ -7,6 +7,8 @@ This monorepo hosts two complementary products for the DigiByte ecosystem, plus 
 | **DigiByte Wallet** | [dgbwallet.app](https://dgbwallet.app) | Self-custodial Blazor WASM PWA wallet. All crypto operations happen in-browser; keys never leave the device. |
 | **DigiPay** | [pay.dgbwallet.app](https://pay.dgbwallet.app) | Non-custodial payment gateway for merchants. Derives a fresh address per invoice from your xpub, watches the chain, signs webhooks on state changes. |
 | **DigiPay SDKs** | [npm](https://www.npmjs.com/package/@dgbwallet/digipay) · [PyPI](https://pypi.org/project/digipay/) · [NuGet](https://www.nuget.org/packages/DigiPay/) | Official client libraries for Node, Python, and .NET. Zero runtime dependencies; identical surface across languages. |
+| **WooCommerce plugin** | [`samples/woocommerce-plugin/`](samples/woocommerce-plugin) | Drop-in WordPress plugin: hosted-checkout MVP, WC Blocks integration, fiat-priced orders, HMAC-signed webhooks with replay protection, auto-redirect back to the WC thank-you page. See the [customer-flow walkthrough](samples/woocommerce-plugin/docs/customer-flow.md) for screenshots. |
+| **Sample mini-stores** | [`samples/`](samples) | Single-file end-to-end integrations (~120–150 lines each) for Node + Express, Python + Flask, ASP.NET Core. |
 
 ## DigiByte Wallet
 

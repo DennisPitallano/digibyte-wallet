@@ -56,4 +56,14 @@ public class PaySession
     /// (e.g. "woocommerce", "shopify") don't need an enum migration.
     /// </summary>
     public string? Source { get; set; }
+
+    /// <summary>
+    /// Optional URL the hosted checkout sends the buyer back to after
+    /// payment confirms. Stripe-shaped — merchants pass this on session
+    /// create so their customer ends the flow on the merchant's "thank you"
+    /// page rather than on Pay.Web. HTTPS-only in production; HTTP allowed
+    /// for localhost so dev environments work. Length-capped at 2048 to
+    /// match the practical URL ceiling.
+    /// </summary>
+    public string? ReturnUrl { get; init; }
 }
