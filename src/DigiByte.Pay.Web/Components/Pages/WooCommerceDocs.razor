@@ -1,0 +1,286 @@
+@page "/docs/woocommerce"
+
+<PageTitle>WooCommerce plugin — DigiPay</PageTitle>
+
+@*
+    Mirrors PosDocs.razor's layout — left sidebar with anchored steps, image
+    figures with captions, code-block call-outs. The merchant install guide
+    in samples/woocommerce-plugin/docs/install-guide.md is the canonical
+    source; this page is the on-site mirror so merchants don't bounce to
+    GitHub mid-install.
+
+    The 7 screenshots are copied from samples/.../docs/screenshots/ to
+    wwwroot/img/woocommerce/ — kept in sync via the same capture.mjs run.
+    Versioned ?v=… on each src so a re-capture busts the browser cache
+    without a page-version bump.
+*@
+
+@{
+    const string ImgV = "?v=2026-04-30";
+}
+
+<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
+    <SiteNav />
+
+    <main class="flex-1 page-enter">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 grid lg:grid-cols-[220px,1fr] gap-8">
+
+            @* ----- Sidebar menu ----- *@
+            <aside class="lg:sticky lg:top-6 self-start">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">WooCommerce install</p>
+                <nav class="flex flex-col text-sm">
+                    <a href="/docs/woocommerce#before"   class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">Before you start</a>
+                    <a href="/docs/woocommerce#zip"      class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">1. Get the ZIP</a>
+                    <a href="/docs/woocommerce#upload"   class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">2. Upload + activate</a>
+                    <a href="/docs/woocommerce#account"  class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">3. Register a merchant</a>
+                    <a href="/docs/woocommerce#configure" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">4. Configure the plugin</a>
+                    <a href="/docs/woocommerce#verify"   class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">5. Verify at checkout</a>
+                    <a href="/docs/woocommerce#test"     class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">6. Place a test order</a>
+                    <a href="/docs/woocommerce#confirm"  class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">7. Confirm in WC admin</a>
+                    <a href="/docs/woocommerce#troubleshoot" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">Troubleshooting</a>
+                    <div class="mt-4 border-t border-slate-200 dark:border-dgb-800 pt-3 flex flex-col gap-1">
+                        <a href="/sdks" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">← Back to SDKs &amp; integrations</a>
+                        <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/woocommerce-plugin" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">Plugin source on GitHub ↗</a>
+                        <a href="https://github.com/DennisPitallano/digibyte-wallet/blob/main/samples/woocommerce-plugin/docs/customer-flow.md" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">Customer flow ↗</a>
+                    </div>
+                </nav>
+            </aside>
+
+            @* ----- Content ----- *@
+            <article class="max-w-3xl">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-dgb-500 mb-2">WooCommerce install guide · v0.1.0</p>
+                <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3 slide-up">Accept DigiByte in WooCommerce</h1>
+                <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 slide-up-delay-1">
+                    A drop-in WordPress plugin that adds DigiByte (DGB) as a payment option at WooCommerce checkout.
+                    Hosted-checkout flow, HMAC-signed webhooks with replay protection, fiat-priced orders converted
+                    to DGB at the live rate, and an auto-redirect back to your thank-you page once payment confirms.
+                    Non-custodial — payments land directly in your wallet. ~10 minutes from "I want to accept DGB"
+                    to a verified test order.
+                </p>
+
+                @* ---------- Before you start ---------- *@
+                <section id="before" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">Before you start</h2>
+                    <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-4">
+                        <li>A WooCommerce store running on WordPress 6.0+, WooCommerce 7.0+, PHP 7.4+.</li>
+                        <li>Your store's public URL — the webhook needs to be reachable from DigiPay's network. Use <a href="https://ngrok.com" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">ngrok</a> or similar for local testing.</li>
+                        <li>A DigiByte address or BIP84 xpub where DGB payments will land. If you don't have one, install <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">DigiByte Wallet</a> first.</li>
+                        <li>Outbound HTTPS — the plugin fetches DGB prices from CoinGecko for fiat-priced orders.</li>
+                    </ul>
+                </section>
+
+                @* ---------- 1. Get the ZIP ---------- *@
+                <section id="zip" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">1. Get the plugin ZIP</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Download <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">digipay-for-woocommerce-0.1.0.zip</code>
+                        from the <a href="https://github.com/DennisPitallano/digibyte-wallet/releases" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">GitHub releases</a> page.
+                        Building from source is also fine — clone the repo and run the bundled <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">scripts/build-woocommerce-zip.sh</code>.
+                    </p>
+                </section>
+
+                @* ---------- 2. Upload + activate ---------- *@
+                <section id="upload" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">2. Upload + activate the plugin</h2>
+                    <ol class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-decimal pl-5 mb-4">
+                        <li>In WordPress admin go to <strong>Plugins → Add New → Upload Plugin</strong>.</li>
+                        <li>Choose the ZIP and click <strong>Install Now</strong>.</li>
+                        <li>Click <strong>Activate Plugin</strong>.</li>
+                    </ol>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="@($"/img/woocommerce/01-install-upload.png{ImgV}")"
+                             alt="WordPress admin Plugins page with Upload Plugin selected"
+                             loading="lazy" class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            WP admin — Plugins → Add New → Upload Plugin.
+                        </figcaption>
+                    </figure>
+                    <div class="p-3 bg-slate-100 dark:bg-dgb-900/40 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-700 dark:text-slate-300">
+                        The plugin loads but the gateway is automatically <strong>hidden at checkout</strong> until step 4 — no half-configured "broken" state for buyers to stumble into.
+                    </div>
+                </section>
+
+                @* ---------- 3. Register a DigiPay merchant ---------- *@
+                <section id="account" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">3. Register a DigiPay merchant account</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        The plugin talks to a DigiPay backend, so you need an account there too. Two paths:
+                    </p>
+
+                    <h3 class="text-base font-bold mt-4 mb-2 tracking-tight">Hosted DigiPay (recommended)</h3>
+                    <ol class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-decimal pl-5 mb-4">
+                        <li><a href="/merchant/signin" class="text-dgb-500 hover:underline">Sign in</a> here on <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">pay.dgbwallet.app</code> via Digi-ID — passwordless, sign in with any DigiByte wallet.</li>
+                        <li>Create a <strong>store</strong> with your DigiByte address (or xpub for per-session derivation — recommended for buyer privacy).</li>
+                        <li>Under <strong>API keys</strong>, click <strong>Create</strong>. Copy the key — it starts with <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">dgp_…</code> and is shown only once.</li>
+                        <li>Under <strong>Webhook</strong>, paste your store's webhook URL. The plugin's settings page shows the exact URL — it looks like <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">https://yourshop.example/?wc-api=digipay_webhook</code>. Save and copy the generated webhook secret.</li>
+                    </ol>
+
+                    <h3 class="text-base font-bold mt-4 mb-2 tracking-tight">Self-hosted DigiPay</h3>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Same flow against your own deployment. In step 4, set the plugin's <strong>API base URL</strong> to your self-hosted Pay.Api endpoint instead of the default.
+                    </p>
+                </section>
+
+                @* ---------- 4. Configure the plugin ---------- *@
+                <section id="configure" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">4. Configure the plugin</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Go to <strong>WooCommerce → Settings → Payments → DigiPay (DigiByte)</strong>. Paste in the API key and webhook secret from step 3, tick <em>Enable DigiPay (DigiByte)</em>, save.
+                    </p>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="@($"/img/woocommerce/02-settings.png{ImgV}")"
+                             alt="DigiPay plugin settings page in WooCommerce admin with API key and webhook secret fields"
+                             loading="lazy" class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            DigiPay plugin settings. The webhook URL to register on the dashboard side is shown verbatim — no guessing.
+                        </figcaption>
+                    </figure>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 mb-3">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-dgb-800 bg-slate-50 dark:bg-dgb-900/50">
+                                    <th class="py-3 px-4 font-semibold">Setting</th>
+                                    <th class="py-3 px-4 font-semibold">What to choose</th>
+                                </tr>
+                            </thead>
+                            <tbody class="[&_td]:py-2.5 [&_td]:px-4 [&_tr:not(:last-child)_td]:border-b [&_tr:not(:last-child)_td]:border-slate-100 dark:[&_tr:not(:last-child)_td]:border-dgb-800/60 align-top">
+                                <tr><td class="font-semibold">Title</td><td>What buyers see at checkout. Default <em>DigiByte (DGB)</em>.</td></tr>
+                                <tr><td class="font-semibold">Description</td><td>One-line explainer under the title at checkout.</td></tr>
+                                <tr><td class="font-semibold">API base URL</td><td>Default <code class="font-mono text-xs">https://pay.dgbwallet.app</code>. Override for self-hosted.</td></tr>
+                                <tr><td class="font-semibold">API key</td><td>The <code class="font-mono text-xs">dgp_…</code> key from step 3.</td></tr>
+                                <tr><td class="font-semibold">Webhook secret</td><td>From DigiPay dashboard → Webhook.</td></tr>
+                                <tr><td class="font-semibold">Currency mode</td><td><strong>Fiat</strong> (recommended) if your store is priced in USD/EUR/GBP/PHP/JPY — DigiPay converts at the live rate. <strong>DGB</strong> if your store currency is DigiByte itself.</td></tr>
+                                <tr><td class="font-semibold">Session expiry</td><td>Leave blank for the DigiPay default (1800s / 30 min).</td></tr>
+                                <tr><td class="font-semibold">Debug logging</td><td>On while setting up; off in production. Logs to <em>WooCommerce → Status → Logs → digipay</em>.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                @* ---------- 5. Verify at checkout ---------- *@
+                <section id="verify" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">5. Verify the gateway shows at checkout</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Add any product to your cart and go to checkout. Under <em>Payment options</em> you should see <strong>DigiByte (DGB)</strong> with the official DigiByte coin mark.
+                    </p>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="@($"/img/woocommerce/03-checkout-radio.png{ImgV}")"
+                             alt="WooCommerce block-based checkout showing DigiByte (DGB) as a payment option"
+                             loading="lazy" class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            Block-based WC checkout — DigiByte (DGB) selected.
+                        </figcaption>
+                    </figure>
+                    <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Missing?</strong> The plugin auto-hides itself when the API key, webhook secret, or a supported store currency is missing. Re-check the settings page — the gateway will reappear once everything's filled in.
+                    </div>
+                </section>
+
+                @* ---------- 6. Place a test order ---------- *@
+                <section id="test" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">6. Place a test order</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Click <strong>Place Order</strong>. The plugin posts to DigiPay's API (with an idempotency key derived from the WC order id, so a double-clicked Place Order can never create two invoices) and redirects you to the hosted checkout:
+                    </p>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="@($"/img/woocommerce/04-hosted-checkout-qr.png{ImgV}")"
+                             alt="DigiPay hosted checkout page showing a QR code, the receive address, and an expiry countdown"
+                             loading="lazy" class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            Hosted checkout — fresh-derived BIP84 address, QR, and a 30-min price-locked countdown.
+                        </figcaption>
+                    </figure>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        Pay the invoice from any DigiByte wallet you control. Once the chain confirms, the page flips to:
+                    </p>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="@($"/img/woocommerce/05-payment-confirmed.png{ImgV}")"
+                             alt="Payment confirmed state with Return to merchant button and 5-second auto-redirect countdown"
+                             loading="lazy" class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            Confirmed — <strong>Return to merchant</strong> button + 5-second auto-redirect.
+                        </figcaption>
+                    </figure>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        The buyer's browser auto-redirects (or they click) back to your WC thank-you page:
+                    </p>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="@($"/img/woocommerce/06-thankyou.png{ImgV}")"
+                             alt="WooCommerce thank-you page showing order completed"
+                             loading="lazy" class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            WooCommerce thank-you page (<code class="font-mono text-xs">/checkout/order-received/{id}/?key=…</code>).
+                        </figcaption>
+                    </figure>
+                </section>
+
+                @* ---------- 7. Confirm in WC admin ---------- *@
+                <section id="confirm" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">7. Confirm the order completed</h2>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        In WP admin go to <strong>WooCommerce → Orders</strong> and open your test order:
+                    </p>
+                    <figure class="mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 shadow-sm">
+                        <img src="@($"/img/woocommerce/07-wc-order-admin.png{ImgV}")"
+                             alt="WooCommerce order admin showing Completed status, payment via DigiByte (DGB), and the txid"
+                             loading="lazy" class="block w-full h-auto" />
+                        <figcaption class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-dgb-800">
+                            WC order admin — <em>Completed</em>, payment via DigiByte (DGB), txid recorded.
+                        </figcaption>
+                    </figure>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">You should see:</p>
+                    <ul class="space-y-1 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5">
+                        <li>Status: <strong>Completed</strong> (or <em>Processing</em> while waiting on confirmations)</li>
+                        <li>The DigiByte txid recorded as the order's payment transaction id</li>
+                        <li><em>Payment via DigiByte (DGB)</em> with the txid in the order header</li>
+                        <li>Order notes containing the DigiPay session id and webhook events as they fire</li>
+                    </ul>
+                </section>
+
+                @* ---------- Troubleshooting ---------- *@
+                <section id="troubleshoot" class="scroll-mt-20 mb-12">
+                    <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">Troubleshooting</h2>
+                    <div class="space-y-4 leading-relaxed text-slate-700 dark:text-slate-300">
+                        <div>
+                            <p class="font-semibold mb-1">DigiByte doesn't show as a payment option at checkout.</p>
+                            <p class="text-sm m-0">Most likely the API key, webhook secret, or store currency is missing. The plugin auto-hides itself in those cases. Open <em>WC → Settings → Payments → DigiPay</em> and confirm all required fields are filled in.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-1">"Could not start a DigiPay payment: amount (DGB) must be > 0".</p>
+                            <p class="text-sm m-0">The plugin couldn't fetch the DGB price from CoinGecko. Confirm outbound HTTPS is allowed from your WordPress host, and that your store currency is one of <strong>USD, EUR, GBP, PHP, JPY</strong>. Switch to <em>DGB</em> currency mode if your store is priced in DigiByte itself.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-1">Order stays in <em>Pending payment</em> after the buyer paid.</p>
+                            <p class="text-sm m-0">The webhook isn't reaching your store. Check the <em>DigiPay dashboard → Stores → Webhook deliveries</em> log for the response code. Localhost webhook URLs only work in dev — production needs a publicly reachable URL.</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-1">Webhook delivered but order status didn't change.</p>
+                            <p class="text-sm m-0">Turn on <em>Debug logging</em> in the plugin settings and tail <em>WooCommerce → Status → Logs → digipay-…</em>. The most common cause is a webhook secret mismatch (HMAC verification fails with 401) or a stale-replay rejection (delivery timestamp older than 5 min).</p>
+                        </div>
+                    </div>
+                </section>
+
+                @* ---------- Footer cross-links ---------- *@
+                <section class="border-t border-slate-200 dark:border-dgb-800 pt-6 mt-8 grid sm:grid-cols-2 gap-4">
+                    <a href="https://github.com/DennisPitallano/digibyte-wallet/blob/main/samples/woocommerce-plugin/docs/customer-flow.md"
+                       target="_blank" rel="noopener"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Customer flow ↗</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">What the buyer sees end-to-end</div>
+                        </div>
+                    </a>
+                    <a href="/sdks"
+                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                        <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Other integrations</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Express, Flask, ASP.NET mini-stores + SDKs</div>
+                        </div>
+                    </a>
+                </section>
+            </article>
+        </div>
+    </main>
+</div>
