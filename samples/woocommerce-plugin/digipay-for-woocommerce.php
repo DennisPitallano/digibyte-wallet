@@ -51,6 +51,23 @@ add_action('plugins_loaded', static function (): void {
     // wc-api endpoint: POST {site}/?wc-api=digipay_webhook
     add_action('woocommerce_api_digipay_webhook', [DigiPay_Webhook::class, 'handle']);
 
+    // WooCommerce Blocks (the default checkout since WC 8.3) doesn't show
+    // legacy gateways unless they register a block payment-method type. The
+    // class is loaded lazily because AbstractPaymentMethodType only exists
+    // when WC Blocks is active.
+    add_action('woocommerce_blocks_loaded', static function (): void {
+        if (!class_exists('Automattic\\WooCommerce\\Blocks\\Payments\\Integrations\\AbstractPaymentMethodType')) {
+            return;
+        }
+        require_once DIGIPAY_WC_PLUGIN_DIR . 'includes/class-digipay-blocks-integration.php';
+        add_action(
+            'woocommerce_blocks_payment_method_type_registration',
+            static function ($registry): void {
+                $registry->register(new DigiPay_Blocks_Integration());
+            }
+        );
+    });
+
     // Declare HPOS (custom-order-tables) compatibility — the plugin only uses
     // $order->get_meta / update_meta_data, both of which are HPOS-safe.
     add_action('before_woocommerce_init', static function (): void {
