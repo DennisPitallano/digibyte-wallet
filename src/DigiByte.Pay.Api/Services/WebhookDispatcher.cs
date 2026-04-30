@@ -119,6 +119,10 @@ public class WebhookDispatcher
                 refundTxid = session.RefundTxid,
                 refundedAt = session.RefundedAt,
                 refundNote = session.RefundNote,
+                // Echoed back to subscribers so a webhook handler can confirm
+                // the customer landed on the expected merchant page (or kick
+                // off a fallback if they didn't).
+                returnUrl = session.ReturnUrl,
                 createdAt = session.CreatedAt,
                 expiresAt = session.ExpiresAt,
             },

@@ -89,7 +89,7 @@
 
                 @if (IsTerminal(session.Status))
                 {
-                    <TerminalState Status="@session.Status" Txid="@session.PaidTxid" SessionId="@session.Id" />
+                    <TerminalState Status="@session.Status" Txid="@session.PaidTxid" SessionId="@session.Id" ReturnUrl="@session.ReturnUrl" />
                 }
                 else
                 {
@@ -241,7 +241,10 @@
         string? Label, string? Memo,
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
-        string Uri, string CheckoutUrl);
+        string Uri, string CheckoutUrl,
+        // Optional merchant URL the buyer is sent back to once paid.
+        // Null for SDK / direct-API merchants who own the after-payment page.
+        string? ReturnUrl = null);
 
     public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
 

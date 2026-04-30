@@ -3,6 +3,7 @@ using System;
 using DigiByte.Pay.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DigiByte.Pay.Api.Migrations
 {
     [DbContext(typeof(DigiPayDbContext))]
-    partial class DigiPayDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260430040937_AddSessionReturnUrl")]
+    partial class AddSessionReturnUrl
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
