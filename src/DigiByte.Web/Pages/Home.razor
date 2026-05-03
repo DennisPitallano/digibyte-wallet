@@ -616,21 +616,73 @@
     // Re-fetches balance + transactions every 15s (matches DGB's ~15s block
     // time) while the Home page is mounted, so newly received funds show up
     // automatically without a manual pull-to-refresh.
+    //
+    // Two optimizations to avoid unnecessary network/explorer load:
+    //   1. Visibility pause — skip ticks while the tab is backgrounded.
+    //   2. Idle backoff   — when fetched data hasn't changed, gradually
+    //      stretch the effective interval (15s → 30s → 60s, capped). Resets
+    //      to 15s the moment something changes or the user manually refreshes.
     private System.Threading.Timer? _autoRefreshTimer;
     private bool _isFetching;
+    private int _idleStreak;          // consecutive unchanged fetches
+    private int _ticksUntilNextFetch; // base-tick countdown (1 tick = 15s)
+    private string? _lastDataSignature;
 
     private void StartAutoRefreshPoller()
     {
         if (_autoRefreshTimer != null) return;
+        _idleStreak = 0;
+        _ticksUntilNextFetch = 1;
         _autoRefreshTimer = new System.Threading.Timer(
-            async _ =>
-            {
-                if (_isFetching) return;
-                try { await InvokeAsync(FetchAndCacheAsync); } catch { }
-            },
+            async _ => await OnAutoRefreshTickAsync(),
             null,
             dueTime: TimeSpan.FromSeconds(15),
             period: TimeSpan.FromSeconds(15));
+    }
+
+    private async Task OnAutoRefreshTickAsync()
+    {
+        if (_isFetching) return;
+
+        // Pause while tab is hidden (minimized, screen off, switched away).
+        try
+        {
+            if (await JS.InvokeAsync<bool>("domHelpers.isHidden")) return;
+        }
+        catch { /* JS unavailable — assume visible and continue */ }
+
+        // Idle backoff: only fetch every Nth tick once the chain looks quiet.
+        if (--_ticksUntilNextFetch > 0) return;
+
+        try { await InvokeAsync(FetchAndCacheAsync); } catch { }
+    }
+
+    /// <summary>Compute a cheap fingerprint of the current visible state to
+    /// detect whether a fetch surfaced anything new.</summary>
+    private string ComputeDataSignature() =>
+        $"{balance.ConfirmedSatoshis}:{balance.UnconfirmedSatoshis}:{transactions.Count}:{(transactions.Count > 0 ? transactions[0].TxId : "")}";
+
+    private void UpdateBackoffFromFetchResult()
+    {
+        var sig = ComputeDataSignature();
+        if (sig == _lastDataSignature)
+        {
+            _idleStreak++;
+        }
+        else
+        {
+            _idleStreak = 0;
+            _lastDataSignature = sig;
+        }
+        // 0 unchanged → next fetch in 1 tick (15s)
+        // 1-2 unchanged → 2 ticks (30s)
+        // 3+ unchanged → 4 ticks (60s, cap)
+        _ticksUntilNextFetch = _idleStreak switch
+        {
+            0 => 1,
+            <= 2 => 2,
+            _ => 4,
+        };
     }
 
     // ── Pending-transaction confirmation polling ────────────────────────────
@@ -771,6 +823,9 @@
         // Cache whatever we got (even zeros — a 0 balance is valid data)
         if (!fetchFailed)
             await SaveToCacheAsync();
+
+        // Update poller backoff based on whether anything actually changed.
+        UpdateBackoffFromFetchResult();
 
         StateHasChanged();
         }
@@ -944,6 +999,11 @@
         if (isRefreshing) return;
         isRefreshing = true;
         StateHasChanged();
+
+        // User explicitly asked for fresh data — reset idle backoff so the
+        // background poller resumes at full 15s cadence afterwards.
+        _idleStreak = 0;
+        _ticksUntilNextFetch = 1;
 
         try
         {
