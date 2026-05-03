@@ -12,10 +12,10 @@
          in sync as long as the working tree has tags fetched. The
          literal values here are the floor — what dev runs and shallow
          clones (no tags) display in the footer. -->
-    <Version>0.1.4</Version>
-    <AssemblyVersion>0.1.4.0</AssemblyVersion>
-    <FileVersion>0.1.4.0</FileVersion>
-    <InformationalVersion>0.1.4</InformationalVersion>
+    <Version>0.1.5</Version>
+    <AssemblyVersion>0.1.5.0</AssemblyVersion>
+    <FileVersion>0.1.5.0</FileVersion>
+    <InformationalVersion>0.1.5</InformationalVersion>
     <!-- IL Trimming for smaller WASM download -->
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode>
