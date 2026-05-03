@@ -28,6 +28,11 @@ window.domHelpers = {
         var halfWidth = el.scrollWidth / 2;
         return el.scrollLeft >= halfWidth * 0.5 ? 1 : 0;
     },
+    // True when the tab is backgrounded (minimized, switched away, screen off).
+    // Used by Home page poller to pause network refreshes while hidden.
+    isHidden: function () {
+        return typeof document !== 'undefined' && document.hidden === true;
+    },
     // Returns true if history.back() would stay within this app.
     // Used by pages like /help that can be deep-linked: if the user arrived
     // directly (no same-origin referrer and short history), fall back to the home page.
