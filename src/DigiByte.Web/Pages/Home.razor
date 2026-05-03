@@ -558,8 +558,9 @@
 
         if (forceRefresh)
         {
-            // Explorer may take a moment to index the new tx — wait briefly then fetch
-            await Task.Delay(2000);
+            // Brief delay so the explorer has a moment to index the new mempool tx,
+            // then fetch fresh data immediately.
+            await Task.Delay(750);
             await FetchAndCacheAsync();
         }
         else if (hasCachedData && !IsCacheStale())
@@ -580,6 +581,10 @@
         // Contacts & address are fast (IndexedDB) — await them
         try { quickContacts = (await contactsTask).Take(6).ToList(); } catch { }
         try { receivingAddress = await addressTask; } catch { }
+
+        // Start the always-on background refresh poller so incoming funds and new
+        // transactions appear within ~15s without requiring a manual pull-to-refresh.
+        StartAutoRefreshPoller();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -596,9 +601,36 @@
             await _confirmationPollTimer.DisposeAsync();
             _confirmationPollTimer = null;
         }
+        // Stop background auto-refresh poller
+        if (_autoRefreshTimer != null)
+        {
+            await _autoRefreshTimer.DisposeAsync();
+            _autoRefreshTimer = null;
+        }
         // Restore page scroll when leaving this page
         try { await JS.InvokeVoidAsync("domHelpers.restoreScroll"); }
         catch { }
+    }
+
+    // ── Background auto-refresh poller ──────────────────────────────────────
+    // Re-fetches balance + transactions every 15s (matches DGB's ~15s block
+    // time) while the Home page is mounted, so newly received funds show up
+    // automatically without a manual pull-to-refresh.
+    private System.Threading.Timer? _autoRefreshTimer;
+    private bool _isFetching;
+
+    private void StartAutoRefreshPoller()
+    {
+        if (_autoRefreshTimer != null) return;
+        _autoRefreshTimer = new System.Threading.Timer(
+            async _ =>
+            {
+                if (_isFetching) return;
+                try { await InvokeAsync(FetchAndCacheAsync); } catch { }
+            },
+            null,
+            dueTime: TimeSpan.FromSeconds(15),
+            period: TimeSpan.FromSeconds(15));
     }
 
     // ── Pending-transaction confirmation polling ────────────────────────────
@@ -698,18 +730,26 @@
 
     private bool IsCacheStale()
     {
-        // We don't await the timestamp here — check in-memory cache instead
+        // We don't await the timestamp here — check in-memory cache instead.
+        // Short threshold so the first render after navigating back to Home
+        // triggers a fresh network fetch rather than showing stale data.
         if (Cache.TryGet<DateTime>($"lastFetchTime:{ActiveWalletId}", out var ts))
-            return (DateTime.UtcNow - ts).TotalMinutes > 5;
+            return (DateTime.UtcNow - ts).TotalSeconds > 30;
         return true; // no timestamp = treat as stale
     }
 
     /// <summary>Fetch fresh data from network, then persist to IndexedDB.</summary>
     private async Task FetchAndCacheAsync()
     {
+        // Reentrancy guard so the background poller can't stack overlapping fetches
+        if (_isFetching) return;
+        _isFetching = true;
+
         // Guard against stale results when user switches wallets during a background fetch
         var walletIdAtStart = ActiveWalletId;
 
+        try
+        {
         fetchFailed = false;
         balanceFetchFailed = false;
         txFetchFailed = false;
@@ -733,6 +773,8 @@
             await SaveToCacheAsync();
 
         StateHasChanged();
+        }
+        finally { _isFetching = false; }
     }
 
     /// <summary>Persist balance, txs, and price to IndexedDB + update timestamp.</summary>
