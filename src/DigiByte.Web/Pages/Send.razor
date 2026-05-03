@@ -1119,8 +1119,8 @@ else
             sentTxId = txId;
             showConfirm = false;
             StateHasChanged();
-            // Show success for 2 seconds then go home with forceRefresh
-            await Task.Delay(2500);
+            // Show success briefly, then go home and trigger a fresh fetch
+            await Task.Delay(1200);
             Nav.NavigateTo("/?refresh=1", forceLoad: false);
         }
         catch (Exception ex)
