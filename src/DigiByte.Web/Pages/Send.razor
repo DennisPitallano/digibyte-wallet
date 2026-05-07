@@ -1142,6 +1142,18 @@ else
             => "A conflicting transaction is already in the mempool. Please wait and try again.",
         _ when message.Contains("bad-txns-inputs-missingorspent", StringComparison.OrdinalIgnoreCase)
             => "Some inputs have already been spent. Pull to refresh your balance and try again.",
+        _ when message.Contains("Broadcast failed on all backends", StringComparison.OrdinalIgnoreCase)
+              || message.Contains("503", StringComparison.OrdinalIgnoreCase)
+              || message.Contains("Service Unavailable", StringComparison.OrdinalIgnoreCase)
+              || message.Contains("net_http_message_not_success", StringComparison.OrdinalIgnoreCase)
+            => "All blockchain servers are currently unavailable. Please check your connection and try again in a moment.",
+        _ when message.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+              || message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+            => "The network is slow to respond. Please try again.",
+        _ when message.Contains("No such host", StringComparison.OrdinalIgnoreCase)
+              || message.Contains("name resolution", StringComparison.OrdinalIgnoreCase)
+              || message.Contains("network is unreachable", StringComparison.OrdinalIgnoreCase)
+            => "Couldn't reach the network. Please check your internet connection.",
         _ => message
     };
 
