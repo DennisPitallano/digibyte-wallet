@@ -639,6 +639,8 @@ else
     private string recipientName = "";
     private decimal amount;
     private decimal availableBalance;
+    private DateTime balanceLoadedAt = DateTime.MinValue;
+    private static readonly TimeSpan BalanceFreshness = TimeSpan.FromSeconds(15);
     private string memo = "";
     private string? addressError;
     private string? amountError;
@@ -860,7 +862,7 @@ else
         var contactsTask = ContactService.GetAllWithWalletsAsync(WalletService);
         var balanceTask = Task.Run(async () =>
         {
-            try { var b = await WalletService.GetBalanceAsync(); availableBalance = b.ConfirmedDgb; }
+            try { var b = await WalletService.GetBalanceAsync(); availableBalance = b.ConfirmedDgb; balanceLoadedAt = DateTime.UtcNow; }
             catch { }
             finally { isLoadingBalance = false; await InvokeAsync(StateHasChanged); }
         });
@@ -956,6 +958,18 @@ else
         batchError = null;
         hasUnconfirmedUtxos = false;
 
+        // Refresh balance if stale (best-effort; fall back to cached on failure)
+        if (DateTime.UtcNow - balanceLoadedAt > BalanceFreshness)
+        {
+            try
+            {
+                var b = await WalletService.GetBalanceAsync();
+                availableBalance = b.ConfirmedDgb;
+                balanceLoadedAt = DateTime.UtcNow;
+            }
+            catch { /* keep cached value; node will reject if truly insufficient */ }
+        }
+
         if (isBatchMode)
         {
             // Batch validation
@@ -1029,9 +1043,11 @@ else
             amountError = "Minimum send amount is 0.0001 DGB.";
             return;
         }
-        if (amountDgb > availableBalance)
+        if (amountDgb + estimatedFee > availableBalance)
         {
-            amountError = $"Insufficient balance. You have {availableBalance:N4} DGB available.";
+            amountError = amountDgb > availableBalance
+                ? $"Insufficient balance. You have {availableBalance:N4} DGB available."
+                : $"Insufficient balance for amount + network fee (~{estimatedFee:N4} DGB). You have {availableBalance:N4} DGB available.";
             return;
         }
         }
