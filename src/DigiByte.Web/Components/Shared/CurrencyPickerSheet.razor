@@ -1,0 +1,108 @@
+@* Bottom sheet for choosing the display currency: searchable, grouped by region, with country flags. *@
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-[60] flex items-end justify-center" @onclick="Close" @onkeydown="OnKeyDown">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+        <div class="relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px] flex flex-col max-h-[75vh] scale-in"
+             role="dialog" aria-modal="true" aria-label="Choose currency" @onclick:stopPropagation="true">
+            <div class="flex justify-center pt-3 pb-1 shrink-0">
+                <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700"></div>
+            </div>
+
+            <div class="flex items-center justify-between px-5 pb-3 shrink-0">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Currency</h3>
+                <button class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                        aria-label="Close" @onclick="Close">
+                    <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="px-4 pb-3 shrink-0">
+                <div class="relative">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                    <input type="search" autocomplete="off" placeholder="Search currency, country or code" aria-label="Search currency"
+                           value="@query" @oninput="OnSearch"
+                           class="w-full pl-9 pr-3 py-2.5 bg-slate-100 dark:bg-dgb-900 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30" />
+                </div>
+            </div>
+
+            <div class="overflow-y-auto px-4 pb-4 flex flex-col gap-3 thin-scrollbar">
+                @{ var any = false; }
+                @foreach (var region in FiatCurrencies.Regions)
+                {
+                    var items = FiatCurrencies.InRegion(region).Where(Matches).ToList();
+                    if (items.Count == 0) continue;
+                    any = true;
+                    <div>
+                        <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">@region</p>
+                        <ul class="flex flex-col divide-y divide-slate-100 dark:divide-dgb-800 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+                            @foreach (var c in items)
+                            {
+                                var selected = string.Equals(c.Code, Selected, StringComparison.OrdinalIgnoreCase);
+                                <li>
+                                    <button type="button" class="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/60 transition-colors @(selected ? "bg-dgb-50/60 dark:bg-dgb-800/50" : "")"
+                                            aria-pressed="@(selected ? "true" : "false")" @onclick="() => Pick(c.Code)">
+                                        <CurrencyFlag Code="@c.Code" />
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@c.Code</span>
+                                            <span class="block text-[11px] text-slate-500 dark:text-slate-400 truncate">@c.Name</span>
+                                        </span>
+                                        <span class="text-xs tabular-nums text-slate-400 dark:text-slate-500">@c.Symbol.Trim()</span>
+                                        @if (selected)
+                                        {
+                                            <svg class="w-4 h-4 text-dgb-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                        }
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+                @if (!any)
+                {
+                    <p class="text-sm text-slate-500 dark:text-slate-400 text-center py-8">No currency matches "@query"</p>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Selected { get; set; } = "USD";
+    [Parameter] public EventCallback<string> OnSelected { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private string query = "";
+
+    private bool Matches(FiatCurrency c) =>
+        string.IsNullOrWhiteSpace(query)
+        || c.Code.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)
+        || c.Name.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)
+        || c.Symbol.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)
+        || FiatCurrencies.CountryNames(c.Code).Any(n => n.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private void OnSearch(ChangeEventArgs e) => query = e.Value?.ToString() ?? "";
+
+    private async Task Pick(string code)
+    {
+        query = "";
+        await OnSelected.InvokeAsync(code);
+    }
+
+    private async Task Close()
+    {
+        query = "";
+        await OnClosed.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Close();
+    }
+}

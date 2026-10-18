@@ -290,6 +290,8 @@ The wallet never directly calls CoinGecko or other rate-limited APIs from the br
 
 ```
 Browser → DigiByte.Api (CORS-allowed) → CoinGecko API
+                                      → open.er-api.com (USD exchange rates, for display
+                                        currencies CoinGecko does not quote; cached 6 h)
                                       → GitHub API (releases)
 ```
 

@@ -960,11 +960,12 @@
     private static string TruncateAddress(string addr) =>
         addr.Length > 16 ? $"{addr[..10]}...{addr[^6..]}" : addr;
 
-    private static string FormatFiat(decimal value)
+    private string FormatFiat(decimal value)
     {
-        if (value == 0) return "0.00";
+        var decimals = AppState.FiatDecimals; // 0 for yen, rupiah, shillings and similar
+        if (value == 0) return decimals == 0 ? "0" : "0." + new string('0', decimals);
         var abs = Math.Abs(value);
-        if (abs >= 1m) return value.ToString("N2");
+        if (abs >= 1m) return value.ToString("N" + decimals);
         if (abs >= 0.01m) return value.ToString("N4");
         if (abs >= 0.001m) return value.ToString("N5");
         if (abs >= 0.0001m) return value.ToString("N6");

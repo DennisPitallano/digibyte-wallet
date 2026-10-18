@@ -5,6 +5,7 @@
 @inject AppState AppState
 @inject IConfiguration Config
 @inject IDigiDollarNodeApi DdApi
+@inject FiatRateProvider Fx
 @inject DigiDollarFeatureFlag DdFlag
 @inject LocalizationService L
 
@@ -19,7 +20,7 @@
 
     @* Price Card *@
     <div class="slide-up-delay-1 bg-gradient-to-br from-dgb-900 to-dgb-700 rounded-2xl p-5 text-white">
-        <p class="text-xs text-dgb-200 font-medium">DGB / @AppState.FiatCurrency</p>
+        <p class="flex items-center gap-1.5 text-xs text-dgb-200 font-medium">DGB / <CurrencyFlag Code="@AppState.FiatCurrency" Class="w-5 h-[15px]" />@AppState.FiatCurrency</p>
         @if (price > 0)
         {
             <h2 class="text-3xl font-extrabold mt-1">@AppState.FiatSymbol@price.ToString("N6")</h2>
@@ -166,18 +167,30 @@
 
             if (data.TryGetProperty("market_data", out var md))
             {
-                if (md.TryGetProperty("current_price", out var cp) && cp.TryGetProperty(currency, out var p))
-                    price = p.GetDecimal();
-                if (md.TryGetProperty("price_change_percentage_24h", out var pc))
-                    priceChange = pc.GetDecimal();
-                if (md.TryGetProperty("market_cap", out var mc) && mc.TryGetProperty(currency, out var m))
-                    marketCap = m.GetDecimal();
-                if (md.TryGetProperty("total_volume", out var tv) && tv.TryGetProperty(currency, out var v))
-                    volume24h = v.GetDecimal();
+                // CoinGecko lists DGB in many but not all currencies; otherwise convert the USD figures.
+                decimal factor = 1m;
+                var key = currency;
+                if (!HasCurrency(md, "current_price", currency))
+                {
+                    key = "usd";
+                    factor = await Fx.GetPerUsdAsync(currency) ?? 0m;
+                }
+
+                if (factor > 0)
+                {
+                    if (md.TryGetProperty("current_price", out var cp) && cp.TryGetProperty(key, out var p))
+                        price = p.GetDecimal() * factor;
+                    if (md.TryGetProperty("price_change_percentage_24h", out var pc))
+                        priceChange = pc.GetDecimal();
+                    if (md.TryGetProperty("market_cap", out var mc) && mc.TryGetProperty(key, out var m))
+                        marketCap = m.GetDecimal() * factor;
+                    if (md.TryGetProperty("total_volume", out var tv) && tv.TryGetProperty(key, out var v))
+                        volume24h = v.GetDecimal() * factor;
+                    if (md.TryGetProperty("sparkline_7d", out var sp) && sp.TryGetProperty("price", out var prices))
+                        BuildSparkline(prices, factor);
+                }
                 if (md.TryGetProperty("circulating_supply", out var cs))
                     circulatingSupply = cs.GetDecimal();
-                if (md.TryGetProperty("sparkline_7d", out var sp) && sp.TryGetProperty("price", out var prices))
-                    BuildSparkline(prices);
             }
             Cache.Set("analytics:price", price, TimeSpan.FromSeconds(60));
             chartLoaded = true;
@@ -193,6 +206,9 @@
         oracleLoading = false;
         StateHasChanged();
     }
+
+    private static bool HasCurrency(System.Text.Json.JsonElement md, string group, string currency) =>
+        md.TryGetProperty(group, out var g) && g.ValueKind == System.Text.Json.JsonValueKind.Object && g.TryGetProperty(currency, out _);
 
     private async Task LoadBlockHeight()
     {
@@ -227,12 +243,12 @@
         _ => "..."
     };
 
-    private void BuildSparkline(System.Text.Json.JsonElement prices)
+    private void BuildSparkline(System.Text.Json.JsonElement prices, decimal factor = 1m)
     {
         var points = new List<double>();
         foreach (var p in prices.EnumerateArray())
         {
-            if (p.TryGetDouble(out var v)) points.Add(v);
+            if (p.TryGetDouble(out var v)) points.Add(v * (double)factor);
         }
         if (points.Count < 2) return;
 

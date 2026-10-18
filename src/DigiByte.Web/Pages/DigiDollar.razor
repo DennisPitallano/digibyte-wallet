@@ -87,24 +87,27 @@
                 }
             </div>
 
-            @* Quick actions *@
-            <div class="grid @(canSend ? "grid-cols-3" : "grid-cols-1") gap-3 slide-up-delay-1">
-                <button class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 press-effect card-hover"
-                        @onclick="@(() => Nav.NavigateTo("/digidollar/receive"))">
-                    <span class="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 flex items-center justify-center"><DdIcon Name="receive" Class="w-5 h-5" StrokeWidth="2" /></span>
-                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">@L.T("dd.receive")</span>
+            @* Quick actions: same look as the DGB buttons on Home *@
+            <div class="flex justify-center gap-6 slide-up-delay-1">
+                <button class="flex flex-col items-center gap-1 group" @onclick="@(() => Nav.NavigateTo("/digidollar/receive"))">
+                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                        <DdIcon Name="receive" Class="w-5 h-5 text-dgb-500" StrokeWidth="2" />
+                    </div>
+                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.receive")</span>
                 </button>
                 @if (canSend)
                 {
-                    <button class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 press-effect card-hover"
-                            @onclick="@(() => Nav.NavigateTo("/digidollar/send"))">
-                        <span class="w-10 h-10 rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300 flex items-center justify-center"><DdIcon Name="send" Class="w-5 h-5" StrokeWidth="2" /></span>
-                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">@L.T("dd.send")</span>
+                    <button class="flex flex-col items-center gap-1 group" @onclick="@(() => Nav.NavigateTo("/digidollar/send"))">
+                        <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                            <DdIcon Name="send" Class="w-5 h-5 text-dgb-500" StrokeWidth="2" />
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.send")</span>
                     </button>
-                    <button class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 press-effect card-hover"
-                            @onclick="@(() => Nav.NavigateTo("/digidollar/send?scan=1"))">
-                        <span class="w-10 h-10 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300 flex items-center justify-center"><DdIcon Name="qr" Class="w-5 h-5" StrokeWidth="2" /></span>
-                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">@L.T("dd.scan")</span>
+                    <button class="flex flex-col items-center gap-1 group" @onclick="@(() => Nav.NavigateTo("/digidollar/send?scan=1"))">
+                        <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                            <DdIcon Name="qr" Class="w-5 h-5 text-dgb-500" StrokeWidth="2" />
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.scan")</span>
                     </button>
                 }
             </div>

@@ -183,7 +183,7 @@
                 </div>
             </div>
             <select value="@(AppState.IsSimpleMode ? "true" : "false")" @onchange="OnDisplayModeChanged"
-                    class="bg-slate-100 dark:bg-dgb-800 border-0 text-sm text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5 outline-none">
+                    class="bg-slate-100 dark:bg-dgb-800 border-0 text-sm text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5 outline-none max-w-[11rem]">
                 <option value="true">Simple</option>
                 <option value="false">Advanced</option>
             </select>
@@ -199,18 +199,18 @@
                 </div>
                 <div>
                     <p class="text-sm font-semibold text-slate-900 dark:text-white">Currency</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">@AppState.FiatCurrency</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@(FiatCurrencies.Find(AppState.FiatCurrency)?.Name ?? AppState.FiatCurrency)</p>
                 </div>
             </div>
-            <select value="@AppState.FiatCurrency" @onchange="OnCurrencyChanged"
-                    class="bg-slate-100 dark:bg-dgb-800 border-0 text-sm text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5 outline-none">
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-                <option value="PHP">PHP</option>
-                <option value="JPY">JPY</option>
-            </select>
+            <button type="button" class="flex items-center gap-2 bg-slate-100 dark:bg-dgb-800 text-sm font-semibold text-slate-700 dark:text-slate-300 rounded-lg pl-2.5 pr-2 py-1.5 press-effect"
+                    aria-haspopup="dialog" aria-label="Currency: @AppState.FiatCurrency" @onclick="() => showCurrencyPicker = true">
+                <CurrencyFlag Code="@AppState.FiatCurrency" />
+                @AppState.FiatCurrency
+                <svg class="w-3.5 h-3.5 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </button>
         </div>
+
+        <CurrencyPickerSheet IsOpen="showCurrencyPicker" Selected="@AppState.FiatCurrency" OnSelected="SelectCurrency" OnClosed="() => showCurrencyPicker = false" />
 
         @* Network *@
         <div class="slide-up-delay-4 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
@@ -660,9 +660,11 @@
         await AppState.SavePreferenceAsync("dgb-display-mode", AppState.IsSimpleMode ? "simple" : "advanced");
     }
 
-    private async Task OnCurrencyChanged(ChangeEventArgs e)
+    private bool showCurrencyPicker;
+
+    private async Task SelectCurrency(string currency)
     {
-        var currency = e.Value?.ToString() ?? "USD";
+        showCurrencyPicker = false;
         AppState.FiatCurrency = currency;
         await AppState.SavePreferenceAsync("dgb-currency", currency);
         Cache.RemoveByPrefix("price");

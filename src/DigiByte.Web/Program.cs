@@ -92,6 +92,9 @@ if (isDevelopment)
     builder.Services.AddScoped<MockBlockchainService>();
 
 // Register multiple explorer backends — tried in order, if one fails the next is used.
+// USD exchange rates (via the price proxy) for display currencies CoinGecko does not price directly.
+builder.Services.AddScoped(sp => new FiatRateProvider(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko"), priceApiUrl));
 builder.Services.AddScoped<FallbackBlockchainService>(sp =>
 {
     var nodeApi = sp.GetRequiredService<NodeApiBlockchainService>();
@@ -107,7 +110,8 @@ builder.Services.AddScoped<FallbackBlockchainService>(sp =>
 
     var priceHttp = sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko");
     var mock = isDevelopment ? sp.GetRequiredService<MockBlockchainService>() : null;
-    return new FallbackBlockchainService(nodeApi, explorers, priceHttp, isDevelopment, priceApiUrl, mock);
+    return new FallbackBlockchainService(nodeApi, explorers, priceHttp, isDevelopment, priceApiUrl, mock,
+        sp.GetRequiredService<FiatRateProvider>());
 });
 builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<FallbackBlockchainService>());
 

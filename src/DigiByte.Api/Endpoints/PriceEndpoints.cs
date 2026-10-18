@@ -53,6 +53,31 @@ public static class PriceEndpoints
             return Results.Json(json);
         });
 
+        // GET /api/price/fx — USD exchange rates, for display currencies CoinGecko does not price DGB in
+        group.MapGet("/fx", async (
+            IHttpClientFactory httpFactory,
+            IMemoryCache cache) =>
+        {
+            const string cacheKey = "price:fx";
+
+            if (cache.TryGetValue(cacheKey, out JsonElement cached))
+                return Results.Json(new { @base = "USD", rates = cached });
+
+            var http = httpFactory.CreateClient("CoinGeckoProxy");
+            var response = await http.GetAsync("https://open.er-api.com/v6/latest/USD");
+
+            if (!response.IsSuccessStatusCode)
+                return Results.StatusCode((int)response.StatusCode);
+
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            if (json.ValueKind != JsonValueKind.Object || !json.TryGetProperty("rates", out var rates) || rates.ValueKind != JsonValueKind.Object)
+                return Results.StatusCode(StatusCodes.Status502BadGateway);
+
+            var copy = rates.Clone();
+            cache.Set(cacheKey, copy, TimeSpan.FromHours(6));
+            return Results.Json(new { @base = "USD", rates = copy });
+        });
+
         return group;
     }
 }

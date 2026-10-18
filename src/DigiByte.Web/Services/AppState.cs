@@ -26,14 +26,10 @@ public class AppState : IDisposable
     public string FiatCurrency { get; set; } = "USD";
     public List<WalletInfo> Wallets { get; set; } = [];
     public string? ActiveWalletName { get; set; }
-    public string FiatSymbol => FiatCurrency switch
-    {
-        "EUR" => "\u20ac",
-        "GBP" => "\u00a3",
-        "PHP" => "\u20b1",
-        "JPY" => "\u00a5",
-        _ => "$",
-    };
+    public string FiatSymbol => DigiByte.Wallet.Models.FiatCurrencies.SymbolFor(FiatCurrency);
+
+    /// <summary>Digits after the decimal point for fiat amounts of one unit or more (0 for yen, rupiah and similar).</summary>
+    public int FiatDecimals => DigiByte.Wallet.Models.FiatCurrencies.DecimalsFor(FiatCurrency);
     public bool IsTestnet { get; set; }
     public string NetworkMode { get; set; } = "mainnet";
 

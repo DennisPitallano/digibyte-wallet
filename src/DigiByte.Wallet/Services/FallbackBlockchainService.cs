@@ -17,6 +17,7 @@ public class FallbackBlockchainService : IBlockchainService
     private readonly MockBlockchainService? _mock;
     private readonly HttpClient _priceHttp;
     private readonly string? _priceApiBaseUrl;
+    private readonly FiatRateProvider? _fx;
     private readonly bool _isDevelopment;
     private bool _isRegtest;
 
@@ -48,7 +49,8 @@ public class FallbackBlockchainService : IBlockchainService
         HttpClient priceHttp,
         bool isDevelopment,
         string? priceApiBaseUrl = null,
-        MockBlockchainService? mock = null)
+        MockBlockchainService? mock = null,
+        FiatRateProvider? fx = null)
     {
         _nodeApi = nodeApi;
         _explorers = explorers.ToList();
@@ -56,6 +58,7 @@ public class FallbackBlockchainService : IBlockchainService
         _priceApiBaseUrl = priceApiBaseUrl?.TrimEnd('/');
         _isDevelopment = isDevelopment;
         _mock = isDevelopment ? mock : null;
+        _fx = fx;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -249,7 +252,9 @@ public class FallbackBlockchainService : IBlockchainService
         if (_cache.TryGetValue(cacheKey, out var cached) && cached.ExpiresAt > DateTime.UtcNow)
             return (decimal)cached.Value;
 
-        var currency = fiatCurrency.ToLower();
+        // CoinGecko prices DGB directly in only some currencies; for the others convert the USD price.
+        var native = DigiByte.Wallet.Models.FiatCurrencies.IsCoinGeckoNative(fiatCurrency);
+        var currency = (native ? fiatCurrency : "USD").ToLower();
         var url = _priceApiBaseUrl != null
             ? $"{_priceApiBaseUrl}/simple?currency={currency}"
             : $"https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies={currency}";
@@ -259,6 +264,12 @@ public class FallbackBlockchainService : IBlockchainService
             dgb.TryGetProperty(currency, out var priceEl))
         {
             var price = priceEl.GetDecimal();
+            if (!native)
+            {
+                var perUsd = _fx is null ? null : await _fx.GetPerUsdAsync(fiatCurrency);
+                if (perUsd is null) throw new InvalidOperationException($"No exchange rate for {fiatCurrency.ToUpperInvariant()}");
+                price *= perUsd.Value;
+            }
             if (price > 0)
             {
                 _cache[cacheKey] = (price, DateTime.UtcNow.AddMinutes(5));
