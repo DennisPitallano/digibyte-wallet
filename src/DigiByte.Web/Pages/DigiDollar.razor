@@ -7,6 +7,7 @@
 @inject LocalizationService L
 @inject NavigationManager Nav
 @inject AppState AppState
+@inject NotificationService Notifications
 
 <PageTitle>@L.T("dd.title")</PageTitle>
 
@@ -110,6 +111,15 @@
                         <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.scan")</span>
                     </button>
                 }
+                @* Teaser only: minting is a separate, later release. Nothing here starts a mint flow. *@
+                <button class="flex flex-col items-center gap-1 group" aria-disabled="true"
+                        @onclick="@(() => Notifications.Show(L.T("dd.mint.toast"), ToastType.Info, 3000))">
+                    <div class="relative w-12 h-12 rounded-2xl bg-white/60 dark:bg-dgb-900/60 border border-dashed border-slate-300 dark:border-dgb-700 flex items-center justify-center group-active:scale-90 transition-transform">
+                        <DdIcon Name="mint" Class="w-5 h-5 text-slate-400 dark:text-slate-500" StrokeWidth="2" />
+                        <span class="absolute -top-1.5 -right-2 text-[8px] font-bold uppercase tracking-wide bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full">@L.T("dd.mint.soon")</span>
+                    </div>
+                    <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500">@L.T("dd.mint")</span>
+                </button>
             </div>
 
             <OracleStatusPanel Health="d.Health" Culture="Dd.Culture" />
