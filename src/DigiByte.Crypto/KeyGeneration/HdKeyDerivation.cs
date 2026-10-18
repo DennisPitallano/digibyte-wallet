@@ -44,6 +44,17 @@ public class HdKeyDerivation
     }
 
     /// <summary>
+    /// A DigiDollar key derivation (BIP86 Taproot, research R2) from the same seed. Not available for watch-only wallets.
+    /// <paramref name="network"/> is "mainnet" or "testnet".
+    /// </summary>
+    public DigiDollarKeyDerivation CreateDigiDollarDerivation(string network, int? coinType = null)
+    {
+        if (_masterKey == null)
+            throw new InvalidOperationException("Cannot derive private keys from a watch-only wallet.");
+        return new DigiDollarKeyDerivation(_masterKey, network, coinType);
+    }
+
+    /// <summary>
     /// Derives the account-level extended key: m/84'/20'/account'
     /// </summary>
     public ExtKey DeriveAccount(int account = 0)

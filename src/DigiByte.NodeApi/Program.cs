@@ -1,4 +1,7 @@
+using DigiByte.NodeApi.DigiDollar;
 using DigiByte.NodeApi.Endpoints;
+using DigiByte.NodeApi.Metrics;
+using DigiByte.NodeApi.Middleware;
 using DigiByte.NodeApi.RpcClient;
 using DigiByte.NodeApi.Services;
 using DigiByte.Wallet.Services;
@@ -28,6 +31,50 @@ if (Environment.GetEnvironmentVariable("DIGIBYTE_TESTNET") is { } testnet)
 
 builder.Services.AddSingleton(nodeConfig);
 
+// DigiDollar configuration + env var overrides
+var ddConfig = builder.Configuration.GetSection("DigiDollar").Get<DigiDollarConfig>() ?? new DigiDollarConfig();
+if (Environment.GetEnvironmentVariable("DIGIDOLLAR_ENABLED") is { } ddEnabled)
+    ddConfig.Enabled = ddEnabled.Equals("true", StringComparison.OrdinalIgnoreCase);
+if (Environment.GetEnvironmentVariable("DIGIDOLLAR_WALLET") is { } ddWallet)
+    ddConfig.WalletName = ddWallet;
+if (Environment.GetEnvironmentVariable("NODEAPI_WRITE_KEY") is { } writeKey)
+    ddConfig.WriteKey = writeKey;
+if (Environment.GetEnvironmentVariable("NODEAPI_WALLET_ORIGINS") is { Length: > 0 } walletOrigins)
+    ddConfig.WalletOrigins = walletOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+if (Environment.GetEnvironmentVariable("NODEAPI_METRICS_DB") is { Length: > 0 } metricsDb)
+    ddConfig.MetricsDbPath = metricsDb;
+builder.Services.AddSingleton(ddConfig);
+
+// DigiDollar output index (wallet-facing, address-scoped reads): SQLite store + mempool overlay + RPC chain source.
+// Only the indexer service touches the store, and only when DigiDollar is enabled.
+var ddNetwork = nodeConfig.IsTestnet ? DigiByte.Crypto.Networks.DigiByteNetwork.Testnet : DigiByte.Crypto.Networks.DigiByteNetwork.Mainnet;
+if (Environment.GetEnvironmentVariable("DIGIDOLLAR_INDEX_DB") is { Length: > 0 } ddIndexDb)
+    ddConfig.IndexDbPath = ddIndexDb;
+builder.Services.AddSingleton<IDdChainSource, RpcDdChainSource>();
+builder.Services.AddSingleton<DdIndexStatus>();
+builder.Services.AddSingleton(new DdMempoolOverlay(ddNetwork));
+builder.Services.AddSingleton(sp =>
+{
+    var cfg = sp.GetRequiredService<DigiDollarConfig>();
+    if (!cfg.Enabled) return DdIndexStore.InMemory();
+    var dir = Path.GetDirectoryName(Path.GetFullPath(cfg.IndexDbPath));
+    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+    return new DdIndexStore($"Data Source={cfg.IndexDbPath}");
+});
+builder.Services.AddSingleton<IDdIndex, DdIndex>();
+builder.Services.AddHostedService<DdOutputIndexerService>();
+
+// Anonymous aggregate usage counters (research R17): per-day counts only, no identifiers.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<MetricsRateLimiter>();
+builder.Services.AddSingleton(sp =>
+{
+    var cfg = sp.GetRequiredService<DigiDollarConfig>();
+    var dir = Path.GetDirectoryName(Path.GetFullPath(cfg.MetricsDbPath));
+    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+    return new MetricsStore($"Data Source={cfg.MetricsDbPath}");
+});
+
 // RPC client
 builder.Services.AddHttpClient<DigiByteRpcClient>();
 builder.Services.AddSingleton<DigiByteRpcClient>();
@@ -35,6 +82,9 @@ builder.Services.AddSingleton<DigiByteRpcClient>();
 // IBlockchainService implementation via RPC
 builder.Services.AddSingleton<NodeBlockchainService>();
 builder.Services.AddSingleton<IBlockchainService>(sp => sp.GetRequiredService<NodeBlockchainService>());
+
+// DigiDollar fee reserve monitor (BackgroundService — no-ops when DD disabled)
+builder.Services.AddHostedService<DdFeeReserveMonitor>();
 
 // OpenAPI
 builder.Services.AddOpenApi();
@@ -44,6 +94,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+    // Wallet-scoped DigiDollar routes (DigiPay only, server to server): no origin is allowed, so a
+    // browser on any origin (including the wallet's) cannot read or call them cross-origin.
+    options.AddPolicy("DdWalletScoped", policy => policy.SetIsOriginAllowed(_ => false));
+    // Usage counters answer the wallet's own origin only (configured via DigiDollar:WalletOrigins / NODEAPI_WALLET_ORIGINS).
+    options.AddMetricsCorsPolicy(ddConfig.WalletOrigins);
 });
 
 var app = builder.Build();
@@ -61,6 +116,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+
+// Guard wallet-scoped DigiDollar routes (GET and POST) with X-NodeApi-Key; fails closed if unset (outside Development).
+app.UseMiddleware<WriteKeyAuthMiddleware>();
 
 // Global RPC error handler
 app.Use(async (context, next) =>
@@ -90,6 +148,12 @@ app.MapGroup("/api/keys").MapKeyEndpoints().WithTags("Key Management");
 app.MapGroup("/api/psbt").MapPsbtEndpoints().WithTags("PSBT");
 app.MapGroup("/api/descriptor").MapDescriptorEndpoints().WithTags("Descriptors");
 app.MapGroup("/api/util").MapUtilityEndpoints().WithTags("Utility");
+
+// ===== Anonymous usage counters (SC-005) =====
+app.MapGroup("/api/metrics").MapMetricsEndpoints().WithTags("Metrics");
+
+// ===== DigiDollar Endpoints (feature-flagged via DigiDollarConfig.Enabled) =====
+app.MapGroup("/api/digidollar").MapDigiDollarEndpoints().WithTags("DigiDollar");
 
 // Health check
 app.MapGet("/api/health", async (DigiByteRpcClient rpc) =>

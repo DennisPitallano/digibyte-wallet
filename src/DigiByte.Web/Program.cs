@@ -111,6 +111,24 @@ builder.Services.AddScoped<FallbackBlockchainService>(sp =>
 });
 builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<FallbackBlockchainService>());
 
+// ── DigiDollar (non-custodial, being rebuilt per specs/001-digidollar-wallet) ──
+// Two independent switches (FR-022), both false by default: ship dark, then beta, then GA with no code change.
+var ddView = builder.Configuration.GetValue<bool>("DigiDollar:ViewEnabled");
+var ddSend = builder.Configuration.GetValue<bool>("DigiDollar:SendEnabled");
+builder.Services.AddSingleton(new DigiDollarFeatureFlag(ddView, ddSend));
+// Read-only NodeApi client (public chain data; never calls a wallet-scoped endpoint) and the encrypted local store.
+builder.Services.AddScoped<IDigiDollarNodeApi>(sp => new DigiDollarNodeApiClient(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), nodeApiUrl));
+builder.Services.AddScoped<DigiDollarStore>(sp => new DigiDollarStore(
+    sp.GetRequiredService<ISecureStorage>(), sp.GetRequiredService<ICryptoService>()));
+// WalletService doubles as the narrow session provider DigiDollar uses (it shares the derivation, never the mnemonic).
+builder.Services.AddScoped<IDdSessionProvider>(sp => sp.GetRequiredService<WalletService>());
+builder.Services.AddScoped<IDdFeeSource>(sp => sp.GetRequiredService<WalletService>());
+builder.Services.AddScoped<IDigiDollarService, DigiDollarService>();
+// Anonymous aggregate counts (SC-005): an empty POST naming an event, no identifiers. Only while the view switch is on.
+builder.Services.AddScoped(sp => new UsageCounter(new HttpClient(), nodeApiUrl, () => ddView));
+builder.Services.AddScoped<DigiDollarViewModel>();
+
 // ── App state, theme & UI services ──
 builder.Services.AddScoped<AppState>();
 builder.Services.AddScoped<ThemeService>();
@@ -128,5 +146,9 @@ await appState.InitializeAsync();
 // Start network monitoring
 var network = host.Services.GetRequiredService<NetworkStatusService>();
 await network.InitializeAsync();
+
+// Load the saved locale (and the English fallback) so localized strings, including DigiDollar's dd.* keys, resolve.
+var localization = host.Services.GetRequiredService<LocalizationService>();
+await localization.InitializeAsync();
 
 await host.RunAsync();

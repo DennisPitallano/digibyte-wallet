@@ -125,6 +125,12 @@ public class WebhookDispatcher
                 returnUrl = session.ReturnUrl,
                 createdAt = session.CreatedAt,
                 expiresAt = session.ExpiresAt,
+                // DigiDollar payload fields. DGB sessions carry currency="DGB"
+                // and amountCentsDd=null; DD sessions carry currency="DD" and
+                // amountCentsDd set. ReceivedSatoshis is repurposed for DD as
+                // received cents — same field, unit implied by currency.
+                currency = session.Currency,
+                amountCentsDd = session.AmountCentsDd,
             },
         };
 

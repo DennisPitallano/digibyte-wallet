@@ -1,0 +1,28 @@
+@page "/digidollar/send"
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+
+<PageTitle>@L.T("dd.send.title")</PageTitle>
+
+<AuthGuard>
+<DigiDollarRouteGuard RequireSend="true">
+    <div class="flex flex-col gap-5">
+        <div class="flex items-center justify-between slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">@L.T("dd.send.title")</h2>
+            <a class="text-xs font-medium text-dgb-500" href="/digidollar">@L.T("dd.back")</a>
+        </div>
+        <DigiDollarHealthBanner />
+        <DigiDollarPriceLine />
+        <DigiDollarSendForm />
+    </div>
+</DigiDollarRouteGuard>
+</AuthGuard>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Balances, health and the pending-send state must be fresh before the form validates anything.
+        try { await Dd.EnsureLoadedAsync(); }
+        catch { /* DigiDollar failures stay inside DigiDollar */ }
+    }
+}

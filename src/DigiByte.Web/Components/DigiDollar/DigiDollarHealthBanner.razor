@@ -1,0 +1,64 @@
+@using DigiByte.Wallet.Models
+@using DigiByte.Wallet.Services
+@implements IDisposable
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+
+@* Non-blocking notices on every DigiDollar page (FR-003, FR-019, FR-020). They explain the situation in plain language and
+   never stop the user from doing anything else: Send stays available in degraded states (FR-027) and the dialog repeats the
+   warning at the moment of consent. role="alert" only for the unreachable/cached state; the rest are role="status". *@
+@{
+    var d = Dd.Dashboard;
+    var h = d?.Health;
+}
+@if (d is not null)
+{
+    @if (d.State == DdViewState.UnavailableCached)
+    {
+        <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300" role="alert">
+            @L.T("dd.cached.banner", d.CachedAsOf?.ToLocalTime().ToString("g", Dd.Culture) ?? "")
+        </div>
+    }
+    else if (h is { Available: true })
+    {
+        @if (h.ErrActive)
+        {
+            <div class="@Style" role="status">@L.T("dd.banner.err")</div>
+        }
+        @if (h.VolatilityFreeze)
+        {
+            <div class="@Style" role="status">@L.T("dd.banner.volatility")</div>
+        }
+        @if (!h.OraclePriceAvailable)
+        {
+            <div class="@Style" role="status">@L.T("dd.banner.priceUnavailable")</div>
+        }
+        else if (h.IsOracleStale)
+        {
+            <div class="@Style" role="status">@L.T("dd.banner.oracleStale", AgeText(DigiDollarFormat.OracleAge(h)))</div>
+        }
+        @if (h.IsNodeLagging)
+        {
+            <div class="@Style" role="status">@L.T("dd.banner.nodeLag")</div>
+        }
+    }
+}
+
+@code {
+    private const string Style =
+        "rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300";
+
+    protected override void OnInitialized() => Dd.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private string AgeText(TimeSpan? age)
+    {
+        if (age is not { } a) return "";
+        if (a.TotalSeconds < 60) return L.T("dd.time.seconds", (int)a.TotalSeconds);
+        if (a.TotalMinutes < 60) return L.T("dd.time.minutes", (int)a.TotalMinutes);
+        return L.T("dd.time.hours", (int)a.TotalHours);
+    }
+
+    public void Dispose() => Dd.Changed -= OnChanged;
+}

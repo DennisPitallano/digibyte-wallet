@@ -1,0 +1,153 @@
+@page "/digidollar/receive"
+@using DigiByte.Wallet.Models
+@using DigiByte.Wallet.Services
+@implements IDisposable
+@inject DigiDollarViewModel Dd
+@inject IDigiDollarService Service
+@inject LocalizationService L
+@inject IJSRuntime JS
+
+<PageTitle>@L.T("dd.receive.title")</PageTitle>
+
+<AuthGuard>
+<DigiDollarRouteGuard>
+    <div class="flex flex-col items-center gap-5">
+        <div class="flex items-center justify-between w-full slide-up">
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">@L.T("dd.receive.title")</h2>
+            <a class="text-xs font-medium text-dgb-500" href="/digidollar">@L.T("dd.back")</a>
+        </div>
+
+        <div class="w-full flex flex-col gap-2">
+            <DigiDollarHealthBanner />
+            <DigiDollarPriceLine />
+        </div>
+
+        @if (Dd.Dashboard?.State == DdViewState.NotActive)
+        {
+            <p class="text-sm text-slate-600 dark:text-slate-400 text-center py-8 max-w-xs" role="status">@L.T("dd.notActive")</p>
+        }
+        else if (current is null)
+        {
+            <div class="w-6 h-6 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin" role="status" aria-label="@L.T("dd.loading")"></div>
+        }
+        else
+        {
+            <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-6 shadow-sm flex flex-col items-center gap-4 w-full">
+                <div class="bg-white rounded-2xl p-3 shadow-inner relative">
+                    <img src="@qrDataUrl" alt="@L.T("dd.receive.qr")" class="w-48 h-48 rounded-lg" />
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="bg-white rounded-full p-1.5 shadow-md"><DigiDollarLogo Size="32" /></div>
+                    </div>
+                </div>
+                <p class="font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800"
+                   aria-label="@L.T("dd.receive.address")">@current.Address</p>
+                <div class="flex gap-2 w-full">
+                    <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="CopyAsync">
+                        @(copied ? L.T("dd.receive.copied") : L.T("dd.receive.copy"))
+                    </button>
+                    <button class="py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            disabled="@busy" @onclick="NewAsync">
+                        @L.T("dd.receive.new")
+                    </button>
+                </div>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center">@L.T("dd.receive.hint")</p>
+            </div>
+
+            @if (addresses.Count > 1)
+            {
+                <div class="w-full">
+                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">@L.T("dd.receive.yours")</h3>
+                    <ul class="flex flex-col divide-y divide-slate-100 dark:divide-dgb-800 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                        @foreach (var a in addresses.OrderByDescending(a => a.Index))
+                        {
+                            var balance = Dd.Dashboard?.Balance?.PerAddress.GetValueOrDefault(a.Address) ?? 0;
+                            <li class="px-4 py-2.5 flex items-center justify-between gap-3">
+                                <button class="font-mono text-[11px] text-left text-slate-600 dark:text-slate-400 truncate hover:text-dgb-500"
+                                        title="@a.Address" @onclick="() => Select(a)">@Short(a.Address)</button>
+                                <span class="text-xs font-semibold tabular-nums text-slate-900 dark:text-white shrink-0">@Dd.Usd(balance)</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+    </div>
+</DigiDollarRouteGuard>
+</AuthGuard>
+
+@code {
+    private DigiDollarAddress? current;
+    private List<DigiDollarAddress> addresses = [];
+    private string? qrDataUrl;
+    private bool copied;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Dd.Changed += OnChanged;
+        try
+        {
+            // Balances and the network state first (cheap when already loaded); addresses themselves are local.
+            await Dd.EnsureLoadedAsync();
+            if (Dd.Dashboard?.State == DdViewState.NotActive) return; // no receive actions on an inactive network (FR-003)
+
+            addresses = (await Service.GetReceiveAddressesAsync()).ToList();
+            // FR-005: opening Receive always offers a usable address; reuse the newest one, or derive the first.
+            current = addresses.Count > 0 ? addresses[^1] : await Service.NewReceiveAddressAsync();
+            if (addresses.Count == 0) addresses.Add(current);
+            RenderQr();
+        }
+        catch
+        {
+            // Unreadable local state must not crash the page; the spinner stays and refresh can retry.
+        }
+    }
+
+    private async Task NewAsync()
+    {
+        if (busy) return;
+        busy = true;
+        try
+        {
+            current = await Service.NewReceiveAddressAsync();
+            addresses.Add(current);
+            copied = false;
+            RenderQr();
+        }
+        finally { busy = false; }
+    }
+
+    private void Select(DigiDollarAddress a)
+    {
+        current = a;
+        copied = false;
+        RenderQr();
+    }
+
+    private async Task CopyAsync()
+    {
+        if (current is null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", current.Address);
+        copied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        copied = false;
+        StateHasChanged();
+    }
+
+    private void RenderQr()
+    {
+        if (current is null) return;
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(current.Address, QRCoder.QRCodeGenerator.ECCLevel.H);
+        using var png = new QRCoder.PngByteQRCode(data);
+        qrDataUrl = $"data:image/png;base64,{Convert.ToBase64String(png.GetGraphic(10, [0, 35, 82], [255, 255, 255]))}";
+    }
+
+    private static string Short(string address) =>
+        address.Length <= 18 ? address : $"{address[..8]}…{address[^6..]}";
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Dd.Changed -= OnChanged;
+}

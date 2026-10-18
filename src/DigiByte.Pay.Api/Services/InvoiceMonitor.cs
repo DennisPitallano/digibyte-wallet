@@ -98,6 +98,15 @@ public class InvoiceMonitor : BackgroundService
         var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == session.StoreId, ct);
         if (store is null) return;
 
+        // DigiDollar sessions poll a different backend (the node RPC via
+        // DigiByte.NodeApi) and don't need the DGB explorer chain.
+        if (session.Currency == "DD")
+        {
+            var ddClient = scope.ServiceProvider.GetRequiredService<DigiDollarNodeClient>();
+            await InspectDdSessionAsync(session, store, ddClient, notifier, webhookDispatcher, now, ct);
+            return;
+        }
+
         // Poll the chain first. A payment arriving right at the expiry deadline must still
         // be honoured — the wallet has no idea about session state, it just signed and sent.
         var chain = GetChainService(store.Network);
@@ -210,5 +219,99 @@ public class InvoiceMonitor : BackgroundService
         var svc = new BlockchainApiService(http, isTestnet: isTestnet);
         _chainByNetwork[network] = svc;
         return svc;
+    }
+
+    /// <summary>
+    /// DigiDollar variant of <see cref="InspectSessionAsync"/>. Polls the
+    /// node's DD balance for the session's address (in USD cents) rather than
+    /// the DGB explorer chain. Confirmations are approximated at balance-level
+    /// initially (confirmed cents ≥ minimum ⇒ 6 confirmations, else 0) —
+    /// good enough for the state machine's coarse thresholds; a later pass
+    /// can wire per-tx confirmation counts through NodeApi for finer control.
+    /// </summary>
+    private async Task InspectDdSessionAsync(
+        PaySession session,
+        PayStore store,
+        DigiDollarNodeClient ddClient,
+        CheckoutNotifier notifier,
+        WebhookDispatcher webhookDispatcher,
+        DateTime now,
+        CancellationToken ct)
+    {
+        DdBalance balance;
+        try
+        {
+            balance = await ddClient.GetBalanceAsync(session.Address, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DD balance poll failed for session {SessionId}", session.Id);
+            // Non-fatal — leave the session where it is; next tick will retry.
+            return;
+        }
+
+        if (balance.TotalCents == 0)
+        {
+            // No payment yet. Expire pending sessions past their deadline.
+            if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
+            {
+                session.Status = PaySessionStatus.Expired;
+                await PublishAsync(notifier, session, ct);
+                await webhookDispatcher.DispatchAsync(store, session, "session.expired", ct);
+            }
+            return;
+        }
+
+        var requiredCents = session.AmountCentsDd ?? 0;
+        if (requiredCents <= 0)
+        {
+            _logger.LogWarning("DD session {SessionId} missing AmountCentsDd", session.Id);
+            return;
+        }
+        var minimum = (long)Math.Floor(requiredCents * (double)UnderpayTolerance);
+
+        // ReceivedSatoshis field is repurposed for DD to hold received cents.
+        // Downstream consumers key off session.Currency to interpret the unit.
+        session.ReceivedSatoshis = balance.TotalCents;
+
+        var previous = session.Status;
+        if (balance.TotalCents < minimum)
+        {
+            session.Status = PaySessionStatus.Underpaid;
+            session.Confirmations = 0;
+        }
+        else if (balance.ConfirmedCents >= minimum)
+        {
+            session.Status = PaySessionStatus.Confirmed;
+            session.Confirmations = ConfirmedAt;
+            session.PaidAt ??= now;
+        }
+        else
+        {
+            session.Status = PaySessionStatus.Seen;
+            session.Confirmations = 0;
+            session.SeenAt ??= now;
+        }
+
+        // Look up the txid on first detection so the checkout page + webhook
+        // payload can link out to the transaction.
+        if (session.PaidTxid is null && session.Status != PaySessionStatus.Underpaid)
+        {
+            try
+            {
+                session.PaidTxid = await ddClient.GetFirstReceiveTxidAsync(session.Address, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "DD txid lookup failed for session {SessionId} (non-fatal)", session.Id);
+            }
+        }
+
+        if (session.Status != previous)
+        {
+            await PublishAsync(notifier, session, ct);
+            var eventName = "session." + session.Status.ToString().ToLowerInvariant();
+            await webhookDispatcher.DispatchAsync(store, session, eventName, ct);
+        }
     }
 }

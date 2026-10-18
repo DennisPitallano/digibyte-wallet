@@ -12,6 +12,8 @@ public class LocalizationService
     private readonly HttpClient _http;
     private readonly IJSRuntime _js;
     private Dictionary<string, string> _translations = new();
+    // English is always loaded as the fallback so a string missing from another locale shows English, not its raw key.
+    private Dictionary<string, string> _english = new();
     private string _currentLocale = "en";
 
     public string CurrentLocale => _currentLocale;
@@ -61,11 +63,12 @@ public class LocalizationService
     }
 
     /// <summary>
-    /// Get a translated string by key. Falls back to the key itself if not found.
+    /// Get a translated string by key. Falls back to English, then to the key itself, if not found.
     /// </summary>
     public string T(string key)
     {
-        return _translations.TryGetValue(key, out var value) ? value : key;
+        if (_translations.TryGetValue(key, out var value)) return value;
+        return _english.TryGetValue(key, out var fallback) ? fallback : key;
     }
 
     /// <summary>
@@ -89,6 +92,23 @@ public class LocalizationService
         {
             // Fallback to English keys
             _translations = new();
+        }
+
+        if (locale == "en")
+        {
+            _english = _translations;
+        }
+        else if (_english.Count == 0)
+        {
+            try
+            {
+                var en = await _http.GetStringAsync("locales/en.json");
+                _english = JsonSerializer.Deserialize<Dictionary<string, string>>(en) ?? new();
+            }
+            catch
+            {
+                _english = new();
+            }
         }
     }
 }

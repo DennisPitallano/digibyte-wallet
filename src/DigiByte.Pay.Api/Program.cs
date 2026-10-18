@@ -217,6 +217,23 @@ builder.Services.AddHttpClient("DigiPayWebhook", client =>
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 
+// DigiDollar NodeApi client. Reads DdNode config from appsettings + env vars.
+// NODEAPI_BASE_URL / NODEAPI_WRITE_KEY override on Railway / containers.
+builder.Services.Configure<DdNodeOptions>(opts =>
+{
+    var section = builder.Configuration.GetSection("DdNode");
+    section.Bind(opts);
+    if (Environment.GetEnvironmentVariable("NODEAPI_BASE_URL") is { Length: > 0 } url)
+        opts.BaseUrl = url;
+    if (Environment.GetEnvironmentVariable("NODEAPI_WRITE_KEY") is { Length: > 0 } key)
+        opts.WriteKey = key;
+});
+builder.Services.AddHttpClient<DigiDollarNodeClient>(client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay/0.1");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+
 builder.Services.AddSingleton<CheckoutNotifier>();
 builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();

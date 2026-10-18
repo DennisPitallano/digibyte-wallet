@@ -56,6 +56,10 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.Source).HasMaxLength(32);
             e.Property(s => s.RefundTxid).HasMaxLength(128);
             e.Property(s => s.RefundNote).HasMaxLength(512);
+            // DigiDollar support. Currency defaults to "DGB" so existing rows
+            // stay valid; AmountCentsDd is nullable and only populated for DD
+            // sessions.
+            e.Property(s => s.Currency).HasMaxLength(8).IsRequired().HasDefaultValue("DGB");
         });
 
         modelBuilder.Entity<MerchantSession>(e =>

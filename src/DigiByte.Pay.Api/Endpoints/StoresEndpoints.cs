@@ -149,6 +149,11 @@ public static class StoresEndpoints
                 if (store!.DefaultSessionExpiryMinutes != mins) changed.Add("expiry");
                 store!.DefaultSessionExpiryMinutes = mins;
             }
+            if (body.DigiDollarEnabled is not null)
+            {
+                if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
+                store!.DigiDollarEnabled = body.DigiDollarEnabled.Value;
+            }
 
             await db.SaveChangesAsync();
 
@@ -483,4 +488,5 @@ public record UpdateStoreRequest(
     string? Network,
     string? AddressOrXpub,
     string? WebhookUrl,
-    int? DefaultSessionExpiryMinutes);
+    int? DefaultSessionExpiryMinutes,
+    bool? DigiDollarEnabled);

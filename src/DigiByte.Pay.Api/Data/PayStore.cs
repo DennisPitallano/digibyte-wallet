@@ -25,5 +25,15 @@ public class PayStore
     // Null falls back to the global default (30 min).
     public int? DefaultSessionExpiryMinutes { get; set; }
 
+    /// <summary>
+    /// Merchant opt-in for DigiDollar (DD) payments. When true, sessions may
+    /// be created with Currency="DD" and DD payment monitoring is enabled for
+    /// this store. Defaults to false — existing DGB integrations keep working
+    /// unchanged. DD addresses are generated on demand via the node RPC (no
+    /// xpub-based derivation exists for DD), so no per-store address config
+    /// is stored here beyond this flag.
+    /// </summary>
+    public bool DigiDollarEnabled { get; set; }
+
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }

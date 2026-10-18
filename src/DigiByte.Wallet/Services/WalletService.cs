@@ -8,7 +8,7 @@ using NBitcoin;
 
 namespace DigiByte.Wallet.Services;
 
-public class WalletService : IWalletService
+public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
 {
     private readonly IKeyStore _keyStore;
     private readonly WalletKeyStore _walletStore;
@@ -44,6 +44,71 @@ public class WalletService : IWalletService
 
     public bool IsUnlocked => ActiveSession != null;
     public WalletInfo? ActiveWallet => ActiveSession?.Info;
+
+    /// <summary>
+    /// The DGB outputs that can pay a DigiDollar transaction fee (see <see cref="IDdFeeSource"/>): P2WPKH outputs of the
+    /// active seed-based wallet's receive and change addresses, each with its signing key (kept in memory only).
+    /// </summary>
+    public async Task<IReadOnlyList<DdFeeUtxo>> GetFeeUtxosAsync(CancellationToken ct)
+    {
+        EnsureUnlocked();
+        if (_hd is null || _hd.IsWatchOnly) return [];
+
+        var network = CurrentNetwork;
+        var targets = new List<(string Address, ExtKey Key, Script Script)>();
+        foreach (var (address, key) in GetAddressKeyMap())
+        {
+            var script = BitcoinAddress.Create(address, network).ScriptPubKey;
+            // Native SegWit only: the key must match the P2WPKH script it is supposed to unlock.
+            if (PayToWitPubKeyHashTemplate.Instance.CheckScriptPubKey(script)
+                && key.PrivateKey.PubKey.WitHash.ScriptPubKey == script)
+                targets.Add((address, key, script));
+        }
+
+        var semaphore = new SemaphoreSlim(10);
+        var lookups = targets.Select(async t =>
+        {
+            await semaphore.WaitAsync(ct);
+            try { return (t.Key, Utxos: await _blockchain.GetUtxosAsync(t.Address)); }
+            finally { semaphore.Release(); }
+        });
+
+        var result = new List<DdFeeUtxo>();
+        foreach (var (key, utxos) in await Task.WhenAll(lookups))
+            foreach (var u in utxos)
+                result.Add(new DdFeeUtxo(u.TxId, u.OutputIndex, u.AmountSatoshis, u.Confirmations, key.PrivateKey));
+        return result;
+    }
+
+    /// <summary>Where leftover DGB goes after a DigiDollar fee: the wallet's next change address (SegWit).</summary>
+    public Task<Script> GetDgbChangeScriptAsync(CancellationToken ct)
+    {
+        EnsureUnlocked();
+        if (_hd is null || _hd.IsWatchOnly || ActiveWallet is null)
+            throw new InvalidOperationException("DigiDollar needs an unlocked seed-based wallet.");
+        var key = _hd.DeriveChangeKey(ActiveWallet.NextChangeIndex);
+        return Task.FromResult(_hd.GetAddress(key).ScriptPubKey);
+    }
+
+    /// <summary>
+    /// The active wallet as DigiDollar sees it (see <see cref="IDdSessionProvider"/>). A derivation is returned only for an
+    /// unlocked seed-based wallet on mainnet or testnet (FR-029, FR-030).
+    /// </summary>
+    public DdWalletSession? GetDigiDollarSession()
+    {
+        var session = ActiveSession;
+        if (session is null) return null;
+
+        var kind = DigiDollarVisibility.KindFromWalletType(session.Info.WalletType);
+        var network = _networkMode;
+        var canDerive = kind == DdWalletKind.Seed
+                        && session.Hd is { IsWatchOnly: false }
+                        && DigiDollarVisibility.IsSupportedNetwork(network);
+
+        return new DdWalletSession(
+            session.Info.Id, kind, network,
+            canDerive ? session.Hd!.CreateDigiDollarDerivation(network) : null);
+    }
 
     /// <summary>
     /// Returns the hex-encoded compressed public key for the primary receiving address (index 0).

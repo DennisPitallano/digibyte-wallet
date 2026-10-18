@@ -1,0 +1,47 @@
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+@inject NotificationService Notifications
+@inject NavigationManager Nav
+
+@* Wraps every DigiDollar page. Put it INSIDE <AuthGuard> so it only evaluates once the wallet is unlocked.
+   - visible          -> renders the page
+   - unsupported wallet -> renders the "requires a recovery-phrase wallet" explanation instead (FR-030)
+   - otherwise        -> returns the user home with a one-time toast (flag off, regtest, or turned off mid-session) *@
+@if (allowed)
+{
+    @ChildContent
+}
+else if (unsupported)
+{
+    <div class="flex flex-col items-center gap-3 py-12 text-center" role="status">
+        <DigiDollarLogo Size="48" />
+        <p class="text-sm text-slate-600 dark:text-slate-400 max-w-xs">@L.T("dd.unsupported")</p>
+        <button class="px-4 py-2 text-sm font-semibold rounded-xl bg-dgb-500 text-white press-effect" @onclick="@(() => Nav.NavigateTo("/"))">
+            @L.T("dd.back")
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The Send page needs the send switch too (FR-022).</summary>
+    [Parameter] public bool RequireSend { get; set; }
+
+    private bool allowed;
+    private bool unsupported;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Dd.RefreshUsedMarkerAsync();
+        var v = Dd.Visibility;
+        allowed = RequireSend ? v.SendVisible : v.Visible;
+        unsupported = !allowed && v.ShowUnsupportedNotice;
+
+        if (!allowed && !unsupported)
+        {
+            Notifications.Show(L.T("dd.unavailable.toast"), ToastType.Info, 4000);
+            Nav.NavigateTo("/", replace: true);
+        }
+    }
+}

@@ -1,0 +1,99 @@
+@using DigiByte.Wallet.Services
+@implements IDisposable
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+@inject NavigationManager Nav
+
+@* DigiDollar section on the home screen (FR-001, FR-004). Never blocks DGB content (Principle V): it loads on its own and
+   every state, including failure, renders inside this tile. Hidden unless the effective visibility says so (FR-002). *@
+@{
+    var vis = Dd.Visibility;
+    var d = Dd.Dashboard;
+}
+
+@if (vis.ShowUnsupportedNotice)
+{
+    <div class="w-full mt-1 flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800" role="status">
+        <DigiDollarLogo Size="32" />
+        <p class="text-xs text-slate-600 dark:text-slate-400">@L.T("dd.unsupported")</p>
+    </div>
+}
+else if (vis.Visible)
+{
+    <button class="w-full mt-1 flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 dark:from-emerald-500/15 dark:to-emerald-700/10 border border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 dark:hover:border-emerald-500/60 transition-colors press-effect text-left"
+            aria-label="@L.T("dd.title")"
+            @onclick="@(() => Nav.NavigateTo("/digidollar"))">
+        <div class="flex items-center gap-3 min-w-0">
+            <DigiDollarLogo Size="36" />
+            <div class="min-w-0">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    @L.T("dd.title")
+                    <span class="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-1 py-0.5 rounded uppercase">Beta</span>
+                </p>
+                @if (d?.Balance is { } b && d.State is DdViewState.Ready or DdViewState.Empty or DdViewState.UnavailableCached)
+                {
+                    <p class="text-base font-bold tabular-nums text-slate-900 dark:text-white">
+                        @Dd.Usd(b.ConfirmedCents)
+                        <span class="text-slate-500 dark:text-slate-400 text-xs font-medium">USD</span>
+                    </p>
+                    @if (b.PendingCents != 0)
+                    {
+                        <p class="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">@L.T("dd.pending"): @Dd.Usd(b.PendingCents)</p>
+                    }
+                    @if (d.Cached)
+                    {
+                        <p class="text-[11px] text-amber-600 dark:text-amber-400">@L.T("dd.cached.short")</p>
+                    }
+                    @if (d.Health is { Available: true, OraclePriceAvailable: true } health && !d.Cached)
+                    {
+                        <p class="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                            @L.T("dd.home.dgbValue", Dd.Usd(DigiDollarFormat.DgbValueCents(DgbSatoshis, health.OraclePriceMicroUsd!.Value)))
+                        </p>
+                    }
+                }
+                else if (d?.State == DdViewState.NotActive)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("dd.notActive")</p>
+                }
+                else if (d?.State == DdViewState.Unavailable)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("dd.unavailable.state")</p>
+                }
+                else if (Dd.Scan is { } scan)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400" role="status">@L.T("dd.scanning")</p>
+                }
+                else
+                {
+                    <p class="text-base font-bold text-slate-400" aria-label="@L.T("dd.loading")">&mdash;</p>
+                }
+            </div>
+        </div>
+        <svg class="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+    </button>
+}
+
+@code {
+    /// <summary>The user's DGB balance in satoshis; shown as a USD value at the oracle price while the price is available (FR-021).</summary>
+    [Parameter] public long DgbSatoshis { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Dd.Changed += OnChanged;
+        // Fire and forget: the DGB home screen must never wait on DigiDollar.
+        _ = LoadAsync();
+        await Task.CompletedTask;
+    }
+
+    private async Task LoadAsync()
+    {
+        try { await Dd.EnsureLoadedAsync(); }
+        catch { /* DigiDollar failures stay inside DigiDollar */ }
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Dd.Changed -= OnChanged;
+}

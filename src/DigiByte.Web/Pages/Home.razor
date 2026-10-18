@@ -1,6 +1,7 @@
 @page "/"
 @implements IAsyncDisposable
 @inject NavigationManager Nav
+@inject UsageCounter UsageCounter
 @inject ContactService ContactService
 @inject AddressLabelService LabelService
 @inject WalletService WalletService
@@ -250,6 +251,10 @@
                 </div>
             </div>
         </div>
+
+        @* ===== DigiDollar (view/send switches, seed wallets only; loads independently of DGB) ===== *@
+        <DigiDollarHomeCard DgbSatoshis="@(balance.ConfirmedSatoshis + balance.UnconfirmedSatoshis)" />
+        <DigiDollarUnavailableLine />
 
         @* ===== TX AREA ===== *@
         <div>
@@ -535,6 +540,9 @@
     {
         // Reset auto-lock timer on page load
         AppState.ResetLockTimer();
+
+        // Anonymous aggregate count of home-screen views (denominator of SC-005); fire and forget.
+        _ = UsageCounter.RecordAsync("home_view");
 
         WalletService.SetNetworkMode(AppState.NetworkMode);
 

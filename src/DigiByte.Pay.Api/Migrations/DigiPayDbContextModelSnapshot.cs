@@ -245,6 +245,9 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<int>("AddressIndex")
                         .HasColumnType("integer");
 
+                    b.Property<long?>("AmountCentsDd")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("AmountSatoshis")
                         .HasColumnType("bigint");
 
@@ -253,6 +256,13 @@ namespace DigiByte.Pay.Api.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasDefaultValue("DGB");
 
                     b.Property<decimal?>("DgbPriceAtCreation")
                         .HasColumnType("numeric");
@@ -342,6 +352,9 @@ namespace DigiByte.Pay.Api.Migrations
 
                     b.Property<int?>("DefaultSessionExpiryMinutes")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("DigiDollarEnabled")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("MerchantId")
                         .IsRequired()

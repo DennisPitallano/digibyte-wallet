@@ -22,4 +22,8 @@
     <ProjectReference Include="..\..\src\DigiByte.NodeApi\DigiByte.NodeApi.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>

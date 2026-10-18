@@ -1,0 +1,23 @@
+@implements IDisposable
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+
+@* FR-002: with the view switch off, the only DigiDollar trace is this one neutral line, and only on devices that have
+   already used DigiDollar (the plaintext marker). No balance, no navigation. *@
+@if (Dd.Visibility.ShowUnavailableLine)
+{
+    <p class="w-full mt-1 px-4 py-2 text-xs text-slate-500 dark:text-slate-400" role="status">@L.T("dd.flagOff.line")</p>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Dd.Changed += OnChanged;
+        try { await Dd.RefreshUsedMarkerAsync(); }
+        catch { /* marker unreadable: show nothing */ }
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Dd.Changed -= OnChanged;
+}

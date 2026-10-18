@@ -37,6 +37,10 @@ public class PaySession
     public DateTime? SeenAt { get; set; }
     public DateTime? PaidAt { get; set; }
     public string? PaidTxid { get; set; }
+    // For DGB sessions this is received satoshis. For DD sessions
+    // (Currency = "DD"), it holds received amount in USD cents. The unit is
+    // implied by Currency; consumers should branch on that field rather than
+    // reading raw satoshis for DD.
     public long ReceivedSatoshis { get; set; }
     public int Confirmations { get; set; }
 
@@ -66,4 +70,20 @@ public class PaySession
     /// match the practical URL ceiling.
     /// </summary>
     public string? ReturnUrl { get; init; }
+
+    /// <summary>
+    /// Payment currency for this session. "DGB" (default, existing behaviour)
+    /// or "DD" (DigiDollar — native USD-pegged stablecoin). DD sessions carry
+    /// their amount in <see cref="AmountCentsDd"/> and leave AmountSatoshis
+    /// at 0; DGB sessions do the reverse. Added in migration
+    /// AddDigiDollarSupport with a "DGB" default so existing rows stay valid.
+    /// </summary>
+    public string Currency { get; init; } = "DGB";
+
+    /// <summary>
+    /// Requested amount in USD cents when <see cref="Currency"/> = "DD".
+    /// Null / zero for DGB sessions. Kept separate from AmountSatoshis for
+    /// semantic clarity — cents and sats are different units.
+    /// </summary>
+    public long? AmountCentsDd { get; init; }
 }

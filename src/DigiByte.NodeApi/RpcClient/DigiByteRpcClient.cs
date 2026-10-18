@@ -90,6 +90,62 @@ public class DigiByteRpcClient
     }
 
     /// <summary>
+    /// Call an RPC method scoped to a specific loaded wallet on the node.
+    /// Required for DigiDollar RPCs (getdigidollaraddress, mintdigidollar, etc.)
+    /// which operate on wallet-local state. Routes the POST to /wallet/{walletName}.
+    /// </summary>
+    public async Task<T> CallWalletAsync<T>(string walletName, string method, params object?[] args)
+    {
+        if (string.IsNullOrWhiteSpace(walletName))
+            throw new ArgumentException("Wallet name is required for wallet-scoped RPC.", nameof(walletName));
+
+        var request = new RpcRequest
+        {
+            Method = method,
+            Params = args.Where(a => a != null).ToArray()
+        };
+
+        var json = JsonSerializer.Serialize(request, JsonOpts);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var walletPath = $"wallet/{Uri.EscapeDataString(walletName)}";
+
+        _logger.LogDebug("RPC → [{Wallet}] {Method}({Args})", walletName, method,
+            string.Join(", ", args.Select(a => a?.ToString() ?? "null")));
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.PostAsync(walletPath, content);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new RpcException(-1, $"Cannot connect to DigiByte node at {_config.RpcUrl}{walletPath}: {ex.Message}");
+        }
+        catch (TaskCanceledException)
+        {
+            throw new RpcException(-1, $"RPC request to {method} on wallet '{walletName}' timed out");
+        }
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode && string.IsNullOrEmpty(responseBody))
+        {
+            throw new RpcException((int)response.StatusCode,
+                $"HTTP {(int)response.StatusCode} from node: {response.ReasonPhrase}");
+        }
+
+        var rpcResponse = JsonSerializer.Deserialize<RpcResponse<T>>(responseBody, JsonOpts);
+
+        if (rpcResponse?.Error != null)
+        {
+            throw new RpcException(rpcResponse.Error.Code, rpcResponse.Error.Message);
+        }
+
+        return rpcResponse!.Result!;
+    }
+
+    /// <summary>
     /// Call an RPC method and return the raw JSON string.
     /// </summary>
     public async Task<string> CallRawAsync(string method, params object?[] args)

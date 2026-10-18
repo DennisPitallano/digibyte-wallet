@@ -1,0 +1,42 @@
+@using DigiByte.Wallet.Services
+@implements IDisposable
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+
+@* The oracle's USD value of one DGB with a visible "last updated" freshness indicator (FR-018). With no usable price it says
+   so plainly instead of showing a misleading number (FR-019). *@
+@{
+    var h = Dd.Dashboard?.Health;
+}
+@if (h is { Available: true })
+{
+    <p class="text-[11px] text-slate-500 dark:text-slate-400" role="status">
+        @if (h.OraclePriceAvailable)
+        {
+            <span class="tabular-nums">@L.T("dd.price.line", DigiDollarFormat.DgbPrice(h.OraclePriceMicroUsd!.Value, Dd.Culture))</span>
+            @if (DigiDollarFormat.OracleAge(h) is { } age)
+            {
+                <span> &middot; @L.T("dd.price.updated", AgeText(age))</span>
+            }
+        }
+        else
+        {
+            <span>@L.T("dd.price.unavailable")</span>
+        }
+    </p>
+}
+
+@code {
+    protected override void OnInitialized() => Dd.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private string AgeText(TimeSpan a)
+    {
+        if (a.TotalSeconds < 60) return L.T("dd.time.seconds", (int)a.TotalSeconds);
+        if (a.TotalMinutes < 60) return L.T("dd.time.minutes", (int)a.TotalMinutes);
+        return L.T("dd.time.hours", (int)a.TotalHours);
+    }
+
+    public void Dispose() => Dd.Changed -= OnChanged;
+}

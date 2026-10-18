@@ -882,6 +882,17 @@ else
                     @if (expiryMessage != null) { <p class="@Muted m-0">@expiryMessage</p> }
                     @if (expiryError != null) { <p class="text-xs text-red-500 m-0">@expiryError</p> }
                 </section>
+
+                <section class="@Card mt-4">
+                    <h2 class="@H2">Accept DigiDollar (DD) <span class="text-[0.625rem] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 align-middle ml-1">Beta</span></h2>
+                    <p class="@Muted m-0">Accept USD-pegged DigiDollar stablecoin payments alongside DGB. Each session gets a fresh <code class="text-[0.6875rem]">DD…</code> address; buyers pay in DD; the amount is denominated in USD (1&nbsp;DD&nbsp;=&nbsp;$1). Fees are paid in DGB from our house wallet — no fee reserve to manage on your side.</p>
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" @bind="ddEnabledInput" @bind:after="SaveDigiDollarEnabledAsync" disabled="@ddBusy" class="w-4 h-4 accent-dgb-500" />
+                        <span class="text-sm">Enable DigiDollar for this store</span>
+                    </label>
+                    @if (ddMessage != null) { <p class="@Muted m-0">@ddMessage</p> }
+                    @if (ddError != null) { <p class="text-xs text-red-500 m-0">@ddError</p> }
+                </section>
             }
         </main>
     </div>
@@ -973,6 +984,11 @@ else
     private string? expiryMessage;
     private string? expiryError;
 
+    private bool ddEnabledInput;
+    private bool ddBusy;
+    private string? ddMessage;
+    private string? ddError;
+
     private string nameInput = "";
     private bool nameBusy;
     private string? nameMessage;
@@ -1055,6 +1071,7 @@ else
         if (activeStore is null) return;
         webhookInput = activeStore.WebhookUrl ?? "";
         expiryInput = activeStore.DefaultSessionExpiryMinutes;
+        ddEnabledInput = activeStore.DigiDollarEnabled;
         await LoadSessionsAsync();
         await LoadDeliveriesAsync();
         if (activeStore.HasReceive) await LoadDonationAddressAsync();
@@ -1073,6 +1090,7 @@ else
         storeNameInput = "";
         webhookMessage = webhookError = null;
         expiryMessage = expiryError = null;
+        ddMessage = ddError = null;
         await LoadActiveStoreContextAsync();
         StateHasChanged();
     }
@@ -1495,6 +1513,36 @@ else
         finally { expiryBusy = false; StateHasChanged(); }
     }
 
+    private async Task SaveDigiDollarEnabledAsync()
+    {
+        if (activeStore is null) return;
+        // Optimistic UI: the checkbox is already bound to ddEnabledInput; if
+        // the PATCH fails we revert to the server's canonical state.
+        ddBusy = true; ddError = null; ddMessage = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var content = JsonContent.Create(new { digiDollarEnabled = ddEnabledInput });
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
+            if (!response.IsSuccessStatusCode)
+            {
+                ddError = await response.Content.ReadAsStringAsync();
+                ddEnabledInput = activeStore.DigiDollarEnabled; // revert
+                return;
+            }
+            await RefreshStoreAsync();
+            ddMessage = (activeStore?.DigiDollarEnabled ?? false)
+                ? "DigiDollar acceptance enabled for this store."
+                : "DigiDollar acceptance disabled.";
+        }
+        catch (Exception ex)
+        {
+            ddError = ex.Message;
+            ddEnabledInput = activeStore.DigiDollarEnabled;
+        }
+        finally { ddBusy = false; StateHasChanged(); }
+    }
+
     private async Task SaveNameAsync()
     {
         nameBusy = true; nameError = null; nameMessage = null; StateHasChanged();
@@ -1707,7 +1755,8 @@ else
     private record StoreDto(string Id, string MerchantId, string Name, string Network,
         string ReceiveMode, bool HasReceive, string? ReceivePreview,
         string? WebhookUrl, bool HasWebhookSecret,
-        int? DefaultSessionExpiryMinutes, DateTime CreatedAt);
+        int? DefaultSessionExpiryMinutes, DateTime CreatedAt,
+        bool DigiDollarEnabled = false);
 
     private record SessionList(int Total, int Take, int Skip, List<SessionRow> Sessions);
 

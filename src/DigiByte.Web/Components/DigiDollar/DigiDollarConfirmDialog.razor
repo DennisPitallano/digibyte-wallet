@@ -1,0 +1,133 @@
+@using DigiByte.Wallet.Services
+@implements IAsyncDisposable
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+@inject IJSRuntime JS
+
+@* The moment of consent (FR-015, FR-026, FR-027): the FULL recipient address, the USD amount and the DGB fee are visible
+   together; the custody model is stated in plain language; any unusual network condition is named. The confirm button stays
+   disabled for one second after opening so a stray double tap cannot sign. Focus is trapped and Esc cancels.
+   Layout: centered with bottom padding for the fixed tab bar, because the page's stacking context keeps this overlay
+   beneath that bar (a bottom-aligned sheet would hide its own buttons). *@
+<div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm px-3 pt-4 pb-24"
+     @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true">
+    <div id="@DialogId" role="dialog" aria-modal="true" aria-labelledby="dd-confirm-title"
+         class="w-full max-w-[480px] max-h-full overflow-y-auto bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col gap-4 slide-up">
+        <h3 id="dd-confirm-title" class="text-lg font-bold text-slate-900 dark:text-white">@L.T("dd.confirm.title")</h3>
+
+        <dl class="flex flex-col gap-3 text-sm">
+            <div>
+                <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">@L.T("dd.confirm.to")</dt>
+                <dd class="font-mono text-xs break-all text-slate-900 dark:text-white bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 border border-slate-100 dark:border-dgb-800">@Recipient</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+                <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">@L.T("dd.confirm.amount")</dt>
+                <dd class="text-base font-bold tabular-nums text-slate-900 dark:text-white">@Dd.Usd(AmountCents)</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+                <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">@L.T("dd.confirm.fee")</dt>
+                <dd class="text-sm tabular-nums text-slate-900 dark:text-white">@DigiDollarFormat.Dgb(Check.FeeSats, Dd.Culture) DGB</dd>
+            </div>
+        </dl>
+
+        @if (Check.IsOwnAddress)
+        {
+            <p class="rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-700/40 px-3 py-2 text-xs text-sky-800 dark:text-sky-300" role="note">@L.T("dd.confirm.own")</p>
+        }
+
+        @if (Check.Degraded.Count > 0)
+        {
+            <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300" role="alert">
+                <p class="font-semibold">@L.T("dd.confirm.warn.intro")</p>
+                <ul class="list-disc pl-4 mt-1 flex flex-col gap-0.5">
+                    @foreach (var c in Check.Degraded)
+                    {
+                        <li>@WarningText(c)</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("dd.confirm.custody")</p>
+
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <p class="text-xs text-red-600 dark:text-red-400" role="alert">@Error</p>
+        }
+
+        <div class="flex gap-2">
+            <button type="button" class="flex-1 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                    data-autofocus disabled="@Busy" @onclick="Cancel">
+                @L.T("dd.confirm.cancel")
+            </button>
+            <button type="button" class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl press-effect"
+                    disabled="@(!armed || Busy)" @onclick="Confirm">
+                @(Busy ? L.T("dd.confirm.sending") : L.T("dd.confirm.confirm"))
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private const string DialogId = "dd-confirm-dialog";
+
+    [Parameter, EditorRequired] public DdSendCheck Check { get; set; } = default!;
+    [Parameter, EditorRequired] public string Recipient { get; set; } = "";
+    [Parameter] public long AmountCents { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private bool armed;
+    private bool trapped;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // One second before the confirm button is live (prevents an accidental double tap from signing).
+        _ = ArmAsync();
+        await Task.CompletedTask;
+    }
+
+    private async Task ArmAsync()
+    {
+        await Task.Delay(1000);
+        armed = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || trapped) return;
+        trapped = true;
+        try { await JS.InvokeVoidAsync("domHelpers.trapFocus", DialogId); }
+        catch (JSException) { /* helper missing: the dialog still works, just without the trap */ }
+    }
+
+    private string WarningText(DdDegradedCondition c) => c switch
+    {
+        DdDegradedCondition.OracleStale => L.T("dd.confirm.warn.oracleStale"),
+        DdDegradedCondition.Err => L.T("dd.confirm.warn.err"),
+        DdDegradedCondition.VolatilityFreeze => L.T("dd.confirm.warn.volatility"),
+        _ => L.T("dd.confirm.warn.priceUnavailable"),
+    };
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && !Busy) await Cancel();
+    }
+
+    private Task Cancel() => OnCancel.InvokeAsync();
+
+    private async Task Confirm()
+    {
+        if (!armed || Busy) return;
+        await OnConfirm.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("domHelpers.releaseFocus", DialogId); }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or JSDisconnectedException) { }
+    }
+}

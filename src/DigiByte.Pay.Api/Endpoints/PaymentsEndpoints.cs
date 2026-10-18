@@ -96,14 +96,36 @@ public static class PaymentsEndpoints
         group.MapPost("/sessions", async (
             CreateSessionRequest body,
             HttpRequest http,
-            DigiPayDbContext db) =>
+            DigiPayDbContext db,
+            DigiDollarNodeClient ddNode) =>
         {
             var merchant = await AuthenticateAsync(http, db);
             if (merchant is null)
                 return Results.Unauthorized();
 
-            if (body.Amount is null || body.Amount <= 0)
-                return Results.BadRequest(new { error = "amount (DGB) must be > 0" });
+            var currency = string.IsNullOrWhiteSpace(body.Currency)
+                ? "DGB"
+                : body.Currency.Trim().ToUpperInvariant();
+            if (currency is not ("DGB" or "DD"))
+                return Results.BadRequest(new { error = "currency must be DGB or DD" });
+
+            // Amount validation branches by currency. DGB uses the existing
+            // decimal-DGB amount; DD uses integer USD cents.
+            if (currency == "DGB")
+            {
+                if (body.Amount is null || body.Amount <= 0)
+                    return Results.BadRequest(new { error = "amount (DGB) must be > 0" });
+            }
+            else // DD
+            {
+                if (body.AmountCentsDd is null or <= 0)
+                    return Results.BadRequest(new { error = "amountCentsDd (USD cents) must be > 0 for DD sessions" });
+                // Consensus caps: $1 dust floor, $100k per-tx ceiling.
+                if (body.AmountCentsDd < 100)
+                    return Results.BadRequest(new { error = "amountCentsDd below $1 dust floor" });
+                if (body.AmountCentsDd > 10_000_000)
+                    return Results.BadRequest(new { error = "amountCentsDd exceeds $100,000 per-transaction maximum" });
+            }
 
             // Optional returnUrl validation. Mirrors the WebhookUrl rules —
             // HTTPS in production, HTTP allowed only for localhost (so a dev
@@ -170,11 +192,31 @@ public static class PaymentsEndpoints
             }
 
             // Resolve the receive address:
+            // - DD sessions: generate a fresh DD address from the node RPC
+            //   (no xpub-based derivation exists for DD; the node's DD wallet
+            //   owns the keys). Requires the store to opt in via
+            //   DigiDollarEnabled.
             // - Xpub mode: allocate next index, derive m/.../0/index (per-session privacy).
             // - Address mode: reuse the single stored address (no derivation).
             int index;
             string address;
-            if (!string.IsNullOrEmpty(store.Xpub))
+            if (currency == "DD")
+            {
+                if (!store.DigiDollarEnabled)
+                    return Results.BadRequest(new { error = "digidollar_not_enabled_for_store" });
+                try
+                {
+                    address = await ddNode.GenerateAddressAsync();
+                }
+                catch (Exception ex)
+                {
+                    return Results.Json(
+                        new { error = "digidollar_node_unavailable", detail = ex.Message },
+                        statusCode: 503);
+                }
+                index = 0;
+            }
+            else if (!string.IsNullOrEmpty(store.Xpub))
             {
                 index = store.NextAddressIndex;
                 store.NextAddressIndex = index + 1;
@@ -189,7 +231,10 @@ public static class PaymentsEndpoints
             {
                 return Results.BadRequest(new { error = "store has no receive address or xpub configured — PATCH /v1/pay/stores/{id} first" });
             }
-            var amountSats = (long)Math.Round(body.Amount.Value * 100_000_000m);
+            // AmountSatoshis is 0 for DD sessions (amount lives in AmountCentsDd).
+            var amountSats = currency == "DGB"
+                ? (long)Math.Round(body.Amount!.Value * 100_000_000m)
+                : 0L;
 
             // Stamp the session's origin when it was created by a POS-paired
             // API key (label starts with "POS"). Lets the dashboard separate
@@ -231,6 +276,8 @@ public static class PaymentsEndpoints
                 ExpiresAt = DateTime.UtcNow.Add(ResolveExpiry(body.ExpiresInSeconds, store)),
                 Source = source,
                 ReturnUrl = returnUrl,
+                Currency = currency,
+                AmountCentsDd = currency == "DD" ? body.AmountCentsDd : null,
             };
 
             db.Sessions.Add(session);
@@ -556,6 +603,12 @@ public static class PaymentsEndpoints
         // back to after payment confirms. Null for SDK / direct-API merchants
         // who own their own success page.
         s.ReturnUrl,
+        // DigiDollar. Currency = "DGB" | "DD". For DD sessions,
+        // AmountCentsDd is the requested USD amount in cents; AmountSatoshis
+        // stays at 0. ReceivedSatoshis is repurposed to hold received DD in
+        // cents (unit implied by Currency).
+        s.Currency,
+        s.AmountCentsDd,
         Uri = BuildBip21(s),
         CheckoutUrl = checkoutUrl,
     };
@@ -563,8 +616,23 @@ public static class PaymentsEndpoints
     private static string BuildBip21(PaySession s)
     {
         var sb = new StringBuilder("digibyte:").Append(s.Address);
-        var amount = (s.AmountSatoshis / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
-        sb.Append("?amount=").Append(amount);
+        // DGB sessions carry an amount in DGB; DD sessions carry USD cents
+        // with a currency hint so wallets that understand DigiDollar can
+        // prompt for the right thing. Non-DD-aware wallets will show the
+        // amount as DGB — the DD address prefix (DD/TD/RD) makes the mistake
+        // hard to complete anyway.
+        if (s.Currency == "DD" && s.AmountCentsDd is > 0)
+        {
+            var usd = (s.AmountCentsDd.Value / 100m).ToString(
+                "0.00##", System.Globalization.CultureInfo.InvariantCulture);
+            sb.Append("?amount=").Append(usd).Append("&currency=USD");
+        }
+        else
+        {
+            var amount = (s.AmountSatoshis / 100_000_000m).ToString(
+                "0.########", System.Globalization.CultureInfo.InvariantCulture);
+            sb.Append("?amount=").Append(amount);
+        }
         if (!string.IsNullOrWhiteSpace(s.Label))
             sb.Append("&label=").Append(Uri.EscapeDataString(s.Label));
         if (!string.IsNullOrWhiteSpace(s.Memo))
@@ -589,7 +657,12 @@ public record CreateSessionRequest(
     string? Label,
     string? Memo,
     int? ExpiresInSeconds,
-    string? ReturnUrl);
+    string? ReturnUrl,
+    // DigiDollar support. Currency defaults to "DGB" (existing behaviour) when
+    // null. When Currency = "DD", AmountCentsDd carries the requested USD
+    // amount in cents (10000 = $100.00) and Amount / FiatAmount are ignored.
+    string? Currency = null,
+    long? AmountCentsDd = null);
 
 public record RefundRequest(string? Txid, string? Note);
 public record VoidRequest(string? Note);

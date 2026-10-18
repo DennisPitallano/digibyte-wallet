@@ -47,7 +47,28 @@
                     <CheckoutStatusPill Status="@session.Status" />
                 </header>
 
-                @if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
+                @if (session.Currency == "DD" && session.AmountCentsDd is { } ddCents)
+                {
+                    @* DigiDollar session: amount is already USD ($1 = 1 DD).
+                       No fiat conversion, no volatility guard — the peg is the value.
+                       Sub-line surfaces it's a stablecoin payment so buyers who
+                       see "DD..." address prefix know what they're looking at. *@
+                    <div class="flex flex-col items-center gap-2">
+                        <img src="/images/digidollar-logo-128.png"
+                             srcset="/images/digidollar-logo-64.png 64w,
+                                     /images/digidollar-logo-96.png 96w,
+                                     /images/digidollar-logo-128.png 128w,
+                                     /images/digidollar-logo-192.png 192w,
+                                     /images/digidollar-logo-256.png 256w"
+                             sizes="56px" width="56" height="56"
+                             alt="DigiDollar" decoding="async"
+                             class="w-14 h-14 rounded-full"
+                             onerror="this.style.display='none'" />
+                        <div class="text-3xl sm:text-4xl font-bold tabular-nums">$@FormatUsdCents(ddCents) <span class="text-slate-500 dark:text-slate-400 text-2xl sm:text-3xl font-semibold">USD</span></div>
+                        <div class="text-sm text-slate-500 dark:text-slate-400">DigiDollar payment</div>
+                    </div>
+                }
+                else if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
                 {
                     @* Fiat-priced session: merchant keyed in a fiat amount (e.g. 12.50 EUR)
                        and we quoted a DGB equivalent at creation time. Lead with the fiat
@@ -67,8 +88,9 @@
                    customer's fiat outlay differs from the sticker price — we
                    surface the direction + magnitude so they can decide whether
                    to pay now or ask the merchant to re-quote. Only meaningful
-                   for fiat-priced sessions with a recorded quote. *@
-                @if (priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !IsTerminal(session.Status))
+                   for fiat-priced DGB sessions with a recorded quote — DD is
+                   already USD-denominated. *@
+                @if (session.Currency != "DD" && priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !IsTerminal(session.Status))
                 {
                     var pricierNow = drift > 0;
                     <div class="w-full text-xs rounded-xl px-3 py-2 border flex items-start gap-2 @(pricierNow ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-200" : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-200")">
@@ -158,6 +180,8 @@
     private async Task RefreshPriceDriftAsync()
     {
         if (session is null) return;
+        // DD sessions are USD-denominated by definition — no drift to show.
+        if (session.Currency == "DD") return;
         if (session.DgbPriceAtCreation is not { } quote || quote <= 0m) return;
         if (string.IsNullOrWhiteSpace(session.FiatCurrency)) return;
         if (IsTerminal(session.Status)) return;
@@ -225,6 +249,9 @@
     private static string FormatFiat(decimal amount) =>
         amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
+    private static string FormatUsdCents(long cents) =>
+        (cents / 100m).ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
+
     private static bool IsTerminal(string status) =>
         status is "confirmed" or "expired" or "underpaid" or "refunded" or "voided";
 
@@ -244,7 +271,11 @@
         string Uri, string CheckoutUrl,
         // Optional merchant URL the buyer is sent back to once paid.
         // Null for SDK / direct-API merchants who own the after-payment page.
-        string? ReturnUrl = null);
+        string? ReturnUrl = null,
+        // DigiDollar. Currency = "DGB" (default) or "DD". For DD sessions,
+        // AmountCentsDd carries the USD cents amount and AmountSatoshis is 0.
+        string Currency = "DGB",
+        long? AmountCentsDd = null);
 
     public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
 

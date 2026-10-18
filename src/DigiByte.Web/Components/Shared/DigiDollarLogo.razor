@@ -1,0 +1,51 @@
+@*
+    DigiDollar brand mark. Serves pre-scaled square PNGs (64/96/128/192/256)
+    so retina + zoomed displays get a crisp rasterisation instead of
+    downscaling the 1080-wide master on every render. Ordering below is by
+    intrinsic px width; the browser picks the smallest variant whose width
+    ≥ CSS pixels × DPR.
+
+    Fallback layer sits underneath so a missing file naturally reveals the
+    "$" badge (alt="" prevents alt-text bleed).
+*@
+
+<span class="dd-logo relative inline-block rounded-full overflow-hidden shrink-0 align-middle @Class"
+      role="img" aria-label="DigiDollar"
+      style="width: @(Size)px; height: @(Size)px;">
+    @* Layer 1 (backdrop): always-visible fallback. *@
+    <span class="absolute inset-0 flex items-center justify-center bg-emerald-500 text-white font-bold select-none"
+          style="font-size: @($"{Size * 0.55:0.##}")px; line-height: 1;">$</span>
+    @* Layer 2 (foreground): the logo — covers the fallback when it loads. *@
+    <img src="@BestFallbackSrc"
+         srcset="/images/digidollar-logo-64.png 64w,
+                 /images/digidollar-logo-96.png 96w,
+                 /images/digidollar-logo-128.png 128w,
+                 /images/digidollar-logo-192.png 192w,
+                 /images/digidollar-logo-256.png 256w"
+         sizes="@($"{Size}px")"
+         width="@Size" height="@Size"
+         alt="" decoding="async" loading="lazy"
+         class="relative block w-full h-full object-cover"
+         style="image-rendering: auto;"
+         onerror="this.style.display='none'" />
+</span>
+
+@code {
+    /// <summary>Diameter in pixels. Default sizes: 20 (inline), 36 (nav tiles), 96 (page headers).</summary>
+    [Parameter] public int Size { get; set; } = 36;
+
+    /// <summary>Additional CSS classes forwarded to the wrapping span.</summary>
+    [Parameter] public string Class { get; set; } = "";
+
+    // Non-srcset fallback for older browsers or when srcset can't be resolved.
+    // Picks the smallest variant ≥ 2× Size, capped at the largest we've generated.
+    private string BestFallbackSrc =>
+        (Size * 2) switch
+        {
+            <= 64 => "/images/digidollar-logo-64.png",
+            <= 96 => "/images/digidollar-logo-96.png",
+            <= 128 => "/images/digidollar-logo-128.png",
+            <= 192 => "/images/digidollar-logo-192.png",
+            _ => "/images/digidollar-logo-256.png",
+        };
+}
