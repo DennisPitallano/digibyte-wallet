@@ -21,19 +21,19 @@
     }
     else if (h is { Available: true })
     {
-        @if (h.ErrActive)
+        @if (OracleDetails && h.ErrActive)
         {
             <div class="@Style" role="status">@L.T("dd.banner.err")</div>
         }
-        @if (h.VolatilityFreeze)
+        @if (OracleDetails && h.VolatilityFreeze)
         {
             <div class="@Style" role="status">@L.T("dd.banner.volatility")</div>
         }
-        @if (!h.OraclePriceAvailable)
+        @if (OracleDetails && !h.OraclePriceAvailable)
         {
             <div class="@Style" role="status">@L.T("dd.banner.priceUnavailable")</div>
         }
-        else if (h.IsOracleStale)
+        else if (OracleDetails && h.IsOracleStale)
         {
             <div class="@Style" role="status">@L.T("dd.banner.oracleStale", AgeText(DigiDollarFormat.OracleAge(h)))</div>
         }
@@ -45,6 +45,9 @@
 }
 
 @code {
+    /// <summary>False when the page already shows the oracle panel, so only the connection notices remain.</summary>
+    [Parameter] public bool OracleDetails { get; set; } = true;
+
     private const string Style =
         "rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300";
 

@@ -10,7 +10,7 @@
     </button>
     <div class="slide-up">
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Roadmap</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">What's built, what's next, and what's planned.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">What's built, what's in progress, and what's planned.</p>
     </div>
 
     @* Timeline *@
@@ -209,16 +209,14 @@
             "Tag-triggered publishing workflows (sdk-{lang}-v*) — version/tag guards, npm provenance attestations",
             "Public SDKs landing at pay.dgbwallet.app/sdks with install cards, feature matrix, and per-language quickstarts",
         ]),
-        new("Q2 2026", "Internationalization", Status.InProgress, [
-            "Multi-language support — targeting 10 locales (2 shipped so far: en, es)",
-        ]),
         new("Apr 2026", "Recovery Tools", Status.Done, [
             "Recovery page — sweep funds from old derivation paths, external seed, or WIF key",
             "Current wallet old-path scan (BIP44 + BIP49) with one-tap sweep",
             "External mnemonic scan (BIP44/49/84) + external WIF scan (all address types)",
             "Multi-address-type scanning per key (Legacy, SegWit-P2SH, SegWit)",
             "Live progress bar with current path label during scans",
-        ]),        new("Apr 2026", "Digi-ID Enhancements", Status.Done, [
+        ]),
+        new("Apr 2026", "Digi-ID Enhancements", Status.Done, [
             "Fix message signing (compact recoverable signature + correct magic prefix)",
             "Server-side CORS proxy for third-party Digi-ID callback servers",
             "Enhanced signing flow \u2014 confirmation panel, 3-step progress animation, retry",
@@ -229,7 +227,8 @@
             "Live confirmation countdown — 15s poller, 6-step progress badge, compact + expanded modes",
             "Persistent Digi-ID login history — IndexedDB, relative timestamps, clear all",
             "31 new unit tests (ConfirmationPollerTests + DigiIdServiceTests)",
-        ]),        new("Apr 2026", "Multi-Wallet Support", Status.Done, [
+        ]),
+        new("Apr 2026", "Multi-Wallet Support", Status.Done, [
             "Up to 10 wallets (HD, WIF, Watch-Only) with per-wallet PIN unlock",
             "Wallet switcher pill + bottom sheet picker with swipe-to-dismiss",
             "Stacked card carousel on Home \u2014 swipe left/right to switch wallets",
@@ -237,7 +236,8 @@
             "Wallet management page (rename, change color, delete, backup)",
             "Per-wallet scoped cache (balance, transactions, timestamps)",
             "19 new unit tests (MultiWalletTests)",
-        ]),        new("Apr 2026", "Donation Pages & Recovery UX", Status.Done, [
+        ]),
+        new("Apr 2026", "Donation Pages & Recovery UX", Status.Done, [
             "Donation page USD conversion (CoinGecko via IBlockchainService)",
             "Cached donation data (5-min TTL) with refresh buttons",
             "Copy donation address to clipboard with feedback",
@@ -247,38 +247,75 @@
             "BIP39 auto-suggest (prefix match, keyboard navigation, privacy mode)",
             "Multi-separator paste support (space, comma, newline, tab)",
             "12/24 word count toggle with auto-expand on paste",
-        ]),        new("Apr 2026", "Biometric & Batch Send", Status.Done, [
+        ]),
+        new("Apr 2026", "Biometric & Batch Send", Status.Done, [
             "Biometric unlock (WebAuthn PRF fingerprint/face)",
             "Biometric send confirmation (WebAuthn assertion)",
             "Batch send UI (up to 20 recipients per transaction)",
             "Transaction search/filter (date, amount, direction)",
         ]),
-        new("Q2 2026", "P2P Exchange", Status.Planned, [
+        new("Apr 2026", "Self-Custody Release (v0.1.4)", Status.Done, [
+            "Promoted out of beta: SECURITY.md and SELF_CUSTODY.md published",
+            "WalletScrutiny prep: strict CSP with publish-time hashes, deterministic builds, pinned dependencies",
+            "Per-release hash manifest so builds can be verified independently",
+        ]),
+        new("Apr 2026", "DigiPay POS & Merchant Tools", Status.Done, [
+            "POS mode, refunds, analytics and audit log",
+            "Automatic webhook retries with exponential backoff, CSV export",
+            "WooCommerce plugin v0.1.0 with returnUrl round-trip",
+        ]),
+        new("Apr 2026", "Security Enhancements", Status.Done, [
+            "Spending limits + alerts",
+        ]),
+        new("May 2026", "Home & Send Reliability", Status.Done, [
+            "Home balance auto-refreshes every ~15s, pausing when the tab is hidden",
+            "Stale balance refreshed on review; fee included in the send check",
+            "Friendly messages for broadcast 503 and network errors",
+        ]),
+        new("Oct 2026", "DigiDollar Wallet (Hold, Receive, Send)", Status.Done, [
+            "Non-custodial: keys derived on your device from your recovery phrase (BIP86 Taproot), never sent to a server",
+            "Hold and receive DigiDollar with QR scan, share and download; send with automatic network fee",
+            "Live oracle price and status on the DigiDollar page and on Analytics",
+            "Encrypted local history, pending-send tracking, cached view when the network is unreachable",
+            "English and Spanish; mainnet and testnet26",
+            "Built and tested; ships behind a feature switch",
+        ]),
+        new("Ongoing", "Internationalization", Status.InProgress, [
+            "Multi-language support — targeting 10 locales (2 shipped so far: en, es)",
+        ]),
+        new("Oct 2026", "DigiDollar Rollout", Status.InProgress, [
+            "Verify against testnet26 with real transactions (address vectors, acceptance of a built transfer)",
+            "Beta behind the view switch, then enable Send",
+            "Mainnet availability follows DigiDollar activation (Thaw Day, block 24,490,000, around 1 Nov 2026)",
+        ]),
+        new("Next", "P2P Exchange", Status.Planned, [
             "Order book + trade matching",
             "Multisig escrow",
             "Real-time trade chat (SignalR)",
         ]),
-        new("Q2 2026", "Push Notifications", Status.Planned, [
+        new("Next", "Push Notifications", Status.Planned, [
             "Block-based transaction watcher (IHostedService)",
             "Web Push API + VAPID (browser notifications when app is closed)",
             "Client-side notifications (Notification API when app is open)",
             "Notification preferences (toggle, minimum amount, do not disturb)",
             "Push subscription management (register/unregister addresses)",
         ]),
-        new("Q2 2026", "Security Enhancements", Status.Done, [
-            "Spending limits + alerts",
+        new("Next", "DigiDollar Mint & Redeem", Status.Planned, [
+            "Create DigiDollar by locking DGB, and redeem it back, signed on your device",
+            "Position management with health and redemption timing",
+            "Specified separately from hold, receive and send",
         ]),
-        new("Q3 2026", "Advanced Features", Status.Planned, [
+        new("Later", "Advanced Features", Status.Planned, [
             "DigiAssets (custom tokens)",
             "Hardware wallet support (Ledger/Trezor)",
         ]),
-        new("Q3 2026", "Telegram Mini App", Status.Planned, [
+        new("Later", "Telegram Mini App", Status.Planned, [
             "Wallet runs inside Telegram via telegram-web-app.js — shareable t.me link for distribution",
             "BackButton / MainButton / haptics integration for native feel",
             "Telegram CloudStorage bridge for secure seed backup across devices",
             "Share payment requests directly to Telegram chats (native share sheet)",
         ]),
-        new("Q3 2026", "CI/CD & Testing", Status.Planned, [
+        new("Later", "CI/CD & Testing", Status.Planned, [
             "CI/CD pipeline (GitHub Actions)",
             "E2E test suite (Playwright)",
         ]),

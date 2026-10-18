@@ -6,6 +6,8 @@
 @inject IDigiDollarService Service
 @inject LocalizationService L
 @inject IJSRuntime JS
+@inject NotificationService Notifications
+@inject AppState AppState
 
 <PageTitle>@L.T("dd.receive.title")</PageTitle>
 
@@ -33,21 +35,38 @@
         else
         {
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-6 shadow-sm flex flex-col items-center gap-4 w-full">
-                <div class="bg-white rounded-2xl p-3 shadow-inner relative">
+                <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    <DigiDollarLogo Size="18" />
+                    <span>@L.T("dd.receive.network", NetworkLabel)</span>
+                </div>
+                <div class="bg-white rounded-2xl p-3 shadow-inner ring-1 ring-slate-100 relative">
                     <img src="@qrDataUrl" alt="@L.T("dd.receive.qr")" class="w-48 h-48 rounded-lg" />
                     <div class="absolute inset-0 flex items-center justify-center">
                         <div class="bg-white rounded-full p-1.5 shadow-md"><DigiDollarLogo Size="32" /></div>
                     </div>
                 </div>
-                <p class="font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800"
-                   aria-label="@L.T("dd.receive.address")">@current.Address</p>
-                <div class="flex gap-2 w-full">
-                    <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="CopyAsync">
+                <button type="button" class="group w-full text-left bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-100 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-colors"
+                        aria-label="@L.T("dd.receive.copy")" @onclick="CopyAsync">
+                    <span class="block font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center" aria-label="@L.T("dd.receive.address")">@current.Address</span>
+                </button>
+                <div class="grid grid-cols-2 gap-2 w-full">
+                    <button class="inline-flex items-center justify-center gap-2 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="CopyAsync">
+                        <DdIcon Name="@(copied ? "check" : "copy")" Class="w-4 h-4" StrokeWidth="2" />
                         @(copied ? L.T("dd.receive.copied") : L.T("dd.receive.copy"))
                     </button>
-                    <button class="py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
-                            disabled="@busy" @onclick="NewAsync">
-                        @L.T("dd.receive.new")
+                    <button class="inline-flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            disabled="@busy" @onclick="ShareAsync">
+                        <DdIcon Name="share" Class="w-4 h-4" StrokeWidth="2" />
+                        @L.T("dd.receive.share")
+                    </button>
+                </div>
+                <div class="flex items-center justify-center gap-5 w-full text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <button class="inline-flex items-center gap-1.5 py-1 hover:text-dgb-500 transition-colors" @onclick="DownloadAsync">
+                        <DdIcon Name="download" Class="w-4 h-4" />@L.T("dd.receive.download")
+                    </button>
+                    <span class="w-px h-4 bg-slate-200 dark:bg-dgb-800" aria-hidden="true"></span>
+                    <button class="inline-flex items-center gap-1.5 py-1 hover:text-dgb-500 transition-colors disabled:opacity-50" disabled="@busy" @onclick="NewAsync">
+                        <DdIcon Name="plus" Class="w-4 h-4" StrokeWidth="2" />@L.T("dd.receive.new")
                     </button>
                 </div>
                 <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center">@L.T("dd.receive.hint")</p>
@@ -124,15 +143,50 @@
         RenderQr();
     }
 
+    private string NetworkLabel => char.ToUpperInvariant(AppState.NetworkMode[0]) + AppState.NetworkMode[1..];
+
     private async Task CopyAsync()
     {
         if (current is null) return;
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", current.Address);
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", current.Address); }
+        catch { return; } // clipboard blocked: nothing to confirm
         copied = true;
         StateHasChanged();
         await Task.Delay(2000);
         copied = false;
         StateHasChanged();
+    }
+
+    // The card is the QR with the DigiDollar mark, the title, the network and the address, so it makes sense out of context.
+    private object?[] CardArgs(string filename) =>
+        [qrDataUrl, filename, "/images/digidollar-logo-128.png", L.T("dd.title"), L.T("dd.receive.network", NetworkLabel), current!.Address];
+
+    private string FileName => $"digidollar-{current!.Address[..8]}.png";
+
+    private async Task ShareAsync()
+    {
+        if (current is null || qrDataUrl is null || busy) return;
+        busy = true;
+        try
+        {
+            var args = CardArgs(FileName).Concat([L.T("dd.receive.shareTitle"), current.Address]).ToArray();
+            var result = await JS.InvokeAsync<string>("shareQrCard", args);
+            if (result == "shared") Notifications.Show(L.T("dd.receive.shared"), ToastType.Success, 2500);
+            else if (result == "unsupported") await CopyAsync(); // no share sheet here (desktop browsers): copy instead
+        }
+        catch { await CopyAsync(); }
+        finally { busy = false; }
+    }
+
+    private async Task DownloadAsync()
+    {
+        if (current is null || qrDataUrl is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("downloadQrCard", CardArgs(FileName));
+            Notifications.Show(L.T("dd.receive.downloaded"), ToastType.Success, 2500);
+        }
+        catch { /* nothing to save: keep the page usable */ }
     }
 
     private void RenderQr()

@@ -4,6 +4,9 @@
 @inject MemoryCacheService Cache
 @inject AppState AppState
 @inject IConfiguration Config
+@inject IDigiDollarNodeApi DdApi
+@inject DigiDollarFeatureFlag DdFlag
+@inject LocalizationService L
 
 <PageTitle>DigiByte Analytics — DGB Price & Network Stats</PageTitle>
 
@@ -29,6 +32,18 @@
             <div class="h-9 w-32 skeleton mt-1 rounded-lg" style="background:rgba(255,255,255,0.1)"></div>
         }
     </div>
+
+    @* DigiDollar oracle: the on-chain DGB/USD price DigiDollar uses, with its freshness and protection state *@
+    @if (showOracle)
+    {
+        <div class="slide-up-delay-2">
+            <h3 class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                <DigiDollarLogo Size="16" />@L.T("dd.title")
+            </h3>
+            <OracleStatusPanel Health="oracleHealth" Loading="oracleLoading" Culture="System.Globalization.CultureInfo.CurrentCulture" />
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">@L.T("dd.oracle.analytics.hint")</p>
+        </div>
+    }
 
     @* Market Stats *@
     <div class="slide-up-delay-2 grid grid-cols-2 gap-2">
@@ -119,6 +134,9 @@
     private string? sparklinePath;
     private string? sparklineFillPath;
     private bool chartLoaded;
+    private bool showOracle;
+    private bool oracleLoading = true;
+    private DigiByte.Wallet.Models.NetworkHealth? oracleHealth;
 
     protected override async Task OnInitializedAsync()
     {
@@ -126,6 +144,10 @@
         if (Cache.TryGet<decimal>("analytics:price", out var cp)) price = cp;
         if (Cache.TryGet<int>("analytics:blockHeight", out var ch)) blockHeight = ch;
         if (price > 0 || blockHeight > 0) StateHasChanged();
+
+        // Only where DigiDollar is switched on for this build and the network is one it supports.
+        showOracle = DdFlag.ViewEnabled && AppState.NetworkMode != "regtest";
+        if (showOracle) _ = LoadOracle();
 
         _ = LoadPrice();
         _ = LoadBlockHeight();
@@ -162,6 +184,14 @@
             StateHasChanged();
         }
         catch { chartLoaded = true; StateHasChanged(); }
+    }
+
+    private async Task LoadOracle()
+    {
+        try { oracleHealth = await DdApi.GetHealthAsync(CancellationToken.None); }
+        catch { oracleHealth = null; } // unreachable: the panel says "Unavailable", the rest of the page is unaffected
+        oracleLoading = false;
+        StateHasChanged();
     }
 
     private async Task LoadBlockHeight()

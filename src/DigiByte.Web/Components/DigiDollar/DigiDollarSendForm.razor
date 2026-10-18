@@ -1,3 +1,4 @@
+@using DigiByte.Crypto.Addresses
 @using DigiByte.Crypto.Transactions
 @using DigiByte.Wallet.Services
 @implements IDisposable
@@ -7,6 +8,7 @@
 @inject LocalizationService L
 @inject NotificationService Notifications
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @* Recipient, USD amount, Send all, and the automatically computed DGB fee (FR-011..FR-014). There is NO fee selector or
    custom fee input: the fee is calculated by the wallet and never below the protocol minimum (FR-014). Inline messages come
@@ -14,10 +16,20 @@
 <div class="flex flex-col gap-4">
     <div class="flex flex-col gap-1.5">
         <label for="dd-recipient" class="text-xs font-medium text-slate-500 dark:text-slate-400">@L.T("dd.send.recipient")</label>
-        <input id="dd-recipient" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
-               value="@recipientText" @oninput="OnRecipientInput"
-               aria-invalid="@(RecipientError is not null ? "true" : "false")" aria-describedby="dd-send-error"
-               class="w-full px-3 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+        <div class="flex gap-2">
+            <input id="dd-recipient" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+                   value="@recipientText" @oninput="OnRecipientInput"
+                   aria-invalid="@(RecipientError is not null ? "true" : "false")" aria-describedby="dd-send-error"
+                   class="flex-1 min-w-0 px-3 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            <button type="button" class="w-11 shrink-0 flex items-center justify-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-600 dark:text-slate-300 rounded-xl press-effect hover:border-dgb-400 transition-colors"
+                    aria-label="@L.T("dd.send.paste")" title="@L.T("dd.send.paste")" @onclick="PasteAsync">
+                <DdIcon Name="paste" Class="w-5 h-5" />
+            </button>
+            <button type="button" class="w-11 shrink-0 flex items-center justify-center bg-dgb-500 hover:bg-dgb-600 text-white rounded-xl press-effect transition-colors"
+                    aria-label="@L.T("dd.send.scan")" title="@L.T("dd.send.scan")" @onclick="@(() => showScanner = true)">
+                <DdIcon Name="qr" Class="w-5 h-5" StrokeWidth="2" />
+            </button>
+        </div>
     </div>
 
     <div class="flex flex-col gap-1.5">
@@ -37,7 +49,8 @@
         </div>
     </div>
 
-    <p class="text-xs text-slate-500 dark:text-slate-400">
+    <p class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <DdIcon Name="clock" Class="w-3.5 h-3.5 shrink-0" />
         @L.T("dd.send.fee", DigiDollarFormat.Dgb(check?.FeeSats > 0 ? check.FeeSats : DigiDollarTransferBuilder.MinFeeSats, Dd.Culture))
     </p>
 
@@ -52,14 +65,19 @@
         }
     </div>
 
-    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("dd.send.custody")</p>
+    <p class="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <DdIcon Name="shield" Class="w-4 h-4 shrink-0 mt-px text-emerald-600 dark:text-emerald-400" />
+        <span>@L.T("dd.send.custody")</span>
+    </p>
 
     <button type="button"
             class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl press-effect"
             disabled="@(!CanContinue)" @onclick="OpenConfirm">
-        @L.T("dd.send.continue")
+        <span class="inline-flex items-center justify-center gap-2"><DdIcon Name="send" Class="w-4 h-4" StrokeWidth="2" />@L.T("dd.send.continue")</span>
     </button>
 </div>
+
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="@(() => showScanner = false)" />
 
 @if (showConfirm && check is { IsOk: true } && TryAmount(out var confirmCents))
 {
@@ -73,6 +91,7 @@
     private DdSendCheck? check;
     private bool checking;
     private bool showConfirm;
+    private bool showScanner;
     private bool sending;
     private string? sendError;
     private string? message;
@@ -82,11 +101,56 @@
     private string? RecipientError => check?.Issue is DdSendIssue.NotDdAddress or DdSendIssue.WrongNetwork ? message : null;
     private string? AmountError => message is not null && RecipientError is null ? message : null;
 
-    protected override void OnInitialized() => Dd.Changed += OnChanged;
+    protected override void OnInitialized()
+    {
+        Dd.Changed += OnChanged;
+        // "Scan" on the DigiDollar page opens this screen with the scanner already up.
+        showScanner = new Uri(Nav.Uri).Query.Contains("scan=1", StringComparison.Ordinal);
+    }
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
     private bool TryAmount(out long cents) => DigiDollarFormat.TryParseUsdToCents(amountText, Dd.Culture, out cents);
+
+    /// <summary>The address inside a scanned code: a bare address, or a <c>digidollar:</c> style URI with optional parameters.</summary>
+    internal static string ExtractAddress(string data)
+    {
+        var text = data.Trim();
+        var colon = text.IndexOf(':');
+        if (colon > 0 && colon < 16 && !DigiDollarAddressValidator.IsValid(text)) text = text[(colon + 1)..].TrimStart('/');
+        var query = text.IndexOfAny(['?', '&', '#']);
+        return query >= 0 ? text[..query] : text;
+    }
+
+    private async Task OnQrScanned(string data)
+    {
+        showScanner = false;
+        var address = ExtractAddress(data ?? "");
+        if (DigiDollarAddressValidator.DetectNetwork(address) is null)
+        {
+            recipientText = "";
+            check = null;
+            message = L.T("dd.send.err.scanInvalid");
+            return;
+        }
+        recipientText = address;
+        Notifications.Show(L.T("dd.send.scanned"), ToastType.Success, 2000);
+        await ScheduleCheckAsync(immediate: true);
+    }
+
+    private async Task PasteAsync()
+    {
+        string? text = null;
+        try { text = await JS.InvokeAsync<string>("navigator.clipboard.readText"); }
+        catch { /* permission denied or unsupported: the field still accepts typing and the OS paste */ }
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            message = L.T("dd.send.pasteEmpty");
+            return;
+        }
+        recipientText = ExtractAddress(text);
+        await ScheduleCheckAsync(immediate: true);
+    }
 
     private Task OnRecipientInput(ChangeEventArgs e) { recipientText = e.Value?.ToString() ?? ""; return ScheduleCheckAsync(); }
 
