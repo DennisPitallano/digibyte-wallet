@@ -13,7 +13,7 @@
         BakuSeverity.Warning => "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10",
         _ => "border-dgb-100 bg-white dark:border-dgb-800 dark:bg-dgb-900"
     };
-    var imgSize = Compact ? "w-12" : "w-20";
+    var imgSize = Large ? "w-28" : Compact ? "w-12" : "w-20";
 
     <div class="baku-card baku-enter flex items-center gap-3 rounded-2xl border p-3 @tone @Class"
          role="@(isAlert ? "alert" : "status")" aria-live="@(isAlert ? "assertive" : "polite")" data-baku-id="@message.Id">
@@ -46,6 +46,9 @@
 
     /// <summary>Smaller pose, for tight spots such as the unlock screen.</summary>
     [Parameter] public bool Compact { get; set; }
+
+    /// <summary>Bigger pose, for a hero spot such as the welcome screen.</summary>
+    [Parameter] public bool Large { get; set; }
 
     /// <summary>Optional extra classes (spacing).</summary>
     [Parameter] public string? Class { get; set; }

@@ -37,6 +37,12 @@ SHEETS = [
         (390, 710, [("locked", 270), ("support", 660), ("no-network", 1035), ("scan-qr", 1420), ("balance-rich", 1790)]),
         (780, 1072, [("no-funds", 195), ("notification", 540), ("chart-up", 810), ("security-tip", 1170), ("welcome-back", 1490), ("sleeping", 1800)]),
     ]),
+    # Onboarding poses (no labels on this sheet), left to right, top to bottom.
+    ("Gemini_Generated_Image_aa2arraa2arraa2a.jpg", [
+        (0, 372, [("present", 205), ("explain", 530), ("heart", 840), ("point-path", 1190), ("run", 1480), ("open-arms", 1820)]),
+        (395, 738, [("start", 190), ("invite", 540), ("clipboard", 850), ("wave", 1200), ("wave-happy", 1510), ("tips", 1830)]),
+        (755, 1090, [("steps", 190), ("gift", 520), ("network", 860), ("open-door", 1290), ("shy", 1520), ("wave-small", 1830)]),
+    ]),
 ]
 
 

@@ -29,7 +29,7 @@ public static class BakuCatalog
 
     public static IReadOnlyList<BakuMessage> All { get; } =
     [
-        new("welcome.greeting", BakuSeverity.Info, "greeting", "Hi, I am Baku!", "I will help you set up your wallet and keep it safe."),
+        new("welcome.greeting", BakuSeverity.Info, "open-arms", "Hi, I am Baku!", "I will help you set up your wallet and keep it safe."),
         new("create.intro", BakuSeverity.Info, "welcome", "Let us create your wallet", "It takes a minute. You will get a recovery phrase that only you should ever see."),
         new("recover.intro", BakuSeverity.Info, "thinking", "Restoring a wallet", "Enter your recovery phrase carefully, word by word, in the right order."),
         new("backup.why", BakuSeverity.Info, "trustworthy", "Write it down", "These words are the only way to restore your wallet. Store them offline and never share them."),
