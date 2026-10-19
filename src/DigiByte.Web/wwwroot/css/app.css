@@ -454,16 +454,7 @@ body:has(.modal-overlay) nav {
 }
 
 /* ===== Baku mascot (guide & guardian) ===== */
-.baku-pose {
-    /* Light sticker-style outline so the navy mascot stands out on dark cards, then a soft shadow. */
-    --baku-outline: #bae6fd;
-    filter:
-        drop-shadow(1.5px 0 0 var(--baku-outline))
-        drop-shadow(-1.5px 0 0 var(--baku-outline))
-        drop-shadow(0 1.5px 0 var(--baku-outline))
-        drop-shadow(0 -1.5px 0 var(--baku-outline))
-        drop-shadow(0 4px 8px rgba(2, 6, 23, 0.45));
-}
+.baku-pose { filter: drop-shadow(0 4px 6px rgba(15, 23, 42, 0.25)); }
 .baku-enter { animation: baku-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes baku-enter {
     from { opacity: 0; transform: translateY(8px) scale(0.98); }
