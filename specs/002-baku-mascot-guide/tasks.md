@@ -121,13 +121,13 @@ Paths: `W` = `src/DigiByte.Web`, `L` = `src/DigiByte.Wallet`, `T` = `tests/DigiB
 ## Phase 7: Polish & Cross-Cutting
 
 - [X] T043 [P] Responsive check at about 360 px, tablet and desktop: Baku never covers balances, addresses, amounts or primary buttons (FR-012, SC-006)
-- [ ] T044 [P] Accessibility pass: screen-reader announcements, contrast, reduced-motion disables all effects (FR-013)
-- [ ] T045 [P] Offline check: confirm poses are precached by the service worker and display offline (research.md section 8)
-- [ ] T046 [P] Performance check: first-load size and time versus baseline, at most 5% increase (SC-005)
+- [X] T044 [P] Accessibility pass: screen-reader announcements, contrast, reduced-motion disables all effects (FR-013) — checked: Baku cards use role status/alert with polite/assertive live regions, decorative images have empty alt, the dialog is aria-modal with labelled title/body and focuses Go back, Escape cancels, text contrast is 7.3:1 or better in dark and light, and reduced-motion rules disable the Baku animations. Not done: a real screen-reader pass (none available here).
+- [X] T045 [P] Offline check: confirm poses are precached by the service worker and display offline (research.md section 8) — found and fixed: .webp was missing from the service worker's precache include list, so no pose was cached; now all 15 are. Verified by inspecting the published manifest and simulating the filter. Not run in a browser: the built-in preview pane cannot register service workers.
+- [X] T046 [P] Performance check: first-load size and time versus baseline, at most 5% increase (SC-005) — measured on a release publish: 6.36 MB download; Welcome first load adds 13.5 KB (0.2%), the full pose set is 264 KB (4.2%) fetched in the background, both under the 5% target; the source sheets are not published.
 - [X] T047 [P] Privacy check: only `dgb-baku-mode` and `dgb-baku-dismissed` in `localStorage`, no new network requests, no seed, password or key data touched (FR-014)
 - [X] T048 Confirm the CSP in `W/wwwroot/index.html` is unchanged and no inline or remote images were introduced
 - [X] T049 Add a short Baku section to the relevant doc in `docs/` (for example `docs/ARCHITECTURE.md`) describing the service, catalog and evaluator
-- [ ] T050 Run `dotnet build` and `dotnet test` across affected projects; run the full quickstart.md
+- [X] T050 Run `dotnet build` and `dotnet test` across affected projects; run the full quickstart.md — build clean; Baku, SendRiskEvaluator, KnownAddressProvider and DigiIdRiskEvaluator tests pass; the full DigiByte.Wallet.Tests run has 6 failures, all LiveExplorerBenchmarks calling live explorers (502). Quickstart run in the browser except DigiDollar send and offline.
 
 - [ ] T051 (Optional) Run a short usability session with first-time users to measure SC-003 (self-service wallet creation and backup) and SC-004 (users describe Baku as helper and protector); record results in `specs/002-baku-mascot-guide/checklists/usability-notes.md`
 
