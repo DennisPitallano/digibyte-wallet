@@ -103,6 +103,17 @@ Deployment notes:
 - Add the real NodeApi origin to the wallet's CSP `connect-src` in `wwwroot/index.html` (only `http://localhost:5260` is allowed for dev).
 - Set `DigiDollar:WalletOrigins` on the NodeApi to the wallet origin so CORS and the metrics endpoint accept it.
 
+### Backend choice
+
+`DigiDollar:Backend` selects where the wallet reads chain data:
+
+| Value | Needs | Gives | Trade-off |
+|-------|-------|-------|-----------|
+| `esplora` (production default) | nothing to deploy; reads `digiexplorer.info` (`EsploraMainnetUrl` / `EsploraTestnetUrl`) | balances, history, status, broadcast | no oracle price or status panel; addresses go to the explorer; no usage counters |
+| `nodeapi` | the NodeApi service plus a DigiDollar-capable node | everything, including the oracle panel | more infrastructure |
+
+The explorer path was validated against real mainnet transactions (a mint and the transfer that spent it): amounts, address mapping, history, and the on-chain Schnorr signature (SIGHASH_DEFAULT). Mints carry extra pushes after the amount (lock height, tier, a 32-byte commitment); only the first amount is the DigiDollar value.
+
 ## 7. Verification status (2026-10-19)
 
 Verified with the mock NodeApi and the automated suites: scan, balance, receive, send end to end, cached, not-active and stale states.

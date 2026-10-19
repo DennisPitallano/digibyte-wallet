@@ -121,8 +121,18 @@ var ddView = builder.Configuration.GetValue<bool>("DigiDollar:ViewEnabled");
 var ddSend = builder.Configuration.GetValue<bool>("DigiDollar:SendEnabled");
 builder.Services.AddSingleton(new DigiDollarFeatureFlag(ddView, ddSend));
 // Read-only NodeApi client (public chain data; never calls a wallet-scoped endpoint) and the encrypted local store.
-builder.Services.AddScoped<IDigiDollarNodeApi>(sp => new DigiDollarNodeApiClient(
-    sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), nodeApiUrl));
+// Backend: "nodeapi" (our own DigiDollar NodeApi: full oracle data, address-private) or "esplora" (a public explorer:
+// balances, history and broadcast only, no oracle price or status, addresses are sent to the explorer).
+var ddBackend = builder.Configuration["DigiDollar:Backend"] ?? "nodeapi";
+var ddUseExplorer = string.Equals(ddBackend, "esplora", StringComparison.OrdinalIgnoreCase);
+builder.Services.AddScoped<IDigiDollarNodeApi>(sp => ddUseExplorer
+    ? new EsploraDigiDollarApi(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain"),
+        builder.Configuration["DigiDollar:EsploraMainnetUrl"] ?? "https://digiexplorer.info/api",
+        builder.Configuration["DigiDollar:EsploraTestnetUrl"] ?? "https://digiexplorer.info/testnet/api",
+        () => sp.GetRequiredService<AppState>().NetworkMode != "mainnet")
+    : new DigiDollarNodeApiClient(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), nodeApiUrl));
 builder.Services.AddScoped<DigiDollarStore>(sp => new DigiDollarStore(
     sp.GetRequiredService<ISecureStorage>(), sp.GetRequiredService<ICryptoService>()));
 // WalletService doubles as the narrow session provider DigiDollar uses (it shares the derivation, never the mnemonic).
@@ -130,7 +140,8 @@ builder.Services.AddScoped<IDdSessionProvider>(sp => sp.GetRequiredService<Walle
 builder.Services.AddScoped<IDdFeeSource>(sp => sp.GetRequiredService<WalletService>());
 builder.Services.AddScoped<IDigiDollarService, DigiDollarService>();
 // Anonymous aggregate counts (SC-005): an empty POST naming an event, no identifiers. Only while the view switch is on.
-builder.Services.AddScoped(sp => new UsageCounter(new HttpClient(), nodeApiUrl, () => ddView));
+// Only with our own NodeApi: the counter endpoint lives there, so the explorer backend sends nothing.
+builder.Services.AddScoped(sp => new UsageCounter(new HttpClient(), nodeApiUrl, () => ddView && !ddUseExplorer));
 builder.Services.AddScoped<DigiDollarViewModel>();
 
 // ── App state, theme & UI services ──

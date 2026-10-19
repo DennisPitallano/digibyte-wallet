@@ -10,4 +10,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="DigiByte.Wallet.Tests" />
+  </ItemGroup>
+
 </Project>

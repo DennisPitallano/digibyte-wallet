@@ -33,7 +33,11 @@ public static class DdTxParser
         var opReturnType = DigiDollarTxType.None;
         foreach (var o in tx.Outputs)
         {
-            if (!DigiDollarScripts.TryParseOpReturn(o.ScriptPubKey, out var t, out var a)) continue;
+            List<long> a;
+            DigiDollarTxType t;
+            if (DigiDollarScripts.TryParseOpReturn(o.ScriptPubKey, out t, out a)) { }
+            else if (DigiDollarScripts.TryParseMintOpReturn(o.ScriptPubKey, out var mintCents)) { t = DigiDollarTxType.Mint; a = [mintCents]; }
+            else continue;
             if (amounts is not null) return null; // more than one DD OP_RETURN
             amounts = a;
             opReturnType = t;
@@ -47,10 +51,12 @@ public static class DdTxParser
             var o = tx.Outputs[i];
             if (o.Value != Money.Zero) continue;
             if (!DigiDollarScripts.TryGetOutputKey(o.ScriptPubKey, out var key)) continue;
-            if (outputs.Count >= amounts.Count) return null; // more DD outputs than amounts
+            // A mint has exactly one DD output whose amount comes first; transfers and redeems pair one amount per DD output.
+            var limit = opReturnType == DigiDollarTxType.Mint ? 1 : amounts.Count;
+            if (outputs.Count >= limit) return null; // more DD outputs than amounts
             outputs.Add(new DdParsedOutput(i, key, amounts[outputs.Count], o.ScriptPubKey.ToHex()));
         }
-        if (outputs.Count != amounts.Count) return null;
+        if (outputs.Count != (opReturnType == DigiDollarTxType.Mint ? 1 : amounts.Count)) return null;
 
         var spends = tx.Inputs
             .Where(i => !i.PrevOut.IsNull)

@@ -197,4 +197,52 @@ public class DigiDollarScriptsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => DigiDollarScripts.BuildOpReturn(DigiDollarTxType.Transfer, [-5]));
         Assert.Throws<ArgumentException>(() => DigiDollarScripts.BuildOpReturn(DigiDollarTxType.None, [100]));
     }
+
+    // ---------- real mainnet MINT OP_RETURN (block 24,402,725) ----------
+
+    // "DD", type 1 (mint), 50000 cents, lock height, tier, then a 32-byte commitment: only the first amount is the DD value.
+    private const string RealMintOpReturn = "6a02444401010350c30004e06f94010104207a1ec77082468ddd221e6ba5e5bcd4591d33cbfb98552039b0f48eb1fc38bc68";
+
+    [Fact]
+    public void RealMint_OpReturn_ExposesTheDigiDollarAmount()
+    {
+        Assert.True(DigiDollarScripts.TryParseMintOpReturn(Script.FromHex(RealMintOpReturn), out var cents));
+        Assert.Equal(50000, cents);
+    }
+
+    [Fact]
+    public void RealMint_OpReturn_IsNotAStrictTransferOpReturn()
+    {
+        // The strict parser (transfers and redeems) rightly rejects the trailing 32-byte commitment.
+        Assert.False(DigiDollarScripts.TryParseOpReturn(Script.FromHex(RealMintOpReturn), out _, out _));
+    }
+
+    [Theory]
+    [InlineData("6a0244440102028e0003c2c200")]   // a real transfer: type 2, not a mint
+    [InlineData("6a02444401030164")]             // a real redeem: type 3
+    [InlineData("6a024141010103c350")]           // wrong marker
+    [InlineData("6a02444401010100")]             // zero amount
+    [InlineData("6a024444")]                     // too short
+    public void MintParser_RejectsEverythingThatIsNotAMint(string hex) =>
+        Assert.False(DigiDollarScripts.TryParseMintOpReturn(Script.FromHex(hex), out _));
+
+    // ---------- golden vector: a real mainnet transfer (block 24,411,694) ----------
+
+    [Fact]
+    public void GoldenVector_RealTransfer_OpReturnMatchesOurEncoderByteForByte()
+    {
+        // txid 4fb30cba...: $1.42 to a recipient, $498.58 back as change (recipients first, then change).
+        var built = DigiDollarScripts.BuildOpReturn(DigiDollarTxType.Transfer, [142, 49858]);
+
+        Assert.Equal("6a0244440102028e0003c2c200", built.ToHex());
+    }
+
+    [Fact]
+    public void GoldenVector_RealTransfer_OutputScriptsMatch()
+    {
+        var recipientKey = Convert.FromHexString("b42be14e35aeafcd503cfa260e34b61a96845f717988869c504e21e0718a04f6");
+
+        Assert.Equal("5120b42be14e35aeafcd503cfa260e34b61a96845f717988869c504e21e0718a04f6", DigiDollarScripts.CreateOutputScript(recipientKey).ToHex());
+        Assert.Equal(0x02000770u, DigiDollarScripts.MakeVersion(DigiDollarTxType.Transfer));   // version 33556336 on chain
+    }
 }

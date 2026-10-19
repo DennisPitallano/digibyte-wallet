@@ -120,6 +120,28 @@ public static class DigiDollarScripts
         return true;
     }
 
+    /// <summary>
+    /// Parse a MINT <c>OP_RETURN</c>: <c>"DD" CScriptNum(1) CScriptNum(ddCents)</c> followed by extra pushes
+    /// (lock height, tier, a 32-byte commitment) that this wallet does not interpret. Only the DigiDollar amount,
+    /// the first number after the type, is read. Observed on mainnet blocks (research R18).
+    /// </summary>
+    public static bool TryParseMintOpReturn(Script script, out long ddCents)
+    {
+        ddCents = 0;
+
+        List<Op> ops;
+        try { ops = script.ToOps().ToList(); }
+        catch { return false; }
+
+        if (ops.Count < 4 || ops[0].Code != OpcodeType.OP_RETURN) return false;
+        if (ops[1].PushData is not { } marker || !marker.AsSpan().SequenceEqual(Marker)) return false;
+        if (!TryReadNumber(ops[2], out var typeValue) || typeValue != (long)DigiDollarTxType.Mint) return false;
+        if (!TryReadNumber(ops[3], out var cents) || cents <= 0) return false;
+
+        ddCents = cents;
+        return true;
+    }
+
     // ---------- CScriptNum ----------
 
     private static byte[] EncodeScriptNum(long value)
