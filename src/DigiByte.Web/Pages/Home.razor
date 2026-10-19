@@ -293,6 +293,9 @@
                 </div>
             }
 
+            @* Baku tip (dismissible); the empty-state message below takes priority when it applies *@
+            <BakuMessage MessageId="home.tip" Class="mt-3" />
+
             @* Transaction Header *@
             <div class="flex items-center justify-between mt-2 mb-2">
                 <div class="flex items-center gap-1.5">
@@ -331,6 +334,10 @@
             }
             else if (transactions.Count == 0)
             {
+                @if (!fetchFailed)
+                {
+                    <BakuMessage MessageId="home.empty" Class="mb-3" />
+                }
                 <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
                     <div class="w-10 h-10 mx-auto mb-2 rounded-full @(fetchFailed ? "bg-amber-100 dark:bg-amber-900/20" : "bg-slate-100 dark:bg-dgb-800") flex items-center justify-center">
                         @if (fetchFailed)

@@ -31,6 +31,13 @@
     <PackageReference Include="QRCoder" Version="1.7.0" />
   </ItemGroup>
 
+  <!-- Baku source art: the full-size green-screen sheets stay in the repo but are not published or
+       precached. Only the sliced poses under images/mascot/poses/ ship (see tools/mascot-slice). -->
+  <ItemGroup>
+    <Content Remove="wwwroot\images\mascot\Gemini_Generated_Image_*.jpg" />
+    <None Include="wwwroot\images\mascot\Gemini_Generated_Image_*.jpg" />
+  </ItemGroup>
+
   <ItemGroup>
     <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
   </ItemGroup>

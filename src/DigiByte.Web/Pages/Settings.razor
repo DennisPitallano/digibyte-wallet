@@ -6,6 +6,7 @@
 @inject IWebAssemblyHostEnvironment HostEnv
 @inject IJSRuntime JS
 @inject IConfiguration Config
+@inject BakuService Baku
 
 <PageTitle>Settings</PageTitle>
 
@@ -28,6 +29,7 @@
 
 <div class="flex flex-col gap-4">
     <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">Settings</h2>
+    <BakuMessage MessageId="settings.tip" />
 
     <div class="flex flex-col gap-2">
         @* Manage Wallets *@
@@ -47,6 +49,34 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
         </a>
+
+        @* Baku — how much of the mascot guide and guardian to show. Warnings always stay visible as text. *@
+        <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+                <img src="@BakuCatalog.PosePath("greeting")" alt="" class="w-9 h-9 shrink-0 object-contain" loading="lazy" />
+                <div>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Baku, your guide</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Security warnings always stay on.</p>
+                </div>
+            </div>
+            <div class="flex bg-slate-100 dark:bg-dgb-950 rounded-xl p-1 gap-0.5" role="radiogroup" aria-label="How much of Baku to show">
+                @foreach (var (mode, label) in BakuModes)
+                {
+                    var active = Baku.Mode == mode;
+                    <button type="button" role="radio" aria-checked="@(active ? "true" : "false")"
+                            class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(active ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                            @onclick="() => Baku.SetModeAsync(mode)">@label</button>
+                }
+            </div>
+            <div class="flex items-center justify-between">
+                <p class="text-[11px] text-slate-400 dark:text-slate-500">@BakuModeHint</p>
+                <button type="button" class="text-xs font-semibold text-dgb-500 hover:text-dgb-600" @onclick="ResetBakuTipsAsync">Reset tips</button>
+            </div>
+            @if (bakuTipsReset)
+            {
+                <p class="text-[11px] text-green-600 dark:text-green-400" role="status">Tips restored.</p>
+            }
+        </div>
 
         @* Merchant Dashboard — for shop owners. Same URL pattern as the Payments page.
            Uses the actual DigiPay product logo so the card reads as the sibling
@@ -539,6 +569,28 @@
 </div>
 
 @code {
+    private static readonly (BakuMode Mode, string Label)[] BakuModes =
+    [
+        (BakuMode.Full, "Full"),
+        (BakuMode.GuardianOnly, "Guardian only"),
+        (BakuMode.Off, "Off"),
+    ];
+
+    private bool bakuTipsReset;
+
+    private string BakuModeHint => Baku.Mode switch
+    {
+        BakuMode.GuardianOnly => "Warnings only. No tips or guidance.",
+        BakuMode.Off => "No tips, guidance or mascot images. Warnings show as text.",
+        _ => "Guidance, tips and warnings.",
+    };
+
+    private async Task ResetBakuTipsAsync()
+    {
+        await Baku.ResetTipsAsync();
+        bakuTipsReset = true;
+    }
+
     private string MerchantDashboardUrl => Config["MerchantDashboardUrl"] ?? "https://pay.dgbwallet.app";
 
     [Inject] private AppState AppState { get; set; } = default!;

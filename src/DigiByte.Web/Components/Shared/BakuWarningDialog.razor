@@ -1,0 +1,73 @@
+@* Guardian confirmation: "Go back" or "I understand, continue". Hosted once in MainLayout and driven by
+   BakuService.ConfirmAsync. Always shows the text; the mascot image is optional. *@
+@implements IDisposable
+@inject BakuService Baku
+
+@if (Baku.PendingConfirmation is { } m)
+{
+    var critical = m.Severity == BakuSeverity.Critical;
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+         role="alertdialog" aria-modal="true" aria-labelledby="baku-dialog-title" aria-describedby="baku-dialog-body"
+         tabindex="-1" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true" @onclick="GoBack">
+        <div class="baku-enter bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 max-w-sm w-full flex flex-col gap-4"
+             @onclick:stopPropagation="true">
+            <div class="flex items-center gap-3">
+                @if (Baku.ShowsImage && !imageFailed)
+                {
+                    <img src="@BakuCatalog.PosePath(m.PoseId)" alt="" decoding="async" draggable="false"
+                         class="baku-pose w-20 flex-shrink-0 object-contain select-none" @onerror="OnImageError" />
+                }
+                <div class="min-w-0">
+                    <h3 id="baku-dialog-title" class="text-base font-bold @(critical ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400")">@m.Title</h3>
+                    <p id="baku-dialog-body" class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-1">@m.Body</p>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button type="button" @ref="goBackButton"
+                        class="flex-1 py-3 text-sm font-semibold rounded-2xl bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25 press-effect"
+                        @onclick="GoBack">Go back</button>
+                <button type="button"
+                        class="flex-1 py-3 text-sm font-semibold rounded-2xl border border-slate-300 dark:border-dgb-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-dgb-800 press-effect"
+                        @onclick="Continue">I understand, continue</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference goBackButton;
+    private bool imageFailed;
+    private string? shownId;
+
+    protected override void OnInitialized() => Baku.OnChanged += OnBakuChanged;
+
+    private void OnBakuChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnImageError() => imageFailed = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var id = Baku.PendingConfirmation?.Id;
+        if (id != shownId)
+        {
+            shownId = id;
+            imageFailed = false;
+            if (id is not null)
+            {
+                // Safe default focus: "Go back", so a stray Enter never confirms a risky action.
+                try { await goBackButton.FocusAsync(); } catch { }
+            }
+        }
+    }
+
+    private void GoBack() => Baku.ResolveConfirmation(false);
+
+    private void Continue() => Baku.ResolveConfirmation(true);
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") GoBack();
+    }
+
+    public void Dispose() => Baku.OnChanged -= OnBakuChanged;
+}

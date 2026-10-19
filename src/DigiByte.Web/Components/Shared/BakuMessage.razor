@@ -1,0 +1,83 @@
+@* Baku, the wallet's guide and guardian. Place one per message; BakuService shows only the highest-priority
+   message on screen at a time. Warning/Critical always render (as text-only when Baku is Off or the image fails). *@
+@using BakuMsg = DigiByte.Web.Services.BakuMessage
+@implements IDisposable
+@inject BakuService Baku
+
+@if (message is not null && Baku.Current?.Id == message.Id)
+{
+    var isAlert = message.Severity >= BakuSeverity.Warning;
+    var tone = message.Severity switch
+    {
+        BakuSeverity.Critical => "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10",
+        BakuSeverity.Warning => "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10",
+        _ => "border-dgb-100 bg-white dark:border-dgb-800 dark:bg-dgb-900"
+    };
+    var imgSize = Compact ? "w-12" : "w-20";
+
+    <div class="baku-card baku-enter flex items-center gap-3 rounded-2xl border p-3 @tone @Class"
+         role="@(isAlert ? "alert" : "status")" aria-live="@(isAlert ? "assertive" : "polite")" data-baku-id="@message.Id">
+        @if (Baku.ShowsImage && !imageFailed)
+        {
+            @* Decorative: the title and body carry the meaning. *@
+            <img src="@BakuCatalog.PosePath(message.PoseId)" alt="" loading="lazy" decoding="async"
+                 class="baku-pose @imgSize flex-shrink-0 object-contain select-none" draggable="false"
+                 @onerror="OnImageError" />
+        }
+        <div class="min-w-0 flex-1">
+            <p class="text-sm font-bold text-slate-900 dark:text-white">@message.Title</p>
+            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">@message.Body</p>
+        </div>
+        @if (message.Severity == BakuSeverity.Tip)
+        {
+            <button type="button" class="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                    aria-label="Dismiss tip" title="Dismiss tip" @onclick="Dismiss">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Catalog id, e.g. "home.tip" (see data-model.md Message Catalog).</summary>
+    [Parameter, EditorRequired] public string MessageId { get; set; } = "";
+
+    /// <summary>Smaller pose, for tight spots such as the unlock screen.</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    /// <summary>Optional extra classes (spacing).</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private BakuMsg? message;
+    private string? requestedId;
+    private bool imageFailed;
+
+    protected override void OnInitialized() => Baku.OnChanged += OnBakuChanged;
+
+    protected override void OnParametersSet()
+    {
+        if (requestedId == MessageId) return;
+        if (requestedId is not null) Baku.Clear(requestedId);
+        requestedId = MessageId;
+        message = BakuCatalog.Find(MessageId);
+        imageFailed = false;
+        Baku.Request(MessageId);
+    }
+
+    private void OnBakuChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnImageError() => imageFailed = true;
+
+    private async Task Dismiss()
+    {
+        if (message is not null) await Baku.DismissAsync(message.Id);
+    }
+
+    public void Dispose()
+    {
+        Baku.OnChanged -= OnBakuChanged;
+        if (requestedId is not null) Baku.Clear(requestedId);
+    }
+}

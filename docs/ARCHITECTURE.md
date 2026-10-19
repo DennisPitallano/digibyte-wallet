@@ -138,6 +138,8 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 | `DigiLogo` | Official DigiByte SVG logo, configurable size |
 | `OnboardingWalkthrough` | 5-step first-time carousel, persisted in localStorage |
 | `TransactionDetailModal` | Tx detail popup — status, fee, explorer link, add to contacts |
+| `BakuMessage` | Baku the mascot: one guide, tip or warning card (pose + text); text-only when Baku is Off or the image fails |
+| `BakuWarningDialog` | Guardian confirmation ("Go back" / "I understand, continue"), hosted once in `MainLayout` |
 
 ### Services (DI in Program.cs)
 
@@ -157,9 +159,22 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 | `NetworkStatusService` | Singleton | Online/offline detection |
 | `NotificationService` | Singleton | Toast notification dispatch |
 | `NfcService` | Scoped | NFC tap-to-pay (Web NFC API) |
+| `BakuService` | Scoped | Baku presence mode and dismissed tips (localStorage `dgb-baku-mode`, `dgb-baku-dismissed`); picks the single message to show |
 
 ### Animation & UX Patterns
 - **Page transitions** — `slide-up`, `fade-in`, `scale-in` keyframe animations
 - **Interactive feedback** — `press-effect` (scale 90% on active), group hover
 - **Loading** — Skeleton shimmer screens, spinner animations, Virtualize for long lists
 - **Pull-to-refresh** — Custom touch handler on Home dashboard
+
+### Baku, the mascot (guide and guardian)
+
+Baku is a static, client-side character; there is no backend and no AI. Spec: `specs/002-baku-mascot-guide/`.
+
+- **Messages**: predefined English messages in `BakuCatalog` (id, severity Info/Tip/Warning/Critical, pose, title, body). Only Info and Tip can be dismissed.
+- **One at a time**: `BakuService.Current` shows the highest severity, ties to the most recent request. Warning and Critical are never hidden by presence mode; they fall back to text-only when Baku is Off or the image fails to load.
+- **Guardian**: `BakuService.ConfirmAsync` / `ConfirmSendRiskAsync` show `BakuWarningDialog` before the seed phrase is revealed, before a DGB or DigiDollar send to a new address or of 50% or more of the balance, and on the P2P page. It never permanently blocks a confirmed action and fails open if it cannot check.
+- **Send risk rule**: `DigiByte.Wallet.Services.SendRiskEvaluator` (pure, unit-tested) with `KnownAddressProvider` (saved contacts plus previously-sent addresses, derived from existing history).
+- **Poses**: transparent WebP files in `wwwroot/images/mascot/poses/`, cut from the source sheets by `tools/mascot-slice/slice.py`. The full-size source sheets stay in the repo but are excluded from publish output.
+- **Privacy and CSP**: only a presence mode and tip ids are stored on the device; assets are self-hosted, so the CSP is unchanged.
+

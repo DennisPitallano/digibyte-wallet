@@ -136,6 +136,7 @@ builder.Services.AddScoped<DigiDollarViewModel>();
 // ── App state, theme & UI services ──
 builder.Services.AddScoped<AppState>();
 builder.Services.AddScoped<ThemeService>();
+builder.Services.AddScoped<BakuService>();
 builder.Services.AddScoped<NfcService>();
 builder.Services.AddSingleton<NotificationService>();
 builder.Services.AddScoped<LocalizationService>();
@@ -146,6 +147,9 @@ var host = builder.Build();
 // Initialize app state from localStorage (persisted preferences)
 var appState = host.Services.GetRequiredService<AppState>();
 await appState.InitializeAsync();
+
+// Baku mascot preferences (presence mode, dismissed tips) from localStorage
+await host.Services.GetRequiredService<BakuService>().InitializeAsync();
 
 // Start network monitoring
 var network = host.Services.GetRequiredService<NetworkStatusService>();

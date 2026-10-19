@@ -20,6 +20,8 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Tutorials, how-tos, and support for DigiByte Wallet.</p>
     </div>
 
+    <BakuMessage MessageId="help.intro" />
+
     @* Search / Filter *@
     <div class="slide-up-delay-1">
         <div class="relative">
@@ -30,6 +32,11 @@
                    class="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500 transition-all" />
         </div>
     </div>
+
+    @if (!FilteredSections.Any())
+    {
+        <BakuMessage MessageId="help.no-results" />
+    }
 
     @* Sections *@
     <div class="flex flex-col gap-2 slide-up-delay-2">

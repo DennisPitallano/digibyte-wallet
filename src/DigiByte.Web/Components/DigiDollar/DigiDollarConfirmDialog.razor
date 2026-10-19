@@ -53,6 +53,7 @@
         @if (!string.IsNullOrEmpty(Error))
         {
             <p class="text-xs text-red-600 dark:text-red-400" role="alert">@Error</p>
+            <BakuMessage MessageId="send.error" Compact="true" />
         }
 
         <div class="flex gap-2">

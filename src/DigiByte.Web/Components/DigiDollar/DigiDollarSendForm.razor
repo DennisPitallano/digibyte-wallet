@@ -9,6 +9,8 @@
 @inject NotificationService Notifications
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ContactService Contacts
+@inject BakuService Baku
 
 @* Recipient, USD amount, Send all, and the automatically computed DGB fee (FR-011..FR-014). There is NO fee selector or
    custom fee input: the fee is calculated by the wallet and never below the protocol minimum (FR-014). Inline messages come
@@ -225,11 +227,31 @@
         _ => L.T("dd.send.err.offline"),
     };
 
-    private void OpenConfirm()
+    private async Task OpenConfirm()
     {
         if (!CanContinue) return;
         sendError = null;
+        // Baku, the guardian: same new-address and half-the-balance warnings as DGB sends; never blocks a confirmed send.
+        if (!await GuardSendAsync()) return;
         showConfirm = true;
+    }
+
+    private async Task<bool> GuardSendAsync()
+    {
+        try
+        {
+            if (!TryAmount(out var cents)) return true;
+            var contacts = (await Contacts.GetAllAsync()).Select(c => c.Address);
+            var history = Dd.Dashboard?.History ?? [];
+            var known = KnownAddressProvider.Build(contacts, KnownAddressProvider.SentDigiDollarAddresses(history));
+            var availableCents = Dd.Dashboard?.AvailableCents ?? check?.AvailableCents ?? 0;
+            var risk = SendRiskEvaluator.Evaluate(cents / 100m, availableCents / 100m, recipientText.Trim(), known);
+            return await Baku.ConfirmSendRiskAsync(risk);
+        }
+        catch
+        {
+            return true; // the guardian never blocks a legitimate send if it cannot check
+        }
     }
 
     private void CloseConfirm()

@@ -8,6 +8,7 @@
 @inject ISecureStorage Storage
 @inject BiometricService Biometric
 @inject SpendingLimitService SpendingLimit
+@inject BakuService Baku
 
 <PageTitle>Send DGB</PageTitle>
 
@@ -594,6 +595,7 @@ else
                 @if (sendError != null)
                 {
                     <p class="text-xs text-red-500 font-medium text-center bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl">@sendError</p>
+                    <BakuMessage MessageId="send.error" Compact="true" />
                 }
 
                 @* Actions *@
@@ -1084,7 +1086,28 @@ else
         }
         catch { spendingCheck = null; }
 
+        // Baku, the guardian: warn about a new address or half the balance, but never block a confirmed send.
+        if (!await GuardSendAsync()) return;
+
         showConfirm = true;
+    }
+
+    private async Task<bool> GuardSendAsync()
+    {
+        try
+        {
+            var contacts = (await ContactService.GetAllAsync()).Select(c => c.Address);
+            var history = await WalletService.GetTransactionHistoryAsync(0, 500);
+            var known = KnownAddressProvider.Build(contacts, KnownAddressProvider.SentAddresses(history));
+            var risk = isBatchMode
+                ? SendRiskEvaluator.EvaluateBatch(batchRecipients.Select(r => r.Address), BatchTotal, availableBalance, known)
+                : SendRiskEvaluator.Evaluate(amountDgb, availableBalance, destinationAddress, known);
+            return await Baku.ConfirmSendRiskAsync(risk);
+        }
+        catch
+        {
+            return true; // if the guardian cannot check (e.g. offline history), it never blocks a legitimate send
+        }
     }
 
     private string? sentTxId;

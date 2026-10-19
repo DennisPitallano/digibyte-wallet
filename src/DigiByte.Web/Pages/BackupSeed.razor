@@ -3,6 +3,7 @@
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject ILogger<BackupSeed> Logger
+@inject BakuService Baku
 
 <PageTitle>Backup Seed Phrase</PageTitle>
 
@@ -34,6 +35,7 @@
     else
     {
         @* Step 2: Show seed phrase *@
+        <BakuMessage MessageId="backup.why" />
         <div class="slide-up">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Recovery Phrase</h2>
             @if (!string.IsNullOrEmpty(walletName))
@@ -105,6 +107,14 @@
                 walletName = info?.Name;
             }
             catch { /* non-critical */ }
+
+            // Guardian: make sure the user is ready before the phrase appears on screen.
+            if (!await Baku.ConfirmAsync("seed.reveal"))
+            {
+                pin = "";
+                pinInput?.Clear();
+                return;
+            }
 
             // Decrypt and retrieve the actual seed phrase
             var words = await WalletService.GetSeedPhraseAsync(walletId, pin);

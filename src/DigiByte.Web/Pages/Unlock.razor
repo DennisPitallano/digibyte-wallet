@@ -24,6 +24,12 @@
             <p class="text-sm text-slate-400 dark:text-slate-500">Enter your 6-digit PIN</p>
         </div>
 
+    @* Baku greets until the user starts typing, then steps aside (never covers the PIN field). *@
+    @if (pin.Length == 0 && !showForgotPin && !isUnlocking)
+    {
+        <BakuMessage MessageId="unlock.greeting" Compact="true" Class="w-full max-w-[320px]" />
+    }
+
     @* Biometric unlock button *@
     @if (biometricEnabled)
     {

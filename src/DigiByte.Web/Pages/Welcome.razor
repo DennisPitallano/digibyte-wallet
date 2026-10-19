@@ -36,6 +36,11 @@
         </p>
     </div>
 
+    @if (!isAddWalletMode)
+    {
+        <BakuMessage MessageId="welcome.greeting" Class="w-full max-w-[320px] text-left" />
+    }
+
     <div class="flex flex-col gap-3 w-full max-w-[280px]">
         <button class="slide-up-delay-2 w-full py-3.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all duration-200 press-effect"
                 @onclick="CreateWallet">

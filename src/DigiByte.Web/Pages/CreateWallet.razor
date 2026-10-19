@@ -28,6 +28,7 @@
 
     @if (step == Step.NameWallet)
     {
+        <BakuMessage MessageId="create.intro" />
         <div class="slide-up">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Name Your Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
@@ -69,6 +70,7 @@
     }
     else if (step == Step.GenerateMnemonic)
     {
+        <BakuMessage MessageId="backup.why" />
         <div class="slide-up">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Recovery Phrase</h2>
             <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 leading-relaxed bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
@@ -121,6 +123,7 @@
     }
     else if (step == Step.SetPin)
     {
+        <BakuMessage MessageId="backup.done" Class="baku-celebrate" />
         <div class="slide-up text-center">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
