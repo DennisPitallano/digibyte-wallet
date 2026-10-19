@@ -61,11 +61,18 @@ else if (vis.Visible)
                 }
                 else if (Dd.Scan is { } scan)
                 {
-                    <p class="text-xs text-slate-500 dark:text-slate-400" role="status">@L.T("dd.scanning")</p>
+                    @* First scan of a restored wallet: shimmer for the value, with the progress line under it *@
+                    <div class="flex flex-col gap-1.5 mt-0.5" role="status" aria-busy="true">
+                        <div class="skeleton h-5 w-24 rounded-md"></div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("dd.scanning")</p>
+                    </div>
                 }
                 else
                 {
-                    <p class="text-base font-bold text-slate-400" aria-label="@L.T("dd.loading")">&mdash;</p>
+                    <div class="flex flex-col gap-1.5 mt-0.5" role="status" aria-busy="true" aria-label="@L.T("dd.loading")">
+                        <div class="skeleton h-5 w-24 rounded-md"></div>
+                        <div class="skeleton h-3 w-32 rounded-md"></div>
+                    </div>
                 }
             </div>
         </div>
