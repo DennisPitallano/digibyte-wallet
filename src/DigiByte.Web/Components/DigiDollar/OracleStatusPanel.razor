@@ -2,11 +2,13 @@
 @using DigiByte.Wallet.Models
 @using DigiByte.Wallet.Services
 @inject LocalizationService L
+@inject DigiDollarFeatureFlag Flag
 
 @* The DigiDollar price oracle at a glance: the DGB price in USD, how fresh it is, and whether a protection state is active.
    Presentational only: the caller supplies the health snapshot (the DigiDollar page reuses its polled one, Analytics fetches
    its own), so this never talks to the network. The status is always shown as words as well as colour (FR-024). *@
-@{
+@if (Flag.OracleEnabled)
+{
     var s = Status;
     var (chipBg, chipText, dot, ring, iconBg, iconText, bodyKey, iconName) = s switch
     {
@@ -17,7 +19,6 @@
         _ => ("bg-slate-100 dark:bg-dgb-800", "text-slate-600 dark:text-slate-300", "bg-slate-400", "border-slate-200/80 dark:border-dgb-800", "bg-slate-100 dark:bg-dgb-800", "text-slate-500 dark:text-slate-400", "dd.oracle.body.unavailable", "offline"),
     };
     var h = Health;
-}
 <section class="bg-white dark:bg-dgb-900 rounded-2xl border @ring p-4 flex flex-col gap-3 shadow-sm" aria-label="@L.T("dd.oracle.title")">
     <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2.5 min-w-0">
@@ -78,6 +79,7 @@
         </div>
     }
 </section>
+}
 
 @code {
     private enum OracleState { Loading, Live, Stale, Protected, Unavailable }

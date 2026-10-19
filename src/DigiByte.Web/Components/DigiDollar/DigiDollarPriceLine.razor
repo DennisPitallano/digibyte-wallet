@@ -2,13 +2,14 @@
 @implements IDisposable
 @inject DigiDollarViewModel Dd
 @inject LocalizationService L
+@inject DigiDollarFeatureFlag Flag
 
 @* The oracle's USD value of one DGB with a visible "last updated" freshness indicator (FR-018). With no usable price it says
    so plainly instead of showing a misleading number (FR-019). *@
 @{
     var h = Dd.Dashboard?.Health;
 }
-@if (h is { Available: true })
+@if (Flag.OracleEnabled && h is { Available: true })
 {
     <p class="text-[11px] text-slate-500 dark:text-slate-400" role="status">
         @if (h.OraclePriceAvailable)

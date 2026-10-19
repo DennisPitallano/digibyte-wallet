@@ -147,7 +147,7 @@
         if (price > 0 || blockHeight > 0) StateHasChanged();
 
         // Only where DigiDollar is switched on for this build and the network is one it supports.
-        showOracle = DdFlag.ViewEnabled && AppState.NetworkMode != "regtest";
+        showOracle = DdFlag.ViewEnabled && DdFlag.OracleEnabled && AppState.NetworkMode != "regtest";
         if (showOracle) _ = LoadOracle();
 
         _ = LoadPrice();

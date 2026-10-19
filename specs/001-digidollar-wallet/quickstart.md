@@ -112,6 +112,10 @@ Deployment notes:
 | `esplora` (production default) | nothing to deploy; reads `digiexplorer.info` (`EsploraMainnetUrl` / `EsploraTestnetUrl`) | balances, history, status, broadcast | no oracle price or status panel; addresses go to the explorer; no usage counters |
 | `nodeapi` | the NodeApi service plus a DigiDollar-capable node | everything, including the oracle panel | more infrastructure |
 
+`DigiDollar:OracleEnabled` (default `true`) shows or hides every oracle price and status display (the panel on the DigiDollar page and Analytics, the price line, the price banners and the "price unavailable" send warning). Production sets it to `false` while the explorer backend has no oracle data; turn it back on once a NodeApi supplies one.
+
+Known limitation (noted 2026-10-19): the explorer exposes no oracle price or protection status (they come from the node's RPC; the coinbase of a recent block carries only the SegWit commitment, and no oracle record was seen in the DigiDollar transactions scanned). Oracle displays stay off with the explorer backend. Possible later step: show the DGB market price from the existing CoinGecko feed, labelled as a market price and not the oracle price.
+
 The explorer path was validated against real mainnet transactions (a mint and the transfer that spent it): amounts, address mapping, history, and the on-chain Schnorr signature (SIGHASH_DEFAULT). Mints carry extra pushes after the amount (lock height, tier, a 32-byte commitment); only the first amount is the DigiDollar value.
 
 ## 7. Verification status (2026-10-19)

@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject DigiDollarViewModel Dd
 @inject LocalizationService L
+@inject DigiDollarFeatureFlag Flag
 @inject IJSRuntime JS
 
 @* The moment of consent (FR-015, FR-026, FR-027): the FULL recipient address, the USD amount and the DGB fee are visible
@@ -35,12 +36,12 @@
             <p class="rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-700/40 px-3 py-2 text-xs text-sky-800 dark:text-sky-300" role="note">@L.T("dd.confirm.own")</p>
         }
 
-        @if (Check.Degraded.Count > 0)
+        @if (Warnings.Count > 0)
         {
             <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300" role="alert">
                 <p class="font-semibold">@L.T("dd.confirm.warn.intro")</p>
                 <ul class="list-disc pl-4 mt-1 flex flex-col gap-0.5">
-                    @foreach (var c in Check.Degraded)
+                    @foreach (var c in Warnings)
                     {
                         <li>@WarningText(c)</li>
                     }
@@ -104,6 +105,9 @@
         try { await JS.InvokeVoidAsync("domHelpers.trapFocus", DialogId); }
         catch (JSException) { /* helper missing: the dialog still works, just without the trap */ }
     }
+
+    // With the oracle display switched off (no oracle data from this backend) its conditions are not shown as warnings.
+    private IReadOnlyList<DdDegradedCondition> Warnings => Flag.OracleEnabled ? Check.Degraded : [];
 
     private string WarningText(DdDegradedCondition c) => c switch
     {

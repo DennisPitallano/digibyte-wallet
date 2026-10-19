@@ -119,7 +119,8 @@ builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<Fallb
 // Two independent switches (FR-022), both false by default: ship dark, then beta, then GA with no code change.
 var ddView = builder.Configuration.GetValue<bool>("DigiDollar:ViewEnabled");
 var ddSend = builder.Configuration.GetValue<bool>("DigiDollar:SendEnabled");
-builder.Services.AddSingleton(new DigiDollarFeatureFlag(ddView, ddSend));
+var ddOracle = builder.Configuration.GetValue<bool?>("DigiDollar:OracleEnabled") ?? true;
+builder.Services.AddSingleton(new DigiDollarFeatureFlag(ddView, ddSend, ddOracle));
 // Read-only NodeApi client (public chain data; never calls a wallet-scoped endpoint) and the encrypted local store.
 // Backend: "nodeapi" (our own DigiDollar NodeApi: full oracle data, address-private) or "esplora" (a public explorer:
 // balances, history and broadcast only, no oracle price or status, addresses are sent to the explorer).
