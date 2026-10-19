@@ -476,3 +476,20 @@ body:has(.modal-overlay) nav {
 @media (prefers-reduced-motion: reduce) {
     .baku-enter, .baku-celebrate { animation: none !important; }
 }
+
+/* Baku's speech bubble: the tail is a rotated square that reuses the bubble's background and border. */
+.baku-bubble { position: relative; }
+.baku-bubble-tail::before {
+    content: "";
+    position: absolute;
+    left: -0.4rem;
+    top: calc(50% - 0.35rem);
+    width: 0.7rem;
+    height: 0.7rem;
+    background: inherit;
+    border-style: solid;
+    border-color: inherit;
+    border-width: 0 0 1px 1px;
+    border-bottom-left-radius: 2px;
+    transform: rotate(45deg);
+}

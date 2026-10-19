@@ -7,36 +7,41 @@
 @if (message is not null && Baku.Current?.Id == message.Id)
 {
     var isAlert = message.Severity >= BakuSeverity.Warning;
+    // Opaque bubble colours: the tail is drawn from the bubble's own background and border.
     var tone = message.Severity switch
     {
-        BakuSeverity.Critical => "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10",
-        BakuSeverity.Warning => "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10",
-        _ => "border-dgb-100 bg-white dark:border-dgb-800 dark:bg-dgb-900"
+        BakuSeverity.Critical => "border-red-300 bg-red-50 dark:border-red-500/60 dark:bg-red-950",
+        BakuSeverity.Warning => "border-amber-300 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-950",
+        _ => "border-dgb-200 bg-white dark:border-dgb-700 dark:bg-dgb-900"
     };
     var imgSize = Large ? "w-28" : Compact ? "w-12" : "w-20";
+    var showImage = Baku.ShowsImage && !imageFailed;
 
-    <div class="baku-card baku-enter flex items-center gap-3 rounded-2xl border p-3 @tone @Class"
+    <div class="baku-message baku-enter flex items-center gap-3 @Class"
          role="@(isAlert ? "alert" : "status")" aria-live="@(isAlert ? "assertive" : "polite")" data-baku-id="@message.Id">
-        @if (Baku.ShowsImage && !imageFailed)
+        @if (showImage)
         {
             @* Decorative: the title and body carry the meaning. *@
             <img src="@BakuCatalog.PosePath(message.PoseId)" alt="" loading="lazy" decoding="async"
                  class="baku-pose @imgSize flex-shrink-0 object-contain select-none" draggable="false"
                  @onerror="OnImageError" />
         }
-        <div class="min-w-0 flex-1">
-            <p class="text-sm font-bold text-slate-900 dark:text-white">@message.Title</p>
-            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">@message.Body</p>
+        @* Speech bubble: Baku talks, with a small tail pointing at him (no tail when he is hidden). *@
+        <div class="baku-bubble @(showImage ? "baku-bubble-tail" : "") min-w-0 flex-1 flex items-start gap-2 rounded-2xl border px-3.5 py-2.5 shadow-sm @tone">
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-slate-900 dark:text-white">@message.Title</p>
+                <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">@message.Body</p>
+            </div>
+            @if (message.Severity == BakuSeverity.Tip)
+            {
+                <button type="button" class="flex-shrink-0 -mr-1 -mt-0.5 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                        aria-label="Dismiss tip" title="Dismiss tip" @onclick="Dismiss">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            }
         </div>
-        @if (message.Severity == BakuSeverity.Tip)
-        {
-            <button type="button" class="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                    aria-label="Dismiss tip" title="Dismiss tip" @onclick="Dismiss">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-            </button>
-        }
     </div>
 }
 
