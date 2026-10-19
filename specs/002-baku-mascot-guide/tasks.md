@@ -57,7 +57,7 @@ Paths: `W` = `src/DigiByte.Web`, `L` = `src/DigiByte.Wallet`, `T` = `tests/DigiB
 - [X] T018 [P] [US1] Add why-backup guidance to the seed display step in `W/Pages/BackupSeed.razor` (never read or render seed content in Baku code)
 - [X] T019 [US1] Show the celebrating pose on wallet-created and backup-confirmed success states in `W/Pages/CreateWallet.razor` and `W/Pages/BackupSeed.razor`
 - [X] T020 [P] [US1] Add the small greeting to `W/Pages/Unlock.razor`, hidden once password entry begins and never obstructing the password field (FR-002a)
-- [X] T021 [US1] Verify US1 via quickstart.md scenarios 1 and 8, including the Baku Off run
+- [X] T021 [US1] Verify US1 via quickstart.md scenarios 1 and 9, including the Baku Off run
 
 **Checkpoint**: Onboarding guide is shippable on its own (MVP).
 
@@ -102,7 +102,7 @@ Paths: `W` = `src/DigiByte.Web`, `L` = `src/DigiByte.Wallet`, `T` = `tests/DigiB
 - [X] T036 [US3] Show approve or celebrate feedback after a completed send, hooking into the existing `W/Components/Shared/TxSuccessOverlay.razor` flow without altering its behavior
 - [X] T037 [P] [US3] Integrate Baku in the Help Center `W/Pages/Help.razor`: `help.intro` header above the search box and topic accordion, and `help.no-results` (thinking pose) when the search filter returns no sections; topics and search behave exactly as before and Baku never overlays them
 - [X] T038 [US3] Add the "Reset tips" action to `W/Pages/Settings.razor`, calling `BakuService.ResetTipsAsync` (FR-009)
-- [X] T039 [US3] Verify US3 via quickstart.md scenarios 5 and 6, including the Help Center intro and the empty-search state
+- [X] T039 [US3] Verify US3 via quickstart.md scenarios 6 and 7, including the Help Center intro and the empty-search state
 
 ---
 
@@ -114,7 +114,7 @@ Paths: `W` = `src/DigiByte.Web`, `L` = `src/DigiByte.Wallet`, `T` = `tests/DigiB
 
 - [X] T040 [US4] Add a presence selector (Full, Guardian only, Off, where Off hides Info and Tip only) to `W/Pages/Settings.razor`, persisted via `BakuService.SetModeAsync`
 - [X] T041 [US4] Confirm Guardian-only hides tips and info but keeps warnings, and Off hides Info and Tip but still shows Warning and Critical text without the image
-- [X] T042 [US4] Verify US4 via quickstart.md scenario 7 and the under-15-seconds change check (SC-007)
+- [X] T042 [US4] Verify US4 via quickstart.md scenario 8 and the under-15-seconds change check (SC-007)
 
 ---
 
@@ -130,6 +130,15 @@ Paths: `W` = `src/DigiByte.Web`, `L` = `src/DigiByte.Wallet`, `T` = `tests/DigiB
 - [ ] T050 Run `dotnet build` and `dotnet test` across affected projects; run the full quickstart.md
 
 - [ ] T051 (Optional) Run a short usability session with first-time users to measure SC-003 (self-service wallet creation and backup) and SC-004 (users describe Baku as helper and protector); record results in `specs/002-baku-mascot-guide/checklists/usability-notes.md`
+
+---
+
+## Phase 8: Digi-ID guidance and guardian (added after the first implementation pass)
+
+- [X] T052 [US2] Write failing tests in `T/DigiIdRiskEvaluatorTests.cs` (known and secure is None, unknown is NewSite, HTTP is InsecureSite and beats NewSite, case and whitespace ignored, lookalike and subdomain are new, empty domain is new), then implement `L/Services/DigiIdRiskEvaluator.cs` to pass them
+- [X] T053 [US2] Add `digiid.intro`, `digiid.new-site` and `digiid.insecure` to `W/Services/BakuCatalog.cs` and `BakuService.ConfirmDigiIdRiskAsync`, with tests in `T/BakuServiceTests.cs`
+- [X] T054 [US2] Show the Baku intro on `W/Pages/Identity.razor` and, before a login is approved, evaluate the site against the existing login history and confirm via `Baku.ConfirmDigiIdRiskAsync`; going back cancels without signing
+- [X] T055 Verify Digi-ID via quickstart.md scenario 5
 
 ---
 

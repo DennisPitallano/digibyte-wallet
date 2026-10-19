@@ -276,6 +276,28 @@ public class BakuServiceTests
         Assert.Null(svc.PendingConfirmation);
     }
 
+    // ── Digi-ID sign-in risk ──
+
+    [Theory]
+    [InlineData(DigiByte.Wallet.Services.DigiIdRisk.NewSite, "digiid.new-site")]
+    [InlineData(DigiByte.Wallet.Services.DigiIdRisk.InsecureSite, "digiid.insecure")]
+    public async Task ConfirmDigiIdRiskAsync_PicksTheMatchingMessage(DigiByte.Wallet.Services.DigiIdRisk risk, string expectedId)
+    {
+        var (svc, _) = Create();
+        var task = svc.ConfirmDigiIdRiskAsync(risk);
+        Assert.Equal(expectedId, svc.PendingConfirmation!.Id);
+        svc.ResolveConfirmation(false);
+        Assert.False(await task);
+    }
+
+    [Fact]
+    public async Task ConfirmDigiIdRiskAsync_NoRisk_DoesNotShowADialog()
+    {
+        var (svc, _) = Create();
+        Assert.True(await svc.ConfirmDigiIdRiskAsync(DigiByte.Wallet.Services.DigiIdRisk.None));
+        Assert.Null(svc.PendingConfirmation);
+    }
+
     // ── Catalog sanity (data-model.md Message Catalog) ──
 
     [Fact]

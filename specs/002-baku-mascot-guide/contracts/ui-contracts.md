@@ -36,6 +36,14 @@ Evaluate(decimal amount, decimal balance, string destination,
 - `NewAddress` is true when `destination` is not in `knownAddresses` (saved contacts plus previously sent addresses, compared case-appropriately per network).
 - Pure and deterministic. It performs no I/O and no address validation (callers validate first).
 
+## `DigiIdRiskEvaluator` (`DigiByte.Wallet`)
+
+```
+Evaluate(string domain, bool isUnsecure, IEnumerable<string> knownDomains) -> DigiIdRisk { None, NewSite, InsecureSite }
+```
+
+Pure. Insecure wins over new. Known domains come from the existing Digi-ID login history; matching is exact, ignoring case. `BakuService.ConfirmDigiIdRiskAsync(risk)` maps it to `digiid.insecure` / `digiid.new-site` and returns true when there is no risk.
+
 ## Screen hooks (behavioral contract)
 
 | Screen | Message(s) |
@@ -49,4 +57,5 @@ Evaluate(decimal amount, decimal balance, string destination,
 | Send / DigiDollarSend | New-address and large-amount warnings (warning, confirmation) |
 | P2PMarketplace | Verify-counterparty and scam warning (warning) |
 | Error states | Thinking pose with friendly explanation (info) |
+| Identity (Digi-ID) | Intro (info); new-site and insecure-site warnings before Approve (warning, confirmation) |
 | Settings | Presence mode selector, "Reset tips" action |

@@ -41,7 +41,7 @@ A first-time visitor lands on the wallet's welcome and onboarding flow (create w
 
 ### User Story 2 - Baku guards against risky actions (Priority: P1)
 
-When a user is about to do something risky — sending 50% or more of the balance, sending to a new address, revealing or exporting the seed phrase, or opening the P2P Marketplace — Baku appears in a protective pose with a clear, calm warning explaining the risk and what to check. Baku never permanently blocks a legitimate action the user confirms; he informs and asks for deliberate confirmation.
+When a user is about to do something risky — sending 50% or more of the balance, sending to a new address, revealing or exporting the seed phrase, opening the P2P Marketplace, or approving a Digi-ID login to a first-time or insecure site — Baku appears in a protective pose with a clear, calm warning explaining the risk and what to check. Baku never permanently blocks a legitimate action the user confirms; he informs and asks for deliberate confirmation.
 
 **Why this priority**: "Guardian" is half of the requested role, and it directly supports the wallet's security reputation.
 
@@ -110,6 +110,7 @@ In Settings the user can choose how much of Baku they see: Full (guide, tips, an
 - **FR-005**: The app MUST show a protective Baku warning before the seed phrase is revealed or exported.
 - **FR-006**: The app MUST show a Baku warning on both DGB and DigiDollar sends when sending to an address that is neither a saved contact nor one the user has sent to before, and when a send is 50% or more of the current balance (measured on the amount sent, excluding the network fee; sending the maximum counts as 100%). When both warnings apply to one send, they are shown together in a single confirmation listing each reason.
 - **FR-006a**: The app MUST show a Baku warning on the P2P Marketplace reminding users to verify the counterparty and never share secrets or pay outside the trade flow.
+- **FR-006b**: The app MUST show a Baku introduction on the Digi-ID page, and MUST show a confirm-to-proceed Baku warning before approving a Digi-ID login to a site the user has not signed in to before or that uses an insecure (HTTP) connection; a known secure site proceeds without a warning, and a confirmed login is never blocked.
 - **FR-007**: Baku warnings MUST require deliberate user confirmation but MUST NOT permanently block a legitimate action.
 - **FR-008**: The app MUST show contextual tips, empty-state messages, and error-state messages with appropriate Baku poses on the main wallet screens, including a Baku introduction and a no-results state on the Help Center that leave its topics and search fully usable.
 - **FR-009**: Users MUST be able to dismiss tips and have the dismissal remembered on their device, and MUST be able to restore all dismissed tips with a "reset tips" action in Settings.
@@ -147,5 +148,5 @@ In Settings the user can choose how much of Baku they see: Full (guide, tips, an
 - All Baku text is predefined by the project, not generated or sent to any external service.
 - Preferences and dismissed tips are stored locally on the user's device only, consistent with the project's self-custody principles.
 - The 50%-of-balance threshold for large-send warnings is fixed in this release and not user-configurable.
-- Initial scope covers the core screens plus a basic P2P Marketplace scam warning; Multisig and other advanced pages are out of scope and may follow.
+- Initial scope covers the core screens plus a basic P2P Marketplace scam warning and Digi-ID guidance and sign-in warnings; Multisig and other advanced pages are out of scope and may follow.
 - The name "Baku" is final for user-facing copy.

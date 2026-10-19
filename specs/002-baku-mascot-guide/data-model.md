@@ -68,6 +68,17 @@ Severity: I = Info, T = Tip (dismissible), W = Warning, C = Critical. Confirm = 
 | dd.tip | DigiDollar | T | idea | About DigiDollar | DigiDollar is a stable-value asset on DigiByte. Send and receive it like DGB. |
 | help.intro | Help | I | support | How can I help? | Search or pick a topic below. I will guide you through it. |
 | help.no-results | Help | I | thinking | Nothing found | Try different words, or browse the topics below. |
+| digiid.intro | Identity (Digi-ID) | I | idea | Log in without a password | Digi-ID proves it is you with a signature. No funds move and your main keys stay private. |
+| digiid.new-site | Identity (Digi-ID) | W, Confirm | guard | First time with this site | You have not signed in here before. Only approve if you started this login yourself and the website name looks right. |
+| digiid.insecure | Identity (Digi-ID) | W, Confirm | protective | This site is not secure | It uses plain HTTP, so the login could be intercepted. Approve only if you fully trust the site. |
 | settings.tip | Settings | T | idea | Make it yours | You can change how much you see of me in Baku settings. |
 
 Copy is a starting point and may be refined without changing ids or severities.
+
+## DigiIdRisk (computed, not stored)
+
+| Value | Meaning |
+|---|---|
+| None | Known domain (earlier successful login in history) over a secure connection: no warning |
+| NewSite | Domain never signed in to before (exact match, ignoring case; lookalikes and subdomains are new) |
+| InsecureSite | Plain HTTP, even if known; takes priority over NewSite |

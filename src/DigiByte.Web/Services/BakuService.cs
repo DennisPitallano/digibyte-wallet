@@ -146,6 +146,14 @@ public class BakuService
         return id is null ? Task.FromResult(true) : ConfirmAsync(id);
     }
 
+    /// <summary>Guardian check for a Digi-ID sign-in. No risk means no dialog; false only if the user went back.</summary>
+    public Task<bool> ConfirmDigiIdRiskAsync(DigiIdRisk risk) => risk switch
+    {
+        DigiIdRisk.InsecureSite => ConfirmAsync("digiid.insecure"),
+        DigiIdRisk.NewSite => ConfirmAsync("digiid.new-site"),
+        _ => Task.FromResult(true),
+    };
+
     public void ResolveConfirmation(bool proceed)
     {
         var pending = _confirmation;

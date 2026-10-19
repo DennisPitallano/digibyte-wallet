@@ -49,6 +49,9 @@ public static class BakuCatalog
         new("dd.tip", BakuSeverity.Tip, "idea", "About DigiDollar", "DigiDollar is a stable-value asset on DigiByte. Send and receive it like DGB."),
         new("help.intro", BakuSeverity.Info, "support", "How can I help?", "Search or pick a topic below. I will guide you through it."),
         new("help.no-results", BakuSeverity.Info, "thinking", "Nothing found", "Try different words, or browse the topics below."),
+        new("digiid.intro", BakuSeverity.Info, "idea", "Log in without a password", "Digi-ID proves it is you with a signature. No funds move and your main keys stay private."),
+        new("digiid.new-site", BakuSeverity.Warning, "guard", "First time with this site", "You have not signed in here before. Only approve if you started this login yourself and the website name looks right.", RequiresConfirmation: true),
+        new("digiid.insecure", BakuSeverity.Warning, "protective", "This site is not secure", "It uses plain HTTP, so the login could be intercepted. Approve only if you fully trust the site.", RequiresConfirmation: true),
         new("settings.tip", BakuSeverity.Tip, "idea", "Make it yours", "You can change how much you see of me in Baku settings."),
     ];
 

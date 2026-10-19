@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 @inject IConfiguration Config
 @inject ISecureStorage Storage
+@inject BakuService Baku
 
 <PageTitle>Digi-ID</PageTitle>
 
@@ -16,6 +17,8 @@
             <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
         </div>
     </div>
+
+    <BakuMessage MessageId="digiid.intro" />
 
     @* How it works *@
     <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
@@ -427,6 +430,12 @@
     private async Task ConfirmAuthAsync()
     {
         if (pendingRequest == null) return;
+
+        // Baku, the guardian: warn on a first-time or insecure (HTTP) site. Never blocks a confirmed login.
+        var risk = DigiIdRiskEvaluator.Evaluate(
+            pendingRequest.Domain, pendingRequest.IsUnsecure, authHistory.Select(h => h.Domain));
+        if (!await Baku.ConfirmDigiIdRiskAsync(risk)) return;
+
         isAuthenticating = true;
         authStep = 1;
         parseError = null;

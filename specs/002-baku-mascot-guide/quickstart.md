@@ -22,10 +22,11 @@ Run the web app via the existing dev-server configuration, then:
 2. **Seed reveal (US2)**: Request the seed phrase. A protective warning needs explicit confirmation. Cancel hides the seed, confirm proceeds.
 3. **Risky send (US2)**: On Send, enter an unknown address, then a saved contact, then an amount at 50% of balance. Warnings appear only for the unknown address and the 50% amount. Repeat on DigiDollar Send.
 4. **P2P (US2)**: Open P2P Marketplace and confirm the verify-counterparty warning.
-5. **Help Center (US3)**: Open Help. Baku's intro sits above the search and topics. Search for nonsense text and confirm the thinking pose with a suggestion. Topics still expand as before.
-6. **Tips (US3)**: Open Home with an empty wallet and see the empty-state message. Dismiss the tip, reload, and confirm it stays hidden. Use Settings, then Reset tips, and confirm it returns.
-7. **Presence (US4)**: Set Guardian only, so tips vanish while warnings remain. Set Off, so warnings show as text only with no image.
-8. **Unlock**: Lock the wallet. Baku greets small and disappears once typing begins.
+5. **Digi-ID (US2)**: Open Digi-ID: Baku's intro shows. Paste `digiid://example.com/callback?x=abc`, tap Approve: a first-time-site warning appears (Go back cancels, continue signs). A `digiid://` URI with `unsecure=1` shows the insecure-site warning instead. After one successful login to a site, approving there again shows no warning.
+6. **Help Center (US3)**: Open Help. Baku's intro sits above the search and topics. Search for nonsense text and confirm the thinking pose with a suggestion. Topics still expand as before.
+7. **Tips (US3)**: Open Home with an empty wallet and see the empty-state message. Dismiss the tip, reload, and confirm it stays hidden. Use Settings, then Reset tips, and confirm it returns.
+8. **Presence (US4)**: Set Guardian only, so tips vanish while warnings remain. Set Off, so warnings show as text only with no image.
+9. **Unlock**: Lock the wallet. Baku greets small and disappears once typing begins.
 
 ## Cross-cutting checks
 
