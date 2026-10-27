@@ -1473,6 +1473,22 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         return Task.FromResult(response);
     }
 
+    /// <summary>
+    /// Returns the site-specific address that <see cref="SignDigiIdAsync"/> would use for
+    /// <paramref name="domain"/>, without signing anything. Lets the UI show the user which
+    /// address will identify them before they approve.
+    /// </summary>
+    public string GetDigiIdAddress(string domain)
+    {
+        EnsureUnlocked();
+
+        if (_hd == null || _hd.IsWatchOnly)
+            throw new InvalidOperationException("Digi-ID requires an HD wallet with private keys.");
+
+        var siteKey = _hd.DeriveDigiIdKey(DigiIdService.DeriveSiteIndex(domain));
+        return DigiIdService.GetAddress(siteKey.PrivateKey);
+    }
+
     private void EnsureUnlocked()
     {
         if (ActiveSession == null)

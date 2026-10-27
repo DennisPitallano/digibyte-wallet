@@ -95,6 +95,17 @@
                 <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-1 text-center truncate">@pendingRequest.CallbackUrl</p>
             </div>
 
+            @if (pendingAddress != null)
+            {
+                <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-200/60 dark:border-dgb-800 flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Signing address</span>
+                        <CopyValueButton Value="@pendingAddress" Label="signing address" />
+                    </div>
+                    <p class="text-xs font-mono text-slate-800 dark:text-slate-200 break-all select-all">@pendingAddress</p>
+                </div>
+            }
+
             @if (pendingRequest.IsUnsecure)
             {
                 <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5 border border-amber-200/60 dark:border-amber-900/30">
@@ -218,9 +229,12 @@
                 <p class="text-sm text-green-600 dark:text-green-500 mt-0.5">You're now logged in to <b>@lastAuthDomain</b></p>
             </div>
             <div class="w-full bg-green-100/50 dark:bg-green-900/20 rounded-xl px-3 py-2 flex flex-col gap-1">
-                <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Address used</span>
-                    <span class="text-[10px] font-mono text-green-700 dark:text-green-400 truncate ml-2 max-w-[200px]">@lastAuthAddress</span>
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Address used</span>
+                        <CopyValueButton Value="@lastAuthAddress" Label="address" />
+                    </div>
+                    <span class="text-[10px] font-mono text-green-700 dark:text-green-400 break-all select-all">@lastAuthAddress</span>
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Time</span>
@@ -269,10 +283,13 @@
                         @onclick="ClearHistoryAsync">Clear all</button>
             </div>
             <div class="flex flex-col gap-1.5">
-                @foreach (var entry in authHistory)
+                @for (var i = 0; i < authHistory.Count; i++)
                 {
-                    var e = entry;
-                    <div class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                    var e = authHistory[i];
+                    var rowKey = i;
+                    <button type="button" @key="e" @ref="rowRefs[rowKey]" @onclick="() => OpenDetails(e, rowKey)"
+                            aria-label="View details for @e.Domain"
+                            class="w-full text-left flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 transition-colors">
                         <div class="w-8 h-8 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
                             <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3" />
@@ -286,12 +303,14 @@
                             <p class="text-[10px] text-slate-500 dark:text-slate-400">@FormatRelativeTime(e.Timestamp)</p>
                             <p class="text-[9px] text-slate-300 dark:text-slate-600">@e.Timestamp.ToLocalTime().ToString("MMM d, h:mm tt")</p>
                         </div>
-                    </div>
+                    </button>
                 }
             </div>
         </div>
     }
 </div>
+
+<DigiIdLoginDetailModal IsOpen="@(selectedEntry != null)" Entry="selectedEntry" OnClosed="CloseDetailsAsync" />
 
 <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 
@@ -312,7 +331,11 @@
     private string? authErrorDetail;
     private bool showScanner;
     private DigiByte.Crypto.DigiId.DigiIdRequest? pendingRequest;
-    private List<AuthHistoryEntry> authHistory = [];
+    private List<DigiIdLoginRecord> authHistory = [];
+    private string? pendingAddress;
+    private DigiIdLoginRecord? selectedEntry;
+    private int selectedRow = -1;
+    private readonly Dictionary<int, ElementReference> rowRefs = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -346,7 +369,7 @@
         {
             var json = await Storage.GetAsync(HistoryStorageKey);
             if (json != null)
-                authHistory = System.Text.Json.JsonSerializer.Deserialize<List<AuthHistoryEntry>>(json) ?? [];
+                authHistory = System.Text.Json.JsonSerializer.Deserialize<List<DigiIdLoginRecord>>(json) ?? [];
         }
         catch { /* non-critical — start fresh if storage fails */ }
     }
@@ -364,6 +387,8 @@
     private async Task ClearHistoryAsync()
     {
         authHistory.Clear();
+        selectedEntry = null;
+        rowRefs.Clear();
         await Storage.RemoveAsync(HistoryStorageKey);
     }
 
@@ -398,11 +423,41 @@
         }
 
         pendingRequest = request;
+        pendingAddress = TryGetSigningAddress(request.Domain);
+    }
+
+    // Same derivation the signing step uses, so what the user sees is what gets signed.
+    // Null when the wallet is locked or watch-only; Approve then reports the wallet error as before.
+    private string? TryGetSigningAddress(string domain)
+    {
+        try { return WalletService.GetDigiIdAddress(domain); }
+        catch (InvalidOperationException) { return null; }
     }
 
     private void CancelAuth()
     {
         pendingRequest = null;
+        pendingAddress = null;
+    }
+
+    private void OpenDetails(DigiIdLoginRecord entry, int row)
+    {
+        selectedEntry = entry;
+        selectedRow = row;
+    }
+
+    private async Task CloseDetailsAsync()
+    {
+        var row = selectedRow;
+        selectedEntry = null;
+        selectedRow = -1;
+        StateHasChanged();
+
+        // Return focus to the row that opened the dialog.
+        if (rowRefs.TryGetValue(row, out var el))
+        {
+            try { await el.FocusAsync(); } catch { }
+        }
     }
 
     private void ResetState()
@@ -412,6 +467,7 @@
         authErrorTitle = null;
         authErrorDetail = null;
         pendingRequest = null;
+        pendingAddress = null;
         digiIdUri = "";
     }
 
@@ -495,11 +551,16 @@
             lastAuthDomain = pendingRequest.Domain;
             lastAuthAddress = response.Address;
 
-            authHistory.Insert(0, new AuthHistoryEntry
+            authHistory.Insert(0, new DigiIdLoginRecord
             {
                 Domain = pendingRequest.Domain,
                 Address = response.Address,
                 Timestamp = DateTime.UtcNow,
+                CallbackUrl = pendingRequest.CallbackUrl,
+                Uri = pendingRequest.OriginalUri,
+                Nonce = pendingRequest.Nonce,
+                Signature = response.Signature,
+                IsUnsecure = pendingRequest.IsUnsecure,
             });
 
             // Keep last MaxHistoryEntries, then persist
@@ -508,6 +569,7 @@
             await SaveHistoryAsync();
 
             pendingRequest = null;
+            pendingAddress = null;
             authResult = AuthResult.Success;
             digiIdUri = "";
         }
@@ -534,13 +596,6 @@
             isAuthenticating = false;
             authStep = 0;
         }
-    }
-
-    private record AuthHistoryEntry
-    {
-        public required string Domain { get; init; }
-        public required string Address { get; init; }
-        public required DateTime Timestamp { get; init; }
     }
 
     private static string TruncateAddress(string address)

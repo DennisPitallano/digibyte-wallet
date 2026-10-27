@@ -290,4 +290,23 @@ public class DigiIdServiceTests
         var uri = $"digiid://{domain}/callback?x={nonce}";
         return DigiIdService.ParseUri(uri)!;
     }
+
+    // ─── GetAddress ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetAddress_MatchesAddressReturnedBySign()
+    {
+        var key = new Key();
+        var request = DigiIdService.ParseUri("digiid://example.com/callback?x=abc123nonce")!;
+
+        var signed = DigiIdService.Sign(request, key);
+
+        Assert.Equal(signed.Address, DigiIdService.GetAddress(key));
+    }
+
+    [Fact]
+    public void GetAddress_DifferentKeys_GiveDifferentAddresses()
+    {
+        Assert.NotEqual(DigiIdService.GetAddress(new Key()), DigiIdService.GetAddress(new Key()));
+    }
 }

@@ -61,15 +61,20 @@ public class DigiIdService
     }
 
     /// <summary>
+    /// Returns the address a Digi-ID response signed with this key is attributed to
+    /// (Legacy P2PKH on mainnet). Shared by <see cref="Sign"/> so the address can be
+    /// shown to the user before signing and is guaranteed to match the signed one.
+    /// </summary>
+    public static string GetAddress(Key privateKey) =>
+        privateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, DigiByteNetwork.Mainnet).ToString();
+
+    /// <summary>
     /// Signs a Digi-ID challenge URI with the given private key.
     /// Uses Bitcoin-style message signing with DigiByte's message magic prefix.
     /// Returns a compact recoverable signature (65 bytes, base64-encoded).
     /// </summary>
     public static DigiIdResponse Sign(DigiIdRequest request, Key privateKey)
     {
-        var network = DigiByteNetwork.Mainnet;
-        var address = privateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
-
         // Build the message hash: SHA256(SHA256( VarInt(magic.len) + magic + VarInt(msg.len) + msg ))
         var messageBytes = Encoding.UTF8.GetBytes(request.OriginalUri);
         var magic = "DigiByte Signed Message:\n"u8;
@@ -90,7 +95,7 @@ public class DigiIdService
 
         return new DigiIdResponse
         {
-            Address = address.ToString(),
+            Address = GetAddress(privateKey),
             Uri = request.OriginalUri,
             Signature = Convert.ToBase64String(sigBytes),
         };
