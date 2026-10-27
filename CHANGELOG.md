@@ -4,6 +4,21 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-27
+
+### Added
+- **Digi-ID signing address on the confirmation card** — Before you approve a Digi-ID sign-in, the card shows the full site-specific address that will identify you, with a one-tap Copy button. The address is derived locally without signing (`WalletService.GetDigiIdAddress`) through the same `DigiIdService.GetAddress` helper that `Sign()` uses, so it always matches the signed address. Hidden when the wallet is locked or watch-only.
+- **Full address with copy on the "Authenticated!" card** — The success card now shows the whole address (no truncation) with a Copy button.
+- **Login history details** — Each Login History row opens a details view with the domain, full callback URL, signing address, challenge (nonce), signed URI, signature, exact date and time, and the connection type (HTTP is flagged), each with its own Copy button. Closes with the button, overlay tap or Escape, and focus returns to the row. History entries saved before this release show "Not recorded" for the new fields.
+- **Baku, the dragon mascot** — In-app guide and guardian with speech-bubble messages, including warnings on first-time or insecure Digi-ID sites.
+- **DigiDollar** — Explorer-backed backend that indexes minted DigiDollar, DigiDollar send enabled behind an `OracleEnabled` switch, and a shimmer loading state on the home tile.
+- **55 display currencies** with flags and a searchable picker.
+- **New tests** — `DigiIdServiceTests` (address parity with `Sign`) and `DigiIdAddressTests` (per-site address stability, locked and watch-only wallets, legacy history JSON).
+
+### Changed
+- Login history records moved to a shared `DigiIdLoginRecord` (`DigiByte.Wallet.Models`) with optional new fields; stored `digiid_login_history` data remains compatible.
+- App version bumped to 0.3.0.
+
 ## [0.9.0-beta.1] - 2026-04-16
 
 ### Added
