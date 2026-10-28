@@ -19,7 +19,9 @@ const apiCacheName = 'api-cache-v1';
 const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff2?$/, /\.png$/, /\.jpe?g$/, /\.webp$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/, /\.webmanifest$/ ];
 const offlineAssetsExclude = [ /^service-worker\.js$/ ];
 
-// API domains whose responses should be cached for offline use
+// API domains whose responses should be cached for offline use.
+// Never add our own node API or /config.json here: a cached /api/health would make a dead node look ready, and a cached
+// config.json would keep old deployment settings (specs/005-wallet-own-node-source).
 const cacheableApiPatterns = [
     /api\.coingecko\.com/,
     /digiexplorer\.info\/api/,

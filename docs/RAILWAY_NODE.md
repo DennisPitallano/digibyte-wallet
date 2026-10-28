@@ -132,3 +132,24 @@ If the projection is above $60, stop and revisit the design rather than raising 
 1. Point the wallet back at the previous node API (see "Cutting the wallet over").
 2. Delete the `node-api` and `digibyted` services, then the volumes, then the project. Deleting the volumes is safe: the node holds no wallets or keys.
 3. Remove the monitor and the cost alerts.
+
+## Wallet settings (own node as a data source)
+
+The wallet web service can use this node, through the node API, as a blockchain data source: for sending, transaction lookups, fees and chain height. Address balances and spendable outputs still come from public explorers first (the node answers those by scanning its whole set of spendable outputs, about 14 seconds), with the node as their backup, and address history always comes from explorers. The wallet uses the node only while the node's health report says it is ready, and goes back to explorers by itself when it is not. Design: `specs/005-wallet-own-node-source/`.
+
+Settings are environment variables on the **wallet web service** (not on the node project). They are written to `config.json` each time the container starts, so a change needs a restart, not a rebuild:
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `WALLET_NODE_ENABLED` | `true` turns node use on | off |
+| `WALLET_NODE_API_URL` | The node API address, e.g. `https://node.example.org` | the existing `NodeApiUrl` |
+| `WALLET_NODE_CHECK_SECONDS` | Seconds between readiness checks (10 to 300) | 30 |
+| `WALLET_NODE_STABLE_SECONDS` | Seconds the node must stay ready before it is used (at least two check intervals) | 120 |
+| `WALLET_NODE_HEIGHT_TOLERANCE` | Blocks the node may differ from a public explorer (1 to 50) | 5 |
+| `WALLET_DEV_VIEW` | `true` shows the developer diagnostics page | off |
+
+Nothing in this file is secret: any visitor's browser can read it. Turn node use off again by removing `WALLET_NODE_ENABLED` (or setting it to `false`) and restarting the service.
+
+**Limit: the content-security policy.** The wallet page only lets the browser talk to servers listed in its content-security policy (`src/DigiByte.Web/wwwroot/index.html`). The node API's address must be listed there, as one exact origin (no wildcard). So the address can be changed by these settings alone only to an origin the policy already allows; moving to a new origin needs a reviewed edit of the policy first. Give the node API a stable custom domain so this never has to change.
+
+**Switching on, in order:** deploy the web service with the new image; check the node API's `/api/health` shows `ok`; set `WALLET_NODE_ENABLED=true` and `WALLET_NODE_API_URL`, restart; open the wallet's data-source indicator (a small dot) and confirm it reports the node, or syncing if it is not ready yet. **Roll back** by turning `WALLET_NODE_ENABLED` off and restarting.

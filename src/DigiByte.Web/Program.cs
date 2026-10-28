@@ -18,6 +18,12 @@ if (!builder.HostEnvironment.IsDevelopment())
     builder.Logging.AddFilter("Polly", LogLevel.Warning);
 }
 
+// ── Deployment settings written when the web container starts (config.json) ──
+// Only the OwnNode section is accepted, so the own-node switch, node address and thresholds change without a rebuild. A missing or
+// invalid file means "no overrides" (node use stays off). See specs/005-wallet-own-node-source/contracts/runtime-config.md.
+using (var configHttp = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
+    builder.Configuration.AddInMemoryCollection(await RuntimeConfigLoader.FetchAsync(configHttp));
+
 // ── HTTP clients with resilience (Polly: retry + circuit breaker + timeout) ──
 var baseAddress = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.BaseAddress;
 
