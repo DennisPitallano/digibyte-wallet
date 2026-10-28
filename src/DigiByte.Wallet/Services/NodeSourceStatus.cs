@@ -14,6 +14,16 @@ public enum NodeSourceDot
     Red,
 }
 
+public enum NodeBadgeTone
+{
+    Good,
+    Warn,
+    Muted,
+}
+
+/// <summary>The short badge for the node row on the Deployment page.</summary>
+public sealed record NodeDeploymentBadge(string Label, NodeBadgeTone Tone);
+
 /// <summary>What the status indicator, detail panel and banner should show.</summary>
 public sealed record NodeSourceStatusView(
     bool Visible,
@@ -82,4 +92,19 @@ public static class NodeSourceStatus
 
         return new NodeSourceStatusView(true, NodeSourceDot.Neutral, detail, null, false, null);
     }
+
+    /// <summary>Badge for the "Node API + DigiByte Node" row on the Deployment page, from the live monitor state.</summary>
+    public static NodeDeploymentBadge DeploymentBadge(NodeSourceState state, NodeNotReadyReason reason) => state switch
+    {
+        NodeSourceState.Disabled => new("Not in use", NodeBadgeTone.Muted),
+        NodeSourceState.Active => new("In use", NodeBadgeTone.Good),
+        NodeSourceState.Stabilizing => new("Checking", NodeBadgeTone.Warn),
+        NodeSourceState.Unavailable => new("Unreachable", NodeBadgeTone.Warn),
+        _ => reason switch
+        {
+            NodeNotReadyReason.Starting or NodeNotReadyReason.Syncing => new("Syncing", NodeBadgeTone.Warn),
+            NodeNotReadyReason.HeightDrift => new("Out of step", NodeBadgeTone.Warn),
+            _ => new("Unavailable", NodeBadgeTone.Warn),
+        },
+    };
 }
