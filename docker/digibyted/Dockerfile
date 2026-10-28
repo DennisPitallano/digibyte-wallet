@@ -41,8 +41,8 @@ RUN chmod +x /entrypoint.sh /etc/digibyte/entrypoint-testnet.sh /etc/digibyte/en
 # Expose all possible ports (regtest, testnet, mainnet P2P + RPC)
 EXPOSE 18444 18443 12025 14023 12024 14022
 
-# Persist blockchain data
-VOLUME ["/root/.digibyte"]
+# Blockchain data lives in /root/.digibyte. No VOLUME instruction: Railway rejects it
+# (attach a Railway volume at that path), and the compose files mount named volumes there.
 
 # Default entrypoint is regtest (override via docker-compose for testnet/mainnet)
 ENTRYPOINT ["/entrypoint.sh"]
