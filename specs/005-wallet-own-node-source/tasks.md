@@ -176,11 +176,11 @@ Monorepo: `src/DigiByte.Wallet/Services/`, `src/DigiByte.Web/`, `tests/DigiByte.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T049 [P] Add the privacy paragraph (FR-014a): when the wallet uses the team's own node, the team's servers rather than a third-party explorer see the public addresses the wallet looks up, and keys never leave the device; put it in `docs/SECURITY.md` and in the privacy section of `src/DigiByte.Web/Pages/Help.razor`
-- [ ] T050 [P] Add a CHANGELOG.md entry: wallet can use the team's own node when it reports ready, automatic fallback, status indicator and detail, runtime settings, developer comparison page
-- [ ] T051 [P] Update `docs/ARCHITECTURE.md` (the "Cascading Blockchain Service" section and the explorer table) with the new read/broadcast order and the readiness monitor
-- [ ] T052 Run `dotnet build DigiByte.slnx` and `dotnet test` for `tests/DigiByte.Wallet.Tests`, `tests/DigiByte.Crypto.Tests`, `tests/DigiByte.Api.Tests` and `tests/DigiByte.NodeApi.Tests` from the repo root; fix regressions
-- [ ] T053 Security review of the diff against the constitution (CSP origin, runtime config handling, nothing secret in `config.json`, no key or signing path touches the node), and flag the CSP change in the PR description
+- [X] T049 [P] Add the privacy paragraph (FR-014a): when the wallet uses the team's own node, the team's servers rather than a third-party explorer see the public addresses the wallet looks up, and keys never leave the device; put it in `docs/SECURITY.md` and in the privacy section of `src/DigiByte.Web/Pages/Help.razor`
+- [X] T050 [P] Add a CHANGELOG.md entry: wallet can use the team's own node when it reports ready, automatic fallback, status indicator and detail, runtime settings, developer comparison page
+- [X] T051 [P] Update `docs/ARCHITECTURE.md` (the "Cascading Blockchain Service" section and the explorer table) with the new read/broadcast order and the readiness monitor
+- [X] T052 Run `dotnet build DigiByte.slnx` and `dotnet test` for `tests/DigiByte.Wallet.Tests`, `tests/DigiByte.Crypto.Tests`, `tests/DigiByte.Api.Tests` and `tests/DigiByte.NodeApi.Tests` from the repo root; fix regressions
+- [X] T053 Security review of the diff against the constitution (CSP origin, runtime config handling, nothing secret in `config.json`, no key or signing path touches the node), and flag the CSP change in the PR description
 - [ ] T054 Run the full quickstart.md end to end on a staging deployment and tick off SC-001 to SC-008, recording the results
 
 ---

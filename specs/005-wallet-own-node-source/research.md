@@ -99,3 +99,15 @@ Read from `src/DigiByte.Web/Pages/Home.razor`, `src/DigiByte.Web/Pages/Send.razo
 - **Missing for FR-012**: nothing marks the cached balance as possibly out of date when the device is online but no source answers, and Send shows the raw "All blockchain backends are unavailable" text when a read inside the send flow fails.
 - **Decision**: add the smallest things that close the gap, all active only when node use is on so behaviour with the feature off is unchanged (FR-010): a "May be out of date" tag next to the balance (`OutOfDateTag`), a notice at the top of Send (`SendUnavailableNotice`), and a plain message in Send's error path. The global banner from the status feature already says the same thing app-wide.
 
+## R15 - Security review of the implementation (task T053)
+
+Reviewed the whole diff of this feature against the constitution (secret hygiene, auth boundary, CSP) and the spec (FR-014).
+
+- **Keys and signing**: nothing in the feature touches keys, the seed or signing; the node only receives already-signed transactions and public chain requests. The status text, developer page and `config.json` carry no secret.
+- **config.json**: only the `OwnNode` section is accepted (`RuntimeConfigLoader`), so the file cannot override any other setting (price API, DigiDollar, node URL for DigiDollar). The container script validates every value and escapes the URL, so it always writes valid JSON; values are never logged.
+- **Node address**: now https only (plain http accepted only for localhost), so a network attacker cannot feed false balances; the browser also enforces the content-security policy origin list. The policy change itself is still pending (task T041, one exact origin).
+- **Untrusted node data**: chain data from the node is treated like explorer data (display and fee/UTXO selection only; signing uses local keys). A node that disagrees with an explorer by more than 5 blocks is not used, and strict mode means a failure is never shown as a zero.
+- **Caching**: the service worker never caches the node API or `config.json` (comment added), so a stale health report cannot make a dead node look ready.
+- **Developer page**: reads only, gated by `OwnNode:DevView` (off by default), and calls only public endpoints.
+- **Open item for the PR description**: flag the content-security-policy change (T041) as security-relevant.
+

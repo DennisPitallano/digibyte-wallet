@@ -21,7 +21,7 @@ No secrets. Anything the browser reads from here is public.
 - `NodeApiUrl` itself is **not** written or changed by this file: the DigiDollar client and the usage counter keep using it. The health check and the node blockchain client use `OwnNode:ApiUrl` when set, otherwise `NodeApiUrl`.
 - Invalid or out-of-range numbers fall back to that field's default (see the data model).
 - The file must be served with no-cache headers (an exact-match rule in `nginx.conf` that beats the generic `*.json` caching rule), and must not be in the service worker's precached asset list, so a changed variable takes effect on the next page load.
-- `OwnNode:ApiUrl` must be an origin allowed by the page's CSP `connect-src`. Today that is one exact origin (the node API's stable custom domain) added to `index.html`. Pointing to a different origin needs a CSP change first, otherwise the browser blocks every call and the wallet behaves as "node unavailable".
+- `OwnNode:ApiUrl` must be https (plain http is accepted only for a local test node on localhost) so chain data cannot be altered on the way, and must be an origin allowed by the page's CSP `connect-src`. Today that is one exact origin (the node API's stable custom domain) added to `index.html`. Pointing to a different origin needs a CSP change first, otherwise the browser blocks every call and the wallet behaves as "node unavailable".
 
 ## Example
 

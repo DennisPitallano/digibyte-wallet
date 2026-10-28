@@ -14,7 +14,7 @@ public sealed class NodeSourceOptions
     /// <summary>Off means today's behaviour and no health calls.</summary>
     public bool Enabled { get; init; }
 
-    /// <summary>Absolute http(s) origin of the node API without a trailing slash, or null when missing or invalid.</summary>
+    /// <summary>Absolute https origin of the node API (http only for a local test node) without a trailing slash, or null when missing or invalid.</summary>
     public string? ApiUrl { get; init; }
 
     public bool HasApiUrl => ApiUrl is not null;
@@ -69,6 +69,9 @@ public sealed class NodeSourceOptions
         if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out var uri))
             return null;
         if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            return null;
+        // Plain http would let anyone on the network feed the wallet false chain data, so it is accepted only for a local test node.
+        if (uri.Scheme == Uri.UriSchemeHttp && !uri.IsLoopback)
             return null;
         return raw.Trim().TrimEnd('/');
     }

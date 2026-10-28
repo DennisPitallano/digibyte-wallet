@@ -107,6 +107,8 @@ public class NodeSourceOptionsTests
     [InlineData("   ")]
     [InlineData("not a url")]
     [InlineData("ftp://node.example.org")]
+    [InlineData("http://node.example.org")]
+    [InlineData("http://203.0.113.5:5260")]
     [InlineData("/relative/path")]
     [InlineData("javascript:alert(1)")]
     public void ApiUrl_EmptyOrNotAbsoluteHttp_IsNullAndNeverThrows(string value)
@@ -119,6 +121,7 @@ public class NodeSourceOptionsTests
 
     [Theory]
     [InlineData("http://localhost:5260", "http://localhost:5260")]
+    [InlineData("http://127.0.0.1:5260", "http://127.0.0.1:5260")]
     [InlineData("https://node.example.org/", "https://node.example.org")]
     public void ApiUrl_AbsoluteHttp_IsAcceptedWithoutTrailingSlash(string value, string expected)
     {
