@@ -22,7 +22,7 @@ Items marked **(verify)** were not confirmed against running code and must be ch
 ## R3 - Reads and sends while the feature is on
 
 - **Decision**:
-  - **Active**, by route class: **fast routes** (transaction lookup, fee estimate, chain height) and **broadcast** try the node first, then the explorers for that request if the node fails (FR-003). **Address routes** (balance, spendable outputs, history) stay explorer-first and use the node only as a fallback when the explorers fail, because the node answers them by scanning its whole set of spendable outputs (measured about 14 seconds for one address, about 0.3 seconds from an explorer). Clarified by the maintainer on 2026-10-29.
+  - **Active**, by route class: **fast routes** (transaction lookup, fee estimate, chain height) and **broadcast** try the node first, then the explorers for that request if the node fails (FR-003). **Address routes** (balance, spendable outputs) stay explorer-first and use the node only as a fallback when the explorers fail, because the node answers them by scanning its whole set of spendable outputs (measured about 14 seconds for one address, about 0.3 seconds from an explorer). Clarified by the maintainer on 2026-10-29. **History is explorers only** (R14): the node cannot produce full history.
   - **Any other state with the feature on**: reads and broadcasts use only the explorers. The node is **not** used as a last resort. A syncing node answers address lookups with incomplete data (for example a zero balance), which is worse than an error.
   - **Feature off**: exactly today's order (explorers first for reads, node last resort; node first for broadcast). No health calls.
 - **Rationale**: FR-002, FR-004, FR-010 and SC-005 (no transaction first sent to a node that is not ready). Today's code tries the node first for every broadcast, even while syncing; this is the one existing behaviour that changes when the feature is on.
@@ -80,3 +80,13 @@ Items marked **(verify)** were not confirmed against running code and must be ch
 ## R12 - Dependencies on feature 004
 
 - The wallet depends on the node API address, the `/api/health` contract (`status`, `blocks`, `headers`, `lag`, `peers`, `txindex`, `versionOk`) and on the node API being allowed to answer browser requests (it answers any origin on public read routes today, see 004 research). The health endpoint has no secrets and no auth, so the browser can call it.
+
+## R14 - The existing node client hides errors, and cannot list history
+
+- **Finding** (read from `src/DigiByte.Wallet/Services/NodeApiBlockchainService.cs`): every method catches all exceptions and returns a neutral value: balance `0`, spendable outputs `[]`, transaction `null`, fee `0.00001`, height `0`, history `[]`. The fallback service treats those as successes. Address history is built only from the transactions behind the address's *unspent* outputs, so it cannot be complete.
+- **Decision**:
+  - Give the node client an opt-in **strict mode** (constructor option, default off). In strict mode transport errors, timeouts, non-success HTTP status and unreadable bodies throw; only a genuine "not found" on a transaction lookup returns null. The Web layer turns it on only when the feature is on, so with the feature off behaviour is exactly today's (FR-010).
+  - A null (not found) from the node for a transaction lookup is not authoritative: the wallet asks the explorers before reporting the transaction unknown.
+  - **Address history is explorers only** (third route class), never the node, not even as a fallback. If every explorer fails, history shows the existing "can't reach" state.
+- **Rationale**: Failed reads must be able to fall through and be counted (FR-003, the read-failure demotion in R2), and the wallet must never show a zero balance, empty list or default value for a failed request (FR-008).
+- **Alternatives**: change the client's behaviour for everyone (rejected: changes today's behaviour with the feature off); wrap each call and guess failure from the value (rejected: a real zero balance and a failure look identical).

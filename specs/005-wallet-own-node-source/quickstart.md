@@ -29,6 +29,7 @@ Run a stub that returns each health state on demand (a few lines of script that 
 | e | `ok`, then flip `ok`/`syncing` every 20 s | The wallet does not switch to the node (never stays ready for the stable period) |
 | f | `ok` with `versionOk: false` | Not used; detail says out of step or unavailable |
 | g | `ok` but explorers unreachable (block them) | State does not change either way |
+| h2 | `ok`, node data routes return errors (not zeros) while explorers work | Fast routes (height, fee, transaction) are answered by explorers with correct values, never height 0 or a default fee; balance never shows 0 because of a node failure; address history is always from the explorers |
 | h | `ok` but the node's data routes fail or hang (stop the real node API while the stub still answers health) | Each request is answered by an explorer within about 5 s; after 3 failures the wallet stops using the node at once (state not ready, banner) |
 
 Throughout: send and receive still work; balance and history do not flicker or duplicate across switches.

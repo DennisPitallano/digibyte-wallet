@@ -45,8 +45,13 @@ Reads and broadcast use the same node API routes as today (`/api/address/*`, `/a
 | Route class | Routes | Order when `Active` | Read budget |
 |---|---|---|---|
 | fast | `/api/tx/{txid}`, `/api/network/fee/*`, `/api/blockchain/height`, `POST /api/tx/broadcast` | node first, explorers for that request if it fails | 5 s |
-| address | `/api/address/*` (balance, spendable outputs, batches) | explorers first, node as fallback | 20 s |
+| address | `/api/address/{a}/balance`, `/api/address/{a}/utxos` and their batch forms | explorers first, node as fallback | 20 s |
+| history | address transaction history | explorers only; never the node (it cannot list full history) | n/a |
 
 The split exists because the node answers address lookups by scanning its whole set of spendable outputs (measured about 14 seconds for one address). A later feature can add an address index to the node, after which the address class can move to node first.
 
 While the node is `Active`, each node read has the budget in the table above. A failed or over-budget read is answered by an explorer for that request and reported to the monitor; 3 consecutive failures demote the node immediately instead of waiting for the next health check, and any success resets the count.
+
+## Failed node reads and not-found
+
+When the feature is on, the wallet uses the node client in strict mode: a transport error, timeout, non-success status or unreadable body is a failed read (it throws, is answered by an explorer for that request, and is reported to the monitor). Only a genuine not-found on a transaction lookup returns null, and a null from the node is not authoritative: the explorers are asked before the wallet reports the transaction unknown. A failed read is never turned into a zero balance, an empty list, a default fee or a height of 0.

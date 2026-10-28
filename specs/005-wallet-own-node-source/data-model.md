@@ -41,9 +41,9 @@ Out-of-range values fall back to the default for that field.
 
 | Field | Meaning |
 |---|---|
-| source | `own-node`, an explorer name, or `none` |
+| source | Per route class (`fast`, `address`, `history`): `own-node`, an explorer name, or `none`. The status detail is derived from the monitor state and these, not from the last backend that answered |
 | why | `preferred`, `fallback`, `node-syncing`, `node-unavailable`, `all-failed`, `feature-off` |
-| routeClass | `fast` (transaction lookup, fee, height, broadcast: node first when `Active`) or `address` (balance, spendable outputs, history: explorers first, node as fallback) |
+| routeClass | `fast` (transaction lookup, fee, height, broadcast: node first when `Active`), `address` (balance, spendable outputs: explorers first, node as fallback) or `history` (explorers only, never the node) |
 | since | When this source became active |
 | nodeWasActive | The node was `Active` earlier in this session (drives the banner, R8 in the research) |
 

@@ -66,6 +66,7 @@ specs/005-wallet-own-node-source/
 
 ```text
 src/DigiByte.Wallet/Services/
+├── NodeApiBlockchainService.cs    # CHANGE: opt-in strict mode (fail loudly instead of returning zeros), used only when the feature is on
 ├── NodeSourceOptions.cs           # NEW: enabled, url, check interval, stable period, height tolerance
 ├── NodeReadiness.cs               # NEW: health snapshot + ready predicate (pure)
 ├── NodeSourceMonitor.cs           # NEW: state machine (Disabled/Unavailable/NotReady/Stabilizing/Active), injectable clock
@@ -104,3 +105,7 @@ docs/
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
 | CSP `connect-src` gains one first-party origin | The browser blocks calls to the node API unless the origin is listed | A wildcard such as `*.up.railway.app` would allow any Railway app; a header-based CSP injected per deployment would move a security control out of the page and is a bigger change than one reviewed origin (R4) |
+
+## Cross-feature note
+
+When DigiDollar later moves to the node API backend (`DigiDollar:Backend` = `nodeapi`), `NodeApiUrl` will point at the same node API. That setting is outside this feature, stays a build-time setting for now, and this feature's runtime config only writes `OwnNode:ApiUrl`.
