@@ -99,7 +99,9 @@ Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends
 - Tuned for Railway: `dbcache=256`, `maxmempool=50`, `maxconnections=24`
 - RPC password **must** be changed before deploying (`digibyte-mainnet.conf`)
 
-**Railway services:**
+**Railway full node (separate project):** a second, preferred setup runs an unpruned `txindex` node (DigiByte Core v9.26.7, wallet disabled) with its own copy of the node API in a dedicated Railway project. The node's RPC port is only reachable over that project's private network; the node API is the single public surface. Operator-only routes (keys, wallet, mining, node control, block invalidate, costly reads) need `X-NodeApi-Key` outside Development. See [RAILWAY_NODE.md](RAILWAY_NODE.md).
+
+**Railway services (existing project):**
 1. `digibyted` — Pruned mainnet node (entrypoint override: `entrypoint-mainnet.sh`)
 2. `digibyte-node-api` — REST wrapper for RPC
 3. `digibyte-api` — P2P marketplace backend

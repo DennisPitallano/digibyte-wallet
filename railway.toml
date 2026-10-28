@@ -2,6 +2,24 @@
 # This project deploys as SIX separate Railway services from this monorepo.
 # See below for per-service setup instructions.
 #
+# ─── Node project (separate Railway project) ────────────────────────────────
+#
+# The full DigiByte Core node lives in its OWN Railway project with two services.
+# Full steps, variables and runbook: docs/RAILWAY_NODE.md
+#
+#   digibyted  — docker/digibyted/Dockerfile, start command
+#                /etc/digibyte/entrypoint-railway.sh, unpruned + txindex, 100 GB volume
+#                at /root/.digibyte. NEVER give it a public domain or a TCP proxy for
+#                the RPC port (14022). Variables: DGB_RPC_USER, DGB_RPC_PASSWORD,
+#                DGB_RPC_ALLOW_IP (and optionally DGB_RPC_BIND, DGB_DBCACHE_MB).
+#   node-api   — docker/node-api/Dockerfile, public domain, health check /api/health,
+#                small volume for its DigiDollar index and metrics files. Reaches the
+#                node over the private network (DIGIBYTE_HOST, DIGIBYTE_RPC_USER,
+#                DIGIBYTE_RPC_PASSWORD). Needs NODEAPI_WRITE_KEY for operator-only routes.
+#
+# Service 4 below (pruned mainnet node) belongs to the existing project and is kept
+# until the wallet has been cut over to the node project; it is then the rollback.
+#
 # ─── Main wallet stack ──────────────────────────────────────────────────────
 #
 # Service 1: digibyte-api

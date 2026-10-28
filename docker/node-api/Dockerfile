@@ -34,13 +34,14 @@ COPY --from=build /app/publish .
 # API port
 EXPOSE 5260
 
-# Environment defaults — overridden by docker-compose / Railway
+# Environment defaults — overridden by docker-compose / Railway.
+# No RPC credentials are baked in: set DIGIBYTE_RPC_USER and DIGIBYTE_RPC_PASSWORD
+# (or DigiByteNode__RpcUser / DigiByteNode__RpcPassword) at run time. Production
+# refuses to start with empty or default credentials. Mainnet and no faucet by default;
+# the local compose files opt in to testnet/faucet explicitly.
 ENV ASPNETCORE_URLS=http://+:5260
 ENV DigiByteNode__Host=digibyted
-ENV DigiByteNode__TestnetPort=14023
-ENV DigiByteNode__RpcUser=dgbrpc
-ENV DigiByteNode__RpcPassword=changeme
-ENV DigiByteNode__IsTestnet=true
-ENV DigiByteNode__FaucetEnabled=true
+ENV DigiByteNode__IsTestnet=false
+ENV DigiByteNode__FaucetEnabled=false
 
 ENTRYPOINT ["dotnet", "DigiByte.NodeApi.dll"]

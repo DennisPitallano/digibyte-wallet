@@ -36,6 +36,13 @@ public class DdFeeReserveMonitor : BackgroundService
             return;
         }
 
+        // A read-only deployment (node without a wallet, e.g. the Railway full node) leaves the wallet name blank.
+        if (string.IsNullOrWhiteSpace(_config.WalletName))
+        {
+            _logger.LogInformation("DdFeeReserveMonitor idle — no DigiDollar wallet configured.");
+            return;
+        }
+
         _logger.LogInformation(
             "DdFeeReserveMonitor started (wallet={Wallet}, minReserve={Min} DGB, interval={Interval}s)",
             _config.WalletName, _config.MinDgbFeeReserveDgb, _config.FeeReserveCheckInterval.TotalSeconds);

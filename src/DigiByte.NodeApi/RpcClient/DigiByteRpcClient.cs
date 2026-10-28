@@ -56,7 +56,9 @@ public class DigiByteRpcClient
         }
         catch (HttpRequestException ex)
         {
-            throw new RpcException(-1, $"Cannot connect to DigiByte node at {_config.RpcUrl}: {ex.Message}");
+            // The message reaches API clients, so it names no host or port; the details go to the server log.
+            _logger.LogWarning(ex, "Cannot connect to DigiByte node at {Url} for {Method}", _config.RpcUrl, method);
+            throw new RpcException(-1, "Cannot connect to the DigiByte node");
         }
         catch (TaskCanceledException)
         {
@@ -120,7 +122,8 @@ public class DigiByteRpcClient
         }
         catch (HttpRequestException ex)
         {
-            throw new RpcException(-1, $"Cannot connect to DigiByte node at {_config.RpcUrl}{walletPath}: {ex.Message}");
+            _logger.LogWarning(ex, "Cannot connect to DigiByte node at {Url}{Path} for {Method}", _config.RpcUrl, walletPath, method);
+            throw new RpcException(-1, "Cannot connect to the DigiByte node");
         }
         catch (TaskCanceledException)
         {
