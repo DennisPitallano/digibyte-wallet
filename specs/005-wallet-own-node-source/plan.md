@@ -16,7 +16,7 @@ Teach the wallet to use the Railway node (feature 004) only when the node proves
 
 **Storage**: none new. Readiness state is in memory per session; last-known balances use the existing offline cache
 
-**Testing**: `DigiByte.Wallet.Tests` (monitor state machine with a fake clock, health fetcher and explorer-height source; fallback ordering; broadcast ordering, including the existing `FallbackBroadcastTests`); a Web-level check of runtime config loading; manual quickstart against the real node and against a stub health endpoint
+**Testing**: `DigiByte.Wallet.Tests` (monitor state machine with a fake clock, health fetcher and explorer-height source; fallback ordering; broadcast ordering, including the existing `FallbackBroadcastTests`); a local shell test of the config-writing script and a manual check of runtime config loading (quickstart, T043; there is no Web test project); manual quickstart against the real node and against a stub health endpoint
 
 **Target Platform**: browser (PWA); static hosting on Railway behind nginx
 

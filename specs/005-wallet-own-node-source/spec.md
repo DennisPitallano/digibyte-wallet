@@ -135,18 +135,18 @@ While the node is still syncing, an operator can see its readiness from the wall
 - **FR-002**: While the node is not ready (starting, syncing, unhealthy, version too old, unreachable, or the report is missing or invalid), the wallet MUST obtain balance, history, fees and chain height from the public explorers exactly as it does today.
 - **FR-003**: While the node is ready, the wallet MUST prefer it for reads, and MUST fall back to the explorers for any single read that fails or runs too long, and MUST stop preferring the node after a few consecutive failed reads without waiting for the next readiness check.
 - **FR-004**: For sending, the wallet MUST try the own node first only when it is ready; otherwise it MUST use the explorers first. A failed broadcast MUST still fall through to the next source, as today.
-- **FR-005a**: The height cross-check MUST be repeated with each readiness check; if no explorer height can be obtained, the wallet MUST keep its current source rather than switch to the node, and MUST NOT treat the missing explorer answer as the node being wrong.
 - **FR-005**: The wallet MUST switch from explorers to the node only after the node has stayed ready for a short stable period, and MUST switch away from the node promptly when it stops being ready.
+- **FR-005a**: The height cross-check MUST be repeated with each readiness check; if no explorer height can be obtained, the wallet MUST keep its current source rather than switch to the node, and MUST NOT treat the missing explorer answer as the node being wrong.
 - **FR-006**: Readiness MUST be re-checked regularly in the background, with a bounded wait per check, and a slow or dead node MUST NOT delay any screen.
 - **FR-007**: Core flows (balance, receive, send, history) MUST NOT depend on the node being up; their availability MUST equal what the explorers alone provide.
 - **FR-008**: Switching sources MUST NOT lose, duplicate or misreport balance, history or pending transactions, and MUST NOT require user action.
-- **FR-009**: Node use MUST be switchable on or off, and the node address MUST be settable, per deployment through settings only, with no code change or rebuild.
+- **FR-009**: Node use MUST be switchable on or off, and the node address MUST be settable, per deployment through settings only, with no code change or rebuild, for any address whose origin the page's content-security policy already allows (see Assumptions).
 - **FR-010**: With node use off, the wallet MUST behave exactly as it did before this feature, including never contacting the node's readiness report.
 - **FR-011**: The wallet MUST show which source is currently active in a status detail that the user can open on demand from a small status indicator (no permanent source label on the main screen), and MUST show a clear degraded-mode message when it is running on a fallback because a preferred source is unavailable, or when no source is available.
 - **FR-012**: When no source is available, the wallet MUST show the last known data clearly marked as out of date, and MUST explain why sending is unavailable.
 - **FR-013**: The wallet MUST give operators a diagnostics view of the node's reported state and a way to compare the node's answers against the explorers for chosen addresses. The view MUST exist only when a deployment setting turns on a developer view (off by default, changeable without a rebuild), MUST NOT be reachable or visible to users otherwise, and neither it nor the comparison MUST affect what normal users see.
-- **FR-014a**: When the own node is the active source, the status detail MUST include a one-line plain-language note that the wallet team's servers (rather than a third-party explorer) see the public addresses the wallet looks up; the privacy documentation MUST say the same.
 - **FR-014**: No private key, seed, password or signing operation MUST be sent to, or depend on, the node; only public chain requests and already-signed transactions go to it.
+- **FR-014a**: When the own node is the active source, the status detail MUST include a one-line plain-language note that the wallet team's servers (rather than a third-party explorer) see the public addresses the wallet looks up; the privacy documentation MUST say the same.
 - **FR-015**: A node whose report cannot be read for any reason (blocked, timed out, malformed) MUST be treated as unavailable and MUST NOT produce repeated visible errors.
 - **FR-016**: The behaviour above MUST be verifiable against a test node whose reported state can be set to each value, without needing the real node to finish syncing.
 
@@ -166,7 +166,7 @@ While the node is still syncing, an operator can see its readiness from the wall
 - **SC-003**: Within 35 seconds (one 30 second check interval plus the 3 second probe) of the node stopping being ready (including drifting more than 5 blocks from the public explorers), new requests are served by the explorers, with no user-visible error.
 - **SC-004**: Across 20 forced switches in both directions, zero cases of lost, duplicated or wrong balance, history entries or pending transactions.
 - **SC-005**: Zero transactions are first sent to a node that is not ready.
-- **SC-006**: Turning node use on, off, or changing the node address takes effect through deployment settings alone, in under 15 minutes, with no rebuild.
+- **SC-006**: Turning node use on or off, or changing the node address to another already-allowed origin, takes effect through deployment settings alone, in under 15 minutes, with no rebuild.
 - **SC-007**: A user or support person can tell which source is active within 10 seconds, and 100% of degraded states (fallback in use, nothing available) show a message in plain language.
 - **SC-008**: Before cut-over, the comparison for at least 20 sample addresses shows matching balances and spendable outputs between the node and the explorers.
 
@@ -181,6 +181,7 @@ While the node is still syncing, an operator can see its readiness from the wall
 - The operator diagnostics and comparison view is for the team, not a feature advertised to users; it appears only where the deployment's developer-view setting is on.
 - DigiDollar data sources are configured separately and are out of scope here.
 - Where this spec says the node is "ready" in the sense of choosing a source, it means the wallet's active state: the node has reported ready and has stayed ready for the stable period. A single ready report only starts the stability window.
+- The wallet's strict content-security policy lists exactly which servers the page may contact. The node's address can therefore be changed by settings alone only within origins the policy already allows (one stable first-party origin is added for the node API). Moving to a new origin needs a reviewed policy change first; until then the browser blocks the calls and the wallet behaves as "node unavailable". The wildcard alternative was rejected as too broad.
 - "Degraded" means a source that was working is lost (the own node was active and dropped back) or every source is failing. A node that is simply still syncing is shown in the status detail only, never as a banner.
 - The public explorers stay in the product as the fallback; removing them is out of scope.
 - Feature 004 (the Railway node and its node API) is the dependency: its readiness report and API are used as they are.
