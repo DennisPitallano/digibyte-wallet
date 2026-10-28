@@ -204,4 +204,25 @@ public class NodeSourceStatusTests
                 Assert.DoesNotContain(banned, v.Detail, StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    // ---------- Deployment page badge ----------
+
+    [Theory]
+    [InlineData(NodeSourceState.Disabled, NodeNotReadyReason.Disabled, "Not in use", NodeBadgeTone.Muted)]
+    [InlineData(NodeSourceState.Active, NodeNotReadyReason.None, "In use", NodeBadgeTone.Good)]
+    [InlineData(NodeSourceState.Stabilizing, NodeNotReadyReason.None, "Checking", NodeBadgeTone.Warn)]
+    [InlineData(NodeSourceState.Unavailable, NodeNotReadyReason.Unreachable, "Unreachable", NodeBadgeTone.Warn)]
+    [InlineData(NodeSourceState.NotReady, NodeNotReadyReason.Syncing, "Syncing", NodeBadgeTone.Warn)]
+    [InlineData(NodeSourceState.NotReady, NodeNotReadyReason.Starting, "Syncing", NodeBadgeTone.Warn)]
+    [InlineData(NodeSourceState.NotReady, NodeNotReadyReason.HeightDrift, "Out of step", NodeBadgeTone.Warn)]
+    [InlineData(NodeSourceState.NotReady, NodeNotReadyReason.Version, "Unavailable", NodeBadgeTone.Warn)]
+    [InlineData(NodeSourceState.NotReady, NodeNotReadyReason.ReadFailures, "Unavailable", NodeBadgeTone.Warn)]
+    public void DeploymentBadge_ReflectsTheLiveState(NodeSourceState state, NodeNotReadyReason reason, string label, NodeBadgeTone tone)
+    {
+        var badge = NodeSourceStatus.DeploymentBadge(state, reason);
+
+        Assert.Equal(label, badge.Label);
+        Assert.Equal(tone, badge.Tone);
+    }
 }
+

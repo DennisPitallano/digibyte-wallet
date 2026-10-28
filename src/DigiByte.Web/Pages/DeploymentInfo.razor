@@ -3,6 +3,8 @@
 @inject FallbackBlockchainService Blockchain
 @inject AppState AppState
 @inject MemoryCacheService Cache
+@inject INodeSourceState NodeState
+@implements IDisposable
 
 <PageTitle>Deployment</PageTitle>
 
@@ -33,13 +35,23 @@
                 </div>
                 <span class="text-[10px] font-bold text-green-500 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">Online</span>
             </div>
+            @{
+                var nodeBadge = NodeSourceStatus.DeploymentBadge(NodeState.State, NodeState.Reason);
+                var nodeDot = nodeBadge.Tone switch { NodeBadgeTone.Good => "bg-green-500 animate-pulse", NodeBadgeTone.Warn => "bg-amber-500", _ => "bg-slate-300" };
+                var nodePill = nodeBadge.Tone switch
+                {
+                    NodeBadgeTone.Good => "text-green-500 bg-green-50 dark:bg-green-900/20",
+                    NodeBadgeTone.Warn => "text-amber-600 bg-amber-50 dark:bg-amber-900/20",
+                    _ => "text-slate-400 bg-slate-100 dark:bg-dgb-800",
+                };
+            }
             <div class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
-                <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                <div class="w-2 h-2 rounded-full @nodeDot"></div>
                 <div class="flex-1">
                     <p class="text-sm font-semibold text-slate-900 dark:text-white">Node API + DigiByte Node</p>
-                    <p class="text-[10px] text-slate-400">Docker — 87 RPC endpoints + Scalar docs</p>
+                    <p class="text-[10px] text-slate-400">Full DigiByte Core node and API (Railway) — used when ready</p>
                 </div>
-                <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-dgb-800 px-2 py-0.5 rounded-full">Local Only</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full @nodePill">@nodeBadge.Label</span>
             </div>
         </div>
     </div>
@@ -131,8 +143,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        NodeState.Changed += OnNodeStateChanged;
         await LoadDonationDataAsync(useCache: true);
     }
+
+    private void OnNodeStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => NodeState.Changed -= OnNodeStateChanged;
 
     private async Task LoadDonationDataAsync(bool useCache)
     {
