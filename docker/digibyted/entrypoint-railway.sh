@@ -48,4 +48,11 @@ cp /etc/digibyte/digibyte-railway.conf "${CONF}"
 
 # dbcache and the rpc* options belong to the [main] section, which the template
 # ends with, so appending keeps them in the right section.
+
+# During sync the node prints several difficulty-adjustment debug lines for every block,
+# thousands a second. Railway rate-limits log output and drops lines, which hides real
+# warnings and errors. Drop only those line types. The process substitution keeps the
+# node as this shell's own process (exec), so stop signals still reach it directly.
+exec > >(grep --line-buffered -v -E 'GetNextWorkRequired|nTargetTimespan = |Before: +[0-9a-f]{8} |After: +[0-9a-f]{8} |Block [0-9]+: version=') 2>&1
+
 exec digibyted -printtoconsole "$@"
