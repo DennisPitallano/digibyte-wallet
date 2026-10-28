@@ -184,3 +184,15 @@ internal sealed class FakeNodeApi
     public NodeApiBlockchainService Client(bool strict = true) =>
         new(new HttpClient(new Handler(this)), "http://fake-node:5260", strict);
 }
+
+/// <summary>A minimal in-memory secure storage for tests that need a transaction tracker.</summary>
+internal sealed class MemoryStorage : DigiByte.Wallet.Storage.ISecureStorage
+{
+    private readonly Dictionary<string, string> _store = new();
+    public Task<string?> GetAsync(string key) => Task.FromResult(_store.TryGetValue(key, out var v) ? v : null);
+    public Task SetAsync(string key, string value) { _store[key] = value; return Task.CompletedTask; }
+    public Task RemoveAsync(string key) { _store.Remove(key); return Task.CompletedTask; }
+    public Task<bool> ContainsKeyAsync(string key) => Task.FromResult(_store.ContainsKey(key));
+    public Task ClearAsync() { _store.Clear(); return Task.CompletedTask; }
+    public Task<List<string>> GetKeysWithPrefixAsync(string prefix) => Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
+}
