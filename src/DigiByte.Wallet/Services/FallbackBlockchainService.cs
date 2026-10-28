@@ -5,10 +5,17 @@ using System.Text.Json;
 namespace DigiByte.Wallet.Services;
 
 /// <summary>
-/// Cascading fallback with smart routing and multiple explorer backends:
-/// - Reads:  NodeApi (own pruned node) → Explorer list (Blockbook, Esplora, etc.) → Mock
+/// Cascading fallback with smart routing and multiple explorer backends.
+///
+/// Without a node-source monitor, or with it Disabled (the feature is off), the order is exactly as it always was:
+/// - Reads:  Explorer list (Blockbook, Esplora, etc.) → NodeApi as the last resort → Mock (development only)
 /// - Writes: NodeApi first → all explorers in order
 /// - Regtest: NodeApi only → Mock (no public explorer for regtest)
+///
+/// With our own node as a source (specs/005-wallet-own-node-source) the monitor decides:
+/// - Node not active (starting, syncing, unavailable, stabilizing): explorers only for reads and sends. A node that is still
+///   syncing answers address lookups with incomplete data, so it is never asked, not even as a last resort.
+/// - Node active: see the route classes (<see cref="NodeRouteClass"/>).
 /// </summary>
 public class FallbackBlockchainService : IBlockchainService
 {
@@ -19,7 +26,15 @@ public class FallbackBlockchainService : IBlockchainService
     private readonly string? _priceApiBaseUrl;
     private readonly FiatRateProvider? _fx;
     private readonly bool _isDevelopment;
+    private readonly INodeSourceState? _nodeState;
+    private readonly INodeReadFailureSink? _nodeFailureSink;
     private bool _isRegtest;
+
+    /// <summary>Time budget for one node read on a fast route (transaction lookup, fee, height) while the node is active.</summary>
+    public TimeSpan FastNodeReadBudget { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>Time budget for one node read on an address route, used only as the fallback; the node answers these by scanning (about 14 s).</summary>
+    public TimeSpan AddressNodeReadBudget { get; set; } = TimeSpan.FromSeconds(20);
 
     // Track which explorers are currently failing to skip them temporarily
     private readonly Dictionary<int, DateTime> _explorerCooldowns = new();
@@ -50,8 +65,12 @@ public class FallbackBlockchainService : IBlockchainService
         bool isDevelopment,
         string? priceApiBaseUrl = null,
         MockBlockchainService? mock = null,
-        FiatRateProvider? fx = null)
+        FiatRateProvider? fx = null,
+        INodeSourceState? nodeState = null,
+        INodeReadFailureSink? failureSink = null)
     {
+        _nodeState = nodeState;
+        _nodeFailureSink = failureSink;
         _nodeApi = nodeApi;
         _explorers = explorers.ToList();
         _priceHttp = priceHttp;
@@ -79,6 +98,9 @@ public class FallbackBlockchainService : IBlockchainService
                 esplora.SetNetwork(mode == "testnet");
         }
     }
+
+    /// <summary>True when node use is off (no monitor or <see cref="NodeSourceState.Disabled"/>) and on regtest: today's order applies.</summary>
+    private bool LegacyOrder => _nodeState is null || _nodeState.State == NodeSourceState.Disabled || _isRegtest;
 
     private bool IsOnCooldown(int index)
     {
@@ -135,19 +157,23 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
-        // 2. Fall back to own node (pruned — scantxoutset is slower but always works)
-        try
+        // 2. Fall back to own node (pruned — scantxoutset is slower but always works).
+        // Only when node use is off: with the feature on, a node that is not active is never asked (see the class summary).
+        if (LegacyOrder)
         {
-            Console.WriteLine("[Read] Trying node-api...");
-            var result = await call(_nodeApi);
-            IsDemoMode = false;
-            ActiveBackend = "node-api";
-            Console.WriteLine("[Read] ✓ node-api succeeded");
-            return result;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
+            try
+            {
+                Console.WriteLine("[Read] Trying node-api...");
+                var result = await call(_nodeApi);
+                IsDemoMode = false;
+                ActiveBackend = "node-api";
+                Console.WriteLine("[Read] ✓ node-api succeeded");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
+            }
         }
 
         // 3. Mock fallback — development only
@@ -173,18 +199,22 @@ public class FallbackBlockchainService : IBlockchainService
         var hexPreview = Convert.ToHexString(rawTransaction).ToLower();
         Console.WriteLine($"[Broadcast] Starting — tx size: {rawTransaction.Length} bytes, hex preview: {hexPreview[..Math.Min(40, hexPreview.Length)]}...");
 
-        // Try own node first
-        try
+        // Try own node first. With the feature on this only happens while the node is active; otherwise explorers go first
+        // and the node is not used (a syncing node does not relay transactions).
+        if (LegacyOrder)
         {
-            Console.WriteLine("[Broadcast] Trying node-api...");
-            var txId = await _nodeApi.BroadcastTransactionAsync(rawTransaction);
-            Console.WriteLine($"[Broadcast] ✓ node-api succeeded — txid: {txId}");
-            InvalidateCache();
-            return txId;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Broadcast] ✗ node-api failed: {ex.Message}");
+            try
+            {
+                Console.WriteLine("[Broadcast] Trying node-api...");
+                var txId = await _nodeApi.BroadcastTransactionAsync(rawTransaction);
+                Console.WriteLine($"[Broadcast] ✓ node-api succeeded — txid: {txId}");
+                InvalidateCache();
+                return txId;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Broadcast] ✗ node-api failed: {ex.Message}");
+            }
         }
 
         // Try each explorer
