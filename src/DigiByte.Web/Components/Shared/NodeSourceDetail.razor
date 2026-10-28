@@ -1,4 +1,5 @@
 @using DigiByte.Wallet.Services
+@inject NodeSourceOptions Options
 
 @* Detail panel for the data-source indicator: names the active source in plain language. Opened on demand only
    (specs/005-wallet-own-node-source/contracts/status-ui.md). *@
@@ -17,6 +18,11 @@
             @if (View.PrivacyLine is { } privacy)
             {
                 <p class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">@privacy</p>
+            }
+
+            @if (Options.DevView)
+            {
+                <a href="dev/node" class="text-xs font-semibold text-dgb-600 dark:text-dgb-300 underline text-center" @onclick="Close">Developer view</a>
             }
 
             <button class="w-full py-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"

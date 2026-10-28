@@ -161,13 +161,13 @@ Monorepo: `src/DigiByte.Wallet/Services/`, `src/DigiByte.Web/`, `tests/DigiByte.
 
 ### Tests for User Story 5
 
-- [ ] T044 [P] [US5] Write failing tests in `tests/DigiByte.Wallet.Tests/NodeSourceComparerTests.cs`: equal balances, UTXO counts and heights within tolerance give `matches`; a differing balance or count gives a mismatch naming the field; one side throwing gives an error on that side and no crash; works for many addresses (20) and returns one row per address; it calls the node directly regardless of the monitor state
+- [X] T044 [P] [US5] Write failing tests in `tests/DigiByte.Wallet.Tests/NodeSourceComparerTests.cs`: equal balances, UTXO counts and heights within tolerance give `matches`; a differing balance or count gives a mismatch naming the field; one side throwing gives an error on that side and no crash; works for many addresses (20) and returns one row per address; it calls the node directly regardless of the monitor state
 
 ### Implementation for User Story 5
 
-- [ ] T045 [US5] Create `src/DigiByte.Wallet/Services/NodeSourceComparer.cs` (compares `NodeApiBlockchainService` in strict mode against an explorer for given addresses, using the batch balance and spendable-output methods so the node scans once for many addresses instead of about 14 seconds per address; produces the Comparison Report from [data-model.md](data-model.md)) (makes T044 pass)
-- [ ] T046 [US5] Create `src/DigiByte.Web/Pages/DevNode.razor` at route `/dev/node`: shows the latest readiness snapshot and recent state changes, and an address input with a "Compare" button that renders the report; reads only, changes nothing for regular views
-- [ ] T047 [US5] Gate the page: when `OwnNode:DevView` is false the route renders the normal not-found page and no navigation entry exists; add the entry to `src/DigiByte.Web/Layout/NavMenu.razor` only when the setting is on
+- [X] T045 [US5] Create `src/DigiByte.Wallet/Services/NodeSourceComparer.cs` (compares `NodeApiBlockchainService` in strict mode against an explorer for given addresses, using the batch balance and spendable-output methods so the node scans once for many addresses instead of about 14 seconds per address; produces the Comparison Report from [data-model.md](data-model.md)) (makes T044 pass)
+- [X] T046 [US5] Create `src/DigiByte.Web/Pages/DevNode.razor` at route `/dev/node`: shows the latest readiness snapshot and recent state changes, and an address input with a "Compare" button that renders the report; reads only, changes nothing for regular views
+- [X] T047 [US5] Gate the page: when `OwnNode:DevView` is false the route renders the normal not-found page and no link exists; with it on, a "Developer view" link appears in the data-source detail panel (`NodeSourceDetail.razor`) instead of a navigation-bar entry, to leave the bottom tab bar alone
 - [ ] T048 [US5] (operator) When the real node reports `ok`: run quickstart step 6 with at least 20 sample addresses and record that balances, output counts and heights match (SC-008); this is the cut-over gate
 
 **Checkpoint**: The team can prove the node is right before real users depend on it.
