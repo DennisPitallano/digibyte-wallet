@@ -47,6 +47,20 @@ public class FallbackBlockchainService : IBlockchainService
     private static readonly TimeSpan BlockHeightCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan FeeRateCacheTtl = TimeSpan.FromMinutes(30);
 
+    /// <summary>True while a read has failed on every source (and no read has succeeded since). Drives the "can't reach the blockchain" state.</summary>
+    public bool AllSourcesFailed { get; private set; }
+
+    /// <summary>Raised when <see cref="AllSourcesFailed"/> changes.</summary>
+    public event Action? AllSourcesFailedChanged;
+
+    private void SetAllSourcesFailed(bool value)
+    {
+        if (AllSourcesFailed == value)
+            return;
+        AllSourcesFailed = value;
+        AllSourcesFailedChanged?.Invoke();
+    }
+
     public bool IsDemoMode { get; private set; }
     public bool ForceDemoMode { get; set; }
     public string ActiveBackend { get; private set; } = "starting";
@@ -124,6 +138,13 @@ public class FallbackBlockchainService : IBlockchainService
     /// and use the node as their fallback, history never uses the node.
     /// </summary>
     private async Task<T> TryRead<T>(Func<IBlockchainService, Task<T>> call, NodeRouteClass routeClass = NodeRouteClass.Address)
+    {
+        var result = await TryReadCore(call, routeClass);   // throws (after setting the flag) when every source failed
+        SetAllSourcesFailed(false);
+        return result;
+    }
+
+    private async Task<T> TryReadCore<T>(Func<IBlockchainService, Task<T>> call, NodeRouteClass routeClass)
     {
         if (ForceDemoMode && _isDevelopment && _mock != null)
         {
@@ -211,6 +232,7 @@ public class FallbackBlockchainService : IBlockchainService
         }
 
         Console.WriteLine("[Read] ✗ ALL BACKENDS FAILED");
+        SetAllSourcesFailed(true);
         throw new InvalidOperationException(
             "All blockchain backends are unavailable. Node and all explorers failed.");
     }
