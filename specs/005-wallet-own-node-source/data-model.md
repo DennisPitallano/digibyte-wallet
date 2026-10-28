@@ -11,9 +11,9 @@ Loaded from the runtime config ([contracts/runtime-config.md](contracts/runtime-
 | enabled | bool | false | Off means today's behaviour and no health calls (FR-010) |
 | apiUrl | absolute http(s) URL | none | Must be allowed by the page's CSP; invalid or empty counts as unavailable (FR-015). Used by the health check and the node blockchain client only; DigiDollar and the usage counter keep the existing `NodeApiUrl` |
 | checkInterval | seconds | 30 | 10 to 300 |
-| stablePeriod | seconds | 120 | At least two check intervals |
+| stablePeriod | seconds | 120 | At least two check intervals; if the default 120 s is itself shorter than two intervals (for example with a 200 s interval), two intervals are used |
 | heightTolerance | blocks | 5 | 1 to 50 |
-| healthTimeout | seconds | 3 | 1 to 10 |
+| healthTimeout | seconds | 3 | 1 to 10. Fixed default, not a deployment variable (there is no `WALLET_*` variable for it); the options class accepts an override only so tests can shorten it |
 | devView | bool | false | Shows the diagnostics page when true (FR-013) |
 
 Out-of-range values fall back to the default for that field.
