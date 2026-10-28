@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -11,11 +12,19 @@ public class NodeApiBlockchainService : IBlockchainService
 {
     private readonly HttpClient _http;
     private string _baseUrl;
+    private readonly bool _strict;
 
-    public NodeApiBlockchainService(HttpClient http, string baseUrl = "http://localhost:5260")
+    /// <param name="strictErrors">
+    /// Off (the default): every method swallows errors and returns a neutral value (0, empty list, null, default fee, height 0),
+    /// exactly as before. On: a failed request throws (and only a genuine "not found" on a transaction lookup returns null), so the
+    /// fallback service can answer from an explorer and count the failure. Used when our own node is a primary source
+    /// (specs/005-wallet-own-node-source, research R14).
+    /// </param>
+    public NodeApiBlockchainService(HttpClient http, string baseUrl = "http://localhost:5260", bool strictErrors = false)
     {
         _http = http;
         _baseUrl = baseUrl.TrimEnd('/');
+        _strict = strictErrors;
     }
 
     public void SetBaseUrl(string baseUrl)
@@ -25,6 +34,9 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<long> GetBalanceAsync(string address)
     {
+        if (_strict)
+            return StrictInt64(await StrictGetAsync($"/api/address/{address}/balance"), "balanceSatoshis");
+
         try
         {
             var result = await _http.GetFromJsonAsync<JsonElement>($"{_baseUrl}/api/address/{address}/balance");
@@ -37,6 +49,9 @@ public class NodeApiBlockchainService : IBlockchainService
     {
         var addrList = addresses.ToList();
         if (addrList.Count == 0) return 0;
+
+        if (_strict)
+            return StrictInt64(await StrictPostAsync("/api/address/balances", addrList.ToArray()), "balanceSatoshis");
 
         try
         {
@@ -58,6 +73,9 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<List<UtxoInfo>> GetUtxosAsync(string address)
     {
+        if (_strict)
+            return StrictUtxos(await StrictGetAsync($"/api/address/{address}/utxos"));
+
         try
         {
             var result = await _http.GetFromJsonAsync<JsonElement>($"{_baseUrl}/api/address/{address}/utxos");
@@ -86,6 +104,9 @@ public class NodeApiBlockchainService : IBlockchainService
     {
         var addrList = addresses.ToList();
         if (addrList.Count == 0) return [];
+
+        if (_strict)
+            return StrictUtxos(await StrictPostAsync("/api/address/utxos", addrList.ToArray()));
 
         try
         {
@@ -146,6 +167,9 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<TransactionInfo?> GetTransactionAsync(string txId)
     {
+        if (_strict)
+            return await StrictTransactionAsync(txId);
+
         try
         {
             var tx = await _http.GetFromJsonAsync<JsonElement>($"{_baseUrl}/api/tx/{txId}");
@@ -156,6 +180,11 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
+        // The node only sees the transactions behind an address's unspent outputs, so it can never produce full history.
+        // In strict mode (our own node as a primary source) history must come from an explorer, never from here.
+        if (_strict)
+            throw new NotSupportedException("The node cannot list full address history; use an explorer.");
+
         // Get UTXOs for this address and fetch each UTXO's full transaction
         try
         {
@@ -181,6 +210,15 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<decimal> GetFeeRateAsync()
     {
+        if (_strict)
+        {
+            var fee = await StrictGetAsync("/api/network/fee/6");
+            if (fee.ValueKind == JsonValueKind.Object && fee.TryGetProperty("feerate", out var rate) &&
+                rate.ValueKind == JsonValueKind.Number && rate.TryGetDecimal(out var value) && value > 0)
+                return value;
+            throw new InvalidOperationException("Node API fee answer is missing the fee rate");
+        }
+
         try
         {
             var result = await _http.GetFromJsonAsync<JsonElement>($"{_baseUrl}/api/network/fee/6");
@@ -197,12 +235,122 @@ public class NodeApiBlockchainService : IBlockchainService
 
     public async Task<int> GetBlockHeightAsync()
     {
+        if (_strict)
+        {
+            var height = await StrictGetAsync("/api/blockchain/height");
+            if (height.ValueKind == JsonValueKind.Object && height.TryGetProperty("height", out var h) &&
+                h.ValueKind == JsonValueKind.Number && h.TryGetInt32(out var value) && value > 0)
+                return value;
+            throw new InvalidOperationException("Node API height answer is missing a usable height");
+        }
+
         try
         {
             var result = await _http.GetFromJsonAsync<JsonElement>($"{_baseUrl}/api/blockchain/height");
             return result.TryGetProperty("height", out var h) ? h.GetInt32() : 0;
         }
         catch { return 0; }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Strict mode helpers: failures throw, nothing is turned into a neutral value.
+    // ---------------------------------------------------------------------------------------------------------
+
+    private async Task<JsonElement> StrictGetAsync(string path)
+    {
+        using var response = await _http.GetAsync($"{_baseUrl}{path}");
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Node API {path} answered {(int)response.StatusCode}");
+        return ParseStrictJson(body, path);
+    }
+
+    private async Task<JsonElement> StrictPostAsync(string path, object payload)
+    {
+        using var response = await _http.PostAsJsonAsync($"{_baseUrl}{path}", payload);
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Node API {path} answered {(int)response.StatusCode}");
+        return ParseStrictJson(body, path);
+    }
+
+    private static JsonElement ParseStrictJson(string body, string what)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException($"Node API {what} returned an unreadable answer");
+        }
+    }
+
+    private static long StrictInt64(JsonElement result, string property)
+    {
+        if (result.ValueKind == JsonValueKind.Object && result.TryGetProperty(property, out var value) &&
+            value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number))
+            return number;
+        throw new InvalidOperationException($"Node API answer is missing \"{property}\"");
+    }
+
+    private static List<UtxoInfo> StrictUtxos(JsonElement result)
+    {
+        if (result.ValueKind != JsonValueKind.Object || !result.TryGetProperty("utxos", out var utxos) ||
+            utxos.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("Node API answer is missing the spendable outputs");
+
+        var list = new List<UtxoInfo>();
+        foreach (var u in utxos.EnumerateArray())
+        {
+            list.Add(new UtxoInfo
+            {
+                TxId = u.GetProperty("txid").GetString() ?? throw new InvalidOperationException("Node API output has no txid"),
+                OutputIndex = (uint)u.GetProperty("vout").GetInt32(),
+                AmountSatoshis = u.GetProperty("amountSatoshis").GetInt64(),
+                ScriptPubKey = u.TryGetProperty("scriptPubKey", out var s) ? s.GetString() ?? "" : "",
+                Confirmations = u.TryGetProperty("confirmations", out var conf) ? conf.GetInt32()
+                    : u.TryGetProperty("height", out var h) && h.GetInt32() > 0 ? 1 : 0,
+            });
+        }
+        return list;
+    }
+
+    /// <summary>A genuine "not found" (HTTP 404, or the node's own no-such-transaction code -5) is null; everything else that is not a good answer throws.</summary>
+    private async Task<TransactionInfo?> StrictTransactionAsync(string txId)
+    {
+        using var response = await _http.GetAsync($"{_baseUrl}/api/tx/{txId}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+
+        if (response.StatusCode == HttpStatusCode.BadRequest && IsNoSuchTransaction(body))
+            return null;
+
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Node API transaction lookup answered {(int)response.StatusCode}");
+
+        var tx = ParseStrictJson(body, "transaction lookup");
+        if (tx.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException("Node API transaction answer is not an object");
+        return ParseTransaction(tx);
+    }
+
+    private static bool IsNoSuchTransaction(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.ValueKind == JsonValueKind.Object &&
+                   doc.RootElement.TryGetProperty("code", out var code) &&
+                   code.ValueKind == JsonValueKind.Number && code.TryGetInt32(out var n) && n == -5;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static TransactionInfo? ParseTransaction(JsonElement tx)

@@ -48,3 +48,25 @@ internal sealed class FakeExplorerHeightSource : IExplorerHeightSource
 
     public void Returns(int? height) => Respond = _ => Task.FromResult(height);
 }
+
+/// <summary>An explorer that only knows its block height; every other call is unsupported.</summary>
+internal sealed class HeightOnlyExplorer(Func<Task<int>> height) : IBlockchainService
+{
+    public int Calls;
+
+    public Task<int> GetBlockHeightAsync()
+    {
+        Interlocked.Increment(ref Calls);
+        return height();
+    }
+
+    public Task<long> GetBalanceAsync(string address) => throw new NotSupportedException();
+    public Task<long> GetBalanceAsync(IEnumerable<string> addresses) => throw new NotSupportedException();
+    public Task<List<UtxoInfo>> GetUtxosAsync(string address) => throw new NotSupportedException();
+    public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => throw new NotSupportedException();
+    public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => throw new NotSupportedException();
+    public Task<TransactionInfo?> GetTransactionAsync(string txId) => throw new NotSupportedException();
+    public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) => throw new NotSupportedException();
+    public Task<decimal> GetFeeRateAsync() => throw new NotSupportedException();
+    public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => throw new NotSupportedException();
+}
