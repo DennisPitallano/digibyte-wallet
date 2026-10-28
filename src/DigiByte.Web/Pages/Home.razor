@@ -76,6 +76,7 @@
                         {
                             <div class="w-2.5 h-2.5 border-2 border-dgb-500 dark:border-dgb-300 border-t-transparent rounded-full animate-spin"></div>
                         }
+                        <OutOfDateTag />
                         <div class="flex-1"></div>
                         <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors disabled:opacity-40" title="Refresh"
                                 @onclick="ManualRefreshAsync" disabled="@isRefreshing">

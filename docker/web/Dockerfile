@@ -55,4 +55,9 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 COPY --from=build /app/publish/nginx.conf /etc/nginx/conf.d/default.conf
 
+# Writes config.json (own-node settings from environment variables) each time the container starts; nginx runs every
+# executable script in /docker-entrypoint.d/ before it starts, so the settings change with a restart, not a rebuild.
+COPY docker/web/40-write-config.sh /docker-entrypoint.d/40-write-config.sh
+RUN chmod +x /docker-entrypoint.d/40-write-config.sh
+
 EXPOSE 8080

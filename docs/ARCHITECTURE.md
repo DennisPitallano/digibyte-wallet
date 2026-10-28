@@ -75,6 +75,13 @@ FallbackBlockchainService
 **Reads** (balance, UTXOs, tx history, fees): Esplora first → Own Node → Mock (dev) / Error (prod)
 **Writes** (broadcast tx): Own Node first → Esplora → Error
 
+That is the order with node use switched off (the default). With node use on (`WALLET_NODE_ENABLED`, specs/005-wallet-own-node-source) a `NodeSourceMonitor` decides, from the node API's `/api/health` plus a height cross-check against an explorer, whether the node is `Active`:
+
+- **Node not active** (starting, syncing, unavailable, stabilizing): explorers only, for reads and sends; the node is not even a last resort, because a syncing node answers address lookups with incomplete data.
+- **Node active**, by route class: **fast** routes (transaction lookup, fee, height) and **broadcast** try the node first and fall back to an explorer per request; **address** routes (balance, spendable outputs) stay explorer-first with the node as their fallback (the node answers them by scanning, about 14 s); **history** is explorers only (the node cannot list full history).
+- Promotion needs the node to stay ready for a stable period (default 2 minutes); demotion is immediate on a not-ready check, or after three failed node reads in a row.
+- In this mode the node client runs in strict mode (a failed request is an error, never a zero), a source switch clears cached answers, and the UI shows a data-source dot with a plain-language detail, plus a banner only on real degradation.
+
 ### Explorer Backends
 
 | Priority | Name | Type | URL | Notes |
@@ -99,7 +106,9 @@ Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends
 - Tuned for Railway: `dbcache=256`, `maxmempool=50`, `maxconnections=24`
 - RPC password **must** be changed before deploying (`digibyte-mainnet.conf`)
 
-**Railway services:**
+**Railway full node (separate project):** a second, preferred setup runs an unpruned `txindex` node (DigiByte Core v9.26.7, wallet disabled) with its own copy of the node API in a dedicated Railway project. The node's RPC port is only reachable over that project's private network; the node API is the single public surface. Operator-only routes (keys, wallet, mining, node control, block invalidate, costly reads) need `X-NodeApi-Key` outside Development. See [RAILWAY_NODE.md](RAILWAY_NODE.md).
+
+**Railway services (existing project):**
 1. `digibyted` — Pruned mainnet node (entrypoint override: `entrypoint-mainnet.sh`)
 2. `digibyte-node-api` — REST wrapper for RPC
 3. `digibyte-api` — P2P marketplace backend

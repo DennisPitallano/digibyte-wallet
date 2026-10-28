@@ -1,0 +1,27 @@
+@implements IDisposable
+@using DigiByte.Wallet.Services
+@inject NodeSourceStatusService Status
+
+@* Shown only on real degradation: the own node was active and the wallet fell back, or no source is reachable.
+   Never while the node is simply still syncing. Clears by itself. Modelled on OfflineBanner. *@
+@if (View.ShowBanner)
+{
+    var red = View.Dot == NodeSourceDot.Red;
+    <div class="flex items-center gap-2 px-3 py-2 @(red ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/10 border-amber-500/20") border rounded-xl mb-3 fade-in"
+         role="status">
+        <svg class="w-4 h-4 flex-shrink-0 @(red ? "text-red-500" : "text-amber-500")" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <span class="text-xs font-medium @(red ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400")">@View.BannerText</span>
+    </div>
+}
+
+@code {
+    private NodeSourceStatusView View => Status.View;
+
+    protected override void OnInitialized() => Status.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Status.Changed -= OnChanged;
+}

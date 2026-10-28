@@ -271,6 +271,15 @@ delay = 15 × 2^(min(failedAttempts - 3, 5)) seconds
 | SignalR WebSocket | ✅ | `wss://` protocol |
 | DigiByte Node RPC | ⚠️ | HTTP Basic Auth (localhost only, not exposed publicly) |
 
+### Own node as a data source (privacy)
+
+When the deployment turns on the own-node mode (`WALLET_NODE_ENABLED`, see [RAILWAY_NODE.md](RAILWAY_NODE.md)), the wallet may use the wallet team's DigiByte node, through its node API, for sending, transaction lookups, fees and chain height, and as a backup for address balances and spendable outputs. Address history always comes from public explorers.
+
+- **What the node operator sees:** the public transactions and addresses the wallet sends or looks up through the node. That is the same kind of public chain data a third-party explorer would see; only who sees it changes.
+- **What it never sees:** private keys, the seed, the PIN or any signing operation. The node only receives already-signed transactions and public chain requests (constitution principle I).
+- **When it is used:** only while the node's own health report says it is ready and its height agrees with a public explorer. Otherwise the wallet uses public explorers exactly as before.
+- **What users are told:** the in-app data-source detail says so in one line whenever the own node is the active source, and the Help page explains it.
+
 ### CORS Configuration
 
 ```csharp

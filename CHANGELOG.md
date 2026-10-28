@@ -4,6 +4,19 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **Railway full-node deployment** — New `docker/digibyted/digibyte-railway.conf` and `entrypoint-railway.sh` run an unpruned DigiByte Core v9.26.7 node with a transaction index and no wallet. RPC credentials and the allowed address range come from Railway variables, and the node refuses to start without them. Runbook in `docs/RAILWAY_NODE.md`.
+- **Sync-aware `/api/health`** on the node API: `status` (`starting`, `syncing`, `ok`, `unhealthy`), node version, block and header height, lag, peers, transaction index state, and a version check against `DGB_RECOMMENDED_VERSION`. Returns 503 only when the node cannot be reached.
+- **Operator route gate** — Outside Development the node API now requires `X-NodeApi-Key` for key, wallet, mining, PSBT, descriptor, node-control, block invalidate/reconsider, `tx/create`, `tx/fund` and costly or peer-revealing routes, and answers 503 when no key is configured.
+- **Wallet can use the team's own DigiByte node when it is ready** (off by default) — A small status dot opens a plain-language detail of the active source. While the node is ready, sending, transaction lookups, fees and chain height try it first; address balances and spendable outputs stay explorer-first with the node as a backup, and address history always comes from explorers. The wallet uses the node only while its health report says ready and its height agrees with a public explorer, switches back to explorers by itself, and shows a banner only on real degradation. Settings (`WALLET_NODE_*`) are written to `config.json` when the web container starts, so they change without a rebuild. A developer-only page (`/dev/node`, switched on with `WALLET_DEV_VIEW`) compares the node with the explorers. See `docs/RAILWAY_NODE.md`.
+- **Node client strict mode** — With node use on, a failed node request is an error (and falls back to an explorer) instead of a zero balance, empty list, default fee or height 0. Behaviour with node use off is unchanged.
+
+### Changed
+- The node image (`docker/digibyted/Dockerfile`) now defaults to DigiByte Core v9.26.7 and verifies the download against the release's `SHA256SUMS`.
+- Production node API refuses to start with empty or `changeme` RPC credentials. The node API image no longer bakes in a password, testnet mode or the faucet (local compose files set these explicitly).
+- `/api/health` no longer returns the node URL, and failed node connections no longer put the node's host and port in API error messages (details go to the server log).
+- The DigiDollar fee-reserve monitor stays idle when no DigiDollar wallet name is configured, so a node without a wallet does not log a warning every minute.
+
 ## [0.3.0] - 2026-10-27
 
 ### Added

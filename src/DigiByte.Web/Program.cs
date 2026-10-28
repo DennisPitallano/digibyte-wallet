@@ -18,6 +18,12 @@ if (!builder.HostEnvironment.IsDevelopment())
     builder.Logging.AddFilter("Polly", LogLevel.Warning);
 }
 
+// ── Deployment settings written when the web container starts (config.json) ──
+// Only the OwnNode section is accepted, so the own-node switch, node address and thresholds change without a rebuild. A missing or
+// invalid file means "no overrides" (node use stays off). See specs/005-wallet-own-node-source/contracts/runtime-config.md.
+using (var configHttp = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
+    builder.Configuration.AddInMemoryCollection(await RuntimeConfigLoader.FetchAsync(configHttp));
+
 // ── HTTP clients with resilience (Polly: retry + circuit breaker + timeout) ──
 var baseAddress = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.BaseAddress;
 
@@ -79,9 +85,18 @@ var defaultNetwork = builder.Configuration["DefaultNetwork"] ?? "mainnet";
 var defaultIsTestnet = defaultNetwork != "mainnet";
 var isDevelopment = builder.HostEnvironment.IsDevelopment();
 
+// ── Our own node as a blockchain source (specs/005-wallet-own-node-source) ──
+// Off by default. When on, the node is used only while its health report says ready (see NodeSourceMonitor); the node client
+// then runs in strict mode so a failed request is an error, not a zero. The DigiDollar client and the usage counter below keep NodeApiUrl.
+var nodeSource = NodeSourceOptions.FromConfiguration(key => builder.Configuration[key]);
+var ownNodeApiUrl = nodeSource.ApiUrl ?? nodeApiUrl;
+builder.Services.AddSingleton(nodeSource);
+// One short probe, no retries: deliberately no resilience handler (a dead node must never become a slow probe).
+builder.Services.AddHttpClient("NodeHealth");
+
 builder.Services.AddScoped(sp =>
     new NodeApiBlockchainService(
-        sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), nodeApiUrl));
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), ownNodeApiUrl, strictErrors: nodeSource.Enabled));
 builder.Services.AddScoped(sp =>
     new BlockchainApiService(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain"),
@@ -95,23 +110,41 @@ if (isDevelopment)
 // USD exchange rates (via the price proxy) for display currencies CoinGecko does not price directly.
 builder.Services.AddScoped(sp => new FiatRateProvider(
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko"), priceApiUrl));
-builder.Services.AddScoped<FallbackBlockchainService>(sp =>
+builder.Services.AddScoped(sp =>
 {
-    var nodeApi = sp.GetRequiredService<NodeApiBlockchainService>();
     var esplora = sp.GetRequiredService<BlockchainApiService>();
     var blockbookHttp = sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain");
     var blockbook = new BlockbookApiService(blockbookHttp, "https://digibyteblockexplorer.com", "blockbook-main", priceApiUrl);
 
-    var explorers = new List<IBlockchainService>
-    {
+    return new ExplorerBackends(
+    [
         esplora,   // Esplora (digiexplorer.info) — primary
         blockbook, // Blockbook (digibyteblockexplorer.com) — fallback
-    };
+    ]);
+});
+
+// Node readiness: the health report plus an explorer height cross-check, judged by one monitor shared by the
+// fallback service, the background loop and (later) the status UI.
+builder.Services.AddScoped(sp => new NodeHealthHttpSource(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeHealth"), nodeSource));
+builder.Services.AddScoped(sp => new ExplorerHeightSource(sp.GetRequiredService<ExplorerBackends>().All, nodeSource.ExplorerBudget));
+builder.Services.AddScoped(sp => new NodeSourceMonitor(
+    nodeSource, sp.GetRequiredService<NodeHealthHttpSource>(), sp.GetRequiredService<ExplorerHeightSource>(), new SystemClock()));
+builder.Services.AddScoped<INodeSourceState>(sp => sp.GetRequiredService<NodeSourceMonitor>());
+builder.Services.AddScoped<INodeReadFailureSink>(sp => sp.GetRequiredService<NodeSourceMonitor>());
+builder.Services.AddScoped<NodeSourceMonitorLoop>();
+builder.Services.AddScoped<NodeSourceStatusService>();
+
+builder.Services.AddScoped<FallbackBlockchainService>(sp =>
+{
+    var nodeApi = sp.GetRequiredService<NodeApiBlockchainService>();
+    var explorers = sp.GetRequiredService<ExplorerBackends>().All;
 
     var priceHttp = sp.GetRequiredService<IHttpClientFactory>().CreateClient("CoinGecko");
     var mock = isDevelopment ? sp.GetRequiredService<MockBlockchainService>() : null;
     return new FallbackBlockchainService(nodeApi, explorers, priceHttp, isDevelopment, priceApiUrl, mock,
-        sp.GetRequiredService<FiatRateProvider>());
+        sp.GetRequiredService<FiatRateProvider>(),
+        sp.GetRequiredService<INodeSourceState>(), sp.GetRequiredService<INodeReadFailureSink>());
 });
 builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<FallbackBlockchainService>());
 
@@ -170,5 +203,8 @@ await network.InitializeAsync();
 // Load the saved locale (and the English fallback) so localized strings, including DigiDollar's dd.* keys, resolve.
 var localization = host.Services.GetRequiredService<LocalizationService>();
 await localization.InitializeAsync();
+
+// Start the own-node readiness checks in the background (does nothing unless OwnNode:Enabled is true).
+host.Services.GetRequiredService<NodeSourceMonitorLoop>().Start();
 
 await host.RunAsync();

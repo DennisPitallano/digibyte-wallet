@@ -5,10 +5,17 @@ using System.Text.Json;
 namespace DigiByte.Wallet.Services;
 
 /// <summary>
-/// Cascading fallback with smart routing and multiple explorer backends:
-/// - Reads:  NodeApi (own pruned node) → Explorer list (Blockbook, Esplora, etc.) → Mock
+/// Cascading fallback with smart routing and multiple explorer backends.
+///
+/// Without a node-source monitor, or with it Disabled (the feature is off), the order is exactly as it always was:
+/// - Reads:  Explorer list (Blockbook, Esplora, etc.) → NodeApi as the last resort → Mock (development only)
 /// - Writes: NodeApi first → all explorers in order
 /// - Regtest: NodeApi only → Mock (no public explorer for regtest)
+///
+/// With our own node as a source (specs/005-wallet-own-node-source) the monitor decides:
+/// - Node not active (starting, syncing, unavailable, stabilizing): explorers only for reads and sends. A node that is still
+///   syncing answers address lookups with incomplete data, so it is never asked, not even as a last resort.
+/// - Node active: see the route classes (<see cref="NodeRouteClass"/>).
 /// </summary>
 public class FallbackBlockchainService : IBlockchainService
 {
@@ -19,7 +26,15 @@ public class FallbackBlockchainService : IBlockchainService
     private readonly string? _priceApiBaseUrl;
     private readonly FiatRateProvider? _fx;
     private readonly bool _isDevelopment;
+    private readonly INodeSourceState? _nodeState;
+    private readonly INodeReadFailureSink? _nodeFailureSink;
     private bool _isRegtest;
+
+    /// <summary>Time budget for one node read on a fast route (transaction lookup, fee, height) while the node is active.</summary>
+    public TimeSpan FastNodeReadBudget { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>Time budget for one node read on an address route, used only as the fallback; the node answers these by scanning (about 14 s).</summary>
+    public TimeSpan AddressNodeReadBudget { get; set; } = TimeSpan.FromSeconds(20);
 
     // Track which explorers are currently failing to skip them temporarily
     private readonly Dictionary<int, DateTime> _explorerCooldowns = new();
@@ -31,6 +46,20 @@ public class FallbackBlockchainService : IBlockchainService
     private static readonly TimeSpan TxHistoryCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan BlockHeightCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan FeeRateCacheTtl = TimeSpan.FromMinutes(30);
+
+    /// <summary>True while a read has failed on every source (and no read has succeeded since). Drives the "can't reach the blockchain" state.</summary>
+    public bool AllSourcesFailed { get; private set; }
+
+    /// <summary>Raised when <see cref="AllSourcesFailed"/> changes.</summary>
+    public event Action? AllSourcesFailedChanged;
+
+    private void SetAllSourcesFailed(bool value)
+    {
+        if (AllSourcesFailed == value)
+            return;
+        AllSourcesFailed = value;
+        AllSourcesFailedChanged?.Invoke();
+    }
 
     public bool IsDemoMode { get; private set; }
     public bool ForceDemoMode { get; set; }
@@ -50,8 +79,12 @@ public class FallbackBlockchainService : IBlockchainService
         bool isDevelopment,
         string? priceApiBaseUrl = null,
         MockBlockchainService? mock = null,
-        FiatRateProvider? fx = null)
+        FiatRateProvider? fx = null,
+        INodeSourceState? nodeState = null,
+        INodeReadFailureSink? failureSink = null)
     {
+        _nodeState = nodeState;
+        _nodeFailureSink = failureSink;
         _nodeApi = nodeApi;
         _explorers = explorers.ToList();
         _priceHttp = priceHttp;
@@ -59,6 +92,11 @@ public class FallbackBlockchainService : IBlockchainService
         _isDevelopment = isDevelopment;
         _mock = isDevelopment ? mock : null;
         _fx = fx;
+
+        // When the active source flips, drop cached answers so one source's data is not served as if it came from the other.
+        // (Spendable outputs are never cached: they must be fresh for signing.)
+        if (_nodeState is not null)
+            _nodeState.Changed += InvalidateCache;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -80,6 +118,9 @@ public class FallbackBlockchainService : IBlockchainService
         }
     }
 
+    /// <summary>True when node use is off (no monitor or <see cref="NodeSourceState.Disabled"/>) and on regtest: today's order applies.</summary>
+    private bool LegacyOrder => _nodeState is null || _nodeState.State == NodeSourceState.Disabled || _isRegtest;
+
     private bool IsOnCooldown(int index)
     {
         if (_explorerCooldowns.TryGetValue(index, out var until))
@@ -93,14 +134,34 @@ public class FallbackBlockchainService : IBlockchainService
     /// <summary>
     /// For reads: Explorers first (address-indexed, fast) → NodeApi (pruned, slow scantxoutset) → mock.
     /// On regtest: NodeApi only → mock (no public explorer for regtest).
+    /// With our own node active (<see cref="NodeRouteClass"/>): fast routes try the node first, address routes keep explorers first
+    /// and use the node as their fallback, history never uses the node.
     /// </summary>
-    private async Task<T> TryRead<T>(Func<IBlockchainService, Task<T>> call)
+    private async Task<T> TryRead<T>(Func<IBlockchainService, Task<T>> call, NodeRouteClass routeClass = NodeRouteClass.Address)
+    {
+        var result = await TryReadCore(call, routeClass);   // throws (after setting the flag) when every source failed
+        SetAllSourcesFailed(false);
+        return result;
+    }
+
+    private async Task<T> TryReadCore<T>(Func<IBlockchainService, Task<T>> call, NodeRouteClass routeClass)
     {
         if (ForceDemoMode && _isDevelopment && _mock != null)
         {
             IsDemoMode = true;
             ActiveBackend = "demo";
             return await call(_mock);
+        }
+
+        var nodeActive = !LegacyOrder && _nodeState!.IsActive;
+
+        // Fast routes (transaction lookup, fee, height): the active node first. A failed or over-budget read is answered by an
+        // explorer for this request and reported to the monitor; a null (not found) is not authoritative, so the explorers are asked too.
+        if (nodeActive && routeClass == NodeRouteClass.Fast)
+        {
+            var viaNode = await TryNodeAsync(call, FastNodeReadBudget);
+            if (viaNode.Answered)
+                return viaNode.Value!;
         }
 
         if (!_isRegtest)
@@ -135,19 +196,30 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
-        // 2. Fall back to own node (pruned — scantxoutset is slower but always works)
-        try
+        // 2. Fall back to own node (pruned — scantxoutset is slower but always works).
+        // Only when node use is off: with the feature on, a node that is not active is never asked (see the class summary).
+        if (LegacyOrder)
         {
-            Console.WriteLine("[Read] Trying node-api...");
-            var result = await call(_nodeApi);
-            IsDemoMode = false;
-            ActiveBackend = "node-api";
-            Console.WriteLine("[Read] ✓ node-api succeeded");
-            return result;
+            try
+            {
+                Console.WriteLine("[Read] Trying node-api...");
+                var result = await call(_nodeApi);
+                IsDemoMode = false;
+                ActiveBackend = "node-api";
+                Console.WriteLine("[Read] ✓ node-api succeeded");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
+            }
         }
-        catch (Exception ex)
+        else if (nodeActive && routeClass == NodeRouteClass.Address)
         {
-            Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
+            // Address balances and spendable outputs: explorers were tried first; the ready node is the fallback.
+            var viaNode = await TryNodeAsync(call, AddressNodeReadBudget);
+            if (viaNode.Answered)
+                return viaNode.Value!;
         }
 
         // 3. Mock fallback — development only
@@ -160,8 +232,39 @@ public class FallbackBlockchainService : IBlockchainService
         }
 
         Console.WriteLine("[Read] ✗ ALL BACKENDS FAILED");
+        SetAllSourcesFailed(true);
         throw new InvalidOperationException(
             "All blockchain backends are unavailable. Node and all explorers failed.");
+    }
+
+    /// <summary>
+    /// Asks our own node with a time budget. <c>Answered</c> is false (and the caller moves on to an explorer) when the node failed,
+    /// ran over the budget, or returned null (not found, which is not authoritative). Errors and timeouts are reported to the monitor so
+    /// repeated failures demote the node at once; a real answer (including not found) counts as a success.
+    /// </summary>
+    private async Task<(bool Answered, T? Value)> TryNodeAsync<T>(Func<IBlockchainService, Task<T>> call, TimeSpan budget)
+    {
+        try
+        {
+            Console.WriteLine("[Read] Trying node-api (active)...");
+            var result = await call(_nodeApi).WaitAsync(budget);
+            _nodeFailureSink?.ReportNodeReadSuccess();
+            if (result is null)
+            {
+                Console.WriteLine("[Read] node-api: not found, asking the explorers");
+                return (false, default);
+            }
+            IsDemoMode = false;
+            ActiveBackend = "node-api";
+            Console.WriteLine("[Read] ✓ node-api succeeded");
+            return (true, result);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
+            _nodeFailureSink?.ReportNodeReadFailure();
+            return (false, default);
+        }
     }
 
     /// <summary>
@@ -173,18 +276,23 @@ public class FallbackBlockchainService : IBlockchainService
         var hexPreview = Convert.ToHexString(rawTransaction).ToLower();
         Console.WriteLine($"[Broadcast] Starting — tx size: {rawTransaction.Length} bytes, hex preview: {hexPreview[..Math.Min(40, hexPreview.Length)]}...");
 
-        // Try own node first
-        try
+        // Try own node first. With the feature on this only happens while the node is active; otherwise explorers go first
+        // and the node is not used (a syncing node does not relay transactions). A rejected broadcast is not a failed read,
+        // so it is not reported to the monitor.
+        if (LegacyOrder || _nodeState!.IsActive)
         {
-            Console.WriteLine("[Broadcast] Trying node-api...");
-            var txId = await _nodeApi.BroadcastTransactionAsync(rawTransaction);
-            Console.WriteLine($"[Broadcast] ✓ node-api succeeded — txid: {txId}");
-            InvalidateCache();
-            return txId;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Broadcast] ✗ node-api failed: {ex.Message}");
+            try
+            {
+                Console.WriteLine("[Broadcast] Trying node-api...");
+                var txId = await _nodeApi.BroadcastTransactionAsync(rawTransaction);
+                Console.WriteLine($"[Broadcast] ✓ node-api succeeded — txid: {txId}");
+                InvalidateCache();
+                return txId;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Broadcast] ✗ node-api failed: {ex.Message}");
+            }
         }
 
         // Try each explorer
@@ -233,14 +341,16 @@ public class FallbackBlockchainService : IBlockchainService
         TryRead(s => s.GetUtxosAsync(addresses));
 
     public Task<TransactionInfo?> GetTransactionAsync(string txId) =>
-        TryRead(s => s.GetTransactionAsync(txId));
+        TryRead(s => s.GetTransactionAsync(txId), NodeRouteClass.Fast);
 
     public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) =>
+        // History: explorers only while node use is on. The node cannot list full history (it only sees transactions that
+        // still have unspent outputs), so it is never asked for it, not even as a last resort.
         CachedRead($"txs:{address}:{skip}:{take}", TxHistoryCacheTtl,
-            s => s.GetAddressTransactionsAsync(address, skip, take));
+            s => s.GetAddressTransactionsAsync(address, skip, take), NodeRouteClass.History);
 
     public Task<decimal> GetFeeRateAsync() =>
-        CachedRead("feerate", FeeRateCacheTtl, s => s.GetFeeRateAsync());
+        CachedRead("feerate", FeeRateCacheTtl, s => s.GetFeeRateAsync(), NodeRouteClass.Fast);
 
     /// <summary>
     /// Price fetch — independent of explorers, uses its own HttpClient (no Polly retries).
@@ -281,19 +391,20 @@ public class FallbackBlockchainService : IBlockchainService
     }
 
     public Task<int> GetBlockHeightAsync() =>
-        CachedRead("blockheight", BlockHeightCacheTtl, s => s.GetBlockHeightAsync());
+        CachedRead("blockheight", BlockHeightCacheTtl, s => s.GetBlockHeightAsync(), NodeRouteClass.Fast);
 
     /// <summary>
     /// Invalidate all cached data — call after sending a transaction so balance refreshes immediately.
     /// </summary>
     public void InvalidateCache() => _cache.Clear();
 
-    private async Task<T> CachedRead<T>(string key, TimeSpan ttl, Func<IBlockchainService, Task<T>> call)
+    private async Task<T> CachedRead<T>(string key, TimeSpan ttl, Func<IBlockchainService, Task<T>> call,
+        NodeRouteClass routeClass = NodeRouteClass.Address)
     {
         if (_cache.TryGetValue(key, out var entry) && DateTime.UtcNow < entry.ExpiresAt)
             return (T)entry.Value;
 
-        var result = await TryRead(call);
+        var result = await TryRead(call, routeClass);
         _cache[key] = (result!, DateTime.UtcNow + ttl);
         return result;
     }

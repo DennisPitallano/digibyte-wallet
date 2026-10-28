@@ -29,6 +29,9 @@ if (Environment.GetEnvironmentVariable("DIGIBYTE_HOST") is { } host)
 if (Environment.GetEnvironmentVariable("DIGIBYTE_TESTNET") is { } testnet)
     nodeConfig.IsTestnet = testnet.Equals("true", StringComparison.OrdinalIgnoreCase);
 
+if (NodeConfigValidator.Validate(nodeConfig, builder.Environment.IsProduction()) is { } configError)
+    throw new InvalidOperationException(configError);
+
 builder.Services.AddSingleton(nodeConfig);
 
 // DigiDollar configuration + env var overrides
@@ -79,6 +82,15 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddHttpClient<DigiByteRpcClient>();
 builder.Services.AddSingleton<DigiByteRpcClient>();
 
+// Health model for /api/health. DGB_RECOMMENDED_VERSION (optional) is the node version this deployment expects.
+builder.Services.AddSingleton(sp =>
+{
+    var rpc = sp.GetRequiredService<DigiByteRpcClient>();
+    return new NodeHealthService(
+        method => rpc.CallAsync<System.Text.Json.JsonElement>(method),
+        Environment.GetEnvironmentVariable("DGB_RECOMMENDED_VERSION"));
+});
+
 // IBlockchainService implementation via RPC
 builder.Services.AddSingleton<NodeBlockchainService>();
 builder.Services.AddSingleton<IBlockchainService>(sp => sp.GetRequiredService<NodeBlockchainService>());
@@ -120,6 +132,9 @@ app.UseCors("AllowAll");
 // Guard wallet-scoped DigiDollar routes (GET and POST) with X-NodeApi-Key; fails closed if unset (outside Development).
 app.UseMiddleware<WriteKeyAuthMiddleware>();
 
+// Node-control, key, wallet, mining and other costly routes need the same key outside Development (see OperatorRouteGate).
+app.UseMiddleware<OperatorRouteGate>();
+
 // Global RPC error handler
 app.Use(async (context, next) =>
 {
@@ -155,17 +170,25 @@ app.MapGroup("/api/metrics").MapMetricsEndpoints().WithTags("Metrics");
 // ===== DigiDollar Endpoints (feature-flagged via DigiDollarConfig.Enabled) =====
 app.MapGroup("/api/digidollar").MapDigiDollarEndpoints().WithTags("DigiDollar");
 
-// Health check
-app.MapGet("/api/health", async (DigiByteRpcClient rpc) =>
+// Health check (contract: specs/004-railway-digibyte-node/contracts/nodeapi-health.md).
+// 200 while the node is starting, syncing or ok; 503 only when the node cannot be reached.
+app.MapGet("/api/health", async (NodeHealthService health) =>
 {
-    var connected = await rpc.IsConnectedAsync();
-    return Results.Ok(new
+    var h = await health.GetAsync();
+    return Results.Json(new
     {
-        status = connected ? "connected" : "disconnected",
+        status = h.Status,
         network = nodeConfig.IsTestnet ? "testnet" : "mainnet",
-        nodeUrl = nodeConfig.RpcUrl,
+        nodeVersion = h.NodeVersion,
+        blocks = h.Blocks,
+        headers = h.Headers,
+        lag = h.Lag,
+        peers = h.Peers,
+        txindex = h.Txindex,
+        recommendedVersion = h.RecommendedVersion,
+        versionOk = h.VersionOk,
         timestamp = DateTime.UtcNow,
-    });
+    }, statusCode: h.HttpStatus);
 }).WithName("HealthCheck").WithTags("System");
 
 app.Run();

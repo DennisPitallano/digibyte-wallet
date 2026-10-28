@@ -1,0 +1,158 @@
+@page "/dev/node"
+@implements IDisposable
+@inject NodeSourceOptions Options
+@inject INodeSourceState NodeState
+@inject IHttpClientFactory HttpFactory
+@inject ExplorerBackends Explorers
+@inject IConfiguration Config
+@inject NavigationManager Nav
+
+<PageTitle>Node diagnostics</PageTitle>
+
+@* Developer view for the own-node mode (specs/005-wallet-own-node-source, FR-013). It exists only when the deployment turns on
+   OwnNode:DevView; otherwise the route shows the normal "not found" page. It reads only and changes nothing for regular views. *@
+@if (Options.DevView)
+{
+    var snapshot = NodeState.LastSnapshot;
+    <div class="flex flex-col gap-4 pb-6">
+        <div>
+            <h1 class="text-lg font-bold text-slate-900 dark:text-white">Node diagnostics</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Developer view. Not visible to users.</p>
+        </div>
+
+        <section class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 flex flex-col gap-2" aria-label="Readiness">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Readiness</h2>
+            @Row("Node use", Options.Enabled ? "on" : "off")
+            @Row("Node API", Options.ApiUrl ?? "(not set, using NodeApiUrl)")
+            @Row("State", NodeState.State.ToString())
+            @Row("Reason", NodeState.Reason.ToString())
+            @Row("Was active this session", NodeState.NodeWasActive ? "yes" : "no")
+            @if (snapshot is not null)
+            {
+                @Row("Checked at", snapshot.CheckedAt.ToLocalTime().ToString("HH:mm:ss"))
+                @Row("Ready", snapshot.Ready ? "yes" : (snapshot.Inconclusive ? "inconclusive (no explorer height)" : "no"))
+                @Row("Status reported", snapshot.Health?.Status ?? "-")
+                @Row("Node version", snapshot.Health?.NodeVersion ?? "-")
+                @Row("Node height", snapshot.Health?.Blocks?.ToString("N0") ?? "-")
+                @Row("Explorer height", snapshot.ExplorerHeight?.ToString("N0") ?? "-")
+                @Row("Height difference", snapshot.HeightDelta?.ToString() ?? "-")
+                @Row("Lag (headers - blocks)", snapshot.Health?.Lag?.ToString() ?? "-")
+                @Row("Peers", snapshot.Health?.Peers?.ToString() ?? "-")
+                @Row("Transaction index", snapshot.Health is null ? "-" : (snapshot.Health.Txindex ? "ready" : "not ready"))
+                @Row("Version acceptable", snapshot.Health?.VersionOk?.ToString().ToLowerInvariant() ?? "-")
+            }
+            else
+            {
+                <p class="text-xs text-slate-400">No check has finished yet.</p>
+            }
+        </section>
+
+        <section class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 flex flex-col gap-2" aria-label="Recent changes">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Recent changes</h2>
+            @if (changes.Count == 0)
+            {
+                <p class="text-xs text-slate-400">No state change since this page was opened.</p>
+            }
+            @foreach (var c in changes)
+            {
+                <p class="text-xs font-mono text-slate-600 dark:text-slate-300">@c</p>
+            }
+        </section>
+
+        <section class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 flex flex-col gap-3" aria-label="Compare">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Compare the node with the explorers</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">One address per line. The node scans once for the whole list, which can take about 15 seconds.</p>
+            <textarea class="w-full min-h-[96px] text-xs font-mono rounded-xl border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-950 p-2"
+                      placeholder="D... or dgb1..." @bind="addressInput" @bind:event="oninput" aria-label="Addresses to compare"></textarea>
+            <button type="button" class="py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                    disabled="@(running || string.IsNullOrWhiteSpace(addressInput))" @onclick="RunAsync">
+                @(running ? "Comparing..." : "Compare")
+            </button>
+
+            @if (report is not null)
+            {
+                <div class="flex flex-col gap-1 text-xs" aria-live="polite">
+                    <p class="font-semibold @(report.AllMatch ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")">
+                        @(report.AllMatch ? "Everything matches." : "Not everything matches.")
+                    </p>
+                    @if (report.Message is not null) { <p class="text-slate-500 dark:text-slate-400">@report.Message</p> }
+                    @if (report.NodeError is not null) { <p class="text-red-500">Node: @report.NodeError</p> }
+                    @if (report.ExplorerError is not null) { <p class="text-red-500">Explorer: @report.ExplorerError</p> }
+                    @Row("Addresses", report.AddressCount.ToString())
+                    @Row("Height (node / explorer)", $"{report.NodeHeight?.ToString("N0") ?? "-"} / {report.ExplorerHeight?.ToString("N0") ?? "-"}  {(report.HeightMatches ? "ok" : "differs")}")
+                    @Row("Balance, satoshis (node / explorer)", $"{report.NodeBalance?.ToString("N0") ?? "-"} / {report.ExplorerBalance?.ToString("N0") ?? "-"}  {(report.BalanceMatches ? "ok" : "differs")}")
+                    @Row("Spendable outputs (node / explorer)", $"{report.NodeUtxoCount?.ToString() ?? "-"} / {report.ExplorerUtxoCount?.ToString() ?? "-"}  {(report.UtxosMatch ? "ok" : "differs")}")
+                </div>
+
+                @if (report.Rows.Count > 0)
+                {
+                    <div class="flex flex-col gap-1">
+                        @foreach (var r in report.Rows)
+                        {
+                            <p class="text-[11px] font-mono break-all @(r.Matches ? "text-slate-500 dark:text-slate-400" : "text-amber-600 dark:text-amber-400")">
+                                @(r.Matches ? "match" : "DIFFERS") @r.Address node @(r.NodeBalance?.ToString() ?? "-")/@(r.NodeUtxoCount?.ToString() ?? "-")
+                                explorer @(r.ExplorerBalance?.ToString() ?? "-")/@(r.ExplorerUtxoCount?.ToString() ?? "-")@(r.Error is null ? "" : " error: " + r.Error)
+                            </p>
+                        }
+                    </div>
+                }
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private readonly List<string> changes = [];
+    private string addressInput = "";
+    private bool running;
+    private NodeComparisonReport? report;
+
+    protected override void OnInitialized()
+    {
+        if (!Options.DevView)
+        {
+            // With the developer view off the page does not exist for anyone.
+            Nav.NavigateTo("not-found", replace: true);
+            return;
+        }
+        NodeState.Changed += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        lock (changes)
+        {
+            changes.Insert(0, $"{DateTime.Now:HH:mm:ss}  {NodeState.State} ({NodeState.Reason})");
+            if (changes.Count > 20) changes.RemoveAt(changes.Count - 1);
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RunAsync()
+    {
+        running = true;
+        report = null;
+        try
+        {
+            // A strict node client built just for this check, so the comparison asks the node directly whatever the monitor says.
+            var nodeUrl = Options.ApiUrl ?? Config["NodeApiUrl"] ?? "http://localhost:5260";
+            var node = new NodeApiBlockchainService(HttpFactory.CreateClient("NodeApi"), nodeUrl, strictErrors: true);
+            var comparer = new NodeSourceComparer(node, Explorers.All, Options.HeightTolerance);
+            report = await comparer.CompareAsync(addressInput.Split(['\n', '\r', ',', ' ', ';'], StringSplitOptions.RemoveEmptyEntries));
+        }
+        finally
+        {
+            running = false;
+        }
+    }
+
+    private static RenderFragment Row(string label, string value) => __builder =>
+    {
+        <div class="flex justify-between gap-3 text-xs py-1 border-b border-slate-100 dark:border-dgb-800 last:border-0">
+            <span class="text-slate-500 dark:text-slate-400">@label</span>
+            <span class="font-mono text-slate-900 dark:text-white text-right break-all">@value</span>
+        </div>
+    };
+
+    public void Dispose() => NodeState.Changed -= OnStateChanged;
+}
