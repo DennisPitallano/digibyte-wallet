@@ -12,6 +12,7 @@
 
 - **Today's order**: the wallet reads from public explorers first and uses our node only as the last resort. For sending, it tries our node first and then the explorers. There is no check of whether the node is actually in a fit state.
 - **Sending through a node that is still syncing is a gap**: today a broadcast tries the node first even if the node is not synced. It should only be tried first when the node reports itself ready.
+- **Address lookups on the node are slow**: measured against the real node, an address balance took about 14 seconds (the node answers by scanning its whole set of spendable outputs; the transaction index does not help), against under a second from an explorer. Transaction lookups, fees, chain height and sending are fast.
 - **Nothing in the app shows the active source**: the service tracks which backend answered last, but no screen displays it.
 - **The node's health report exists** (feature 004): `status` is one of `starting`, `syncing`, `ok`, `unhealthy`, with block lag, peers, transaction-index state and version check. It answers 200 for all states except unreachable.
 - **The node API address is already a deployment setting**; there is no on/off switch and no readiness logic.
@@ -26,6 +27,8 @@
 - Q: Should users be told that using our own node means the wallet team's servers see the addresses they look up? → A: Yes; a one-line plain-language note in the status detail when the own node is active, plus the project's privacy documentation.
 
 ### Session 2026-10-29
+
+- Q: How should the wallet use the node for address data, given that node address lookups take about 14 seconds? → A: Node first only for sending, transaction lookups, fees and chain height; address balances and spendable outputs stay explorer-first (the ready node is only their fallback) until the node has an address index, which is a later feature.
 
 - Q: The 2-minute switch target conflicts with a 2-minute stability window plus a 30-second check interval; relax the target or shorten the window? → A: Keep the 2-minute stability window and change SC-002 to "within 3 minutes".
 
@@ -49,7 +52,7 @@ The node will take a day or more to sync. During that time the wallet must behav
 
 ### User Story 2 - The wallet switches to our own node automatically once it is ready, and back if it stops being ready (Priority: P1)
 
-When the node reports it is fully synced and healthy, the wallet starts reading from it and prefers it for sending. If the node falls behind, loses its peers, restarts or becomes unreachable, the wallet goes back to the public explorers by itself. Users do nothing and lose nothing.
+When the node reports it is fully synced and healthy, the wallet starts using it first for sending, transaction lookups, fees and chain height (address balances and spendable outputs still come from the explorers first, because the node answers those slowly). If the node falls behind, loses its peers, restarts or becomes unreachable, the wallet goes back to the public explorers by itself. Users do nothing and lose nothing.
 
 **Why this priority**: This is the point of running our own node: independence from third-party explorers, with a safety net.
 
@@ -57,7 +60,7 @@ When the node reports it is fully synced and healthy, the wallet starts reading 
 
 **Acceptance Scenarios**:
 
-1. **Given** the node reports `ok` with a current chain tip, a ready transaction index and an acceptable version, **When** the wallet next checks the node, **Then** it prefers the node for reads and sends.
+1. **Given** the node reports `ok` with a current chain tip, a ready transaction index and an acceptable version, **When** the wallet next checks the node, **Then** it prefers the node for sending, transaction lookups, fees and chain height, and keeps it as a fallback for address balances and spendable outputs.
 2. **Given** the wallet is using the node, **When** the node stops reporting `ok` (lagging, no peers, outdated version, unreachable), **Then** the wallet switches to the public explorers for the next requests without user action.
 3. **Given** the node flips between ready and not ready several times in a few minutes, **When** the wallet follows it, **Then** it does not switch sources on every flip; it waits for the node to stay ready for a short stable period before switching to it, and falls back promptly when it stops being ready.
 4. **Given** the wallet is using the node and one particular read fails, **When** the user asks for the data, **Then** that request is answered by an explorer and the user sees correct data without an error.
@@ -133,7 +136,7 @@ While the node is still syncing, an operator can see its readiness from the wall
 
 - **FR-001**: The wallet MUST decide whether to use our own node by reading the node's own readiness report, and MUST treat the node as ready only when it reports `ok`, a transaction index that is ready, and an acceptable version, and its block height is within 5 blocks of a public explorer's height.
 - **FR-002**: While the node is not ready (starting, syncing, unhealthy, version too old, unreachable, or the report is missing or invalid), the wallet MUST obtain balance, history, fees and chain height from the public explorers exactly as it does today.
-- **FR-003**: While the node is ready, the wallet MUST prefer it for reads, and MUST fall back to the explorers for any single read that fails or runs too long, and MUST stop preferring the node after a few consecutive failed reads without waiting for the next readiness check.
+- **FR-003**: While the node is ready, the wallet MUST prefer it for transaction lookups, fee estimates and chain height, MUST keep explorers first for address balances and spendable outputs (using the ready node as their fallback), and MUST fall back to the explorers for any single node read that fails or runs too long, and MUST stop preferring the node after a few consecutive failed reads without waiting for the next readiness check.
 - **FR-004**: For sending, the wallet MUST try the own node first only when it is ready; otherwise it MUST use the explorers first. A failed broadcast MUST still fall through to the next source, as today.
 - **FR-005**: The wallet MUST switch from explorers to the node only after the node has stayed ready for a short stable period, and MUST switch away from the node promptly when it stops being ready.
 - **FR-005a**: The height cross-check MUST be repeated with each readiness check; if no explorer height can be obtained, the wallet MUST keep its current source rather than switch to the node, and MUST NOT treat the missing explorer answer as the node being wrong.
@@ -146,7 +149,7 @@ While the node is still syncing, an operator can see its readiness from the wall
 - **FR-012**: When no source is available, the wallet MUST show the last known data clearly marked as out of date, and MUST explain why sending is unavailable.
 - **FR-013**: The wallet MUST give operators a diagnostics view of the node's reported state and a way to compare the node's answers against the explorers for chosen addresses. The view MUST exist only when a deployment setting turns on a developer view (off by default, changeable without a rebuild), MUST NOT be reachable or visible to users otherwise, and neither it nor the comparison MUST affect what normal users see.
 - **FR-014**: No private key, seed, password or signing operation MUST be sent to, or depend on, the node; only public chain requests and already-signed transactions go to it.
-- **FR-014a**: When the own node is the active source, the status detail MUST include a one-line plain-language note that the wallet team's servers (rather than a third-party explorer) see the public addresses the wallet looks up; the privacy documentation MUST say the same.
+- **FR-014a**: When the own node is the active source, the status detail MUST include a one-line plain-language note that the wallet team's servers (rather than a third-party explorer) see the public transactions and addresses the wallet sends or looks up through it; the privacy documentation MUST say the same.
 - **FR-015**: A node whose report cannot be read for any reason (blocked, timed out, malformed) MUST be treated as unavailable and MUST NOT produce repeated visible errors.
 - **FR-016**: The behaviour above MUST be verifiable against a test node whose reported state can be set to each value, without needing the real node to finish syncing.
 
@@ -173,7 +176,7 @@ While the node is still syncing, an operator can see its readiness from the wall
 ## Assumptions
 
 - "Ready" means exactly what the node's health report says: state `ok`, transaction index ready, version acceptable. The wallet does not invent its own definition of ready.
-- Default preference when both sources work: own node. This is the point of running the node, and falling back to explorers keeps the safety net.
+- Default preference when both sources work: own node for sending, transaction lookups, fees and chain height; explorers first for address balances and spendable outputs. The node's address lookups take about 14 seconds, so putting them first would slow every balance screen. An address index on the node (a later feature, like the one DigiDollar already has) would let the node lead for balances too.
 - A short stable period (2 minutes of consecutive ready checks, so the switch happens 2 to 2.5 minutes after the node becomes ready) before switching to the node, and prompt fallback when it stops being ready, is a reasonable default to avoid flapping; exact values are planning details.
 - The readiness check is public and safe to call from the wallet (it carries no credentials or private data).
 - The active source is shown in a status detail opened from a small status indicator, plus a visible banner only in degraded states; there is no permanent source label on the main screen and no new top-level screen.

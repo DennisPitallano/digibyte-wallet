@@ -17,14 +17,14 @@ A small dot in the layout, always present only when the feature is on. Opens the
 
 | Situation | Text |
 |---|---|
-| Own node active | "Using the DigiByte node run by the wallet team." plus the privacy line below |
+| Own node active | "Sending, fees and transaction details use the DigiByte node run by the wallet team. Balances come from public block explorers, with the wallet team's node as a backup." plus the privacy line below |
 | Explorer in use, node syncing | "Using public block explorers. The wallet team's own node is still syncing and will be used automatically when it is ready." |
 | Explorer in use, node not reachable | "Using public block explorers. The wallet team's own node is not available right now." |
 | Explorer in use, node behind or on a different chain | "Using public block explorers. The wallet team's own node is out of step with the network and is not being used." |
 | Feature off | "Using public block explorers." |
 | Nothing available | "No data source is reachable. Showing your last known balance, which may be out of date." |
 
-**Privacy line** (own node active only, FR-014a): "The wallet team's servers, not a third-party explorer, see the public addresses this wallet looks up. Your keys never leave your device."
+**Privacy line** (own node active only, FR-014a): "The wallet team's servers, not a third-party explorer, see the public transactions and addresses this wallet sends or looks up through it. Your keys never leave your device."
 
 ## Banner (degradation only, never during normal syncing)
 

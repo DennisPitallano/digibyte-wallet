@@ -42,4 +42,11 @@ One height lookup from a public explorer per check, using the explorers in their
 
 Reads and broadcast use the same node API routes as today (`/api/address/*`, `/api/tx/*`, `/api/network/fee/*`, `/api/blockchain/height`). No new endpoints are needed on the node API.
 
-While the node is `Active`, each node read has a 5 second budget. A failed or over-budget read is answered by an explorer for that request and reported to the monitor; 3 consecutive failures demote the node immediately instead of waiting for the next health check, and any success resets the count.
+| Route class | Routes | Order when `Active` | Read budget |
+|---|---|---|---|
+| fast | `/api/tx/{txid}`, `/api/network/fee/*`, `/api/blockchain/height`, `POST /api/tx/broadcast` | node first, explorers for that request if it fails | 5 s |
+| address | `/api/address/*` (balance, spendable outputs, batches) | explorers first, node as fallback | 20 s |
+
+The split exists because the node answers address lookups by scanning its whole set of spendable outputs (measured about 14 seconds for one address). A later feature can add an address index to the node, after which the address class can move to node first.
+
+While the node is `Active`, each node read has the budget in the table above. A failed or over-budget read is answered by an explorer for that request and reported to the monitor; 3 consecutive failures demote the node immediately instead of waiting for the next health check, and any success resets the count.

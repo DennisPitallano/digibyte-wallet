@@ -23,7 +23,7 @@ Run a stub that returns each health state on demand (a few lines of script that 
 | Step | Stub answers | Expected |
 |---|---|---|
 | a | `syncing` | Explorers; informational detail only |
-| b | `ok`, height matching an explorer | After 2 to 2.5 minutes (and within the 3 minute target): own node active (green dot); privacy line shown |
+| b | `ok`, height matching an explorer | After 2 to 2.5 minutes (and within the 3 minute target): own node active (green dot); privacy line shown; sending, transaction lookups, fees and height go to the node first, while balances and spendable outputs are still answered by the explorers (check the network log) |
 | c | `ok`, `blocks` 20 behind an explorer | Within 35 s: back to explorers; banner "node unavailable" (it was active) |
 | d | stop the stub | Same as c; no repeated errors on screen |
 | e | `ok`, then flip `ok`/`syncing` every 20 s | The wallet does not switch to the node (never stays ready for the stable period) |

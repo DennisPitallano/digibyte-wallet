@@ -43,6 +43,7 @@ Out-of-range values fall back to the default for that field.
 |---|---|
 | source | `own-node`, an explorer name, or `none` |
 | why | `preferred`, `fallback`, `node-syncing`, `node-unavailable`, `all-failed`, `feature-off` |
+| routeClass | `fast` (transaction lookup, fee, height, broadcast: node first when `Active`) or `address` (balance, spendable outputs, history: explorers first, node as fallback) |
 | since | When this source became active |
 | nodeWasActive | The node was `Active` earlier in this session (drives the banner, R8 in the research) |
 
