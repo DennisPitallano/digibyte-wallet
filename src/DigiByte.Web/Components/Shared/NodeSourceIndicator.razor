@@ -1,0 +1,44 @@
+@implements IDisposable
+@using DigiByte.Wallet.Services
+@inject NodeSourceStatusService Status
+
+@* A small dot that opens the data-source detail on demand. Rendered only when node use is switched on; no permanent source
+   label on the main screen (specs/005-wallet-own-node-source, FR-011). *@
+@if (View.Visible)
+{
+    <button type="button"
+            class="absolute top-2 right-3 z-30 w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-200/60 dark:hover:bg-dgb-800/60 transition-colors"
+            aria-label="Data source: @StateWord. Open details" title="Data source"
+            @onclick="() => open = true">
+        <span class="w-2.5 h-2.5 rounded-full @DotClass" aria-hidden="true"></span>
+    </button>
+    <NodeSourceDetail IsOpen="open" View="View" OnClosed="() => open = false" />
+}
+
+@code {
+    private bool open;
+
+    private NodeSourceStatusView View => Status.View;
+
+    private string DotClass => View.Dot switch
+    {
+        NodeSourceDot.Green => "bg-green-500",
+        NodeSourceDot.Amber => "bg-amber-500",
+        NodeSourceDot.Red => "bg-red-500",
+        _ => "bg-slate-400",
+    };
+
+    private string StateWord => View.Dot switch
+    {
+        NodeSourceDot.Green => "own node in use",
+        NodeSourceDot.Amber => "own node unavailable",
+        NodeSourceDot.Red => "no source reachable",
+        _ => "public explorers in use",
+    };
+
+    protected override void OnInitialized() => Status.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Status.Changed -= OnChanged;
+}

@@ -9,10 +9,12 @@
 @inject BiometricService Biometric
 @inject SpendingLimitService SpendingLimit
 @inject BakuService Baku
+@inject NodeSourceStatusService NodeStatus
 
 <PageTitle>Send DGB</PageTitle>
 
 <AuthGuard>
+<SendUnavailableNotice />
 @if (WalletService.ActiveWallet?.WalletType == "xpub")
 {
     <div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
@@ -1165,7 +1167,10 @@ else
         }
         catch (Exception ex)
         {
-            sendError = MapSendError(ex.Message);
+            // With node use on and no source reachable, say so plainly instead of showing a raw network error.
+            sendError = NodeStatus.View.Visible && NodeStatus.AllSourcesFailed
+                ? "Sending is unavailable until the connection returns. Your funds are safe; try again in a moment."
+                : MapSendError(ex.Message);
             isSending = false;
         }
     }

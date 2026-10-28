@@ -127,6 +127,7 @@ builder.Services.AddScoped(sp => new NodeSourceMonitor(
 builder.Services.AddScoped<INodeSourceState>(sp => sp.GetRequiredService<NodeSourceMonitor>());
 builder.Services.AddScoped<INodeReadFailureSink>(sp => sp.GetRequiredService<NodeSourceMonitor>());
 builder.Services.AddScoped<NodeSourceMonitorLoop>();
+builder.Services.AddScoped<NodeSourceStatusService>();
 
 builder.Services.AddScoped<FallbackBlockchainService>(sp =>
 {

@@ -11,9 +11,11 @@
 
 <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-dgb-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold">Skip to content</a>
 <div class="flex flex-col h-dvh max-w-[480px] mx-auto relative bg-slate-50 dark:bg-dgb-950">
+    <NodeSourceIndicator />
     <main id="main-content" class="flex-1 overflow-y-auto px-4 pt-4 @(ShowNav ? "pb-24" : "pb-4") scroll-smooth thin-scrollbar"
           role="main" @onclick="AppState.ResetLockTimer" @ontouchstart="AppState.ResetLockTimer">
         <OfflineBanner />
+        <NodeDegradedBanner />
         <div class="page-enter">
             @Body
         </div>

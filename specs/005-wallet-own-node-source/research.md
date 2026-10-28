@@ -90,3 +90,12 @@ Items marked **(verify)** were not confirmed against running code and must be ch
   - **Address history is explorers only** (third route class), never the node, not even as a fallback. If every explorer fails, history shows the existing "can't reach" state.
 - **Rationale**: Failed reads must be able to fall through and be counted (FR-003, the read-failure demotion in R2), and the wallet must never show a zero balance, empty list or default value for a failed request (FR-008).
 - **Alternatives**: change the client's behaviour for everyone (rejected: changes today's behaviour with the feature off); wrap each call and guess failure from the value (rejected: a real zero balance and a failure look identical).
+
+## R13 - Last-known data when every source fails (task T032)
+
+Read from `src/DigiByte.Web/Pages/Home.razor`, `src/DigiByte.Web/Pages/Send.razor` and `src/DigiByte.Wallet/Services/FallbackBlockchainService.cs`.
+
+- **Already there**: Home keeps the last balance, transactions and price in IndexedDB and shows them first; a failed fetch leaves the shown balance and history untouched and does not overwrite the cache (`fetchFailed`, `balanceFetchFailed`, `txFetchFailed`). The empty-history case already says "Unable to load data". Send already maps raw broadcast errors to friendly text.
+- **Missing for FR-012**: nothing marks the cached balance as possibly out of date when the device is online but no source answers, and Send shows the raw "All blockchain backends are unavailable" text when a read inside the send flow fails.
+- **Decision**: add the smallest things that close the gap, all active only when node use is on so behaviour with the feature off is unchanged (FR-010): a "May be out of date" tag next to the balance (`OutOfDateTag`), a notice at the top of Send (`SendUnavailableNotice`), and a plain message in Send's error path. The global banner from the status feature already says the same thing app-wide.
+
