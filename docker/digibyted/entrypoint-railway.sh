@@ -9,7 +9,12 @@
 # Optional:
 #   DGB_RPC_BIND       address RPC listens on (default 0.0.0.0; use :: if the private
 #                      network is IPv6 only)
-#   DGB_DBCACHE_MB     database cache in MB (default 512; raise for the first sync)
+#   DGB_DBCACHE_MB     database cache in MB (default 2048, sized for the first sync;
+#                      a bigger cache means fewer disk flushes and a faster, so
+#                      cheaper, sync. Once synced set it to 450 to cut the RAM bill)
+#   DGB_LISTEN         1 to accept inbound peers (default 0: serving peers is billed
+#                      as egress and nothing here needs it)
+#   DGB_MAX_UPLOAD_MB  daily upload cap in MB when DGB_LISTEN=1 (default 1000)
 set -euo pipefail
 
 fail() {
@@ -35,7 +40,9 @@ umask 077
 cp /etc/digibyte/digibyte-railway.conf "${CONF}"
 
 {
-    echo "dbcache=${DGB_DBCACHE_MB:-512}"
+    echo "dbcache=${DGB_DBCACHE_MB:-2048}"
+    echo "listen=${DGB_LISTEN:-0}"
+    echo "maxuploadtarget=${DGB_MAX_UPLOAD_MB:-1000}"
     echo "rpcuser=${DGB_RPC_USER}"
     echo "rpcpassword=${DGB_RPC_PASSWORD}"
     echo "rpcbind=${DGB_RPC_BIND:-0.0.0.0}"
