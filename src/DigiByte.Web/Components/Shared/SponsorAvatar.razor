@@ -1,0 +1,51 @@
+@* A sponsor's picture in a fixed square. No picture, or a picture that fails to load, shows a letter placeholder of the same size,
+   so the grid never shifts and no broken-image icon is shown. *@
+
+<div class="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 @PlaceholderClass flex items-center justify-center" aria-hidden="true">
+    @if (!string.IsNullOrEmpty(ImageUrl) && !failed)
+    {
+        <img src="@ImageUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+             class="absolute inset-0 w-full h-full object-cover" @onerror="OnImageError" />
+    }
+    else
+    {
+        <span class="text-2xl font-bold text-white select-none">@Initial</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string? ImageUrl { get; set; }
+
+    private bool failed;
+
+    private static readonly string[] Palette =
+    [
+        "bg-dgb-500", "bg-emerald-500", "bg-sky-500", "bg-violet-500", "bg-amber-500", "bg-rose-500", "bg-teal-500", "bg-indigo-500",
+    ];
+
+    private string PlaceholderClass
+    {
+        get
+        {
+            var hash = 17;
+            foreach (var c in Name) hash = unchecked(hash * 31 + c);
+            return Palette[(hash & int.MaxValue) % Palette.Length];
+        }
+    }
+
+    private string Initial
+    {
+        get
+        {
+            var trimmed = Name.Trim();
+            if (trimmed.Length == 0) return "?";
+            var first = System.Globalization.StringInfo.GetNextTextElement(trimmed);
+            return first.ToUpperInvariant();
+        }
+    }
+
+    protected override void OnParametersSet() => failed = false;
+
+    private void OnImageError() => failed = true;
+}

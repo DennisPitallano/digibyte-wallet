@@ -22,6 +22,8 @@ const offlineAssetsExclude = [ /^service-worker\.js$/ ];
 // API domains whose responses should be cached for offline use.
 // Never add our own node API or /config.json here: a cached /api/health would make a dead node look ready, and a cached
 // config.json would keep old deployment settings (specs/005-wallet-own-node-source).
+// Sponsors (specs/006-sponsors-page): the list at raw.githubusercontent.com is deliberately NOT cached here. The browser cache's short
+// lifetime bounds how fresh it is, and the Sponsors page keeps its own last good copy for the offline "may be out of date" state.
 const cacheableApiPatterns = [
     /api\.coingecko\.com/,
     /digiexplorer\.info\/api/,
