@@ -1,14 +1,23 @@
 <!--
-Sync Impact Report — 2026-09-27
-- Version change: (unratified template) → 1.0.0 (initial ratification)
-- Modified principles: none (all principles new)
-- Added sections:
-  * Core Principles: I. Self-Custody Is Non-Negotiable; II. In-Browser Cryptography; III. Test-First for Crypto & Wallet Logic (NON-NEGOTIABLE); IV. Boundary Discipline Across Projects; V. Resilience & Graceful Degradation
-  * Security & Custody Requirements
-  * Development Workflow & Quality Gates
-  * Governance
+Sync Impact Report — 2026-10-30
+- Version change: 1.0.0 → 1.1.0 (MINOR: scope of existing rules materially expanded)
+- Modified principles:
+  * II. In-Browser Cryptography — permitted server roles now include a
+    "public-contribution intake relay", with mandatory limits
+- Modified sections:
+  * Security & Custody Requirements → Content Security Policy: adds a narrow,
+    path-scoped exception for the project's own GitHub raw content
+  * Security & Custody Requirements → Auth boundary: adds a narrow exception for
+    anonymous intake endpoints that can only create reviewable items
+- Added sections: none
 - Removed sections: none
+- Motivation: specs/006-sponsors-page (donor-facing sponsors list read live from the
+  project's own repository, and an in-wallet submission form for donors without a
+  GitHub account). No key, seed, or signing flow is touched by this amendment.
+- Templates requiring updates: none (plan-template.md Constitution Check reads this
+  file directly)
 - Deferred / TODOs: none
+- Previous report (2026-09-27): initial ratification, version 1.0.0
 - Note: this scratch report is intended for human review of the amendment; remove
   before committing the amended constitution if the reviewer prefers a clean file.
 -->
@@ -37,11 +46,23 @@ All cryptographic operations that touch a user's secret material (mnemonic gener
 key derivation, encryption/decryption of the seed store, transaction signing, Digi-ID
 signing) MUST run inside the browser, in the WebAssembly sandbox and WebCrypto APIs
 already used by `DigiByte.Web` / `DigiByte.Crypto`. Servers operated by this project
-MUST behave as static asset hosts, price/data proxies, or public-chain relays only;
-they MUST NEVER be a required participant in a signing flow.
+MUST behave as static asset hosts, price/data proxies, public-chain relays, or
+public-contribution intake relays only; they MUST NEVER be a required participant in a
+signing flow.
+
+A **public-contribution intake relay** accepts non-secret, public submissions (for
+example a sponsor-listing request) and forwards them as reviewable items to a
+project-owned repository. It MUST NOT handle keys, seeds, passwords, or signatures; MUST
+hold its forwarding credential only in server configuration, scoped to this project's
+repository with the least privilege needed to create review items (never to merge or
+publish); MUST validate, rate-limit, and size-limit every submission; MUST NOT publish
+anything without maintainer review; and MUST NOT be a dependency of any core wallet flow
+(balance, receive, send, history).
 
 **Rationale**: This is what makes Principle I enforceable rather than a promise.
-A server that never sees keys cannot leak keys. The WebAssembly / WebCrypto pipeline
+A server that never sees keys cannot leak keys. The intake-relay role is allowed because
+it carries only public text and can only create review items, so it adds no custody or
+signing risk. The WebAssembly / WebCrypto pipeline
 is documented in [SELF_CUSTODY.md](../../SELF_CUSTODY.md) and the `docs/walletscrutiny-*`
 audits; any change to it is a security-relevant change.
 
@@ -102,7 +123,12 @@ works" from a nice-to-have into a review criterion.
 - **Content Security Policy**: All CSS, JS, fonts, and images shipped with the wallet
   MUST be self-hosted. Third-party CDNs are prohibited from the wallet origin. The
   strict CSP configured in `DigiByte.Web` is the baseline and MUST NOT be relaxed to
-  ship a feature.
+  ship a feature. The only permitted exception is a path-scoped allowance, in `img-src`
+  and `connect-src`, for content this project itself publishes in its own GitHub
+  repository through `raw.githubusercontent.com` (for example
+  `https://raw.githubusercontent.com/<owner>/<repo>/<branch>/`). Allowing a whole host
+  or another repository remains prohibited, and any such allowance MUST be flagged as
+  security-relevant in the pull request.
 - **Secret hygiene**: Wallet passwords, seed material, private keys, API bearer tokens
   (`dgp_*`), and node RPC credentials MUST NOT appear in logs, telemetry, error
   reports, or committed configuration. Server code MUST use environment variables /
@@ -114,7 +140,12 @@ works" from a nice-to-have into a review criterion.
   transaction destination.
 - **Auth boundary**: DigiPay merchant APIs are authenticated via `dgp_*` bearer keys;
   wallet-to-backend calls that mutate state MUST use an equivalent header-based key
-  and MUST NOT rely on network position for authorization.
+  and MUST NOT rely on network position for authorization. Exception: a
+  public-contribution intake endpoint (Principle II) MAY be anonymous where a key
+  shipped in the static client would be public and add no protection, provided it can
+  only create a review item that cannot publish, move funds, or touch keys or merchant
+  data, and provided it is rate-limited, size-limited, deduplicated, validated against
+  the same rules as the client, and its forwarding credential cannot merge or publish.
 
 ## Development Workflow & Quality Gates
 
@@ -165,4 +196,4 @@ in the same PR that surfaces the conflict.
   `CONTRIBUTING.md` — that document is the runtime guide; this constitution is the
   set of rules a reviewer can block a PR on.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-27 | **Last Amended**: 2026-09-27
+**Version**: 1.1.0 | **Ratified**: 2026-09-27 | **Last Amended**: 2026-10-30
