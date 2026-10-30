@@ -52,6 +52,7 @@ public static class BakuCatalog
         new("digiid.intro", BakuSeverity.Info, "idea", "Log in without a password", "Digi-ID proves it is you with a signature. No funds move and your main keys stay private."),
         new("digiid.new-site", BakuSeverity.Warning, "guard", "First time with this site", "You have not signed in here before. Only approve if you started this login yourself and the website name looks right.", RequiresConfirmation: true),
         new("digiid.insecure", BakuSeverity.Warning, "protective", "This site is not secure", "It uses plain HTTP, so the login could be intercepted. Approve only if you fully trust the site.", RequiresConfirmation: true),
+        new("sponsors.thanks", BakuSeverity.Info, "celebrating", "Thank you, supporters!", "Everyone on this page helps keep the wallet running. Here is where your donations go."),
         new("settings.tip", BakuSeverity.Tip, "idea", "Make it yours", "You can change how much you see of me in Baku settings."),
     ];
 

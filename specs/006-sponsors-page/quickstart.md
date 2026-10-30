@@ -45,6 +45,7 @@ Point `Sponsors:SubmitUrl` at the local API and open `/sponsors`.
 | 6g | Open the page with 5+ sponsors | A "Newest supporters" spotlight shows the newest three above the full grid (FR-037) |
 | 6h | Open Home with sponsors listed; then reload within 30 minutes | A "Supported by" strip with up to six avatars appears after Home loads; the reload makes no request for the list (FR-038, SC-012) |
 | 6i | Open Home offline with no saved copy, or with an empty list | No strip, no error, nothing else changes (FR-038) |
+| 6j | Open the page (any state: list, empty, offline) | Baku shows with "Thank you, supporters!"; set Baku to Off in Settings and the mascot image and message disappear; "Where your donations go" is visible in every state (FR-040, FR-041) |
 | 6a | Submit a real donation transaction (3+ confirmations, to a project address, at least 1 DGB) | Accepted; pull request carries label `donation-verified`; `data/donations/<txid>.txt` is in the pull request (FR-031) |
 | 6b | Submit a transaction that is unconfirmed / paid elsewhere / below 1 DGB / unknown | `not_verified` with the right reason; nothing opened (FR-031) |
 | 6c | Reuse the same transaction ID for a second name | Refused as already used; after the first pull request is closed unmerged, it can be used again (FR-032) |

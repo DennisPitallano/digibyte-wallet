@@ -17,6 +17,8 @@
         </p>
     </div>
 
+    <BakuMessage MessageId="sponsors.thanks" Class="w-full" />
+
     @if (loading)
     {
         <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
@@ -106,6 +108,21 @@
             </button>
         }
     }
+
+    @* Where donations go: plain words, no amounts or percentages *@
+    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Where your donations go</h3>
+        <ul class="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300">
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Hosting.</strong> The wallet app and its API run on cloud hosting that has to be paid for every month.</span></li>
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Our own DigiByte node.</strong> Running a full node of our own, so the wallet depends less on public services.</span></li>
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Maintenance and security.</strong> Fixing bugs, keeping dependencies up to date and answering security reports.</span></li>
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">New features.</strong> Building and improving the wallet and its tools, such as DigiDollar, multisig and DigiPay.</span></li>
+        </ul>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+            Donations go to one public address, so anyone can see what has been received on the
+            <a href="/donations" class="text-dgb-600 dark:text-dgb-400 hover:underline">Donation page</a>.
+        </p>
+    </div>
 
     @* Join section: ways to give and how to get listed *@
     <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">

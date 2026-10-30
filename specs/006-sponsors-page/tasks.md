@@ -176,6 +176,8 @@ Work in this phase happens on the dedicated `sponsors` branch, not `main`. Prepa
 - [x] T063 [US1] Create `src/DigiByte.Web/Components/Shared/SponsorsStrip.razor` (newest six, "+N", "See all", loads after first render with a 30-minute saved copy, hidden on any problem) and place `<SponsorsStrip />` in `src/DigiByte.Web/Pages/Home.razor` between the DigiDollar line and the transaction area (FR-038)
 - [x] T064 [US2] Make the Sponsors links stand out: rose accent with a heart in the footer links of `src/DigiByte.Web/Pages/Welcome.razor` and `src/DigiByte.Web/Pages/Unlock.razor`; rose border and a thank-you line in `src/DigiByte.Web/Pages/Settings.razor` and `src/DigiByte.Web/Pages/About.razor` (FR-039)
 
+- [x] T065 [US1] Add the Baku message `sponsors.thanks` (Info, pose `celebrating`) to `src/DigiByte.Web/Services/BakuCatalog.cs` and place `<BakuMessage MessageId="sponsors.thanks" />` under the intro in `src/DigiByte.Web/Pages/Sponsors.razor` (FR-040; the existing catalog tests already check the pose image exists)
+- [x] T066 [US2] Add the "Where your donations go" section (hosting, our own DigiByte node, maintenance and security, new features; no amounts; link to `/donations`) above the join section in `src/DigiByte.Web/Pages/Sponsors.razor`, visible in every page state (FR-041)
 ---
 
 ## Dependencies & Execution Order

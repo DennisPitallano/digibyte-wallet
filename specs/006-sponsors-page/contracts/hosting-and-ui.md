@@ -39,6 +39,8 @@ Nothing else changes. Flag as security-relevant in the PR (merge gate).
 |---------|-----------|
 | Route | `/sponsors`, hidden bottom tab bar like About/Roadmap |
 | Entry points | Settings list (next to Roadmap), About page, Donation History page, footer links on the Welcome and Unlock screens (after Roadmap) |
+| Mascot | Baku with the message `sponsors.thanks` under the intro, through the existing Baku system (follows the user's Baku setting) (FR-040) |
+| Where donations go | A "Where your donations go" card above the join section, shown in every state: hosting, our own DigiByte node, maintenance and security, new features, and a link to the public Donation page; no amounts or percentages (FR-041) |
 | Intro | One short statement that sponsorships fund hosting, the node, maintenance and development |
 | Spotlight | "Newest supporters": the three newest sponsors in larger tiles above an "All sponsors" heading and the full grid (FR-037) |
 | Home strip | `SponsorsStrip` on Home, between the DigiDollar line and the transaction area: "Supported by" with the six newest, "+N", and "See all"; loads after first render using a copy up to 30 minutes old; hidden on any problem (FR-038) |
