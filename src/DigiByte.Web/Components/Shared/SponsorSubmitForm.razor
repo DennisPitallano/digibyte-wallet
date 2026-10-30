@@ -247,6 +247,7 @@
 
     private async Task SubmitAsync()
     {
+        if (submitting) return; // a quick double tap must not send two requests
         message = null;
         serverInvalid.Clear();
         showErrors = true;

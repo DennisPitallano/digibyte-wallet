@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using DigiByte.Api.Services;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DigiByte.Api.Tests;
@@ -12,12 +13,17 @@ public class GitHubSponsorClientTests
     private const string Token = "ghp_SECRET_TOKEN_VALUE_123";
     private static readonly string Tx = new string('a', 64);
 
-    private static (GitHubSponsorClient client, ScriptedHandler handler) Create(string? token = Token)
+    private static (GitHubSponsorClient client, ScriptedHandler handler) Create(string? token = Token) =>
+        Create(out _, token);
+
+    private static (GitHubSponsorClient client, ScriptedHandler handler) Create(out CapturedLogs logs, string? token = Token, List<TimeSpan>? waits = null)
     {
         var handler = new ScriptedHandler();
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.github.test/") };
         var options = Options.Create(new SponsorOptions { Repository = "owner/repo", Branch = "sponsors", GitHubToken = token });
-        return (new GitHubSponsorClient(http, options, new MemoryCache(new MemoryCacheOptions())), handler);
+        logs = new CapturedLogs();
+        return (new GitHubSponsorClient(http, options, new MemoryCache(new MemoryCacheOptions()), logs,
+            (wait, _) => { waits?.Add(wait); return Task.CompletedTask; }), handler);
     }
 
     [Fact]
@@ -146,7 +152,71 @@ public class GitHubSponsorClientTests
         Assert.Empty(h.Requests);
     }
 
+    [Fact]
+    public async Task GitHubErrors_AreLoggedWithStatusAndGitHubMessage_ButNeverTheToken()
+    {
+        var (client, h) = Create(out var logs);
+        h.On("GET", "/repos/owner/repo/git/ref/heads/sponsors", HttpStatusCode.Forbidden,
+            $$"""{"message":"Resource not accessible by personal access token {{Token}}"}""");
+        await Assert.ThrowsAsync<GitHubApiException>(() => client.GetBranchHeadAsync(default));
+        var text = string.Join("\n", logs.Lines);
+        Assert.Contains("403", text);
+        Assert.Contains("Resource not accessible", text);
+        Assert.DoesNotContain(Token, text);
+    }
+
+    [Fact]
+    public async Task RateLimited_WithRetryAfter_RetriesOnce_AndSucceeds()
+    {
+        var waits = new List<TimeSpan>();
+        var (client, h) = Create(out _, Token, waits);
+        h.OnSequence("GET", "/repos/owner/repo/git/ref/heads/sponsors",
+            (HttpStatusCode.Forbidden, "{}", 2), (HttpStatusCode.OK, """{"object":{"sha":"abc123"}}""", null));
+        Assert.Equal("abc123", await client.GetBranchHeadAsync(default));
+        Assert.Equal(2, h.Requests.Count);
+        Assert.Equal([TimeSpan.FromSeconds(2)], waits);
+    }
+
+    [Fact]
+    public async Task RateLimited_StillBlockedAfterOneRetry_Throws_WithoutRetryingAgain()
+    {
+        var (client, h) = Create(out _, Token, []);
+        h.OnSequence("GET", "/repos/owner/repo/git/ref/heads/sponsors",
+            (HttpStatusCode.Forbidden, "{}", 1), (HttpStatusCode.Forbidden, "{}", 1), (HttpStatusCode.OK, """{"object":{"sha":"x"}}""", null));
+        await Assert.ThrowsAsync<GitHubApiException>(() => client.GetBranchHeadAsync(default));
+        Assert.Equal(2, h.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Forbidden_WithoutRetryAfter_IsNotRetried()
+    {
+        var (client, h) = Create();
+        h.On("GET", "/repos/owner/repo/git/ref/heads/sponsors", HttpStatusCode.Forbidden, "{}");
+        await Assert.ThrowsAsync<GitHubApiException>(() => client.GetBranchHeadAsync(default));
+        Assert.Single(h.Requests);
+    }
+
+    [Fact]
+    public async Task RetryAfter_LongerThanTheCap_IsNotWaitedFor()
+    {
+        var waits = new List<TimeSpan>();
+        var (client, h) = Create(out _, Token, waits);
+        h.OnSequence("GET", "/repos/owner/repo/git/ref/heads/sponsors", (HttpStatusCode.TooManyRequests, "{}", 120));
+        await Assert.ThrowsAsync<GitHubApiException>(() => client.GetBranchHeadAsync(default));
+        Assert.Empty(waits);
+        Assert.Single(h.Requests);
+    }
+
     // ── test double ──
+    private sealed class CapturedLogs : ILogger<GitHubSponsorClient>
+    {
+        public List<string> Lines { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Lines.Add(formatter(state, exception));
+    }
+
     private sealed record Seen(string Method, string Path, string Query, string? Body, string? Authorization);
 
     private sealed class ScriptedHandler : HttpMessageHandler
@@ -154,13 +224,26 @@ public class GitHubSponsorClientTests
         private readonly List<(string Method, string Path, HttpStatusCode Status, string Body)> _routes = [];
         public List<Seen> Requests { get; } = [];
 
+        private readonly Dictionary<string, Queue<(HttpStatusCode Status, string Body, int? RetryAfter)>> _sequences = [];
+
         public void On(string method, string path, HttpStatusCode status, string body) => _routes.Add((method, path, status, body));
+
+        /// <summary>Answers successive calls to the route in order; the last answer repeats.</summary>
+        public void OnSequence(string method, string path, params (HttpStatusCode Status, string Body, int? RetryAfter)[] answers) =>
+            _sequences[method + " " + path] = new Queue<(HttpStatusCode, string, int?)>(answers);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
             var path = request.RequestUri!.AbsolutePath;
             Requests.Add(new Seen(request.Method.Method, path, request.RequestUri.Query, body, request.Headers.Authorization?.ToString()));
+            if (_sequences.TryGetValue(request.Method.Method + " " + path, out var queue))
+            {
+                var a = queue.Count > 1 ? queue.Dequeue() : queue.Peek();
+                var seq = new HttpResponseMessage(a.Status) { Content = new StringContent(a.Body, Encoding.UTF8, "application/json") };
+                if (a.RetryAfter is { } s) seq.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(s));
+                return seq;
+            }
             var route = _routes.FirstOrDefault(r => r.Method == request.Method.Method && r.Path == path);
             return route.Method is null
                 ? new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("{}") }
