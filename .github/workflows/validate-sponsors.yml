@@ -1,0 +1,27 @@
+name: validate-sponsors
+
+# Checks every pull request into the sponsors branch: entry files, https-only links, duplicates, picture type/size/dimensions,
+# donation claim files, and that a bot submission only touches its own entry, picture and claim.
+on:
+  pull_request:
+    branches: [sponsors]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Script self-tests
+        run: python -m unittest discover -s tests
+      - name: Validate the data
+        run: python scripts/validate.py .
+      - name: Submission scope
+        run: python scripts/check_scope.py "origin/${{ github.base_ref }}" "${{ github.head_ref }}"
