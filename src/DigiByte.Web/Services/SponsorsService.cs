@@ -5,7 +5,7 @@ namespace DigiByte.Web.Services;
 
 /// <summary>
 /// Loads the sponsors list from GitHub when the Sponsors page opens. One request per load, no polling, no cache busting
-/// (the browser cache's short lifetime is what bounds how fresh the list is). A fully valid list is kept in local storage
+/// on open (the browser cache's short lifetime bounds how fresh the list is); the Refresh button does bust it. A fully valid list is kept in local storage
 /// as the last good copy; if a later fetch fails, that copy is shown and labelled out of date. Nothing else is stored and
 /// nothing here touches wallet data. See specs/006-sponsors-page/contracts/hosting-and-ui.md.
 /// </summary>
@@ -31,7 +31,11 @@ public sealed class SponsorsService
     /// When given and the saved copy is younger than this, it is returned as a fresh result and nothing is requested. The Home
     /// strip uses this so opening Home does not contact GitHub more than once per period.
     /// </param>
-    public async Task<SponsorLoadResult> LoadAsync(CancellationToken ct = default, TimeSpan? maxAge = null)
+    /// <param name="bypassCache">
+    /// Set by the Refresh button: asks for the list with a changing query so a copy held by the browser or GitHub's edge is not reused.
+    /// The path (what the content security policy checks) is unchanged.
+    /// </param>
+    public async Task<SponsorLoadResult> LoadAsync(CancellationToken ct = default, TimeSpan? maxAge = null, bool bypassCache = false)
     {
         if (maxAge is { } limit)
         {
@@ -44,7 +48,7 @@ public sealed class SponsorsService
                 };
         }
 
-        var text = await TryFetchAsync(ct);
+        var text = await TryFetchAsync(bypassCache, ct);
         if (text is not null)
         {
             var parsed = SponsorListParser.Parse(text, _baseUrl);
@@ -67,13 +71,13 @@ public sealed class SponsorsService
             : new SponsorLoadResult { State = SponsorLoadState.Stale, List = stored };
     }
 
-    private async Task<string?> TryFetchAsync(CancellationToken ct)
+    private async Task<string?> TryFetchAsync(bool bypassCache, CancellationToken ct)
     {
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(RequestTimeout);
-            using var response = await _http.GetAsync(_baseUrl + "sponsors.json", timeout.Token);
+            using var response = await _http.GetAsync(_baseUrl + "sponsors.json" + (bypassCache ? "?t=" + _clock.GetUtcNow().ToUnixTimeSeconds() : ""), timeout.Token);
             if (!response.IsSuccessStatusCode) return null;
             return await response.Content.ReadAsStringAsync(timeout.Token);
         }

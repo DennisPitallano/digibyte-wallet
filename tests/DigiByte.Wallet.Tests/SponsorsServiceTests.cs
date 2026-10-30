@@ -16,6 +16,16 @@ public class SponsorsServiceTests
         return (new SponsorsService(new HttpClient(http), js, Base, clock), http, js);
     }
 
+    [Fact]
+    public async Task Refresh_AsksWithAChangingQuery_ButPlainLoadDoesNot()
+    {
+        var (svc, http, _) = Create(new FakeHandler { Body = TwoSponsors });
+        await svc.LoadAsync();
+        await svc.LoadAsync(bypassCache: true);
+        Assert.Equal(Base + "sponsors.json", http.Requests[0].ToString());
+        Assert.StartsWith(Base + "sponsors.json?t=", http.Requests[1].ToString());
+    }
+
     // ── US1: fresh results ──
 
     [Fact]
