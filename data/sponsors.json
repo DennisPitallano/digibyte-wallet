@@ -1,4 +1,10 @@
 {
   "version": 1,
-  "sponsors": []
+  "sponsors": [
+    {
+      "id": "565ddba48367",
+      "name": "KapPinoy",
+      "image": "565ddba48367.webp"
+    }
+  ]
 }
