@@ -57,6 +57,8 @@ public sealed class SponsorSubmissionService(
         }
         catch (Exception ex) when (ex is GitHubApiException or DonationLookupUnavailableException or HttpRequestException or TaskCanceledException)
         {
+            // These messages are status codes and fixed phrases only (no token, no submitted content), so they are safe to log.
+            logger.LogWarning("Sponsor submission {Type} could not complete: {ErrorType}: {Reason}", request.Type, ex.GetType().Name, ex.Message);
             Log(request, SponsorSubmissionState.Unavailable);
             return Of(SponsorSubmissionState.Unavailable);
         }
