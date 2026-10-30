@@ -179,6 +179,7 @@ Work in this phase happens on the dedicated `sponsors` branch, not `main`. Prepa
 - [x] T065 [US1] Add the Baku message `sponsors.thanks` (Info, pose `celebrating`) to `src/DigiByte.Web/Services/BakuCatalog.cs` and place `<BakuMessage MessageId="sponsors.thanks" />` under the intro in `src/DigiByte.Web/Pages/Sponsors.razor` (FR-040; the existing catalog tests already check the pose image exists)
 - [x] T066 [US2] Add the "Where your donations go" section (hosting, our own DigiByte node, maintenance and security, new features; no amounts; link to `/donations`) above the join section in `src/DigiByte.Web/Pages/Sponsors.razor`, visible in every page state (FR-041)
 - [x] T067 [US2] Remove the separate "Donate DGB" button from the join section of `src/DigiByte.Web/Pages/Sponsors.razor`, make "Add me to the list" the filled main button, and reword the text under it (FR-006)
+- [x] T068 [US5] Put the DGB logo (`DigiLogo`, in a white circle) in the middle of the donation QR in `src/DigiByte.Web/Components/Shared/SponsorSubmitForm.razor` and raise the QR to the highest error correction (checked: it still decodes with the logo over the middle); stop the "♥ Sponsors" footer link wrapping (`whitespace-nowrap`) and let the footer row wrap and centre on narrow screens in `src/DigiByte.Web/Pages/Welcome.razor` and `src/DigiByte.Web/Pages/Unlock.razor` (FR-036, FR-039)
 ---
 
 ## Dependencies & Execution Order
