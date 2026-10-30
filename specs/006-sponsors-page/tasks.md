@@ -169,6 +169,8 @@ Work in this phase happens on the dedicated `sponsors` branch, not `main`. Prepa
 
 - [x] T059 [US5] Add the donate-first step to `src/DigiByte.Web/Components/Shared/SponsorSubmitForm.razor` (step 1 of 2: QR code of a BIP21 link with the minimum amount, the address with a Copy button, "I've donated, continue"; step 2 of 2: the form, with a way back; "Remove me" skips step 1), keep the donation address in one place in `src/DigiByte.Web/Services/DonationInfo.cs` (also used by `src/DigiByte.Web/Pages/DonationHistory.razor`), and add `tests/DigiByte.Wallet.Tests/DonationInfoTests.cs` including a check that the address is one the API accepts (FR-036)
 
+- [x] T060 [US2] Add a "Sponsors" link after "Roadmap" in the footer links of `src/DigiByte.Web/Pages/Welcome.razor` and `src/DigiByte.Web/Pages/Unlock.razor` (FR-001)
+
 ---
 
 ## Dependencies & Execution Order

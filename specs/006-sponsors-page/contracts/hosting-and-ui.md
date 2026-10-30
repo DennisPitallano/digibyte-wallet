@@ -38,7 +38,7 @@ Nothing else changes. Flag as security-relevant in the PR (merge gate).
 | Element | Behaviour |
 |---------|-----------|
 | Route | `/sponsors`, hidden bottom tab bar like About/Roadmap |
-| Entry points | Settings list (next to Roadmap), About page, Donation History page |
+| Entry points | Settings list (next to Roadmap), About page, Donation History page, footer links on the Welcome and Unlock screens (after Roadmap) |
 | Intro | One short statement that sponsorships fund hosting, the node, maintenance and development |
 | Grid | Fixed square picture box, name, optional link; plain text only; `rel="noopener noreferrer"`, new tab for links |
 | Picture | Repository image, otherwise (or on load error) a neutral letter placeholder; no layout shift |

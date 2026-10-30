@@ -146,7 +146,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 
 ### Functional Requirements
 
-- **FR-001**: The app MUST provide a Sponsors page reachable from the Settings list, the About page and the Donation History page (not the bottom tab bar), with a stable, shareable address.
+- **FR-001**: The app MUST provide a Sponsors page reachable from the Settings list, the About page, the Donation History page, and the footer links of the Welcome and Unlock screens (not the bottom tab bar), with a stable, shareable address.
 - **FR-002**: The page MUST list every sponsor in the sponsor list stored in the wallet repository, showing picture, display name, and a link when one is provided.
 - **FR-003**: GitHub MUST be the only storage for this feature: the list is a JSON file generated from one entry file per sponsor, kept on a dedicated sponsors branch of this wallet's repository, and sponsor pictures are image files on the same branch. The project MUST NOT introduce a database or any new standalone service to support it; the only server-side addition allowed is one submission endpoint on an API the project already operates (see FR-024 to FR-030).
 - **FR-004**: Adding, editing, or removing an entry in the sponsor list MUST be reflected live on the page within 10 minutes, without an app rebuild or redeploy.
