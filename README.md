@@ -13,7 +13,7 @@ Use the form on the wallet's Sponsors page. You do not need a GitHub account.
 3. The donation is checked automatically and a pull request is opened for you. A maintainer reviews the entry and merges it.
 4. Your entry appears on the page within about 10 minutes of the merge.
 
-To be removed, use **Remove me** with the same transaction ID. Donors who gave another way (for example GitHub Sponsors) can
+To be removed, use **Remove me** with the same transaction ID. Donors who gave another way (anything other than DGB) can
 contact the maintainer through the link on the Sponsors page.
 
 Everything on this branch is public, including the name, link, picture and transaction ID you submit.
