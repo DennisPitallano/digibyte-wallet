@@ -54,7 +54,7 @@ Nothing else changes. Flag as security-relevant in the PR (merge gate).
 
 | Element | Behaviour |
 |---------|-----------|
-| Flow | "Add me": step 1 of 2 shows the donation address as a QR code (BIP21 link, minimum amount filled in) with a Copy button and "I've donated, continue"; step 2 of 2 is the form, with a way back. "Remove me" goes straight to its form |
+| Flow | "Add me": step 1 of 2 shows the donation address as a QR code (BIP21 link, minimum amount filled in, DGB logo in the middle, highest error correction) with a Copy button and "I've donated, continue"; step 2 of 2 is the form, with a way back. "Remove me" goes straight to its form |
 | Fields | Request type (add / remove), name, optional link, optional picture, donation transaction ID (64 hex characters), a required consent confirmation for add requests ("I am this person, or I have their permission to be listed"); hidden honeypot. For remove, only the transaction ID is needed |
 | Picture | File picker; the wallet resizes to at most 256×256 and re-encodes (WebP, or JPEG where the browser cannot encode WebP) before sending, and shows a preview |
 | Validation | Same rules as the server (shared rules); inline field messages; nothing is sent until all pass |

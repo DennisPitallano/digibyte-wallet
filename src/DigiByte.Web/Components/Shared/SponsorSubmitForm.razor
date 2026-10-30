@@ -32,7 +32,15 @@
                 </p>
                 @if (donationQr is not null)
                 {
-                    <img src="@donationQr" alt="QR code for the project's donation address" class="w-48 h-48 rounded-lg bg-white p-1" />
+                    @* The DGB logo sits in the middle, as on the Receive QR; the code uses the highest error correction so it still scans. *@
+                    <div class="relative w-48 h-48 rounded-lg bg-white p-1">
+                        <img src="@donationQr" alt="QR code for the project's donation address" class="w-full h-full rounded-lg" />
+                        <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                            <div class="bg-white rounded-full p-1.5 shadow-md">
+                                <DigiLogo Size="32" />
+                            </div>
+                        </div>
+                    </div>
                 }
                 <div class="flex items-center gap-2 max-w-full">
                     <code class="text-[11px] break-all text-slate-700 dark:text-slate-200">@DonationInfo.CurrentAddress</code>
@@ -152,11 +160,11 @@
 
     protected override void OnInitialized()
     {
-        // Same QR approach as the Receive page; a BIP21 link so scanning fills in the address and the minimum amount.
+        // Same QR approach as the Receive page (highest error correction, so the logo in the middle is safe); a BIP21 link so scanning fills in the address and the minimum amount.
         try
         {
             using var generator = new QRCoder.QRCodeGenerator();
-            using var data = generator.CreateQrCode(DonationInfo.Bip21Uri(), QRCoder.QRCodeGenerator.ECCLevel.M);
+            using var data = generator.CreateQrCode(DonationInfo.Bip21Uri(), QRCoder.QRCodeGenerator.ECCLevel.H);
             using var qr = new QRCoder.PngByteQRCode(data);
             donationQr = $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(8, [0, 35, 82], [255, 255, 255]))}";
         }
