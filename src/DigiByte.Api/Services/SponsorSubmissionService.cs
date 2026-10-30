@@ -66,6 +66,23 @@ public sealed class SponsorSubmissionService(
 
     // ── add ──
 
+    /// <summary>True when a listed sponsor already has this name (ignoring case and extra spaces). A missing or unreadable list does not block.</summary>
+    private async Task<bool> NameIsListedAsync(string name, CancellationToken ct)
+    {
+        var text = await github.ReadFileTextAsync("data/sponsors.json", ct);
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            if (!doc.RootElement.TryGetProperty("sponsors", out var list) || list.ValueKind != JsonValueKind.Array) return false;
+            var key = SponsorRules.NameKey(name);
+            foreach (var entry in list.EnumerateArray())
+                if (entry.TryGetProperty("name", out var n) && n.GetString() is { } listed && SponsorRules.NameKey(listed) == key) return true;
+        }
+        catch (JsonException) { }
+        return false;
+    }
+
     private async Task<SponsorSubmissionResult> AddAsync(SponsorSubmissionRequest request, CancellationToken ct)
     {
         var invalid = new List<string>();
@@ -86,6 +103,7 @@ public sealed class SponsorSubmissionService(
 
         var txId = request.TxId!.ToLowerInvariant();
         if (await github.ReadClaimAsync(txId, ct) is not null) return Of(SponsorSubmissionState.AlreadyUsed);
+        if (await NameIsListedAsync(name, ct)) return Of(SponsorSubmissionState.NameTaken, "name");
         if (await github.CountOpenSubmissionsAsync(ct) >= options.Value.MaxOpenSubmissions) return Of(SponsorSubmissionState.QueueFull);
 
         var check = await donations.VerifyAsync(txId, ct);

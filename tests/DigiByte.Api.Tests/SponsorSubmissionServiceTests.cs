@@ -147,6 +147,32 @@ public class SponsorSubmissionServiceTests
         Assert.DoesNotContain(gh.Calls, c => c.StartsWith("CreateBranch"));
     }
 
+    [Theory]
+    [InlineData("Alice")]
+    [InlineData("  alice ")]
+    [InlineData("ALICE")]
+    [InlineData("Al   ice")]
+    public async Task NameAlreadyListed_IsRefused_IgnoringCaseAndSpaces_WithoutVerifyingOrBranching(string typed)
+    {
+        var gh = new FakeGitHub();
+        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"x","name":"Al ice"},{"id":"y","name":"Alice"}]}""";
+        var (svc, _, verifier) = Create(gh);
+        var r = await svc.SubmitAsync(Add(name: typed), default);
+        Assert.Equal(SponsorSubmissionState.NameTaken, r.State);
+        Assert.Equal(["name"], r.Fields);
+        Assert.Equal(0, verifier.Calls);
+        Assert.DoesNotContain(gh.Calls, c => c.StartsWith("CreateBranch"));
+    }
+
+    [Fact]
+    public async Task DifferentName_OrNoListYet_IsNotBlocked()
+    {
+        var gh = new FakeGitHub();
+        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"x","name":"Bob"}]}""";
+        Assert.Equal(SponsorSubmissionState.Created, (await Create(gh).svc.SubmitAsync(Add(), default)).State);
+        Assert.Equal(SponsorSubmissionState.Created, (await Create(new FakeGitHub()).svc.SubmitAsync(Add(), default)).State);
+    }
+
     [Fact]
     public async Task BranchAlreadyExists_MeansAnotherSubmissionIsOpen()
     {

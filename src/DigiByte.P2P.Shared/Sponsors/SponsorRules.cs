@@ -35,6 +35,10 @@ public static class SponsorRules
         return true;
     }
 
+    /// <summary>The form of a name used to tell whether two entries are the same name: case and extra spaces do not count.</summary>
+    public static string NameKey(string name) =>
+        string.Join(' ', name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+
     /// <summary>Absolute https URL, at most 200 characters, no embedded credentials, no whitespace.</summary>
     public static bool IsValidLink(string? link)
     {

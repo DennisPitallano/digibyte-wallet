@@ -102,6 +102,7 @@ public static class SponsorEndpoints
         SponsorSubmissionState.Duplicate => StatusCodes.Status200OK,
         SponsorSubmissionState.Invalid => StatusCodes.Status400BadRequest,
         SponsorSubmissionState.AlreadyUsed => StatusCodes.Status409Conflict,
+        SponsorSubmissionState.NameTaken => StatusCodes.Status409Conflict,
         SponsorSubmissionState.NotVerified => StatusCodes.Status422UnprocessableEntity,
         SponsorSubmissionState.RateLimited => StatusCodes.Status429TooManyRequests,
         SponsorSubmissionState.QueueFull => StatusCodes.Status503ServiceUnavailable,
