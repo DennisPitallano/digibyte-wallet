@@ -152,10 +152,20 @@ class ValidateTests(unittest.TestCase):
         self.repo.add(claim=False)
         self.assertProblem("has no donation claim file")
 
-    def test_claim_pointing_to_missing_entry_fails(self):
+    def test_claim_of_a_removed_entry_is_allowed(self):
+        # A removal deletes the entry and its picture but keeps the claim, so the donation can never be reused.
         self.repo.add()
         (self.repo.root / "data" / "donations" / ("d" * 64 + ".txt")).write_text("ffffffffffff\n")
-        self.assertProblem("which does not exist")
+        self.assertEqual(self.repo.problems(), [])
+
+    def test_repo_with_only_a_leftover_claim_is_valid(self):
+        (self.repo.root / "data" / "donations" / ("d" * 64 + ".txt")).write_text("ffffffffffff\n")
+        self.assertEqual(self.repo.problems(), [])
+
+    def test_claim_with_a_malformed_entry_id_fails(self):
+        self.repo.add()
+        (self.repo.root / "data" / "donations" / ("d" * 64 + ".txt")).write_text("not-an-id\n")
+        self.assertProblem("12-character lowercase hex entry id")
 
     def test_two_claims_for_one_entry_fail(self):
         eid = self.repo.add()

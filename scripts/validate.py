@@ -67,16 +67,18 @@ def validate(root):
         elif size[0] > sd.IMAGE_MAX_SIDE or size[1] > sd.IMAGE_MAX_SIDE:
             problems.append(f"images/{name}: {size[0]}x{size[1]} is larger than 512x512")
 
-    # Donation claims: one per entry, each naming an existing entry.
+    # Donation claims: every entry has exactly one; claims of removed entries stay.
     claimed = {}
     for path in sorted(claims_dir.glob("*.txt")) if claims_dir.exists() else []:
         if not sd.TXID_RE.match(path.stem):
             problems.append(f"donations/{path.name}: file name must be a 64-character lowercase hex transaction ID")
             continue
         target = path.read_text(encoding="utf-8").strip()
-        if target not in entries:
-            problems.append(f"donations/{path.name}: names entry '{target}' which does not exist")
+        if not sd.ID_RE.match(target):
+            problems.append(f"donations/{path.name}: must contain a 12-character lowercase hex entry id")
             continue
+        # A claim whose entry was removed stays on purpose (a removal keeps it so the donation can never be used again), so a claim
+        # naming a missing entry is allowed. Every entry, however, must have exactly one claim.
         claimed.setdefault(target, []).append(path.name)
     for stem in sorted(entries):
         count = len(claimed.get(stem, []))

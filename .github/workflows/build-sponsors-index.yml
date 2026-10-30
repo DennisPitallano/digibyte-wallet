@@ -4,13 +4,14 @@ name: build-sponsors-index
 # The list is generated: never edit it by hand. The commit below is made by the GitHub Actions identity, which the branch ruleset
 # allows to bypass the pull-request rule for exactly this file.
 on:
+  workflow_dispatch:
   push:
     branches: [sponsors]
     paths:
       - "data/entries/**"
       - "data/donations/**"
       - "data/images/**"
-      - "scripts/build_index.py"
+      - "scripts/**"
 
 permissions:
   contents: write
