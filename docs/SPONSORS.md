@@ -6,8 +6,8 @@ The wallet's **Sponsors** page (`/sponsors`) lists the people who support the pr
 
 You do not need a GitHub account.
 
-1. **Donate** at least 1 DGB to the project's donation address (see the Donation page) and wait for about 3 confirmations.
-2. Open **Sponsors**, choose **Add me to the list**, and fill in:
+1. Open **Sponsors** and choose **Add me to the list**. Step 1 shows the project's donation address as a QR code (and a Copy button). **Donate** at least 1 DGB and wait for about 3 confirmations, then tap **I've donated, continue**.
+2. Step 2 is the form. Fill in:
    - the name to show (1 to 60 characters),
    - an optional link (`https` only),
    - an optional picture (PNG, JPEG or WebP; the wallet shrinks it to a small square before sending),
@@ -18,7 +18,7 @@ You do not need a GitHub account.
 
 To be **removed**, use **Remove me** and enter the transaction ID of the donation that created your entry. A maintainer reviews the request.
 
-Donated another way (for example through GitHub Sponsors)? Use the **Contact the maintainer** link on the Sponsors page.
+Donated another way (anything other than DGB)? Use the **Contact the maintainer** link on the Sponsors page.
 
 ## What is public
 
@@ -63,6 +63,5 @@ One-time setup (not application code):
 2. Create a **bot account** with write access to this repository only, and a fine-grained token (Contents and Pull requests, read and write, this repository only). Set it on the API host as the environment variable **`Sponsors__GitHubToken`**. Never put it in a file, log or response.
 3. Rulesets on **`main`** and **`sponsors`**: pull request required, merges restricted to maintainers, head branches deleted after merge. On `sponsors` only, allow the **GitHub Actions** identity to bypass, so the index workflow can commit the generated list. Confirm the bot can neither merge nor push directly.
 4. Create the `sponsor-submission` label (the API also adds `donation-verified` and `removal-request`).
-5. Enable the project's GitHub Sponsors profile (`github.com/sponsors/DennisPitallano`) for the "Become a sponsor" button.
 
 If the token is missing, the form answers "could not be sent" and nothing else in the app is affected.

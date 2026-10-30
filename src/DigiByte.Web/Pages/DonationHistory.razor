@@ -180,7 +180,7 @@
     [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
 
     private const string ExplorerUrl = "https://digiexplorer.info";
-    private const string CurrentAddress = "dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa";
+    private const string CurrentAddress = DonationInfo.CurrentAddress;
     // The scriptpubkey for CurrentAddress — used for matching because the API may return
     // a different bech32 checksum variant of the same address
     private const string CurrentScriptPubKey = "00146614dd737059843850c40ed8ea39718ef17ce2a2";

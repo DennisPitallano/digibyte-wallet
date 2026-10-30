@@ -28,8 +28,9 @@
 - Q: How should a submission from the wallet form become a pull request without the sponsor having a GitHub account? → A: The form posts to one new endpoint on an API the project already runs; the server validates the submission and opens a pull request on the sponsors branch with a bot token kept server-side. Sponsors need no GitHub account. A maintainer still confirms the donation and merges. (This replaces the earlier assumption that sponsors open the pull request themselves.)
 - Q: How is the donation checked? → A: Automatically against the public blockchain explorers. A submission must carry the DGB transaction ID of a confirmed payment to one of the project's donation addresses; each donation transaction can back only one entry; a maintainer no longer confirms donations by hand but still reviews the entry's content and merges. (This replaces the earlier manual donation check.)
 - Q: How is a named person's consent confirmed, and how fast must a merged entry appear? → A: The form requires a confirmation that the submitter is the person named or has that person's permission to be listed, and a maintainer checks it before merging; merged entries appear within 10 minutes (the raw-file cache of about 5 minutes plus the list rebuild), not 5. The Sponsors page is reached from Settings, About and Donation History rather than the bottom tab bar.
+- Q: What should "Add me to the list" show first? → A: The project's donation address as a QR code with a Copy button (step 1 of 2), then, after "I've donated, continue", the form (step 2 of 2). "Remove me" goes straight to its form.
 - Q: Whose token does the server use? → A: A dedicated bot identity controlled by the maintainer, limited to this repository with only the permissions needed to create branches and pull requests; never the maintainer's personal token, and never able to merge.
-- Q: Where should the "Become a sponsor" button go? → A: The project's GitHub Sponsors profile, which the owner enables before launch.
+- Q: Where should the "Become a sponsor" button go? → A: Nowhere: the project has no GitHub Sponsors profile, so the page has no such button. The main call to action is "Donate DGB" (the in-app Donation page), next to "Add me to the list".
 - Q: In what order should sponsors appear on the page? → A: The order of the list file, with the newest entry (last in the file) shown first; entries carry no date field.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -51,20 +52,19 @@ A wallet user (or visitor) opens the Sponsors page from the app's navigation and
 
 ---
 
-### User Story 2 - Become a sponsor (Priority: P1)
+### User Story 2 - Support the project (Priority: P1)
 
-A user who wants to support the project sees a clear call to action on the Sponsors page that takes them to the project's GitHub Sponsors page, and is also reminded they can donate DGB directly via the existing Donation page. The page also offers a form to get listed (see User Story 5).
+A user who wants to support the project sees a clear "Donate DGB" call to action on the Sponsors page that takes them to the existing Donation page. The page also offers a form to get listed (see User Story 5).
 
 **Why this priority**: A sponsors page with no way to join does not fund anything; it is the other half of the feature's purpose.
 
-**Independent Test**: Open the Sponsors page, activate the sponsor call to action, and confirm it opens the project's GitHub Sponsors page in a new tab; activate the DGB donation link and confirm it reaches the existing Donation page.
+**Independent Test**: Open the Sponsors page, activate "Donate DGB", and confirm it reaches the existing Donation page.
 
 **Acceptance Scenarios**:
 
-1. **Given** the Sponsors page is open, **When** the user activates "Become a sponsor", **Then** the project's GitHub Sponsors page opens in a new browser tab.
-2. **Given** the Sponsors page is open, **When** the user activates the DGB donation link, **Then** they land on the existing Donation page inside the app.
-3. **Given** a donor has given by any channel, **When** they read the page, **Then** they see a clear "Add me to the list" action that opens the submission form.
-4. **Given** the page has zero sponsors yet, **When** it renders, **Then** it shows a friendly "be the first to sponsor" message with the same call to action instead of an empty grid.
+1. **Given** the Sponsors page is open, **When** the user activates "Donate DGB", **Then** they land on the existing Donation page inside the app.
+2. **Given** a donor has given DGB, **When** they read the page, **Then** they see a clear "Add me to the list" action that opens the submission form.
+3. **Given** the page has zero sponsors yet, **When** it renders, **Then** it shows a friendly "be the first to sponsor" message with the same call to action instead of an empty grid.
 
 ---
 
@@ -109,16 +109,17 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 
 **Acceptance Scenarios**:
 
-1. **Given** a visitor with no GitHub account, **When** they submit a valid name (and optional link and picture) and the transaction ID of a confirmed donation, **Then** they see a confirmation that the entry is awaiting review, and a pull request containing only that entry is opened on the sponsors branch.
-2. **Given** the visitor has not ticked the confirmation that they are the named person or have permission, **When** they try to submit an add request, **Then** the form refuses and explains why; nothing is sent.
-3. **Given** a submission breaks a rule (empty or over-long name, non-https link, picture of the wrong type or too large, a transaction ID that is not a valid ID), **When** the visitor submits, **Then** they see which field to fix and nothing is sent to GitHub.
-4. **Given** a maintainer has reviewed the entry and merges the pull request, **Then** the entry appears on the page within 10 minutes and the main branch is unchanged.
-5. **Given** the transaction ID cannot be verified (not found, fewer than the required confirmations, not paid to a project donation address, below the minimum amount, or already used for another entry), **When** the visitor submits, **Then** they see why the donation was not accepted and no pull request is opened.
+1. **Given** a visitor chooses "Add me to the list", **When** the form area opens, **Then** they first see the project's donation address as a QR code with a Copy button and a "I've donated, continue" button, and only after continuing do they see the form (with a way back).
+2. **Given** a visitor with no GitHub account, **When** they submit a valid name (and optional link and picture) and the transaction ID of a confirmed donation, **Then** they see a confirmation that the entry is awaiting review, and a pull request containing only that entry is opened on the sponsors branch.
+3. **Given** the visitor has not ticked the confirmation that they are the named person or have permission, **When** they try to submit an add request, **Then** the form refuses and explains why; nothing is sent.
+4. **Given** a submission breaks a rule (empty or over-long name, non-https link, picture of the wrong type or too large, a transaction ID that is not a valid ID), **When** the visitor submits, **Then** they see which field to fix and nothing is sent to GitHub.
+5. **Given** a maintainer has reviewed the entry and merges the pull request, **Then** the entry appears on the page within 10 minutes and the main branch is unchanged.
+6. **Given** the transaction ID cannot be verified (not found, fewer than the required confirmations, not paid to a project donation address, below the minimum amount, or already used for another entry), **When** the visitor submits, **Then** they see why the donation was not accepted and no pull request is opened.
    - **Given** the transaction was just sent and is not yet confirmed enough, **Then** the message tells them to try again shortly.
    - **Given** the public explorers cannot be reached, **Then** the visitor sees the "could not be sent, try again later" message and nothing is opened.
-6. **Given** the submission service is unreachable or refuses the request, **When** the visitor submits, **Then** they see a plain message that it could not be sent and can try again later; the rest of the wallet is unaffected.
-7. **Given** a visitor sends many submissions in a short time, **Then** further submissions are refused with a clear message.
-8. **Given** a visitor chooses the removal option, **When** they submit the transaction ID that originally created their entry, **Then** a pull request removing that entry is opened for a maintainer to review; a transaction ID that never created an entry opens nothing.
+7. **Given** the submission service is unreachable or refuses the request, **When** the visitor submits, **Then** they see a plain message that it could not be sent and can try again later; the rest of the wallet is unaffected.
+8. **Given** a visitor sends many submissions in a short time, **Then** further submissions are refused with a clear message.
+9. **Given** a visitor chooses the removal option, **When** they submit the transaction ID that originally created their entry, **Then** a pull request removing that entry is opened for a maintainer to review; a transaction ID that never created an entry opens nothing.
 
 ---
 
@@ -150,7 +151,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **FR-003**: GitHub MUST be the only storage for this feature: the list is a JSON file generated from one entry file per sponsor, kept on a dedicated sponsors branch of this wallet's repository, and sponsor pictures are image files on the same branch. The project MUST NOT introduce a database or any new standalone service to support it; the only server-side addition allowed is one submission endpoint on an API the project already operates (see FR-024 to FR-030).
 - **FR-004**: Adding, editing, or removing an entry in the sponsor list MUST be reflected live on the page within 10 minutes, without an app rebuild or redeploy.
 - **FR-005**: The page MUST list only people who agreed to be listed (see FR-034), and MUST NOT display donation amounts, tiers, or dates.
-- **FR-006**: The page MUST include a prominent "Become a sponsor" action that opens the project's GitHub Sponsors page in a new tab, and a link to the existing DGB Donation page.
+- **FR-006**: The page MUST include a prominent "Donate DGB" action that opens the existing DGB Donation page.
 - **FR-007**: The page MUST include a short plain-language statement that sponsorships fund hosting, the DigiByte node, maintenance, and development.
 - **FR-008**: When there are no sponsors, the page MUST show a friendly empty state with the call to action.
 - **FR-023**: The page MUST show sponsors in list-file order, newest entry first, with no date or amount used for ordering.
@@ -178,6 +179,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **FR-032**: Each donation transaction MUST back at most one entry: a second submission with the same transaction ID MUST be refused, and the claim MUST survive across pull requests and server restarts without a database. A removal request MUST be accepted only with the transaction ID that created the entry.
 - **FR-033**: The check MUST use the same explorer fallback as the rest of the wallet, and when no explorer can be reached the submission MUST fail with the "try again later" message rather than skip the check.
 - **FR-035**: The Sponsors page MUST show donors who gave by a channel the form cannot verify how to reach the maintainer, through a visible "Contact the maintainer" link.
+- **FR-036**: Choosing "Add me" MUST first show the project's donation address as a QR code (a payment link with the minimum amount filled in) with a Copy button and a continue button; the form appears only after continuing, with a way back to the donation details. "Remove me" MUST go straight to its form.
 - **FR-034**: The form MUST require a confirmation, for an add request, that the submitter is the person named or has that person's permission to be listed, and MUST refuse to send without it; the pull request MUST record that the confirmation was given, and a maintainer MUST check it (and that the name is plausible for the donation) before merging.
 - **FR-030**: The form MUST show a confirmation after success and a plain-language message on failure or refusal (no technical terms or status codes, 20 words or fewer, and saying what the visitor can do next), MUST warn that the entry and transaction ID appear publicly in a pull request, and MUST NOT block or slow any core wallet flow.
 
@@ -189,7 +191,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **Submission**: A request from the form to add or remove one entry: name, optional link, optional picture, donation transaction ID, request type.
 - **Donation Claim**: The record that one donation transaction ID has been used for one entry; stored in the same repository. It exists only until it becomes a pull request.
 - **Submission Pull Request**: The review item on the sponsors branch that a maintainer merges or closes.
-- **Support Links**: The two ways to give — the project's GitHub Sponsors page and the in-app DGB Donation page.
+- **Support Links**: The ways to give and to get help — the in-app DGB Donation page, and the contact link for donors who gave another way.
 
 ## Success Criteria *(mandatory)*
 
@@ -198,7 +200,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **SC-001**: A visitor can open the Sponsors page and see the sponsor list in under 3 seconds on a throttled "Fast 4G" profile (about 9 Mbps down, 170 ms latency) with an empty cache.
 - **SC-002**: A donor with no GitHub account can submit an entry from the wallet in under 2 minutes (timed from opening the form to seeing the confirmation, with the donation already confirmed), and once a maintainer merges it, it appears live on the page within 10 minutes with no rebuild or redeploy.
 - **SC-003**: 0 donors who have not agreed to be listed are ever displayed, and 0 amounts are ever displayed.
-- **SC-004**: From opening the page, a user can reach the GitHub Sponsors page in one tap/click.
+- **SC-004**: From opening the page, a user can reach the Donation page in one tap/click.
 - **SC-005**: With GitHub unreachable, the page still renders a usable state (cached list or error with retry) 100% of the time, and core wallet flows are unaffected.
 - **SC-006**: The page is fully usable at 360 px width with no horizontal scrolling and no unreadable text in dark or light mode.
 - **SC-007**: No database or new standalone service is added, the only new allowed domain is GitHub's raw-file host, and the only server-side change is one submission endpoint on an existing API.
@@ -209,9 +211,8 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 
 ## Assumptions
 
-- "Folks who donate" means anyone who submits an entry through the wallet form after giving, Only DGB on-chain donations can be checked automatically, so the form accepts DGB donations only. Donors who gave through GitHub Sponsors or another channel contact the maintainer through a "Contact the maintainer" link on the Sponsors page (the maintainer link already shown on the About page, and the repository's issues page); they are not handled by the form. The contact channel is an assumption and can be changed. No GitHub account is needed.
+- "Folks who donate" means anyone who submits an entry through the wallet form after giving, Only DGB on-chain donations can be checked automatically, so the form accepts DGB donations only. Donors who gave another way (anything other than DGB on-chain) contact the maintainer through a "Contact the maintainer" link on the Sponsors page (the maintainer link already shown on the About page, and the repository's issues page); they are not handled by the form. The contact channel is an assumption and can be changed. No GitHub account is needed.
 - The sponsor list is a JSON file, and sponsor images are files, on a dedicated sponsors branch of this wallet's public GitHub repository; GitHub's history gives an audit trail. Anything stored there is public, and a sponsor submitting an entry consents to publishing exactly what they add. Donations are verified automatically; maintainers review content and merge.
-- The project's GitHub Sponsors profile (github.com/sponsors/DennisPitallano) is enabled before launch; this is an operator task outside the app.
 - The submission endpoint is added to an API the project already runs and that the wallet's security policy already allows, so no new domain is needed; creating the bot identity and storing its token on that server are operator tasks.
 - The accepted donation addresses are the two shown on the Donation page (current and previous); the minimum donation (1 DGB) and the required confirmations (3) are starting values, adjustable by configuration.
 - Consent is self-declared by the submitter and checked by a maintainer; the project does not contact the named person.

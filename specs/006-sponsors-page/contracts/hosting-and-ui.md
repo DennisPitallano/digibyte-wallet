@@ -24,7 +24,6 @@ Changing the repository or branch name requires updating `Sponsors:*` settings, 
 |---------|---------|-------|
 | `Sponsors:BaseUrl` | `https://raw.githubusercontent.com/DennisPitallano/digibyte-wallet/sponsors/data/` | Must stay inside the CSP-allowed prefix |
 | `Sponsors:SubmitUrl` | `<PriceApiUrl host>/api/sponsors/submissions` (i.e. `https://digibyte-api-production.up.railway.app/api/sponsors/submissions`) | Host is already in the CSP `connect-src` |
-| GitHub Sponsors link | `https://github.com/sponsors/DennisPitallano` | New tab; owner enables the profile before launch |
 
 ## 3. Content security policy change
 
@@ -44,13 +43,14 @@ Nothing else changes. Flag as security-relevant in the PR (merge gate).
 | Grid | Fixed square picture box, name, optional link; plain text only; `rel="noopener noreferrer"`, new tab for links |
 | Picture | Repository image, otherwise (or on load error) a neutral letter placeholder; no layout shift |
 | Paging | First 48 entries, "Show more" adds 48 |
-| Join section | "Become a sponsor" (GitHub Sponsors, new tab), link to `/donations`, and "Add me to the list" which opens the form |
+| Join section | Primary "Donate DGB" link to `/donations`, "Add me to the list" which opens the form, and a "Contact the maintainer" link for donors who gave another way |
 | States | `Fresh`, `FreshEmpty`, `Stale` (with fetch time), `Unavailable` (with Retry) |
 
 ### Submission form (`SponsorSubmitForm`)
 
 | Element | Behaviour |
 |---------|-----------|
+| Flow | "Add me": step 1 of 2 shows the donation address as a QR code (BIP21 link, minimum amount filled in) with a Copy button and "I've donated, continue"; step 2 of 2 is the form, with a way back. "Remove me" goes straight to its form |
 | Fields | Request type (add / remove), name, optional link, optional picture, donation transaction ID (64 hex characters), a required consent confirmation for add requests ("I am this person, or I have their permission to be listed"); hidden honeypot. For remove, only the transaction ID is needed |
 | Picture | File picker; the wallet resizes to at most 256×256 and re-encodes (WebP, or JPEG where the browser cannot encode WebP) before sending, and shows a preview |
 | Validation | Same rules as the server (shared rules); inline field messages; nothing is sent until all pass |

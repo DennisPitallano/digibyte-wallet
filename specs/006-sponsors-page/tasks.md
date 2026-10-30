@@ -70,13 +70,13 @@ description: "Task list for the Sponsors Page feature"
 
 ---
 
-## Phase 4: User Story 2 - Become a sponsor (Priority: P1)
+## Phase 4: User Story 2 - Support the project (Priority: P1)
 
 **Goal**: Clear ways to give and a visible entry to the submission form
 
-**Independent Test**: "Become a sponsor" opens GitHub Sponsors in a new tab; the donation link lands on `/donations`; with an empty list the page shows "be the first to sponsor"
+**Independent Test**: "Donate DGB" lands on `/donations`; with an empty list the page shows "be the first to sponsor"
 
-- [x] T019 [US2] In `src/DigiByte.Web/Pages/Sponsors.razor` add the join section: "Become a sponsor" button to `https://github.com/sponsors/DennisPitallano` (new tab, `rel="noopener noreferrer"`), link to `/donations`, an "Add me to the list" action that reveals the form area, and a visible "Contact the maintainer" link (to `https://dennispitallano.github.io`, the maintainer link already on the About page, and to the repository's GitHub issues page) for donors the form cannot verify (FR-035) (form built in US5)
+- [x] T019 [US2] In `src/DigiByte.Web/Pages/Sponsors.razor` add the join section: a primary "Donate DGB" link to `/donations` (there is no GitHub Sponsors profile, so there is no "Become a sponsor" button), an "Add me to the list" action that reveals the form area, and a visible "Contact the maintainer" link (to `https://dennispitallano.github.io`, the maintainer link already on the About page, and to the repository's GitHub issues page) for donors the form cannot verify (FR-035) (form built in US5)
 - [x] T020 [US2] Add the friendly empty state for `FreshEmpty` with the same call to action in `src/DigiByte.Web/Pages/Sponsors.razor` (FR-008)
 - [x] T021 [P] [US2] Add a Sponsors link to `src/DigiByte.Web/Pages/About.razor` and `src/DigiByte.Web/Pages/DonationHistory.razor`
 - [x] T022 [P] [US2] Write `docs/SPONSORS.md`: how to get listed through the wallet form (donate DGB, wait for 3 confirmations, paste the transaction ID; the donation is checked automatically and a maintainer reviews the entry), that donors who gave through GitHub Sponsors or another channel use the "Contact the maintainer" link on the Sponsors page, what is public (name, link, picture and transaction ID appear in a pull request), limits ("PNG, JPEG, or WebP; ≤ 200 KB; ≤ 512×512 pixels"), how to request removal (submit the original transaction ID), and the privacy note that loading the page contacts GitHub's raw host and submitting contacts the project's API (IP visible, no wallet data sent)
@@ -166,6 +166,8 @@ Work in this phase happens on the dedicated `sponsors` branch, not `main`. Prepa
 - [x] T056 Search the whole diff, API logs from the test run, and every API response for the token value, the submitted names, links and full transaction IDs (outside the pull request body and claim file); none may appear (SC-009, FR-028)
 - [ ] T057 When the PR is opened, flag in its description that it changes the content security policy and adds a server-side submission endpoint with a bot credential (constitution merge gate)
 - [ ] T058 Before the feature pull request is merged, confirm constitution version 1.1.0 (commit `7d37bb6`, `.specify/memory/constitution.md`) is on `origin/main`: `git fetch` then check `git log origin/main -- .specify/memory/constitution.md` and the version line; if not, publish it first through its own pull request from branch `docs/constitution-intake-amendment` (owner step; do not push without the owner's go-ahead)
+
+- [x] T059 [US5] Add the donate-first step to `src/DigiByte.Web/Components/Shared/SponsorSubmitForm.razor` (step 1 of 2: QR code of a BIP21 link with the minimum amount, the address with a Copy button, "I've donated, continue"; step 2 of 2: the form, with a way back; "Remove me" skips step 1), keep the donation address in one place in `src/DigiByte.Web/Services/DonationInfo.cs` (also used by `src/DigiByte.Web/Pages/DonationHistory.razor`), and add `tests/DigiByte.Wallet.Tests/DonationInfoTests.cs` including a check that the address is one the API accepts (FR-036)
 
 ---
 

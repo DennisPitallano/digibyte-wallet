@@ -41,6 +41,7 @@ Point `Sponsors:SubmitUrl` at the local API and open `/sponsors`.
 | 5 | Submit the identical form twice | One pull request; second shows "already submitted" (FR-029) |
 | 6 | Submit with bad name, `http://` link, a transaction ID that is not 64 hex characters | Fields highlighted; no request reaches GitHub (FR-025) |
 | 6e | Try to send an add request without the consent confirmation | The form refuses and explains; nothing is sent (FR-034) |
+| 6f | Open the page and choose Add me to the list | Step 1 shows the donation QR, the address with Copy, and "I've donated, continue"; continuing shows the form; Back returns to the QR; Remove me shows no QR (FR-036) |
 | 6a | Submit a real donation transaction (3+ confirmations, to a project address, at least 1 DGB) | Accepted; pull request carries label `donation-verified`; `data/donations/<txid>.txt` is in the pull request (FR-031) |
 | 6b | Submit a transaction that is unconfirmed / paid elsewhere / below 1 DGB / unknown | `not_verified` with the right reason; nothing opened (FR-031) |
 | 6c | Reuse the same transaction ID for a second name | Refused as already used; after the first pull request is closed unmerged, it can be used again (FR-032) |
