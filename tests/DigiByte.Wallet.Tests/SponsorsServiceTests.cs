@@ -148,6 +148,47 @@ public class SponsorsServiceTests
         Assert.Equal(SponsorLoadState.Fresh, r.State);
     }
 
+    // ── Home strip: reuse a recent copy instead of asking GitHub again ──
+
+    [Fact]
+    public async Task MaxAge_RecentCopy_IsReturnedWithoutAnyRequest()
+    {
+        var now = new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+        var js = new FakeJs();
+        var (first, _, _) = Create(new FakeHandler { Body = TwoSponsors }, js, new FixedClock(now));
+        await first.LoadAsync();
+
+        var down = new FakeHandler { Status = HttpStatusCode.InternalServerError };
+        var (second, http, _) = Create(down, js, new FixedClock(now.AddMinutes(10)));
+        var r = await second.LoadAsync(maxAge: TimeSpan.FromMinutes(30));
+        Assert.Equal(SponsorLoadState.Fresh, r.State);
+        Assert.Equal(["New", "Old"], r.List!.Entries.Select(e => e.Name));
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task MaxAge_OldCopy_IsRefetched()
+    {
+        var now = new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+        var js = new FakeJs();
+        var (first, _, _) = Create(new FakeHandler { Body = """{"version":1,"sponsors":[{"name":"Only"}]}""" }, js, new FixedClock(now));
+        await first.LoadAsync();
+
+        var (second, http, _) = Create(new FakeHandler { Body = TwoSponsors }, js, new FixedClock(now.AddMinutes(45)));
+        var r = await second.LoadAsync(maxAge: TimeSpan.FromMinutes(30));
+        Assert.Single(http.Requests);
+        Assert.Equal(["New", "Old"], r.List!.Entries.Select(e => e.Name));
+    }
+
+    [Fact]
+    public async Task MaxAge_NoCopy_Fetches_AndAFailureIsUnavailable()
+    {
+        var (svc, http, _) = Create(new FakeHandler { Status = HttpStatusCode.ServiceUnavailable });
+        var r = await svc.LoadAsync(maxAge: TimeSpan.FromMinutes(30));
+        Assert.Single(http.Requests);
+        Assert.Equal(SponsorLoadState.Unavailable, r.State);
+    }
+
     // ── test doubles ──
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

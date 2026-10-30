@@ -171,6 +171,11 @@ Work in this phase happens on the dedicated `sponsors` branch, not `main`. Prepa
 
 - [x] T060 [US2] Add a "Sponsors" link after "Roadmap" in the footer links of `src/DigiByte.Web/Pages/Welcome.razor` and `src/DigiByte.Web/Pages/Unlock.razor` (FR-001)
 
+- [x] T061 [US1] Add the `maxAge` option to `LoadAsync` in `src/DigiByte.Web/Services/SponsorsService.cs` (a saved copy younger than the limit is returned without any request) with three tests in `tests/DigiByte.Wallet.Tests/SponsorsServiceTests.cs` (FR-038, SC-012)
+- [x] T062 [US1] Add a "Newest supporters" spotlight (three newest, larger tiles, "All sponsors" heading above the grid) to `src/DigiByte.Web/Pages/Sponsors.razor`, and `SizeClass`/`LetterClass` parameters to `src/DigiByte.Web/Components/Shared/SponsorAvatar.razor` (FR-037)
+- [x] T063 [US1] Create `src/DigiByte.Web/Components/Shared/SponsorsStrip.razor` (newest six, "+N", "See all", loads after first render with a 30-minute saved copy, hidden on any problem) and place `<SponsorsStrip />` in `src/DigiByte.Web/Pages/Home.razor` between the DigiDollar line and the transaction area (FR-038)
+- [x] T064 [US2] Make the Sponsors links stand out: rose accent with a heart in the footer links of `src/DigiByte.Web/Pages/Welcome.razor` and `src/DigiByte.Web/Pages/Unlock.razor`; rose border and a thank-you line in `src/DigiByte.Web/Pages/Settings.razor` and `src/DigiByte.Web/Pages/About.razor` (FR-039)
+
 ---
 
 ## Dependencies & Execution Order

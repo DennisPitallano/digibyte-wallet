@@ -1,0 +1,56 @@
+@implements IDisposable
+@inject SponsorsService SponsorSource
+
+@* "Supported by": the newest few sponsors on the Home screen, linking to the full Sponsors page. This is decoration, never a dependency:
+   it loads in the background after Home has painted, reuses a saved copy up to 30 minutes old (so Home does not ask GitHub every time),
+   and on any problem it simply stays hidden. It never shows an error and never touches wallet data. *@
+
+@if (entries.Count > 0)
+{
+    <a href="/sponsors" aria-label="Supported by @entries.Count of @total sponsors. See all sponsors"
+       class="mt-3 flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline fade-in">
+        <span class="text-rose-500 text-base leading-none" aria-hidden="true">♥</span>
+        <div class="flex-1 min-w-0">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Supported by</p>
+            <div class="flex items-center gap-1.5 mt-1">
+                @foreach (var sponsor in entries)
+                {
+                    <span title="@sponsor.Name"><SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" SizeClass="w-8 h-8" LetterClass="text-sm" /></span>
+                }
+                @if (total > entries.Count)
+                {
+                    <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500">+@(total - entries.Count)</span>
+                }
+            </div>
+        </div>
+        <span class="text-[11px] font-semibold text-dgb-500 shrink-0">See all</span>
+    </a>
+}
+
+@code {
+    private const int MaxShown = 6;
+    private static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(30);
+
+    private IReadOnlyList<SponsorEntry> entries = [];
+    private int total;
+    private bool disposed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var result = await SponsorSource.LoadAsync(maxAge: MaxAge);
+            if (disposed || result.List is not { Entries.Count: > 0 } list) return;
+            entries = [.. list.Entries.Take(MaxShown)];
+            total = list.Entries.Count;
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            // Stay hidden: the strip must never get in the way of the wallet.
+        }
+    }
+
+    public void Dispose() => disposed = true;
+}

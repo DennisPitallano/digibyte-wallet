@@ -1,7 +1,7 @@
 @* A sponsor's picture in a fixed square. No picture, or a picture that fails to load, shows a letter placeholder of the same size,
    so the grid never shifts and no broken-image icon is shown. *@
 
-<div class="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 @PlaceholderClass flex items-center justify-center" aria-hidden="true">
+<div class="relative @SizeClass rounded-2xl overflow-hidden shrink-0 @PlaceholderClass flex items-center justify-center" aria-hidden="true">
     @if (!string.IsNullOrEmpty(ImageUrl) && !failed)
     {
         <img src="@ImageUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"
@@ -9,13 +9,19 @@
     }
     else
     {
-        <span class="text-2xl font-bold text-white select-none">@Initial</span>
+        <span class="@LetterClass font-bold text-white select-none">@Initial</span>
     }
 </div>
 
 @code {
     [Parameter] public string Name { get; set; } = "";
     [Parameter] public string? ImageUrl { get; set; }
+
+    /// <summary>Tailwind width and height of the square, for example "w-16 h-16".</summary>
+    [Parameter] public string SizeClass { get; set; } = "w-16 h-16";
+
+    /// <summary>Tailwind text size of the letter placeholder.</summary>
+    [Parameter] public string LetterClass { get; set; } = "text-2xl";
 
     private bool failed;
 

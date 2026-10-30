@@ -20,6 +20,12 @@ To be **removed**, use **Remove me** and enter the transaction ID of the donatio
 
 Donated another way (anything other than DGB)? Use the **Contact the maintainer** link on the Sponsors page.
 
+## Where sponsors show
+
+- The **Sponsors** page: a "Newest supporters" spotlight (the three newest) above the full list.
+- The **Home** screen: a small "Supported by" strip with the six newest and a link to the page.
+- Links to the page: Settings, About, Donation History, and the footer of the Welcome and Unlock screens.
+
 ## What is public
 
 Everything you submit is published: your name, link, picture and the donation transaction ID appear in a pull request on GitHub, and the name, link and picture appear on the Sponsors page. The transaction ID is already public on the blockchain. Do not enter anything private. No amounts, tiers or dates are shown.
@@ -53,7 +59,7 @@ maintainer merges ──▶ build-sponsors-index workflow regenerates data/spons
 
 ## Privacy
 
-Opening the page contacts GitHub's raw-file host, and submitting contacts the project's API. Both can see the visitor's IP address, as the wallet's other price and explorer requests already do. No wallet data is read or sent, and the server does not store submissions: its logs keep only the type, the first 8 characters of the transaction ID and the outcome.
+Opening the Sponsors page contacts GitHub's raw-file host, and so does the small "Supported by" strip on the Home screen (in the background after Home has loaded, at most once every 30 minutes, and hidden if it fails), and submitting contacts the project's API. Both can see the visitor's IP address, as the wallet's other price and explorer requests already do. No wallet data is read or sent, and the server does not store submissions: its logs keep only the type, the first 8 characters of the transaction ID and the outcome.
 
 ## For operators
 

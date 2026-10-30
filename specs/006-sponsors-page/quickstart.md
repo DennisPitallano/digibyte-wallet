@@ -42,6 +42,9 @@ Point `Sponsors:SubmitUrl` at the local API and open `/sponsors`.
 | 6 | Submit with bad name, `http://` link, a transaction ID that is not 64 hex characters | Fields highlighted; no request reaches GitHub (FR-025) |
 | 6e | Try to send an add request without the consent confirmation | The form refuses and explains; nothing is sent (FR-034) |
 | 6f | Open the page and choose Add me to the list | Step 1 shows the donation QR, the address with Copy, and "I've donated, continue"; continuing shows the form; Back returns to the QR; Remove me shows no QR (FR-036) |
+| 6g | Open the page with 5+ sponsors | A "Newest supporters" spotlight shows the newest three above the full grid (FR-037) |
+| 6h | Open Home with sponsors listed; then reload within 30 minutes | A "Supported by" strip with up to six avatars appears after Home loads; the reload makes no request for the list (FR-038, SC-012) |
+| 6i | Open Home offline with no saved copy, or with an empty list | No strip, no error, nothing else changes (FR-038) |
 | 6a | Submit a real donation transaction (3+ confirmations, to a project address, at least 1 DGB) | Accepted; pull request carries label `donation-verified`; `data/donations/<txid>.txt` is in the pull request (FR-031) |
 | 6b | Submit a transaction that is unconfirmed / paid elsewhere / below 1 DGB / unknown | `not_verified` with the right reason; nothing opened (FR-031) |
 | 6c | Reuse the same transaction ID for a second name | Refused as already used; after the first pull request is closed unmerged, it can be used again (FR-032) |

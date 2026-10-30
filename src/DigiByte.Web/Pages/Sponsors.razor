@@ -51,6 +51,31 @@
             </div>
         }
 
+        @* Spotlight: the newest few sponsors, larger. Everyone, including these, is in the grid below. *@
+        <div class="rounded-2xl border border-rose-200/80 dark:border-rose-900/40 bg-gradient-to-br from-rose-50 to-dgb-50 dark:from-rose-900/10 dark:to-dgb-900/40 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-rose-500 mb-3"><span aria-hidden="true">♥</span> Newest supporters</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                @foreach (var star in list.Entries.Take(SpotlightCount))
+                {
+                    @if (star.Link is not null)
+                    {
+                        <a href="@star.Link" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center gap-1.5 w-24 no-underline">
+                            <SponsorAvatar Name="@star.Name" ImageUrl="@star.ImageUrl" SizeClass="w-20 h-20" LetterClass="text-3xl" />
+                            <span class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@star.Name">@star.Name</span>
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="flex flex-col items-center gap-1.5 w-24">
+                            <SponsorAvatar Name="@star.Name" ImageUrl="@star.ImageUrl" SizeClass="w-20 h-20" LetterClass="text-3xl" />
+                            <span class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@star.Name">@star.Name</span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 -mb-1">All sponsors</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             @foreach (var sponsor in list.Entries.Take(visibleCount))
             {
@@ -113,6 +138,7 @@
 
 @code {
     private const int PageSize = 48;
+    private const int SpotlightCount = 3;
 
     private SponsorLoadResult? result;
     private bool loading = true;

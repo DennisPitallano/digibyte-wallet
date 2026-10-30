@@ -257,6 +257,9 @@
         <DigiDollarHomeCard DgbSatoshis="@(balance.ConfirmedSatoshis + balance.UnconfirmedSatoshis)" />
         <DigiDollarUnavailableLine />
 
+        @* "Supported by" (newest sponsors): loads quietly in the background and hides itself on any problem. *@
+        <SponsorsStrip />
+
         @* ===== TX AREA ===== *@
         <div>
             @* Quick Contacts *@

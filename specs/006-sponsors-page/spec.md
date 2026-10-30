@@ -29,6 +29,7 @@
 - Q: How is the donation checked? → A: Automatically against the public blockchain explorers. A submission must carry the DGB transaction ID of a confirmed payment to one of the project's donation addresses; each donation transaction can back only one entry; a maintainer no longer confirms donations by hand but still reviews the entry's content and merges. (This replaces the earlier manual donation check.)
 - Q: How is a named person's consent confirmed, and how fast must a merged entry appear? → A: The form requires a confirmation that the submitter is the person named or has that person's permission to be listed, and a maintainer checks it before merging; merged entries appear within 10 minutes (the raw-file cache of about 5 minutes plus the list rebuild), not 5. The Sponsors page is reached from Settings, About and Donation History rather than the bottom tab bar.
 - Q: What should "Add me to the list" show first? → A: The project's donation address as a QR code with a Copy button (step 1 of 2), then, after "I've donated, continue", the form (step 2 of 2). "Remove me" goes straight to its form.
+- Q: What should be highlighted about the sponsors? → A: All three: the Sponsors links (a rose accent and a heart in the Welcome/Unlock footer, a rose border and a thank-you line in Settings and About), a "Newest supporters" spotlight of the three newest sponsors above the full list, and a small "Supported by" strip of the six newest on the Home screen that loads quietly in the background and hides on any problem. No amounts or tiers are used.
 - Q: Whose token does the server use? → A: A dedicated bot identity controlled by the maintainer, limited to this repository with only the permissions needed to create branches and pull requests; never the maintainer's personal token, and never able to merge.
 - Q: Where should the "Become a sponsor" button go? → A: Nowhere: the project has no GitHub Sponsors profile, so the page has no such button. The main call to action is "Donate DGB" (the in-app Donation page), next to "Add me to the list".
 - Q: In what order should sponsors appear on the page? → A: The order of the list file, with the newest entry (last in the file) shown first; entries carry no date field.
@@ -48,7 +49,8 @@ A wallet user (or visitor) opens the Sponsors page from the app's navigation and
 1. **Given** the sponsor list in GitHub contains entries, **When** a user opens the Sponsors page, **Then** every listed sponsor is shown with picture, name, and a link when one is provided.
 2. **Given** a sponsor entry names an image stored in the repository, **When** the page renders, **Then** that image is used as the sponsor's picture; **Given** it names no image, **Then** a neutral placeholder is used.
 3. **Given** a sponsor has no picture or it fails to load, **When** the page renders, **Then** a neutral placeholder is shown in its place and the sponsor's name is still listed.
-4. **Given** a new entry is merged into the sponsors branch, **When** the page is next loaded, **Then** the new sponsor appears within 10 minutes without rebuilding or redeploying the app.
+4. **Given** the list has sponsors, **When** the page renders, **Then** the three newest are also shown in a larger "Newest supporters" spotlight above the full list, and the Home screen shows a "Supported by" strip with the newest six that links here.
+5. **Given** a new entry is merged into the sponsors branch, **When** the page is next loaded, **Then** the new sponsor appears within 10 minutes without rebuilding or redeploying the app.
 
 ---
 
@@ -164,7 +166,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **FR-017**: Invalid, duplicate, or unresolvable entries MUST be skipped or degraded individually without breaking the page.
 - **FR-009**: When GitHub cannot be reached or rate-limits, the page MUST show the last successfully loaded list marked as possibly out of date, or, if none exists, a clear error with a retry action.
 - **FR-010**: A missing or failed picture MUST show a neutral placeholder without layout shift or a broken-image icon.
-- **FR-011**: The Sponsors page MUST NOT block, delay, or change any core wallet flow (balance, receive, send, history, unlock); its data loading happens only when the page is open.
+- **FR-011**: The Sponsors page, its form and the Home strip MUST NOT block, delay, or change any core wallet flow (balance, receive, send, history, unlock). The list is loaded when the Sponsors page opens, and, for the Home strip, in the background after Home has rendered (see FR-038); nothing is requested at app start or before Home has rendered.
 - **FR-012**: The feature MAY extend the app's content security policy only to allow GitHub's raw-file host for this repository's list and images, MUST NOT relax it in any other way, and MUST NOT load third-party scripts, fonts, or trackers.
 - **FR-013**: All sponsor-supplied text MUST be rendered as plain text, never as markup.
 - **FR-014**: The page MUST work on phone-width screens and in both light and dark themes, consistent with the rest of the app.
@@ -180,6 +182,9 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **FR-033**: The check MUST use the same explorer fallback as the rest of the wallet, and when no explorer can be reached the submission MUST fail with the "try again later" message rather than skip the check.
 - **FR-035**: The Sponsors page MUST show donors who gave by a channel the form cannot verify how to reach the maintainer, through a visible "Contact the maintainer" link.
 - **FR-036**: Choosing "Add me" MUST first show the project's donation address as a QR code (a payment link with the minimum amount filled in) with a Copy button and a continue button; the form appears only after continuing, with a way back to the donation details. "Remove me" MUST go straight to its form.
+- **FR-037**: The Sponsors page MUST show a "Newest supporters" spotlight with the three newest sponsors in larger tiles above the full list; everyone, including those three, stays in the full list. No amounts, tiers or dates are shown.
+- **FR-038**: The Home screen MUST show a small "Supported by" strip with the six newest sponsors and a link to the Sponsors page. It MUST load after Home has rendered, MUST reuse a saved copy up to 30 minutes old instead of asking GitHub again, and MUST stay hidden (no error, no spinner) when there are no sponsors or the list cannot be loaded.
+- **FR-039**: The links to the Sponsors page MUST stand out from their neighbours: an accent colour and a heart in the Welcome and Unlock footer links, and an accent border and a thank-you line in the Settings and About rows.
 - **FR-034**: The form MUST require a confirmation, for an add request, that the submitter is the person named or has that person's permission to be listed, and MUST refuse to send without it; the pull request MUST record that the confirmation was given, and a maintainer MUST check it (and that the name is plausible for the donation) before merging.
 - **FR-030**: The form MUST show a confirmation after success and a plain-language message on failure or refusal (no technical terms or status codes, 20 words or fewer, and saying what the visitor can do next), MUST warn that the entry and transaction ID appear publicly in a pull request, and MUST NOT block or slow any core wallet flow.
 
@@ -206,6 +211,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **SC-007**: No database or new standalone service is added, the only new allowed domain is GitHub's raw-file host, and the only server-side change is one submission endpoint on an existing API.
 - **SC-008**: 100% of valid submissions produce exactly one pull request, and 0 submissions ever change the main branch or the live list without a maintainer merge.
 - **SC-011**: 100% of add submissions that reach a pull request carry the submitter's recorded confirmation of consent.
+- **SC-012**: Opening Home contacts GitHub for the sponsors list at most once per 30 minutes, and never delays Home's own content.
 - **SC-010**: 0 entries are ever opened for review without a verified donation, and 0 donation transactions back more than one entry.
 - **SC-009**: 0 credentials or tokens appear in the wallet code, the repository, or any response sent to the browser.
 

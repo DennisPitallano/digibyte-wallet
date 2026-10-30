@@ -27,8 +27,23 @@ public sealed class SponsorsService
         _clock = clock ?? TimeProvider.System;
     }
 
-    public async Task<SponsorLoadResult> LoadAsync(CancellationToken ct = default)
+    /// <param name="maxAge">
+    /// When given and the saved copy is younger than this, it is returned as a fresh result and nothing is requested. The Home
+    /// strip uses this so opening Home does not contact GitHub more than once per period.
+    /// </param>
+    public async Task<SponsorLoadResult> LoadAsync(CancellationToken ct = default, TimeSpan? maxAge = null)
     {
+        if (maxAge is { } limit)
+        {
+            var saved = await TryLoadStoredAsync();
+            if (saved is not null && _clock.GetUtcNow() - saved.FetchedAt < limit)
+                return new SponsorLoadResult
+                {
+                    State = saved.Entries.Count == 0 ? SponsorLoadState.FreshEmpty : SponsorLoadState.Fresh,
+                    List = saved,
+                };
+        }
+
         var text = await TryFetchAsync(ct);
         if (text is not null)
         {
