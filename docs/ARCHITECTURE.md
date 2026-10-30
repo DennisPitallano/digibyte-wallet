@@ -91,6 +91,10 @@ That is the order with node use switched off (the default). With node use on (`W
 
 Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends, edit the `explorers` list.
 
+### Sponsors (list read from GitHub, submissions as pull requests)
+
+The Sponsors page reads `data/sponsors.json` live from the `sponsors` branch of the project's repository (`raw.githubusercontent.com`, one request per page open, last good copy kept in local storage). The form posts to one endpoint on `DigiByte.Api`, a public-contribution intake relay: it validates with the shared rules in `DigiByte.P2P.Shared`, checks the donation on the public explorers, and opens a pull request through a server-side bot token. A maintainer merges; a workflow on the branch regenerates the list. No database is used and `main` is never touched. See [SPONSORS.md](SPONSORS.md) and `specs/006-sponsors-page/`.
+
 ### Docker / Deployment
 
 | Compose File | Network | Pruning | `txindex` | Use |

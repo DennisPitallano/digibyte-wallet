@@ -42,9 +42,9 @@
                    script-src 'self' 'wasm-unsafe-eval' 'sha256-9bavI8EbC3zaLAHJbePVI89bUOgWfFdz4BuYNjszAsY=' https://www.googletagmanager.com;
                    style-src 'self';
                    style-src-attr 'unsafe-inline';
-                   img-src 'self' data: blob: https://avatars.githubusercontent.com https://www.googletagmanager.com;
+                   img-src 'self' data: blob: https://avatars.githubusercontent.com https://raw.githubusercontent.com/DennisPitallano/digibyte-wallet/sponsors/ https://www.googletagmanager.com;
                    font-src 'self';
-                   connect-src 'self' http://localhost:5007 http://localhost:5260 https://node.dgbwallet.app https://digiexplorer.info https://digibyteblockexplorer.com https://digibyte-api-production.up.railway.app https://api.coingecko.com https://api.github.com https://www.google-analytics.com https://www.googletagmanager.com https://analytics.google.com ws: wss:;
+                   connect-src 'self' http://localhost:5007 http://localhost:5260 https://node.dgbwallet.app https://digiexplorer.info https://digibyteblockexplorer.com https://digibyte-api-production.up.railway.app https://api.coingecko.com https://api.github.com https://raw.githubusercontent.com/DennisPitallano/digibyte-wallet/sponsors/ https://www.google-analytics.com https://www.googletagmanager.com https://analytics.google.com ws: wss:;
                    frame-src 'none';
                    object-src 'none';
                    base-uri 'self';" />
@@ -129,6 +129,7 @@
     <script src="js/qrscanner.js" defer></script>
     <script src="js/download.js" defer></script>
     <script src="js/visibility.js" defer></script>
+    <script src="js/sponsors.js" defer></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
     <!-- PWA service-worker registration + update plumbing.
          Pulled out of an inline <script> so CSP can drop 'unsafe-inline'. -->

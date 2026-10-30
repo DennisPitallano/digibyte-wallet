@@ -1,0 +1,182 @@
+@page "/sponsors"
+@inject SponsorsService SponsorSource
+@inject IJSRuntime JS
+
+<PageTitle>Sponsors — DigiByte Wallet</PageTitle>
+
+<div class="flex flex-col gap-4">
+    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Back
+    </button>
+
+    <div class="slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Sponsors</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            People who keep this wallet running. Sponsorships pay for hosting, the DigiByte node, maintenance and development.
+        </p>
+    </div>
+
+    <BakuMessage MessageId="sponsors.thanks" Class="w-full" />
+
+    @if (loading)
+    {
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
+            <p class="text-sm text-slate-500 dark:text-slate-400">Loading sponsors…</p>
+        </div>
+    }
+    else if (result is { State: SponsorLoadState.Unavailable })
+    {
+        <div class="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30 p-5 text-center" role="alert">
+            <p class="text-sm text-amber-800 dark:text-amber-300">Couldn't load sponsors right now. Check your connection and try again.</p>
+            <button class="mt-3 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect transition-colors" @onclick="LoadAsync">
+                Try again
+            </button>
+        </div>
+    }
+    else if (result is { State: SponsorLoadState.FreshEmpty })
+    {
+        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
+            <p class="text-base font-semibold text-slate-900 dark:text-white">Be the first to sponsor</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">No sponsors are listed yet. Yours could be the first name here.</p>
+        </div>
+    }
+    else if (result?.List is { } list)
+    {
+        @if (result.State == SponsorLoadState.Stale)
+        {
+            <div class="bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/30 px-4 py-2.5 flex items-center justify-between gap-3" role="status">
+                <p class="text-xs text-amber-800 dark:text-amber-300">
+                    Showing the list saved on @list.FetchedAt.ToLocalTime().ToString("g"). It may be out of date.
+                </p>
+                <button class="text-xs font-semibold text-dgb-600 dark:text-dgb-400 hover:underline shrink-0" @onclick="LoadAsync">Refresh</button>
+            </div>
+        }
+
+        @* Spotlight: the newest few sponsors, larger. Everyone, including these, is in the grid below. *@
+        <div class="rounded-2xl border border-rose-200/80 dark:border-rose-900/40 bg-gradient-to-br from-rose-50 to-dgb-50 dark:from-rose-900/10 dark:to-dgb-900/40 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-rose-500 mb-3"><span aria-hidden="true">♥</span> Newest supporters</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                @foreach (var star in list.Entries.Take(SpotlightCount))
+                {
+                    @if (star.Link is not null)
+                    {
+                        <a href="@star.Link" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center gap-1.5 w-24 no-underline">
+                            <SponsorAvatar Name="@star.Name" ImageUrl="@star.ImageUrl" SizeClass="w-20 h-20" LetterClass="text-3xl" />
+                            <span class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@star.Name">@star.Name</span>
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="flex flex-col items-center gap-1.5 w-24">
+                            <SponsorAvatar Name="@star.Name" ImageUrl="@star.ImageUrl" SizeClass="w-20 h-20" LetterClass="text-3xl" />
+                            <span class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@star.Name">@star.Name</span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 -mb-1">All sponsors</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            @foreach (var sponsor in list.Entries.Take(visibleCount))
+            {
+                @if (sponsor.Link is not null)
+                {
+                    <a href="@sponsor.Link" target="_blank" rel="noopener noreferrer"
+                       class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline min-w-0">
+                        <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
+                        <p class="text-[10px] text-dgb-500">Visit ↗</p>
+                    </a>
+                }
+                else
+                {
+                    <div class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 min-w-0">
+                        <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
+                    </div>
+                }
+            }
+        </div>
+
+        @if (list.Entries.Count > visibleCount)
+        {
+            <button class="self-center px-4 py-2 text-sm font-semibold text-dgb-600 dark:text-dgb-400 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors"
+                    @onclick="() => visibleCount += PageSize">
+                Show more
+            </button>
+        }
+    }
+
+    @* Where donations go: plain words, no amounts or percentages *@
+    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Where your donations go</h3>
+        <ul class="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300">
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Hosting.</strong> The wallet app and its API run on cloud hosting that has to be paid for every month.</span></li>
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Our own DigiByte node.</strong> Running a full node of our own, so the wallet depends less on public services.</span></li>
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Maintenance and security.</strong> Fixing bugs, keeping dependencies up to date and answering security reports.</span></li>
+            <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">New features.</strong> Building and improving the wallet and its tools, such as DigiDollar, multisig and DigiPay.</span></li>
+        </ul>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+            Donations go to one public address, so anyone can see what has been received on the
+            <a href="/donations" class="text-dgb-600 dark:text-dgb-400 hover:underline">Donation page</a>.
+        </p>
+    </div>
+
+    @* Join section: ways to give and how to get listed *@
+    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Support the project</h3>
+        <button class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors"
+                @onclick="() => showForm = !showForm" aria-expanded="@showForm">
+            @(showForm ? "Hide the form" : "Add me to the list")
+        </button>
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+            Donate DGB and add your name to this list: the button shows the donation address and QR code first. Donated another way? You can
+            <a href="https://dennispitallano.github.io" target="_blank" rel="noopener noreferrer" class="text-dgb-600 dark:text-dgb-400 hover:underline">contact the maintainer</a>
+            or open an issue on the
+            <a href="https://github.com/DennisPitallano/digibyte-wallet/issues" target="_blank" rel="noopener noreferrer" class="text-dgb-600 dark:text-dgb-400 hover:underline">project's issues page</a>.
+        </p>
+    </div>
+
+    @if (showForm)
+    {
+        <SponsorSubmitForm />
+    }
+
+    <p class="text-[11px] text-slate-400 text-center">
+        This page loads the list from GitHub when you open it. No wallet data is read or sent.
+    </p>
+</div>
+
+@code {
+    private const int PageSize = 48;
+    private const int SpotlightCount = 3;
+
+    private SponsorLoadResult? result;
+    private bool loading = true;
+    private int visibleCount = PageSize;
+    private bool showForm;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        StateHasChanged();
+        try
+        {
+            result = await SponsorSource.LoadAsync();
+        }
+        catch (Exception)
+        {
+            result = new SponsorLoadResult { State = SponsorLoadState.Unavailable };
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
+}

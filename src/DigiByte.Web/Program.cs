@@ -94,6 +94,24 @@ builder.Services.AddSingleton(nodeSource);
 // One short probe, no retries: deliberately no resilience handler (a dead node must never become a slow probe).
 builder.Services.AddHttpClient("NodeHealth");
 
+// Sponsors page: the list is read straight from the project's own GitHub branch (specs/006-sponsors-page). One plain request per page open,
+// no retries (a failure shows the last good copy or a retry button), and nothing here touches wallet data.
+var sponsorsBaseUrl = builder.Configuration["Sponsors:BaseUrl"]
+    ?? "https://raw.githubusercontent.com/DennisPitallano/digibyte-wallet/sponsors/data/";
+builder.Services.AddHttpClient("SponsorsRead");
+builder.Services.AddScoped(sp => new SponsorsService(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("SponsorsRead"),
+    sp.GetRequiredService<Microsoft.JSInterop.IJSRuntime>(),
+    sponsorsBaseUrl));
+
+// The "add me to the list" form posts to the project's API (one endpoint, opens a pull request for a maintainer). Form fields only.
+var sponsorsSubmitUrl = builder.Configuration["Sponsors:SubmitUrl"]
+    ?? "https://digibyte-api-production.up.railway.app/api/sponsors/submissions";
+builder.Services.AddHttpClient("SponsorsSubmit");
+builder.Services.AddScoped(sp => new SponsorSubmissionClient(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("SponsorsSubmit"),
+    sponsorsSubmitUrl));
+
 builder.Services.AddScoped(sp =>
     new NodeApiBlockchainService(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), ownNodeApiUrl, strictErrors: nodeSource.Enabled));

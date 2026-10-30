@@ -416,6 +416,7 @@ Source lives in [`sdk/node`](sdk/node), [`sdk/python`](sdk/python), [`sdk/dotnet
 - [Process Flows](docs/PROCESS_FLOWS.md) — Per-page technical flows, user flows, backend operation matrix
 - [Roadmap](docs/ROADMAP.md) — Development phases, completed features, planned work
 - [Releasing the SDKs](sdk/RELEASING.md) — How to cut a new version on npm / PyPI / NuGet
+- [Sponsors](docs/SPONSORS.md) — How to get listed on the Sponsors page, and how it works
 - [Contributing](CONTRIBUTING.md) — How to contribute
 - [Changelog](CHANGELOG.md) — Release history
 - [Code of Conduct](CODE_OF_CONDUCT.md)

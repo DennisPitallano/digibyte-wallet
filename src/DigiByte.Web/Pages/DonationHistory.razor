@@ -170,6 +170,9 @@
         <a href="/deployment" class="inline-block mt-2 px-5 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-dgb-500/25 press-effect transition-colors">
             Make a Donation
         </a>
+        <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            See the people who support the wallet on the <a href="/sponsors" class="text-dgb-600 dark:text-dgb-400 hover:underline">Sponsors page</a>.
+        </p>
     </div>
 </div>
 
@@ -177,7 +180,7 @@
     [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
 
     private const string ExplorerUrl = "https://digiexplorer.info";
-    private const string CurrentAddress = "dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa";
+    private const string CurrentAddress = DonationInfo.CurrentAddress;
     // The scriptpubkey for CurrentAddress — used for matching because the API may return
     // a different bech32 checksum variant of the same address
     private const string CurrentScriptPubKey = "00146614dd737059843850c40ed8ea39718ef17ce2a2";

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sponsors-list.schema.json",
+  "title": "DigiByte Wallet sponsors list (data/sponsors.json, generated) and entry files (data/entries/<id>.json)",
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{12}$",
+          "description": "Set by the server; required in files under data/entries/."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "image": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}\\.(png|jpe?g|webp)$",
+          "description": "File name inside data/images/. No folders, no SVG."
+        },
+        "link": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^https://[^\\s/@]+(/[^\\s]*)?$",
+          "description": "Absolute https URL without embedded credentials."
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Generated list",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sponsors"],
+      "properties": {
+        "version": { "const": 1 },
+        "sponsors": {
+          "type": "array",
+          "maxItems": 1000,
+          "description": "Oldest first; the wallet shows the last entry first.",
+          "items": { "$ref": "#/$defs/entry" }
+        }
+      }
+    },
+    {
+      "title": "Entry file",
+      "$ref": "#/$defs/entry",
+      "required": ["id", "name"]
+    }
+  ]
+}
