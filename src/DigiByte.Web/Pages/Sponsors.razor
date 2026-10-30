@@ -127,16 +127,12 @@
     @* Join section: ways to give and how to get listed *@
     <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Support the project</h3>
-        <a href="/donations"
-           class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors no-underline">
-            Donate DGB
-        </a>
-        <button class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-white dark:bg-dgb-950 border border-dgb-500 text-dgb-600 dark:text-dgb-400 hover:bg-dgb-50 dark:hover:bg-dgb-900 transition-colors"
+        <button class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors"
                 @onclick="() => showForm = !showForm" aria-expanded="@showForm">
             @(showForm ? "Hide the form" : "Add me to the list")
         </button>
         <p class="text-xs text-slate-500 dark:text-slate-400">
-            Donated DGB? You can add your name to this list. Donated another way? You can
+            Donate DGB and add your name to this list: the button shows the donation address and QR code first. Donated another way? You can
             <a href="https://dennispitallano.github.io" target="_blank" rel="noopener noreferrer" class="text-dgb-600 dark:text-dgb-400 hover:underline">contact the maintainer</a>
             or open an issue on the
             <a href="https://github.com/DennisPitallano/digibyte-wallet/issues" target="_blank" rel="noopener noreferrer" class="text-dgb-600 dark:text-dgb-400 hover:underline">project's issues page</a>.

@@ -31,8 +31,9 @@
 - Q: What should "Add me to the list" show first? → A: The project's donation address as a QR code with a Copy button (step 1 of 2), then, after "I've donated, continue", the form (step 2 of 2). "Remove me" goes straight to its form.
 - Q: What should be highlighted about the sponsors? → A: All three: the Sponsors links (a rose accent and a heart in the Welcome/Unlock footer, a rose border and a thank-you line in Settings and About), a "Newest supporters" spotlight of the three newest sponsors above the full list, and a small "Supported by" strip of the six newest on the Home screen that loads quietly in the background and hides on any problem. No amounts or tiers are used.
 - Q: Should the mascot and a "where donations go" note be on the Sponsors page? → A: Yes. Baku appears with a thank-you message (through the existing Baku message system, so it follows the user's Baku setting), and a "Where your donations go" section lists hosting, our own DigiByte node, maintenance and security, and new features, with no amounts or percentages, and points to the public Donation page.
+- Q: Should the page keep a separate "Donate DGB" button? → A: No. "Add me to the list" opens with the donation QR code and address first, so a separate button repeated it. It is now the page's main (filled) button, and the existing Donation page stays reachable through the link in "Where your donations go".
 - Q: Whose token does the server use? → A: A dedicated bot identity controlled by the maintainer, limited to this repository with only the permissions needed to create branches and pull requests; never the maintainer's personal token, and never able to merge.
-- Q: Where should the "Become a sponsor" button go? → A: Nowhere: the project has no GitHub Sponsors profile, so the page has no such button. The main call to action is "Donate DGB" (the in-app Donation page), next to "Add me to the list".
+- Q: Where should the "Become a sponsor" button go? → A: Nowhere: the project has no GitHub Sponsors profile, so the page has no such button. The main call to action is "Add me to the list" (see the next answer).
 - Q: In what order should sponsors appear on the page? → A: The order of the list file, with the newest entry (last in the file) shown first; entries carry no date field.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -57,16 +58,16 @@ A wallet user (or visitor) opens the Sponsors page from the app's navigation and
 
 ### User Story 2 - Support the project (Priority: P1)
 
-A user who wants to support the project sees a clear "Donate DGB" call to action on the Sponsors page that takes them to the existing Donation page. The page also offers a form to get listed (see User Story 5).
+A user who wants to support the project sees a clear "Add me to the list" call to action on the Sponsors page, which opens with the donation QR code and address first. The existing Donation page stays reachable from the "Where your donations go" section. The page also offers a form to get listed (see User Story 5).
 
 **Why this priority**: A sponsors page with no way to join does not fund anything; it is the other half of the feature's purpose.
 
-**Independent Test**: Open the Sponsors page, activate "Donate DGB", and confirm it reaches the existing Donation page.
+**Independent Test**: Open the Sponsors page, activate "Add me to the list", and confirm the donation QR code and address appear first; activate the Donation page link in "Where your donations go" and confirm it reaches the existing Donation page.
 
 **Acceptance Scenarios**:
 
-1. **Given** the Sponsors page is open, **When** the user activates "Donate DGB", **Then** they land on the existing Donation page inside the app.
-2. **Given** a donor has given DGB, **When** they read the page, **Then** they see a clear "Add me to the list" action that opens the submission form.
+1. **Given** the Sponsors page is open, **When** the user activates the Donation page link in "Where your donations go", **Then** they land on the existing Donation page inside the app.
+2. **Given** a donor wants to give, **When** they read the page, **Then** they see a clear "Add me to the list" action, and activating it shows the donation QR code and address before the form.
 3. **Given** the page has zero sponsors yet, **When** it renders, **Then** it shows a friendly "be the first to sponsor" message with the same call to action instead of an empty grid.
 
 ---
@@ -154,7 +155,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **FR-003**: GitHub MUST be the only storage for this feature: the list is a JSON file generated from one entry file per sponsor, kept on a dedicated sponsors branch of this wallet's repository, and sponsor pictures are image files on the same branch. The project MUST NOT introduce a database or any new standalone service to support it; the only server-side addition allowed is one submission endpoint on an API the project already operates (see FR-024 to FR-030).
 - **FR-004**: Adding, editing, or removing an entry in the sponsor list MUST be reflected live on the page within 10 minutes, without an app rebuild or redeploy.
 - **FR-005**: The page MUST list only people who agreed to be listed (see FR-034), and MUST NOT display donation amounts, tiers, or dates.
-- **FR-006**: The page MUST include a prominent "Donate DGB" action that opens the existing DGB Donation page.
+- **FR-006**: The page MUST show "Add me to the list" as its main call to action. A separate "Donate DGB" button MUST NOT be shown, because that action already opens with the donation address and QR code (FR-036); the existing DGB Donation page MUST remain reachable through the link in the "Where your donations go" section (FR-041).
 - **FR-007**: The page MUST include a short plain-language statement that sponsorships fund hosting, the DigiByte node, maintenance, and development.
 - **FR-008**: When there are no sponsors, the page MUST show a friendly empty state with the call to action.
 - **FR-023**: The page MUST show sponsors in list-file order, newest entry first, with no date or amount used for ordering.
@@ -208,7 +209,7 @@ A donor, with no GitHub account, opens a form on the Sponsors page and enters th
 - **SC-001**: A visitor can open the Sponsors page and see the sponsor list in under 3 seconds on a throttled "Fast 4G" profile (about 9 Mbps down, 170 ms latency) with an empty cache.
 - **SC-002**: A donor with no GitHub account can submit an entry from the wallet in under 2 minutes (timed from opening the form to seeing the confirmation, with the donation already confirmed), and once a maintainer merges it, it appears live on the page within 10 minutes with no rebuild or redeploy.
 - **SC-003**: 0 donors who have not agreed to be listed are ever displayed, and 0 amounts are ever displayed.
-- **SC-004**: From opening the page, a user can reach the Donation page in one tap/click.
+- **SC-004**: From opening the page, a user can see the donation QR code and address with one tap/click.
 - **SC-005**: With GitHub unreachable, the page still renders a usable state (cached list or error with retry) 100% of the time, and core wallet flows are unaffected.
 - **SC-006**: The page is fully usable at 360 px width with no horizontal scrolling and no unreadable text in dark or light mode.
 - **SC-007**: No database or new standalone service is added, the only new allowed domain is GitHub's raw-file host, and the only server-side change is one submission endpoint on an existing API.

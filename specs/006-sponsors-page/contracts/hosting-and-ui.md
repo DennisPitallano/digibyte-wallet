@@ -47,7 +47,7 @@ Nothing else changes. Flag as security-relevant in the PR (merge gate).
 | Grid | Fixed square picture box, name, optional link; plain text only; `rel="noopener noreferrer"`, new tab for links |
 | Picture | Repository image, otherwise (or on load error) a neutral letter placeholder; no layout shift |
 | Paging | First 48 entries, "Show more" adds 48 |
-| Join section | Primary "Donate DGB" link to `/donations`, "Add me to the list" which opens the form, and a "Contact the maintainer" link for donors who gave another way |
+| Join section | "Add me to the list" as the filled main button (opens the donation QR first, then the form; no separate "Donate DGB" button), and a "Contact the maintainer" link for donors who gave another way. The Donation page link lives in the "Where your donations go" card |
 | States | `Fresh`, `FreshEmpty`, `Stale` (with fetch time), `Unavailable` (with Retry) |
 
 ### Submission form (`SponsorSubmitForm`)
