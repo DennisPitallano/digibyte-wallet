@@ -238,6 +238,18 @@ public class SponsorSubmissionServiceTests
         Assert.DoesNotContain(gh.Calls, c => c.StartsWith("CreateBranch"));
     }
 
+    [Fact]
+    public async Task Remove_WhenTheEntryIsAlreadyGone_OpensNothing()
+    {
+        // The claim stays after a removal, so a repeat request finds the claim but no entry.
+        var gh = new FakeGitHub { Claim = "0123456789ab" };
+        var (svc, _, _) = Create(gh);
+        var r = await svc.SubmitAsync(new SponsorSubmissionRequest { Type = SponsorSubmissionType.Remove, TxId = Tx }, default);
+        Assert.Equal(SponsorSubmissionState.Invalid, r.State);
+        Assert.Contains("txid", r.Fields!);
+        Assert.DoesNotContain(gh.Calls, c => c.StartsWith("CreateBranch"));
+    }
+
     // ── doubles ──
 
     private sealed class FakeVerifier : IDonationVerifier

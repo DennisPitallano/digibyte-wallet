@@ -40,7 +40,7 @@ Derived on the server: entry `id` = first 12 hex characters of SHA-256 over lowe
 
 ### Donation claim — `data/donations/<txid>.txt`
 
-Created by the submission pull request, one per donation transaction; its content is the entry `id` it backs. A claim exists on the `sponsors` branch once merged; a closed-unmerged pull request releases the transaction. A removal request is accepted only if this file exists for the transaction ID supplied, and removes the entry it names; the claim file itself stays so the transaction can never be reused.
+Created by the submission pull request, one per donation transaction; its content is the entry `id` it backs. A claim exists on the `sponsors` branch once merged; a closed-unmerged pull request releases the transaction. A removal request is accepted only if this file exists for the transaction ID supplied, and removes the entry it names; the claim file itself stays so the transaction can never be reused (the branch validator therefore allows a claim whose entry has been removed, and a second removal request finds a claim but no entry and opens nothing).
 
 ### Submission result (to the wallet)
 

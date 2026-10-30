@@ -129,8 +129,9 @@ public sealed class SponsorSubmissionService(
 
         var entryPath = $"data/entries/{entryId}.json";
         var entryText = await github.ReadFileTextAsync(entryPath, ct);
+        // The claim outlives the entry, so a second removal request finds a claim but no entry: nothing left to remove.
+        if (entryText is null) return Of(SponsorSubmissionState.Invalid, "txid");
         string? name = null, imageName = null;
-        if (entryText is not null)
         {
             try
             {
