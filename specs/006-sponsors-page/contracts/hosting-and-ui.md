@@ -43,7 +43,7 @@ Nothing else changes. Flag as security-relevant in the PR (merge gate).
 | Where donations go | A "Where your donations go" card above the join section, shown in every state: hosting, our own DigiByte node, maintenance and security, new features, and a link to the public Donation page; no amounts or percentages (FR-041) |
 | Intro | One short statement that sponsorships fund hosting, the node, maintenance and development |
 | Spotlight | "Newest supporters": the three newest sponsors in larger tiles above an "All sponsors" heading and the full grid (FR-037) |
-| Home strip | `SponsorsStrip` on Home, between the DigiDollar line and the transaction area: "Supported by" with the six newest, "+N", and "See all"; loads after first render using a copy up to 30 minutes old; hidden on any problem (FR-038) |
+| Home strip | `SponsorsStrip` on Home, between the DigiDollar line and the transaction area: "Supported by" with the five newest, "+N", and "See all"; loads after first render using a copy up to 30 minutes old; hidden on any problem (FR-038) |
 | Grid | Fixed square picture box, name, optional link; plain text only; `rel="noopener noreferrer"`, new tab for links |
 | Picture | Repository image, otherwise (or on load error) a neutral letter placeholder; no layout shift |
 | Paging | First 48 entries, "Show more" adds 48 |

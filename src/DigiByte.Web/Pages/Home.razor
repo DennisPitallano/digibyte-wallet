@@ -98,7 +98,7 @@
                     }
                     else if (AppState.IsSimpleMode)
                     {
-                        <h1 class="text-3xl font-extrabold mt-0.5 tracking-tight">@AppState.FiatSymbol@FormatFiat(fiatValue)</h1>
+                        <h1 class="@BalanceSize(AppState.FiatSymbol + FormatFiat(fiatValue)) font-extrabold mt-0.5 tracking-tight whitespace-nowrap">@AppState.FiatSymbol@FormatFiat(fiatValue)</h1>
                         @if (isLoadingPrice)
                         {
                             <div class="h-4 w-28 skeleton mt-1 rounded" style="background:rgba(0,102,204,0.08)"></div>
@@ -110,7 +110,7 @@
                     }
                     else
                     {
-                        <h1 class="text-3xl font-extrabold mt-0.5 tracking-tight">@balance.TotalDgb.ToString("N8") DGB</h1>
+                        <h1 class="@BalanceSize(balance.TotalDgb.ToString("N8")) font-extrabold mt-0.5 tracking-tight whitespace-nowrap">@balance.TotalDgb.ToString("N8") <span class="text-base font-bold opacity-80">DGB</span></h1>
                         @if (isLoadingPrice)
                         {
                             <div class="h-4 w-28 skeleton mt-1 rounded" style="background:rgba(0,102,204,0.08)"></div>
@@ -970,6 +970,14 @@
 
     private static string TruncateAddress(string addr) =>
         addr.Length > 16 ? $"{addr[..10]}...{addr[^6..]}" : addr;
+
+    /// <summary>Headline size for the balance: long amounts (eight decimals, big balances) step down so they stay on one line on narrow phones.</summary>
+    private static string BalanceSize(string amount) => amount.Length switch
+    {
+        <= 12 => "text-3xl",
+        <= 15 => "text-[1.65rem] leading-8",
+        _ => "text-2xl",
+    };
 
     private string FormatFiat(decimal value)
     {
