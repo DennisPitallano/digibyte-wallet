@@ -24,7 +24,7 @@ Everything on this branch is public, including the name, link, picture and trans
 |------|------------|
 | `data/entries/<id>.json` | One file per sponsor: `id`, `name`, optional `image` and `link` |
 | `data/images/<id>.<webp\|png\|jpg>` | The sponsor's picture (at most 200 KB and 512x512) |
-| `data/donations/<txid>.txt` | Claim: this donation backs entry `<id>`. One donation, one entry |
+| `data/donations/<txid>.txt` | Claim: this donation backs entry `<id>`. One file per donation; a sponsor who donates again under the same name gets another claim for the same entry, and the list shows the count |
 | `data/sponsors.json` | **Generated** list the wallet reads. Never edit by hand |
 | `schema/sponsors-list.schema.json` | JSON Schema for the list and entry files |
 | `scripts/` | `validate.py`, `build_index.py`, `check_scope.py` (standard library only) |
@@ -33,7 +33,7 @@ Everything on this branch is public, including the name, link, picture and trans
 
 - Name: 1 to 60 characters, no control characters. Link: `https` only, at most 200 characters, no credentials.
 - Pictures: PNG, JPEG or WebP, at most 200 KB and 512x512 pixels. No SVG.
-- No duplicate entries (same name, link and picture). Every entry has exactly one donation claim.
+- No duplicate entries (same name, link and picture). Every entry has at least one donation claim.
 - A submission pull request may only change its own entry, picture and claim.
 
 ## Maintainers

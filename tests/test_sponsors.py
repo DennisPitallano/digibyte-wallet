@@ -167,10 +167,10 @@ class ValidateTests(unittest.TestCase):
         (self.repo.root / "data" / "donations" / ("d" * 64 + ".txt")).write_text("not-an-id\n")
         self.assertProblem("12-character lowercase hex entry id")
 
-    def test_two_claims_for_one_entry_fail(self):
+    def test_a_second_claim_for_one_entry_is_another_donation_and_is_valid(self):
         eid = self.repo.add()
         (self.repo.root / "data" / "donations" / ("e" * 64 + ".txt")).write_text(eid + "\n")
-        self.assertProblem("2 donation claim files")
+        self.assertEqual([], self.repo.problems())
 
     def test_bad_claim_file_name_fails(self):
         self.repo.add()
@@ -263,6 +263,25 @@ class ParityTests(unittest.TestCase):
         # Same vector as SponsorRulesTests in the main repository (C#): name, link, picture bytes -> 12 hex characters.
         self.assertEqual(sd.entry_id("Alice", "https://a.example", b"\x01\x02\x03"), "861f32e0e299")
         self.assertEqual(sd.entry_id("alice", "https://a.example", b"\x01\x02\x03"), sd.entry_id("Alice", "https://a.example", b"\x01\x02\x03"))
+
+
+class DonationCountTests(unittest.TestCase):
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.cleanup)
+
+    def test_count_appears_only_when_more_than_one_donation(self):
+        one = self.repo.add(name="One", txid="1" * 64)
+        three = self.repo.add(name="Three", txid="2" * 64)
+        for extra in ("3", "4"):
+            (self.repo.root / "data" / "donations" / (extra * 64 + ".txt")).write_text(three + "\n")
+        by_id = {s["id"]: s for s in build_index.build(self.repo.root, added_at=lambda r, p: 1)["sponsors"]}
+        self.assertNotIn("donations", by_id[one])
+        self.assertEqual(3, by_id[three]["donations"])
+
+    def test_claims_of_a_removed_entry_do_not_appear(self):
+        (self.repo.root / "data" / "donations" / ("5" * 64 + ".txt")).write_text("abcdefabcdef\n")
+        self.assertEqual([], build_index.build(self.repo.root, added_at=lambda r, p: 1)["sponsors"])
 
 
 if __name__ == "__main__":

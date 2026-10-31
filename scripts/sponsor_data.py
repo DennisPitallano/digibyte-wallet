@@ -114,6 +114,18 @@ def load_entries(root):
     return entries
 
 
+def count_donations(root):
+    """Returns {entry id: number of claim files naming it} for data/donations/*.txt under root (a Path)."""
+    counts = {}
+    folder = Path(root) / "data" / "donations"
+    if folder.exists():
+        for path in sorted(folder.glob("*.txt")):
+            target = path.read_text(encoding="utf-8").strip()
+            if ID_RE.match(target):
+                counts[target] = counts.get(target, 0) + 1
+    return counts
+
+
 def entry_id(name, link, image_bytes=b""):
     """Same id the wallet and the API compute: first 12 hex of SHA-256(lower-cased name, link, picture bytes)."""
     head = (name.strip().lower() + "\n" + (link or "") + "\n").encode("utf-8")

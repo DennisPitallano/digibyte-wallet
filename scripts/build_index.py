@@ -26,6 +26,7 @@ def added_at_from_git(root, relative_path):
 def build(root, added_at=added_at_from_git):
     root = Path(root)
     entries = sd.load_entries(root)
+    donations = sd.count_donations(root)
     ordered = sorted(
         entries.items(),
         key=lambda item: (added_at(root, f"data/entries/{item[0]}.json"), item[0]),
@@ -37,6 +38,9 @@ def build(root, added_at=added_at_from_git):
             item["image"] = entry["image"]
         if entry.get("link"):
             item["link"] = entry["link"]
+        # One claim file per verified donation; the wallet shows the count when it is more than one.
+        if donations.get(stem, 0) > 1:
+            item["donations"] = donations[stem]
         sponsors.append(item)
     return {"version": 1, "sponsors": sponsors[-sd.MAX_ENTRIES:]}
 
