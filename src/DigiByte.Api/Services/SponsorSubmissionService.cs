@@ -66,6 +66,56 @@ public sealed class SponsorSubmissionService(
 
     // ── add ──
 
+    /// <summary>The id of the listed sponsor with this name (ignoring case and extra spaces), or null. A missing or unreadable list finds nothing.</summary>
+    private async Task<string?> FindListedEntryAsync(string name, CancellationToken ct)
+    {
+        var text = await github.ReadFileTextAsync("data/sponsors.json", ct);
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            if (!doc.RootElement.TryGetProperty("sponsors", out var list) || list.ValueKind != JsonValueKind.Array) return null;
+            var key = SponsorRules.NameKey(name);
+            foreach (var entry in list.EnumerateArray())
+                if (entry.TryGetProperty("name", out var n) && n.GetString() is { } listed && SponsorRules.NameKey(listed) == key &&
+                    entry.TryGetProperty("id", out var i) && i.GetString() is { } id && IsEntryId(id))
+                    return id;
+        }
+        catch (JsonException) { }
+        return null;
+    }
+
+    /// <summary>Another verified donation from a sponsor who is already listed: a pull request that adds only the claim file.</summary>
+    private async Task<SponsorSubmissionResult> AddDonationAsync(string txId, string entryId, string name, CancellationToken ct)
+    {
+        var branch = $"submission/{SponsorRules.BranchSuffix(txId)}";
+        var sha = await github.GetBranchHeadAsync(ct);
+        if (!await github.CreateBranchAsync(branch, sha, ct)) return Of(SponsorSubmissionState.AlreadyUsed);
+        try
+        {
+            await github.PutFileAsync(branch, $"data/donations/{txId}.txt", Encoding.UTF8.GetBytes(entryId + "\n"), $"Claim another donation for entry {entryId}", ct);
+            await github.CreatePullRequestAsync(branch, $"Another donation: {SanitiseForTitle(name)}",
+                $"""
+                Another donation from a listed sponsor. Everything below is public.
+
+                - Entry id: `{entryId}`
+                - Name: `{name.Replace('`', '\'')}`
+                - Donation transaction: `{txId}` (checked automatically: found on the explorers, enough confirmations, paid to a project donation address, at least the minimum amount, not used before)
+
+                Only the donation claim is added; the entry, link and picture do not change. Merging raises the sponsor's donation count by one.
+
+                Maintainer: check the name really is the same sponsor, then merge. Close without merging to reject; closing frees the transaction.
+                """,
+                ["sponsor-submission", "donation-verified"], ct);
+        }
+        catch
+        {
+            await TryDeleteBranchAsync(branch);
+            throw;
+        }
+        return Of(SponsorSubmissionState.Created);
+    }
+
     private async Task<SponsorSubmissionResult> AddAsync(SponsorSubmissionRequest request, CancellationToken ct)
     {
         var invalid = new List<string>();
@@ -86,10 +136,15 @@ public sealed class SponsorSubmissionService(
 
         var txId = request.TxId!.ToLowerInvariant();
         if (await github.ReadClaimAsync(txId, ct) is not null) return Of(SponsorSubmissionState.AlreadyUsed);
+        var listedId = await FindListedEntryAsync(name, ct);
         if (await github.CountOpenSubmissionsAsync(ct) >= options.Value.MaxOpenSubmissions) return Of(SponsorSubmissionState.QueueFull);
 
         var check = await donations.VerifyAsync(txId, ct);
         if (!check.Ok) return new SponsorSubmissionResult { State = SponsorSubmissionState.NotVerified, Reason = check.Reason };
+
+        // The name is already listed: this is another donation from the same sponsor. Only the donation claim is added to the
+        // existing entry (the list counts claims), so the entry's link and picture are left as they are.
+        if (listedId is not null) return await AddDonationAsync(txId, listedId, name, ct);
 
         var id = SponsorRules.ComputeEntryId(name, link, image ?? []);
         var imageName = image is null ? null : $"{id}.{SponsorRules.ImageExtension(imageType)}";

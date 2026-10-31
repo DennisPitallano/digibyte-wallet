@@ -1,7 +1,8 @@
 namespace DigiByte.Web.Services;
 
 /// <summary>A validated sponsor as the page shows it. Built only from list entries that passed every rule.</summary>
-public sealed record SponsorEntry(string Name, string? ImageUrl, string? Link);
+/// <param name="Donations">How many verified donations this sponsor has made (1 when the list does not say).</param>
+public sealed record SponsorEntry(string Name, string? ImageUrl, string? Link, int Donations = 1);
 
 /// <summary>The sponsors in display order (newest first), with when they were fetched.</summary>
 public sealed class SponsorList

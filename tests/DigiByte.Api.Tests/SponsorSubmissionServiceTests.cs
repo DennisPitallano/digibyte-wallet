@@ -147,6 +147,36 @@ public class SponsorSubmissionServiceTests
         Assert.DoesNotContain(gh.Calls, c => c.StartsWith("CreateBranch"));
     }
 
+    [Theory]
+    [InlineData("Alice")]
+    [InlineData("  alice ")]
+    [InlineData("ALICE")]
+    public async Task NameAlreadyListed_OpensAClaimOnlyPullRequest_AfterVerifyingTheDonation(string typed)
+    {
+        var gh = new FakeGitHub();
+        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"aaaaaaaaaaaa","name":"Alice"}]}""";
+        var (svc, _, verifier) = Create(gh);
+        var r = await svc.SubmitAsync(Add(name: typed, image: null), default);
+        Assert.Equal(SponsorSubmissionState.Created, r.State);
+        Assert.Equal(1, verifier.Calls);
+        Assert.Single(gh.Files.Keys, k => k.StartsWith("data/donations/"));
+        Assert.DoesNotContain(gh.Files.Keys, k => k.StartsWith("data/entries/"));
+        Assert.Equal("aaaaaaaaaaaa\n", gh.Files.Single(f => f.Key.StartsWith("data/donations/")).Value);
+        Assert.StartsWith("Another donation", gh.PrTitle);
+    }
+
+    [Fact]
+    public async Task DifferentName_OrNoListYet_CreatesANewEntry()
+    {
+        var gh = new FakeGitHub();
+        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"aaaaaaaaaaaa","name":"Bob"}]}""";
+        Assert.Equal(SponsorSubmissionState.Created, (await Create(gh).svc.SubmitAsync(Add(), default)).State);
+        Assert.Contains(gh.Files.Keys, k => k.StartsWith("data/entries/"));
+        var none = new FakeGitHub();
+        Assert.Equal(SponsorSubmissionState.Created, (await Create(none).svc.SubmitAsync(Add(), default)).State);
+        Assert.Contains(none.Files.Keys, k => k.StartsWith("data/entries/"));
+    }
+
     [Fact]
     public async Task BranchAlreadyExists_MeansAnotherSubmissionIsOpen()
     {

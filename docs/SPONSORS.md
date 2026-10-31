@@ -53,7 +53,7 @@ Sponsors form ──POST─▶ DigiByte.Api  /api/sponsors/submissions
 maintainer merges ──▶ build-sponsors-index workflow regenerates data/sponsors.json
 ```
 
-- Data lives on the orphan **`sponsors`** branch: `data/entries/<id>.json` (one per sponsor), `data/images/`, `data/donations/<txid>.txt` (one donation, one entry) and the generated `data/sponsors.json`. Merging never touches `main`.
+- Data lives on the orphan **`sponsors`** branch: `data/entries/<id>.json` (one per sponsor), `data/images/`, `data/donations/<txid>.txt` (one file per donation; a transaction can be used once, and a sponsor with several claims shows "Donated N times") and the generated `data/sponsors.json`. Merging never touches `main`.
 - The submission endpoint is a *public-contribution intake relay* (constitution 1.1.0, Principle II). It is anonymous by design, so it is limited instead: rate limit, open-pull-request cap, size limits, automatic donation check, and a bot that can only open pull requests.
 - The wallet reads the list from the `sponsors` branch only; the content security policy allows exactly that path of `raw.githubusercontent.com` and nothing else on that host.
 
