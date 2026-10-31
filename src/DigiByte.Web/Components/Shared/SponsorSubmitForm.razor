@@ -306,10 +306,6 @@
             case SponsorSubmissionState.AlreadyUsed:
                 message = "That donation has already been used for a listing. Use a different donation's transaction ID.";
                 break;
-            case SponsorSubmissionState.NameTaken:
-                serverInvalid.Add("name");
-                message = "Someone is already listed under that name. Please use a different name, for example add your handle or a middle initial.";
-                break;
             case SponsorSubmissionState.RateLimited:
                 message = "You've sent several requests recently. Please try again in about an hour.";
                 break;

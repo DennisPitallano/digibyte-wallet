@@ -11,7 +11,6 @@ public enum SponsorSubmissionState
     Invalid,
     NotVerified,
     AlreadyUsed,
-    NameTaken,
     RateLimited,
     QueueFull,
     Unavailable,

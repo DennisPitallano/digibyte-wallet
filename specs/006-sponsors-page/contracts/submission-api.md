@@ -28,7 +28,6 @@ One endpoint added to the existing `DigiByte.Api` service. Shared rules: `src/Di
 | `400` | `{ "state": "invalid", "fields": ["name", ...] }` | Any rule failed; field names only, never echoing submitted content |
 | `413` | `{ "state": "invalid", "fields": ["image"] }` | Body or image too large |
 | `409` | `{ "state": "already_used" }` | The transaction already backs an entry or an open pull request |
-| `409` | `{ "state": "name_taken", "fields": ["name"] }` | A listed sponsor already has this name (ignoring case and extra spaces); checked before the donation lookup. Add requests only |
 | `422` | `{ "state": "not_verified", "reason": "not_found" \| "too_few_confirmations" \| "wrong_recipient" \| "below_minimum" }` | The donation check failed |
 | `429` | `{ "state": "rate_limited" }` | More than 3 submissions per hour from one client IP; `Retry-After` header set |
 | `503` | `{ "state": "queue_full" }` | 50 or more open submission pull requests |

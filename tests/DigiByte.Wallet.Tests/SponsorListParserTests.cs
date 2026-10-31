@@ -17,6 +17,18 @@ public class SponsorListParserTests
     }
 
     [Fact]
+    public void Donations_AreReadWhenValid_AndDefaultToOne()
+    {
+        var r = Parse("""{"version":1,"sponsors":[{"name":"A"},{"name":"B","donations":3},{"name":"C","donations":0},{"name":"D","donations":"x"},{"name":"E","donations":99999}]}""");
+        var byName = r.Entries.ToDictionary(e => e.Name, e => e.Donations);
+        Assert.Equal(1, byName["A"]);
+        Assert.Equal(3, byName["B"]);
+        Assert.Equal(1, byName["C"]);
+        Assert.Equal(1, byName["D"]);
+        Assert.Equal(1, byName["E"]);
+    }
+
+    [Fact]
     public void NameOnlyEntry_HasNoImageOrLink()
     {
         var r = Parse("""{"version":1,"sponsors":[{"name":"Solo"}]}""");

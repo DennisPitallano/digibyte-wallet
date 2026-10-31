@@ -24,6 +24,12 @@
           "pattern": "^[a-z0-9][a-z0-9._-]{0,63}\\.(png|jpe?g|webp)$",
           "description": "File name inside data/images/. No folders, no SVG."
         },
+        "donations": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 9999,
+          "description": "Generated list only: how many verified donations the sponsor made (one claim file each). Omitted when 1; never set in entry files."
+        },
         "link": {
           "type": "string",
           "maxLength": 200,

@@ -70,6 +70,7 @@
                         <a href="@star.Link" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center gap-1.5 w-24 no-underline">
                             <SponsorAvatar Name="@star.Name" ImageUrl="@star.ImageUrl" SizeClass="w-20 h-20" LetterClass="text-3xl" />
                             <span class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@star.Name">@star.Name</span>
+                            @DonationBadge(star)
                         </a>
                     }
                     else
@@ -77,6 +78,7 @@
                         <div class="flex flex-col items-center gap-1.5 w-24">
                             <SponsorAvatar Name="@star.Name" ImageUrl="@star.ImageUrl" SizeClass="w-20 h-20" LetterClass="text-3xl" />
                             <span class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@star.Name">@star.Name</span>
+                            @DonationBadge(star)
                         </div>
                     }
                 }
@@ -93,6 +95,7 @@
                        class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline min-w-0">
                         <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
                         <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
+                        @DonationBadge(sponsor)
                         <p class="text-[10px] text-dgb-500">Visit ↗</p>
                     </a>
                 }
@@ -101,6 +104,7 @@
                     <div class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 min-w-0">
                         <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
                         <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
+                        @DonationBadge(sponsor)
                     </div>
                 }
             }
@@ -165,6 +169,15 @@
     private bool showForm;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private static RenderFragment DonationBadge(SponsorEntry entry) => builder =>
+    {
+        if (entry.Donations < 2) return;
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "text-[10px] font-semibold text-rose-500");
+        builder.AddContent(2, $"♥ Donated {entry.Donations} times");
+        builder.CloseElement();
+    };
 
     private Task RefreshAsync() => LoadAsync(bypassCache: true);
 

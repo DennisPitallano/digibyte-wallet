@@ -151,26 +151,30 @@ public class SponsorSubmissionServiceTests
     [InlineData("Alice")]
     [InlineData("  alice ")]
     [InlineData("ALICE")]
-    [InlineData("Al   ice")]
-    public async Task NameAlreadyListed_IsRefused_IgnoringCaseAndSpaces_WithoutVerifyingOrBranching(string typed)
+    public async Task NameAlreadyListed_OpensAClaimOnlyPullRequest_AfterVerifyingTheDonation(string typed)
     {
         var gh = new FakeGitHub();
-        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"x","name":"Al ice"},{"id":"y","name":"Alice"}]}""";
+        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"aaaaaaaaaaaa","name":"Alice"}]}""";
         var (svc, _, verifier) = Create(gh);
-        var r = await svc.SubmitAsync(Add(name: typed), default);
-        Assert.Equal(SponsorSubmissionState.NameTaken, r.State);
-        Assert.Equal(["name"], r.Fields);
-        Assert.Equal(0, verifier.Calls);
-        Assert.DoesNotContain(gh.Calls, c => c.StartsWith("CreateBranch"));
+        var r = await svc.SubmitAsync(Add(name: typed, image: null), default);
+        Assert.Equal(SponsorSubmissionState.Created, r.State);
+        Assert.Equal(1, verifier.Calls);
+        Assert.Single(gh.Files.Keys, k => k.StartsWith("data/donations/"));
+        Assert.DoesNotContain(gh.Files.Keys, k => k.StartsWith("data/entries/"));
+        Assert.Equal("aaaaaaaaaaaa\n", gh.Files.Single(f => f.Key.StartsWith("data/donations/")).Value);
+        Assert.StartsWith("Another donation", gh.PrTitle);
     }
 
     [Fact]
-    public async Task DifferentName_OrNoListYet_IsNotBlocked()
+    public async Task DifferentName_OrNoListYet_CreatesANewEntry()
     {
         var gh = new FakeGitHub();
-        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"x","name":"Bob"}]}""";
+        gh.Files["data/sponsors.json"] = """{"version":1,"sponsors":[{"id":"aaaaaaaaaaaa","name":"Bob"}]}""";
         Assert.Equal(SponsorSubmissionState.Created, (await Create(gh).svc.SubmitAsync(Add(), default)).State);
-        Assert.Equal(SponsorSubmissionState.Created, (await Create(new FakeGitHub()).svc.SubmitAsync(Add(), default)).State);
+        Assert.Contains(gh.Files.Keys, k => k.StartsWith("data/entries/"));
+        var none = new FakeGitHub();
+        Assert.Equal(SponsorSubmissionState.Created, (await Create(none).svc.SubmitAsync(Add(), default)).State);
+        Assert.Contains(none.Files.Keys, k => k.StartsWith("data/entries/"));
     }
 
     [Fact]

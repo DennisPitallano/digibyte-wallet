@@ -72,6 +72,11 @@ public static class SponsorListParser
             imageName = imgEl.GetString();
             imageUrl = imageBase + imageName;
         }
-        return new SponsorEntry(name, imageUrl, link);
+        // The generated list counts each sponsor's donations; anything unreadable or out of range counts as one.
+        var donations = 1;
+        if (item.TryGetProperty("donations", out var countEl) && countEl.ValueKind == JsonValueKind.Number &&
+            countEl.TryGetInt32(out var count) && count is >= 1 and <= 9999)
+            donations = count;
+        return new SponsorEntry(name, imageUrl, link, donations);
     }
 }
