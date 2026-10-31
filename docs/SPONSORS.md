@@ -23,7 +23,7 @@ Donated another way (anything other than DGB)? Use the **Contact the maintainer*
 ## Where sponsors show
 
 - The **Sponsors** page: a "Newest supporters" spotlight (the three newest) above the full list.
-- The **Home** screen: a small "Supported by" strip with the six newest and a link to the page.
+- The **Home** screen: a small "Supported by" strip with the five newest and a link to the page.
 - Links to the page: Settings, About, Donation History, and the footer of the Welcome and Unlock screens.
 
 ## What is public

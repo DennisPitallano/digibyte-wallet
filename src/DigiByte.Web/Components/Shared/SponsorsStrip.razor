@@ -8,18 +8,20 @@
 @if (entries.Count > 0)
 {
     <a href="/sponsors" aria-label="Supported by @entries.Count of @total sponsors. See all sponsors"
-       class="mt-3 flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline fade-in">
+       class="flex items-center gap-2.5 px-3 py-1.5 bg-white dark:bg-dgb-900 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline fade-in">
         <span class="text-rose-500 text-base leading-none" aria-hidden="true">♥</span>
         <div class="flex-1 min-w-0">
-            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Supported by</p>
-            <div class="flex items-center gap-1.5 mt-1">
-                @foreach (var sponsor in entries)
-                {
-                    <span title="@sponsor.Name"><SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" SizeClass="w-8 h-8" LetterClass="text-sm" /></span>
-                }
+            <div class="flex items-center gap-2 overflow-hidden">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">Supported by</span>
+                <div class="flex items-center -space-x-2">
+                    @foreach (var sponsor in entries)
+                    {
+                        <span title="@sponsor.Name" class="rounded-full ring-2 ring-white dark:ring-dgb-900"><SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" SizeClass="w-7 h-7" LetterClass="text-xs" /></span>
+                    }
+                </div>
                 @if (total > entries.Count)
                 {
-                    <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500">+@(total - entries.Count)</span>
+                    <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 shrink-0">+@(total - entries.Count)</span>
                 }
             </div>
         </div>
@@ -28,7 +30,7 @@
 }
 
 @code {
-    private const int MaxShown = 6;
+    private const int MaxShown = 5;
     private static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(30);
 
     private IReadOnlyList<SponsorEntry> entries = [];
