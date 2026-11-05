@@ -71,6 +71,10 @@ public class NodeApiBlockchainService : IBlockchainService
         return total;
     }
 
+    /// <summary>Strict in both modes: a failure or an unreadable answer throws instead of reading as no coins.</summary>
+    public async Task<List<UtxoInfo>> GetVerifiedUtxosAsync(string address) =>
+        StrictUtxos(await StrictGetAsync($"/api/address/{address}/utxos"));
+
     public async Task<List<UtxoInfo>> GetUtxosAsync(string address)
     {
         if (_strict)

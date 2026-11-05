@@ -382,6 +382,51 @@ public class FallbackBlockchainService : IBlockchainService
         throw new InvalidOperationException("No explorer could say whether this address has been used.", lastError);
     }
 
+    /// <summary>
+    /// Explorers first, then the node on regtest, with node use off, or when it is active, as for other address reads. Unlike
+    /// <see cref="GetUtxosAsync(string)"/> it isn't cached, sets no cooldown or outage state, and throws when no source answers,
+    /// so a coin can't look spent because a source was down (FR-007, FR-013).
+    /// </summary>
+    public async Task<List<UtxoInfo>> GetVerifiedUtxosAsync(string address)
+    {
+        if (ForceDemoMode && _isDevelopment && _mock != null)
+            return await ((IBlockchainService)_mock).GetVerifiedUtxosAsync(address);
+
+        Exception? lastError = null;
+        if (!_isRegtest)
+        {
+            for (int i = 0; i < _explorers.Count; i++)
+            {
+                if (IsOnCooldown(i)) continue;
+                try
+                {
+                    return await _explorers[i].GetVerifiedUtxosAsync(address);
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                }
+            }
+        }
+
+        if (LegacyOrder || _nodeState!.IsActive)
+        {
+            try
+            {
+                return await _nodeApi.GetVerifiedUtxosAsync(address);
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
+        }
+
+        if (_isDevelopment && _mock != null)
+            return await ((IBlockchainService)_mock).GetVerifiedUtxosAsync(address);
+
+        throw new InvalidOperationException("No source could list this address's unspent coins.", lastError);
+    }
+
     public Task<decimal> GetFeeRateAsync() =>
         CachedRead("feerate", FeeRateCacheTtl, s => s.GetFeeRateAsync(), NodeRouteClass.Fast);
 

@@ -234,11 +234,8 @@
     private bool isUnlocking;
     private string? walletId;
 
-    // Brute-force protection
-    private int failedAttempts;
-    private DateTime? lockedUntil;
-    private bool isLockedOut => lockedUntil.HasValue && DateTime.UtcNow < lockedUntil.Value;
-    private string? lockoutMessage;
+    // Brute-force protection (the same rule as PSBT signing)
+    private readonly PinAttemptThrottle pinThrottle = new();
 
     // Forgot PIN state
     private bool showForgotPin;
@@ -327,17 +324,15 @@
         if (walletId == null || pin.Length < 6 || isUnlocking) return;
 
         // Check lockout
-        if (isLockedOut)
+        if (pinThrottle.IsLockedOut)
         {
-            var remaining = lockedUntil!.Value - DateTime.UtcNow;
-            lockoutMessage = $"Too many attempts. Try again in {(int)Math.Ceiling(remaining.TotalSeconds)}s.";
-            error = lockoutMessage;
+            error = pinThrottle.LockoutMessage;
             pin = "";
             pinInput?.Clear();
             return;
         }
 
-        error = null; lockoutMessage = null; isUnlocking = true;
+        error = null; isUnlocking = true;
         StateHasChanged();
         try
         {
@@ -345,8 +340,7 @@
             var success = await WalletService.UnlockWalletAsync(walletId, pin);
             if (success)
             {
-                failedAttempts = 0;
-                lockedUntil = null;
+                pinThrottle.RecordSuccess();
 
                 // Check if we should offer biometric enrollment
                 // Re-check IsEnabledAsync directly to avoid race with OnAfterRenderAsync
@@ -381,18 +375,8 @@
             }
             else
             {
-                failedAttempts++;
-                if (failedAttempts >= 3)
-                {
-                    // Exponential backoff: 15s, 30s, 60s, 120s, ...
-                    var delaySec = 15 * (int)Math.Pow(2, Math.Min(failedAttempts - 3, 5));
-                    lockedUntil = DateTime.UtcNow.AddSeconds(delaySec);
-                    error = $"Incorrect PIN. Locked for {delaySec}s after {failedAttempts} failed attempts.";
-                }
-                else
-                {
-                    error = $"Incorrect PIN. {3 - failedAttempts} attempts remaining before lockout.";
-                }
+                // Exponential backoff after 3 failures: 15s, 30s, 60s, 120s, ...
+                error = pinThrottle.RecordFailure();
                 pin = "";
                 pinInput?.Clear();
             }
@@ -540,8 +524,7 @@
             walletColor = color ?? "#0066FF";
             pin = "";
             error = null;
-            failedAttempts = 0;
-            lockedUntil = null;
+            pinThrottle.RecordSuccess(); // A different wallet starts with a clean count, as before.
             pinInput?.Clear();
             CancelForgot();
 
