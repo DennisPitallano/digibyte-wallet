@@ -122,12 +122,12 @@ description: "Task list for PSBT signing in regular wallets"
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T037 [P] [US3] Add broadcast tests to tests/DigiByte.Wallet.Tests/PsbtSigningServiceTests.cs: complete with a wallet input broadcasts and returns the ID, one history entry per research R9, wallet-gains case skips recording, tampered signature not broadcast, fully signed with no wallet input refused, `PrepareSignedAsync` lets an already fully signed PSBT with a wallet input broadcast without a new signature, repeats the chain checks, and refuses when a required acknowledgment is missing, failed broadcast returns the reason and keeps the signed PSBT (FR-027), watch-only wallet refused
+- [X] T037 [P] [US3] Add broadcast tests to tests/DigiByte.Wallet.Tests/PsbtSigningServiceTests.cs: complete with a wallet input broadcasts and returns the ID, one history entry per research R9, wallet-gains case skips recording, tampered signature not broadcast, fully signed with no wallet input refused, `PrepareSignedAsync` lets an already fully signed PSBT with a wallet input broadcast without a new signature, repeats the chain checks, and refuses when a required acknowledgment is missing, failed broadcast returns the reason and keeps the signed PSBT (FR-027), watch-only wallet refused
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Implement `PsbtSigningService.PrepareSignedAsync` and `BroadcastAsync` in src/DigiByte.Wallet/Services/PsbtSigningService.cs, with both requiring `IPsbtKeyProvider.CanSign`, `BroadcastAsync` also requiring `IsComplete` and at least one wallet input (FR-024), and recording history through `TransactionTracker.RecordSendAsync` per research R9
-- [ ] T039 [US3] Add broadcast to src/DigiByte.Web/Pages/PsbtSign.razor: a separate confirmation showing the same outputs and fee (FR-025), transaction ID on success, reason and export on failure, the already-signed path from the review, which first runs `PsbtConfirmationFlow` (FR-034) and then `PrepareSignedAsync`, and the same cache clearing as `ConfirmSend` in src/DigiByte.Web/Pages/Send.razor
+- [X] T038 [US3] Implement `PsbtSigningService.PrepareSignedAsync` and `BroadcastAsync` in src/DigiByte.Wallet/Services/PsbtSigningService.cs, with both requiring `IPsbtKeyProvider.CanSign`, `BroadcastAsync` also requiring `IsComplete` and at least one wallet input (FR-024), and recording history through `TransactionTracker.RecordSendAsync` per research R9
+- [X] T039 [US3] Add broadcast to src/DigiByte.Web/Pages/PsbtSign.razor: a separate confirmation showing the same outputs and fee (FR-025), transaction ID on success, reason and export on failure, the already-signed path from the review, which first runs `PsbtConfirmationFlow` (FR-034) and then `PrepareSignedAsync`, and the same cache clearing as `ConfirmSend` in src/DigiByte.Web/Pages/Send.razor
 
 **Checkpoint**: A single-signer PSBT can go from load to network inside the wallet.
 

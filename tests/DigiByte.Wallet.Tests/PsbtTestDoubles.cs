@@ -89,7 +89,18 @@ internal sealed class FakePsbtBlockchain : IBlockchainService
 
     public Task<long> GetBalanceAsync(string address) => Task.FromResult(0L);
     public Task<long> GetBalanceAsync(IEnumerable<string> addresses) => Task.FromResult(0L);
-    public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => throw new NotSupportedException();
+    /// <summary>Raw transactions handed to the network, in order.</summary>
+    public List<byte[]> Broadcasts { get; } = [];
+
+    /// <summary>When set, a broadcast fails with this message, as a node rejecting the transaction would.</summary>
+    public string? BroadcastError { get; set; }
+
+    public Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
+    {
+        if (BroadcastError is not null) throw new InvalidOperationException(BroadcastError);
+        Broadcasts.Add(rawTransaction);
+        return Task.FromResult(Transaction.Load(rawTransaction, PsbtTestFixtures.Net).GetHash().ToString());
+    }
     public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) => Task.FromResult(new List<TransactionInfo>());
     public Task<decimal> GetFeeRateAsync() => Task.FromResult(100m);
     public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => Task.FromResult(0.01m);

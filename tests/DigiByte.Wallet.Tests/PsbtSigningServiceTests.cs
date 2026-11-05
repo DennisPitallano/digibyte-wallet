@@ -13,12 +13,14 @@ public class PsbtSigningServiceTests
     private readonly Key _wallet = new();
     private readonly FakePsbtBlockchain _chain = new();
     private readonly FakePsbtKeyProvider _keys;
+    private readonly TransactionTracker _tracker = new(new ChangeAddressTests.InMemoryStorage());
     private readonly PsbtSigningService _service;
 
     public PsbtSigningServiceTests()
     {
         _keys = new FakePsbtKeyProvider(Net, _wallet);
-        _service = new PsbtSigningService(_chain, _keys);
+        _tracker.SetActiveWallet("psbt-test");
+        _service = new PsbtSigningService(_chain, _keys, _tracker);
     }
 
     private FundedCoin FundWallet(long amount = OneDgb, int confirmations = 6)
@@ -198,7 +200,7 @@ public class PsbtSigningServiceTests
     public async Task ExplorerReturning502_IsUnavailable_NotSpentOrUnknown()
     {
         var explorer = new BlockchainApiService(new HttpClient(new StatusHandler(System.Net.HttpStatusCode.BadGateway)));
-        var service = new PsbtSigningService(explorer, _keys);
+        var service = new PsbtSigningService(explorer, _keys, _tracker);
         var coin = Fund(SegWit(_wallet), OneDgb);
 
         var loaded = await service.LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build().ToBase64());
@@ -260,6 +262,181 @@ public class PsbtSigningServiceTests
         var loaded = await LoadAsync(psbt);
 
         Assert.Equal(PsbtRefusalReason.AmountOrScriptMismatch, loaded.Review.Refusal!.Reason);
+    }
+
+    // ─── Story 3: broadcast ───
+
+    private async Task<(PsbtLoadOutcome Loaded, PsbtSignOutcome Signed)> SignAsync(PSBT psbt, bool acknowledged = true)
+    {
+        var loaded = await LoadAsync(psbt);
+        var signed = await _service.SignAsync(loaded.Document!, acknowledged);
+        Assert.True(signed.Succeeded, signed.Error);
+        return (loaded, signed);
+    }
+
+    /// <summary>A wallet coin plus another participant's coin, the other already signed, so the wallet's signature completes it.</summary>
+    private PSBT SharedPsbt(long walletIn, long otherIn, long walletOut, long pay)
+    {
+        var other = new Key();
+        var mine = FundWallet(walletIn);
+        var theirs = Fund(SegWit(other), otherIn);
+        var builder = Builder().AddInput(mine).AddInput(theirs).Pay(pay);
+        if (walletOut > 0) builder.AddOutput(SegWit(_wallet), walletOut);
+        return PsbtSigner.SignInputs(builder.Build(), new Dictionary<int, Key> { [1] = other });
+    }
+
+    [Fact]
+    public async Task CompletePsbt_Broadcasts_AndRecordsOneHistoryEntry()
+    {
+        var coin = FundWallet();
+        var stranger = Stranger();
+        var psbt = Builder().AddInput(coin).AddOutput(stranger, 60_000_000).AddOutput(SegWit(_wallet), 39_900_000).Build();
+        var (_, signed) = await SignAsync(psbt);
+
+        var result = await _service.BroadcastAsync(signed.Result!, signed.Review);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(signed.Result!.FinalTransaction!.GetHash().ToString(), result.TxId);
+        Assert.Single(_chain.Broadcasts);
+        var record = Assert.Single(await _tracker.GetAllAsync());
+        Assert.Equal(result.TxId, record.TxId);
+        Assert.Equal(stranger.GetDestinationAddress(Net)!.ToString(), record.CounterpartyAddress);
+        Assert.Equal(60_000_000, record.AmountSatoshis);
+        Assert.Equal(100_000, record.FeeSatoshis);
+    }
+
+    [Fact]
+    public async Task SharedPsbt_RecordsTheAmountLeaving_WithNoFee()
+    {
+        var (_, signed) = await SignAsync(SharedPsbt(walletIn: 3 * OneDgb, otherIn: OneDgb, walletOut: OneDgb, pay: 3 * OneDgb - 100_000));
+        Assert.True(signed.Result!.IsComplete);
+
+        var result = await _service.BroadcastAsync(signed.Result, signed.Review);
+
+        Assert.True(result.Succeeded, result.Error);
+        var record = Assert.Single(await _tracker.GetAllAsync());
+        Assert.Equal(2 * OneDgb, record.AmountSatoshis);
+        Assert.Equal(0, record.FeeSatoshis);
+    }
+
+    [Fact]
+    public async Task WhenTheWalletGainsOverall_NothingIsRecorded()
+    {
+        var (_, signed) = await SignAsync(SharedPsbt(walletIn: OneDgb, otherIn: 5 * OneDgb, walletOut: 3 * OneDgb, pay: 3 * OneDgb - 100_000));
+        Assert.True(signed.Review.NetAmount < 0);
+
+        var result = await _service.BroadcastAsync(signed.Result!, signed.Review);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Empty(await _tracker.GetAllAsync());
+    }
+
+    [Fact]
+    public async Task TamperedSignature_IsNotBroadcast()
+    {
+        var coin = FundWallet();
+        var (_, signed) = await SignAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+        var tampered = PSBT.Parse(signed.Result!.SignedPsbtBase64, Net);
+        tampered.Inputs[0].PartialSigs[_wallet.PubKey] = new TransactionSignature(new Key().Sign(RandomUtils.GetUInt256()), SigHash.All);
+        var claimed = signed.Result with { SignedPsbtBase64 = tampered.ToBase64() };
+
+        var result = await _service.BroadcastAsync(claimed, signed.Review);
+
+        Assert.False(result.Succeeded);
+        Assert.Empty(_chain.Broadcasts);
+        Assert.Empty(await _tracker.GetAllAsync());
+    }
+
+    [Fact]
+    public async Task FullySignedPsbt_WithNoWalletInput_IsRefused()
+    {
+        var other = new Key();
+        var theirs = Fund(SegWit(other), OneDgb);
+        var psbt = PsbtSigner.SignInputs(Builder().AddInput(theirs).Pay(OneDgb - 100_000).Build(), new Dictionary<int, Key> { [0] = other });
+        var loaded = await LoadAsync(psbt);
+
+        var prepared = await _service.PrepareSignedAsync(loaded.Document!, acknowledged: true);
+        var complete = new SigningResult(psbt.ToBase64(), 0, 0, true, PsbtSigner.TryComplete(psbt).Transaction);
+        var broadcast = await _service.BroadcastAsync(complete, loaded.Review);
+
+        Assert.False(loaded.Review.CanBroadcastSigned);
+        Assert.False(prepared.Succeeded);
+        Assert.False(broadcast.Succeeded);
+        Assert.Empty(_chain.Broadcasts);
+    }
+
+    [Fact]
+    public async Task AlreadySignedPsbt_IsPrepared_WithoutANewSignature_AndBroadcasts()
+    {
+        var coin = FundWallet();
+        var psbt = PsbtSigner.SignInputs(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build(), new Dictionary<int, Key> { [0] = _wallet });
+        var loaded = await LoadAsync(psbt);
+        Assert.True(loaded.Review.CanBroadcastSigned);
+
+        var prepared = await _service.PrepareSignedAsync(loaded.Document!, acknowledged: false);
+        var result = await _service.BroadcastAsync(prepared.Result!, prepared.Review);
+
+        Assert.True(prepared.Succeeded, prepared.Error);
+        Assert.Equal(0, prepared.Result!.SignedCount);
+        Assert.True(prepared.Result.IsComplete);
+        Assert.Equal(0, _keys.SignCalls);
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Single(_chain.Broadcasts);
+    }
+
+    [Fact]
+    public async Task PrepareSigned_RepeatsTheChainChecks()
+    {
+        var coin = FundWallet();
+        var psbt = PsbtSigner.SignInputs(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build(), new Dictionary<int, Key> { [0] = _wallet });
+        var loaded = await LoadAsync(psbt);
+
+        _chain.Spend(coin, Net);
+        var prepared = await _service.PrepareSignedAsync(loaded.Document!, acknowledged: true);
+
+        Assert.False(prepared.Succeeded);
+        Assert.Equal(PsbtRefusalReason.InputSpentOrUnknown, prepared.Review.Refusal!.Reason);
+    }
+
+    [Fact]
+    public async Task PrepareSigned_WithoutARequiredAcknowledgment_IsRefused()
+    {
+        var coin = FundWallet();
+        var psbt = PsbtSigner.SignInputs(Builder().AddInput(coin).Pay(80_000_000).Build(), new Dictionary<int, Key> { [0] = _wallet });
+        var loaded = await LoadAsync(psbt);
+        Assert.True(loaded.Review.NeedsAcknowledgment);
+
+        Assert.False((await _service.PrepareSignedAsync(loaded.Document!, acknowledged: false)).Succeeded);
+        Assert.True((await _service.PrepareSignedAsync(loaded.Document!, acknowledged: true)).Succeeded);
+    }
+
+    [Fact]
+    public async Task FailedBroadcast_ReturnsTheReason_AndRecordsNothing()
+    {
+        var coin = FundWallet();
+        var (_, signed) = await SignAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+        _chain.BroadcastError = "txn-mempool-conflict";
+
+        var result = await _service.BroadcastAsync(signed.Result!, signed.Review);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("txn-mempool-conflict", result.Error);
+        Assert.Empty(await _tracker.GetAllAsync());
+        Assert.NotEmpty(signed.Result!.SignedPsbtBase64);
+    }
+
+    [Fact]
+    public async Task WatchOnlyWallet_CantPrepareOrBroadcast()
+    {
+        var coin = FundWallet();
+        var psbt = PsbtSigner.SignInputs(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build(), new Dictionary<int, Key> { [0] = _wallet });
+        var loaded = await LoadAsync(psbt);
+        var complete = new SigningResult(psbt.ToBase64(), 0, 0, true, PsbtSigner.TryComplete(psbt).Transaction);
+        _keys.CanSign = false;
+
+        Assert.False((await _service.PrepareSignedAsync(loaded.Document!, acknowledged: true)).Succeeded);
+        Assert.False((await _service.BroadcastAsync(complete, loaded.Review)).Succeeded);
+        Assert.Empty(_chain.Broadcasts);
     }
 
     private sealed class StatusHandler(System.Net.HttpStatusCode status) : HttpMessageHandler

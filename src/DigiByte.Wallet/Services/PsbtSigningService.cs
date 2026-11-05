@@ -14,8 +14,99 @@ public sealed record PsbtSignOutcome(SigningResult? Result, ReviewSummary Review
 /// Loads, reviews and signs PSBTs. Gathers the chain facts the analyzer needs and holds no PSBT between calls: the page
 /// keeps the document, and every sign repeats the chain checks (FR-008). Never logs PSBT contents.
 /// </summary>
-public sealed class PsbtSigningService(IBlockchainService chain, IPsbtKeyProvider keys)
+public sealed class PsbtSigningService(IBlockchainService chain, IPsbtKeyProvider keys, TransactionTracker history)
 {
+    /// <summary>
+    /// For a PSBT that arrived fully signed (FR-034): repeats the chain checks and the acknowledgment rule, signs nothing,
+    /// and returns what <see cref="BroadcastAsync"/> takes.
+    /// </summary>
+    public async Task<PsbtSignOutcome> PrepareSignedAsync(PsbtDocument document, bool acknowledged)
+    {
+        var review = await ReviewAsync(document);
+
+        if (!keys.CanSign)
+            return new(null, review, "This wallet can't broadcast: it is locked or watch-only.");
+        if (review.ChainStatus == ChainStatus.Unavailable)
+            return new(null, review, "The network couldn't be reached to check this wallet's coins. Try again.");
+        if (review.Refusal is { Reason: not PsbtRefusalReason.NothingToSign } refusal)
+            return new(null, review, refusal.Message);
+        if (!review.CanBroadcastSigned)
+            return new(null, review, "Only a fully signed transaction that spends this wallet's coins can be broadcast here.");
+        if (review.NeedsAcknowledgment && !acknowledged)
+            return new(null, review, "Confirm the warnings before broadcasting.");
+
+        var completion = PsbtSigner.TryComplete(document.Psbt);
+        if (!completion.IsComplete)
+            return new(null, review, "This transaction isn't fully signed.");
+
+        return new(new SigningResult(document.Psbt.ToBase64(), 0, 0, true, completion.Transaction), review, null);
+    }
+
+    /// <summary>
+    /// Sends a complete transaction (FR-024). Finalizes the signed PSBT again rather than trusting the result it was given,
+    /// so an altered signature is never sent. Records one history entry on success (research R9).
+    /// </summary>
+    public async Task<BroadcastResult> BroadcastAsync(SigningResult signed, ReviewSummary review)
+    {
+        ArgumentNullException.ThrowIfNull(signed);
+        ArgumentNullException.ThrowIfNull(review);
+
+        if (!keys.CanSign)
+            return new(null, "This wallet can't broadcast: it is locked or watch-only.");
+        if (!review.Inputs.Any(i => i.Owner == InputOwner.Wallet))
+            return new(null, "Only a transaction that spends this wallet's coins can be broadcast here.");
+
+        PSBT psbt;
+        try
+        {
+            psbt = PSBT.Parse(signed.SignedPsbtBase64, keys.Network);
+        }
+        catch (Exception)
+        {
+            return new(null, "The signed transaction couldn't be read.");
+        }
+
+        var completion = PsbtSigner.TryComplete(psbt);
+        if (!completion.IsComplete || completion.Transaction is null)
+            return new(null, "This transaction isn't fully signed, or a signature is invalid, so it wasn't sent.");
+
+        string txId;
+        try
+        {
+            txId = await chain.BroadcastTransactionAsync(completion.Transaction.ToBytes());
+        }
+        catch (Exception ex)
+        {
+            return new(null, ex.Message);
+        }
+
+        try
+        {
+            await RecordAsync(txId, review);
+        }
+        catch (Exception)
+        {
+            // The transaction is sent; history catches up with normal chain sync.
+        }
+        return new(txId, null);
+    }
+
+    /// <summary>
+    /// One sent entry: the largest output that isn't the wallet's as the address. When every input is the wallet's the fee is
+    /// known to be its own; on a shared transaction it can't say its share, so the whole amount leaving is recorded with no
+    /// fee. Nothing is recorded when the wallet gains overall; normal chain sync shows that.
+    /// </summary>
+    private async Task RecordAsync(string txId, ReviewSummary review)
+    {
+        if (review.NetAmount <= 0) return;
+
+        var address = review.Outputs.Where(o => !o.IsWallet && o.Address is not null).MaxBy(o => o.Amount)?.Address
+                      ?? review.Outputs.Where(o => o.Address is not null).MaxBy(o => o.Amount)?.Address
+                      ?? "";
+        var fee = review.OtherInputs == 0 ? review.Fee ?? 0 : 0;
+        await history.RecordSendAsync(txId, address, review.NetAmount - fee, fee);
+    }
+
     public async Task<PsbtLoadOutcome> LoadAsync(string? text) => await ReviewLoadedAsync(PsbtDocument.FromText(text, keys.Network));
 
     public async Task<PsbtLoadOutcome> LoadAsync(byte[] bytes) => await ReviewLoadedAsync(PsbtDocument.FromBytes(bytes, keys.Network));
