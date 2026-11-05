@@ -421,9 +421,8 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
-        if (_isDevelopment && _mock != null)
-            return await ((IBlockchainService)_mock).GetVerifiedUtxosAsync(address);
-
+        // No demo-data fallback here, even in development: demo data never holds the coin being proven, so it would make a
+        // real coin read as spent. Demo mode is only used when it was forced (above).
         throw new InvalidOperationException("No source could list this address's unspent coins.", lastError);
     }
 

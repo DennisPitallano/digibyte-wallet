@@ -203,6 +203,20 @@ public class VerifiedUtxoTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => Verified(sut));
     }
 
+    [Theory]
+    [InlineData("mainnet")]
+    [InlineData("regtest")]
+    public async Task Fallback_InDevelopment_WhenNoSourceAnswers_ThrowsRatherThanUsingDemoData(string network)
+    {
+        // Demo data never holds the coin being proven, so falling back to it would report a real coin as spent.
+        var sut = new FallbackBlockchainService(
+            new FakeNodeApi { Fails = true }.Client(strict: true), [new ScriptedExplorer("explorer") { Fails = true }], new HttpClient(),
+            isDevelopment: true, mock: new MockBlockchainService(), nodeState: new FakeNodeState { State = NodeSourceState.Active });
+        sut.SetNetworkMode(network);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Verified(sut));
+    }
+
     [Fact]
     public async Task Fallback_AFailure_SetsNoCooldownAndNoOutageState()
     {
