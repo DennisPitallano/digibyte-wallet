@@ -97,7 +97,10 @@ public static class PsbtAnalyzer
                 : "None of this transaction's inputs belong to this wallet, so there is nothing for it to sign.");
 
         // ─── Fee status and warnings ───
-        var feeStatus = chainChecked && otherInputs == 0 && fee is not null ? FeeStatus.Verified : FeeStatus.Unverified;
+        // Verified only when every input's amount came from the chain, not from the PSBT.
+        var feeStatus = chainChecked && fee is not null && inputs.All(x => x.AmountSource == AmountSource.Chain)
+            ? FeeStatus.Verified
+            : FeeStatus.Unverified;
         var warnings = new List<PsbtWarning>();
         if (tx.LockTime.Value != 0) warnings.Add(PsbtWarning.LockTime);
         if (inputs.Any(x => x.IsUnconfirmed)) warnings.Add(PsbtWarning.UnconfirmedInput);

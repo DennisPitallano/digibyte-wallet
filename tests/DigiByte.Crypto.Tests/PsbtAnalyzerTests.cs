@@ -405,6 +405,18 @@ public class PsbtAnalyzerTests
     }
 
     [Fact]
+    public void Fee_IsUnverified_WhenAWalletInputsAmountWasntFoundOnChain()
+    {
+        var coin = Fund(SegWit(Wallet), OneDgb);
+        var psbt = Builder().AddInput(coin).Pay(OneDgb - 100_000).Build();
+
+        var review = Analyze(psbt, [new ChainInputFact(coin.Outpoint, ChainLookup.NotFound, IsUnspent: false)]);
+
+        Assert.Equal(AmountSource.PsbtOnly, review.Inputs[0].AmountSource);
+        Assert.Equal(FeeStatus.Unverified, review.FeeStatus);
+    }
+
+    [Fact]
     public void OutputsGreaterThanInputs_AreRefused()
     {
         var coin = Fund(SegWit(Wallet), OneDgb);

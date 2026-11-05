@@ -146,6 +146,128 @@ public class PsbtSigningServiceTests
         Assert.Equal(0, _chain.TransactionLookups);
     }
 
+    // ─── Story 2 ───
+
+    [Fact]
+    public async Task CoinSpentBetweenLoadAndSign_IsRefusedAtSigning()
+    {
+        var coin = FundWallet();
+        var loaded = await LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+        Assert.True(loaded.Review.CanSign);
+
+        _chain.Spend(coin, Net);
+        var outcome = await _service.SignAsync(loaded.Document!, acknowledged: true);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(PsbtRefusalReason.InputSpentOrUnknown, outcome.Review.Refusal!.Reason);
+        Assert.Equal(0, _keys.SignCalls);
+    }
+
+    [Fact]
+    public async Task ChainThatCantAnswer_GivesAnUnavailableReview_AndNoSignature()
+    {
+        var coin = FundWallet();
+        _chain.UnspentLookupsFail = true;
+
+        var loaded = await LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+        var outcome = await _service.SignAsync(loaded.Document!, acknowledged: true);
+
+        Assert.Equal(ChainStatus.Unavailable, loaded.Review.ChainStatus);
+        Assert.Null(loaded.Review.Refusal);
+        Assert.False(loaded.Review.CanSign);
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(0, _keys.SignCalls);
+    }
+
+    [Fact]
+    public async Task ChainThatFailsOnlyAtSigning_IsUnavailable_NotSpent()
+    {
+        var coin = FundWallet();
+        var loaded = await LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+
+        _chain.UnspentLookupsFail = true;
+        var outcome = await _service.SignAsync(loaded.Document!, acknowledged: true);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(ChainStatus.Unavailable, outcome.Review.ChainStatus);
+        Assert.Null(outcome.Review.Refusal);
+        Assert.Equal(0, _keys.SignCalls);
+    }
+
+    [Fact]
+    public async Task ExplorerReturning502_IsUnavailable_NotSpentOrUnknown()
+    {
+        var explorer = new BlockchainApiService(new HttpClient(new StatusHandler(System.Net.HttpStatusCode.BadGateway)));
+        var service = new PsbtSigningService(explorer, _keys);
+        var coin = Fund(SegWit(_wallet), OneDgb);
+
+        var loaded = await service.LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build().ToBase64());
+
+        Assert.Equal(ChainStatus.Unavailable, loaded.Review.ChainStatus);
+        Assert.Null(loaded.Review.Refusal);
+        Assert.False(loaded.Review.CanSign);
+    }
+
+    [Fact]
+    public async Task CoinKnownOnlyOnAnotherNetwork_IsRefused()
+    {
+        var coin = Fund(SegWit(_wallet), OneDgb);
+        _chain.AddUnspent(coin, DigiByte.Crypto.Networks.DigiByteNetwork.Testnet);
+
+        var loaded = await LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+
+        Assert.Equal(PsbtRefusalReason.InputSpentOrUnknown, loaded.Review.Refusal!.Reason);
+        Assert.False(loaded.Review.CanSign);
+    }
+
+    [Fact]
+    public async Task WrongPin_ProducesNoSignature()
+    {
+        var coin = FundWallet();
+        var loaded = await LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+        var flow = new DigiByte.Web.Services.PsbtConfirmationFlow(
+            _ => Task.FromResult<string?>(null),
+            _ => Task.FromResult(true),
+            () => Task.FromResult(false));
+
+        var approval = await flow.RunAsync(loaded.Review, acknowledged: true);
+        if (approval.Approved) await _service.SignAsync(loaded.Document!, acknowledged: true);
+
+        Assert.False(approval.Approved);
+        Assert.Equal(0, _keys.SignCalls);
+    }
+
+    [Fact]
+    public async Task WalletInputWithPsbtData_IsProvenByTheUnspentList_WithoutATransactionLookup()
+    {
+        var coin = Fund(SegWit(_wallet), OneDgb);
+        _chain.AddUnspent(coin, Net, withTransaction: false);
+
+        var loaded = await LoadAsync(Builder().AddInput(coin).Pay(OneDgb - 100_000).Build());
+
+        Assert.Null(loaded.Review.Refusal);
+        Assert.True(loaded.Review.CanSign);
+        Assert.Equal(0, _chain.TransactionLookups);
+    }
+
+    [Fact]
+    public async Task FalseAmountOnAWalletInput_IsRefused()
+    {
+        var coin = FundWallet();
+        var psbt = Builder().AddInput(coin).Pay(80_000_000).Build();
+        psbt.Inputs[0].WitnessUtxo = new TxOut(Money.Satoshis(81_000_000), coin.ScriptPubKey);
+
+        var loaded = await LoadAsync(psbt);
+
+        Assert.Equal(PsbtRefusalReason.AmountOrScriptMismatch, loaded.Review.Refusal!.Reason);
+    }
+
+    private sealed class StatusHandler(System.Net.HttpStatusCode status) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent("<html>bad gateway</html>") });
+    }
+
     [Fact]
     public async Task WatchOnlyWallet_CanReview_ButNotSign()
     {

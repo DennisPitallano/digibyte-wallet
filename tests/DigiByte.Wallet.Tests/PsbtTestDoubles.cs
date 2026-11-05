@@ -22,7 +22,7 @@ internal sealed class FakePsbtBlockchain : IBlockchainService
     public List<string> UnspentLookupAddresses { get; } = [];
 
     /// <summary>Records a coin as existing on chain and unspent at its address.</summary>
-    public void AddUnspent(FundedCoin coin, Network network, int confirmations = 6)
+    public void AddUnspent(FundedCoin coin, Network network, int confirmations = 6, bool withTransaction = true)
     {
         var address = coin.ScriptPubKey.GetDestinationAddress(network)!.ToString();
         if (!_unspent.TryGetValue(address, out var list)) _unspent[address] = list = [];
@@ -34,7 +34,7 @@ internal sealed class FakePsbtBlockchain : IBlockchainService
             ScriptPubKey = coin.ScriptPubKey.ToHex(),
             Confirmations = confirmations,
         });
-        AddTransaction(coin, network);
+        if (withTransaction) AddTransaction(coin, network);
     }
 
     /// <summary>Records the coin's funding transaction, so a lookup by transaction finds the coin.</summary>
