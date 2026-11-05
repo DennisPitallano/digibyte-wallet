@@ -4,6 +4,8 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
 ### Added
 - **Sign a PSBT** (`/settings/psbt-sign`, Advanced mode) — Paste a PSBT as base64 or upload a `.psbt` file (up to 1 MB) made by another wallet or by DigiByte Core. The review shows the total leaving the wallet (or received), every output with its full address, the fee and whether it is verified, and how many inputs this wallet signs. Inputs count as the wallet's only when their script is one of its scanned addresses; their amounts are checked against the network before review and again before signing. Signing runs the acknowledgment for warnings, the spending limit, Baku's send-risk warning, then biometrics or a fresh PIN, and signs only this wallet's inputs with the standard signature type. The result is copied as base64 or downloaded as `.psbt`, and a complete transaction can be broadcast from the wallet. Missing coin data for the wallet's SegWit inputs is filled in from the network. Refused with a plain reason: DigiDollar transactions, Taproot inputs, non-standard signature types, false amounts, spent coins, and outputs above inputs. Watch-only wallets can review only. Other participants' amounts in shared PSBTs are not yet verified, and the review says so. Security-relevant.
 - **Shared wrong-PIN delay** — The unlock screen's wrong-PIN delay is now a shared `PinAttemptThrottle`, also used by PSBT signing. Behaviour on the unlock screen is unchanged.
@@ -24,6 +26,18 @@ All notable changes to the DigiByte Wallet project.
 - Production node API refuses to start with empty or `changeme` RPC credentials. The node API image no longer bakes in a password, testnet mode or the faucet (local compose files set these explicitly).
 - `/api/health` no longer returns the node URL, and failed node connections no longer put the node's host and port in API error messages (details go to the server log).
 - The DigiDollar fee-reserve monitor stays idle when no DigiDollar wallet name is configured, so a node without a wallet does not log a warning every minute.
+- App version bumped to 0.4.0.
+
+### Fixed
+- **Change kept on scanned addresses** — Change addresses were scanned only up to index 9, so the 11th send in a session could put change on an address the wallet never checked, lowering the balance and failing the next send. Change is now scanned up to the next change index, which is saved after each send instead of restarting at 0.
+- **Every receive address shown is scanned** — "Generate new address" could go past index 19, where payments were missing from the balance and couldn't be spent. Receive addresses are now scanned up to the one on show and the highest used, the index is saved, and each unlock searches the chain for used addresses. The Recovery page adds **Search for Missing Payments**, which looks 500 addresses further.
+- **Address discovery fails safely** — A failed explorer lookup no longer counts as an unused address, sets no cooldown or outage state, and every address search stops after a limit instead of running forever against a source that reports history for any address. Balance, history and sends wait a limited time for discovery.
+- **Batch sends recorded in full** — A batch send was saved with only the first recipient's amount, so history showed too little and spending limits undercounted it. It is now saved once with the total, and older records are repaired when history loads.
+- **Recovery page text** — Three non-UTF-8 bytes garbled the page title and other text.
+
+### Security
+- Upgraded the SignalR client to 10.0.13 (GHSA-334f-vvp4-7g6p), and the server packages to versions with patched Microsoft.OpenApi 2.7.5 (GHSA-v5pm-xwqc-g5wc) and SQLite 3.53.3 (GHSA-2m69-gcr7-jv3q).
+- PSBT signing proves the wallet's coins against the network before signing and again before broadcast, and never with demo data. A security self-review of the feature found no high or medium issues.
 
 ## [0.3.0] - 2026-10-27
 
