@@ -70,9 +70,13 @@
 
         @if (!isWifWallet)
         {
-            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium transition-colors slide-up-delay-3" @onclick="GenerateNewAddress">
+            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium transition-colors slide-up-delay-3 disabled:opacity-50" @onclick="GenerateNewAddress" disabled="@isGenerating">
                 Generate new address
             </button>
+            @if (generateError != null)
+            {
+                <p class="text-xs text-red-500 text-center">@generateError</p>
+            }
         }
 
         @* Address Label *@
@@ -115,7 +119,8 @@
     private string? address;
     private string? qrDataUrl;
     private bool copied;
-    private int addressIndex;
+    private bool isGenerating;
+    private string? generateError;
     private string addressFormat = "legacy";
     private bool isWifWallet;
     private string addressLabel = "";
@@ -180,15 +185,21 @@
 
     private async Task GenerateNewAddress()
     {
-        addressIndex++;
-        var addresses = await WalletService.GetReceivingAddressesAsync(1, addressIndex);
-        if (addresses.Count > 0)
+        isGenerating = true;
+        generateError = null;
+        try
         {
-            address = addresses[0].Address;
+            (_, address) = await WalletService.GenerateNewReceivingAddressAsync();
             GenerateQrCode();
-            if (WalletService.ActiveWallet != null)
-                WalletService.ActiveWallet.NextReceivingIndex = addressIndex;
             await LoadLabel();
+        }
+        catch (InvalidOperationException ex)
+        {
+            generateError = ex.Message;
+        }
+        finally
+        {
+            isGenerating = false;
         }
     }
 

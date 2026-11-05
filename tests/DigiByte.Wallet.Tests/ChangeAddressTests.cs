@@ -14,12 +14,12 @@ namespace DigiByte.Wallet.Tests;
 /// </summary>
 public class ChangeAddressTests
 {
-    private static readonly Network Network = DigiByteNetwork.Mainnet;
-    private const string Pin = "123456";
-    private const long OneDgb = 100_000_000;
+    internal static readonly Network Network = DigiByteNetwork.Mainnet;
+    internal const string Pin = "123456";
+    internal const long OneDgb = 100_000_000;
     private const long Funding = 1000 * OneDgb;
 
-    private sealed class Env
+    internal sealed class Env
     {
         public InMemoryStorage Storage { get; } = new();
         public FakeChain Chain { get; } = new();
@@ -51,7 +51,7 @@ public class ChangeAddressTests
         }
     }
 
-    private static string Stranger() => new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, Network).ToString();
+    internal static string Stranger() => new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, Network).ToString();
 
     /// <summary>The wallet's own outputs in the last transaction: its change.</summary>
     private static string LastChangeAddress(Env env) =>
@@ -337,7 +337,7 @@ public class ChangeAddressTests
 
     // ─── Fakes ───
 
-    private sealed class InMemoryStorage : ISecureStorage
+    internal sealed class InMemoryStorage : ISecureStorage
     {
         private readonly Dictionary<string, string> _store = new();
         public bool FailWalletInfoWrites { get; set; }
@@ -359,14 +359,14 @@ public class ChangeAddressTests
             Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
     }
 
-    private sealed class PassThroughCrypto : ICryptoService
+    internal sealed class PassThroughCrypto : ICryptoService
     {
         public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
         public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(ciphertext);
     }
 
     /// <summary>A minimal chain: broadcasting spends the inputs and creates the outputs, all treated as confirmed.</summary>
-    private sealed class FakeChain : IBlockchainService
+    internal sealed class FakeChain : IBlockchainService
     {
         private sealed record Output(string TxId, uint Vout, string Address, long Sats, string ScriptHex);
 
