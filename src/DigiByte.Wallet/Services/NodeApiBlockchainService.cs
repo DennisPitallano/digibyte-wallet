@@ -178,6 +178,10 @@ public class NodeApiBlockchainService : IBlockchainService
         catch { return null; }
     }
 
+    /// <summary>The node only sees unspent outputs, so a spent address would look unused. It refuses rather than answer wrongly.</summary>
+    public Task<bool> HasAddressHistoryAsync(string address) =>
+        Task.FromException<bool>(new NotSupportedException("The node cannot tell whether a spent address was used; use an explorer."));
+
     public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
         // The node only sees the transactions behind an address's unspent outputs, so it can never produce full history.

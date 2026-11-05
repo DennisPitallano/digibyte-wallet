@@ -23,8 +23,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         public HdKeyDerivation? Hd { get; set; }
         public Key? SingleKey { get; set; }
 
-        /// <summary>The chain lookup for used change and receive addresses, shared by callers. Cleared if it fails, so it runs again.</summary>
+        /// <summary>The chain lookup for used change and receive addresses, shared by callers. Never faults. Cleared if it fails, so it runs again.</summary>
         public Task? AddressDiscovery { get; set; }
+
+        /// <summary>A failed discovery does not start again before this time.</summary>
+        public DateTime AddressDiscoveryRetryAfter { get; set; }
     }
 
     private readonly Dictionary<string, UnlockedWalletSession> _sessions = new();
@@ -32,10 +35,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     private string _networkMode = "testnet";
 
     // Address derivation cache — avoid repeated elliptic curve math. Each cache remembers
-    // which wallet and how many receive and change addresses it was built for.
-    private (string? WalletId, int ReceiveCount, int ChangeCount)? _cachedAddressesFor;
+    // which wallet and how many addresses of each kind it was built for.
+    private (string? WalletId, int ReceiveCount, int LegacyReceiveCount, int ChangeCount)? _cachedAddressesFor;
     private List<string>? _cachedAddresses;
-    private (string? WalletId, int ReceiveCount, int ChangeCount)? _cachedKeyMapFor;
+    private (string? WalletId, int ReceiveCount, int LegacyReceiveCount, int ChangeCount)? _cachedKeyMapFor;
     private Dictionary<string, ExtKey>? _cachedAddressKeyMap;
     private const int UnscannedChangeLimit = 100;
     private string? _unscannedChangeWalletId;
@@ -49,7 +52,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     /// <summary>Consecutive unused change addresses that end the search for used ones (the usual BIP44 gap limit).</summary>
     private const int ChangeGapLimit = 20;
 
-    /// <summary>Receive indexes always scanned. Only these are scanned in Legacy format too: new receive addresses are SegWit.</summary>
+    /// <summary>Receive indexes always scanned, in both formats. Past these, Legacy is scanned only as far as the address on show: see <see cref="ScannedLegacyReceiveCount"/>.</summary>
     private const int MinScannedReceive = 20;
 
     /// <summary>
@@ -73,6 +76,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     /// <summary>Address lookups run in groups of this size, so a long search keeps the page responsive and its progress moving.</summary>
     private const int LookupBatchSize = 50;
 
+    /// <summary>How long a balance or history read waits for discovery before answering from the saved scan.</summary>
+    public TimeSpan AddressDiscoveryWait { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>How long a send waits for discovery. Longer, because it decides the change address and the coins to spend.</summary>
+    public TimeSpan AddressDiscoverySendWait { get; set; } = TimeSpan.FromSeconds(20);
+
+    /// <summary>How long after a failed discovery before another starts, so an outage doesn't repeat its lookups on every refresh.</summary>
+    public TimeSpan AddressDiscoveryRetryDelay { get; set; } = TimeSpan.FromMinutes(1);
+
     private UnlockedWalletSession? ActiveSession =>
         _activeWalletId != null && _sessions.TryGetValue(_activeWalletId, out var s) ? s : null;
 
@@ -91,7 +103,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     {
         EnsureUnlocked();
         if (_hd is null || _hd.IsWatchOnly) return [];
-        await DiscoverAddressIndexesAsync();
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
 
         var network = CurrentNetwork;
         var targets = new List<(string Address, ExtKey Key, Script Script)>();
@@ -497,7 +509,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     public async Task<WalletBalance> GetBalanceAsync()
     {
         EnsureUnlocked();
-        await DiscoverAddressIndexesAsync();
+        await WaitForAddressDiscoveryAsync(AddressDiscoveryWait);
 
         var addresses = GetAllAddresses();
         var totalSatoshis = await _blockchain.GetBalanceAsync(addresses);
@@ -548,7 +560,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         EnsureUnlocked();
 
         // Return cached if nothing it depends on has changed
-        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedChangeCount);
+        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedLegacyReceiveCount, ScannedChangeCount);
         if (_cachedAddresses != null && _cachedAddressesFor == cacheKey)
             return _cachedAddresses;
 
@@ -567,7 +579,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
             for (int i = 0; i < ScannedReceiveCount; i++)
             {
                 addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
-                if (i < MinScannedReceive)
+                if (i < ScannedLegacyReceiveCount)
                     addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
             }
             for (int i = 0; i < ScannedChangeCount; i++)
@@ -611,7 +623,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         if (_singleKey != null)
             throw new InvalidOperationException("Use _singleKey directly for WIF wallets.");
 
-        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedChangeCount);
+        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedLegacyReceiveCount, ScannedChangeCount);
         if (_cachedAddressKeyMap != null && _cachedKeyMapFor == cacheKey)
             return _cachedAddressKeyMap;
 
@@ -620,7 +632,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         {
             var key = _hd!.DeriveReceivingKey(i);
             map[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
-            if (i < MinScannedReceive)
+            if (i < ScannedLegacyReceiveCount)
                 map[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
         }
         for (int i = 0; i < ScannedChangeCount; i++)
@@ -650,6 +662,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         Math.Max(MinScannedReceive, Math.Max(info.NextReceivingIndex + 1, info.UsedReceivingCount));
 
     /// <summary>
+    /// How many receive indexes to scan in Legacy format. The Receive page can show the Legacy form of the address on show, so
+    /// the scan always reaches it. Indexes that were never on show can't have been handed out in Legacy format.
+    /// </summary>
+    private int ScannedLegacyReceiveCount => Math.Max(MinScannedReceive, (ActiveWallet?.NextReceivingIndex ?? 0) + 1);
+
+    /// <summary>
     /// Moves to a new receive address, saved before it is returned so that it stays scanned after a reload. Skips addresses
     /// the chain shows as used. Throws <see cref="InvalidOperationException"/>, with a message for the user, if it cannot be
     /// saved or if <see cref="ReceiveGapLimit"/> unused addresses are already out.
@@ -662,12 +680,13 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
             throw new InvalidOperationException("This wallet has a single address.");
         var info = session.Info;
 
-        await DiscoverAddressIndexesAsync();
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
         if (NextNewReceivingIndex(info) >= info.UsedReceivingCount + ReceiveGapLimit)
         {
             // Addresses handed out in this session may have been paid since the last lookup.
             session.AddressDiscovery = null;
-            await DiscoverAddressIndexesAsync();
+            session.AddressDiscoveryRetryAfter = default;
+            await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
             if (NextNewReceivingIndex(info) >= info.UsedReceivingCount + ReceiveGapLimit)
                 throw new InvalidOperationException(
                     $"You have {ReceiveGapLimit} unused addresses in a row. Use one of them first: restoring from your seed " +
@@ -728,23 +747,37 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     /// <summary>
     /// Once per unlock, finds the receive and change addresses the chain shows as used. This brings back funds stranded past
     /// the old fixed scan ranges, and stops a wallet whose saved indexes are behind (older versions never saved them) from
-    /// reusing addresses. Never throws: if the chain cannot be read the wallet works from its saved indexes and tries again next call.
+    /// reusing addresses. Never throws and waits at most <paramref name="limit"/>: if the chain is slow or unreadable the wallet
+    /// works from its saved indexes. A slow discovery keeps running and later reads pick up its result; a failed one tries again
+    /// after <see cref="AddressDiscoveryRetryDelay"/>.
     /// </summary>
-    private async Task DiscoverAddressIndexesAsync()
+    private async Task WaitForAddressDiscoveryAsync(TimeSpan limit)
     {
         var session = ActiveSession;
         if (session?.Hd is null) return;
 
-        var discovery = session.AddressDiscovery ??= Task.WhenAll(FindUsedChangeAsync(session), FindUsedReceiveAsync(session));
+        if (session.AddressDiscovery is null)
+        {
+            if (DateTime.UtcNow < session.AddressDiscoveryRetryAfter) return;
+            session.AddressDiscovery = RunAddressDiscoveryAsync(session);
+        }
+
+        await Task.WhenAny(session.AddressDiscovery, Task.Delay(limit));
+    }
+
+    private async Task RunAddressDiscoveryAsync(UnlockedWalletSession session)
+    {
+        // Return to the caller first, so that it has stored this task before a quick failure clears it.
+        await Task.Yield();
         try
         {
-            await discovery;
+            await Task.WhenAll(FindUsedChangeAsync(session), FindUsedReceiveAsync(session));
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[Wallet] Address lookup failed: {ex.Message}");
-            if (ReferenceEquals(session.AddressDiscovery, discovery))
-                session.AddressDiscovery = null;
+            session.AddressDiscovery = null;
+            session.AddressDiscoveryRetryAfter = DateTime.UtcNow + AddressDiscoveryRetryDelay;
         }
     }
 
@@ -821,8 +854,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
                 await semaphore.WaitAsync();
                 try
                 {
-                    var txs = await _blockchain.GetAddressTransactionsAsync(addressAt(index), 0, 1);
-                    return (Index: index, Used: txs.Count > 0);
+                    return (Index: index, Used: await _blockchain.HasAddressHistoryAsync(addressAt(index)));
                 }
                 finally { semaphore.Release(); }
             }).ToList();
@@ -867,7 +899,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     /// <summary>Saves only the address indexes on top of what is stored, so other settings saved elsewhere are kept.</summary>
     private async Task PersistAddressIndexesAsync(WalletInfo info)
     {
-        var stored = await GetWalletAsync(info.Id) ?? info;
+        var stored = await GetWalletAsync(info.Id);
+        if (stored is null) return; // Deleted while this was running: saving would bring back a wallet with no seed.
+
         stored.NextChangeIndex = info.NextChangeIndex;
         stored.NextReceivingIndex = info.NextReceivingIndex;
         stored.UsedReceivingCount = info.UsedReceivingCount;
@@ -881,7 +915,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         if (ActiveWallet?.WalletType == "xpub")
             throw new InvalidOperationException("Watch-only wallets cannot send transactions.");
 
-        await DiscoverAddressIndexesAsync();
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
 
         var network = CurrentNetwork;
         var amountSatoshis = (long)(amountDgb * 100_000_000m);
@@ -1033,7 +1067,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         if (recipients.Count > 20)
             throw new ArgumentException("Maximum 20 recipients per batch transaction.");
 
-        await DiscoverAddressIndexesAsync();
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
 
         var network = CurrentNetwork;
 
@@ -1184,7 +1218,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     public async Task<List<TransactionRecord>> GetTransactionHistoryAsync(int skip = 0, int take = 50)
     {
         EnsureUnlocked();
-        await DiscoverAddressIndexesAsync();
+        await WaitForAddressDiscoveryAsync(AddressDiscoveryWait);
 
         // Always return locally tracked transactions (works on all networks)
         var localTxs = await _txTracker.GetAllAsync();
@@ -1437,7 +1471,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         if (ActiveWallet?.WalletType == "xpub")
             throw new InvalidOperationException("Watch-only wallets cannot consolidate UTXOs.");
 
-        await DiscoverAddressIndexesAsync();
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
 
         var network = CurrentNetwork;
         List<DigiByte.Crypto.Transactions.Utxo> availableUtxos;

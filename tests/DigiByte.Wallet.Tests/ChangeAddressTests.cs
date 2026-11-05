@@ -32,6 +32,9 @@ public class ChangeAddressTests
         {
             var service = new WalletService(new WalletKeyStore(Storage), new PassThroughCrypto(), Chain, new TransactionTracker(Storage));
             service.SetNetworkMode("mainnet");
+            // Generous, so a busy test run can't time out a discovery that these tests expect to finish.
+            service.AddressDiscoveryWait = TimeSpan.FromMinutes(1);
+            service.AddressDiscoverySendWait = TimeSpan.FromMinutes(1);
             return service;
         }
 
@@ -220,6 +223,7 @@ public class ChangeAddressTests
         var env = new Env();
         var service = env.NewService();
         await service.CreateWalletAsync("Test", env.Words, Pin);
+        service.AddressDiscoveryRetryDelay = TimeSpan.Zero;
         env.Chain.Credit(env.ReceiveAddress(0), OneDgb);
         env.Chain.Credit(env.ChangeAddress(14), 5 * OneDgb);
 
@@ -401,6 +405,19 @@ public class ChangeAddressTests
         public bool EveryAddressHasHistory { get; set; }
         public bool HistoryDown { get; set; }
         public int HistoryLookups { get; private set; }
+
+        /// <summary>While set, discovery's lookups wait for this task, to imitate a slow explorer.</summary>
+        public Task? HistoryGate { get; set; }
+
+        public async Task<bool> HasAddressHistoryAsync(string address)
+        {
+            if (HistoryGate is { } gate) await gate;
+            HistoryLookups++;
+            if (HistoryDown) throw new HttpRequestException("explorer is down");
+            // A fuse, so an endless search fails this test instead of hanging the test run.
+            if (HistoryLookups > 5000) throw new InvalidOperationException("Too many history lookups.");
+            return EveryAddressHasHistory || _everUsed.Contains(address);
+        }
 
         public void Credit(string address, long sats)
         {

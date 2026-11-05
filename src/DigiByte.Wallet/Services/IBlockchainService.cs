@@ -15,6 +15,14 @@ public interface IBlockchainService
     Task<string> BroadcastTransactionAsync(byte[] rawTransaction);
     Task<TransactionInfo?> GetTransactionAsync(string txId);
     Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50);
+
+    /// <summary>
+    /// Whether this address has ever appeared in a transaction, even if it is empty now. Throws if the source cannot say:
+    /// callers decide which addresses count toward the balance, so "unknown" must never read as "unused".
+    /// </summary>
+    async Task<bool> HasAddressHistoryAsync(string address) =>
+        (await GetAddressTransactionsAsync(address, 0, 1)).Count > 0;
+
     Task<decimal> GetFeeRateAsync();
     Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD");
     Task<int> GetBlockHeightAsync();
