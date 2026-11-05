@@ -255,7 +255,7 @@
 @if (showBroadcastConfirm && review is not null && result is not null)
 {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-900 p-5 flex flex-col gap-3 max-h-[90vh] overflow-y-auto">
+        <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 p-5 flex flex-col gap-3 max-h-[90vh] overflow-y-auto">
             <p class="text-sm font-semibold text-slate-900 dark:text-white">Broadcast this transaction?</p>
             <p class="text-xs text-slate-500 dark:text-slate-400">Once sent, it can't be undone.</p>
             @foreach (var output in review.Outputs)
@@ -286,7 +286,8 @@
 @if (pinPrompt is not null)
 {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-900 p-5 flex flex-col items-center gap-4">
+        @* A darker panel than the PIN boxes (dgb-900) so the empty boxes stay visible in dark mode. *@
+        <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 p-5 flex flex-col items-center gap-4">
             <p class="text-sm font-semibold text-slate-900 dark:text-white">Enter your PIN to sign</p>
             <PinInput @ref="pinInput" ValueChanged="v => pin = v" OnComplete="SubmitPinAsync" Error="@pinError" />
             <div class="flex gap-2 w-full">

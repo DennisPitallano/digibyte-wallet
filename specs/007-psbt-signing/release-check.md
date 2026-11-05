@@ -25,10 +25,32 @@ The wallet's receive address `dgbrt1qdenmjpjwrxyyytrhljaekzf22tde9cmu24qvyq` was
 | Copy base64 | Copies the signed PSBT that Core then finalized |
 | Broadcast confirmation | Lists every output and the verified fee |
 | Browser console and server log (FR-028) | No PSBT contents found; no logging calls in PSBT code. The console buffer had dropped older messages, so this check is partial |
-| Node API stopped, then load | Found a bug: in development builds the verified lookup fell back to demo data and called the coin spent. Fixed so it throws (tests added). Not re-checked in the browser, because the browser's wallet data was cleared during the re-check |
+| Node API stopped, then load | Found a bug: in development builds the verified lookup fell back to demo data and called the coin spent. Fixed so it throws (tests added) |
+
+## Manual checks, second pass (new throwaway wallet on regtest)
+
+The first throwaway wallet's browser storage was cleared during the check above, so a new one was created on regtest and funded with three 10 DGB coins.
+
+| Check | Result |
+|---|---|
+| Node API stopped, then load (after the fix) | "Unverified review", no Sign, Retry offered. Took about 50 s to appear while each lookup timed out |
+| Node API restarted, then Retry | Verified review with Sign, within 1 s |
+| Upload the same PSBT as a binary `.psbt` file | Same review as pasting, 0.24 s |
+| Three wrong PINs while signing | Same messages as the unlock screen; "Locked for 15s after 3 failed attempts"; the correct PIN is refused during the lockout; Cancel leaves nothing signed |
+| Spending limit below the amount (1 DGB daily, blocking) | "Blocked: this send would exceed your daily limit (0.0000 + 4.0010 = 4.0010 / 1.0000 DGB)"; no warning or PIN prompt shown |
+| Auto-lock during review | The wallet locked; after unlocking, the PSBT page was empty |
+| Unlock screen: three wrong PINs, wait, correct PIN | Same messages and 15 s delay as before; unlocks after the delay |
+| Watch-only wallet (xpub of the same wallet) | Review shown with the watch-only explanation; no Sign or broadcast |
+| PIN prompt in dark mode | Empty PIN boxes were nearly invisible on the prompt; the prompt now uses a darker panel and all six boxes are visible |
+
+## Found, outside this feature
+
+- Switching network in Settings locks the wallet, and opening Receive then shows "Something went wrong" instead of the unlock screen.
+- The development settings don't set `NodeApiUrl`, so a local regtest run calls the production node unless `http://localhost:5260` is set.
+- An xpub watch-only wallet imported while on regtest uses testnet addresses (`dgbt1…`), so its balance shows 0 and its lookups fail.
+- The app's update prompt reloads the page and drops a wallet being created mid-way.
 
 ## Not yet done
 
-- Manual: upload as a file, spending limit block, three wrong PINs and the delay, lock during review, watch-only wallet, unlock-screen regression, network-down check after the fix.
 - T047 security self-review.
 - T049 usability check with 10 test users (needs people).
