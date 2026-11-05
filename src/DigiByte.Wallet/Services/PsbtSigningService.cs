@@ -112,17 +112,19 @@ public sealed class PsbtSigningService(IBlockchainService chain, IPsbtKeyProvide
     public async Task<PsbtLoadOutcome> LoadAsync(byte[] bytes) => await ReviewLoadedAsync(PsbtDocument.FromBytes(bytes, keys.Network));
 
     /// <summary>Reviews a loaded document again, reading the chain afresh.</summary>
-    public async Task<ReviewSummary> ReviewAsync(PsbtDocument document)
+    public async Task<ReviewSummary> ReviewAsync(PsbtDocument document) => (await ReviewWithFactsAsync(document)).Review;
+
+    private async Task<(ReviewSummary Review, IReadOnlyDictionary<OutPoint, ChainInputFact> Facts)> ReviewWithFactsAsync(PsbtDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         var owned = await keys.GetOwnedScriptsAsync();
         var (facts, status) = await GatherFactsAsync(document.Psbt, owned);
-        return PsbtAnalyzer.Analyze(document.Psbt, owned, facts, status, keys.CanSign, keys.Network);
+        return (PsbtAnalyzer.Analyze(document.Psbt, owned, facts, status, keys.CanSign, keys.Network), facts);
     }
 
     public async Task<PsbtSignOutcome> SignAsync(PsbtDocument document, bool acknowledged)
     {
-        var review = await ReviewAsync(document);
+        var (review, facts) = await ReviewWithFactsAsync(document);
 
         if (!keys.CanSign)
             return new(null, review, "This wallet can't sign: it is locked or watch-only.");
@@ -140,7 +142,7 @@ public sealed class PsbtSigningService(IBlockchainService chain, IPsbtKeyProvide
             .Select(i => i.Index)
             .ToList();
 
-        var signed = keys.SignInputs(document.Psbt, toSign);
+        var signed = keys.SignInputs(WithChainData(document.Psbt, review, facts), toSign);
         var completion = PsbtSigner.TryComplete(signed);
         var signedCount = toSign.Count(i => signed.Inputs[i].PartialSigs.Count > 0);
         var remaining = completion.IsComplete
@@ -148,6 +150,25 @@ public sealed class PsbtSigningService(IBlockchainService chain, IPsbtKeyProvide
             : signed.Inputs.Count(i => !i.IsFinalized() && i.PartialSigs.Count == 0);
 
         return new(new SigningResult(signed.ToBase64(), signedCount, remaining, completion.IsComplete, completion.Transaction), review, null);
+    }
+
+    /// <summary>
+    /// A copy with the coin's amount and script filled in for this wallet's native SegWit inputs that carry no data, taken
+    /// from the chain facts just verified (FR-023). The data stays in the exported PSBT. Other participants' inputs are left
+    /// as they are, and legacy inputs need their whole previous transaction, which the analyzer refuses without.
+    /// </summary>
+    private static PSBT WithChainData(PSBT psbt, ReviewSummary review, IReadOnlyDictionary<OutPoint, ChainInputFact> facts)
+    {
+        var copy = psbt.Clone();
+        foreach (var input in review.Inputs)
+        {
+            if (input is not { Owner: InputOwner.Wallet, Kind: InputKind.NativeSegWit }) continue;
+            var target = copy.Inputs[input.Index];
+            if (target.WitnessUtxo is not null || target.NonWitnessUtxo is not null) continue;
+            if (facts.TryGetValue(target.PrevOut, out var fact) && fact is { Lookup: ChainLookup.Found, Amount: { } amount, Script: { } script })
+                target.WitnessUtxo = new TxOut(Money.Satoshis(amount), script);
+        }
+        return copy;
     }
 
     private async Task<PsbtLoadOutcome> ReviewLoadedAsync(PsbtLoadResult loaded)

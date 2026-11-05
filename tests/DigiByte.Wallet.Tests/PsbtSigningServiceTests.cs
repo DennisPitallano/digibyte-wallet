@@ -439,6 +439,80 @@ public class PsbtSigningServiceTests
         Assert.Empty(_chain.Broadcasts);
     }
 
+    // ─── Story 5: inputs without data ───
+
+    [Fact]
+    public async Task WalletSegWitInput_WithoutData_IsFilledFromTheChain_AndExported()
+    {
+        var coin = FundWallet();
+        var (loaded, signed) = await SignAsync(Builder().AddInput(coin, PsbtInputData.None).Pay(OneDgb - 100_000).Build());
+
+        var exported = PSBT.Parse(signed.Result!.SignedPsbtBase64, Net);
+        Assert.Null(loaded.Document!.Psbt.Inputs[0].WitnessUtxo);
+        Assert.Equal(coin.Amount, exported.Inputs[0].WitnessUtxo!.Value.Satoshi);
+        Assert.Equal(coin.ScriptPubKey, exported.Inputs[0].WitnessUtxo!.ScriptPubKey);
+        Assert.Single(exported.Inputs[0].PartialSigs);
+        Assert.True(signed.Result.IsComplete);
+        Assert.NotNull(signed.Result.FinalTransaction);
+    }
+
+    [Fact]
+    public async Task FilledInput_CarriesAValidSignature()
+    {
+        var coin = FundWallet();
+        var (_, signed) = await SignAsync(Builder().AddInput(coin, PsbtInputData.None).Pay(OneDgb - 100_000).Build());
+
+        var tx = signed.Result!.FinalTransaction!;
+        Assert.True(tx.Inputs.AsIndexedInputs().First().VerifyScript(coin.Coin.TxOut, out var error), error.ToString());
+    }
+
+    [Fact]
+    public async Task LegacyWalletInput_WithoutItsPreviousTransaction_IsStillRefused()
+    {
+        var coin = Fund(Legacy(_wallet), OneDgb);
+        _chain.AddUnspent(coin, Net);
+
+        var loaded = await LoadAsync(Builder().AddInput(coin, PsbtInputData.None).Pay(OneDgb - 100_000).Build());
+        var outcome = await _service.SignAsync(loaded.Document!, acknowledged: true);
+
+        Assert.Equal(PsbtRefusalReason.MissingPreviousTransaction, loaded.Review.Refusal!.Reason);
+        Assert.False(string.IsNullOrEmpty(loaded.Review.Refusal.Message));
+        Assert.False(outcome.Succeeded);
+    }
+
+    [Fact]
+    public async Task OtherParticipantsInput_WithoutData_IsNotFilled()
+    {
+        var mine = FundWallet();
+        var theirs = Fund(SegWit(new Key()), OneDgb);
+        _chain.AddTransaction(theirs, Net);
+        var (_, signed) = await SignAsync(Builder().AddInput(mine).AddInput(theirs, PsbtInputData.None).Pay(2 * OneDgb - 100_000).Build());
+
+        var exported = PSBT.Parse(signed.Result!.SignedPsbtBase64, Net);
+        Assert.Null(exported.Inputs[1].WitnessUtxo);
+        Assert.Empty(exported.Inputs[1].PartialSigs);
+    }
+
+    [Fact]
+    public async Task InputWithoutData_WhoseLookupFails_BlocksSigning_UntilARetrySucceeds()
+    {
+        var coin = FundWallet();
+        _chain.TransactionLookupsFail = true;
+
+        var loaded = await LoadAsync(Builder().AddInput(coin, PsbtInputData.None).Pay(OneDgb - 100_000).Build());
+        var blocked = await _service.SignAsync(loaded.Document!, acknowledged: true);
+
+        Assert.Equal(PsbtRefusalReason.InputNotIdentified, loaded.Review.Refusal!.Reason);
+        Assert.False(blocked.Succeeded);
+        Assert.Equal(0, _keys.SignCalls);
+
+        _chain.TransactionLookupsFail = false;
+        var retried = await _service.ReviewAsync(loaded.Document!);
+
+        Assert.Null(retried.Refusal);
+        Assert.True(retried.CanSign);
+    }
+
     private sealed class StatusHandler(System.Net.HttpStatusCode status) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>

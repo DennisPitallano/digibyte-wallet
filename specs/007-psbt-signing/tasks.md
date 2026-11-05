@@ -141,11 +141,11 @@ description: "Task list for PSBT signing in regular wallets"
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T040 [P] [US5] Add tests to tests/DigiByte.Wallet.Tests/PsbtSigningServiceTests.cs: data filled for a wallet SegWit input from the chain, the data is present in the exported PSBT (FR-023), the signature is valid, a legacy wallet input with no previous transaction is still refused with an explanation, a missing-data input of another participant is not filled, and a missing-data input whose lookup fails blocks signing with a retry (FR-035)
+- [X] T040 [P] [US5] Add tests to tests/DigiByte.Wallet.Tests/PsbtSigningServiceTests.cs: data filled for a wallet SegWit input from the chain, the data is present in the exported PSBT (FR-023), the signature is valid, a legacy wallet input with no previous transaction is still refused with an explanation, a missing-data input of another participant is not filled, and a missing-data input whose lookup fails blocks signing with a retry (FR-035)
 
 ### Implementation for User Story 5
 
-- [ ] T041 [US5] Fill `WitnessUtxo` for wallet native SegWit inputs from the chain facts gathered by `LoadAsync`, in `SignAsync` in src/DigiByte.Wallet/Services/PsbtSigningService.cs, on the clone being signed
+- [X] T041 [US5] Fill `WitnessUtxo` for wallet native SegWit inputs from the chain facts gathered by `LoadAsync`, in `SignAsync` in src/DigiByte.Wallet/Services/PsbtSigningService.cs, on the clone being signed
 
 **Checkpoint**: The first release's features are complete. Story 4 follows after the first release.
 
