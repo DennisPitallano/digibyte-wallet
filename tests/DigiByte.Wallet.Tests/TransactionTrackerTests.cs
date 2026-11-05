@@ -58,6 +58,26 @@ public class TransactionTrackerTests
     }
 
     [Fact]
+    public async Task RaiseSendAmountsAsync_RaisesSendsOnly_AndNeverLowers()
+    {
+        await _sut.RecordSendAsync("raise", "dgb1qdest", 100, 10);
+        await _sut.RecordSendAsync("lower", "dgb1qdest", 100, 10);
+        await _sut.RecordReceiveAsync("received", "dgb1qfrom", 100);
+
+        await _sut.RaiseSendAmountsAsync(new Dictionary<string, long>
+        {
+            ["raise"] = 500,
+            ["lower"] = 50,
+            ["received"] = 500,
+        });
+
+        var all = await _sut.GetAllAsync();
+        Assert.Equal(500, all.Single(t => t.TxId == "raise").AmountSatoshis);
+        Assert.Equal(100, all.Single(t => t.TxId == "lower").AmountSatoshis);
+        Assert.Equal(100, all.Single(t => t.TxId == "received").AmountSatoshis);
+    }
+
+    [Fact]
     public async Task RecordReceiveAsync_StoresTransaction()
     {
         await _sut.RecordReceiveAsync("tx456", "dgb1qfrom", 50_000_000);

@@ -32,6 +32,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     private string? _cachedAddressWalletId;
     private List<string>? _cachedAddresses;
     private Dictionary<string, ExtKey>? _cachedAddressKeyMap;
+    private const int UnscannedChangeLimit = 100;
+    private string? _unscannedChangeWalletId;
+    private HashSet<string>? _unscannedChangeAddresses;
 
     private const int MaxWallets = 10;
 
@@ -955,7 +958,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
                 var merged = new Dictionary<string, TransactionRecord>();
                 foreach (var tx in explorerRecords) merged.TryAdd(tx.TxId, tx);
                 foreach (var tx in localTxs) merged[tx.TxId] = tx; // local overwrites
+                var localToCheck = localTxs.ToList();
                 localTxs = merged.Values.ToList();
+
+                await RepairUnderRecordedBatchesAsync(localToCheck, allTxs, isOurs);
             }
             catch (Exception ex) { Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}"); }
         }
@@ -968,6 +974,66 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
             .Skip(skip)
             .Take(take)
             .ToList();
+    }
+
+    /// <summary>
+    /// Corrects batch sends recorded before SendBatchAsync stored the full amount: those records hold
+    /// only the first recipient's amount. A record is changed only if the tx pays at least two external
+    /// outputs and the record matches one of them exactly, by both address and amount. Anything else is
+    /// left alone, because raising an amount wrongly would use up the user's spending limit.
+    /// </summary>
+    private async Task RepairUnderRecordedBatchesAsync(
+        List<TransactionRecord> localTxs,
+        Dictionary<string, TransactionInfo> explorerTxs,
+        Func<string?, bool> isOurs)
+    {
+        var repairs = new Dictionary<string, long>();
+        foreach (var record in localTxs.Where(t => t.Direction == TransactionDirection.Sent))
+        {
+            if (record.CounterpartyAddress == null || !explorerTxs.TryGetValue(record.TxId, out var tx))
+                continue;
+
+            var external = tx.Outputs.Where(o => o.AmountSatoshis > 0 && !isOurs(o.Address)).ToList();
+            if (external.Count < 2 || external.Sum(o => o.AmountSatoshis) <= record.AmountSatoshis)
+                continue;
+
+            var recipient = NormalizeAddress(record.CounterpartyAddress);
+            if (!external.Any(o => o.AmountSatoshis == record.AmountSatoshis && NormalizeAddress(o.Address) == recipient))
+                continue;
+
+            // A single send whose change lies past the scanned range looks the same at this point.
+            // Deriving more addresses is slow in WASM, so it waits until a record gets this far.
+            var unscannedChange = GetUnscannedChangeAddresses();
+            external = external.Where(o => !unscannedChange.Contains(NormalizeAddress(o.Address))).ToList();
+            var total = external.Sum(o => o.AmountSatoshis);
+            if (external.Count >= 2 && total > record.AmountSatoshis)
+                repairs[record.TxId] = total;
+        }
+
+        if (repairs.Count > 0)
+            await _txTracker.RaiseSendAmountsAsync(repairs);
+    }
+
+    /// <summary>Normalized change addresses past the 10 that GetAllAddresses scans. Empty for WIF wallets, whose change is always scanned.</summary>
+    private HashSet<string> GetUnscannedChangeAddresses()
+    {
+        if (_unscannedChangeAddresses != null && _unscannedChangeWalletId == _activeWalletId)
+            return _unscannedChangeAddresses;
+
+        var addresses = new HashSet<string>();
+        if (_singleKey == null && _hd != null)
+        {
+            var end = Math.Max(UnscannedChangeLimit, (ActiveWallet?.NextChangeIndex ?? 0) + 10);
+            for (int i = 10; i < end; i++)
+            {
+                addresses.Add(NormalizeAddress(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString()));
+                addresses.Add(NormalizeAddress(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString()));
+            }
+        }
+
+        _unscannedChangeAddresses = addresses;
+        _unscannedChangeWalletId = _activeWalletId;
+        return addresses;
     }
 
     public Task<List<Contact>> GetContactsAsync() => Task.FromResult(new List<Contact>());

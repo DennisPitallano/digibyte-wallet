@@ -89,6 +89,27 @@ public class TransactionTracker
     }
 
     /// <summary>
+    /// Raises the stored amount of sent transactions, keyed by TxId. Never lowers an amount,
+    /// so a wrong correction cannot make spending limits count less than was recorded.
+    /// </summary>
+    public async Task RaiseSendAmountsAsync(IReadOnlyDictionary<string, long> amountsByTxId)
+    {
+        var all = await GetAllAsync();
+        var changed = false;
+        foreach (var tx in all.ToList())
+        {
+            if (tx.Direction == TransactionDirection.Sent
+                && amountsByTxId.TryGetValue(tx.TxId, out var amount)
+                && amount > tx.AmountSatoshis)
+            {
+                tx.AmountSatoshis = amount;
+                changed = true;
+            }
+        }
+        if (changed) await SaveAsync(all);
+    }
+
+    /// <summary>
     /// Update confirmation count for tracked txs.
     /// </summary>
     public async Task UpdateConfirmationsAsync(IBlockchainService blockchain)

@@ -258,10 +258,99 @@ public class BatchSendTests
         Assert.Equal(400_000_000, record.AmountSatoshis);
     }
 
-    private static async Task<(WalletService Service, TransactionTracker Tracker, InMemorySecureStorage Storage)>
-        CreateFundedWalletAsync(FundedBlockchainService? blockchain = null)
+    // ─── Repairing records saved before the fix ───
+
+    private const string OldTxId = "aa00000000000000000000000000000000000000000000000000000000000001";
+
+    private static TransactionInfo ExplorerTx(WalletService service, params (string Address, long Satoshis)[] outputs) => new()
     {
+        TxId = OldTxId,
+        Confirmations = 100,
+        Timestamp = DateTime.UtcNow,
+        FeeSatoshis = 1_000,
+        Inputs = [new TxInput { Address = service.GetAllAddresses()[0], AmountSatoshis = 10_000_000_000 }],
+        Outputs = outputs
+            .Select((o, i) => new TxOutput { Address = o.Address, AmountSatoshis = o.Satoshis, Index = (uint)i })
+            .ToList(),
+    };
+
+    [Fact]
+    public async Task History_RepairsUnderRecordedBatch_AndSpendingLimitSeesIt()
+    {
+        var blockchain = new FundedBlockchainService();
+        var (service, tracker, storage) = await CreateFundedWalletAsync(blockchain);
+        var first = GenerateAddress();
+        await tracker.RecordSendAsync(OldTxId, first, 100_000_000, 1_000);
+        var ownChange = service.GetAllAddresses().Last();
+        blockchain.ExplorerTxs.Add(ExplorerTx(service,
+            (first, 100_000_000), (GenerateAddress(), 300_000_000), (ownChange, 500_000_000)));
+
+        var record = Assert.Single(await service.GetTransactionHistoryAsync());
+
+        Assert.Equal(400_000_000, record.AmountSatoshis);
+        Assert.Equal(first, record.CounterpartyAddress);
+        Assert.Equal(4m, await new SpendingLimitService(storage, tracker).GetSpentInPeriodAsync(TimeSpan.FromHours(24)));
+
+        // The repair is saved, not just applied to what history returned.
+        var reloaded = new TransactionTracker(storage);
+        reloaded.SetActiveWallet(service.ActiveWallet!.Id);
+        Assert.Equal(400_000_000, Assert.Single(await reloaded.GetAllAsync()).AmountSatoshis);
+    }
+
+    [Fact]
+    public async Task History_LeavesSingleSendAlone_WhenChangeIsInScannedRange()
+    {
+        var blockchain = new FundedBlockchainService();
+        var (service, tracker, _) = await CreateFundedWalletAsync(blockchain);
+        var dest = GenerateAddress();
+        await tracker.RecordSendAsync(OldTxId, dest, 100_000_000, 1_000);
+        blockchain.ExplorerTxs.Add(ExplorerTx(service,
+            (dest, 100_000_000), (service.GetAllAddresses().Last(), 500_000_000)));
+
+        var record = Assert.Single(await service.GetTransactionHistoryAsync());
+
+        Assert.Equal(100_000_000, record.AmountSatoshis);
+    }
+
+    [Fact]
+    public async Task History_LeavesSingleSendAlone_WhenChangeIsBeyondScannedRange()
+    {
+        // Change past the 10 scanned addresses looks external. Treating it as a second recipient
+        // would inflate the amount and wrongly use up the user's spending limit.
         var mnemonic = new Mnemonic(Wordlist.English, WordCount.TwentyFour);
+        var blockchain = new FundedBlockchainService();
+        var (service, tracker, _) = await CreateFundedWalletAsync(blockchain, mnemonic);
+        var dest = GenerateAddress();
+        var change = new HdKeyDerivation(mnemonic, network: Network)
+            .DeriveChangeAddress(15, ScriptPubKeyType.Segwit).ToString();
+        Assert.DoesNotContain(change, service.GetAllAddresses());
+        await tracker.RecordSendAsync(OldTxId, dest, 100_000_000, 1_000);
+        blockchain.ExplorerTxs.Add(ExplorerTx(service, (dest, 100_000_000), (change, 500_000_000)));
+
+        var record = Assert.Single(await service.GetTransactionHistoryAsync());
+
+        Assert.Equal(100_000_000, record.AmountSatoshis);
+    }
+
+    [Fact]
+    public async Task History_LeavesRecordAlone_WhenItDoesNotMatchAnOutput()
+    {
+        var blockchain = new FundedBlockchainService();
+        var (service, tracker, _) = await CreateFundedWalletAsync(blockchain);
+        var dest = GenerateAddress();
+        await tracker.RecordSendAsync(OldTxId, dest, 100_000_000, 1_000);
+        blockchain.ExplorerTxs.Add(ExplorerTx(service,
+            (dest, 200_000_000), (GenerateAddress(), 300_000_000)));
+
+        var record = Assert.Single(await service.GetTransactionHistoryAsync());
+
+        Assert.Equal(100_000_000, record.AmountSatoshis);
+    }
+
+    private static async Task<(WalletService Service, TransactionTracker Tracker, InMemorySecureStorage Storage)>
+        CreateFundedWalletAsync(FundedBlockchainService? blockchain = null, Mnemonic? mnemonic = null)
+    {
+        mnemonic ??= new Mnemonic(Wordlist.English, WordCount.TwentyFour);
         var storage = new InMemorySecureStorage();
         var tracker = new TransactionTracker(storage);
         var service = new WalletService(

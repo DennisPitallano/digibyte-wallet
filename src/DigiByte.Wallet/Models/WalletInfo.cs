@@ -74,7 +74,7 @@ public class TransactionRecord
 {
     public required string TxId { get; init; }
     public required TransactionDirection Direction { get; init; }
-    public required long AmountSatoshis { get; init; }
+    public required long AmountSatoshis { get; set; }
     public required long FeeSatoshis { get; init; }
     public required DateTime Timestamp { get; init; }
     public required int Confirmations { get; set; }
