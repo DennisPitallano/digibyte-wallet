@@ -16,4 +16,10 @@ public interface IDdFeeSource
 
     /// <summary>The script that receives the leftover DGB after the fee.</summary>
     Task<Script> GetDgbChangeScriptAsync(CancellationToken ct);
+
+    /// <summary>
+    /// A transaction paying <see cref="GetDgbChangeScriptAsync"/> was broadcast, so the next one needs a new script.
+    /// Called after the broadcast, when the send can no longer be undone: it must not fail the send.
+    /// </summary>
+    Task MarkDgbChangeUsedAsync();
 }

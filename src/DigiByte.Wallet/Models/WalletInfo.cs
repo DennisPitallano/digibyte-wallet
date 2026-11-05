@@ -7,8 +7,14 @@ public class WalletInfo
     public required DateTime CreatedAt { get; init; }
     public bool IsSimpleMode { get; set; } = true;
     public string FiatCurrency { get; set; } = "USD";
+
+    /// <summary>The receive index of the address the wallet currently shows. It moves only when the user asks for a new address.</summary>
     public int NextReceivingIndex { get; set; }
+
     public int NextChangeIndex { get; set; }
+
+    /// <summary>One past the highest receive index the chain has shown as used. These stay scanned even if the wallet shows an earlier address.</summary>
+    public int UsedReceivingCount { get; set; }
 
     /// <summary>
     /// "hd" for BIP39/BIP84 mnemonic wallets, "privatekey" for single WIF key import, "xpub" for watch-only.

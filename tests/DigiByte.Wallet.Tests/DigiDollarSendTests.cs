@@ -474,6 +474,26 @@ public class DigiDollarSendTests
     }
 
     [Fact]
+    public async Task Send_MarksTheDgbChangeUsed_OnlyOnceBroadcast()
+    {
+        var env = new Env();
+        env.Fund(0, 2500);
+        env.Fees.Add(1, 50_000_000);
+        await env.ReadyAsync();
+
+        await env.Service.CheckSendAsync(Env.Recipient(), 1000);
+        Assert.Equal(0, env.Fees.ChangeMarkedUsed); // quoting uses nothing
+
+        env.Api.BroadcastError = "rejected";
+        await Assert.ThrowsAsync<DdSendException>(() => env.Service.SendAsync(Env.Recipient(), 1000));
+        Assert.Equal(0, env.Fees.ChangeMarkedUsed);
+
+        env.Api.BroadcastError = null;
+        await env.Service.SendAsync(Env.Recipient(), 1000);
+        Assert.Equal(1, env.Fees.ChangeMarkedUsed);
+    }
+
+    [Fact]
     public async Task BackendDroppingAtBroadcast_IsOffline_AndRecordsNothing()
     {
         var env = new Env();
