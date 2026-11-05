@@ -1299,7 +1299,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
             await _txTracker.RaiseSendAmountsAsync(repairs);
     }
 
-    /// <summary>Normalized change addresses past the 10 that GetAllAddresses scans. Empty for WIF wallets, whose change is always scanned.</summary>
+    /// <summary>
+    /// Normalized change addresses past the ones always scanned. GetAllAddresses only reaches as far as
+    /// NextChangeIndex, which an older send's change can lie beyond, so the repair checks a wider range.
+    /// Empty for WIF wallets, whose change is always scanned.
+    /// </summary>
     private HashSet<string> GetUnscannedChangeAddresses()
     {
         if (_unscannedChangeAddresses != null && _unscannedChangeWalletId == _activeWalletId)
@@ -1309,7 +1313,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         if (_singleKey == null && _hd != null)
         {
             var end = Math.Max(UnscannedChangeLimit, (ActiveWallet?.NextChangeIndex ?? 0) + 10);
-            for (int i = 10; i < end; i++)
+            for (int i = MinScannedChange; i < end; i++)
             {
                 addresses.Add(NormalizeAddress(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString()));
                 addresses.Add(NormalizeAddress(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString()));

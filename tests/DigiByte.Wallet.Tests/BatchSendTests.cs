@@ -315,7 +315,7 @@ public class BatchSendTests
     [Fact]
     public async Task History_LeavesSingleSendAlone_WhenChangeIsBeyondScannedRange()
     {
-        // Change past the 10 scanned addresses looks external. Treating it as a second recipient
+        // Change past the scanned addresses looks external. Treating it as a second recipient
         // would inflate the amount and wrongly use up the user's spending limit.
         var mnemonic = new Mnemonic(Wordlist.English, WordCount.TwentyFour);
         var blockchain = new FundedBlockchainService();
