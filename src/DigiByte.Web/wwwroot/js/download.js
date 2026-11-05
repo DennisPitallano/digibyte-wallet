@@ -59,6 +59,22 @@ function downloadTextFile(content, filename) {
     URL.revokeObjectURL(url);
 }
 
+// Saves base64 bytes as a binary file (e.g. a signed .psbt).
+function downloadBinaryFile(base64, filename) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
 // ---- Branded QR card (DigiDollar receive): QR + product logo + title + address, as a shareable PNG ----
 
 function loadImage(src) {

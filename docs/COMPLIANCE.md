@@ -225,6 +225,20 @@ The wallet implements the full PSBT lifecycle:
 | **Extract** | `ExtractTransaction()` | Extracts the final raw transaction |
 | **Broadcast** | `BroadcastTransactionAsync()` | Sends to the network |
 
+### Signing PSBTs made elsewhere
+
+The **Sign a PSBT** page (Advanced mode) acts as a BIP 174 *Signer* and, when the result is complete, *Finalizer* and *Extractor* for single-key wallets:
+
+| Role | Behavior |
+|------|----------|
+| **Input** | Base64 text or a binary `.psbt` file, up to 1 MB |
+| **Updater** (limited) | Fills `witness_utxo` from the chain for the wallet's native SegWit inputs that lack it; nothing else is added |
+| **Signer** | Signs only inputs whose script is one of the wallet's scanned addresses, with `SIGHASH_ALL` only, one input at a time |
+| **Output** | The PSBT with partial signatures, not finalized, as base64 or a `.psbt` file, so other tools can combine or finalize it |
+| **Finalizer / Extractor** | Only on a copy, to tell whether the result is complete and to broadcast it |
+
+Refused: DigiDollar transactions, Taproot inputs, any non-`ALL` signature type, legacy wallet inputs without `non_witness_utxo`, and inputs whose stated data disagrees with the chain.
+
 ### PSBT Serialization
 
 - Format: Base64-encoded (standard BIP 174 format)

@@ -190,6 +190,9 @@ builder.Services.AddScoped<DigiDollarStore>(sp => new DigiDollarStore(
 // WalletService doubles as the narrow session provider DigiDollar uses (it shares the derivation, never the mnemonic).
 builder.Services.AddScoped<IDdSessionProvider>(sp => sp.GetRequiredService<WalletService>());
 builder.Services.AddScoped<IDdFeeSource>(sp => sp.GetRequiredService<WalletService>());
+// PSBT signing reaches keys only through this narrow provider, which WalletService implements.
+builder.Services.AddScoped<IPsbtKeyProvider>(sp => sp.GetRequiredService<WalletService>());
+builder.Services.AddScoped<PsbtSigningService>();
 builder.Services.AddScoped<IDigiDollarService, DigiDollarService>();
 // Anonymous aggregate counts (SC-005): an empty POST naming an event, no identifiers. Only while the view switch is on.
 // Only with our own NodeApi: the counter endpoint lives there, so the explorer backend sends nothing.

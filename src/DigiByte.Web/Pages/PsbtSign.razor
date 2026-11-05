@@ -1,0 +1,667 @@
+@page "/settings/psbt-sign"
+@using DigiByte.Crypto.Psbt
+@implements IDisposable
+@inject PsbtSigningService Signing
+@inject IPsbtKeyProvider Keys
+@inject WalletService WalletService
+@inject ContactService ContactService
+@inject AppState AppState
+@inject BiometricService Biometric
+@inject SpendingLimitService SpendingLimit
+@inject BakuService Baku
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject MemoryCacheService Cache
+@inject ISecureStorage Storage
+
+<PageTitle>Sign a PSBT</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-5">
+    <div class="slide-up">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Sign a PSBT</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Review a partially signed transaction made elsewhere, then add this wallet's signatures.
+        </p>
+    </div>
+
+    @if (AppState.IsSimpleMode)
+    {
+        <div class="rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-4">
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Advanced mode needed</p>
+            <p class="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                Signing PSBTs is an advanced feature. Switch the display mode to Advanced in Settings to use it.
+            </p>
+            <button class="mt-3 text-sm text-dgb-500 hover:text-dgb-600 font-medium" @onclick='() => Nav.NavigateTo("/settings")'>Go to Settings</button>
+        </div>
+    }
+    else
+    {
+        @if (!Keys.CanSign)
+        {
+            <div class="rounded-2xl bg-slate-50 dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 p-4">
+                <p class="text-xs text-slate-600 dark:text-slate-300">
+                    This is a watch-only wallet. You can review a PSBT here, but signing and broadcasting need a wallet with its spending keys.
+                </p>
+            </div>
+        }
+
+        @if (document is null)
+        {
+            @* Input *@
+            <div class="flex flex-col gap-3 slide-up-delay-1">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">PSBT (base64)</label>
+                <textarea @bind="pastedText" @bind:event="oninput" rows="6" spellcheck="false"
+                          placeholder="Paste the PSBT as base64 text..."
+                          class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none break-all"></textarea>
+                <div class="flex items-center gap-3">
+                    <label class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-xl cursor-pointer transition-colors press-effect">
+                        Upload .psbt file
+                        <InputFile OnChange="OnFileSelected" accept=".psbt,application/octet-stream" class="hidden" />
+                    </label>
+                    <span class="text-[11px] text-slate-400">Up to 1 MB</span>
+                </div>
+            </div>
+
+            @if (loadRefusal is not null)
+            {
+                <p class="text-sm text-red-500 font-medium">@loadRefusal.Message</p>
+            }
+
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                    @onclick="LoadTextAsync" disabled="@(isBusy || string.IsNullOrWhiteSpace(pastedText))">
+                @(isBusy ? "Checking..." : "Review")
+            </button>
+        }
+        else if (review is not null)
+        {
+            @* Review *@
+            <div class="flex flex-col gap-4 slide-up-delay-1">
+                @if (review.ChainStatus == ChainStatus.Unavailable)
+                {
+                    <div class="rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-4">
+                        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Unverified review</p>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                            The network couldn't be reached to check this wallet's coins, so the figures below come from the PSBT alone. Signing is unavailable until they can be checked.
+                        </p>
+                        <button class="mt-2 text-sm text-dgb-500 hover:text-dgb-600 font-medium" @onclick="RetryAsync" disabled="@isBusy">Retry</button>
+                    </div>
+                }
+
+                @if (review.CanBroadcastSigned && result is null)
+                {
+                    <div class="rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/30 p-4">
+                        <p class="text-sm text-slate-700 dark:text-slate-200">This transaction is already fully signed. You can broadcast it from this wallet.</p>
+                    </div>
+                }
+                else if (review.Refusal is { Reason: PsbtRefusalReason.NothingToSign } nothing && result is null)
+                {
+                    <div class="rounded-2xl bg-slate-50 dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 p-4">
+                        <p class="text-sm text-slate-700 dark:text-slate-200">@nothing.Message</p>
+                    </div>
+                }
+                else if (review.Refusal is { } refusal)
+                {
+                    <div class="rounded-2xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 p-4">
+                        <p class="text-sm font-semibold text-red-700 dark:text-red-300">This PSBT can't be signed</p>
+                        <p class="text-xs text-red-600 dark:text-red-400 mt-1">@refusal.Message</p>
+                        @if (refusal.Reason == PsbtRefusalReason.InputNotIdentified)
+                        {
+                            @* The lookup may have failed for a moment: checking again can identify the input (FR-035). *@
+                            <button class="mt-2 text-sm text-dgb-500 hover:text-dgb-600 font-medium" @onclick="RetryAsync" disabled="@isBusy">Retry</button>
+                        }
+                    </div>
+                }
+
+                <div class="rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 p-4">
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        @(review.NetAmount < 0 ? "This wallet receives" : "Leaving this wallet")
+                    </p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white mt-1">@Dgb(Math.Abs(review.NetAmount)) DGB</p>
+                    <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <span class="text-slate-500 dark:text-slate-400">Network fee</span>
+                        <span class="text-right text-slate-900 dark:text-white">
+                            @(review.Fee is { } fee ? $"{Dgb(fee)} DGB" : "Unknown")
+                            <span class="text-slate-400">(@(review.FeeStatus == FeeStatus.Verified ? "verified" : "unverified"))</span>
+                        </span>
+                        <span class="text-slate-500 dark:text-slate-400">Inputs this wallet signs</span>
+                        <span class="text-right text-slate-900 dark:text-white">@review.InputsToSign</span>
+                        <span class="text-slate-500 dark:text-slate-400">Inputs belonging to others</span>
+                        <span class="text-right text-slate-900 dark:text-white">@review.OtherInputs</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Outputs</p>
+                    @foreach (var output in review.Outputs)
+                    {
+                        <div class="rounded-xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 p-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-sm font-semibold text-slate-900 dark:text-white">@Dgb(output.Amount) DGB</span>
+                                @if (output.IsWallet)
+                                {
+                                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">Returns to this wallet</span>
+                                }
+                            </div>
+                            @switch (output.Label)
+                            {
+                                case OutputLabel.Address:
+                                    <p class="text-[11px] font-mono text-slate-600 dark:text-slate-300 break-all mt-1">@output.Address</p>
+                                    break;
+                                case OutputLabel.Data:
+                                    <p class="text-[11px] text-slate-600 dark:text-slate-300 break-all mt-1">Data: @(output.DataText ?? "(not readable text)")</p>
+                                    break;
+                                default:
+                                    <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-1">Non-standard output: no address</p>
+                                    break;
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (review.Warnings.Count > 0)
+                {
+                    <div class="flex flex-col gap-2">
+                        @foreach (var warning in review.Warnings)
+                        {
+                            <p class="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">@WarningText(warning)</p>
+                        }
+                    </div>
+                }
+
+                @if (result is null && (review.CanSign || review.CanBroadcastSigned) && review.NeedsAcknowledgment)
+                {
+                    <label class="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-200">
+                        <input type="checkbox" @bind="acknowledged" class="mt-0.5" />
+                        <span>I've read the warnings above and want to continue anyway.</span>
+                    </label>
+                }
+
+                @if (result is null && review.CanBroadcastSigned)
+                {
+                    <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                            @onclick="PrepareSignedAsync" disabled="@(isBusy || (review.NeedsAcknowledgment && !acknowledged))">
+                        @(isBusy ? "Checking..." : "Broadcast signed transaction")
+                    </button>
+                }
+
+                @if (result is null && review.CanSign)
+                {
+                    <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                            @onclick="SignAsync" disabled="@(isBusy || (review.NeedsAcknowledgment && !acknowledged))">
+                        @(isBusy ? "Signing..." : $"Sign {review.InputsToSign} input{(review.InputsToSign == 1 ? "" : "s")}")
+                    </button>
+                }
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <p class="text-sm text-red-500 font-medium">@error</p>
+                }
+
+                @if (sentTxId is not null)
+                {
+                    <div class="rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/30 p-4">
+                        <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Broadcast</p>
+                        <p class="text-xs text-emerald-700 dark:text-emerald-400 mt-1">Transaction ID</p>
+                        <p class="text-[11px] font-mono text-slate-700 dark:text-slate-200 break-all">@sentTxId</p>
+                    </div>
+                }
+                else if (result is not null)
+                {
+                    @* Result *@
+                    <div class="rounded-2xl @(result.IsComplete ? "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/30" : "bg-indigo-50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800/30") border p-4">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">
+                            @(result.IsComplete ? "Fully signed" : "Signed by this wallet")
+                        </p>
+                        <p class="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                            This wallet added @result.SignedCount signature@(result.SignedCount == 1 ? "" : "s").
+                            @if (result.IsComplete)
+                            {
+                                <span>The transaction is complete and ready to broadcast.</span>
+                            }
+                            else
+                            {
+                                <span>@result.RemainingCount input@(result.RemainingCount == 1 ? " still needs" : "s still need") signatures from others.</span>
+                            }
+                        </p>
+                        <div class="flex gap-2 mt-3">
+                            <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="CopyAsync">
+                                @(copied ? "Copied" : "Copy base64")
+                            </button>
+                            <button class="flex-1 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="DownloadAsync">
+                                Download .psbt
+                            </button>
+                        </div>
+                        @if (CanBroadcastResult)
+                        {
+                            <button class="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                    @onclick="() => showBroadcastConfirm = true" disabled="@isBroadcasting">
+                                Broadcast
+                            </button>
+                        }
+                        @if (!string.IsNullOrEmpty(broadcastError))
+                        {
+                            <p class="text-xs text-red-500 font-medium mt-2">Not sent: @broadcastError You can still copy or download the signed PSBT.</p>
+                        }
+                    </div>
+                }
+
+                <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="Discard">Start over</button>
+            </div>
+        }
+    }
+</div>
+
+@if (showBroadcastConfirm && review is not null && result is not null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 p-5 flex flex-col gap-3 max-h-[90vh] overflow-y-auto">
+            <p class="text-sm font-semibold text-slate-900 dark:text-white">Broadcast this transaction?</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Once sent, it can't be undone.</p>
+            @foreach (var output in review.Outputs)
+            {
+                <div class="text-xs border-b border-slate-100 dark:border-dgb-800 pb-2">
+                    <div class="flex justify-between gap-2">
+                        <span class="font-semibold text-slate-900 dark:text-white">@Dgb(output.Amount) DGB</span>
+                        @if (output.IsWallet) { <span class="text-emerald-600 dark:text-emerald-400">Returns to this wallet</span> }
+                    </div>
+                    <p class="font-mono text-[11px] text-slate-600 dark:text-slate-300 break-all">
+                        @(output.Label switch { OutputLabel.Address => output.Address, OutputLabel.Data => $"Data: {output.DataText ?? "(not readable text)"}", _ => "Non-standard output" })
+                    </p>
+                </div>
+            }
+            <div class="flex justify-between text-xs">
+                <span class="text-slate-500 dark:text-slate-400">Network fee</span>
+                <span class="text-slate-900 dark:text-white">@(review.Fee is { } f ? $"{Dgb(f)} DGB" : "Unknown") (@(review.FeeStatus == FeeStatus.Verified ? "verified" : "unverified"))</span>
+            </div>
+            <div class="flex gap-2 mt-1">
+                <button class="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300" @onclick="() => showBroadcastConfirm = false" disabled="@isBroadcasting">Cancel</button>
+                <button class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl disabled:opacity-50"
+                        @onclick="BroadcastAsync" disabled="@isBroadcasting">@(isBroadcasting ? "Sending..." : "Broadcast")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (pinPrompt is not null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        @* A darker panel than the PIN boxes (dgb-900) so the empty boxes stay visible in dark mode. *@
+        <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 p-5 flex flex-col items-center gap-4">
+            <p class="text-sm font-semibold text-slate-900 dark:text-white">Enter your PIN to sign</p>
+            <PinInput @ref="pinInput" ValueChanged="v => pin = v" OnComplete="SubmitPinAsync" Error="@pinError" />
+            <div class="flex gap-2 w-full">
+                <button class="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300" @onclick="CancelPin">Cancel</button>
+                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl disabled:opacity-50"
+                        @onclick="SubmitPinAsync" disabled="@(pin.Length < 6 || isCheckingPin)">Confirm</button>
+            </div>
+        </div>
+    </div>
+}
+</AuthGuard>
+
+@code {
+    private const decimal SatoshisPerDgb = 100_000_000m;
+
+    // The page holds the PSBT only while it is open; the signing service holds none between calls.
+    private PsbtDocument? document;
+    private ReviewSummary? review;
+    private SigningResult? result;
+    private PsbtRefusal? loadRefusal;
+    private string pastedText = "";
+    private bool acknowledged;
+    private bool isBusy;
+    private bool copied;
+    private string? error;
+    private bool showBroadcastConfirm;
+    private bool isBroadcasting;
+    private string? broadcastError;
+    private string? sentTxId;
+
+    private bool CanBroadcastResult =>
+        result is { IsComplete: true } && Keys.CanSign && review is not null && review.Inputs.Any(i => i.Owner == InputOwner.Wallet);
+
+    private readonly PinAttemptThrottle pinThrottle = new();
+    private TaskCompletionSource<bool>? pinPrompt;
+    private PinInput? pinInput;
+    private string pin = "";
+    private string? pinError;
+    private bool isCheckingPin;
+
+    protected override void OnInitialized() => AppState.OnAutoLocked += OnLocked;
+
+    public void Dispose() => AppState.OnAutoLocked -= OnLocked;
+
+    private void OnLocked()
+    {
+        Discard();
+        pinPrompt?.TrySetResult(false);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static string Dgb(long satoshis) => (satoshis / SatoshisPerDgb).ToString("#,0.########");
+
+    private static string WarningText(PsbtWarning warning) => warning switch
+    {
+        PsbtWarning.LockTime => "This transaction has a lock time, so it may not be accepted by the network until a later block or date.",
+        PsbtWarning.UnconfirmedInput => "This wallet's coins in this transaction aren't confirmed yet.",
+        PsbtWarning.NonStandardOutput => "An output has no address. Funds sent to it may be impossible to spend.",
+        PsbtWarning.HighFee => "The network fee is more than 10% of what is being sent.",
+        PsbtWarning.UnverifiedFee => "Other participants' amounts come from the PSBT alone, so the fee can't be verified.",
+        PsbtWarning.SharedOutputsNotChecked => "Outputs in a shared transaction were not checked against what each participant agreed to. Make sure they match.",
+        PsbtWarning.OutOfRangeNote => "Inputs from addresses this wallet doesn't scan are treated as someone else's and aren't signed.",
+        _ => warning.ToString(),
+    };
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        loadRefusal = null;
+        if (e.File.Size > PsbtDocument.MaxBytes)
+        {
+            loadRefusal = new PsbtRefusal(PsbtRefusalReason.TooLarge, "This file is larger than 1 MB, which is far bigger than any PSBT this wallet signs.");
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            using var stream = e.File.OpenReadStream(maxAllowedSize: PsbtDocument.MaxBytes);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            Show(await Signing.LoadAsync(memory.ToArray()));
+        }
+        catch (Exception)
+        {
+            loadRefusal = new PsbtRefusal(PsbtRefusalReason.NotAPsbt, "The file couldn't be read.");
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task LoadTextAsync()
+    {
+        isBusy = true;
+        loadRefusal = null;
+        try
+        {
+            Show(await Signing.LoadAsync(pastedText));
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void Show(PsbtLoadOutcome outcome)
+    {
+        if (outcome.Document is null)
+        {
+            loadRefusal = outcome.Review.Refusal;
+            return;
+        }
+        document = outcome.Document;
+        review = outcome.Review;
+        pastedText = "";
+        acknowledged = false;
+        result = null;
+        error = null;
+    }
+
+    private async Task RetryAsync()
+    {
+        if (document is null) return;
+        isBusy = true;
+        try
+        {
+            review = await Signing.ReviewAsync(document);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SignAsync()
+    {
+        if (document is null || review is null) return;
+        error = null;
+        isBusy = true;
+        StateHasChanged();
+        try
+        {
+            var flow = new PsbtConfirmationFlow(CheckSpendingLimitAsync, ConfirmWarningsAsync, AuthenticateAsync);
+            var approval = await flow.RunAsync(review, acknowledged);
+            if (!approval.Approved)
+            {
+                error = approval.Message;
+                return;
+            }
+
+            var outcome = await Signing.SignAsync(document, acknowledged);
+            review = outcome.Review;
+            if (outcome.Succeeded)
+                result = outcome.Result;
+            else
+                error = outcome.Error;
+        }
+        catch (Exception)
+        {
+            error = "Signing failed. Nothing was signed.";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    /// <summary>The already-signed path (FR-034): the same confirmation steps as signing, then the chain checks, then the broadcast confirmation.</summary>
+    private async Task PrepareSignedAsync()
+    {
+        if (document is null || review is null) return;
+        error = null;
+        isBusy = true;
+        StateHasChanged();
+        try
+        {
+            var flow = new PsbtConfirmationFlow(CheckSpendingLimitAsync, ConfirmWarningsAsync, AuthenticateAsync);
+            var approval = await flow.RunAsync(review, acknowledged);
+            if (!approval.Approved)
+            {
+                error = approval.Message;
+                return;
+            }
+
+            var outcome = await Signing.PrepareSignedAsync(document, acknowledged);
+            review = outcome.Review;
+            if (outcome.Succeeded)
+            {
+                result = outcome.Result;
+                showBroadcastConfirm = true;
+            }
+            else
+            {
+                error = outcome.Error;
+            }
+        }
+        catch (Exception)
+        {
+            error = "This transaction couldn't be prepared for broadcast.";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task BroadcastAsync()
+    {
+        if (result is null || review is null) return;
+        isBroadcasting = true;
+        broadcastError = null;
+        StateHasChanged();
+        try
+        {
+            var sent = await Signing.BroadcastAsync(result, review);
+            if (sent.Succeeded)
+            {
+                sentTxId = sent.TxId;
+                await ClearCachesAsync();
+            }
+            else
+            {
+                broadcastError = sent.Error;
+            }
+        }
+        finally
+        {
+            isBroadcasting = false;
+            showBroadcastConfirm = false;
+        }
+    }
+
+    /// <summary>The same cache clearing as a send from the Send page, so balance and history refresh.</summary>
+    private async Task ClearCachesAsync()
+    {
+        Cache.RemoveByPrefix("balance");
+        Cache.RemoveByPrefix("transactions");
+        Cache.RemoveByPrefix("price");
+        Cache.Remove("lastFetchTime");
+        try
+        {
+            await Storage.RemoveAsync("cache:balance");
+            await Storage.RemoveAsync("cache:transactions");
+            await Storage.RemoveAsync("cache:lastFetch");
+        }
+        catch (Exception)
+        {
+            // A stale cache only delays the refresh.
+        }
+    }
+
+    private async Task<string?> CheckSpendingLimitAsync(decimal amountDgb)
+    {
+        var walletId = await WalletService.GetActiveWalletIdAsync();
+        if (walletId is null) return null;
+        var check = await SpendingLimit.CheckLimitAsync(walletId, amountDgb);
+        return check.Allowed ? null : check.Message ?? "This would go over your spending limit.";
+    }
+
+    private async Task<bool> ConfirmWarningsAsync(ReviewSummary current)
+    {
+        // A shared transaction's note was shown and acknowledged in the review: address warnings apply only when every input is the wallet's.
+        if (current.OtherInputs > 0) return true;
+
+        var leaving = current.Outputs.Where(o => !o.IsWallet).ToList();
+        var destinations = leaving.Where(o => o.Address is not null).Select(o => o.Address!).ToList();
+        if (destinations.Count == 0) return true;
+
+        var contacts = (await ContactService.GetAllAsync()).Select(c => c.Address);
+        var history = await WalletService.GetTransactionHistoryAsync(0, 500);
+        var known = KnownAddressProvider.Build(contacts, KnownAddressProvider.SentAddresses(history));
+        var balance = (await WalletService.GetBalanceAsync()).ConfirmedDgb;
+        var risk = SendRiskEvaluator.EvaluateBatch(destinations, leaving.Sum(o => o.Amount) / SatoshisPerDgb, balance, known);
+        return await Baku.ConfirmSendRiskAsync(risk);
+    }
+
+    /// <summary>Biometrics when enabled for sending, with the PIN as the fallback; otherwise the PIN. A fresh check every time.</summary>
+    private async Task<bool> AuthenticateAsync()
+    {
+        try
+        {
+            if (await Biometric.IsConfirmSendEnabledAsync() && await Biometric.VerifyIdentityAsync())
+                return true;
+        }
+        catch (Exception)
+        {
+            // Fall back to the PIN.
+        }
+
+        pin = "";
+        pinError = pinThrottle.IsLockedOut ? pinThrottle.LockoutMessage : null;
+        pinPrompt = new TaskCompletionSource<bool>();
+        StateHasChanged();
+        return await pinPrompt.Task;
+    }
+
+    private async Task SubmitPinAsync()
+    {
+        if (pinPrompt is null || isCheckingPin || pin.Length < 6) return;
+        if (pinThrottle.IsLockedOut)
+        {
+            pinError = pinThrottle.LockoutMessage;
+            pin = "";
+            pinInput?.Clear();
+            return;
+        }
+
+        isCheckingPin = true;
+        try
+        {
+            var walletId = await WalletService.GetActiveWalletIdAsync();
+            var ok = walletId is not null && await WalletService.VerifyPinAsync(walletId, pin);
+            if (ok)
+            {
+                pinThrottle.RecordSuccess();
+                ClosePin(true);
+            }
+            else
+            {
+                pinError = pinThrottle.RecordFailure();
+                pin = "";
+                pinInput?.Clear();
+            }
+        }
+        finally
+        {
+            isCheckingPin = false;
+        }
+    }
+
+    private void CancelPin() => ClosePin(false);
+
+    private void ClosePin(bool verified)
+    {
+        var prompt = pinPrompt;
+        pinPrompt = null;
+        pin = "";
+        pinError = null;
+        prompt?.TrySetResult(verified);
+    }
+
+    private async Task CopyAsync()
+    {
+        if (result is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", result.SignedPsbtBase64);
+            copied = true;
+        }
+        catch (Exception)
+        {
+            error = "Couldn't copy to the clipboard. Use the download instead.";
+        }
+    }
+
+    private async Task DownloadAsync()
+    {
+        if (result is null) return;
+        await JS.InvokeVoidAsync("downloadBinaryFile", result.SignedPsbtBase64, "signed.psbt");
+    }
+
+    private void Discard()
+    {
+        document = null;
+        review = null;
+        result = null;
+        loadRefusal = null;
+        pastedText = "";
+        acknowledged = false;
+        copied = false;
+        error = null;
+        showBroadcastConfirm = false;
+        broadcastError = null;
+        sentTxId = null;
+    }
+}

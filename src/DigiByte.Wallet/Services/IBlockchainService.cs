@@ -23,6 +23,12 @@ public interface IBlockchainService
     async Task<bool> HasAddressHistoryAsync(string address) =>
         (await GetAddressTransactionsAsync(address, 0, 1)).Count > 0;
 
+    /// <summary>
+    /// The address's unspent outputs, which may be none. Throws if the source cannot answer or its reply can't be read: it
+    /// never returns an empty list for a failure, so an outage can't read as a spent coin (FR-007, FR-013). Not cached.
+    /// </summary>
+    Task<List<UtxoInfo>> GetVerifiedUtxosAsync(string address) => GetUtxosAsync(address);
+
     Task<decimal> GetFeeRateAsync();
     Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD");
     Task<int> GetBlockHeightAsync();

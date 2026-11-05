@@ -95,6 +95,21 @@ public class BlockchainApiService : IBlockchainService
         }
     }
 
+    /// <summary>Like <see cref="GetUtxosAsync(string)"/>, but a failure or an unreadable reply throws instead of reading as no coins.</summary>
+    public async Task<List<UtxoInfo>> GetVerifiedUtxosAsync(string address)
+    {
+        var utxos = await _http.GetFromJsonAsync<List<EsploraUtxo>>($"{_baseUrl}/address/{address}/utxo")
+            ?? throw new InvalidOperationException("The explorer's reply had no unspent outputs list.");
+        return utxos.Select(u => new UtxoInfo
+        {
+            TxId = u.TxId,
+            OutputIndex = (uint)u.Vout,
+            AmountSatoshis = u.Value,
+            ScriptPubKey = "",
+            Confirmations = u.Status?.Confirmed == true ? 1 : 0,
+        }).ToList();
+    }
+
     public async Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses)
     {
         var addressList = addresses.ToList();

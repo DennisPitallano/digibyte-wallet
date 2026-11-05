@@ -24,6 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Shared PSBT test builders, so both test projects build PSBTs the same way. -->
+    <Compile Include="..\DigiByte.Crypto.Tests\PsbtTestFixtures.cs" Link="PsbtTestFixtures.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\DigiByte.Wallet\DigiByte.Wallet.csproj" />
     <ProjectReference Include="..\..\src\DigiByte.Web\DigiByte.Web.csproj" />
   </ItemGroup>

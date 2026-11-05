@@ -8,7 +8,7 @@ using NBitcoin;
 
 namespace DigiByte.Wallet.Services;
 
-public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
+public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider
 {
     private readonly IKeyStore _keyStore;
     private readonly WalletKeyStore _walletStore;
@@ -142,6 +142,80 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     }
 
     public Task MarkDgbChangeUsedAsync() => AdvanceChangeIndexAsync();
+
+    // ─── PSBT signing (IPsbtKeyProvider, specs/007-psbt-signing) ───
+
+    /// <summary>False when locked or watch-only.</summary>
+    public bool CanSign => ActiveSession is { } session
+        && (session.SingleKey != null || session.Hd is { IsWatchOnly: false });
+
+    Network IPsbtKeyProvider.Network => EffectiveNetwork;
+
+    /// <summary>
+    /// The scripts of the addresses this wallet scans, after waiting a limited time for discovery, so a PSBT loaded straight
+    /// after unlock still recognizes coins on newly found addresses. Public keys only: works for watch-only wallets.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Script, string>> GetOwnedScriptsAsync()
+    {
+        EnsureUnlocked();
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
+        var network = EffectiveNetwork;
+        var owned = new Dictionary<Script, string>();
+        foreach (var address in GetAllAddresses())
+            owned[BitcoinAddress.Create(address, network).ScriptPubKey] = address;
+        return owned;
+    }
+
+    /// <summary>
+    /// Signs a copy, one input at a time, for listed indexes whose script is one of this wallet's addresses. A script-based
+    /// input that merely contains the wallet's key (multisig, wrapped SegWit) has a different script, so it is never signed.
+    /// </summary>
+    public PSBT SignInputs(PSBT psbt, IReadOnlyList<int> inputIndexes)
+    {
+        if (!CanSign)
+            throw new InvalidOperationException("This wallet can't sign: it's locked or watch-only.");
+
+        var network = EffectiveNetwork;
+        var keysByScript = new Dictionary<Script, Key>();
+        if (_singleKey is { } single)
+        {
+            keysByScript[single.PubKey.GetScriptPubKey(ScriptPubKeyType.Segwit)] = single;
+            keysByScript[single.PubKey.GetScriptPubKey(ScriptPubKeyType.Legacy)] = single;
+        }
+        else
+        {
+            foreach (var (address, key) in GetAddressKeyMap())
+                keysByScript[BitcoinAddress.Create(address, network).ScriptPubKey] = key.PrivateKey;
+        }
+
+        var keysByIndex = new Dictionary<int, Key>();
+        foreach (var index in inputIndexes)
+        {
+            if (index < 0 || index >= psbt.Inputs.Count) continue;
+            var script = psbt.Inputs[index].GetTxOut()?.ScriptPubKey;
+            if (script is not null && keysByScript.TryGetValue(script, out var key))
+                keysByIndex[index] = key;
+        }
+        return DigiByte.Crypto.Psbt.PsbtSigner.SignInputs(psbt, keysByIndex);
+    }
+
+    /// <summary>
+    /// Checks a PIN without unlocking: unlike <see cref="UnlockWalletAsync"/>, the session and active wallet don't change
+    /// (research R7). Clears the decrypted bytes before returning.
+    /// </summary>
+    public async Task<bool> VerifyPinAsync(string walletId, string pin)
+    {
+        var encryptedSeed = await _keyStore.GetSeedAsync(walletId);
+        if (encryptedSeed == null)
+            return false;
+
+        var decrypted = await _crypto.DecryptAsync(encryptedSeed, pin);
+        if (decrypted == null)
+            return false;
+
+        Array.Clear(decrypted);
+        return true;
+    }
 
     /// <summary>
     /// The active wallet as DigiDollar sees it (see <see cref="IDdSessionProvider"/>). A derivation is returned only for an
