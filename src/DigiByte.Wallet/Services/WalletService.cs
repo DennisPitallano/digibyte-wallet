@@ -46,6 +46,13 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     /// <summary>Consecutive unused change addresses that end the search for used ones (the usual BIP44 gap limit).</summary>
     private const int ChangeGapLimit = 20;
 
+    /// <summary>
+    /// How far one search may go past the saved index. A source that shows history for every address (a mock, a faulty
+    /// explorer) would otherwise keep it going forever. No real wallet gets near this: older versions went back to index 0
+    /// on every reload, and the index is now saved after each send.
+    /// </summary>
+    private const int MaxChangeSearch = 500;
+
     private UnlockedWalletSession? ActiveSession =>
         _activeWalletId != null && _sessions.TryGetValue(_activeWalletId, out var s) ? s : null;
 
@@ -642,8 +649,17 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         var searchedTo = next;
         var semaphore = new SemaphoreSlim(10);
 
+        var searchLimit = next + MaxChangeSearch;
+
         while (searchedTo < next + ChangeGapLimit)
         {
+            if (searchedTo >= searchLimit)
+            {
+                // Keep the saved index: a value this high would be scanned on every balance refresh from now on.
+                Console.WriteLine($"[Wallet] Ignoring change address history: no unused addresses in {MaxChangeSearch} lookups.");
+                return;
+            }
+
             var lookups = Enumerable.Range(searchedTo, next + ChangeGapLimit - searchedTo).Select(async index =>
             {
                 await semaphore.WaitAsync();
