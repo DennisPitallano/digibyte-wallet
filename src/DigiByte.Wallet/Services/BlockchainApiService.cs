@@ -220,6 +220,15 @@ public class BlockchainApiService : IBlockchainService
         }
     }
 
+    public async Task<bool> HasAddressHistoryAsync(string address)
+    {
+        // No catch: a failure here must reach the caller instead of reading as an unused address.
+        var counts = await _http.GetFromJsonAsync<EsploraAddressCounts>($"{_baseUrl}/address/{address}");
+        if (counts?.ChainStats is null)
+            throw new InvalidOperationException("The explorer's reply had no transaction counts.");
+        return counts.ChainStats.TxCount + (counts.MempoolStats?.TxCount ?? 0) > 0;
+    }
+
     public async Task<decimal> GetFeeRateAsync()
     {
         // DigiByte has very low fees — 1 sat/vB is usually enough
@@ -261,6 +270,16 @@ public class BlockchainApiService : IBlockchainService
     {
         [JsonPropertyName("chain_stats")]
         public EsploraChainStats ChainStats { get; set; } = new();
+    }
+
+    /// <summary>Nullable, unlike <see cref="EsploraAddress"/>, so a reply without the counts can't read as zero transactions.</summary>
+    private class EsploraAddressCounts
+    {
+        [JsonPropertyName("chain_stats")]
+        public EsploraChainStats? ChainStats { get; set; }
+
+        [JsonPropertyName("mempool_stats")]
+        public EsploraChainStats? MempoolStats { get; set; }
     }
 
     private class EsploraChainStats

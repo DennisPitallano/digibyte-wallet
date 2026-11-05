@@ -552,6 +552,8 @@ public sealed class DigiDollarService : IDigiDollarService
                 throw new DdSendException(DdSendIssue.Offline);
             }
 
+            if (_fees is not null) await _fees.MarkDgbChangeUsedAsync();
+
             var now = _now();
             var pending = new PendingDdSend
             {

@@ -170,6 +170,50 @@
         </div>
     }
 
+    @* Current Wallet — receive addresses past the normal search (seed and watch-only wallets) *@
+    @if (hasDerivedAddresses)
+    {
+        <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+            <p class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Current Wallet — Missing Payments</p>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">
+                Paid an address from "Generate new address" but the money isn't showing? Search further along this wallet's addresses. Anything found joins your balance, with nothing to move.
+            </p>
+
+            @if (receiveScanResult is { } found)
+            {
+                <div class="bg-slate-50 dark:bg-dgb-800/30 rounded-xl p-3 text-center mb-2">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        @if (found.AddressesAdded == 0)
+                        {
+                            <span>No more paid addresses found.</span>
+                        }
+                        else
+                        {
+                            <span>Your wallet now also checks @found.AddressesAdded more address@(found.AddressesAdded != 1 ? "es" : ""), holding @((found.Satoshis / 100_000_000m).ToString("N8")) DGB.</span>
+                        }
+                    </p>
+                </div>
+            }
+
+            <button class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                    @onclick="ScanMissingReceiveFunds" disabled="@isReceiveScanning">
+                @if (isReceiveScanning)
+                {
+                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Searching… @receiveScanProgress%</span>
+                }
+                else
+                {
+                    <span>Search for Missing Payments</span>
+                }
+            </button>
+            @if (receiveScanError != null)
+            {
+                <p class="text-[10px] text-red-500 mt-2">@receiveScanError</p>
+            }
+        </div>
+    }
+
     @* External Sweep Section *@
     <div class="@(isHdWallet ? "slide-up-delay-2" : "slide-up-delay-1")">
         @if (isHdWallet)
@@ -383,10 +427,48 @@
     private string? legacySweepError;
     private string? legacySweepTxId;
 
+    // Current wallet receive address search state
+    private bool hasDerivedAddresses;
+    private bool isReceiveScanning;
+    private int receiveScanProgress;
+    private string? receiveScanError;
+    private ReceiveRecoveryResult? receiveScanResult;
+
     protected override void OnInitialized()
     {
         isHdWallet = WalletService.IsUnlocked
             && WalletService.ActiveWallet?.WalletType == "hd";
+        hasDerivedAddresses = WalletService.IsUnlocked
+            && WalletService.ActiveWallet?.WalletType is "hd" or "xpub";
+    }
+
+    private async Task ScanMissingReceiveFunds()
+    {
+        isReceiveScanning = true;
+        receiveScanProgress = 0;
+        receiveScanError = null;
+        receiveScanResult = null;
+        StateHasChanged();
+
+        var progress = new Progress<int>(pct =>
+        {
+            receiveScanProgress = pct;
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            receiveScanResult = await WalletService.ScanForMissingReceiveFundsAsync(progress: progress);
+        }
+        catch (Exception ex)
+        {
+            receiveScanError = $"The search could not finish, so there may be more to find. Try again later. ({ex.Message})";
+        }
+        finally
+        {
+            isReceiveScanning = false;
+            StateHasChanged();
+        }
     }
 
     private void SwitchMode(InputMode mode)

@@ -349,6 +349,39 @@ public class FallbackBlockchainService : IBlockchainService
         CachedRead($"txs:{address}:{skip}:{take}", TxHistoryCacheTtl,
             s => s.GetAddressTransactionsAsync(address, skip, take), NodeRouteClass.History);
 
+    /// <summary>
+    /// Explorers only: the node can't answer this. Unlike other reads it isn't cached, because a retry must see a payment made
+    /// moments ago. A failure also sets no cooldown and no all-sources-failed state: address discovery makes many lookups at
+    /// once, and a rate limit on those must not take the explorer away from balance and send, or report an outage.
+    /// </summary>
+    public async Task<bool> HasAddressHistoryAsync(string address)
+    {
+        if (ForceDemoMode && _isDevelopment && _mock != null)
+            return await ((IBlockchainService)_mock).HasAddressHistoryAsync(address);
+
+        Exception? lastError = null;
+        if (!_isRegtest)
+        {
+            for (int i = 0; i < _explorers.Count; i++)
+            {
+                if (IsOnCooldown(i)) continue;
+                try
+                {
+                    return await _explorers[i].HasAddressHistoryAsync(address);
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                }
+            }
+        }
+
+        if (_isDevelopment && _mock != null)
+            return await ((IBlockchainService)_mock).HasAddressHistoryAsync(address);
+
+        throw new InvalidOperationException("No explorer could say whether this address has been used.", lastError);
+    }
+
     public Task<decimal> GetFeeRateAsync() =>
         CachedRead("feerate", FeeRateCacheTtl, s => s.GetFeeRateAsync(), NodeRouteClass.Fast);
 

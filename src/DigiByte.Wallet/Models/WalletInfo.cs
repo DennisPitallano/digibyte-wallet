@@ -7,8 +7,14 @@ public class WalletInfo
     public required DateTime CreatedAt { get; init; }
     public bool IsSimpleMode { get; set; } = true;
     public string FiatCurrency { get; set; } = "USD";
+
+    /// <summary>The receive index of the address the wallet currently shows. It moves only when the user asks for a new address.</summary>
     public int NextReceivingIndex { get; set; }
+
     public int NextChangeIndex { get; set; }
+
+    /// <summary>One past the highest receive index the chain has shown as used. These stay scanned even if the wallet shows an earlier address.</summary>
+    public int UsedReceivingCount { get; set; }
 
     /// <summary>
     /// "hd" for BIP39/BIP84 mnemonic wallets, "privatekey" for single WIF key import, "xpub" for watch-only.
@@ -74,7 +80,7 @@ public class TransactionRecord
 {
     public required string TxId { get; init; }
     public required TransactionDirection Direction { get; init; }
-    public required long AmountSatoshis { get; init; }
+    public required long AmountSatoshis { get; set; }
     public required long FeeSatoshis { get; init; }
     public required DateTime Timestamp { get; init; }
     public required int Confirmations { get; set; }

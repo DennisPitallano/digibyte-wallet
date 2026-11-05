@@ -163,6 +163,15 @@ public class BlockbookApiService : IBlockchainService
         catch { return []; }
     }
 
+    public async Task<bool> HasAddressHistoryAsync(string address)
+    {
+        // No catch: a failure here must reach the caller instead of reading as an unused address.
+        var counts = await _http.GetFromJsonAsync<BlockbookAddressCounts>($"{_baseUrl}/api/v2/address/{address}?details=basic");
+        if (counts?.Txs is null)
+            throw new InvalidOperationException("The explorer's reply had no transaction counts.");
+        return counts.Txs + (counts.UnconfirmedTxs ?? 0) > 0;
+    }
+
     public async Task<decimal> GetFeeRateAsync()
     {
         try
@@ -223,6 +232,16 @@ public class BlockbookApiService : IBlockchainService
     {
         [JsonPropertyName("blocks")]
         public int Blocks { get; set; }
+    }
+
+    /// <summary>Nullable, so a reply without the counts can't read as zero transactions.</summary>
+    private class BlockbookAddressCounts
+    {
+        [JsonPropertyName("txs")]
+        public int? Txs { get; set; }
+
+        [JsonPropertyName("unconfirmedTxs")]
+        public int? UnconfirmedTxs { get; set; }
     }
 
     private class BlockbookAddress
