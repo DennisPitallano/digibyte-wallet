@@ -1,8 +1,11 @@
+using System.Security.Cryptography;
+using System.Text;
 using DigiByte.Crypto.KeyGeneration;
 using DigiByte.Crypto.Networks;
 using DigiByte.Wallet.Models;
 using DigiByte.Wallet.Services;
 using DigiByte.Wallet.Storage;
+using DigiByte.Web.Services;
 using NBitcoin;
 
 namespace DigiByte.Wallet.Tests;
@@ -172,7 +175,122 @@ public class BatchSendTests
         Assert.Contains("No UTXOs available", ex.Message);
     }
 
+    // ─── Recording ───
+
+    [Fact]
+    public async Task SendBatchAsync_RecordsOneEntryWithFullBatchAmountAndFeeOnce()
+    {
+        var (service, tracker, _) = await CreateFundedWalletAsync();
+        var first = GenerateAddress();
+
+        var txId = await service.SendBatchAsync(new List<(string, decimal)>
+        {
+            (first, 1m),
+            (GenerateAddress(), 2m),
+            (GenerateAddress(), 3m),
+        });
+
+        var record = Assert.Single(await tracker.GetAllAsync());
+        Assert.Equal(txId, record.TxId);
+        Assert.Equal(TransactionDirection.Sent, record.Direction);
+        Assert.Equal(600_000_000, record.AmountSatoshis);
+        Assert.Equal(first, record.CounterpartyAddress);
+        Assert.InRange(record.FeeSatoshis, 1, 10_000_000);
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_CountsFullBatchTowardSpendingLimit()
+    {
+        var (service, tracker, storage) = await CreateFundedWalletAsync();
+        var limits = new SpendingLimitService(storage, tracker);
+        const string walletId = "limit-wallet";
+        await limits.SaveSettingsAsync(walletId, new SpendingLimitSettings
+        {
+            Enabled = true,
+            DailyLimitDgb = 5m,
+            HardBlock = true,
+        });
+
+        await service.SendBatchAsync(new List<(string, decimal)>
+        {
+            (GenerateAddress(), 1m),
+            (GenerateAddress(), 3m),
+        });
+
+        Assert.Equal(4m, await limits.GetSpentInPeriodAsync(TimeSpan.FromHours(24)));
+
+        // 4 already spent + 2 more is over the limit of 5. Counting only the
+        // first recipient would give 1 + 2 and let this send through.
+        var check = await limits.CheckLimitAsync(walletId, 2m);
+        Assert.False(check.Allowed);
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_HistoryShowsFullAmountOnceChainSyncReturnsTheTx()
+    {
+        var blockchain = new FundedBlockchainService();
+        var (service, _, _) = await CreateFundedWalletAsync(blockchain);
+        var first = GenerateAddress();
+        var second = GenerateAddress();
+
+        var txId = await service.SendBatchAsync(new List<(string, decimal)>
+        {
+            (first, 1m),
+            (second, 3m),
+        });
+
+        // The explorer reports both outputs, but history merging prefers the local record.
+        blockchain.ExplorerTxs.Add(new TransactionInfo
+        {
+            TxId = txId,
+            Confirmations = 1,
+            Timestamp = DateTime.UtcNow,
+            FeeSatoshis = 1_000,
+            Inputs = [new TxInput { Address = service.GetAllAddresses()[0], AmountSatoshis = 10_000_000_000 }],
+            Outputs =
+            [
+                new TxOutput { Address = first, AmountSatoshis = 100_000_000, Index = 0 },
+                new TxOutput { Address = second, AmountSatoshis = 300_000_000, Index = 1 },
+            ],
+        });
+
+        var record = Assert.Single(await service.GetTransactionHistoryAsync());
+        Assert.Equal(400_000_000, record.AmountSatoshis);
+    }
+
+    private static async Task<(WalletService Service, TransactionTracker Tracker, InMemorySecureStorage Storage)>
+        CreateFundedWalletAsync(FundedBlockchainService? blockchain = null)
+    {
+        var mnemonic = new Mnemonic(Wordlist.English, WordCount.TwentyFour);
+        var storage = new InMemorySecureStorage();
+        var tracker = new TransactionTracker(storage);
+        var service = new WalletService(
+            new WalletKeyStore(storage), new FakeCryptoService(),
+            blockchain ?? new FundedBlockchainService(), tracker);
+        service.SetNetworkMode("mainnet");
+        await service.CreateWalletAsync("Test", string.Join(' ', mnemonic.Words), Pin);
+        return (service, tracker, storage);
+    }
+
     // ─── Test helpers ───
+
+    /// <summary>Gives every wallet address one confirmed 100 DGB UTXO, and serves explorer history from a list.</summary>
+    private class FundedBlockchainService : FakeBlockchainService
+    {
+        public List<TransactionInfo> ExplorerTxs { get; } = [];
+
+        public override Task<List<UtxoInfo>> GetUtxosAsync(string address)
+        {
+            var txId = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(address))).ToLowerInvariant();
+            return Task.FromResult(new List<UtxoInfo>
+            {
+                new() { TxId = txId, OutputIndex = 0, AmountSatoshis = 10_000_000_000, ScriptPubKey = "", Confirmations = 6 },
+            });
+        }
+
+        public override Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) =>
+            Task.FromResult(ExplorerTxs.ToList());
+    }
 
     private class InMemorySecureStorage : ISecureStorage
     {
@@ -197,11 +315,11 @@ public class BatchSendTests
     {
         public Task<long> GetBalanceAsync(string address) => Task.FromResult(0L);
         public Task<long> GetBalanceAsync(IEnumerable<string> addresses) => Task.FromResult(0L);
-        public Task<List<UtxoInfo>> GetUtxosAsync(string address) => Task.FromResult(new List<UtxoInfo>());
+        public virtual Task<List<UtxoInfo>> GetUtxosAsync(string address) => Task.FromResult(new List<UtxoInfo>());
         public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => Task.FromResult(new List<UtxoInfo>());
         public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => Task.FromResult("faketxid");
         public Task<TransactionInfo?> GetTransactionAsync(string txId) => Task.FromResult<TransactionInfo?>(null);
-        public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) => Task.FromResult(new List<TransactionInfo>());
+        public virtual Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) => Task.FromResult(new List<TransactionInfo>());
         public Task<decimal> GetFeeRateAsync() => Task.FromResult(100m);
         public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => Task.FromResult(0.01m);
         public Task<int> GetBlockHeightAsync() => Task.FromResult(1000);

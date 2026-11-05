@@ -883,13 +883,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
 
-        // Track each recipient
+        // History is keyed by TxId, so the whole batch is one record: the full amount, and the
+        // first recipient as counterparty (the same one an explorer-built record would show).
         var feePaid = tx.GetFee(utxosToUse.Select(u => u.ToCoin()).ToArray());
-        foreach (var (address, amountDgb) in recipients)
-        {
-            var satoshis = (long)(amountDgb * 100_000_000m);
-            await _txTracker.RecordSendAsync(txId, address, satoshis, feePaid?.Satoshi ?? 0, memo);
-        }
+        await _txTracker.RecordSendAsync(txId, recipients[0].Address, totalSatoshis, feePaid?.Satoshi ?? 0, memo);
 
         if (_hd != null && ActiveWallet != null)
             ActiveWallet.NextChangeIndex++;
