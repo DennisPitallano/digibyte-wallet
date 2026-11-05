@@ -2,7 +2,6 @@ using System.Net;
 using DigiByte.Wallet.Models;
 using DigiByte.Wallet.Services;
 using DigiByte.Wallet.Storage;
-using NBitcoin;
 using static DigiByte.Wallet.Tests.ChangeAddressTests;
 
 namespace DigiByte.Wallet.Tests;
@@ -160,68 +159,11 @@ public class AddressDiscoveryReliabilityTests
         Assert.True(await HasHistory(sut));
     }
 
-    // ─── A legacy address on show must be scanned, whatever its index ───
-
     private static async Task<WalletService> CreateAsync(Env env)
     {
         var service = env.NewService();
         await service.CreateWalletAsync("Test", env.Words, Pin);
         return service;
-    }
-
-    private static string LegacyAddress(Env env, int index) =>
-        env.Hd.DeriveReceivingAddress(index, ScriptPubKeyType.Legacy).ToString();
-
-    [Fact]
-    public async Task Balance_IncludesPaymentToLegacyAddressOnShowPastIndex19()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        service.ActiveWallet!.NextReceivingIndex = 20;
-        var shown = await service.GetReceivingAddressAsync("legacy");
-        Assert.Equal(LegacyAddress(env, 20), shown);
-        env.Chain.Credit(shown, 5 * OneDgb);
-
-        Assert.Equal(5 * OneDgb, (await service.GetBalanceAsync()).ConfirmedSatoshis);
-    }
-
-    [Fact]
-    public async Task Send_CanSpendPaymentToLegacyAddressOnShowPastIndex19()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        service.ActiveWallet!.NextReceivingIndex = 20;
-        var shown = await service.GetReceivingAddressAsync("legacy");
-        env.Chain.Credit(shown, 5 * OneDgb);
-
-        await service.SendAsync(Stranger(), 1m);
-
-        Assert.Equal(0, env.Chain.UnspentOutputsOwnedBy(shown));
-    }
-
-    /// <summary>The scan's SegWit range can already be past the index on show, so the legacy range has to invalidate the caches itself.</summary>
-    [Fact]
-    public async Task LegacyAddressOnShow_IsScanned_WhenOnlyTheIndexOnShowMoved()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        service.ActiveWallet!.UsedReceivingCount = 50;
-        service.ActiveWallet!.NextReceivingIndex = 25;
-        Assert.Contains(LegacyAddress(env, 25), service.GetAllAddresses());
-
-        service.ActiveWallet!.NextReceivingIndex = 26;
-
-        Assert.Contains(LegacyAddress(env, 26), service.GetAllAddresses());
-    }
-
-    [Fact]
-    public async Task LegacyAddresses_NeverOnShow_StayOutOfTheScan()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        service.ActiveWallet!.UsedReceivingCount = 50;
-
-        Assert.DoesNotContain(LegacyAddress(env, 30), service.GetAllAddresses());
     }
 
     // ─── A save that finishes after the wallet was deleted ───

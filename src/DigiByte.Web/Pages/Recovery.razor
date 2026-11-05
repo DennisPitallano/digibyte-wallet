@@ -170,11 +170,11 @@
         </div>
     }
 
-    @* Current Wallet — receive addresses past the normal search (seed and watch-only wallets) *@
+    @* Current Wallet â€” receive addresses past the normal search (seed and watch-only wallets) *@
     @if (hasDerivedAddresses)
     {
         <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
-            <p class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Current Wallet — Missing Payments</p>
+            <p class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Current Wallet â€” Missing Payments</p>
             <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">
                 Paid an address from "Generate new address" but the money isn't showing? Search further along this wallet's addresses. Anything found joins your balance, with nothing to move.
             </p>
@@ -200,7 +200,7 @@
                 @if (isReceiveScanning)
                 {
                     <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Searching… @receiveScanProgress%</span>
+                    <span>Searchingâ€¦ @receiveScanProgress%</span>
                 }
                 else
                 {

@@ -35,10 +35,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     private string _networkMode = "testnet";
 
     // Address derivation cache — avoid repeated elliptic curve math. Each cache remembers
-    // which wallet and how many addresses of each kind it was built for.
-    private (string? WalletId, int ReceiveCount, int LegacyReceiveCount, int ChangeCount)? _cachedAddressesFor;
+    // which wallet and how many receive and change addresses it was built for.
+    private (string? WalletId, int ReceiveCount, int ChangeCount)? _cachedAddressesFor;
     private List<string>? _cachedAddresses;
-    private (string? WalletId, int ReceiveCount, int LegacyReceiveCount, int ChangeCount)? _cachedKeyMapFor;
+    private (string? WalletId, int ReceiveCount, int ChangeCount)? _cachedKeyMapFor;
     private Dictionary<string, ExtKey>? _cachedAddressKeyMap;
     private const int UnscannedChangeLimit = 100;
     private string? _unscannedChangeWalletId;
@@ -52,7 +52,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     /// <summary>Consecutive unused change addresses that end the search for used ones (the usual BIP44 gap limit).</summary>
     private const int ChangeGapLimit = 20;
 
-    /// <summary>Receive indexes always scanned, in both formats. Past these, Legacy is scanned only as far as the address on show: see <see cref="ScannedLegacyReceiveCount"/>.</summary>
+    /// <summary>Receive indexes always scanned. Only these are scanned in Legacy format too: new receive addresses are SegWit.</summary>
     private const int MinScannedReceive = 20;
 
     /// <summary>
@@ -560,7 +560,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         EnsureUnlocked();
 
         // Return cached if nothing it depends on has changed
-        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedLegacyReceiveCount, ScannedChangeCount);
+        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedChangeCount);
         if (_cachedAddresses != null && _cachedAddressesFor == cacheKey)
             return _cachedAddresses;
 
@@ -579,7 +579,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
             for (int i = 0; i < ScannedReceiveCount; i++)
             {
                 addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
-                if (i < ScannedLegacyReceiveCount)
+                if (i < MinScannedReceive)
                     addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
             }
             for (int i = 0; i < ScannedChangeCount; i++)
@@ -623,7 +623,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         if (_singleKey != null)
             throw new InvalidOperationException("Use _singleKey directly for WIF wallets.");
 
-        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedLegacyReceiveCount, ScannedChangeCount);
+        var cacheKey = (_activeWalletId, ScannedReceiveCount, ScannedChangeCount);
         if (_cachedAddressKeyMap != null && _cachedKeyMapFor == cacheKey)
             return _cachedAddressKeyMap;
 
@@ -632,7 +632,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         {
             var key = _hd!.DeriveReceivingKey(i);
             map[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
-            if (i < ScannedLegacyReceiveCount)
+            if (i < MinScannedReceive)
                 map[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
         }
         for (int i = 0; i < ScannedChangeCount; i++)
@@ -660,12 +660,6 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
 
     private static int ScannedReceiveCountOf(WalletInfo info) =>
         Math.Max(MinScannedReceive, Math.Max(info.NextReceivingIndex + 1, info.UsedReceivingCount));
-
-    /// <summary>
-    /// How many receive indexes to scan in Legacy format. The Receive page can show the Legacy form of the address on show, so
-    /// the scan always reaches it. Indexes that were never on show can't have been handed out in Legacy format.
-    /// </summary>
-    private int ScannedLegacyReceiveCount => Math.Max(MinScannedReceive, (ActiveWallet?.NextReceivingIndex ?? 0) + 1);
 
     /// <summary>
     /// Moves to a new receive address, saved before it is returned so that it stays scanned after a reload. Skips addresses

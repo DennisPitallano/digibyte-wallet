@@ -189,8 +189,9 @@
         generateError = null;
         try
         {
-            await WalletService.GenerateNewReceivingAddressAsync();
-            await GenerateAddress(); // In the format selected: Legacy must not silently become SegWit.
+            (_, address) = await WalletService.GenerateNewReceivingAddressAsync();
+            GenerateQrCode();
+            await LoadLabel();
         }
         catch (InvalidOperationException ex)
         {
