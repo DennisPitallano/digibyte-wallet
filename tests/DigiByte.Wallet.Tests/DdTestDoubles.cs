@@ -88,6 +88,14 @@ internal sealed class FakeDdFeeSource : IDdFeeSource
         Task.FromResult<IReadOnlyList<DdFeeUtxo>>(Utxos.ToList());
 
     public Task<Script> GetDgbChangeScriptAsync(CancellationToken ct) => Task.FromResult(ChangeScript);
+
+    public int ChangeMarkedUsed { get; private set; }
+
+    public Task MarkDgbChangeUsedAsync()
+    {
+        ChangeMarkedUsed++;
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>An in-memory DigiDollar backend behind <see cref="IDigiDollarNodeApi"/>.</summary>

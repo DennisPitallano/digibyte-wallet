@@ -22,18 +22,29 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         public WalletInfo Info { get; set; } = default!;
         public HdKeyDerivation? Hd { get; set; }
         public Key? SingleKey { get; set; }
+
+        /// <summary>The chain lookup for used change addresses, shared by callers. Cleared if it fails, so it runs again.</summary>
+        public Task? ChangeDiscovery { get; set; }
     }
 
     private readonly Dictionary<string, UnlockedWalletSession> _sessions = new();
     private string? _activeWalletId;
     private string _networkMode = "testnet";
 
-    // Address derivation cache — avoid repeated elliptic curve math
-    private string? _cachedAddressWalletId;
+    // Address derivation cache — avoid repeated elliptic curve math. Each cache remembers
+    // which wallet and how many change addresses it was built for.
+    private (string? WalletId, int ChangeCount)? _cachedAddressesFor;
     private List<string>? _cachedAddresses;
+    private (string? WalletId, int ChangeCount)? _cachedKeyMapFor;
     private Dictionary<string, ExtKey>? _cachedAddressKeyMap;
 
     private const int MaxWallets = 10;
+
+    /// <summary>Change indexes always scanned. Only these are scanned in Legacy format too: the wallet's own change is SegWit.</summary>
+    private const int MinScannedChange = 10;
+
+    /// <summary>Consecutive unused change addresses that end the search for used ones (the usual BIP44 gap limit).</summary>
+    private const int ChangeGapLimit = 20;
 
     private UnlockedWalletSession? ActiveSession =>
         _activeWalletId != null && _sessions.TryGetValue(_activeWalletId, out var s) ? s : null;
@@ -53,6 +64,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     {
         EnsureUnlocked();
         if (_hd is null || _hd.IsWatchOnly) return [];
+        await DiscoverChangeIndexAsync();
 
         var network = CurrentNetwork;
         var targets = new List<(string Address, ExtKey Key, Script Script)>();
@@ -89,6 +101,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         var key = _hd.DeriveChangeKey(ActiveWallet.NextChangeIndex);
         return Task.FromResult(_hd.GetAddress(key).ScriptPubKey);
     }
+
+    public Task MarkDgbChangeUsedAsync() => AdvanceChangeIndexAsync();
 
     /// <summary>
     /// The active wallet as DigiDollar sees it (see <see cref="IDdSessionProvider"/>). A derivation is returned only for an
@@ -456,6 +470,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     public async Task<WalletBalance> GetBalanceAsync()
     {
         EnsureUnlocked();
+        await DiscoverChangeIndexAsync();
 
         var addresses = GetAllAddresses();
         var totalSatoshis = await _blockchain.GetBalanceAsync(addresses);
@@ -505,8 +520,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     {
         EnsureUnlocked();
 
-        // Return cached if same wallet
-        if (_cachedAddresses != null && _cachedAddressWalletId == _activeWalletId)
+        // Return cached if nothing it depends on has changed
+        var cacheKey = (_activeWalletId, ScannedChangeCount);
+        if (_cachedAddresses != null && _cachedAddressesFor == cacheKey)
             return _cachedAddresses;
 
         List<string> addresses;
@@ -526,15 +542,16 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
                 addresses.Add(_hd!.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString());
                 addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
             }
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < ScannedChangeCount; i++)
             {
                 addresses.Add(_hd!.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString());
-                addresses.Add(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString());
+                if (i < MinScannedChange)
+                    addresses.Add(_hd.DeriveChangeAddress(i, ScriptPubKeyType.Legacy).ToString());
             }
         }
 
         _cachedAddresses = addresses;
-        _cachedAddressWalletId = _activeWalletId;
+        _cachedAddressesFor = cacheKey;
         return addresses;
     }
 
@@ -566,7 +583,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         if (_singleKey != null)
             throw new InvalidOperationException("Use _singleKey directly for WIF wallets.");
 
-        if (_cachedAddressKeyMap != null && _cachedAddressWalletId == _activeWalletId)
+        var cacheKey = (_activeWalletId, ScannedChangeCount);
+        if (_cachedAddressKeyMap != null && _cachedKeyMapFor == cacheKey)
             return _cachedAddressKeyMap;
 
         var map = new Dictionary<string, ExtKey>();
@@ -576,16 +594,106 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
             map[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
             map[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
         }
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < ScannedChangeCount; i++)
         {
             var key = _hd!.DeriveChangeKey(i);
             map[_hd.GetAddress(key, ScriptPubKeyType.Segwit).ToString()] = key;
-            map[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
+            if (i < MinScannedChange)
+                map[_hd.GetAddress(key, ScriptPubKeyType.Legacy).ToString()] = key;
         }
 
         _cachedAddressKeyMap = map;
-        // _cachedAddressWalletId is already set by GetAllAddresses
+        _cachedKeyMapFor = cacheKey;
         return map;
+    }
+
+    /// <summary>
+    /// How many change indexes to scan. Always reaches the next change address, so change can never land outside the scan.
+    /// </summary>
+    private int ScannedChangeCount => Math.Max(MinScannedChange, (ActiveWallet?.NextChangeIndex ?? 0) + 1);
+
+    /// <summary>
+    /// Once per unlock, moves the change index past every change address the chain shows as used. This finds change stranded
+    /// past the old fixed scan range, and stops a wallet whose saved index is behind (older versions never saved it) from
+    /// reusing addresses. Never throws: if the chain cannot be read the wallet works from its saved index and tries again next call.
+    /// </summary>
+    private async Task DiscoverChangeIndexAsync()
+    {
+        var session = ActiveSession;
+        if (session?.Hd is null) return;
+
+        var discovery = session.ChangeDiscovery ??= FindUsedChangeAsync(session);
+        try
+        {
+            await discovery;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Wallet] Change address lookup failed: {ex.Message}");
+            if (ReferenceEquals(session.ChangeDiscovery, discovery))
+                session.ChangeDiscovery = null;
+        }
+    }
+
+    private async Task FindUsedChangeAsync(UnlockedWalletSession session)
+    {
+        var hd = session.Hd!;
+        var next = session.Info.NextChangeIndex;
+        var searchedTo = next;
+        var semaphore = new SemaphoreSlim(10);
+
+        while (searchedTo < next + ChangeGapLimit)
+        {
+            var lookups = Enumerable.Range(searchedTo, next + ChangeGapLimit - searchedTo).Select(async index =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    var address = hd.DeriveChangeAddress(index, ScriptPubKeyType.Segwit).ToString();
+                    var txs = await _blockchain.GetAddressTransactionsAsync(address, 0, 1);
+                    return (Index: index, Used: txs.Count > 0);
+                }
+                finally { semaphore.Release(); }
+            }).ToList();
+
+            searchedTo = next + ChangeGapLimit;
+            foreach (var (index, used) in await Task.WhenAll(lookups))
+                if (used) next = Math.Max(next, index + 1);
+        }
+
+        if (next > session.Info.NextChangeIndex)
+        {
+            session.Info.NextChangeIndex = next;
+            await SaveNextChangeIndexAsync(session.Info);
+        }
+    }
+
+    /// <summary>A change address has been paid: use the next one from now on, including after a reload.</summary>
+    private async Task AdvanceChangeIndexAsync()
+    {
+        var session = ActiveSession;
+        if (session?.Hd is null) return;
+
+        session.Info.NextChangeIndex++;
+        await SaveNextChangeIndexAsync(session.Info);
+    }
+
+    /// <summary>
+    /// Saves only the change index. Never throws: this runs after a broadcast, and reporting a send that went out as failed
+    /// could make the user pay twice. The session keeps the new index, and a later discovery corrects the saved one.
+    /// </summary>
+    private async Task SaveNextChangeIndexAsync(WalletInfo info)
+    {
+        try
+        {
+            var stored = await GetWalletAsync(info.Id) ?? info;
+            stored.NextChangeIndex = info.NextChangeIndex;
+            await _walletStore.SaveWalletInfoAsync(info.Id, JsonSerializer.Serialize(stored));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Wallet] Could not save the change index: {ex.Message}");
+        }
     }
 
     public async Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null, int feeRateSatPerByte = 5)
@@ -594,6 +702,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
 
         if (ActiveWallet?.WalletType == "xpub")
             throw new InvalidOperationException("Watch-only wallets cannot send transactions.");
+
+        await DiscoverChangeIndexAsync();
 
         var network = CurrentNetwork;
         var amountSatoshis = (long)(amountDgb * 100_000_000m);
@@ -721,9 +831,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         await _txTracker.RecordSendAsync(txId, destinationAddress, amountSatoshis,
             feePaid?.Satoshi ?? 0, memo);
 
-        // Increment change index (HD wallets only)
-        if (_hd != null && ActiveWallet != null)
-            ActiveWallet.NextChangeIndex++;
+        await AdvanceChangeIndexAsync();
 
         return txId;
     }
@@ -746,6 +854,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
 
         if (recipients.Count > 20)
             throw new ArgumentException("Maximum 20 recipients per batch transaction.");
+
+        await DiscoverChangeIndexAsync();
 
         var network = CurrentNetwork;
 
@@ -891,8 +1001,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
             await _txTracker.RecordSendAsync(txId, address, satoshis, feePaid?.Satoshi ?? 0, memo);
         }
 
-        if (_hd != null && ActiveWallet != null)
-            ActiveWallet.NextChangeIndex++;
+        await AdvanceChangeIndexAsync();
 
         return txId;
     }
@@ -900,6 +1009,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     public async Task<List<TransactionRecord>> GetTransactionHistoryAsync(int skip = 0, int take = 50)
     {
         EnsureUnlocked();
+        await DiscoverChangeIndexAsync();
 
         // Always return locally tracked transactions (works on all networks)
         var localTxs = await _txTracker.GetAllAsync();
@@ -1084,6 +1194,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         EnsureUnlocked();
         if (ActiveWallet?.WalletType == "xpub")
             throw new InvalidOperationException("Watch-only wallets cannot consolidate UTXOs.");
+
+        await DiscoverChangeIndexAsync();
 
         var network = CurrentNetwork;
         List<DigiByte.Crypto.Transactions.Utxo> availableUtxos;
