@@ -58,6 +58,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
     /// <summary>How far past the last used address <see cref="ScanForMissingReceiveFundsAsync"/> looks.</summary>
     public const int DeepScanGapLimit = 500;
 
+    /// <summary>
+    /// How far one automatic search may go past its starting index. A source that shows history for every address (a mock, a
+    /// faulty explorer) would otherwise keep it going forever. Older wallets with a longer unbroken run can use the deep scan.
+    /// </summary>
+    private const int MaxAddressSearch = 500;
+
+    /// <summary>The same limit for <see cref="ScanForMissingReceiveFundsAsync"/>, which the user starts and can wait for.</summary>
+    private const int MaxDeepScanSearch = 2000;
+
     /// <summary>Address lookups run in groups of this size, so a long search keeps the page responsive and its progress moving.</summary>
     private const int LookupBatchSize = 50;
 
@@ -698,7 +707,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         var scannedBefore = ScannedReceiveCountOf(info);
         var used = await FindUsedCountAsync(
             i => hd.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString(),
-            info.UsedReceivingCount, gapLimit, scannedBefore + gapLimit, progress);
+            info.UsedReceivingCount, gapLimit, scannedBefore + gapLimit, Math.Max(MaxDeepScanSearch, gapLimit), progress)
+            ?? throw new InvalidOperationException("The block explorer is reporting history for every address, so its answers can't be trusted.");
 
         if (used > info.UsedReceivingCount)
         {
@@ -741,11 +751,18 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         var info = session.Info;
         var next = await FindUsedCountAsync(
             i => hd.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString(),
-            info.NextChangeIndex, ChangeGapLimit, 0);
+            info.NextChangeIndex, ChangeGapLimit, 0, MaxAddressSearch);
+
+        if (next is null)
+        {
+            // Keep the saved index: a value this high would be scanned on every balance refresh from now on.
+            Console.WriteLine($"[Wallet] Ignoring change address history: no unused addresses in {MaxAddressSearch} lookups.");
+            return;
+        }
 
         if (next > info.NextChangeIndex)
         {
-            info.NextChangeIndex = next;
+            info.NextChangeIndex = next.Value;
             await SaveAddressIndexesAsync(info);
         }
     }
@@ -761,30 +778,41 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource
         var info = session.Info;
         var used = await FindUsedCountAsync(
             i => hd.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString(),
-            info.UsedReceivingCount, ReceiveGapLimit, ScannedReceiveCountOf(info) + ReceiveGapLimit);
+            info.UsedReceivingCount, ReceiveGapLimit, ScannedReceiveCountOf(info) + ReceiveGapLimit, MaxAddressSearch);
+
+        if (used is null)
+        {
+            // Keep the saved count: a value this high would be scanned on every balance refresh from now on.
+            Console.WriteLine($"[Wallet] Ignoring receive address history: no unused addresses in {MaxAddressSearch} lookups.");
+            return;
+        }
 
         if (used > info.UsedReceivingCount)
         {
-            info.UsedReceivingCount = used;
+            info.UsedReceivingCount = used.Value;
             await SaveAddressIndexesAsync(info);
         }
     }
 
     /// <summary>
     /// Walks an address chain from <paramref name="from"/> until <paramref name="gapLimit"/> addresses in a row are unused and
-    /// <paramref name="searchAtLeastTo"/> is reached. Returns one past the last used index, or <paramref name="from"/> if none is used.
+    /// <paramref name="searchAtLeastTo"/> is reached. Returns one past the last used index, or <paramref name="from"/> if none is
+    /// used. Returns null if that has not happened after <paramref name="maxSearch"/> addresses: the answers can't be believed.
     /// </summary>
-    private async Task<int> FindUsedCountAsync(
-        Func<int, string> addressAt, int from, int gapLimit, int searchAtLeastTo, IProgress<int>? progress = null)
+    private async Task<int?> FindUsedCountAsync(
+        Func<int, string> addressAt, int from, int gapLimit, int searchAtLeastTo, int maxSearch, IProgress<int>? progress = null)
     {
         var usedCount = from;
         var searchedTo = from;
         var semaphore = new SemaphoreSlim(10);
+        var searchLimit = from + maxSearch;
         int End() => Math.Max(usedCount + gapLimit, searchAtLeastTo);
 
         while (searchedTo < End())
         {
-            var batch = Math.Min(LookupBatchSize, End() - searchedTo);
+            if (searchedTo >= searchLimit) return null;
+
+            var batch = Math.Min(LookupBatchSize, Math.Min(End(), searchLimit) - searchedTo);
             var lookups = Enumerable.Range(searchedTo, batch).Select(async index =>
             {
                 await semaphore.WaitAsync();

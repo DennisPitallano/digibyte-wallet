@@ -230,6 +230,68 @@ public class ReceiveAddressTests
         await Assert.ThrowsAsync<HttpRequestException>(() => service.ScanForMissingReceiveFundsAsync(gapLimit: 30));
     }
 
+    // ─── A source that shows history for every address (a mock, a faulty explorer) must not hang the wallet ───
+
+    [Fact]
+    public async Task Discovery_WhenEveryAddressShowsHistory_StopsAndKeepsTheReceiveCount()
+    {
+        var env = new Env();
+        var service = await CreateAsync(env);
+        var walletId = service.ActiveWallet!.Id;
+        env.Chain.EveryAddressHasHistory = true;
+
+        await service.GetBalanceAsync();
+        var afterFirst = env.Chain.HistoryLookups;
+        await service.GetBalanceAsync();
+
+        Assert.InRange(afterFirst, 1, 1000);
+        Assert.Equal(afterFirst, env.Chain.HistoryLookups);
+        Assert.Equal(0, service.ActiveWallet!.UsedReceivingCount);
+        Assert.Equal(60, service.GetAllAddresses().Count);
+        var reloaded = await env.ReloadAsync(walletId);
+        Assert.Equal(0, reloaded.ActiveWallet!.UsedReceivingCount);
+    }
+
+    [Fact]
+    public async Task Generate_WhenEveryAddressShowsHistory_StillWorks_AndStopsAtTheGapLimit()
+    {
+        var env = new Env();
+        var service = await CreateAsync(env);
+        env.Chain.EveryAddressHasHistory = true;
+
+        var (index, _) = await service.GenerateNewReceivingAddressAsync();
+
+        Assert.Equal(1, index);
+        for (var i = 1; i < WalletService.ReceiveGapLimit - 1; i++)
+            await service.GenerateNewReceivingAddressAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(service.GenerateNewReceivingAddressAsync);
+        Assert.InRange(env.Chain.HistoryLookups, 1, 2000);
+    }
+
+    [Fact]
+    public async Task DeepScan_WhenEveryAddressShowsHistory_FailsInsteadOfTrustingIt()
+    {
+        var env = new Env();
+        var service = await CreateAsync(env);
+        env.Chain.EveryAddressHasHistory = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ScanForMissingReceiveFundsAsync());
+
+        Assert.InRange(env.Chain.HistoryLookups, 1, 3000);
+        Assert.Equal(0, service.ActiveWallet!.UsedReceivingCount);
+    }
+
+    [Fact]
+    public async Task Discovery_FindsALongRunOfUsedAddresses_WithinTheSearchLimit()
+    {
+        var env = new Env();
+        var service = await CreateAsync(env);
+        for (var i = 0; i < 100; i++) env.Chain.Credit(env.ReceiveAddress(i), OneDgb);
+
+        Assert.Equal(100 * OneDgb, (await service.GetBalanceAsync()).ConfirmedSatoshis);
+        Assert.Equal(100, service.ActiveWallet!.UsedReceivingCount);
+    }
+
     // ─── Never hand out more than a restored wallet could find ───
 
     [Fact]

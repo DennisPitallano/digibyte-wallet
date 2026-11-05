@@ -246,6 +246,27 @@ public class ChangeAddressTests
     }
 
     [Fact]
+    public async Task Discovery_WhenEveryAddressShowsHistory_StopsAndKeepsTheIndex()
+    {
+        // MockBlockchainService and a misbehaving explorer both answer like this. Believing them would never end.
+        var env = new Env();
+        var service = env.NewService();
+        var wallet = await service.CreateWalletAsync("Test", env.Words, Pin);
+        env.Chain.EveryAddressHasHistory = true;
+
+        await service.GetBalanceAsync();
+        var afterFirst = env.Chain.HistoryLookups;
+        await service.GetBalanceAsync();
+
+        Assert.InRange(afterFirst, 1, 1000);
+        Assert.Equal(afterFirst, env.Chain.HistoryLookups); // an answer like this is not worth asking for again
+        Assert.Equal(0, service.ActiveWallet!.NextChangeIndex);
+        Assert.Equal(60, service.GetAllAddresses().Count);
+        var reloaded = await env.ReloadAsync(wallet.Id);
+        Assert.Equal(0, reloaded.ActiveWallet!.NextChangeIndex);
+    }
+
+    [Fact]
     public async Task WatchOnlyWallet_FindsChangePastTheOldRange()
     {
         var env = new Env();
@@ -377,6 +398,7 @@ public class ChangeAddressTests
         public long TotalFees { get; private set; }
         public Transaction? LastBroadcast { get; private set; }
         public string? LastRecipient { get; set; }
+        public bool EveryAddressHasHistory { get; set; }
         public bool HistoryDown { get; set; }
         public int HistoryLookups { get; private set; }
 
@@ -445,8 +467,10 @@ public class ChangeAddressTests
         {
             HistoryLookups++;
             if (HistoryDown) throw new HttpRequestException("explorer is down");
+            // A fuse, so an endless search fails this test instead of hanging the test run.
+            if (HistoryLookups > 5000) throw new InvalidOperationException("Too many history lookups.");
             var txs = new List<TransactionInfo>();
-            if (_everUsed.Contains(address))
+            if (EveryAddressHasHistory || _everUsed.Contains(address))
                 txs.Add(new TransactionInfo
                 {
                     TxId = new string('e', 64), Confirmations = 6, Timestamp = DateTime.UtcNow, FeeSatoshis = 0, Inputs = [], Outputs = [],
