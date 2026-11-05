@@ -50,7 +50,10 @@ The first throwaway wallet's browser storage was cleared during the check above,
 - An xpub watch-only wallet imported while on regtest uses testnet addresses (`dgbt1…`), so its balance shows 0 and its lookups fail.
 - The app's update prompt reloads the page and drops a wallet being created mid-way.
 
+## Security self-review (T047)
+
+Run on 2026-11-06 over the branch diff. No high or medium findings. Checked: which inputs get signed (script match only, no key paths, Taproot refused, multisig and wrapped SegWit never signed), signature type (ALL only), hidden fees (wallet amounts proven against the chain, previous transactions checked against the input), change labelling, demo or empty data in verified lookups, broadcast only after the confirmation steps and a fresh finalize, locked and watch-only wallets, PIN check, display of PSBT data (all encoded), and logging (none in PSBT code).
+
 ## Not yet done
 
-- T047 security self-review.
 - T049 usability check with 10 test users (needs people).
