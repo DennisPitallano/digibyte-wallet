@@ -468,6 +468,45 @@ Current spending summary:
   → Label: "X / Y DGB" for each period
 ```
 
+### Sign a PSBT (`/settings/psbt-sign`, Advanced mode)
+```
+Load (paste base64 or upload a .psbt file, up to 1 MB):
+  → PsbtSigningService.LoadAsync → PsbtDocument.FromText / FromBytes
+      Refused before review: TooLarge, NotAPsbt, InvalidStructure
+  → IPsbtKeyProvider.GetOwnedScriptsAsync (waits up to 20s for address discovery)
+  → Chain facts per input:
+      This wallet's inputs → IBlockchainService.GetVerifiedUtxosAsync (throws → ChainStatus Unavailable)
+      Inputs with no data  → GetTransactionAsync (failed or not found → InputNotIdentified, with Retry)
+      Other participants' inputs with data → not looked up (fee unverified until Story 4)
+  → PsbtAnalyzer.Analyze → ReviewSummary
+      Owner by script only; PSBT key paths ignored
+      Refusals checked in order; the first that applies wins
+      Warnings: lock time, unconfirmed, non-standard output, high fee (>10%),
+                unverified fee, shared outputs not checked, out-of-range note
+
+Review shows: total leaving (or received), every output with full address,
+              fee and its status, inputs to sign, inputs belonging to others
+
+Sign (only when CanSign):
+  → PsbtConfirmationFlow, stopping at the first failure:
+      1. Required acknowledgment
+      2. SpendingLimitService.CheckLimitAsync(NetAmount, or 0 when the wallet gains)  — fails open
+      3. Baku send-risk warning when every input is the wallet's                   — fails open
+      4. Biometrics if enabled for sending, else PIN (VerifyPinAsync + PinAttemptThrottle)
+  → PsbtSigningService.SignAsync
+      Repeats every chain check, fills missing SegWit data from the chain,
+      signs only the wallet's unsigned inputs (one at a time, SIGHASH_ALL)
+  → Result: complete / N inputs still need signatures; copy base64 or download .psbt
+
+Broadcast (complete, with a wallet input and spending keys):
+  → Confirmation listing outputs and fee
+  → PsbtSigningService.BroadcastAsync: finalizes again, sends, records one history entry
+  → Same cache clearing as Send
+Already fully signed PSBT: same confirmation flow → PrepareSignedAsync → broadcast confirmation
+
+Locking the wallet discards the PSBT. Watch-only wallets can review only.
+```
+
 ### BackupSeed (`/backup-seed`)
 ```
 Step 1 — PIN verification:

@@ -49,7 +49,7 @@ The DigiByte Wallet is a self-custodial Progressive Web App (PWA) built with Bla
 
 | Project | Type | Purpose |
 |---------|------|---------|
-| `DigiByte.Crypto` | Class Library | BIP39/BIP84, HD keys, tx building, Digi-ID, WIF import, multisig (redeem scripts, PSBT) |
+| `DigiByte.Crypto` | Class Library | BIP39/BIP84, HD keys, tx building, Digi-ID, WIF import, multisig (redeem scripts, PSBT), PSBT review and signing (`Psbt/`: `PsbtDocument`, `PsbtAnalyzer`, `PsbtSigner`) |
 | `DigiByte.Wallet` | Class Library | Wallet service, encryption, contacts, storage abstractions, multisig wallet management |
 | `DigiByte.Web` | Blazor WASM PWA | The wallet UI — all pages, components, JS interop |
 | `DigiByte.Api` | Web API | P2P marketplace backend (future) |
@@ -162,6 +162,10 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 | `ContactService` | Scoped | Contact CRUD, search |
 | `PaymentRequestService` | Scoped | BIP21 payment request management |
 | `MultisigWalletService` | Scoped | Multisig wallet CRUD, PSBT signing workflow, co-signer management |
+| `PsbtSigningService` | Scoped | Loads, reviews, signs and broadcasts PSBTs made elsewhere (`/settings/psbt-sign`). Gathers chain facts and runs the pure `PsbtAnalyzer`; holds no PSBT between calls |
+| `IPsbtKeyProvider` | Scoped | Implemented by `WalletService`: the PSBT feature's only route to keys. Gives owned scripts (no key material) and signs chosen inputs on a copy |
+| `PsbtConfirmationFlow` | Per sign | Fixed order before signing or broadcasting: acknowledgment, spending limit, warnings, then biometrics or PIN. Stops at the first failure |
+| `PinAttemptThrottle` | Per page | Wrong-PIN delay shared by the unlock and PSBT signing pages |
 | `FallbackBlockchainService` | Scoped | Cascading blockchain backend orchestration |
 | `NodeApiBlockchainService` | Scoped | RPC wrapper for own node |
 | `BlockchainApiService` | Scoped | Esplora REST API (digiexplorer.info) |

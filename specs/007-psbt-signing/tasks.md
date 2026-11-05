@@ -155,10 +155,10 @@ description: "Task list for PSBT signing in regular wallets"
 
 **Purpose**: Documentation, validation, and the release gate
 
-- [ ] T042 [P] Update docs/ARCHITECTURE.md with the new classes and service, and add the flow to docs/PROCESS_FLOWS.md
-- [ ] T043 [P] Add the PSBT trust model and checks to docs/SECURITY.md, update the PSBT section of docs/COMPLIANCE.md, and update docs/ROADMAP.md
-- [ ] T044 [P] Add this feature to CHANGELOG.md, and mention the Advanced mode entry in src/DigiByte.Web/Pages/Help.razor
-- [ ] T045 Run `dotnet build` and `dotnet test` across the affected test projects, and confirm all multisig tests pass unchanged (SC-008)
+- [X] T042 [P] Update docs/ARCHITECTURE.md with the new classes and service, and add the flow to docs/PROCESS_FLOWS.md
+- [X] T043 [P] Add the PSBT trust model and checks to docs/SECURITY.md, update the PSBT section of docs/COMPLIANCE.md, and update docs/ROADMAP.md
+- [X] T044 [P] Add this feature to CHANGELOG.md, and mention the Advanced mode entry in src/DigiByte.Web/Pages/Help.razor
+- [X] T045 Run `dotnet build` and `dotnet test` across the affected test projects, and confirm all multisig tests pass unchanged (SC-008)
 - [ ] T046 Run the manual checks in section 2 of specs/007-psbt-signing/quickstart.md in the running wallet, including that the review appears within 5 seconds (SC-009) and the browser console shows no PSBT contents (FR-028)
 - [ ] T047 Run a security self-review with `/security-review`, and flag the PR as security-relevant, as the constitution requires
 - [ ] T048 **Release gate**: Run section 3 of specs/007-psbt-signing/quickstart.md against a local DigiByte Core regtest node, and record the transaction IDs in the PR (SC-005). This can't be replaced by automated tests

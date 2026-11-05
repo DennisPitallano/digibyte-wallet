@@ -656,6 +656,25 @@ var siteIndex = (int)(BitConverter.ToUInt32(hash, 0) & 0x7FFFFFFF);
 - Signatures cannot be forged without the corresponding private key
 - NBitcoin handles BIP174 serialization/deserialization with strict parsing
 
+### Signing PSBTs made elsewhere (`/settings/psbt-sign`)
+
+A PSBT loaded on this page is **untrusted**: anyone may have built it, and every field in it may be false.
+
+| Rule | Why |
+|---|---|
+| An input is the wallet's only when its script is one of the wallet's scanned addresses (native SegWit, or legacy within its range); key paths in the PSBT are ignored, for inputs and for change | A PSBT can claim an attacker's output is "change" or that a multisig input is the wallet's |
+| Multisig, wrapped SegWit and Taproot inputs are never signed; Taproot is refused | Keeps signing to the single-key scripts the wallet holds |
+| The wallet's input amounts and scripts are proven against the network's unspent list, which throws rather than returning an empty list when no source answers. A mismatch, a spent coin, or a coin known only on the other network is refused | Defeats false amounts that hide the real fee (the SegWit fee attack) |
+| Chain checks run again just before signing and before broadcast | A coin spent after review is caught |
+| Only the standard signature type (`SIGHASH_ALL`) is used; any other requested on any input is refused. Each input is signed on its own, never with `SignWithKeys` | Prevents signatures that let others change the transaction afterwards |
+| DigiDollar transactions are refused, by version or data output | Their rules aren't checked by this page |
+| A fee over 10% of what leaves, or an unverified fee on a shared transaction, needs an explicit acknowledgment | Makes overpaying visible |
+| Signing and broadcasting run the spending limit, Baku's send-risk warning, then biometrics or a fresh PIN (with the unlock screen's wrong-PIN delay) | Same protections as Send |
+| Before broadcast the signed PSBT is finalized again, so a tampered signature is never sent | The result handed to broadcast isn't trusted either |
+| No PSBT contents are logged; the PSBT is held only by the page and discarded on lock | Avoids leaking transaction details |
+
+Until shared transactions are fully checked (Story 4), other participants' amounts are taken from the PSBT alone. The review then says the fee is unverified and that outputs were not checked, and asks for acknowledgment.
+
 ---
 
 ## Threat Matrix

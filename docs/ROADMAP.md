@@ -42,6 +42,8 @@
 - [x] Co-signer management (public key import, BIP67 sorted keys)
 - [x] P2SH-P2WSH and P2WSH multisig address derivation
 - [x] PSBT signing workflow (create, sign, combine, finalize, broadcast)
+- [x] Sign PSBTs made elsewhere (Advanced mode): review, sign this wallet's inputs, export, broadcast when complete
+- [ ] Verify other participants' amounts in shared PSBTs (PSBT signing, Story 4)
 - [x] Import multisig wallet via redeem script (watch-only or signing)
 - [x] 6 multisig UI pages (list, create wizard, import, detail, send, pending)
 - [x] 52 unit tests (MultisigService, MultisigWalletService, MultisigModels)
