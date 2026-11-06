@@ -29,4 +29,4 @@ Expected: all green; the new envelope, migration, policy, throttle, and biometri
 
 ## Benchmark (feeds SC-002 and SC-003)
 
-Run the benchmark script from the tasks (derivation time and peak memory for each profile, on the reference phone, a mid-range phone, and desktop). Compare per-guess cost to the legacy PBKDF2 setting on CPU and, where available, with published GPU rates. Record in `research.md` and amend SC-002 if the 1,000x target is not met (plan, Open item 1).
+Run the benchmark script from the tasks (derivation time and peak memory for each profile, on the reference phone, a mid-range phone, and desktop). Compare per-guess cost to the legacy PBKDF2 setting on CPU and, where available, with published GPU rates. Record in `research.md` and revisit the parameters or SC-002 if the 100x target is not met (plan, Decisions taken).

@@ -73,6 +73,8 @@
 
 ## Phase 4: User Story 3 - Recovery from the seed phrase keeps working (P1)
 
+
+**Note**: the recovery UI step (T027) sits in the US1 phase because it uses the credential input from T033; quickstart scenario 6 needs T027 as well as T025 and T026.
 **Goal**: Recovery works for legacy, migrated, PIN and passphrase wallets and never changes anything on failure.
 
 **Independent Test**: Quickstart scenario 6.

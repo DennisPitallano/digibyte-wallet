@@ -95,6 +95,6 @@ docs/SECURITY.md                      # update Cryptographic Primitives, Key Man
 
 ## Decisions taken on the open items
 
-1. **SC-002 amended** to at least 100 times higher cost per guess for a GPU-class attacker, measured by the quickstart benchmark. The original 1,000 times target was not reachable together with SC-003. If the benchmark shows less than 100 times, the parameters or the target are revisited before release.
+1. **SC-002 amended** to at least 100 times higher cost per guess for a GPU-class attacker, estimated from the quickstart benchmark and published GPU rates. The original 1,000 times target was not reachable together with SC-003. If the benchmark shows less than 100 times, the parameters or the target are revisited before release.
 2. **Older-version behaviour amended** (FR-012, US2 scenario 5): older shipped versions keep working from the untouched legacy copy for 7 days; after removal the user recovers with the recovery phrase. "Update required" applies to versions released after this feature.
 3. **Still open, settled by the benchmark task**: exact Argon2id parameters, the reference low-end phone, and the common-password list size.
