@@ -228,6 +228,21 @@
 }
 
 @code {
+    /// <summary>
+    /// After a successful unlock, go back to the page that asked for it (?returnUrl=/identity?uri=...), else Home.
+    /// Only same-site relative paths are followed, so the parameter can't be used as an open redirect.
+    /// </summary>
+    private void GoAfterUnlock()
+    {
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
+        var target = query["returnUrl"];
+        var isLocalPath = !string.IsNullOrEmpty(target)
+            && target.StartsWith('/')
+            && !target.StartsWith("//", StringComparison.Ordinal)
+            && !target.StartsWith("/\\", StringComparison.Ordinal);
+        Nav.NavigateTo(isLocalPath ? target! : "/");
+    }
+
     private PinInput? pinInput;
     private string pin = "";
     private string? error;
@@ -371,7 +386,7 @@
                 AppState.IsWalletUnlocked = true;
                 AppState.ActiveWalletName = walletName;
                 AppState.NotifyStateChanged();
-                Nav.NavigateTo("/");
+                GoAfterUnlock();
             }
             else
             {
@@ -405,7 +420,7 @@
                     AppState.IsWalletUnlocked = true;
                     AppState.ActiveWalletName = walletName;
                     AppState.NotifyStateChanged();
-                    Nav.NavigateTo("/");
+                    GoAfterUnlock();
                     return;
                 }
             }
@@ -426,14 +441,14 @@
     {
         showBioEnrollPrompt = false;
         lastDecryptedSeed = null;
-        Nav.NavigateTo("/");
+        GoAfterUnlock();
     }
 
     private void OnBioDismissed()
     {
         showBioEnrollPrompt = false;
         lastDecryptedSeed = null;
-        Nav.NavigateTo("/");
+        GoAfterUnlock();
     }
 
     private void CancelForgot()
@@ -481,7 +496,7 @@
                 AppState.IsWalletCreated = true;
                 AppState.IsWalletUnlocked = true;
                 AppState.NotifyStateChanged();
-                Nav.NavigateTo("/");
+                GoAfterUnlock();
             }
         }
         else
@@ -514,7 +529,7 @@
             AppState.IsWalletUnlocked = true;
             AppState.ActiveWalletName = name;
             AppState.NotifyStateChanged();
-            Nav.NavigateTo("/");
+            GoAfterUnlock();
         }
         else
         {
