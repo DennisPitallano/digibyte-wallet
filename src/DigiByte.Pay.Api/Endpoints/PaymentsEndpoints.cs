@@ -4,6 +4,8 @@ using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Hubs;
 using DigiByte.Pay.Api.Services;
+using DigiByte.Server.Shared;
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigiByte.Pay.Api.Endpoints;
@@ -19,10 +21,24 @@ public static class PaymentsEndpoints
     {
         // POST /v1/pay/merchants — v0 unauthenticated merchant registration.
         // Real auth (Digi-ID signed registration + rotating keys) lands in v1.
-        group.MapPost("/merchants", async (CreateMerchantRequest body, DigiPayDbContext db) =>
+        group.MapPost("/merchants", async (
+            CreateMerchantRequest body, DigiPayDbContext db,
+            IOptions<OutboundOptions> outbound, IOutboundResolver resolver, ILoggerFactory loggers, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.DisplayName))
                 return Results.BadRequest(new { error = "displayName is required" });
+
+            // The webhook URL is merchant-supplied and the server will call it: apply the outbound policy now, and again at every dispatch
+            // (specs/008-security-hardening, DGB-03). Only the short category is returned; details stay in the log.
+            if (!string.IsNullOrWhiteSpace(body.WebhookUrl))
+            {
+                var refusal = await OutboundUrlGuard.ValidateAsync(body.WebhookUrl.Trim(), outbound.Value.Webhook(), resolver, ct);
+                if (refusal is not null)
+                {
+                    loggers.CreateLogger("DigiPayWebhook").LogWarning("Merchant registration refused webhook URL ({Reason})", refusal.Value.ToText());
+                    return Results.BadRequest(new { error = $"webhookUrl: {refusal.Value.ToText()}" });
+                }
+            }
             // Accept either a plain DigiByte address (single-address mode — simple) or a
             // BIP84 account-level xpub (per-session derivation). Backwards-compat: the old
             // `xpub` field is still read if `addressOrXpub` isn't provided.
@@ -67,7 +83,7 @@ public static class PaymentsEndpoints
                 Network = network,
                 Xpub = kind == MerchantAddressService.MerchantKeyKind.Xpub ? key.Trim() : null,
                 ReceiveAddress = kind == MerchantAddressService.MerchantKeyKind.Address ? key.Trim() : null,
-                WebhookUrl = body.WebhookUrl,
+                WebhookUrl = string.IsNullOrWhiteSpace(body.WebhookUrl) ? null : body.WebhookUrl.Trim(),
                 WebhookSecret = webhookSecret,
             });
             await db.SaveChangesAsync();

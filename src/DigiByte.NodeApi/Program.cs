@@ -188,6 +188,7 @@ app.MapGet("/api/health", async (NodeHealthService health) =>
         recommendedVersion = h.RecommendedVersion,
         versionOk = h.VersionOk,
         timestamp = DateTime.UtcNow,
+        commit = DigiByte.NodeApi.BuildInfo.Commit,
     }, statusCode: h.HttpStatus);
 }).WithName("HealthCheck").WithTags("System");
 

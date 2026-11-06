@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using DigiByte.Pay.Api.Data;
+using DigiByte.Server.Shared;
+using Microsoft.Extensions.Options;
 
 namespace DigiByte.Pay.Api.Services;
 
@@ -52,12 +54,22 @@ public class WebhookDispatcher
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<WebhookDispatcher> _logger;
     private readonly DigiPayDbContext _db;
+    private readonly OutboundUrlPolicy _policy;
+    private readonly IOutboundResolver _resolver;
 
-    public WebhookDispatcher(IHttpClientFactory httpFactory, ILogger<WebhookDispatcher> logger, DigiPayDbContext db)
+    /// <summary>Plain-text reason stored on a delivery whose stored URL fails the outbound policy. Details go to the log only.</summary>
+    public const string DestinationNotAllowed = "destination not allowed";
+
+    /// <summary>The most response text kept per delivery (plain text, markup stripped).</summary>
+    public const int MaxSnippetChars = 512;
+
+    public WebhookDispatcher(IHttpClientFactory httpFactory, ILogger<WebhookDispatcher> logger, DigiPayDbContext db, IOptions<OutboundOptions> outbound, IOutboundResolver resolver)
     {
         _httpFactory = httpFactory;
         _logger = logger;
         _db = db;
+        _policy = outbound.Value.Webhook();
+        _resolver = resolver;
     }
 
     public Task<WebhookDelivery?> DispatchAsync(
@@ -149,6 +161,18 @@ public class WebhookDispatcher
         };
         _db.WebhookDeliveries.Add(delivery);
 
+        // Re-validate at dispatch: the stored URL may predate the policy, or its DNS may have changed. A hostile URL is never called;
+        // the delivery records why (visible in the dashboard), the URL and secret stay as they are, and nothing is retried.
+        var refusal = await OutboundUrlGuard.ValidateAsync(store.WebhookUrl, _policy, _resolver, ct);
+        if (refusal is not null)
+        {
+            delivery.ErrorMessage = DestinationNotAllowed;
+            _logger.LogWarning("Webhook {Event} for store {StoreId} not sent: stored URL refused ({Reason}) session={SessionId}",
+                eventName, store.Id, refusal.Value.ToText(), session.Id);
+            await _db.SaveChangesAsync(ct);
+            return delivery;
+        }
+
         using var request = new HttpRequestMessage(HttpMethod.Post, store.WebhookUrl)
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
@@ -161,7 +185,7 @@ public class WebhookDispatcher
         var sw = Stopwatch.StartNew();
         try
         {
-            var response = await http.SendAsync(request, ct);
+            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             sw.Stop();
             delivery.StatusCode = (int)response.StatusCode;
             delivery.DurationMs = (int)sw.ElapsedMilliseconds;
@@ -171,8 +195,8 @@ public class WebhookDispatcher
             // on 4xx/5xx without having to wire their own logging first.
             try
             {
-                var respBody = await response.Content.ReadAsStringAsync(ct);
-                delivery.ResponseSnippet = respBody.Length > 2048 ? respBody[..2048] : respBody;
+                var (respBody, _) = await response.Content.ReadCappedAsync(_policy.MaxResponseBytes, ct);
+                delivery.ResponseSnippet = ToPlainSnippet(respBody);
             }
             catch { /* non-fatal */ }
 
@@ -191,7 +215,10 @@ public class WebhookDispatcher
         {
             sw.Stop();
             delivery.DurationMs = (int)sw.ElapsedMilliseconds;
-            delivery.ErrorMessage = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
+            // A connect-time block (hostname resolved to a private address) gets the same generic reason and is not retried; anything else keeps
+            // its message so merchants can debug their receiver.
+            var blocked = ex is OutboundBlockedException || ex.InnerException is OutboundBlockedException;
+            delivery.ErrorMessage = blocked ? DestinationNotAllowed : (ex.Message.Length > 500 ? ex.Message[..500] : ex.Message);
             _logger.LogWarning(ex, "Webhook {Event} → {Url} threw (session={SessionId}, attempt={Attempt})",
                 eventName, store.WebhookUrl, session.Id, attempt);
         }
@@ -206,7 +233,7 @@ public class WebhookDispatcher
         // the merchant, and the dummy session isn't persisted so the retrier
         // wouldn't be able to rebuild the payload anyway.
         var isTestPing = session.Id.StartsWith("ses_test_", StringComparison.Ordinal);
-        if (!delivery.Success && !isTestPing && IsRetryable(delivery.StatusCode, delivery.ErrorMessage))
+        if (!delivery.Success && !isTestPing && delivery.ErrorMessage != DestinationNotAllowed && IsRetryable(delivery.StatusCode, delivery.ErrorMessage))
         {
             var backoffIndex = attempt - 1;
             if (backoffIndex < RetrySchedule.Length && RetrySchedule[backoffIndex] is TimeSpan wait)
@@ -235,6 +262,17 @@ public class WebhookDispatcher
         // Explicit transient status codes.
         if (statusCode == 408 || statusCode == 429) return true;
         return false;
+    }
+
+    /// <summary>
+    /// First <see cref="MaxSnippetChars"/> characters of the receiver's reply as plain text: tags removed and the rest HTML-escaped, so a
+    /// hostile receiver cannot get markup into the dashboard through the snippet, whatever the status code.
+    /// </summary>
+    internal static string ToPlainSnippet(string body)
+    {
+        var head = body.Length > MaxSnippetChars ? body[..MaxSnippetChars] : body;
+        var noTags = System.Text.RegularExpressions.Regex.Replace(head, "<[^>]*>?", string.Empty);
+        return System.Net.WebUtility.HtmlEncode(noTags);
     }
 
     private static string Sign(string body, string secret)

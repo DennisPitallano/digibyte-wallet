@@ -3,6 +3,7 @@ using DigiByte.Api.Endpoints;
 using DigiByte.Api.Hubs;
 using DigiByte.Api.Services;
 using DigiByte.P2P.Shared.Sponsors;
+using DigiByte.Server.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,11 +21,10 @@ builder.Services.AddHttpClient("CoinGeckoProxy", client =>
 {
     client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
 });
-builder.Services.AddHttpClient("DigiIdProxy", client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
-    client.Timeout = TimeSpan.FromSeconds(15);
-});
+// Digi-ID callback proxy: the target is derived from a signature-verified URI and the client refuses redirects and private/loopback/metadata
+// addresses at connect time (specs/008-security-hardening). Outbound:AllowLoopback is a development-only switch and defaults to false.
+builder.Services.Configure<OutboundOptions>(builder.Configuration.GetSection(OutboundOptions.SectionName));
+builder.Services.AddGuardedHttpClient("DigiIdProxy", OutboundUrlPolicy.DigiId(builder.Configuration.GetValue<bool>("Outbound:AllowLoopback")));
 // ── Sponsor submissions (specs/006-sponsors-page): public intake relay, constitution 1.1.0 ──
 // The bot token is read ONLY from the environment variable Sponsors__GitHubToken; it is never in a config file, log or response.
 builder.Services.Configure<SponsorOptions>(builder.Configuration.GetSection("Sponsors"));
@@ -60,8 +60,24 @@ builder.Services.AddRateLimiter(limiter =>
             AutoReplenishment = true,
         });
     });
+    // Digi-ID callback proxy: 10 requests per minute per client (the visitor key is the rightmost X-Forwarded-For entry, which the proxy appended).
+    limiter.AddPolicy(DigiIdEndpoints.RateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(SponsorEndpoints.ClientKey(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
     limiter.OnRejected = async (context, token) =>
     {
+        if (context.HttpContext.Request.Path.StartsWithSegments("/api/digiid"))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = "60";
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            await context.HttpContext.Response.WriteAsJsonAsync(new { source = "proxy", reason = "rate limited" }, token);
+            return;
+        }
         context.HttpContext.Response.Headers.RetryAfter = "3600";
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         await context.HttpContext.Response.WriteAsJsonAsync(new SponsorSubmissionResult { State = SponsorSubmissionState.RateLimited }, SponsorJson.Options, token);
@@ -129,7 +145,7 @@ app.MapGroup("/api/sponsors")
     .MapSponsorEndpoints();
 
 // Health check
-app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
+app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow, commit = BuildInfo.Commit }));
 
 // SignalR hubs
 app.MapHub<TradeChatHub>("/hubs/trade");
