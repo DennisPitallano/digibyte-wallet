@@ -310,6 +310,18 @@ Browser → DigiByte.Api (CORS-allowed) → CoinGecko API
 - Server-side caching (60s TTL) reduces external API load
 - Rate limiting absorbed by server, not end users
 
+### Outbound requests to user-supplied URLs
+
+Two server features call a URL somebody else supplies: the Digi-ID callback proxy (`DigiByte.Api`) and DigiPay webhooks (`DigiByte.Pay.Api`). Both go through the shared guard in `DigiByte.Server.Shared` (`OutboundUrlGuard`, `GuardedHttpClientExtensions`; referenced by those two services only):
+
+- **Digi-ID callback**: the destination is derived from the signature-verified `digiid://` URI (`digiid://host/path?x=nonce` becomes `https://host/path?x=nonce`). A `callbackUrl` sent by the caller is only accepted if it equals that URL; `u=1` (http) is refused; a bad signature is refused. Rate limited to 10 requests a minute per client. Proxy refusals are `{"source":"proxy","reason":...}` so the wallet can tell them from the site's own reply.
+- **Webhooks**: the URL is validated at merchant registration, at store update, and again at every dispatch. A stored URL that fails is not called; the delivery records "destination not allowed", and the stored URL and secret are left alone. `ResponseSnippet` keeps 512 characters as plain text. Merchant registration is limited to 5 an hour per client.
+- **Rules (both)**: absolute `https`, no userinfo, at most 2048 characters; ports 443 only for Digi-ID and 443, 8443, 8080, 8000 for webhooks; no loopback, private, link-local (including the cloud metadata address), CGNAT, multicast or reserved addresses, and no IPv4-mapped IPv6 forms of them. Redirects are not followed. The address is checked on the socket actually connected (so DNS rebinding cannot change it after validation), with a 10 second timeout and a 64 KB response cap.
+- **Development switch**: `Outbound:AllowLoopback=true` permits loopback only. It defaults to false and must not be set in production.
+- **Client address for rate limits**: the rightmost `X-Forwarded-For` entry (the one Railway's proxy appends), captured before the forwarded-headers middleware runs, so a spoofed header cannot reset a limit.
+- **Egress**: the guard is the control in code. Where Railway lets a service restrict outbound network access, also restrict `digibyte-api` and `digipay-api` to the public internet only. Whether Railway offers this for these services has not been confirmed from this repository; the maintainer records the answer in the release notes (spec `008-security-hardening`, T037).
+- Refused attempts are logged server-side (destination host and the short reason); the client only ever gets the short category.
+
 ### Forwarded Headers (Reverse Proxy)
 
 ```csharp
@@ -364,10 +376,24 @@ base-uri       'self'
 
 ### Additional Security Headers
 
-```html
-<meta http-equiv="X-Content-Type-Options" content="nosniff" />
-<meta http-equiv="Referrer-Policy" content="no-referrer" />
+A `<meta>` tag cannot set `frame-ancestors` or `X-Frame-Options`, so the wallet's Nginx (`docker/web/nginx.conf`) sends these as real response headers on every route, from `docker/web/security-headers.conf` (included in the server block and in every location that sets its own `add_header`, because Nginx drops inherited ones there):
+
 ```
+Content-Security-Policy: frame-ancestors 'none'
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: no-referrer
+```
+
+The `<meta>` copies of `X-Content-Type-Options` and `Referrer-Policy` stay for local development. Verify with `curl -sI` on `/`, `/config.json`, a `.js` file, `/service-worker.js`, an unknown route and a 404.
+
+### No third-party scripts
+
+Google Analytics was removed from the wallet origin (`gtag.js`, `js/analytics.js` and their CSP entries). No third-party script runs in the wallet origin and none is loaded from a CDN. First-party analytics, if wanted, is a separate spec.
+
+### Known gap: PIN key derivation
+
+The wallet's encryption key is derived from the six-digit PIN with PBKDF2. Someone who copies a browser profile can guess a six-digit PIN offline far faster than the on-screen lockout allows. The wallet now says so where the PIN is set; moving to a memory-hard function (Argon2id) with a versioned envelope is a separate spec (FR-014 of `008-security-hardening`).
 
 ### Self-Hosted Assets (Supply Chain Mitigation)
 

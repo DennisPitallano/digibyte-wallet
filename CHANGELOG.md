@@ -4,6 +4,17 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Security
+- Closed several server-side holes found in an external review. Details follow once the fixes are deployed and the advisory is published.
+- Removed Google Analytics (`gtag.js`) from the wallet; no third-party script runs in the wallet origin.
+- The wallet's web server now sends frame, content-type and referrer headers on every route.
+- `/api/health` on all three APIs reports the commit the running build came from (`commit`).
+- Merchant registration and the Digi-ID callback proxy are rate limited per client.
+
+### Changed
+- The public directory no longer accepts new entries or deletions; lookups are unchanged.
+- Digi-ID sign-in now requires an https site on port 443.
+
 ## [0.4.0] - 2026-11-06
 
 ### Added

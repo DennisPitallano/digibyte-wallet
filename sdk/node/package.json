@@ -2,7 +2,15 @@
   "name": "@dgbwallet/digipay",
   "version": "0.1.0",
   "description": "Official Node.js SDK for DigiPay — accept DigiByte payments on your site.",
-  "keywords": ["digibyte", "dgb", "crypto", "payment", "digipay", "non-custodial", "checkout"],
+  "keywords": [
+    "digibyte",
+    "dgb",
+    "crypto",
+    "payment",
+    "digipay",
+    "non-custodial",
+    "checkout"
+  ],
   "homepage": "https://pay.dgbwallet.app",
   "repository": {
     "type": "git",
@@ -38,7 +46,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "rimraf": "^5.0.5",
+    "rimraf": "^6.1.4",
     "typescript": "^5.4.0"
   }
 }
