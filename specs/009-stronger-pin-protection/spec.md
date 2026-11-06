@@ -22,6 +22,7 @@ This is finding **DGB-04** of the external review; DGB-01 to DGB-03 and DGB-05 t
 - Q: For biometric-enabled wallets, what should be done about the biometric key and the biometric seed copy stored side by side in browser storage? → A: In scope, best effort. Protect the biometric key so only the biometric check can release it, where the browser supports that. Where unsupported, keep today's behaviour and warn the user plainly that biometrics lowers protection against copied browser data.
 - Q: For the 30 days after an upgrade, should the old weakly protected copy stay in browser storage for rollback? → A: Short window. Keep it for 7 days, remove it on the next successful unlock after that, and tell the user in the upgrade notice. Rollback after removal is recovery from the seed phrase.
 - Q: If a device or browser cannot run the memory-hard protection at all, what happens on new-wallet creation? → A: Allow legacy protection only after a plain warning and explicit user agreement; mark the wallet as legacy protection and upgrade it automatically on first unlock on a capable device or browser.
+- Q: Besides the passphrase, should users be able to choose a longer numeric PIN? → A: No. Credential types are the six-digit PIN and the passphrase only.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -145,7 +146,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 
 **Credential and protection**
 
-- **FR-001**: Users MUST be able to protect a wallet with a passphrase instead of a six-digit PIN, both when creating a wallet and later from settings; PIN-only protection MUST remain available. Credential setup MUST recommend a passphrase (explaining it is advised for larger holdings), and settings MUST show a dismissible upgrade prompt on PIN-protected wallets; the app MUST NOT use balance-triggered or recurring reminders, and MUST NOT require a passphrase.
+- **FR-001**: Users MUST be able to protect a wallet with a passphrase instead of a six-digit PIN, both when creating a wallet and later from settings; PIN-only protection MUST remain available. Credential setup MUST recommend a passphrase (explaining it is advised for larger holdings), and settings MUST show a dismissible upgrade prompt on PIN-protected wallets; the app MUST NOT use balance-triggered or recurring reminders, and MUST NOT require a passphrase. The supported credential types are exactly the six-digit PIN and the passphrase; longer or variable-length numeric PINs are not offered.
 - **FR-002**: The system MUST enforce a minimum passphrase length and reject very common passphrases, and MUST show the user why a passphrase was rejected.
 - **FR-003**: The key that encrypts stored secrets MUST be derived with a deliberately memory-hard, time-hard process performed entirely in the user's browser, with cost settings chosen so each offline guess is substantially more expensive than today's (target in SC-002).
 - **FR-004**: Each stored secret MUST use its own fresh random salt and nonce, and stored data MUST remain authenticated so tampering or a wrong credential is detected.
@@ -223,4 +224,4 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 - Today the biometric key and the biometric seed copy are stored together in browser storage, so copied browser data can expose the seed without the PIN. This feature closes that where the browser allows (FR-018a) and otherwise warns (FR-018b); it does not remove biometric unlock.
 - The throttle remains per-page as today. A persistent throttle or a wipe-after-N-attempts policy is out of scope.
 - Server-side components do not participate; all work stays in the browser, consistent with the constitution.
-- Out of scope: first-party analytics, directory registration with ownership proof, changing the recovery-phrase format, hardware-wallet support, cloud backup, and any operator-assisted recovery.
+- Out of scope: longer or variable-length numeric PINs (the credential types are the six-digit PIN and the passphrase), first-party analytics, directory registration with ownership proof, changing the recovery-phrase format, hardware-wallet support, cloud backup, and any operator-assisted recovery.
