@@ -14,6 +14,12 @@ The wallet encrypts each stored secret (recovery phrase, imported private key, w
 
 This is finding **DGB-04** of the external review; DGB-01 to DGB-03 and DGB-05 to DGB-07 were fixed under `specs/008-security-hardening`.
 
+## Clarifications
+
+### Session 2026-11-06
+
+- Q: Should the app actively encourage a passphrase, or only offer it? → A: Gentle nudge. Setup recommends a passphrase for larger holdings, settings shows a dismissible upgrade card on PIN wallets, and there is no balance-triggered or recurring reminder.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Protect a wallet with a strong passphrase (Priority: P1)
@@ -136,7 +142,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 
 **Credential and protection**
 
-- **FR-001**: Users MUST be able to protect a wallet with a passphrase instead of a six-digit PIN, both when creating a wallet and later from settings; PIN-only protection MUST remain available.
+- **FR-001**: Users MUST be able to protect a wallet with a passphrase instead of a six-digit PIN, both when creating a wallet and later from settings; PIN-only protection MUST remain available. Credential setup MUST recommend a passphrase (explaining it is advised for larger holdings), and settings MUST show a dismissible upgrade prompt on PIN-protected wallets; the app MUST NOT use balance-triggered or recurring reminders, and MUST NOT require a passphrase.
 - **FR-002**: The system MUST enforce a minimum passphrase length and reject very common passphrases, and MUST show the user why a passphrase was rejected.
 - **FR-003**: The key that encrypts stored secrets MUST be derived with a deliberately memory-hard, time-hard process performed entirely in the user's browser, with cost settings chosen so each offline guess is substantially more expensive than today's (target in SC-002).
 - **FR-004**: Each stored secret MUST use its own fresh random salt and nonce, and stored data MUST remain authenticated so tampering or a wrong credential is detected.
@@ -197,6 +203,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 - **SC-007**: Wrong-credential behaviour (threshold, delay, messages) is identical in outcome for PIN and passphrase wallets on every page that asks for a credential.
 - **SC-008**: Every new string exists in both English and Spanish, with none missing or showing a raw key.
 - **SC-009**: Users who take no action see no new required steps after the upgrade.
+- **SC-010**: A dismissed passphrase upgrade prompt does not reappear on later unlocks or sessions unless the user reopens it from settings.
 
 ## Assumptions
 
