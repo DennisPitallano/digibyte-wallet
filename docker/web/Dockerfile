@@ -43,7 +43,8 @@ RUN dotnet publish src/DigiByte.Web/DigiByte.Web.csproj \
     -c Release -o /app/publish --no-restore
 
 # Copy nginx config into a known location for the runtime stage
-RUN cp docker/web/nginx.conf /app/publish/nginx.conf
+RUN cp docker/web/nginx.conf /app/publish/nginx.conf \
+    && cp docker/web/security-headers.conf /app/publish/security-headers.conf
 
 # === Runtime stage — Nginx to serve static files ===
 FROM nginx:alpine AS runtime
@@ -54,6 +55,8 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copy published Blazor WASM output and nginx config from build stage
 COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 COPY --from=build /app/publish/nginx.conf /etc/nginx/conf.d/default.conf
+# Included by nginx.conf in the server block and in each location that sets its own add_header (frame-ancestors, nosniff, referrer policy).
+COPY --from=build /app/publish/security-headers.conf /etc/nginx/conf.d/security-headers.conf
 
 # Writes config.json (own-node settings from environment variables) each time the container starts; nginx runs every
 # executable script in /docker-entrypoint.d/ before it starts, so the settings change with a restart, not a rebuild.

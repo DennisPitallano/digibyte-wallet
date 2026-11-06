@@ -44,8 +44,7 @@
 
 - Page CSP drops `'unsafe-inline'` from both `script-src` and `style-src`.
   All inline scripts have been moved out to
-  [`wwwroot/js/analytics.js`](../src/DigiByte.Web/wwwroot/js/analytics.js)
-  and [`wwwroot/js/pwa-bootstrap.js`](../src/DigiByte.Web/wwwroot/js/pwa-bootstrap.js);
+  [`wwwroot/js/pwa-bootstrap.js`](../src/DigiByte.Web/wwwroot/js/pwa-bootstrap.js);
   inline styles to [`wwwroot/css/splash.css`](../src/DigiByte.Web/wwwroot/css/splash.css).
 - The single static `<script type="application/ld+json">` block (Schema.org
   metadata, no executable code) is covered by a `'sha256-…'` hash in CSP.

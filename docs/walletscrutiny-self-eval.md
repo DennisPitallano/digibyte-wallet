@@ -31,14 +31,8 @@ obvious gaps so the listing lands as cleanly as possible the first time.
     (`rollForward: latestPatch`).
   - ✅ Tailwind + Inter are pinned to exact versions and a
     `package-lock.json` is committed.
-- **One accepted limitation:** the third-party `gtag.js` is still loaded
-  without an SRI hash. Google rotates that file unannounced; pinning a hash
-  would silently break analytics on every rotation. We've chosen to keep it
-  as-is — the GA bootstrap is in [`js/analytics.js`](../src/DigiByte.Web/wwwroot/js/analytics.js)
-  (no key material ever flows through it) and the script is `async crossorigin`
-  loaded outside the signing path. Reviewers who want a fully-green outcome
-  can either ask us to drop GA or proxy a versioned copy through the wallet
-  origin — both are documented as Option 1 / Option 2 in §2.2.
+- **Third-party scripts removed:** Google Analytics (`gtag.js`) is no longer loaded and
+  `js/analytics.js` is deleted, so no third-party script runs in the wallet origin (spec `008-security-hardening`).
 
 ---
 
@@ -116,7 +110,9 @@ The wallet's own JS (`crypto.js`, `storage.js`, `dom-helpers.js`, the Blazor
 runtime) is served from the same origin — no jsDelivr / cdnjs / unpkg.
 Tailwind CSS is built locally and self-hosted.
 
-### 2.2 Third-party scripts — **gap to fix** ✗
+### 2.2 Third-party scripts — **closed ✅**
+
+> Historical note: Google Analytics was loaded here until spec `008-security-hardening` removed it. The text below describes the gap as it was reviewed.
 
 [`src/DigiByte.Web/wwwroot/index.html`](../src/DigiByte.Web/wwwroot/index.html):47–53
 loads Google Analytics:
@@ -265,7 +261,7 @@ verification recipes with copy-paste commands.
 | Build instructions in README | ✅ | (verify before submission) |
 | Released binaries match a tagged commit | ✅ | `wallet-v*` tag triggers `.github/workflows/wallet-release-manifest.yml`; per-tag JSON manifest + zipped bundle attached to GitHub Release |
 | Reproducible build | ✅ | `Deterministic` + `ContinuousIntegrationBuild` set in `Directory.Build.props`; SDK pinned in `global.json`; verification recipe in `release-hashes/README.md` |
-| No third-party script without SRI | ⚠ | Self-hosted scripts ✓; `gtag.js` accepted with documented operational rationale (§2.2) |
+| No third-party script without SRI | ✅ | Self-hosted scripts only; `gtag.js` removed (§2.2) |
 | Strict CSP | ✅ | Both `script-src` and `style-src` strict; element `style="…"` scoped to `style-src-attr`. Inline scripts (importmap + ld+json) covered by per-block sha256 hashes injected at publish time by `tools/inject-csp-hashes.py`. |
 | PWA / offline capable | ✅ | manifest + service worker |
 | License clear | ✅ | (verify LICENSE file before submission) |
@@ -300,18 +296,9 @@ What's already done:
    public-facing summaries that link back here for reviewers who want the
    full audit.
 
-**Accepted limitation:**
+**Closed:**
 
-7. **Google Analytics** is loaded from `googletagmanager.com` without an
-   SRI hash. Pinning a hash isn't viable on the canonical URL because
-   Google rotates the file unannounced (silent break on every rotation).
-   The bootstrap is in [`js/analytics.js`](../src/DigiByte.Web/wwwroot/js/analytics.js)
-   — no key material flows through it and the script loads outside the
-   signing path. We've documented this as an accepted trade-off rather
-   than removing analytics entirely. If a reviewer wants this closed,
-   the two paths are: drop GA from the wallet origin, or proxy a
-   versioned copy through the wallet's own origin (e.g. `/g/<release>.js`)
-   with an SRI hash.
+7. **Google Analytics** was removed from the wallet origin; no third-party script is loaded.
 
 ## 6. Submission
 

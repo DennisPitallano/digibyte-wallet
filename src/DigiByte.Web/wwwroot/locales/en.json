@@ -62,6 +62,7 @@
   "create.confirm_title": "Confirm Recovery Phrase",
   "create.set_pin": "Set Your PIN",
   "create.pin_hint": "Choose a PIN to unlock your wallet every time you open the app.",
+  "create.pin_limitation": "A 6-digit PIN can be guessed offline by someone who copies this browser's data. Keep your device locked and protected, and keep your recovery phrase backed up.",
   "unlock.welcome": "Welcome back",
   "dd.title": "DigiDollar",
   "dd.loading": "Loading DigiDollar…",

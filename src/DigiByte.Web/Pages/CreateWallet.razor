@@ -2,6 +2,7 @@
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
+@inject LocalizationService L
 
 <PageTitle>@(isAddWalletMode ? "Add" : "Create") Wallet</PageTitle>
 
@@ -127,6 +128,7 @@
         <div class="slide-up text-center">
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
+            <p class="text-xs text-amber-600 dark:text-amber-400 mt-2 max-w-xs mx-auto" data-testid="pin-limitation-note">@L.T("create.pin_limitation")</p>
         </div>
 
         <div class="flex flex-col gap-4 items-center">

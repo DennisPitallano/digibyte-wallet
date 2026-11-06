@@ -49,6 +49,7 @@ The DigiByte Wallet is a self-custodial Progressive Web App (PWA) built with Bla
 
 | Project | Type | Purpose |
 |---------|------|---------|
+| `DigiByte.Server.Shared` | Class Library | Outbound-request guard for the two public APIs only (`DigiByte.Api`, `DigiByte.Pay.Api`): URL and resolved-address checks, no redirects, capped reads, client address for rate limits. References no other project. |
 | `DigiByte.Crypto` | Class Library | BIP39/BIP84, HD keys, tx building, Digi-ID, WIF import, multisig (redeem scripts, PSBT), PSBT review and signing (`Psbt/`: `PsbtDocument`, `PsbtAnalyzer`, `PsbtSigner`) |
 | `DigiByte.Wallet` | Class Library | Wallet service, encryption, contacts, storage abstractions, multisig wallet management |
 | `DigiByte.Web` | Blazor WASM PWA | The wallet UI — all pages, components, JS interop |

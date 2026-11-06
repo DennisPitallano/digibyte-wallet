@@ -410,6 +410,8 @@ Approve:
   → ConfirmAuthAsync():
     1. Derive Digi-ID key: m/13'/siteIndex'/0'/0
     2. Sign challenge message with derived key
+       (the API proxy derives the callback URL from the signed URI, verifies the signature, refuses http,
+        redirects and private addresses, and answers refusals with {"source":"proxy","reason":...})
     3. POST signature to callback URL
     4. Success → show "Authenticated with {domain}"
     5. Prepend entry (domain, address, UTC timestamp) to history list
