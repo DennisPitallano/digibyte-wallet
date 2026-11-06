@@ -355,6 +355,14 @@
 
             if (incomingUri.StartsWith("digiid://", StringComparison.OrdinalIgnoreCase))
             {
+                // Opened from a link while the wallet is locked: unlock first, then come back with the same URI.
+                if (!WalletService.IsUnlocked)
+                {
+                    var back = "/identity?uri=" + Uri.EscapeDataString(incomingUri);
+                    Nav.NavigateTo("/unlock?returnUrl=" + Uri.EscapeDataString(back));
+                    return;
+                }
+
                 digiIdUri = incomingUri;
                 StateHasChanged();
                 await Task.Delay(100); // brief delay for UI to render
