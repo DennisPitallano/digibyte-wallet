@@ -73,11 +73,11 @@
 
 ## Phase 4: User Story 3 - Recovery from the seed phrase keeps working (P1)
 
-
-**Note**: the recovery UI step (T027) sits in the US1 phase because it uses the credential input from T033; quickstart scenario 6 needs T027 as well as T025 and T026.
 **Goal**: Recovery works for legacy, migrated, PIN and passphrase wallets and never changes anything on failure.
 
 **Independent Test**: Quickstart scenario 6.
+
+**Note**: the recovery UI step (T027) sits in the US1 phase because it uses the credential input from T033; quickstart scenario 6 needs T027 as well as T025 and T026.
 
 - [ ] T025 [P] [US3] Write `tests/DigiByte.Wallet.Tests/WalletRecoveryTests.cs`: reset with the correct phrase re-protects under the new credential as `v2` and deletes the legacy copy and any migration record's legacy flag; old credential stops working; invalid or malformed phrase changes nothing in storage (assert full storage snapshot equality); passphrase wallet can switch to a PIN and back; watch-only and imported-key wallets recover by re-import.
 - [ ] T026 [US3] Update `ResetPinAsync` in `src/DigiByte.Wallet/Services/WalletService.cs` (and the equivalent reset paths around lines 1868 to 1912) to write `v2`, remove the legacy copy, accept either credential kind, and make no storage writes before the phrase is validated; make T025 pass.
