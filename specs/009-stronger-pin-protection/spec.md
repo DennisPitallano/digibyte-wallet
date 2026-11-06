@@ -21,6 +21,7 @@ This is finding **DGB-04** of the external review; DGB-01 to DGB-03 and DGB-05 t
 - Q: Should the app actively encourage a passphrase, or only offer it? → A: Gentle nudge. Setup recommends a passphrase for larger holdings, settings shows a dismissible upgrade card on PIN wallets, and there is no balance-triggered or recurring reminder.
 - Q: For biometric-enabled wallets, what should be done about the biometric key and the biometric seed copy stored side by side in browser storage? → A: In scope, best effort. Protect the biometric key so only the biometric check can release it, where the browser supports that. Where unsupported, keep today's behaviour and warn the user plainly that biometrics lowers protection against copied browser data.
 - Q: For the 30 days after an upgrade, should the old weakly protected copy stay in browser storage for rollback? → A: Short window. Keep it for 7 days, remove it on the next successful unlock after that, and tell the user in the upgrade notice. Rollback after removal is recovery from the seed phrase.
+- Q: If a device or browser cannot run the memory-hard protection at all, what happens on new-wallet creation? → A: Allow legacy protection only after a plain warning and explicit user agreement; mark the wallet as legacy protection and upgrade it automatically on first unlock on a capable device or browser.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -178,7 +179,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 **Performance and device limits**
 
 - **FR-020**: Derivation MUST NOT freeze the interface; the user MUST see an unlocking indicator, and repeat submissions during derivation MUST be ignored.
-- **FR-021**: Cost settings MUST meet SC-003 on a representative low-end phone; on devices that cannot meet the standard settings the system MUST NOT silently fall below a defined minimum and MUST tell the user what is happening.
+- **FR-021**: Cost settings MUST meet SC-003 on a representative low-end phone; on devices that cannot meet the standard settings the system MUST NOT silently fall below a defined minimum and MUST tell the user what is happening. If a device or browser cannot run the memory-hard protection at all, new-wallet creation MUST still be allowed with the legacy protection, but only after a plain warning that the wallet is weaker and the user's explicit agreement; the wallet MUST be marked as legacy protection and MUST upgrade automatically on its first unlock on a capable device or browser.
 
 **Wording and documentation**
 
@@ -210,6 +211,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 - **SC-010**: A dismissed passphrase upgrade prompt does not reappear on later unlocks or sessions unless the user reopens it from settings.
 - **SC-011**: On browsers that support it, copying a biometric-enabled wallet's stored data to another profile or device does not allow the seed to be recovered without the biometric check or the credential.
 - **SC-012**: No legacy-format copy of a wallet secret remains in storage more than 7 days after migration plus one successful unlock.
+- **SC-013**: On a browser that cannot run the memory-hard protection, 100% of new wallets are created with legacy protection only after the user has seen the weaker-protection warning and agreed, and are marked as legacy protection until upgraded.
 
 ## Assumptions
 
