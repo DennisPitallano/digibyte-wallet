@@ -19,6 +19,7 @@ This is finding **DGB-04** of the external review; DGB-01 to DGB-03 and DGB-05 t
 ### Session 2026-11-06
 
 - Q: Should the app actively encourage a passphrase, or only offer it? → A: Gentle nudge. Setup recommends a passphrase for larger holdings, settings shows a dismissible upgrade card on PIN wallets, and there is no balance-triggered or recurring reminder.
+- Q: For biometric-enabled wallets, what should be done about the biometric key and the biometric seed copy stored side by side in browser storage? → A: In scope, best effort. Protect the biometric key so only the biometric check can release it, where the browser supports that. Where unsupported, keep today's behaviour and warn the user plainly that biometrics lowers protection against copied browser data.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -168,7 +169,9 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 
 - **FR-016**: The existing wrong-credential throttle MUST apply equally to PIN and passphrase wallets everywhere a credential is requested, including the unlock page and PSBT signing, with wording appropriate to the credential type.
 - **FR-017**: A failed attempt caused by an environmental problem (out of memory, interrupted work) MUST NOT be counted as a wrong credential.
-- **FR-018**: Biometric unlock MUST keep working across migration without re-enrolment, and MUST NOT weaken the protection of stored secrets or bypass credential-gated actions that require the credential today.
+- **FR-018**: Biometric unlock MUST keep working across migration without re-enrolment, and MUST NOT bypass credential-gated actions that require the credential today.
+- **FR-018a**: Where the browser supports it, the key that protects the biometric seed copy MUST be releasable only by the biometric check itself, so that copying the browser's stored data does not expose the seed without that check. Existing biometric enrolments MUST be upgraded to this protection without re-enrolment where possible, or prompt a one-time re-enrolment where not.
+- **FR-018b**: Where the browser does not support that protection, biometric enrolment MUST show a plain warning that biometrics lowers protection against copied browser data, and MUST let the user decline; users who already have biometrics enabled MUST see the same warning once.
 - **FR-019**: Operations that currently require the credential (view recovery phrase, change credential, enrol biometrics, signing flows that prompt for it) MUST continue to do so.
 
 **Performance and device limits**
@@ -204,6 +207,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 - **SC-008**: Every new string exists in both English and Spanish, with none missing or showing a raw key.
 - **SC-009**: Users who take no action see no new required steps after the upgrade.
 - **SC-010**: A dismissed passphrase upgrade prompt does not reappear on later unlocks or sessions unless the user reopens it from settings.
+- **SC-011**: On browsers that support it, copying a biometric-enabled wallet's stored data to another profile or device does not allow the seed to be recovered without the biometric check or the credential.
 
 ## Assumptions
 
@@ -212,7 +216,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 - The minimum passphrase length defaults to 12 characters plus a common-password check (final value set in planning).
 - The rollback grace period for the retained legacy copy defaults to 30 days after migration; the copy is removed on a later unlock.
 - Migration happens only on a successful unlock with the correct credential.
-- Biometric unlock remains a convenience layer and does not define the strength of stored secrets; changes to its key material are limited to what is needed to keep it working across migration.
+- Today the biometric key and the biometric seed copy are stored together in browser storage, so copied browser data can expose the seed without the PIN. This feature closes that where the browser allows (FR-018a) and otherwise warns (FR-018b); it does not remove biometric unlock.
 - The throttle remains per-page as today. A persistent throttle or a wipe-after-N-attempts policy is out of scope.
 - Server-side components do not participate; all work stays in the browser, consistent with the constitution.
 - Out of scope: first-party analytics, directory registration with ownership proof, changing the recovery-phrase format, hardware-wallet support, cloud backup, and any operator-assisted recovery.
