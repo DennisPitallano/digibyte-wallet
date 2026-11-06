@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DigiByte.Crypto\DigiByte.Crypto.csproj" />
     <ProjectReference Include="..\DigiByte.Wallet\DigiByte.Wallet.csproj" />
+    <ProjectReference Include="..\DigiByte.Server.Shared\DigiByte.Server.Shared.csproj" />
   </ItemGroup>
 
 </Project>

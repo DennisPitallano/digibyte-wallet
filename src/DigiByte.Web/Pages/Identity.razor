@@ -471,6 +471,22 @@
         digiIdUri = "";
     }
 
+    /// <summary>Returns the proxy's short reason when the reply is a proxy refusal ({"source":"proxy","reason":...}); null for a real site reply.</summary>
+    private static string? ReadProxyReason(string body)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind == System.Text.Json.JsonValueKind.Object
+                && root.TryGetProperty("source", out var source) && source.GetString() == "proxy"
+                && root.TryGetProperty("reason", out var reason))
+                return reason.GetString() ?? "";
+        }
+        catch (System.Text.Json.JsonException) { }
+        return null;
+    }
+
     private async Task RetryAuth()
     {
         authResult = AuthResult.None;
@@ -527,6 +543,23 @@
             {
                 var body = await httpResponse.Content.ReadAsStringAsync();
                 var statusCode = (int)httpResponse.StatusCode;
+
+                // The proxy refused or could not reach the site (it says so with source:"proxy"); that is not the site rejecting the signature.
+                var proxyReason = ReadProxyReason(body);
+                if (proxyReason is not null)
+                {
+                    authErrorTitle = "Couldn't reach the site securely";
+                    authErrorDetail = proxyReason switch
+                    {
+                        "must use https" => "The site must use https for Digi-ID. Nothing was sent.",
+                        "site unreachable" => "The site didn't respond. Try again in a moment.",
+                        "rate limited" => "Too many sign-in attempts. Wait a minute and try again.",
+                        "bad signature" => "The sign-in could not be verified. Try scanning a fresh QR code.",
+                        _ => "The request was not sent because the site's address is not allowed or the request was invalid.",
+                    };
+                    authResult = AuthResult.Failed;
+                    return;
+                }
 
                 authErrorTitle = statusCode switch
                 {

@@ -1,3 +1,4 @@
+using DigiByte.Server.Shared;
 using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Endpoints;
@@ -112,7 +113,7 @@ builder.Services.AddMemoryCache();
 //   sandbox       (20/min  per IP)    — unauthenticated demo/test endpoints, prevents
 //                                       DB-growth drive-bys from the public embed.
 //   auth          (10/min  per IP)    — Digi-ID challenge/verify; slow online guessing.
-//   register      ( 5/min  per IP)    — self-serve merchant signup; caps account spam.
+//   register      ( 5/hour per client)    — self-serve merchant signup; caps account spam.
 //   claim         (20/min  per IP)    — POS pair-code claim; 6-char codes expire in 5min
 //                                       but we still want to blunt sustained guessing.
 //   authenticated (120/min per token) — merchant-authed endpoints. Partitioned by the
@@ -127,7 +128,7 @@ builder.Services.AddRateLimiter(options =>
     static System.Threading.RateLimiting.RateLimitPartition<string> PerIp(
         HttpContext ctx, int permit, TimeSpan window)
     {
-        var key = ctx.Connection.RemoteIpAddress?.ToString() ?? "anon";
+        var key = DigiByte.Server.Shared.ClientAddress.Of(ctx);
         return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             key,
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
@@ -154,7 +155,7 @@ builder.Services.AddRateLimiter(options =>
         }
         else
         {
-            key = "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "anon");
+            key = "ip:" + DigiByte.Server.Shared.ClientAddress.Of(ctx);
         }
         return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             key,
@@ -167,7 +168,8 @@ builder.Services.AddRateLimiter(options =>
     }
     options.AddPolicy("sandbox",       ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
     options.AddPolicy("auth",          ctx => PerIp(ctx, 10, TimeSpan.FromMinutes(1)));
-    options.AddPolicy("register",      ctx => PerIp(ctx,  5, TimeSpan.FromMinutes(1)));
+    // 5 merchant registrations per hour per client (specs/008-security-hardening, T030); RateLimits:RegisterPerHour lets tests widen it.
+    options.AddPolicy("register",      ctx => PerIp(ctx, ctx.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimits:RegisterPerHour", 5), TimeSpan.FromHours(1)));
     options.AddPolicy("claim",         ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
     options.AddPolicy("authenticated", ctx => PerToken(ctx, 120, TimeSpan.FromMinutes(1)));
 });
@@ -211,11 +213,10 @@ builder.Services.AddHttpClient("DigiPayChain", client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay/0.1");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
-builder.Services.AddHttpClient("DigiPayWebhook", client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay-Webhook/0.1");
-    client.Timeout = TimeSpan.FromSeconds(10);
-});
+// Webhook receivers are merchant-supplied URLs: no redirects, no private/loopback/metadata addresses (checked on the connected socket),
+// allowed ports only (specs/008-security-hardening, DGB-03). Outbound:AllowLoopback is a development-only switch and defaults to false.
+builder.Services.Configure<DigiByte.Server.Shared.OutboundOptions>(builder.Configuration.GetSection(DigiByte.Server.Shared.OutboundOptions.SectionName));
+builder.Services.AddGuardedHttpClient("DigiPayWebhook", DigiByte.Server.Shared.OutboundUrlPolicy.Webhook(builder.Configuration.GetValue<bool>("Outbound:AllowLoopback")));
 
 // DigiDollar NodeApi client. Reads DdNode config from appsettings + env vars.
 // NODEAPI_BASE_URL / NODEAPI_WRITE_KEY override on Railway / containers.
@@ -367,6 +368,9 @@ app.MapScalarApiReference(options =>
     options.Favicon = favicon;
 });
 
+// Remember the real client address (rightmost X-Forwarded-For entry) before the forwarded-headers middleware rewrites it; rate limits key on it.
+app.Use((context, next) => { ClientAddress.Capture(context); return next(context); });
+
 app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
 {
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
@@ -383,6 +387,7 @@ app.MapGet("/api/health", () => Results.Ok(new
     service = "DigiByte.Pay.Api",
     status = "healthy",
     timestamp = DateTime.UtcNow,
+    commit = BuildInfo.Commit,
 }))
 .ExcludeFromDescription();
 
@@ -429,3 +434,6 @@ app.MapGroup("/v1/pay/test").MapTestEndpoints().WithTags("Sandbox").RequireRateL
 app.MapHub<CheckoutHub>("/hubs/checkout");
 
 app.Run();
+
+// Exposed so the API test project can host the app in-process (tests/DigiByte.Pay.Api.Tests).
+public partial class Program { }

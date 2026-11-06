@@ -4,15 +4,15 @@ namespace DigiByte.Api.Endpoints;
 
 public static class DirectoryEndpoints
 {
-    // In-memory store for now — will move to DB
+    // Read-only and empty. Public registration and deletion were removed (specs/008-security-hardening, DGB-01): anyone could
+    // overwrite or delete entries, and the wallet would then send money to an attacker's address. Registration returns only with
+    // proof of address ownership (separate spec). Lookups stay so the wallet's remittance flow still gets a clean 404.
     private static readonly Dictionary<string, DirectoryEntry> Entries = new(StringComparer.OrdinalIgnoreCase);
 
     public static RouteGroupBuilder MapDirectoryEndpoints(this RouteGroupBuilder group)
     {
         group.MapGet("/lookup/{username}", LookupByUsername).WithName("LookupUsername");
         group.MapGet("/lookup/phone/{phone}", LookupByPhone).WithName("LookupPhone");
-        group.MapPost("/register", Register).WithName("RegisterUsername");
-        group.MapDelete("/{username}", Unregister).WithName("UnregisterUsername");
         return group;
     }
 
@@ -29,26 +29,5 @@ public static class DirectoryEndpoints
             e.PhoneNumber != null && e.PhoneNumber.Replace("+", "").Replace("-", "").Replace(" ", "")
             == phone.Replace("+", "").Replace("-", "").Replace(" ", ""));
         return entry != null ? Results.Ok(entry) : Results.NotFound(new { error = "Phone number not found" });
-    }
-
-    private static IResult Register(DirectoryEntry entry)
-    {
-        if (string.IsNullOrWhiteSpace(entry.Username) || entry.Username.Length < 3)
-            return Results.BadRequest(new { error = "Username must be at least 3 characters" });
-
-        if (Entries.ContainsKey(entry.Username))
-            return Results.Conflict(new { error = $"Username '{entry.Username}' is already taken" });
-
-        entry.RegisteredAt = DateTime.UtcNow;
-        entry.LastUpdated = DateTime.UtcNow;
-        Entries[entry.Username] = entry;
-        return Results.Created($"/api/directory/lookup/{entry.Username}", entry);
-    }
-
-    private static IResult Unregister(string username)
-    {
-        return Entries.Remove(username)
-            ? Results.Ok(new { message = $"Username '{username}' unregistered" })
-            : Results.NotFound(new { error = $"Username '{username}' not found" });
     }
 }
