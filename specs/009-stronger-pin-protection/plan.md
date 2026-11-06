@@ -8,7 +8,7 @@
 
 Replace the direct PIN-to-AES-key derivation (PBKDF2-SHA256, 100,000 iterations) with Argon2id running in a browser worker, wrapped in a versioned, self-describing envelope. Add an optional passphrase as a second credential type. Migrate legacy wallets on the next successful unlock by writing the new envelope under a **new storage key** and leaving the legacy ciphertext untouched for 7 days (which is also what makes rollback to an older app version work). Close the biometric hole by deriving the biometric key from the WebAuthn PRF extension instead of storing it next to the ciphertext. Decisions and alternatives are in [research.md](research.md).
 
-**Important finding that needs a spec decision before implementation**: SC-002 (at least 1,000x more offline-guessing cost for a six-digit PIN) is probably not reachable within SC-003 (3 s on a low-end phone). See "Open items" and research R3. A passphrase is unaffected; this only changes how we describe PIN-only wallets.
+**Note**: SC-002 was amended from 1,000x to 100x for a GPU-class attacker because the original target was not reachable within SC-003 (3 s on a low-end phone); see "Decisions taken" and research R3. A passphrase is unaffected; this only changes how we describe PIN-only wallets.
 
 ## Technical Context
 
@@ -93,8 +93,8 @@ docs/SECURITY.md                      # update Cryptographic Primitives, Key Man
 
 **Structure Decision**: Keep the existing split: orchestration and format rules in `DigiByte.Wallet` (testable under xUnit), primitives in browser JS (necessarily). The new JS test folder runs with Node's built-in runner so no new package dependency is added.
 
-## Open items (need your call before `/speckit-tasks`)
+## Decisions taken on the open items
 
-1. **SC-002 is likely unattainable for a six-digit PIN.** On a CPU, Argon2id at a setting a low-end phone can finish in about 3 s is only a few times slower per guess than PBKDF2 at 100,000 iterations; the larger gap (hundreds of times) appears against GPU/ASIC attackers because of the memory cost. Proposed amendment: SC-002 becomes "at least 100x more expensive per guess for a GPU-class attacker, measured by the benchmark in the quickstart; passphrase wallets are not practically guessable". The wording to users stays honest either way (PIN-only is stronger but still bounded).
-2. **Older app versions cannot show "update required"** (FR-012, US2 scenario 5), because shipped versions cannot be changed. The chosen storage layout makes the case mostly moot: during the 7 days an older version simply keeps working from the untouched legacy copy. After removal, an older cached version will see a missing wallet. Proposed amendment: replace that scenario with the 7-day behaviour and add a forward-compatibility note for later formats only.
-3. **Exact Argon2id parameters, the reference low-end phone, and the common-password list size** are set by the benchmark task (research R3, R6), not guessed here.
+1. **SC-002 amended** to at least 100 times higher cost per guess for a GPU-class attacker, measured by the quickstart benchmark. The original 1,000 times target was not reachable together with SC-003. If the benchmark shows less than 100 times, the parameters or the target are revisited before release.
+2. **Older-version behaviour amended** (FR-012, US2 scenario 5): older shipped versions keep working from the untouched legacy copy for 7 days; after removal the user recovers with the recovery phrase. "Update required" applies to versions released after this feature.
+3. **Still open, settled by the benchmark task**: exact Argon2id parameters, the reference low-end phone, and the common-password list size.
