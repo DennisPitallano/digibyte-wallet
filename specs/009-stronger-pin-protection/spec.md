@@ -20,6 +20,7 @@ This is finding **DGB-04** of the external review; DGB-01 to DGB-03 and DGB-05 t
 
 - Q: Should the app actively encourage a passphrase, or only offer it? → A: Gentle nudge. Setup recommends a passphrase for larger holdings, settings shows a dismissible upgrade card on PIN wallets, and there is no balance-triggered or recurring reminder.
 - Q: For biometric-enabled wallets, what should be done about the biometric key and the biometric seed copy stored side by side in browser storage? → A: In scope, best effort. Protect the biometric key so only the biometric check can release it, where the browser supports that. Where unsupported, keep today's behaviour and warn the user plainly that biometrics lowers protection against copied browser data.
+- Q: For the 30 days after an upgrade, should the old weakly protected copy stay in browser storage for rollback? → A: Short window. Keep it for 7 days, remove it on the next successful unlock after that, and tell the user in the upgrade notice. Rollback after removal is recovery from the seed phrase.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -160,7 +161,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 
 - **FR-010**: On a successful unlock of a legacy-format wallet the system MUST re-encrypt that wallet's secrets in the new format automatically, without requiring user action.
 - **FR-011**: Migration MUST be non-destructive: the new data MUST be written and verified (decrypts to the identical secret) before the old data is replaced, and any failure MUST leave the old data intact and usable.
-- **FR-012**: Rollback: for a grace period after migration the system MUST retain the legacy encrypted copy so that reverting to an earlier app version, or an offline-cached older version, can still unlock the wallet; after the grace period the copy MAY be removed. An older app version meeting new-format data MUST show an "update required" message rather than a wrong-credential error.
+- **FR-012**: Rollback: for 7 days after migration the system MUST retain the legacy encrypted copy so that reverting to an earlier app version, or an offline-cached older version, can still unlock the wallet; after 7 days the copy MUST be removed on the next successful unlock. The upgrade notice MUST tell the user that the old copy remains for 7 days and what that means for protection against copied browser data. Recovery from the seed phrase remains the rollback path after removal. An older app version meeting new-format data MUST show an "update required" message rather than a wrong-credential error.
 - **FR-013**: Recovery from the recovery phrase MUST work for wallets in both formats and MUST let the user set a new PIN or passphrase; failure or an invalid phrase MUST change nothing stored.
 - **FR-014**: Migration MUST be idempotent and safe under concurrency: two tabs, repeated unlocks or a crash MUST NOT produce a wallet that cannot be unlocked.
 - **FR-015**: Each wallet MUST migrate independently when it is unlocked; the app MUST work with a mixed set of formats.
@@ -208,13 +209,14 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 - **SC-009**: Users who take no action see no new required steps after the upgrade.
 - **SC-010**: A dismissed passphrase upgrade prompt does not reappear on later unlocks or sessions unless the user reopens it from settings.
 - **SC-011**: On browsers that support it, copying a biometric-enabled wallet's stored data to another profile or device does not allow the seed to be recovered without the biometric check or the credential.
+- **SC-012**: No legacy-format copy of a wallet secret remains in storage more than 7 days after migration plus one successful unlock.
 
 ## Assumptions
 
 - The memory-hard scheme is Argon2id, run in the browser through a vetted library, as mandated by the security review. Memory, iteration and parallelism values are a planning decision validated against SC-002 and SC-003. If no library fits the existing static-hosting and content-security constraints, planning returns that as a decision rather than weakening the requirements.
 - The passphrase is optional. PIN-only wallets remain supported and are strengthened by the new derivation, but are not claimed to be immune to offline guessing.
 - The minimum passphrase length defaults to 12 characters plus a common-password check (final value set in planning).
-- The rollback grace period for the retained legacy copy defaults to 30 days after migration; the copy is removed on a later unlock.
+- While the retained legacy copy exists (up to 7 days), copied browser data can still be guessed against the old, weaker protection; full protection for an upgraded wallet starts when that copy is removed.
 - Migration happens only on a successful unlock with the correct credential.
 - Today the biometric key and the biometric seed copy are stored together in browser storage, so copied browser data can expose the seed without the PIN. This feature closes that where the browser allows (FR-018a) and otherwise warns (FR-018b); it does not remove biometric unlock.
 - The throttle remains per-page as today. A persistent throttle or a wipe-after-N-attempts policy is out of scope.
