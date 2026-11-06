@@ -10,6 +10,7 @@ COPY src/DigiByte.Api/DigiByte.Api.csproj src/DigiByte.Api/
 COPY src/DigiByte.Wallet/DigiByte.Wallet.csproj src/DigiByte.Wallet/
 COPY src/DigiByte.Crypto/DigiByte.Crypto.csproj src/DigiByte.Crypto/
 COPY src/DigiByte.P2P.Shared/DigiByte.P2P.Shared.csproj src/DigiByte.P2P.Shared/
+COPY src/DigiByte.Server.Shared/DigiByte.Server.Shared.csproj src/DigiByte.Server.Shared/
 COPY src/DigiByte.NodeApi/DigiByte.NodeApi.csproj src/DigiByte.NodeApi/
 COPY src/DigiByte.Web/DigiByte.Web.csproj src/DigiByte.Web/
 COPY tests/DigiByte.Crypto.Tests/DigiByte.Crypto.Tests.csproj tests/DigiByte.Crypto.Tests/
