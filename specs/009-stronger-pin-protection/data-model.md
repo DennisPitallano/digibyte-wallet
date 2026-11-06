@@ -23,7 +23,7 @@ Byte layout: [contracts/envelope-format.md](contracts/envelope-format.md).
 | Field | Meaning |
 |---|---|
 | `CredentialType` | `pin` (default for existing wallets) or `passphrase`. Used only to choose which input to show; the envelope header is the authority. |
-| `ProtectionLevel` | `standard`, `legacy` (created on an unsupported browser, with user agreement), or `upgrading` is never persisted; derived at runtime from which keys exist |
+| `ProtectionLevel` | `standard` (default) or `legacy`. `legacy` is set only when a wallet was created on a browser that cannot run the memory-hard protection, after the user agreed to the warning; it is cleared when the wallet upgrades to `v2`. |
 | `PassphraseNudgeDismissed` | Boolean for the dismissible upgrade card (SC-010) |
 
 ## Migration state (`wallet_migration_{walletId}`)
