@@ -119,7 +119,7 @@
   "create.confirm_title": "Confirm Recovery Phrase",
   "create.set_pin": "Set Your PIN",
   "create.pin_hint": "Choose a PIN to unlock your wallet every time you open the app.",
-  "create.pin_limitation": "Your PIN protects your wallet on this device and is stronger than before. Being a short code, it can still be guessed with enough effort, so for the strongest protection choose a passphrase. Either way, keep your recovery phrase backed up.",
+  "create.pin_limitation": "Your PIN protects your wallet on this device and is stronger than before. A passphrase goes further, so it is worth choosing if you plan to hold a larger amount. Either way, keep your recovery phrase backed up.",
   "unlock.welcome": "Welcome back",
   "dd.title": "DigiDollar",
   "dd.loading": "Loading DigiDollar…",
