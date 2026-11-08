@@ -36,7 +36,7 @@
 
 - [ ] T009 Create `src/DigiByte.Wallet/Storage/Envelope/KdfProfile.cs` with the three frozen profiles from T001 and the floor constant (19,456 KiB, 2 passes, 1 lane).
 - [ ] T010 Create `src/DigiByte.Wallet/Storage/Envelope/EnvelopeCodec.cs` implementing parse, format and validation exactly as in `contracts/envelope-format.md`; make T006 pass.
-- [ ] T011 Add `CredentialKind` (`Pin`, `Passphrase`), `CryptoFailure` and `CryptoResult<T>` to `src/DigiByte.Wallet/Storage/EncryptionService.cs`; extend `ICryptoService` with typed `EncryptAsync(byte[], string, CredentialKind)` and `DecryptAsync(string, string)` per `contracts/js-crypto-api.md`; keep the old byte-array methods as thin wrappers until T052.
+- [ ] T011 Add `CredentialKind` (`Pin`, `Passphrase`), `CryptoFailure` and `CryptoResult<T>` to `src/DigiByte.Wallet/Storage/EncryptionService.cs`; extend `ICryptoService` with typed `EncryptAsync(byte[], string, CredentialKind)` and `DecryptAsync(string, string)` per `contracts/js-crypto-api.md`; keep the old byte-array methods as thin wrappers until T052. Stored values become `dgb2$` strings or legacy Base64 strings (legacy bytes are Base64-wrapped on read); update every `ICryptoService` fake in `tests/DigiByte.Wallet.Tests/` (for example `DdTestDoubles.cs`) in this same task.
 - [ ] T012 Create `src/DigiByte.Web/wwwroot/js/crypto-worker.js` running Argon2id with the vendored build, per the worker protocol in `contracts/js-crypto-api.md`; terminate after each use.
 - [ ] T013 Update `src/DigiByte.Web/wwwroot/js/crypto.js`: add `encryptV2`, `decryptV2`, `capabilities`, `normalisePassphrase` (NFKC); keep legacy PBKDF2 decrypt; automatic profile fallback down to the floor, never below; classify failures; make T007 pass.
 - [ ] T014 Update `src/DigiByte.Web/Services/JsCryptoService.cs` to implement the typed `ICryptoService` (T011) over `dgbCrypto.encryptV2` / `decryptV2`; make T008 pass.
@@ -61,7 +61,7 @@
 
 ### Implementation
 
-- [ ] T020 [US2] Add migration-record and v2-key handling to `src/DigiByte.Wallet/Storage/WalletKeyStore.cs` per `contracts/storage-keys.md` (read order, fingerprint check, record read/write, legacy delete); make the storage parts of T017 and T019 pass.
+- [ ] T020 [US2] Add migration-record and v2-key handling to `src/DigiByte.Wallet/Storage/WalletKeyStore.cs` per `contracts/storage-keys.md` (read order, fingerprint check, record read/write, legacy delete; stored values read as strings per T011); make the storage parts of T017 and T019 pass.
 - [ ] T021 [US2] Implement migrate-on-unlock in `src/DigiByte.Wallet/Services/WalletService.cs` (`UnlockWalletAsync`, `VerifyPinAsync`, `GetSeedPhraseAsync`, `GetDecryptedSeedAsync`): five verified steps, injectable clock and lock; migration failure is silent to the user and never blocks the unlock; make T017 to T019 pass.
 - [ ] T022 [US2] Add a per-wallet lock abstraction (`IMigrationLock`) in `src/DigiByte.Wallet/Services/` with a Web Locks implementation in `src/DigiByte.Web/Services/WebLockMigrationLock.cs` and a storage-lease fallback when Web Locks is unavailable.
 - [ ] T023 [P] [US2] Apply the same v2 read order and migration to multisig config and DigiDollar store payloads in `src/DigiByte.Wallet/Services/MultisigWalletService.cs` and `src/DigiByte.Wallet/Storage/DigiDollarStore.cs`, with tests in `tests/DigiByte.Wallet.Tests/MultisigWalletServiceTests.cs` and `DigiDollarStoreTests.cs`.
@@ -136,7 +136,7 @@
 
 **Independent Test**: Quickstart scenarios 9 and 10.
 
-- [ ] T044 [P] [US4] Write `tests/DigiByte.Wallet.Tests/UnsupportedDeviceTests.cs`: new wallet on a device reporting no Argon2 support requires an explicit agreement flag, is marked `legacy` protection (persisted in `WalletInfo.ProtectionLevel`), and upgrades to `v2` on the first unlock where capabilities allow; migration on a device that cannot allocate even the floor leaves the wallet in its current format and shows the explanation; no write below the floor under any path.
+- [ ] T044 [P] [US4] Write `tests/DigiByte.Wallet.Tests/UnsupportedDeviceTests.cs`: new wallet on a device reporting no Argon2 support requires an explicit agreement flag, is marked `legacy` protection (persisted in `WalletInfo.ProtectionLevel`), and upgrades to `v2` on the first unlock where capabilities allow; migration on a device that cannot allocate even the floor leaves the wallet in its current format and shows the explanation; no write below the floor under any path. The legacy write path used for this flow still works after T052 removes the wrappers.
 - [ ] T045 [US4] Implement the unsupported-device flow in `src/DigiByte.Wallet/Services/WalletService.cs` and the warning-and-agreement step in `src/DigiByte.Web/Pages/CreateWallet.razor` (FR-021, SC-013).
 - [ ] T046 [US4] Add the unlocking indicator (shown when derivation exceeds 300 ms) and double-submit protection to `src/DigiByte.Web/Pages/Unlock.razor`, `src/DigiByte.Web/Pages/PsbtSign.razor` and `src/DigiByte.Web/Pages/CreateWallet.razor`; keep the existing Baku behaviour on the unlock page unchanged.
 - [ ] T047 [US4] Add a `?crypto-bench` developer page or console helper in `src/DigiByte.Web/wwwroot/js/crypto.js` (disabled in release builds) that prints derive time and memory per profile, used by T001 and the quickstart benchmark.
@@ -159,7 +159,7 @@
 ## Phase 9: Polish & cross-cutting
 
 - [ ] T051 Run the full quickstart in `specs/009-stronger-pin-protection/quickstart.md` including the offline and CSP scenarios; record results and the frozen parameters in `research.md`.
-- [ ] T052 Remove the transitional byte-array `ICryptoService` wrappers and any unused legacy-write code from `src/DigiByte.Wallet/Storage/EncryptionService.cs` and `src/DigiByte.Web/Services/JsCryptoService.cs`; keep legacy read.
+- [ ] T052 Remove the transitional byte-array `ICryptoService` wrappers from `src/DigiByte.Wallet/Storage/EncryptionService.cs` and `src/DigiByte.Web/Services/JsCryptoService.cs`; keep legacy read and keep the legacy write path used by the unsupported-device flow (T045, FR-021); the tests in T044 must still pass after this task.
 - [ ] T053 [P] Audit for secrets in logs and telemetry: grep for credential and key handling in `src/DigiByte.Web/` and confirm no console, error report or analytics path includes a credential, derived key or plaintext (FR-005); add a short note to `docs/SECURITY.md`.
 - [ ] T054 [P] Update What's New in the version info (as done for 0.4.0) in the web app and `src/DigiByte.Web/ANNOUNCEMENT.md`, describing the automatic upgrade and the passphrase option.
 - [ ] T057 [P] Run a small usability check for SC-006 (at least 5 people, mix of English and Spanish): create a passphrase wallet, lock, unlock, and state what happens if the credential is forgotten; record results in `specs/009-stronger-pin-protection/research.md`. If this cannot be run before release, mark SC-006 as a post-release measure in `spec.md`.
