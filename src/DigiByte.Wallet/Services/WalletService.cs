@@ -1889,6 +1889,20 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         return txId;
     }
 
+    /// <summary>
+    /// Mirrors the protection fields onto an unlocked session's cached wallet info, so pages that read
+    /// <see cref="ActiveWallet"/> see a credential change straight away without a reload.
+    /// </summary>
+    private void SyncSessionProtection(WalletInfo saved)
+    {
+        if (_sessions.TryGetValue(saved.Id, out var session))
+        {
+            session.Info.CredentialType = saved.CredentialType;
+            session.Info.ProtectionLevel = saved.ProtectionLevel;
+            session.Info.PassphraseNudgeDismissed = saved.PassphraseNudgeDismissed;
+        }
+    }
+
     private static string CredentialTypeName(CredentialKind kind) =>
         kind == CredentialKind.Passphrase ? "passphrase" : "pin";
 
@@ -1954,6 +1968,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             wallet.CredentialType = CredentialTypeName(newKind);
             wallet.ProtectionLevel = outcome == ProtectedSecretStore.SealOutcome.Legacy ? "legacy" : "standard";
             await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+            SyncSessionProtection(wallet);
             return ChangeCredentialOutcome.Changed;
         }
         finally
@@ -1978,6 +1993,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         if (wallet == null || wallet.PassphraseNudgeDismissed == dismissed) return;
         wallet.PassphraseNudgeDismissed = dismissed;
         await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+        SyncSessionProtection(wallet);
     }
 
     /// <summary>
@@ -2021,6 +2037,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             wallet.CredentialType = credentialType;
             wallet.ProtectionLevel = protection;
             await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+            SyncSessionProtection(wallet);
         }
         return true;
     }

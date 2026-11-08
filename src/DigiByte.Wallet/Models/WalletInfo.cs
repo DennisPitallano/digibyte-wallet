@@ -24,6 +24,11 @@ public class WalletInfo
     /// <summary>"pin" (default for existing wallets) or "passphrase". Chooses which input to show; the envelope header is the authority.</summary>
     public string CredentialType { get; set; } = "pin";
 
+    /// <summary>The credential type as an enum, for choosing the input to show.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DigiByte.Wallet.Storage.CredentialKind Kind =>
+        CredentialType == "passphrase" ? DigiByte.Wallet.Storage.CredentialKind.Passphrase : DigiByte.Wallet.Storage.CredentialKind.Pin;
+
     /// <summary>"standard" (default) or "legacy". "legacy" only when created on a browser that cannot run the memory-hard protection, after the user agreed.</summary>
     public string ProtectionLevel { get; set; } = "standard";
 

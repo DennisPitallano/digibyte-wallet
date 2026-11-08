@@ -5,6 +5,8 @@
 @inject MemoryCacheService Cache
 @inject BiometricService Biometric
 @inject LocalizationService L
+@inject CommonPasswordList CommonList
+@using DigiByte.Wallet.Storage
 
 <PageTitle>Unlock Wallet</PageTitle>
 
@@ -22,7 +24,7 @@
                 <span class="text-base font-bold text-white tracking-wide">@walletName</span>
             </div>
         }
-            <p class="text-sm text-slate-400 dark:text-slate-500">Enter your 6-digit PIN</p>
+            <p class="text-sm text-slate-400 dark:text-slate-500">@(credKind == CredentialKind.Pin ? "Enter your 6-digit PIN" : L.T("unlock.passphrase_prompt"))</p>
         </div>
 
     @* Baku greets until the user starts typing, then steps aside (never covers the PIN field). *@
@@ -72,13 +74,13 @@
     }
 
     <div class="flex flex-col items-center gap-5 slide-up-delay-2">
-        <PinInput @ref="pinInput"
-                  ValueChanged="OnPinChanged"
-                  OnComplete="UnlockAsync"
-                  Error="@error" />
+        <CredentialInput @ref="pinInput" Kind="credKind"
+                         ValueChanged="OnPinChanged"
+                         OnSubmit="UnlockAsync"
+                         Error="@error" />
 
         <button class="w-full max-w-[280px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
-                @onclick="UnlockAsync" disabled="@(isUnlocking || pin.Length < 6)">
+                @onclick="UnlockAsync" disabled="@(isUnlocking || !Ready(pin, credKind))">
             @if (isUnlocking)
             {
                 <span class="flex items-center justify-center gap-2">
@@ -97,7 +99,7 @@
         @* Forgot PIN link *@
         <button class="text-xs text-slate-400 hover:text-dgb-500 font-medium mt-2 transition-colors"
                 @onclick="() => showForgotPin = true">
-            Forgot PIN?
+            @(credKind == CredentialKind.Pin ? "Forgot PIN?" : L.T("unlock.forgot_passphrase"))
         </button>
     </div>
 
@@ -156,8 +158,16 @@
                 }
                 @if (showNewPin)
                 {
-                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">New PIN</p>
-                    <PinInput @ref="resetPinInput" ValueChanged="(v) => newPin = v" OnComplete="ConfirmResetPin" Error="@resetError" />
+                    <div class="flex justify-center gap-2" role="group" aria-label="@L.T("create.credential.choose")">
+                        <button type="button" data-testid="reset-choose-pin"
+                                class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 @(resetKind == CredentialKind.Pin ? "border-dgb-500 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                                @onclick="() => SelectResetKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
+                        <button type="button" data-testid="reset-choose-passphrase"
+                                class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 @(resetKind == CredentialKind.Passphrase ? "border-dgb-500 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                                @onclick="() => SelectResetKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@(resetKind == CredentialKind.Pin ? "New PIN" : L.T("recover.new_passphrase"))</p>
+                    <CredentialInput @ref="resetPinInput" Kind="resetKind" IsNew="true" ValueChanged="(v) => newPin = v" OnSubmit="ConfirmResetPin" Error="@resetError" />
                 }
                 <div class="flex gap-2">
                     <button class="flex-1 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
@@ -254,7 +264,12 @@
         Nav.NavigateTo(isLocalPath ? target! : "/");
     }
 
-    private PinInput? pinInput;
+    private CredentialInput? pinInput;
+    private CredentialKind credKind = CredentialKind.Pin;
+    private CredentialKind resetKind = CredentialKind.Pin;
+
+    private static bool Ready(string value, CredentialKind kind) =>
+        kind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     private string pin = "";
     private string? error;
     private bool isUnlocking;
@@ -272,7 +287,7 @@
     private string newPin = "";
     private string? resetError;
     private string deleteConfirmText = "";
-    private PinInput? resetPinInput;
+    private CredentialInput? resetPinInput;
     private string walletName = "";
     private string walletColor = "#0066FF";
     private List<WalletInfo> allWallets = [];
@@ -315,6 +330,7 @@
 
         var info = allWallets.FirstOrDefault(w => w.Id == walletId);
         walletName = info?.Name ?? "";
+        credKind = info?.Kind ?? CredentialKind.Pin;
         walletColor = info?.Color ?? "#0066FF";
     }
 
@@ -347,7 +363,7 @@
 
     private async Task UnlockAsync()
     {
-        if (walletId == null || pin.Length < 6 || isUnlocking) return;
+        if (walletId == null || !Ready(pin, credKind) || isUnlocking) return;
 
         // Check lockout
         if (pinThrottle.IsLockedOut)
@@ -517,16 +533,33 @@
         showNewPin = true;
     }
 
+    private async Task SelectResetKindAsync(CredentialKind kind)
+    {
+        if (kind == resetKind) return;
+        resetKind = kind;
+        newPin = "";
+        resetError = null;
+        resetPinInput?.Clear();
+        if (kind == CredentialKind.Passphrase) await CommonList.EnsureLoadedAsync();
+    }
+
     private async Task ConfirmResetPin()
     {
-        if (walletId == null || newPin.Length < 6) return;
+        if (walletId == null || !Ready(newPin, resetKind)) return;
         resetError = null;
 
+        if (resetKind == CredentialKind.Passphrase)
+        {
+            var check = CredentialPolicy.Check(newPin, CommonList);
+            if (!check.Accepted) { resetError = L.T(CredentialPolicy.ReasonKey(check.Reason)); return; }
+        }
+
         var seed = seedInput.Trim();
-        var success = await WalletService.ResetPinAsync(walletId, seed, newPin);
+        var success = await WalletService.ResetPinAsync(walletId, seed, newPin, resetKind);
         if (success)
         {
-            // Auto-unlock with new PIN
+            credKind = resetKind;
+            // Auto-unlock with the new credential
             WalletService.SetNetworkMode(AppState.NetworkMode);
             var unlocked = await WalletService.UnlockWalletAsync(walletId, newPin);
             if (unlocked)
@@ -575,6 +608,7 @@
             walletId = id;
             walletName = name;
             walletColor = color ?? "#0066FF";
+            credKind = allWallets.FirstOrDefault(w => w.Id == id)?.Kind ?? CredentialKind.Pin;
             pin = "";
             error = null;
             pinThrottle.RecordSuccess(); // A different wallet starts with a clean count, as before.

@@ -3,6 +3,8 @@
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject LocalizationService L
+@inject CommonPasswordList CommonList
+@using DigiByte.Wallet.Storage
 
 <PageTitle>@(isAddWalletMode ? "Add" : "Create") Wallet</PageTitle>
 
@@ -126,11 +128,41 @@
     {
         <BakuMessage MessageId="backup.done" Class="baku-celebrate" />
         <div class="slide-up text-center">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
-            <p class="text-xs text-amber-600 dark:text-amber-400 mt-2 max-w-xs mx-auto" data-testid="pin-limitation-note">@L.T("create.pin_limitation")</p>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">@(credKind == CredentialKind.Pin ? "Set Your PIN" : L.T("create.passphrase.title"))</h2>
+            <div class="flex justify-center gap-2 mt-3" role="group" aria-label="@L.T("create.credential.choose")">
+                <button type="button" data-testid="choose-pin"
+                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all @(credKind == CredentialKind.Pin ? "border-dgb-500 bg-dgb-500/10 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                        aria-pressed="@(credKind == CredentialKind.Pin)" @onclick="() => SelectKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
+                <button type="button" data-testid="choose-passphrase"
+                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all @(credKind == CredentialKind.Passphrase ? "border-dgb-500 bg-dgb-500/10 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                        aria-pressed="@(credKind == CredentialKind.Passphrase)" @onclick="() => SelectKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
+            </div>
+            @if (credKind == CredentialKind.Pin)
+            {
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Choose a 6-digit PIN to secure your wallet</p>
+                <p class="text-xs text-amber-600 dark:text-amber-400 mt-2 max-w-xs mx-auto" data-testid="pin-limitation-note">@L.T("create.pin_limitation")</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto" data-testid="passphrase-recommended">@L.T("create.passphrase.recommended")</p>
+            }
+            else
+            {
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-3 max-w-xs mx-auto">@L.T("create.passphrase.explain")</p>
+                <p class="text-xs text-amber-600 dark:text-amber-400 mt-2 max-w-xs mx-auto" data-testid="passphrase-unrecoverable">@L.T("create.passphrase.unrecoverable")</p>
+            }
         </div>
 
+        @if (credKind == CredentialKind.Passphrase)
+        {
+            <div class="flex flex-col gap-4 items-center">
+                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">@L.T("create.passphrase.label")</p>
+                <CredentialInput @ref="passInput1" Kind="CredentialKind.Passphrase" IsNew="true"
+                                 ValueChanged="(v) => { passphrase = v; pinError = null; }" OnSubmit="CreateWalletAsync" Error="@pinError" />
+                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">@L.T("create.passphrase.confirm")</p>
+                <CredentialInput @ref="passInput2" Kind="CredentialKind.Passphrase" IsNew="true" AutoFocus="false"
+                                 ValueChanged="(v) => { passphraseConfirm = v; pinError = null; }" OnSubmit="CreateWalletAsync" />
+            </div>
+        }
+        else
+        {
         <div class="flex flex-col gap-4 items-center">
             @if (!isConfirmingPin)
             {
@@ -144,10 +176,11 @@
                 <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium" @onclick="BackToSetPin">Change PIN</button>
             }
         </div>
+        }
 
         <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-3 flex items-center justify-center gap-2"
                 @onclick="OnPinButtonClick"
-                disabled="@(isCreating || (!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))">
+                disabled="@(isCreating || (credKind == CredentialKind.Passphrase ? (passphrase.Length == 0 || passphraseConfirm.Length == 0) : ((!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))))">
             @if (isCreating)
             {
                 <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -156,7 +189,7 @@
                 </svg>
                 <span>Creating...</span>
             }
-            else if (!isConfirmingPin)
+            else if (credKind == CredentialKind.Pin && !isConfirmingPin)
             {
                 <span>Continue</span>
             }
@@ -194,6 +227,11 @@
     private string? pinError;
     private bool isCreating;
     private bool isConfirmingPin;
+    private CredentialKind credKind = CredentialKind.Pin;
+    private string passphrase = "";
+    private string passphraseConfirm = "";
+    private CredentialInput? passInput1;
+    private CredentialInput? passInput2;
     private PinInput? pinInput1;
     private PinInput? pinInput2;
     private bool isAddWalletMode;
@@ -254,9 +292,21 @@
         if (confirmStep >= 3) { step = Step.SetPin; } else { confirmWordIndex = confirmIndices[confirmStep]; }
     }
 
+    private async Task SelectKindAsync(CredentialKind kind)
+    {
+        if (kind == credKind || isCreating) return;
+        credKind = kind;
+        pin = ""; pinConfirm = ""; passphrase = ""; passphraseConfirm = "";
+        isConfirmingPin = false;
+        pinError = null;
+        if (kind == CredentialKind.Passphrase)
+            await CommonList.EnsureLoadedAsync(); // the deny list, so a common passphrase can be explained before anything is stored
+    }
+
     private async Task OnPinButtonClick()
     {
-        if (isConfirmingPin) await CreateWalletAsync();
+        if (credKind == CredentialKind.Passphrase) await CreateWalletAsync();
+        else if (isConfirmingPin) await CreateWalletAsync();
         else GoToConfirmPin();
     }
 
@@ -279,9 +329,25 @@
 
     private async Task CreateWalletAsync()
     {
+        if (isCreating) return; // ignore repeat submissions while the key is being derived
         pinError = null;
-        if (pin.Length < 6) { pinError = "Enter all 6 digits"; return; }
-        if (pin != pinConfirm) { pinError = "PINs don't match. Try again."; pinConfirm = ""; pinInput2?.Clear(); return; }
+        string credential;
+        if (credKind == CredentialKind.Passphrase)
+        {
+            var check = CredentialPolicy.Check(passphrase, CommonList);
+            if (!check.Accepted) { pinError = L.T(CredentialPolicy.ReasonKey(check.Reason)); return; }
+            if (CredentialPolicy.Normalise(passphrase) != CredentialPolicy.Normalise(passphraseConfirm))
+            {
+                pinError = L.T("create.passphrase.mismatch"); passphraseConfirm = ""; passInput2?.Clear(); return;
+            }
+            credential = passphrase;
+        }
+        else
+        {
+            if (pin.Length < 6) { pinError = "Enter all 6 digits"; return; }
+            if (pin != pinConfirm) { pinError = "PINs don't match. Try again."; pinConfirm = ""; pinInput2?.Clear(); return; }
+            credential = pin;
+        }
         isCreating = true;
         StateHasChanged();
         await Task.Yield();
@@ -290,7 +356,7 @@
             var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
-            await WalletService.CreateWalletAsync(name, mnemonic, pin, color);
+            await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind);
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");
         }

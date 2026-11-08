@@ -1,5 +1,6 @@
 @page "/backup-seed"
 @inject WalletService WalletService
+@using DigiByte.Wallet.Storage
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject ILogger<BackupSeed> Logger
@@ -20,13 +21,13 @@
                     </svg>
                 </div>
                 <h2 class="text-lg font-bold text-slate-900 dark:text-white">Verify Your Identity</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 text-center">Enter your PIN to view your recovery phrase</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 text-center">Enter your @PromptWord to view your recovery phrase</p>
             </div>
 
             <div class="flex flex-col items-center gap-4 slide-up-delay-2">
-                <PinInput @ref="pinInput" ValueChanged="(v) => pin = v" OnComplete="VerifyPin" Error="@error" />
+                <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="(v) => pin = v" OnSubmit="VerifyPin" Error="@error" />
                 <button class="w-full max-w-[280px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
-                        @onclick="VerifyPin" disabled="@(isVerifying || pin.Length < 6)">
+                        @onclick="VerifyPin" disabled="@(isVerifying || !Ready(pin))">
                     @(isVerifying ? "Verifying..." : "Continue")
                 </button>
             </div>
@@ -67,9 +68,13 @@
 </AuthGuard>
 
 @code {
+    // The wallet's credential type decides which input is shown (PIN boxes or a passphrase field).
+    private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
+    private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
+    private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     [SupplyParameterFromQuery] public string? WalletId { get; set; }
 
-    private PinInput? pinInput;
+    private CredentialInput? pinInput;
     private string pin = "";
     private string? error;
     private bool isVerifying;
@@ -81,7 +86,7 @@
 
     private async Task VerifyPin()
     {
-        if (pin.Length < 6 || isVerifying) return;
+        if (!Ready(pin) || isVerifying) return;
         error = null; isVerifying = true;
         StateHasChanged();
 

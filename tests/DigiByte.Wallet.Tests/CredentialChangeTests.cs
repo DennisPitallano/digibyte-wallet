@@ -123,6 +123,46 @@ public class CredentialChangeTests
     }
 
     [Fact]
+    public async Task The_unlocked_session_reflects_the_new_credential_type_straight_away()
+    {
+        var h = new MigrationHarness();
+        await h.AddLegacyWalletAsync();
+        await h.Service.UnlockWalletAsync("w1", Pin);
+        Assert.Equal(CredentialKind.Pin, h.Service.ActiveWallet!.Kind);
+
+        await h.Service.ChangeCredentialAsync("w1", Pin, Passphrase, CredentialKind.Passphrase);
+        Assert.Equal(CredentialKind.Passphrase, h.Service.ActiveWallet!.Kind);
+        Assert.False(await h.Service.ShouldShowPassphraseNudgeAsync("w1"));
+
+        await h.Service.ChangeCredentialAsync("w1", Passphrase, "654321", CredentialKind.Pin);
+        Assert.Equal(CredentialKind.Pin, h.Service.ActiveWallet!.Kind);
+    }
+
+    [Fact]
+    public async Task Recovery_also_updates_the_unlocked_session()
+    {
+        var h = new MigrationHarness();
+        await h.AddLegacyWalletAsync();
+        await h.Service.UnlockWalletAsync("w1", Pin);
+
+        await h.Service.ResetPinAsync("w1", MigrationHarness.Mnemonic, Passphrase, CredentialKind.Passphrase);
+
+        Assert.Equal(CredentialKind.Passphrase, h.Service.ActiveWallet!.Kind);
+    }
+
+    [Fact]
+    public async Task Dismissing_the_nudge_updates_the_unlocked_session()
+    {
+        var h = new MigrationHarness();
+        await h.AddLegacyWalletAsync();
+        await h.Service.UnlockWalletAsync("w1", Pin);
+
+        await h.Service.SetPassphraseNudgeDismissedAsync("w1", true);
+
+        Assert.True(h.Service.ActiveWallet!.PassphraseNudgeDismissed);
+    }
+
+    [Fact]
     public async Task A_new_wallet_can_be_created_with_a_passphrase_and_only_v2_is_written()
     {
         var h = new MigrationHarness();

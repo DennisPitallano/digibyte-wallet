@@ -1,5 +1,6 @@
 @page "/settings/spending-limits"
 @inject WalletService WalletService
+@using DigiByte.Wallet.Storage
 @inject SpendingLimitService SpendingLimit
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -39,10 +40,10 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
             </div>
-            <p class="text-sm text-slate-600 dark:text-slate-400 text-center">Enter your PIN to view or change spending limits.</p>
-            <PinInput @ref="pinInput" ValueChanged="(v) => pin = v" OnComplete="VerifyPin" Error="@pinError" />
+            <p class="text-sm text-slate-600 dark:text-slate-400 text-center">Enter your @PromptWord to view or change spending limits.</p>
+            <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="(v) => pin = v" OnSubmit="VerifyPin" Error="@pinError" />
             <button class="w-full max-w-[260px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50"
-                    @onclick="VerifyPin" disabled="@(pin.Length < 6 || isVerifying)">
+                    @onclick="VerifyPin" disabled="@(!Ready(pin) || isVerifying)">
                 @(isVerifying ? "Verifying..." : "Unlock")
             </button>
         </div>
@@ -205,11 +206,15 @@
 </div>
 
 @code {
+    // The wallet's credential type decides which input is shown (PIN boxes or a passphrase field).
+    private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
+    private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
+    private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     private string pin = "";
     private string? pinError;
     private bool pinVerified;
     private bool isVerifying;
-    private PinInput? pinInput;
+    private CredentialInput? pinInput;
 
     private SpendingLimitSettings settings = new();
     private string? walletId;
@@ -224,7 +229,7 @@
 
     private async Task VerifyPin()
     {
-        if (pin.Length < 6) return;
+        if (!Ready(pin)) return;
         isVerifying = true;
         pinError = null;
         StateHasChanged();
