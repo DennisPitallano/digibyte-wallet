@@ -17,6 +17,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     private readonly TransactionTracker _txTracker;
     private readonly DigiIdSweepStore? _digiIdSweeps;
     private readonly ProtectedSecretStore _vault;
+    private readonly ICommonPasswordList? _passwordList;
 
     // Multi-wallet session: holds all unlocked wallets in memory
     private class UnlockedWalletSession
@@ -266,7 +267,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Digi-ID recovery methods then refuse to run.
     /// </param>
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
-        DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null)
+        DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null)
     {
         _keyStore = walletStore;
         _walletStore = walletStore;
@@ -275,6 +276,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _txTracker = txTracker;
         _digiIdSweeps = sweepStore;
         _vault = new ProtectedSecretStore(walletStore.Storage, crypto, time, migrationLock);
+        _passwordList = passwordList;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -324,7 +326,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _ => DigiByteNetwork.Mainnet,
     };
 
-    public async Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null)
+    public async Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin)
     {
         var count = await _walletStore.GetWalletCountAsync();
         if (count >= MaxWallets)
@@ -332,15 +334,16 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         var walletId = Guid.NewGuid().ToString("N");
 
-        var encrypted = await _crypto.EncryptAsync(
-            System.Text.Encoding.UTF8.GetBytes(mnemonic), pin);
-        await _keyStore.StoreSeedAsync(walletId, encrypted);
+        RequireAcceptableCredential(pin, kind);
+        var protection = await StoreNewSecretAsync(walletId, mnemonic, pin, kind);
 
         var wallet = new WalletInfo
         {
             Id = walletId,
             Name = name,
             CreatedAt = DateTime.UtcNow,
+            CredentialType = CredentialTypeName(kind),
+            ProtectionLevel = protection,
             Color = color ?? WalletInfo.ColorPalette[count % WalletInfo.ColorPalette.Length]
         };
 
@@ -363,7 +366,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// <summary>
     /// Create a wallet from a single WIF private key (paper wallet / legacy import).
     /// </summary>
-    public async Task<WalletInfo> CreateWalletFromWifAsync(string name, string wif, string pin, string? color = null)
+    public async Task<WalletInfo> CreateWalletFromWifAsync(string name, string wif, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin)
     {
         var count = await _walletStore.GetWalletCountAsync();
         if (count >= MaxWallets)
@@ -371,15 +374,14 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         var walletId = Guid.NewGuid().ToString("N");
 
-        // Encrypt the WIF with PIN (same pattern as mnemonic)
-        var encrypted = await _crypto.EncryptAsync(
-            System.Text.Encoding.UTF8.GetBytes(wif), pin);
-        await _keyStore.StoreSeedAsync(walletId, encrypted);
-
-        // Auto-detect network from the key prefix
+        // Auto-detect network from the key prefix (before anything is stored)
         var detectedNetwork = PrivateKeyImporter.DetectNetwork(wif);
         if (detectedNetwork == null)
             throw new InvalidOperationException("Could not detect network from private key.");
+
+        // Protect the WIF with the credential (same pattern as mnemonic)
+        RequireAcceptableCredential(pin, kind);
+        var protection = await StoreNewSecretAsync(walletId, wif, pin, kind);
 
         var networkName = detectedNetwork == DigiByteNetwork.Mainnet ? "mainnet"
             : detectedNetwork == DigiByteNetwork.Testnet ? "testnet" : "regtest";
@@ -391,6 +393,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             CreatedAt = DateTime.UtcNow,
             WalletType = "privatekey",
             WifNetwork = networkName,
+            CredentialType = CredentialTypeName(kind),
+            ProtectionLevel = protection,
             Color = color ?? WalletInfo.ColorPalette[count % WalletInfo.ColorPalette.Length]
         };
 
@@ -413,7 +417,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Create a watch-only wallet from an extended public key (xpub).
     /// Can view balances and receive, but cannot sign or send transactions.
     /// </summary>
-    public async Task<WalletInfo> CreateWatchOnlyWalletAsync(string name, string xpub, string pin, string? color = null)
+    public async Task<WalletInfo> CreateWatchOnlyWalletAsync(string name, string xpub, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin)
     {
         var count = await _walletStore.GetWalletCountAsync();
         if (count >= MaxWallets)
@@ -428,10 +432,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var networkName = detectedNetwork == DigiByteNetwork.Mainnet ? "mainnet"
             : detectedNetwork == DigiByteNetwork.Testnet ? "testnet" : "regtest";
 
-        // Encrypt the xpub with PIN (same pattern as mnemonic/WIF)
-        var encrypted = await _crypto.EncryptAsync(
-            System.Text.Encoding.UTF8.GetBytes(xpub.Trim()), pin);
-        await _keyStore.StoreSeedAsync(walletId, encrypted);
+        // Protect the xpub with the credential (same pattern as mnemonic/WIF)
+        RequireAcceptableCredential(pin, kind);
+        var protection = await StoreNewSecretAsync(walletId, xpub.Trim(), pin, kind);
 
         var wallet = new WalletInfo
         {
@@ -440,6 +443,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             CreatedAt = DateTime.UtcNow,
             WalletType = "xpub",
             WifNetwork = networkName,
+            CredentialType = CredentialTypeName(kind),
+            ProtectionLevel = protection,
             Color = color ?? WalletInfo.ColorPalette[count % WalletInfo.ColorPalette.Length]
         };
 
@@ -1884,6 +1889,97 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         return txId;
     }
 
+    private static string CredentialTypeName(CredentialKind kind) =>
+        kind == CredentialKind.Passphrase ? "passphrase" : "pin";
+
+    /// <summary>
+    /// Refuses a passphrase that breaks the rules (FR-002) before anything is stored. The UI shows the reason first;
+    /// this is the backstop.
+    /// </summary>
+    private void RequireAcceptableCredential(string credential, CredentialKind kind)
+    {
+        if (kind == CredentialKind.Passphrase)
+        {
+            var check = CredentialPolicy.Check(credential, _passwordList);
+            if (!check.Accepted)
+                throw new ArgumentException($"Passphrase not accepted: {check.Reason}.", nameof(credential));
+        }
+    }
+
+    /// <summary>Stores a brand-new wallet secret and returns its protection level ("standard" or "legacy").</summary>
+    private async Task<string> StoreNewSecretAsync(string walletId, string secret, string credential, CredentialKind kind)
+    {
+        var outcome = await _vault.SealAsync(WalletKeyStore.SeedSlot(walletId),
+            System.Text.Encoding.UTF8.GetBytes(secret), credential, kind);
+        return outcome switch
+        {
+            ProtectedSecretStore.SealOutcome.V2 => "standard",
+            ProtectedSecretStore.SealOutcome.Legacy => "legacy",
+            _ => throw new InvalidOperationException("The wallet could not be protected on this device."),
+        };
+    }
+
+    /// <summary>
+    /// Changes how a wallet is protected: PIN to passphrase, passphrase to PIN, or a new value of the same kind. The
+    /// current credential is required; nothing is written unless it is right and the new value verifies; the old
+    /// copies (including any legacy copy) are removed at once.
+    /// </summary>
+    public async Task<ChangeCredentialOutcome> ChangeCredentialAsync(string walletId, string currentCredential,
+        string newCredential, CredentialKind newKind)
+    {
+        var wallet = await GetWalletAsync(walletId);
+        if (wallet == null) return ChangeCredentialOutcome.Failed;
+
+        if (newKind == CredentialKind.Passphrase)
+        {
+            if (!CredentialPolicy.Check(newCredential, _passwordList).Accepted)
+                return ChangeCredentialOutcome.WeakPassphrase;
+        }
+        else if (!CredentialPolicy.IsValidPin(newCredential))
+        {
+            return ChangeCredentialOutcome.Failed;
+        }
+
+        var currentKind = wallet.CredentialType == "passphrase" ? CredentialKind.Passphrase : CredentialKind.Pin;
+        var opened = await _vault.OpenAsync(WalletKeyStore.SeedSlot(walletId), currentCredential, currentKind, migrate: false);
+        if (!opened.Success)
+            return opened.CountsAsWrongCredential ? ChangeCredentialOutcome.WrongCredential : ChangeCredentialOutcome.Failed;
+
+        var plaintext = opened.Value!;
+        try
+        {
+            var outcome = await _vault.SealAsync(WalletKeyStore.SeedSlot(walletId), plaintext, newCredential, newKind);
+            if (outcome == ProtectedSecretStore.SealOutcome.Failed) return ChangeCredentialOutcome.Failed;
+
+            wallet.CredentialType = CredentialTypeName(newKind);
+            wallet.ProtectionLevel = outcome == ProtectedSecretStore.SealOutcome.Legacy ? "legacy" : "standard";
+            await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+            return ChangeCredentialOutcome.Changed;
+        }
+        finally
+        {
+            Array.Clear(plaintext);
+        }
+    }
+
+    /// <summary>
+    /// Whether settings should show the dismissible "use a passphrase" card: only for PIN wallets that have not
+    /// dismissed it. There is no balance-based or recurring trigger (clarification: gentle nudge, SC-010).
+    /// </summary>
+    public async Task<bool> ShouldShowPassphraseNudgeAsync(string walletId)
+    {
+        var wallet = await GetWalletAsync(walletId);
+        return wallet is { CredentialType: "pin", PassphraseNudgeDismissed: false };
+    }
+
+    public async Task SetPassphraseNudgeDismissedAsync(string walletId, bool dismissed)
+    {
+        var wallet = await GetWalletAsync(walletId);
+        if (wallet == null || wallet.PassphraseNudgeDismissed == dismissed) return;
+        wallet.PassphraseNudgeDismissed = dismissed;
+        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+    }
+
     /// <summary>
     /// Recovery: re-protects the wallet under a new PIN or passphrase after the user supplies their recovery phrase
     /// (HD), key (imported) or xpub (watch-only). Nothing is written until the secret has been validated and the new
@@ -2646,4 +2742,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         }
         catch { return null; }
     }
+}
+
+public enum ChangeCredentialOutcome
+{
+    Changed,
+    WrongCredential,
+    WeakPassphrase,
+    Failed,
 }

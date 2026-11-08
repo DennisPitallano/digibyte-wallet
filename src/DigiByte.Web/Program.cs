@@ -72,6 +72,8 @@ builder.Services.AddScoped<TransactionTracker>();
 builder.Services.AddScoped<DigiIdSweepStore>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IMigrationLock, WebLockMigrationLock>();
+builder.Services.AddScoped<CommonPasswordList>();
+builder.Services.AddScoped<ICommonPasswordList>(sp => sp.GetRequiredService<CommonPasswordList>());
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();

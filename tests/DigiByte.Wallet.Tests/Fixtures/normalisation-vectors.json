@@ -1,0 +1,30 @@
+[
+ {
+  "input": "caf\u00e9",
+  "nfkc": "caf\u00e9"
+ },
+ {
+  "input": "cafe\u0301",
+  "nfkc": "caf\u00e9"
+ },
+ {
+  "input": "\uff21\uff22\uff23",
+  "nfkc": "ABC"
+ },
+ {
+  "input": "\ufb01le",
+  "nfkc": "file"
+ },
+ {
+  "input": "  spaced  ",
+  "nfkc": "  spaced  "
+ },
+ {
+  "input": "\u2460\u2461",
+  "nfkc": "12"
+ },
+ {
+  "input": "\u212b",
+  "nfkc": "\u00c5"
+ }
+]

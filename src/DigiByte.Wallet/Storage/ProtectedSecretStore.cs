@@ -58,7 +58,7 @@ public sealed class ProtectedSecretStore
     /// Decrypts the secret with <paramref name="credential"/>. A successful open of a legacy-only (or stale) secret
     /// migrates it; a successful open from <c>v2</c> may remove an expired legacy copy. Neither can fail the open.
     /// </summary>
-    public async Task<CryptoResult<byte[]>> OpenAsync(ProtectedSlot slot, string credential, CredentialKind kind)
+    public async Task<CryptoResult<byte[]>> OpenAsync(ProtectedSlot slot, string credential, CredentialKind kind, bool migrate = true)
     {
         var legacy = await _storage.GetAsync(slot.LegacyKey);
         var v2 = await _storage.GetAsync(slot.V2Key);
@@ -72,13 +72,13 @@ public sealed class ProtectedSecretStore
         if (useV2)
         {
             var opened = await _crypto.DecryptAsync(v2!, credential);
-            if (opened.Success)
+            if (opened.Success && migrate)
                 await TryRemoveExpiredLegacyAsync(slot, legacy, record);
             return opened;
         }
 
         var result = await _crypto.DecryptAsync(legacy!, credential);
-        if (result.Success)
+        if (result.Success && migrate)
             await TryMigrateAsync(slot, legacy!, result.Value!, credential, kind);
         return result;
     }
