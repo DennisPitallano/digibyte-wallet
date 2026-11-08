@@ -1885,54 +1885,48 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     }
 
     /// <summary>
-    /// Reset PIN by verifying the seed phrase and re-encrypting with a new PIN.
-    /// Works for HD wallets only (mnemonic-based).
+    /// Recovery: re-protects the wallet under a new PIN or passphrase after the user supplies their recovery phrase
+    /// (HD), key (imported) or xpub (watch-only). Nothing is written until the secret has been validated and the new
+    /// value verified; a failure changes nothing. The old credential stops working and the legacy copy is deleted.
     /// </summary>
-    public async Task<bool> ResetPinAsync(string walletId, string seedPhrase, string newPin)
+    public async Task<bool> ResetPinAsync(string walletId, string seedPhrase, string newCredential, CredentialKind kind = CredentialKind.Pin)
     {
-        // Load wallet info to check type
         var wallet = await GetWalletAsync(walletId);
         if (wallet == null) return false;
 
+        string secret;
         if (wallet.WalletType == "privatekey")
         {
-            // For WIF wallets, verify the WIF matches
-            // We can't verify without the old PIN, so just re-encrypt
-            // The user provides their WIF key as "seed phrase"
-            if (!PrivateKeyImporter.IsValidWif(seedPhrase.Trim()))
-                return false;
-
-            var encrypted = await _crypto.EncryptAsync(
-                System.Text.Encoding.UTF8.GetBytes(seedPhrase.Trim()), newPin);
-            await _keyStore.StoreSeedAsync(walletId, encrypted);
-            return true;
+            // The user re-imports their WIF key.
+            secret = seedPhrase.Trim();
+            if (!PrivateKeyImporter.IsValidWif(secret)) return false;
         }
         else if (wallet.WalletType == "xpub")
         {
-            // Watch-only wallet — verify xpub is valid
-            if (HdKeyDerivation.ParseXpub(seedPhrase.Trim()) == null)
-                return false;
-
-            var encrypted = await _crypto.EncryptAsync(
-                System.Text.Encoding.UTF8.GetBytes(seedPhrase.Trim()), newPin);
-            await _keyStore.StoreSeedAsync(walletId, encrypted);
-            return true;
+            // Watch-only: the user re-imports the xpub.
+            secret = seedPhrase.Trim();
+            if (HdKeyDerivation.ParseXpub(secret) == null) return false;
         }
         else
         {
-            // HD wallet — verify mnemonic is valid
-            var cleaned = string.Join(' ', seedPhrase.Trim().ToLower()
+            secret = string.Join(' ', seedPhrase.Trim().ToLower()
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-
-            if (!MnemonicGenerator.IsValid(cleaned))
-                return false;
-
-            // Re-encrypt the mnemonic with the new PIN
-            var encrypted = await _crypto.EncryptAsync(
-                System.Text.Encoding.UTF8.GetBytes(cleaned), newPin);
-            await _keyStore.StoreSeedAsync(walletId, encrypted);
-            return true;
+            if (!MnemonicGenerator.IsValid(secret)) return false;
         }
+
+        var outcome = await _vault.SealAsync(WalletKeyStore.SeedSlot(walletId),
+            System.Text.Encoding.UTF8.GetBytes(secret), newCredential, kind);
+        if (outcome == ProtectedSecretStore.SealOutcome.Failed) return false;
+
+        var credentialType = kind == CredentialKind.Passphrase ? "passphrase" : "pin";
+        var protection = outcome == ProtectedSecretStore.SealOutcome.Legacy ? "legacy" : "standard";
+        if (wallet.CredentialType != credentialType || wallet.ProtectionLevel != protection)
+        {
+            wallet.CredentialType = credentialType;
+            wallet.ProtectionLevel = protection;
+            await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+        }
+        return true;
     }
 
     public Task<DigiIdResponse> SignDigiIdAsync(DigiIdRequest request)

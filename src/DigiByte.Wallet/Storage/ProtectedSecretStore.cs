@@ -83,6 +83,47 @@ public sealed class ProtectedSecretStore
         return result;
     }
 
+    /// <summary>What <see cref="SealAsync"/> did.</summary>
+    public enum SealOutcome
+    {
+        /// <summary>Stored as a verified <c>dgb2</c> envelope; the legacy copy and migration record were deleted.</summary>
+        V2,
+        /// <summary>The crypto service cannot produce an envelope: stored in the legacy format (and any stale v2 deleted).</summary>
+        Legacy,
+        /// <summary>Nothing was stored; storage is unchanged.</summary>
+        Failed,
+    }
+
+    /// <summary>
+    /// Replaces the secret under a new credential (credential change or recovery). The new value is built and
+    /// verified in memory before anything is written, so a failure leaves the old value untouched. Order of writes:
+    /// new value first, then the old copies are removed, so every intermediate state still opens with the new credential.
+    /// The old, weakly protected legacy copy is deleted immediately (FR-012).
+    /// </summary>
+    public async Task<SealOutcome> SealAsync(ProtectedSlot slot, byte[] plaintext, string credential, CredentialKind kind)
+    {
+        var sealedResult = await _crypto.EncryptAsync(plaintext, credential, kind);
+        if (!sealedResult.Success) return SealOutcome.Failed;
+        var stored = sealedResult.Value!;
+
+        if (EnvelopeCodec.Parse(stored).Status == EnvelopeStatus.Ok)
+        {
+            var check = await _crypto.DecryptAsync(stored, credential);
+            if (!check.Success || !check.Value!.AsSpan().SequenceEqual(plaintext)) return SealOutcome.Failed;
+
+            await _storage.SetAsync(slot.V2Key, stored);
+            await _storage.RemoveAsync(slot.LegacyKey);
+            await _storage.RemoveAsync(slot.RecordKey);
+            return SealOutcome.V2;
+        }
+
+        // No Argon2 here: keep the legacy format, and make sure a stale v2 value cannot shadow the new credential.
+        await _storage.SetAsync(slot.LegacyKey, stored);
+        await _storage.RemoveAsync(slot.V2Key);
+        await _storage.RemoveAsync(slot.RecordKey);
+        return SealOutcome.Legacy;
+    }
+
     private async Task TryRemoveExpiredLegacyAsync(ProtectedSlot slot, string? legacy, MigrationRecord? record)
     {
         if (legacy is null || record is null) return;
