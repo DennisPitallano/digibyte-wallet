@@ -141,7 +141,7 @@
             {
                 <div class="scale-in bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30 p-4 flex flex-col gap-3">
                     <p class="text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
-                        Disable biometric unlock? You'll need to enter your PIN each time.
+                        Disable biometric unlock? You'll need to enter your @PromptWord each time.
                     </p>
                     <div class="flex gap-2">
                         <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
@@ -602,6 +602,9 @@
 @code {
     // The wallet's credential type decides which input is shown (PIN boxes or a passphrase field).
     private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
+    /// <summary>What to tell the user after a failed check: a wrong credential, or the real reason (out of memory, newer format).</summary>
+    private string FailureText() =>
+        CredentialMessages.ForFailure(credKind, WalletService.LastCredentialFailure ?? CryptoFailure.WrongCredential);
     private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
     private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     private static readonly (BakuMode Mode, string Label)[] BakuModes =
@@ -840,7 +843,7 @@
             var seed = await WalletService.GetDecryptedSeedAsync(walletId, bioPin);
             if (seed == null)
             {
-                bioPinError = "Incorrect PIN.";
+                bioPinError = FailureText();
                 bioPin = "";
                 bioPinInput?.Clear();
                 return;
@@ -906,7 +909,7 @@
         var success = await WalletService.UnlockWalletAsync(walletId, deletePin);
         if (!success)
         {
-            deleteError = "Incorrect PIN.";
+            deleteError = FailureText();
             deletePin = "";
             deletePinInput?.Clear();
             return;

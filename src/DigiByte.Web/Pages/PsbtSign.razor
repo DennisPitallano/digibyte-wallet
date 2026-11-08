@@ -613,7 +613,11 @@
             }
             else
             {
-                pinError = pinThrottle.RecordFailure();
+                pinThrottle.Kind = credKind;
+                var failure = WalletService.LastCredentialFailure;
+                pinError = CredentialMessages.CountsAsAttempt(failure)
+                    ? pinThrottle.RecordFailure()
+                    : CredentialMessages.ForFailure(credKind, failure!.Value);
                 pin = "";
                 pinInput?.Clear();
             }

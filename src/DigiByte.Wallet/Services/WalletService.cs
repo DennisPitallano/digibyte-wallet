@@ -554,11 +554,24 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     {
         var slot = WalletKeyStore.SeedSlot(walletId);
         if (!await _vault.ExistsAsync(slot))
-            return CryptoResult<byte[]>.Fail(CryptoFailure.Unreadable);
+            return Remember(CryptoResult<byte[]>.Fail(CryptoFailure.Unreadable));
 
         var info = await GetWalletAsync(walletId);
         var kind = info?.CredentialType == "passphrase" ? CredentialKind.Passphrase : CredentialKind.Pin;
-        return await _vault.OpenAsync(slot, credential, kind);
+        return Remember(await _vault.OpenAsync(slot, credential, kind));
+    }
+
+    /// <summary>
+    /// Why the most recent unlock, PIN check or seed read failed, or null if it succeeded. Lets a page avoid calling an
+    /// environmental problem (out of memory, a newer or unreadable format) a wrong credential, and avoid counting it as
+    /// an attempt. See <see cref="CredentialMessages"/>.
+    /// </summary>
+    public CryptoFailure? LastCredentialFailure { get; private set; }
+
+    private CryptoResult<byte[]> Remember(CryptoResult<byte[]> result)
+    {
+        LastCredentialFailure = result.Failure;
+        return result;
     }
 
     /// <summary>

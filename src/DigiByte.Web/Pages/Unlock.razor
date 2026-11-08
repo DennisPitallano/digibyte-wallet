@@ -68,7 +68,7 @@
 
         <div class="flex items-center gap-3 w-full max-w-[280px]">
             <div class="flex-1 h-px bg-slate-300 dark:bg-dgb-800"></div>
-            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">or PIN</span>
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">@(credKind == CredentialKind.Pin ? "or PIN" : "or passphrase")</span>
             <div class="flex-1 h-px bg-slate-300 dark:bg-dgb-800"></div>
         </div>
     }
@@ -127,8 +127,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Reset PIN with recovery phrase</p>
-                        <p class="text-[10px] text-slate-400">Enter your seed phrase to set a new PIN</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Reset @CredentialMessages.Word(credKind) with recovery phrase</p>
+                        <p class="text-[10px] text-slate-400">Enter your seed phrase to set a new PIN or passphrase</p>
                     </div>
                 </button>
 
@@ -399,8 +399,13 @@
             }
             else
             {
-                // Exponential backoff after 3 failures: 15s, 30s, 60s, 120s, ...
-                error = pinThrottle.RecordFailure();
+                // Exponential backoff after 3 wrong attempts: 15s, 30s, 60s, 120s, ...
+                // A problem that is not the user's mistake (out of memory, newer format) is explained and not counted.
+                pinThrottle.Kind = credKind;
+                var failure = WalletService.LastCredentialFailure;
+                error = CredentialMessages.CountsAsAttempt(failure)
+                    ? pinThrottle.RecordFailure()
+                    : CredentialMessages.ForFailure(credKind, failure!.Value);
                 pin = "";
                 pinInput?.Clear();
             }
@@ -478,11 +483,11 @@
                     return;
                 }
             }
-            error = "Biometric failed. Enter your PIN.";
+            error = CredentialMessages.BiometricFailed(credKind);
         }
         catch
         {
-            error = "Biometric failed. Enter your PIN.";
+            error = CredentialMessages.BiometricFailed(credKind);
         }
         finally
         {
@@ -559,6 +564,7 @@
         if (success)
         {
             credKind = resetKind;
+            pinThrottle.Kind = credKind;
             // Auto-unlock with the new credential
             WalletService.SetNetworkMode(AppState.NetworkMode);
             var unlocked = await WalletService.UnlockWalletAsync(walletId, newPin);

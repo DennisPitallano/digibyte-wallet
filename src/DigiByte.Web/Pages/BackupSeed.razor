@@ -70,6 +70,9 @@
 @code {
     // The wallet's credential type decides which input is shown (PIN boxes or a passphrase field).
     private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
+    /// <summary>What to tell the user after a failed check: a wrong credential, or the real reason (out of memory, newer format).</summary>
+    private string FailureText() =>
+        CredentialMessages.ForFailure(credKind, WalletService.LastCredentialFailure ?? CryptoFailure.WrongCredential);
     private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
     private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     [SupplyParameterFromQuery] public string? WalletId { get; set; }
@@ -99,7 +102,7 @@
             var success = await WalletService.UnlockWalletAsync(walletId, pin);
             if (!success)
             {
-                error = "Incorrect PIN";
+                error = FailureText();
                 pin = "";
                 pinInput?.Clear();
                 return;
