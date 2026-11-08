@@ -6,7 +6,7 @@
 
 | Method | Behaviour |
 |---|---|
-| `encrypt(plaintextBase64, credential)` | Now produces a `dgb2` envelope using the standard profile. Kept for source compatibility; new callers use `encryptV2`. |
+| `encrypt(plaintextBase64, credential)` | Stays on the legacy PBKDF2 format until T052; it is the legacy write path used by the unsupported-device flow (FR-021). New callers use `encryptV2`. |
 | `decrypt(packedBase64, credential)` | Reads both formats; returns plaintext Base64 or `null` for any failure (unchanged contract for callers not yet migrated). |
 
 ## New
