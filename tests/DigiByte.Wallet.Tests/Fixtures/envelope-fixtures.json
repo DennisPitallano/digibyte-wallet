@@ -1,0 +1,21 @@
+{
+  "note": "Generated once by the T004 script from src/DigiByte.Web/wwwroot/js/crypto.js. Same file in both test projects.",
+  "plaintext": "abandon ability able about above absent absorb abstract",
+  "pin": "123456",
+  "passphrase": "correct horse battery staple",
+  "legacy": "iTYwFcKxxr54mWAp1h9UrhlaNdVFwN80z9KGfv4ighaVKFENGI6KJtLG8/khIJ4Edh/CDq+/bWKPyULkhrnxgtiS7aGq04RxXgwSkb7ZMI+Ncb6WdHTJT2CmwiJ4t5sBpIPq",
+  "valid": {
+    "standard": "dgb2$AgEAAQAAAwEB6iLUHZzcp_i34DQfy0m1-191l8nOhY3oXAKmgjUL6sR_GOBCC_qZXg88SEHs5Q8_V_UYIHQE1E2Gzmtyc72g1eZYLkdK7wyFBBJAZjqSTBvhYOqiQNxWHbxk9Fy6vs3SGFb5",
+    "low-memory": "dgb2$AgEAAIAAAwEBN3KfwF_8z8Dl8rXLhGoRft9vsmmi7TGKvPGNMx3KJSxo7nA_jt41mDj_ayHSqjesbj40b_5uNgyMXo8ydOkf9TpLMdQHdLyqJVBidHhKnxFQDknAyGlx8kpDNsh5Kav3G8RL",
+    "floor": "dgb2$AgEAAEwAAgEBARX0Q1iJvcT6tW7RoiXRaLF0Uys2wb1My17ERUg7-YwymZ3gEUU9jyLhahba1Di5Nt6qwe6Ap5wX_gyFE2QIVPfNehG4uNyQvNi5WM7JcZr3nCpgyLf1ZMyIzImfddtqEgnN"
+  },
+  "passphraseFloor": "dgb2$AgEAAEwAAgECEkQSgQU03oxP5UuOXJVtwVLe-2R18NUe-PXC2WLli6mEWF0hihRDP_5_61d6Esv4fKV3Fx9yMDCMTl6BXgGvOqrd4ssWrRv1V_9H8OgWid9ti0vN2eeeHKD0zx-o4RvYUkqg",
+  "tampered": {
+    "headerBitFlip": "dgb2$AgEAAEwAAgECARX0Q1iJvcT6tW7RoiXRaLF0Uys2wb1My17ERUg7-YwymZ3gEUU9jyLhahba1Di5Nt6qwe6Ap5wX_gyFE2QIVPfNehG4uNyQvNi5WM7JcZr3nCpgyLf1ZMyIzImfddtqEgnN",
+    "ciphertextBitFlip": "dgb2$AgEAAEwAAgEBARX0Q1iJvcT6tW7RoiXRaLF0Uys2wb1My17ERUg7-YwymZ3gEUU9jyLhahba1Di5Nt6qwe6Ap5wX_gyFE2QIVPfNehG4uNyQvNi5WM7JcZv3nCpgyLf1ZMyIzImfddtqEgnN",
+    "truncated": "dgb2$AgEAAEwAAgEBARX0Q1iJvcT6tW7RoiXRaLF0Uys2",
+    "unknownVersion": "dgb3$AgEAAEwAAgEBARX0Q1iJvcT6tW7RoiXRaLF0Uys2wb1My17ERUg7-YwymZ3gEUU9jyLhahba1Di5Nt6qwe6Ap5wX_gyFE2QIVPfNehG4uNyQvNi5WM7JcZr3nCpgyLf1ZMyIzImfddtqEgnN",
+    "belowFloorMemory": "dgb2$AgEAACAAAgEBARX0Q1iJvcT6tW7RoiXRaLF0Uys2wb1My17ERUg7-YwymZ3gEUU9jyLhahba1Di5Nt6qwe6Ap5wX_gyFE2QIVPfNehG4uNyQvNi5WM7JcZr3nCpgyLf1ZMyIzImfddtqEgnN",
+    "belowFloorPasses": "dgb2$AgEAAEwAAQEBARX0Q1iJvcT6tW7RoiXRaLF0Uys2wb1My17ERUg7-YwymZ3gEUU9jyLhahba1Di5Nt6qwe6Ap5wX_gyFE2QIVPfNehG4uNyQvNi5WM7JcZr3nCpgyLf1ZMyIzImfddtqEgnN"
+  }
+}

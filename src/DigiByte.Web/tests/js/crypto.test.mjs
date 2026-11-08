@@ -222,3 +222,39 @@ test("bench can be switched on explicitly with the developer flag", async () => 
     assert.equal(rows.length, 4);
     delete globalThis.localStorage;
 });
+
+// ---- known-answer fixtures (T004), shared with the C# suite ----
+import { readFileSync } from "node:fs";
+const fx = JSON.parse(readFileSync(new URL("./fixtures/envelope-fixtures.json", import.meta.url), "utf8"));
+
+test("fixture: legacy value opens with the known PIN", async () => {
+    const r = await crypto.decryptV2(fx.legacy, fx.pin);
+    assert.equal(r.ok, true);
+    assert.equal(r.format, "legacy");
+    assert.equal(unb64(r.plaintextBase64), fx.plaintext);
+});
+
+for (const profile of ["standard", "low-memory", "floor"]) {
+    test(`fixture: dgb2 ${profile} opens with the known PIN and not with a wrong one`, async () => {
+        const ok = await crypto.decryptV2(fx.valid[profile], fx.pin);
+        assert.equal(ok.ok, true);
+        assert.deepEqual(ok.params, crypto._profiles[profile]);
+        assert.equal(unb64(ok.plaintextBase64), fx.plaintext);
+        assert.equal((await crypto.decryptV2(fx.valid[profile], "000000")).reason, "WrongCredential");
+    });
+}
+
+test("fixture: passphrase envelope opens with the known passphrase", async () => {
+    const r = await crypto.decryptV2(fx.passphraseFloor, fx.passphrase);
+    assert.equal(r.ok, true);
+    assert.equal(unb64(r.plaintextBase64), fx.plaintext);
+});
+
+test("fixture: tampered variants are refused with the right failure class", async () => {
+    assert.equal((await crypto.decryptV2(fx.tampered.headerBitFlip, fx.pin)).reason, "WrongCredential");
+    assert.equal((await crypto.decryptV2(fx.tampered.ciphertextBitFlip, fx.pin)).reason, "WrongCredential");
+    assert.equal((await crypto.decryptV2(fx.tampered.truncated, fx.pin)).reason, "Unreadable");
+    assert.equal((await crypto.decryptV2(fx.tampered.unknownVersion, fx.pin)).reason, "UnsupportedVersion");
+    assert.equal((await crypto.decryptV2(fx.tampered.belowFloorMemory, fx.pin)).reason, "Unreadable");
+    assert.equal((await crypto.decryptV2(fx.tampered.belowFloorPasses, fx.pin)).reason, "Unreadable");
+});
