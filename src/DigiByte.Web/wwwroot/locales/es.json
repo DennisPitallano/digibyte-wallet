@@ -252,7 +252,7 @@
   "protection.current_passphrase": "Protegida con una frase de acceso",
   "protection.use_passphrase": "Usar una frase de acceso",
   "protection.change": "Cambiar",
-  "protection.nudge": "Un PIN de 6 d\u00edgitos es m\u00e1s fuerte que antes, pero a\u00fan puede adivinarse con esfuerzo si alguien copia los datos de este navegador. Una frase de acceso de al menos 12 caracteres es la protecci\u00f3n real, y vale la pena si guardas una cantidad importante.",
+  "protection.nudge": "Tu PIN protege tu billetera en este dispositivo. Para mayor tranquilidad, puedes cambiar a una frase de acceso: unas cuantas palabras que t\u00fa elijas y que son a\u00fan m\u00e1s dif\u00edciles de adivinar.",
   "protection.dismiss": "No volver a mostrar",
   "protection.show_tip": "Mostrar de nuevo el consejo de la frase de acceso",
   "protection.current_label": "PIN o frase de acceso actual",

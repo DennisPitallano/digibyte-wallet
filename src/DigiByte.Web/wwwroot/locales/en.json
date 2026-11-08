@@ -274,7 +274,7 @@
   "protection.current_passphrase": "Protected by a passphrase",
   "protection.use_passphrase": "Use a passphrase",
   "protection.change": "Change",
-  "protection.nudge": "A 6-digit PIN is stronger than before, but it can still be guessed with effort by someone who copies this browser's data. A passphrase of at least 12 characters is the real protection, and worth it if you hold a meaningful amount.",
+  "protection.nudge": "Your PIN protects your wallet on this device. For extra peace of mind, you can switch to a passphrase: a few words of your choosing that are even harder to guess.",
   "protection.dismiss": "Don't show this again",
   "protection.show_tip": "Show the passphrase tip again",
   "protection.current_label": "Current PIN or passphrase",
