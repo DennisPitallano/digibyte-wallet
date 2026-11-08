@@ -119,6 +119,11 @@
                 </button>
             </div>
 
+            @if (bioWeakConsent)
+            {
+                <BiometricNotice Mode="BiometricNotice.NoticeMode.Consent" OnPrimary="AcceptBioWeak" OnSecondary="DeclineBioWeak" />
+            }
+
             @* Biometric PIN verification for enrollment *@
             @if (showBioPinVerify)
             {
@@ -820,8 +825,28 @@
             showBioPinVerify = true;
     }
 
+    private byte[]? bioPendingSeed;
+    private bool bioWeakConsent;
+    private bool bioAcceptWeak;
+
+    private async Task AcceptBioWeak()
+    {
+        bioAcceptWeak = true;
+        bioWeakConsent = false;
+        await ConfirmBioEnroll();
+    }
+
+    private void DeclineBioWeak()
+    {
+        Biometric.CancelPendingEnrollment();
+        bioPendingSeed = null;
+        bioAcceptWeak = false;
+        CancelBioToggle();
+    }
+
     private void CancelBioToggle()
     {
+        bioWeakConsent = false;
         showBioPinVerify = false;
         showBioDisableConfirm = false;
         bioPin = "";
@@ -850,7 +875,18 @@
             }
 
             var info = await WalletService.GetWalletAsync(walletId);
-            var success = await Biometric.EnrollAsync(walletId, info?.Name ?? "Wallet", seed);
+            bioPendingSeed = seed;
+            var outcome = await Biometric.EnrollAsync(walletId, info?.Name ?? "Wallet", seed, bioAcceptWeak);
+            if (outcome == BiometricEnrollOutcome.NeedsWeakConsent)
+            {
+                // This browser cannot tie the key to the device's own security: ask before going on (FR-018b).
+                bioWeakConsent = true;
+                return;
+            }
+            bioPendingSeed = null;
+            bioWeakConsent = false;
+            bioAcceptWeak = false;
+            var success = outcome == BiometricEnrollOutcome.Enrolled;
             if (success)
             {
                 // Also enroll seeds for all other wallets

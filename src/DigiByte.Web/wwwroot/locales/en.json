@@ -284,5 +284,14 @@
   "protection.done": "Protection updated. Use the new PIN or passphrase from now on.",
   "protection.wrong_current": "That is not the current PIN or passphrase.",
   "protection.pin_invalid": "A PIN must be exactly 6 digits.",
-  "protection.failed": "Could not change the protection. Nothing was changed."
+  "protection.failed": "Could not change the protection. Nothing was changed.",
+  "biometric.upgrade.title": "Strengthen biometric unlock",
+  "biometric.upgrade.body": "We can now tie biometric unlock more closely to your device's own security. You'll be asked to confirm with your fingerprint or face once, and unlocking works the same afterwards.",
+  "biometric.upgrade.yes": "Upgrade now",
+  "biometric.upgrade.later": "Not now",
+  "biometric.upgrade.failed": "Couldn't upgrade right now. Nothing was changed, and biometric unlock keeps working as before.",
+  "biometric.weak.title": "About biometric unlock here",
+  "biometric.weak.body": "On this browser, biometric unlock is a convenience: it makes unlocking quicker, but it slightly lowers protection for your wallet's saved data compared with using only your PIN or passphrase. You can turn it off any time in Settings.",
+  "biometric.weak.consent_yes": "Turn it on anyway",
+  "biometric.weak.ok": "Got it"
 }

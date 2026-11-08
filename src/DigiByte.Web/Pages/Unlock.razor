@@ -238,6 +238,12 @@
     </div>
 </div>
 
+@if (bioNotice is { } noticeMode)
+{
+    <BiometricNotice Mode="noticeMode" Busy="bioNoticeBusy" Error="@bioNoticeError"
+                     OnPrimary="BioNoticePrimaryAsync" OnSecondary="BioNoticeSecondaryAsync" />
+}
+
 @* Biometric enrollment prompt — shown after first successful PIN unlock *@
 @if (showBioEnrollPrompt)
 {
@@ -416,6 +422,63 @@
 
     private bool showUpgradeNotice;
 
+    // One-time biometric notices (upgrade offer, plain notice)
+    private BiometricNotice.NoticeMode? bioNotice;
+    private bool bioNoticeBusy;
+    private string? bioNoticeError;
+
+    private void ShowBioNotice(BiometricNotice.NoticeMode mode)
+    {
+        AppState.IsWalletCreated = true;
+        AppState.IsWalletUnlocked = true;
+        AppState.ActiveWalletName = walletName;
+        AppState.NotifyStateChanged();
+        bioNoticeError = null;
+        bioNotice = mode;
+    }
+
+    private async Task BioNoticePrimaryAsync()
+    {
+        if (bioNotice == BiometricNotice.NoticeMode.Upgrade)
+        {
+            bioNoticeBusy = true;
+            bioNoticeError = null;
+            StateHasChanged();
+            try
+            {
+                var outcome = await Biometric.UpgradeAsync(walletName);
+                if (outcome == BiometricUpgradeOutcome.Failed)
+                {
+                    bioNoticeError = L.T("biometric.upgrade.failed");
+                    return;
+                }
+            }
+            catch
+            {
+                bioNoticeError = L.T("biometric.upgrade.failed");
+                return;
+            }
+            finally
+            {
+                bioNoticeBusy = false;
+            }
+        }
+        else
+        {
+            await Biometric.AcknowledgeWeakWarningAsync();
+        }
+
+        bioNotice = null;
+        await FinishUnlockAsync(); // may show the next notice
+    }
+
+    private async Task BioNoticeSecondaryAsync()
+    {
+        await Biometric.DeclineUpgradeAsync();
+        bioNotice = null;
+        await FinishUnlockAsync();
+    }
+
     private async Task DismissUpgradeNoticeAsync()
     {
         showUpgradeNotice = false;
@@ -426,6 +489,19 @@
     private async Task FinishUnlockAsync()
     {
         if (walletId == null) return;
+
+        // An enrolment made before the key was tied to the device's own security: offer the one-time upgrade, then show the
+        // one-time plain notice where the upgrade is not possible or was declined.
+        if (await Biometric.NeedsUpgradePromptAsync())
+        {
+            ShowBioNotice(BiometricNotice.NoticeMode.Upgrade);
+            return;
+        }
+        if (await Biometric.NeedsWeakWarningAsync())
+        {
+            ShowBioNotice(BiometricNotice.NoticeMode.Plain);
+            return;
+        }
 
         // Check if we should offer biometric enrollment
         // Re-check IsEnabledAsync directly to avoid race with OnAfterRenderAsync

@@ -1,0 +1,58 @@
+@inject LocalizationService L
+
+@* Two one-time notices for biometric unlock, shown after a successful credential unlock:
+   - Upgrade: an existing enrolment can now be linked to the device's own security (FR-018a), asking once.
+   - Plain: on a browser without that capability, biometric unlock is a convenience and not extra protection (FR-018b). *@
+
+<div class="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm scale-in" data-testid="biometric-notice">
+    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 mx-6 max-w-sm shadow-2xl flex flex-col items-center gap-4"
+         @onclick:stopPropagation="true">
+        @if (Mode == NoticeMode.Upgrade)
+        {
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.upgrade.title")</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.upgrade.body")</p>
+            @if (Error is not null)
+            {
+                <p class="text-xs text-red-500 font-medium text-center" role="alert">@Error</p>
+            }
+            <div class="flex flex-col gap-2 w-full mt-2">
+                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50"
+                        data-testid="biometric-upgrade-yes" @onclick="() => OnPrimary.InvokeAsync()" disabled="@Busy">
+                    @(Busy ? L.T("protection.working") : L.T("biometric.upgrade.yes"))
+                </button>
+                <button class="w-full py-3 text-slate-500 dark:text-slate-400 text-sm font-medium" data-testid="biometric-upgrade-later"
+                        @onclick="() => OnSecondary.InvokeAsync()" disabled="@Busy">@L.T("biometric.upgrade.later")</button>
+            </div>
+        }
+        else if (Mode == NoticeMode.Consent)
+        {
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.weak.title")</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.weak.body")</p>
+            <div class="flex flex-col gap-2 w-full mt-2">
+                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50"
+                        data-testid="biometric-consent-yes" @onclick="() => OnPrimary.InvokeAsync()" disabled="@Busy">@L.T("biometric.weak.consent_yes")</button>
+                <button class="w-full py-3 text-slate-500 dark:text-slate-400 text-sm font-medium" data-testid="biometric-consent-cancel"
+                        @onclick="() => OnSecondary.InvokeAsync()" disabled="@Busy">@L.T("common.cancel")</button>
+            </div>
+        }
+        else
+        {
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.weak.title")</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.weak.body")</p>
+            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect mt-2"
+                    data-testid="biometric-notice-ok" @onclick="() => OnPrimary.InvokeAsync()">@L.T("biometric.weak.ok")</button>
+        }
+    </div>
+</div>
+
+@code {
+    public enum NoticeMode { Upgrade, Consent, Plain }
+
+    [Parameter] public NoticeMode Mode { get; set; } = NoticeMode.Plain;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+    /// <summary>Upgrade now, turn on anyway, or "Got it", depending on the mode.</summary>
+    [Parameter] public EventCallback OnPrimary { get; set; }
+    /// <summary>Not now, or cancel.</summary>
+    [Parameter] public EventCallback OnSecondary { get; set; }
+}

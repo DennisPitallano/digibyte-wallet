@@ -119,14 +119,14 @@
 ### Tests first
 
 - [X] T038 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/` with `PinAttemptThrottleTests.cs`: identical thresholds and delays for PIN and passphrase; messages say "PIN" or "passphrase"; only `WrongCredential` increments; `ResourceExhausted` and `UnsupportedVersion` do not; reset on success.
-- [ ] T039 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/BiometricServiceTests.cs`: PRF enrolment stores no `bio_key`, and the stored `bio_seed_{id}` cannot be decrypted without the PRF-derived key (SC-011); migration of a wallet with biometrics enrolled keeps biometric unlock working; one-time re-enrolment prompt state (`bio_prf_state`); non-PRF path sets the weak warning once and respects a decline; credential-gated actions (view phrase, change credential, enrol biometrics) still require the credential.
-- [ ] T040 [P] [US5] Write `src/DigiByte.Web/tests/js/webauthn-prf.test.mjs` with a stubbed `navigator.credentials`: PRF enabled result yields a derived key never persisted; PRF missing yields `prfSupported: false`.
+- [X] T039 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/BiometricServiceTests.cs`: PRF enrolment stores no `bio_key`, and the stored `bio_seed_{id}` cannot be decrypted without the PRF-derived key (SC-011); migration of a wallet with biometrics enrolled keeps biometric unlock working; one-time re-enrolment prompt state (`bio_prf_state`); non-PRF path sets the weak warning once and respects a decline; credential-gated actions (view phrase, change credential, enrol biometrics) still require the credential.
+- [X] T040 [P] [US5] Write `src/DigiByte.Web/tests/js/webauthn-prf.test.mjs` with a stubbed `navigator.credentials`: PRF enabled result yields a derived key never persisted; PRF missing yields `prfSupported: false`.
 
 ### Implementation
 
 - [X] T041 [US5] Update `src/DigiByte.Web/Services/PinAttemptThrottle.cs` to take a credential kind and a failure classification (only wrong-credential counts); update `src/DigiByte.Web/Pages/Unlock.razor` and `src/DigiByte.Web/Pages/PsbtSign.razor` call sites; make T038 pass.
-- [ ] T042 [US5] Update `src/DigiByte.Web/wwwroot/js/webauthn.js` with `enrollPrf` and `deriveKeyPrf` (HKDF-SHA256 over the PRF output, never persisted) per `contracts/js-crypto-api.md`; make T040 pass.
-- [ ] T043 [US5] Update `src/DigiByte.Web/Services/BiometricService.cs`: PRF enrolment, re-encrypting each `bio_seed_{id}` under the derived key, removing `bio_key` after success, one-time re-enrolment prompt after the next credential unlock, weak-path warning with decline, `bio_prf_state` and `bio_weak_warned` flags; make T039 pass. Credential change in T035 must keep biometric state consistent.
+- [X] T042 [US5] Update `src/DigiByte.Web/wwwroot/js/webauthn.js` with `enrollPrf` and `deriveKeyPrf` (HKDF-SHA256 over the PRF output, never persisted) per `contracts/js-crypto-api.md`; make T040 pass.
+- [X] T043 [US5] Update `src/DigiByte.Web/Services/BiometricService.cs`: PRF enrolment, re-encrypting each `bio_seed_{id}` under the derived key, removing `bio_key` after success, one-time re-enrolment prompt after the next credential unlock, weak-path warning with decline, `bio_prf_state` and `bio_weak_warned` flags; make T039 pass. Credential change in T035 must keep biometric state consistent.
 
 ---
 

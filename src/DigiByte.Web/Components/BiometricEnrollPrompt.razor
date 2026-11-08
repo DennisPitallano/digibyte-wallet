@@ -1,6 +1,7 @@
 @inject BiometricService Biometric
 @inject WalletService WalletService
 @using DigiByte.Wallet.Storage
+@using DigiByte.Web.Services
 
 @* Biometric enrollment prompt modal — shown after first successful PIN unlock *@
 <div class="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm scale-in">
@@ -25,7 +26,7 @@
 
         <div class="flex flex-col gap-2 w-full mt-2">
             <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
-                    @onclick="EnableAsync" disabled="@isEnrolling">
+                    @onclick="() => EnableAsync(false)" disabled="@isEnrolling">
                 @if (isEnrolling)
                 {
                     <span class="flex items-center justify-center gap-2">
@@ -49,6 +50,13 @@
     </div>
 </div>
 
+@* A browser that cannot tie the key to the device's own security: say so plainly and ask first (FR-018b). *@
+@if (needsConsent)
+{
+    <BiometricNotice Mode="BiometricNotice.NoticeMode.Consent" Busy="isEnrolling"
+                     OnPrimary="() => EnableAsync(true)" OnSecondary="CancelConsent" />
+}
+
 @code {
     [Parameter, EditorRequired] public string WalletId { get; set; } = "";
     [Parameter, EditorRequired] public string WalletName { get; set; } = "";
@@ -57,9 +65,16 @@
     [Parameter] public EventCallback OnDismissed { get; set; }
 
     private bool isEnrolling;
+    private bool needsConsent;
     private string? enrollError;
 
-    private async Task EnableAsync()
+    private void CancelConsent()
+    {
+        Biometric.CancelPendingEnrollment();
+        needsConsent = false;
+    }
+
+    private async Task EnableAsync(bool acceptWeak)
     {
         isEnrolling = true;
         enrollError = null;
@@ -67,14 +82,20 @@
 
         try
         {
-            var success = await Biometric.EnrollAsync(WalletId, WalletName, DecryptedSeed);
-            if (success)
+            var outcome = await Biometric.EnrollAsync(WalletId, WalletName, DecryptedSeed, acceptWeak);
+            switch (outcome)
             {
-                await OnEnrolled.InvokeAsync();
-            }
-            else
-            {
-                enrollError = "Biometric setup failed. You can try again from Settings.";
+                case BiometricEnrollOutcome.Enrolled:
+                    needsConsent = false;
+                    await OnEnrolled.InvokeAsync();
+                    break;
+                case BiometricEnrollOutcome.NeedsWeakConsent:
+                    needsConsent = true;
+                    break;
+                default:
+                    needsConsent = false;
+                    enrollError = "Biometric setup failed. You can try again from Settings.";
+                    break;
             }
         }
         catch

@@ -1,9 +1,20 @@
 // WebAuthn biometric unlock for DigiByte Wallet
-// Single credential for all wallets. Each wallet's seed is encrypted with
-// a shared AES-256 key; decryption requires a WebAuthn assertion (biometric).
+// Single credential for all wallets. Each wallet's seed copy is encrypted with an AES-256 key.
+//
+// Where the browser supports the WebAuthn PRF extension, that key is DERIVED from the authenticator at every unlock
+// (enrollPrf / deriveKeyPrf) and never stored, so copying the browser's data is not enough to open the seed copies.
+// Where it does not, the old behaviour is kept behind a warning and the user's consent: a random key is stored next
+// to the ciphertext (newBioKey / authenticate), so the biometric prompt is only a gate in the interface.
+// See specs/009-stronger-pin-protection/research.md R5 and contracts/js-crypto-api.md.
+//
+// Works in the browser (window.dgbWebAuthn) and under Node's test runner (module.exports).
 
-(function () {
+(function (root) {
     const WA_IV_SIZE = 12;
+
+    // Fixed per-app PRF input and the HKDF label for the derived key.
+    const PRF_INPUT = new TextEncoder().encode("digibyte-wallet/biometric-prf/v1");
+    const HKDF_INFO = new TextEncoder().encode("digibyte-wallet/biometric-key/v1");
 
     function toBase64(buffer) {
         return btoa(String.fromCharCode(...new Uint8Array(buffer)));
@@ -39,12 +50,12 @@
         }
     }
 
-    window.dgbWebAuthn = {
+    const api = {
         // Check if platform authenticator is available.
         isSupported: async function () {
-            if (!window.PublicKeyCredential) return false;
+            if (!root.PublicKeyCredential) return false;
             try {
-                return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+                return await root.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
             } catch {
                 return false;
             }
@@ -60,7 +71,7 @@
             try {
                 credential = await navigator.credentials.create({
                     publicKey: {
-                        rp: { name: "DigiByte Wallet", id: window.location.hostname },
+                        rp: { name: "DigiByte Wallet", id: root.location.hostname },
                         user: { id: userId, name: userName, displayName: userName },
                         challenge: crypto.getRandomValues(new Uint8Array(32)),
                         pubKeyCredParams: [
@@ -85,6 +96,83 @@
                 credentialId: toBase64(credential.rawId),
                 bioKey: toBase64(bioKeyBytes)
             };
+        },
+
+        // Create the credential asking for the PRF extension. Returns { credentialId, prfSupported } or null when the
+        // user cancels. No key material is returned: with PRF the key is derived later, never stored.
+        enrollPrf: async function (userName) {
+            const userId = crypto.getRandomValues(new Uint8Array(16));
+            let credential;
+            try {
+                credential = await navigator.credentials.create({
+                    publicKey: {
+                        rp: { name: "DigiByte Wallet", id: root.location.hostname },
+                        user: { id: userId, name: userName, displayName: userName },
+                        challenge: crypto.getRandomValues(new Uint8Array(32)),
+                        pubKeyCredParams: [
+                            { alg: -7, type: "public-key" },
+                            { alg: -257, type: "public-key" },
+                        ],
+                        authenticatorSelection: {
+                            authenticatorAttachment: "platform",
+                            userVerification: "required",
+                            residentKey: "discouraged",
+                        },
+                        extensions: { prf: {} },
+                        timeout: 60000
+                    }
+                });
+            } catch {
+                return null;
+            }
+
+            let prfEnabled = false;
+            try {
+                prfEnabled = credential.getClientExtensionResults()?.prf?.enabled === true;
+            } catch {
+                prfEnabled = false;
+            }
+            return { credentialId: toBase64(credential.rawId), prfSupported: prfEnabled };
+        },
+
+        // Run an assertion that evaluates the PRF and derive the AES key from it with HKDF-SHA256. Returns the key
+        // (base64) for immediate use, or null if the user cancels or PRF is unavailable. Never persisted.
+        deriveKeyPrf: async function (credentialIdBase64) {
+            let assertion;
+            try {
+                assertion = await navigator.credentials.get({
+                    publicKey: {
+                        challenge: crypto.getRandomValues(new Uint8Array(32)),
+                        allowCredentials: [{ id: fromBase64(credentialIdBase64), type: "public-key", transports: ["internal"] }],
+                        userVerification: "required",
+                        extensions: { prf: { eval: { first: PRF_INPUT } } },
+                        timeout: 60000
+                    }
+                });
+            } catch {
+                return null;
+            }
+
+            let prfOutput;
+            try {
+                prfOutput = assertion.getClientExtensionResults()?.prf?.results?.first;
+            } catch {
+                return null;
+            }
+            if (!prfOutput) return null;
+
+            const material = await crypto.subtle.importKey("raw", prfOutput, "HKDF", false, ["deriveBits"]);
+            const bits = await crypto.subtle.deriveBits(
+                { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: HKDF_INFO },
+                material,
+                256
+            );
+            return toBase64(bits);
+        },
+
+        // A random AES-256 key for the weak path (browsers without PRF), which the caller stores next to the ciphertext.
+        newBioKey: function () {
+            return toBase64(crypto.getRandomValues(new Uint8Array(32)));
         },
 
         // Encrypt a seed with the bio key. Returns base64 ciphertext.
@@ -144,4 +232,7 @@
             return seed ? toBase64(seed) : null;
         }
     };
-})();
+
+    root.dgbWebAuthn = api;
+    if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

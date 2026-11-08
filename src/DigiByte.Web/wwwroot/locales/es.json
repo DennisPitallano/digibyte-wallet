@@ -262,5 +262,14 @@
   "protection.done": "Protecci\u00f3n actualizada. Usa el nuevo PIN o frase de acceso desde ahora.",
   "protection.wrong_current": "Ese no es el PIN o la frase de acceso actual.",
   "protection.pin_invalid": "El PIN debe tener exactamente 6 d\u00edgitos.",
-  "protection.failed": "No se pudo cambiar la protecci\u00f3n. No se cambi\u00f3 nada."
+  "protection.failed": "No se pudo cambiar la protecci\u00f3n. No se cambi\u00f3 nada.",
+  "biometric.upgrade.title": "Refuerza el desbloqueo biom\u00e9trico",
+  "biometric.upgrade.body": "Ahora podemos vincular el desbloqueo biom\u00e9trico m\u00e1s estrechamente a la seguridad propia de tu dispositivo. Se te pedir\u00e1 confirmar una vez con tu huella o tu rostro, y despu\u00e9s desbloquear funciona igual.",
+  "biometric.upgrade.yes": "Mejorar ahora",
+  "biometric.upgrade.later": "Ahora no",
+  "biometric.upgrade.failed": "No se pudo mejorar ahora. No se cambi\u00f3 nada y el desbloqueo biom\u00e9trico sigue funcionando como antes.",
+  "biometric.weak.title": "Sobre el desbloqueo biom\u00e9trico aqu\u00ed",
+  "biometric.weak.body": "En este navegador, el desbloqueo biom\u00e9trico es una comodidad: desbloquea m\u00e1s r\u00e1pido, pero reduce un poco la protecci\u00f3n de los datos guardados de tu billetera frente a usar solo tu PIN o frase de acceso. Puedes desactivarlo cuando quieras en Ajustes.",
+  "biometric.weak.consent_yes": "Activarlo de todos modos",
+  "biometric.weak.ok": "Entendido"
 }
