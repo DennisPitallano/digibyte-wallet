@@ -13,6 +13,17 @@ public sealed class PinAttemptThrottle
     private const int BaseDelaySeconds = 15;
     private const int MaxDoublings = 5;
 
+    // English wording, used when no localiser is set. The locale files carry the same keys.
+    private static readonly Dictionary<string, string> English = new()
+    {
+        ["credential.incorrect_pin"] = "Incorrect PIN.",
+        ["credential.incorrect_passphrase"] = "Incorrect passphrase.",
+        ["throttle.remaining_one"] = "{0} 1 attempt remaining before lockout.",
+        ["throttle.remaining_many"] = "{0} {1} attempts remaining before lockout.",
+        ["throttle.locked"] = "{0} Locked for {1}s after {2} failed attempts.",
+        ["throttle.lockout_wait"] = "Too many attempts. Try again in {0}s.",
+    };
+
     private readonly Func<DateTime> _utcNow;
     private DateTime? _lockedUntil;
 
@@ -21,9 +32,18 @@ public sealed class PinAttemptThrottle
     /// <summary>Which credential this wallet uses, so messages say "PIN" or "passphrase". Thresholds do not depend on it.</summary>
     public CredentialKind Kind { get; set; } = CredentialKind.Pin;
 
+    /// <summary>Reads a message by key with format arguments, for example <c>LocalizationService.T</c>. Null means English.</summary>
+    public Func<string, object[], string>? Localize { get; set; }
+
     public int FailedAttempts { get; private set; }
 
     public bool IsLockedOut => _lockedUntil.HasValue && _utcNow() < _lockedUntil.Value;
+
+    private string Text(string key, params object[] args) =>
+        Localize is not null ? Localize(key, args) : string.Format(English[key], args);
+
+    private string Incorrect() =>
+        Text(Kind == CredentialKind.Passphrase ? "credential.incorrect_passphrase" : "credential.incorrect_pin");
 
     /// <summary>What to show when a credential is entered during the lockout.</summary>
     public string LockoutMessage
@@ -31,7 +51,7 @@ public sealed class PinAttemptThrottle
         get
         {
             var remaining = (_lockedUntil ?? _utcNow()) - _utcNow();
-            return $"Too many attempts. Try again in {(int)Math.Ceiling(Math.Max(0, remaining.TotalSeconds))}s.";
+            return Text("throttle.lockout_wait", (int)Math.Ceiling(Math.Max(0, remaining.TotalSeconds)));
         }
     }
 
@@ -42,12 +62,14 @@ public sealed class PinAttemptThrottle
         if (FailedAttempts < FreeAttempts)
         {
             var left = FreeAttempts - FailedAttempts;
-            return $"{CredentialMessages.Incorrect(Kind)} {left} {(left == 1 ? "attempt" : "attempts")} remaining before lockout.";
+            return left == 1
+                ? Text("throttle.remaining_one", Incorrect())
+                : Text("throttle.remaining_many", Incorrect(), left);
         }
 
         var delaySeconds = BaseDelaySeconds * (int)Math.Pow(2, Math.Min(FailedAttempts - FreeAttempts, MaxDoublings));
         _lockedUntil = _utcNow().AddSeconds(delaySeconds);
-        return $"{CredentialMessages.Incorrect(Kind)} Locked for {delaySeconds}s after {FailedAttempts} failed attempts.";
+        return Text("throttle.locked", Incorrect(), delaySeconds, FailedAttempts);
     }
 
     public void RecordSuccess()

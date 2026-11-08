@@ -1,3 +1,4 @@
+@inject LocalizationService L
 @inject BiometricService Biometric
 @inject WalletService WalletService
 @using DigiByte.Wallet.Storage
@@ -16,7 +17,7 @@
 
         <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">Enable Biometric Unlock?</h3>
         <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">
-            Unlock your wallet faster with fingerprint or face recognition. Your @CredentialMessages.Word(WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin) will still work as a backup.
+            @L.T("credential.biometric_enroll_body", CredentialText.Word(L, WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin))
         </p>
 
         @if (!string.IsNullOrEmpty(enrollError))

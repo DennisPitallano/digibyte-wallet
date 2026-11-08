@@ -1,4 +1,5 @@
 @page "/backup-seed"
+@inject LocalizationService L
 @inject WalletService WalletService
 @using DigiByte.Wallet.Storage
 @inject AppState AppState
@@ -21,7 +22,7 @@
                     </svg>
                 </div>
                 <h2 class="text-lg font-bold text-slate-900 dark:text-white">Verify Your Identity</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 text-center">Enter your @PromptWord to view your recovery phrase</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 text-center">@L.T("credential.enter_to_view_phrase", CredentialText.Word(L, credKind))</p>
             </div>
 
             <div class="flex flex-col items-center gap-4 slide-up-delay-2">
@@ -72,7 +73,7 @@
     private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
     /// <summary>What to tell the user after a failed check: a wrong credential, or the real reason (out of memory, newer format).</summary>
     private string FailureText() =>
-        CredentialMessages.ForFailure(credKind, WalletService.LastCredentialFailure ?? CryptoFailure.WrongCredential);
+        CredentialText.ForFailure(L, credKind, WalletService.LastCredentialFailure ?? CryptoFailure.WrongCredential);
     private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
     private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     [SupplyParameterFromQuery] public string? WalletId { get; set; }

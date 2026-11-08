@@ -77,7 +77,7 @@
 
         <div class="flex items-center gap-3 w-full max-w-[280px]">
             <div class="flex-1 h-px bg-slate-300 dark:bg-dgb-800"></div>
-            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">@(credKind == CredentialKind.Pin ? "or PIN" : "or passphrase")</span>
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">@L.T(credKind == CredentialKind.Pin ? "unlock.or_pin" : "unlock.or_passphrase")</span>
             <div class="flex-1 h-px bg-slate-300 dark:bg-dgb-800"></div>
         </div>
     }
@@ -136,8 +136,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Reset @CredentialMessages.Word(credKind) with recovery phrase</p>
-                        <p class="text-[10px] text-slate-400">Enter your seed phrase to set a new PIN or passphrase</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("unlock.reset_title", CredentialText.Word(L, credKind))</p>
+                        <p class="text-[10px] text-slate-400">@L.T("unlock.reset_sub")</p>
                     </div>
                 </button>
 
@@ -317,6 +317,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        pinThrottle.Localize = L.T;
         // Reset biometric check so it runs fresh each navigation
         biometricChecked = false;
         biometricEnabled = false;
@@ -418,7 +419,7 @@
                     AppState.IsWalletUnlocked = true;
                     AppState.ActiveWalletName = walletName;
                     AppState.NotifyStateChanged();
-                    deferredNote = CredentialMessages.MigrationDeferred(deferred.Value);
+                    deferredNote = CredentialText.MigrationDeferred(L, deferred.Value);
                     return;
                 }
 
@@ -432,7 +433,7 @@
                 var failure = WalletService.LastCredentialFailure;
                 error = CredentialMessages.CountsAsAttempt(failure)
                     ? pinThrottle.RecordFailure()
-                    : CredentialMessages.ForFailure(credKind, failure!.Value);
+                    : CredentialText.ForFailure(L, credKind, failure!.Value);
                 pin = "";
                 pinInput?.Clear();
             }
@@ -587,11 +588,11 @@
                     return;
                 }
             }
-            error = CredentialMessages.BiometricFailed(credKind);
+            error = CredentialText.BiometricFailed(L, credKind);
         }
         catch
         {
-            error = CredentialMessages.BiometricFailed(credKind);
+            error = CredentialText.BiometricFailed(L, credKind);
         }
         finally
         {

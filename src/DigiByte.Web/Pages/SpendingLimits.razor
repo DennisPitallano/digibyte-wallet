@@ -1,4 +1,5 @@
 @page "/settings/spending-limits"
+@inject LocalizationService L
 @inject WalletService WalletService
 @using DigiByte.Wallet.Storage
 @inject SpendingLimitService SpendingLimit
@@ -40,7 +41,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
             </div>
-            <p class="text-sm text-slate-600 dark:text-slate-400 text-center">Enter your @PromptWord to view or change spending limits.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400 text-center">@L.T("credential.enter_to_view_limits", CredentialText.Word(L, credKind))</p>
             <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="(v) => pin = v" OnSubmit="VerifyPin" Error="@pinError" />
             <button class="w-full max-w-[260px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50"
                     @onclick="VerifyPin" disabled="@(!Ready(pin) || isVerifying)">
@@ -210,7 +211,7 @@
     private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
     /// <summary>What to tell the user after a failed check: a wrong credential, or the real reason (out of memory, newer format).</summary>
     private string FailureText() =>
-        CredentialMessages.ForFailure(credKind, WalletService.LastCredentialFailure ?? CryptoFailure.WrongCredential);
+        CredentialText.ForFailure(L, credKind, WalletService.LastCredentialFailure ?? CryptoFailure.WrongCredential);
     private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
     private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     private string pin = "";
