@@ -121,7 +121,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 **Acceptance Scenarios**:
 
 1. **Given** a user creating a wallet, **When** they reach credential setup, **Then** they see the choice between PIN and passphrase with a short, accurate explanation of the trade-off.
-2. **Given** a wallet on PIN-only protection, **When** the user views its protection, **Then** the wording reflects the real remaining risk (stronger than before, still bounded by a six-digit space) and offers the passphrase upgrade.
+2. **Given** a wallet on PIN-only protection, **When** the user views its protection, **Then** the wording is accurate and calm: it says the PIN is stronger than before and presents a passphrase as the way to go further, without alarming language. The plain statement that a six-digit PIN remains guessable with effort lives in `docs/SECURITY.md` (Known Limitations).
 3. **Given** either locale, **When** any new string is displayed, **Then** it exists and reads correctly (no raw keys, no untranslated English in the Spanish UI).
 
 ---
@@ -184,7 +184,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 
 **Wording and documentation**
 
-- **FR-022**: All new and changed user-facing text MUST be provided in English and Spanish and explain PIN versus passphrase trade-offs honestly; the interim `create.pin_limitation` note MUST be updated or removed to match the protection actually in place.
+- **FR-022**: All new and changed user-facing text MUST be provided in English and Spanish and explain PIN versus passphrase trade-offs honestly; the interim `create.pin_limitation` note MUST be updated or removed to match the protection actually in place. Wording MUST NOT overstate protection and MUST NOT use threat language (attackers, guessing, copied data) in prompts, tips or notices; the plain statement of a PIN's limits belongs in `docs/SECURITY.md`. The one required exception is the upgrade notice, which states that the old copy stays for 7 days and has the earlier, lighter protection (FR-012), in neutral terms.
 - **FR-023**: Project security documentation (cryptographic primitives and key-management sections) MUST be updated to describe the new scheme, the envelope format, the migration and the remaining limitations.
 - **FR-024**: Per the constitution, every change to crypto and wallet logic MUST ship with tests that fail before the change, including negative paths (wrong credential, truncated or tampered data, unknown version, interrupted migration, legacy-format fixtures).
 
@@ -203,7 +203,7 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 ### Measurable Outcomes
 
 - **SC-001**: 100% of existing legacy-format wallets unlocked with the correct PIN end up in the new format with the identical recovery phrase and addresses, across a test set covering every wallet type (recovery phrase, imported key, watch-only).
-- **SC-002**: The cost per guess for an attacker trying all one million six-digit PINs offline against a copied wallet is at least 100 times higher than under the current scheme for a GPU-class attacker, estimated from the quickstart benchmark and published GPU rates (sources and assumptions recorded in the plan); a passphrase meeting the minimum rules is not practically guessable offline with realistic resources. PIN-only wallets are described to users as stronger but still guessable with effort.
+- **SC-002**: The cost per guess for an attacker trying all one million six-digit PINs offline against a copied wallet is at least 100 times higher than under the current scheme for a GPU-class attacker, estimated from the quickstart benchmark and published GPU rates (sources and assumptions recorded in the plan); a passphrase meeting the minimum rules is not practically guessable offline with realistic resources. PIN-only wallets are described to users as stronger than before with the passphrase as the way to go further, and `docs/SECURITY.md` states plainly that a PIN remains guessable with effort.
 - **SC-003**: On a representative low-end phone (reference device defined in planning, for example 2 GB RAM and a mid-2010s processor), a typical unlock takes no more than 3 seconds and never more than 6 seconds with the interface staying responsive; on a current mid-range phone and on desktop it takes no more than 1 second.
 - **SC-004**: In fault-injection testing (interruption, storage failure, out of memory, concurrent tabs) at every step of migration, 0 cases leave a wallet that cannot be unlocked with its prior credential or recovered from its phrase.
 - **SC-005**: Recovery from the phrase succeeds in 100% of tested cases for legacy, new-format, PIN and passphrase wallets, and an incorrect phrase changes nothing.
