@@ -845,6 +845,10 @@ Until shared transactions are fully checked (Story 4), other participants' amoun
 | The memory-hard cost needs free memory | On low-memory devices the app falls back to smaller profiles, down to the 19 MiB floor, and below that keeps the old format rather than weakening anything |
 | Argon2id profile values are provisional | They are frozen after benchmarking real devices (see Known gap above) |
 
+### Secrets in Logs and Telemetry (audit, FR-005)
+
+The web app was audited for credential and key handling. There is no analytics or telemetry path: the only `console` calls in app code are the service worker's install messages, the QR scanner's camera error object, and the developer-only `?crypto-bench` table (disabled in release builds), which uses a fixed dummy credential and prints only profile, time and memory. No credential, derived key or plaintext is logged, sent to the JS worker beyond the derivation request, or included in an error message. User-visible failures for unlock, create and recover show either a fixed localised message or the exception text of a .NET or interop error, which does not carry call arguments.
+
 ### Multisig Limitations
 
 | Limitation | Impact |

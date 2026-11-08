@@ -12,7 +12,7 @@ namespace DigiByte.Wallet.Tests;
 /// credential, and the typed methods produce real <c>dgb2$</c> envelopes (header as authenticated data).
 /// Argon2 itself is replaced by SHA-256 so the tests run under xUnit.
 /// </summary>
-internal sealed class EnvelopeTestCrypto : ICryptoService
+internal sealed class EnvelopeTestCrypto : LegacyCryptoBase
 {
     public static byte[] Key(string credential) => SHA256.HashData(Encoding.UTF8.GetBytes(credential));
 
@@ -31,9 +31,9 @@ internal sealed class EnvelopeTestCrypto : ICryptoService
     public int TypedDecryptCalls { get; private set; }
     public int TypedEncryptCalls { get; private set; }
 
-    public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(LegacySeal(plaintext, pin));
+    public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(LegacySeal(plaintext, pin));
 
-    public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult(LegacyOpen(ciphertext, pin));
+    public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult(LegacyOpen(ciphertext, pin));
 
     public static byte[] LegacySeal(byte[] plaintext, string pin)
     {
@@ -64,7 +64,7 @@ internal sealed class EnvelopeTestCrypto : ICryptoService
     public static string LegacyString(string plaintext, string pin) =>
         Convert.ToBase64String(LegacySeal(Encoding.UTF8.GetBytes(plaintext), pin));
 
-    public Task<CryptoResult<string>> EncryptAsync(byte[] plaintext, string credential, CredentialKind kind)
+    public override Task<CryptoResult<string>> EncryptAsync(byte[] plaintext, string credential, CredentialKind kind)
     {
         TypedEncryptCalls++;
         if (FailEncryptWith is { } failure) return Task.FromResult(CryptoResult<string>.Fail(failure));
@@ -101,7 +101,7 @@ internal sealed class EnvelopeTestCrypto : ICryptoService
         return EnvelopeCodec.Format(KdfProfile.Standard, kind, salt, nonce, cipher.Concat(tag).ToArray());
     }
 
-    public Task<CryptoResult<byte[]>> DecryptAsync(string stored, string credential)
+    public override Task<CryptoResult<byte[]>> DecryptAsync(string stored, string credential)
     {
         TypedDecryptCalls++;
         if (ThrowOnTypedDecryptAfter is { } n && stored.StartsWith("dgb2$", StringComparison.Ordinal) && TypedDecryptCalls > n)

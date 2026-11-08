@@ -40,43 +40,20 @@ public sealed class CryptoResult<T>
 }
 
 /// <summary>
-/// Abstraction for encryption operations. Implemented via browser SubtleCrypto in WASM.
-/// The byte-array methods are the transitional legacy surface (removed in T052 except for the legacy
-/// write path); the string-based typed methods are the new surface. The typed methods have default
-/// implementations over the legacy ones so existing implementations keep working.
+/// Abstraction for encryption operations. Implemented via browser SubtleCrypto and a worker-hosted
+/// Argon2id in WASM. The string-based typed methods use the versioned <c>dgb2</c> envelope and report why a
+/// decryption failed. The byte-array methods are the legacy AES surface, kept for reading old values, for
+/// the legacy write path used on devices that cannot run Argon2id (FR-021), and for the DigiDollar store.
 /// </summary>
 public interface ICryptoService
 {
+    // Legacy surface.
     Task<byte[]> EncryptAsync(byte[] plaintext, string pin);
     Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin);
 
     /// <summary>Decrypts a stored value (legacy Base64 or a <c>dgb2$</c> envelope) with a typed result.</summary>
-    async Task<CryptoResult<byte[]>> DecryptAsync(string stored, string credential)
-    {
-        var parsed = EnvelopeCodec.Parse(stored);
-        switch (parsed.Status)
-        {
-            case EnvelopeStatus.UnsupportedVersion:
-                return CryptoResult<byte[]>.Fail(CryptoFailure.UnsupportedVersion);
-            case EnvelopeStatus.Unreadable:
-            case EnvelopeStatus.Ok: // implementations without Argon2 cannot open a dgb2 envelope
-                return CryptoResult<byte[]>.Fail(CryptoFailure.Unreadable);
-        }
+    Task<CryptoResult<byte[]>> DecryptAsync(string stored, string credential);
 
-        byte[] bytes;
-        try { bytes = Convert.FromBase64String(stored); }
-        catch (FormatException) { return CryptoResult<byte[]>.Fail(CryptoFailure.Unreadable); }
-
-        var plain = await DecryptAsync(bytes, credential);
-        return plain is null
-            ? CryptoResult<byte[]>.Fail(CryptoFailure.WrongCredential)
-            : CryptoResult<byte[]>.Ok(plain);
-    }
-
-    /// <summary>Encrypts and returns the stored string form. Default: legacy Base64 (the kind is ignored).</summary>
-    async Task<CryptoResult<string>> EncryptAsync(byte[] plaintext, string credential, CredentialKind kind)
-    {
-        var cipher = await EncryptAsync(plaintext, credential);
-        return CryptoResult<string>.Ok(Convert.ToBase64String(cipher));
-    }
+    /// <summary>Encrypts into a <c>dgb2$</c> envelope and returns the stored string form.</summary>
+    Task<CryptoResult<string>> EncryptAsync(byte[] plaintext, string credential, CredentialKind kind);
 }

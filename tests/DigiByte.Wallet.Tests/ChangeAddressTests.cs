@@ -384,10 +384,10 @@ public class ChangeAddressTests
             Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
     }
 
-    internal sealed class PassThroughCrypto : ICryptoService
+    internal sealed class PassThroughCrypto : LegacyCryptoBase
     {
-        public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
-        public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(ciphertext);
+        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
+        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(ciphertext);
     }
 
     /// <summary>A minimal chain: broadcasting spends the inputs and creates the outputs, all treated as confirmed.</summary>

@@ -303,10 +303,10 @@ public class MultiWalletTests
             Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
     }
 
-    private class FakeCryptoService : ICryptoService
+    private class FakeCryptoService : LegacyCryptoBase
     {
-        public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
-        public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(ciphertext);
+        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
+        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(ciphertext);
     }
 
     private class FakeBlockchainService : IBlockchainService

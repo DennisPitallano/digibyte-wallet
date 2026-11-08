@@ -4,12 +4,12 @@ namespace DigiByte.Wallet.Tests;
 
 public class CryptoResultTests
 {
-    private sealed class ScriptedCrypto : ICryptoService
+    private sealed class ScriptedCrypto : LegacyCryptoBase
     {
         public CryptoResult<byte[]> Next { get; set; } = CryptoResult<byte[]>.Fail(CryptoFailure.WrongCredential);
-        public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
-        public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(null);
-        public Task<CryptoResult<byte[]>> DecryptAsync(string stored, string credential) => Task.FromResult(Next);
+        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
+        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(null);
+        public override Task<CryptoResult<byte[]>> DecryptAsync(string stored, string credential) => Task.FromResult(Next);
     }
 
     [Theory]
@@ -48,27 +48,5 @@ public class CryptoResultTests
         Assert.False(CryptoResult<byte[]>.Fail(CryptoFailure.UnsupportedVersion).CountsAsWrongCredential);
         Assert.False(CryptoResult<byte[]>.Fail(CryptoFailure.ResourceExhausted).CountsAsWrongCredential);
         Assert.False(CryptoResult<byte[]>.Ok([1]).CountsAsWrongCredential);
-    }
-
-    [Fact]
-    public async Task Legacy_only_implementations_still_work_through_the_default_typed_methods()
-    {
-        // A fake that implements only the byte-array methods must keep compiling and behaving.
-        ICryptoService legacy = new LegacyOnly();
-
-        var ok = await legacy.DecryptAsync(Convert.ToBase64String([9, 9]), "123456");
-        var bad = await legacy.DecryptAsync(Convert.ToBase64String([9, 9]), "000000");
-        var future = await legacy.DecryptAsync("dgb3$whatever", "123456");
-
-        Assert.True(ok.Success);
-        Assert.Equal(CryptoFailure.WrongCredential, bad.Failure);
-        Assert.Equal(CryptoFailure.UnsupportedVersion, future.Failure);
-    }
-
-    private sealed class LegacyOnly : ICryptoService
-    {
-        public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
-        public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) =>
-            Task.FromResult<byte[]?>(pin == "123456" ? ciphertext : null);
     }
 }
