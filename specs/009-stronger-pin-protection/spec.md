@@ -190,6 +190,8 @@ Users see accurate, plain-language guidance in English and Spanish: what a PIN d
 
 ### Key Entities
 
+**Terminology**: the "legacy copy" is the encrypted secret stored in the old format under its original storage key (older text also says legacy value or legacy key); the "new copy" is the versioned `dgb2` envelope.
+
 - **Protected secret**: An encrypted wallet secret (recovery phrase, imported key, or watch-only key) bound to one wallet. Attributes: format version, scheme and cost settings used, salt, nonce, ciphertext.
 - **Credential**: What the user types to unlock: a six-digit PIN or a passphrase. The type is a property of the wallet so the app prompts correctly.
 - **Format version**: Identifier stored with each secret: "legacy" for the existing scheme, increasing numbers thereafter.
