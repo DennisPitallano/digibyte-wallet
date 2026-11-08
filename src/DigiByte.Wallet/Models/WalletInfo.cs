@@ -21,6 +21,16 @@ public class WalletInfo
     /// </summary>
     public string WalletType { get; set; } = "hd";
 
+    /// <summary>"pin" (default for existing wallets) or "passphrase". Chooses which input to show; the envelope header is the authority.</summary>
+    public string CredentialType { get; set; } = "pin";
+
+    /// <summary>"standard" (default) or "legacy". "legacy" only when created on a browser that cannot run the memory-hard protection, after the user agreed.</summary>
+    public string ProtectionLevel { get; set; } = "standard";
+
+    /// <summary>True once the user dismissed the passphrase upgrade card (SC-010).</summary>
+    public bool PassphraseNudgeDismissed { get; set; }
+
+
     /// <summary>
     /// For privatekey wallets: the network detected from the WIF prefix ("mainnet", "testnet", "regtest").
     /// </summary>
