@@ -310,11 +310,48 @@
         };
     }
 
+    // ---- cross-tab lock (Web Locks) used while a wallet is migrated ----
+
+    const heldLocks = new Map();
+    const LOCK_WAIT_MS = 10000;
+
+    // Resolves to a handle id once the lock is held, "unsupported" without Web Locks, or null on timeout.
+    function acquireLock(name) {
+        if (typeof navigator === "undefined" || !navigator.locks) return Promise.resolve("unsupported");
+        return new Promise((resolve) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), LOCK_WAIT_MS);
+            navigator.locks
+                .request("dgb-migration-" + name, { mode: "exclusive", signal: controller.signal }, () => {
+                    clearTimeout(timer);
+                    return new Promise((release) => {
+                        const id = Math.random().toString(36).slice(2);
+                        heldLocks.set(id, release);
+                        resolve(id);
+                    });
+                })
+                .catch(() => {
+                    clearTimeout(timer);
+                    resolve(null);
+                });
+        });
+    }
+
+    function releaseLock(id) {
+        const release = heldLocks.get(id);
+        if (release) {
+            heldLocks.delete(id);
+            release();
+        }
+    }
+
     const api = {
         // New typed surface (contracts/js-crypto-api.md)
         encryptV2,
         decryptV2,
         capabilities,
+        acquireLock,
+        releaseLock,
         normalisePassphrase,
 
         // Existing surface. `encrypt` stays on the legacy format until the legacy write path is

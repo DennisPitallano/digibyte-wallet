@@ -21,4 +21,4 @@
 
 - An older app build keeps working during the window because it only knows `wallet_seed_{id}`, which is unchanged.
 - After the legacy copy is removed, an older cached build will not find a seed. Recovery from the recovery phrase is the supported path; the forward-compatible `dgb2$` prefix means future format changes will be detected by this and later builds.
-- Multisig config and DigiDollar store payloads follow the same read order under their existing keys with a `_v2` sibling.
+- Multisig config (plain JSON) and the DigiDollar store (encrypted under a secret derived from the seed, not the credential) are not migrated.

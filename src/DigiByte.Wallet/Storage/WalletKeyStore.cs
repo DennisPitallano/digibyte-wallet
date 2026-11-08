@@ -12,6 +12,13 @@ public class WalletKeyStore : IKeyStore
     private const string SeedKeyPrefix = "wallet_seed_";
     private const string WalletListKey = "wallet_list";
 
+    /// <summary>The raw storage, for the migration-aware <see cref="ProtectedSecretStore"/>.</summary>
+    public ISecureStorage Storage => _storage;
+
+    /// <summary>The legacy, v2 and migration-record keys for one wallet's seed (contracts/storage-keys.md).</summary>
+    public static ProtectedSlot SeedSlot(string walletId) =>
+        new(SeedKeyPrefix + walletId, "wallet_seed_v2_" + walletId, "wallet_migration_" + walletId);
+
     public WalletKeyStore(ISecureStorage storage)
     {
         _storage = storage;
@@ -36,7 +43,8 @@ public class WalletKeyStore : IKeyStore
 
     public async Task<bool> HasSeedAsync(string walletId)
     {
-        return await _storage.ContainsKeyAsync(SeedKeyPrefix + walletId);
+        return await _storage.ContainsKeyAsync(SeedKeyPrefix + walletId)
+            || await _storage.ContainsKeyAsync("wallet_seed_v2_" + walletId);
     }
 
     public async Task SaveWalletInfoAsync(string walletId, string serializedInfo)
@@ -65,6 +73,8 @@ public class WalletKeyStore : IKeyStore
     public async Task DeleteWalletAsync(string walletId)
     {
         await _storage.RemoveAsync(SeedKeyPrefix + walletId);
+        await _storage.RemoveAsync("wallet_seed_v2_" + walletId);
+        await _storage.RemoveAsync("wallet_migration_" + walletId);
         await _storage.RemoveAsync("wallet_info_" + walletId);
         await _storage.RemoveAsync("active_wallet_id");
     }

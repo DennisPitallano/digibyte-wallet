@@ -4,7 +4,7 @@ All values live in the existing IndexedDB `keyval` store through `ISecureStorage
 
 ## Protected secret (envelope)
 
-A single encrypted wallet secret (recovery phrase, WIF key, xpub, multisig config, DigiDollar store payload).
+A single encrypted wallet secret (recovery phrase, WIF key, xpub). Multisig config is stored as plain JSON and the DigiDollar store is encrypted under a seed-derived secret, so neither is part of this migration.
 
 | Field | Meaning | Rules |
 |---|---|---|

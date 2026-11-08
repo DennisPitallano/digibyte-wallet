@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 @inject MemoryCacheService Cache
 @inject BiometricService Biometric
+@inject LocalizationService L
 
 <PageTitle>Unlock Wallet</PageTitle>
 
@@ -28,6 +29,16 @@
     @if (pin.Length == 0 && !showForgotPin && !isUnlocking)
     {
         <BakuMessage MessageId="unlock.greeting" Compact="true" Class="w-full max-w-[320px]" />
+    }
+
+    @if (showUpgradeNotice)
+    {
+        <div class="w-full max-w-[320px] rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center" data-testid="upgrade-notice">
+            <p class="text-sm font-bold text-slate-900 dark:text-white">@L.T("upgrade.notice.title")</p>
+            <p class="text-xs text-slate-600 dark:text-slate-300 mt-2">@L.T("upgrade.notice.body")</p>
+            <button class="mt-3 px-4 py-2 rounded-xl bg-dgb-500 text-white text-sm font-semibold press-effect"
+                    data-testid="upgrade-notice-ok" @onclick="DismissUpgradeNoticeAsync">@L.T("upgrade.notice.ok")</button>
+        </div>
     }
 
     @* Biometric unlock button *@
@@ -357,36 +368,18 @@
             {
                 pinThrottle.RecordSuccess();
 
-                // Check if we should offer biometric enrollment
-                // Re-check IsEnabledAsync directly to avoid race with OnAfterRenderAsync
-                if (await Biometric.IsSupportedAsync() && !await Biometric.IsEnabledAsync() && !await Biometric.IsDismissedAsync())
+                // One-time notice after an automatic upgrade to the stronger protection (the old copy stays for 7 days).
+                if (WalletService.TakeMigrationNotice(walletId))
                 {
-                    lastDecryptedSeed = await WalletService.GetDecryptedSeedAsync(walletId, pin);
-                    if (lastDecryptedSeed != null)
-                    {
-                        showBioEnrollPrompt = true;
-                        // Don't navigate yet — wait for enrollment decision
-                        AppState.IsWalletCreated = true;
-                        AppState.IsWalletUnlocked = true;
-                        AppState.ActiveWalletName = walletName;
-                        AppState.NotifyStateChanged();
-                        return;
-                    }
+                    AppState.IsWalletCreated = true;
+                    AppState.IsWalletUnlocked = true;
+                    AppState.ActiveWalletName = walletName;
+                    AppState.NotifyStateChanged();
+                    showUpgradeNotice = true;
+                    return;
                 }
 
-                // Auto-add this wallet's seed if biometric enabled but seed not yet enrolled
-                if (await Biometric.IsEnabledAsync() && !await Biometric.HasWalletSeedAsync(walletId))
-                {
-                    var seed = await WalletService.GetDecryptedSeedAsync(walletId, pin);
-                    if (seed != null)
-                        await Biometric.AddWalletSeedAsync(walletId, seed);
-                }
-
-                AppState.IsWalletCreated = true;
-                AppState.IsWalletUnlocked = true;
-                AppState.ActiveWalletName = walletName;
-                AppState.NotifyStateChanged();
-                GoAfterUnlock();
+                await FinishUnlockAsync();
             }
             else
             {
@@ -398,6 +391,51 @@
         }
         catch (Exception ex) { error = $"Error: {ex.Message}"; }
         finally { isUnlocking = false; }
+    }
+
+    private bool showUpgradeNotice;
+
+    private async Task DismissUpgradeNoticeAsync()
+    {
+        showUpgradeNotice = false;
+        await FinishUnlockAsync();
+    }
+
+    /// <summary>What follows a successful unlock: the biometric offer, then back to the page that asked.</summary>
+    private async Task FinishUnlockAsync()
+    {
+        if (walletId == null) return;
+
+        // Check if we should offer biometric enrollment
+        // Re-check IsEnabledAsync directly to avoid race with OnAfterRenderAsync
+        if (await Biometric.IsSupportedAsync() && !await Biometric.IsEnabledAsync() && !await Biometric.IsDismissedAsync())
+        {
+            lastDecryptedSeed = await WalletService.GetDecryptedSeedAsync(walletId, pin);
+            if (lastDecryptedSeed != null)
+            {
+                showBioEnrollPrompt = true;
+                // Don't navigate yet — wait for enrollment decision
+                AppState.IsWalletCreated = true;
+                AppState.IsWalletUnlocked = true;
+                AppState.ActiveWalletName = walletName;
+                AppState.NotifyStateChanged();
+                return;
+            }
+        }
+
+        // Auto-add this wallet's seed if biometric enabled but seed not yet enrolled
+        if (await Biometric.IsEnabledAsync() && !await Biometric.HasWalletSeedAsync(walletId))
+        {
+            var seed = await WalletService.GetDecryptedSeedAsync(walletId, pin);
+            if (seed != null)
+                await Biometric.AddWalletSeedAsync(walletId, seed);
+        }
+
+        AppState.IsWalletCreated = true;
+        AppState.IsWalletUnlocked = true;
+        AppState.ActiveWalletName = walletName;
+        AppState.NotifyStateChanged();
+        GoAfterUnlock();
     }
 
     private async Task BiometricUnlockAsync()

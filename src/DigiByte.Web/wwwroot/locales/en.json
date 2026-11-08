@@ -243,5 +243,8 @@
   "dd.time.seconds": "{0} s",
   "dd.time.minutes": "{0} min",
   "dd.time.hours": "{0} h",
-  "dd.home.dgbValue": "Your DGB is worth {0} at the oracle price"
+  "dd.home.dgbValue": "Your DGB is worth {0} at the oracle price",
+  "upgrade.notice.title": "Your wallet now has stronger protection",
+  "upgrade.notice.body": "We upgraded how this wallet is protected on this device. Nothing changes for you: use the same PIN. For 7 days we keep the previous copy so you can go back to an older version of the app; until it is removed, someone who copies this browser's data could still guess your PIN against that older, weaker copy.",
+  "upgrade.notice.ok": "Got it"
 }

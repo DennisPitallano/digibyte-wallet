@@ -221,5 +221,8 @@
   "dd.time.minutes": "{0} min",
   "dd.time.hours": "{0} h",
   "dd.home.dgbValue": "Tu DGB vale {0} al precio del or\u00e1culo",
-  "create.pin_limitation": "Un PIN de 6 d\u00edgitos puede adivinarse sin conexi\u00f3n si alguien copia los datos de este navegador. Mant\u00e9n tu dispositivo bloqueado y protegido, y conserva tu frase de recuperaci\u00f3n respaldada."
+  "create.pin_limitation": "Un PIN de 6 d\u00edgitos puede adivinarse sin conexi\u00f3n si alguien copia los datos de este navegador. Mant\u00e9n tu dispositivo bloqueado y protegido, y conserva tu frase de recuperaci\u00f3n respaldada.",
+  "upgrade.notice.title": "Tu billetera ahora tiene una protección más fuerte",
+  "upgrade.notice.body": "Mejoramos cómo se protege esta billetera en este dispositivo. Para ti no cambia nada: usa el mismo PIN. Durante 7 días conservamos la copia anterior por si necesitas volver a una versión anterior de la app; mientras exista, alguien que copie los datos de este navegador aún podría adivinar tu PIN contra esa copia más débil.",
+  "upgrade.notice.ok": "Entendido"
 }

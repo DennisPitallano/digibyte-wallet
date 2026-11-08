@@ -16,6 +16,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     private readonly IBlockchainService _blockchain;
     private readonly TransactionTracker _txTracker;
     private readonly DigiIdSweepStore? _digiIdSweeps;
+    private readonly ProtectedSecretStore _vault;
 
     // Multi-wallet session: holds all unlocked wallets in memory
     private class UnlockedWalletSession
@@ -206,15 +207,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// </summary>
     public async Task<bool> VerifyPinAsync(string walletId, string pin)
     {
-        var encryptedSeed = await _keyStore.GetSeedAsync(walletId);
-        if (encryptedSeed == null)
+        var opened = await OpenSeedAsync(walletId, pin);
+        if (!opened.Success)
             return false;
 
-        var decrypted = await _crypto.DecryptAsync(encryptedSeed, pin);
-        if (decrypted == null)
-            return false;
-
-        Array.Clear(decrypted);
+        Array.Clear(opened.Value!);
         return true;
     }
 
@@ -269,7 +266,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Digi-ID recovery methods then refuse to run.
     /// </param>
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
-        DigiIdSweepStore? sweepStore = null)
+        DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null)
     {
         _keyStore = walletStore;
         _walletStore = walletStore;
@@ -277,6 +274,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _blockchain = blockchain;
         _txTracker = txTracker;
         _digiIdSweeps = sweepStore;
+        _vault = new ProtectedSecretStore(walletStore.Storage, crypto, time, migrationLock);
     }
 
     public void SetNetwork(bool isTestnet)
@@ -479,13 +477,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
     public async Task<bool> UnlockWalletAsync(string walletId, string pin)
     {
-        var encryptedSeed = await _keyStore.GetSeedAsync(walletId);
-        if (encryptedSeed == null)
+        var opened = await OpenSeedAsync(walletId, pin);
+        if (!opened.Success)
             return false;
-
-        var decrypted = await _crypto.DecryptAsync(encryptedSeed, pin);
-        if (decrypted == null)
-            return false;
+        var decrypted = opened.Value!;
 
         var walletInfo = await GetWalletAsync(walletId);
         var seedString = System.Text.Encoding.UTF8.GetString(decrypted);
@@ -521,13 +516,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
     public async Task<string[]?> GetSeedPhraseAsync(string walletId, string pin)
     {
-        var encryptedSeed = await _keyStore.GetSeedAsync(walletId);
-        if (encryptedSeed == null)
+        var opened = await OpenSeedAsync(walletId, pin);
+        if (!opened.Success)
             return null;
-
-        var decrypted = await _crypto.DecryptAsync(encryptedSeed, pin);
-        if (decrypted == null)
-            return null;
+        var decrypted = opened.Value!;
 
         var mnemonicWords = System.Text.Encoding.UTF8.GetString(decrypted);
         return mnemonicWords.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -538,9 +530,30 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// </summary>
     public async Task<byte[]?> GetDecryptedSeedAsync(string walletId, string pin)
     {
-        var encryptedSeed = await _keyStore.GetSeedAsync(walletId);
-        if (encryptedSeed == null) return null;
-        return await _crypto.DecryptAsync(encryptedSeed, pin);
+        var opened = await OpenSeedAsync(walletId, pin);
+        return opened.Success ? opened.Value : null;
+    }
+
+    /// <summary>
+    /// True once, right after the wallet was migrated to the new protection by an unlock in this session; used to show
+    /// the one-time upgrade notice (the old copy is kept for 7 days).
+    /// </summary>
+    public bool TakeMigrationNotice(string walletId) => _vault.TakeMigrationNotice(WalletKeyStore.SeedSlot(walletId));
+
+    /// <summary>
+    /// Opens a wallet's stored seed with its credential, reading the new format first and falling back to the legacy copy.
+    /// A successful open migrates a legacy wallet to the new format (silently; a migration problem never fails the open)
+    /// and removes an expired legacy copy. See <see cref="ProtectedSecretStore"/>.
+    /// </summary>
+    private async Task<CryptoResult<byte[]>> OpenSeedAsync(string walletId, string credential)
+    {
+        var slot = WalletKeyStore.SeedSlot(walletId);
+        if (!await _vault.ExistsAsync(slot))
+            return CryptoResult<byte[]>.Fail(CryptoFailure.Unreadable);
+
+        var info = await GetWalletAsync(walletId);
+        var kind = info?.CredentialType == "passphrase" ? CredentialKind.Passphrase : CredentialKind.Pin;
+        return await _vault.OpenAsync(slot, credential, kind);
     }
 
     /// <summary>
