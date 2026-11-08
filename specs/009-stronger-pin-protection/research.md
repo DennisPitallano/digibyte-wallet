@@ -103,3 +103,17 @@ Existing enrolments cannot be upgraded silently: a credential created without th
 **Decision**: Test-first. xUnit covers everything that is pure C# with fake `ICryptoService`: envelope codec, migration state machine with fault injection at each step, mixed formats, fingerprint mismatch after rollback, credential policy, throttle, failure classification, biometric flag handling. `node --test` covers the JS: Argon2id known-answer vectors, envelope round-trip, tamper/AAD, legacy decrypt of a committed fixture, passphrase normalisation. UI flows are exercised by the quickstart scenarios. A benchmark script records unlock time and memory per profile for the reference phone.
 
 **Alternatives**: running Argon2 in .NET only to make everything xUnit-testable (rejected in R1).
+
+## Quickstart run (T051), partial
+
+Run on 2026-11-09 against a Debug build of the feature branch (`dotnet run`, Chromium in the Claude desktop browser pane), test wallet only.
+
+| Scenario | Result |
+|---|---|
+| 1. New passphrase wallet | Pass. `password1234` rejected with a reason; a valid passphrase accepted; IndexedDB held only `wallet_seed_v2_{id}` starting `dgb2$` (header decodes to the standard profile, 64 MiB). Reload and unlock with the passphrase worked. |
+| 7. Throttle wording (wrong credential only) | Pass for the wrong-passphrase message in English and Spanish ("2 attempts remaining before lockout"). The allocation-failure hook was not exercised. |
+| 12. Wording | Credential strings translate in Spanish on Unlock and Create. Not every changed screen was visited. Unlock still shows some pre-existing hard-coded English ("Welcome back", "Unlock", "Good to see you"). |
+| 13. CSP | Not conclusive. A Debug build reports one inline-script violation and cannot register the service worker, because CSP hashes and the service worker are produced at publish time. Needs a published build. |
+| 2, 3, 4, 5, 6, 8, 9, 10, 11 | Not run. They need the previous build's profile, test hooks, a second browser, a WebAssembly-disabled browser, a real phone, or a published build for offline. |
+
+Frozen profile parameters: not yet; they depend on the T001 benchmark.
