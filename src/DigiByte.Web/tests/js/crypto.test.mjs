@@ -172,3 +172,53 @@ test("normalisePassphrase applies NFKC", () => {
 test("capabilities reports argon2 availability", () => {
     assert.equal(crypto.capabilities().argon2, true); // a deriver is installed
 });
+
+test("a browser with no Argon2 support is reported as Unsupported, for both encrypt and decrypt", async () => {
+    const enc = await crypto.encryptV2(SECRET, "123456", "pin", "floor"); // made while a deriver exists
+    crypto._setDeriver(null); // no deriver and no Worker under Node: this is a browser that cannot run Argon2id
+
+    assert.equal(crypto.capabilities().argon2, false);
+    assert.deepEqual(await crypto.encryptV2(SECRET, "123456", "pin"), { ok: false, reason: "Unsupported" });
+    const dec = await crypto.decryptV2(enc.envelope, "123456");
+    assert.deepEqual({ ok: dec.ok, reason: dec.reason }, { ok: false, reason: "Unsupported" });
+});
+
+test("a legacy value still opens on a browser with no Argon2 support", async () => {
+    const legacy = await crypto.encrypt(SECRET, "123456");
+    crypto._setDeriver(null);
+
+    const dec = await crypto.decryptV2(legacy, "123456");
+
+    assert.equal(dec.ok, true);
+    assert.equal(dec.format, "legacy");
+});
+
+function setLocation(hostname, search = "") {
+    Object.defineProperty(globalThis, "location", { configurable: true, value: { hostname, search } });
+}
+
+test("bench reports derive time per profile and the legacy cost, on a developer host", async () => {
+    setLocation("localhost");
+    const rows = await crypto.bench({ runs: 1 });
+
+    assert.deepEqual(rows.map((r) => r.profile), ["standard", "low-memory", "floor", "legacy-pbkdf2"]);
+    for (const r of rows) {
+        assert.equal(r.ok, true);
+        assert.ok(r.ms >= 0);
+    }
+    assert.equal(rows[0].memoryKiB, 65536);
+    assert.equal(rows[2].memoryKiB, 19456);
+});
+
+test("bench is disabled outside developer hosts (release builds)", async () => {
+    setLocation("dgbwallet.app");
+    await assert.rejects(() => crypto.bench({ runs: 1 }), /disabled/i);
+});
+
+test("bench can be switched on explicitly with the developer flag", async () => {
+    setLocation("staging.example.test");
+    globalThis.localStorage = { getItem: (k) => (k === "dgbBench" ? "1" : null) };
+    const rows = await crypto.bench({ runs: 1 });
+    assert.equal(rows.length, 4);
+    delete globalThis.localStorage;
+});

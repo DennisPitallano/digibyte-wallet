@@ -278,7 +278,7 @@
         const parsed = parseEnvelope(value);
         if (parsed.status === "legacy") return decryptLegacy(value, credential);
         if (parsed.status !== "ok") return { ok: false, reason: parsed.status };
-        if (!hasArgon2()) return { ok: false, reason: "ResourceExhausted" };
+        if (!hasArgon2()) return { ok: false, reason: "Unsupported" }; // this browser cannot run Argon2id at all
 
         let keyBytes;
         try {
@@ -298,6 +298,74 @@
         } catch (e) {
             return { ok: false, reason: "WrongCredential" };
         }
+    }
+
+    // ---- developer benchmark (T001, quickstart) ----
+    // Prints how long each Argon2id profile takes on this device, next to the legacy PBKDF2 cost, so the profile values can
+    // be frozen against real phones. Available only on developer hosts (localhost) or with localStorage.dgbBench = "1";
+    // in a release build it is off. Open the app with ?crypto-bench on a developer host to run it automatically.
+
+    function benchEnabled() {
+        try {
+            const host = typeof location !== "undefined" ? location.hostname : "";
+            if (host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1") return true;
+            return typeof localStorage !== "undefined" && localStorage.getItem("dgbBench") === "1";
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function median(values) {
+        const sorted = values.slice().sort((a, b) => a - b);
+        return sorted[Math.floor(sorted.length / 2)];
+    }
+
+    async function bench(options) {
+        if (!benchEnabled()) throw new Error("The crypto benchmark is disabled in release builds.");
+        const runs = (options && options.runs) || 3;
+        const secret = bytesToBase64(textEncoder.encode("benchmark secret"));
+        const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+        const heapMb = () =>
+            typeof performance !== "undefined" && performance.memory
+                ? Math.round(performance.memory.usedJSHeapSize / 1048576)
+                : null;
+
+        const rows = [];
+        for (const name of FALLBACK_ORDER) {
+            const times = [];
+            let ok = true;
+            let reason = null;
+            for (let i = 0; i < runs; i++) {
+                const t0 = now();
+                const res = await encryptV2(secret, "123456", "pin", name);
+                times.push(now() - t0);
+                if (!res.ok) {
+                    ok = false;
+                    reason = res.reason;
+                    break;
+                }
+            }
+            rows.push({
+                profile: name,
+                memoryKiB: PROFILES[name].memoryKiB,
+                passes: PROFILES[name].passes,
+                ms: Math.round(median(times)),
+                ok,
+                reason,
+                jsHeapMb: heapMb(), // JS heap only; the WASM memory of the worker is not visible here
+            });
+        }
+
+        const legacyTimes = [];
+        for (let i = 0; i < runs; i++) {
+            const t0 = now();
+            await encryptLegacy(secret, "123456");
+            legacyTimes.push(now() - t0);
+        }
+        rows.push({ profile: "legacy-pbkdf2", memoryKiB: 0, passes: LEGACY_ITERATIONS, ms: Math.round(median(legacyTimes)), ok: true, reason: null, jsHeapMb: heapMb() });
+
+        if (typeof console !== "undefined" && console.table) console.table(rows);
+        return rows;
     }
 
     function capabilities() {
@@ -350,6 +418,7 @@
         encryptV2,
         decryptV2,
         capabilities,
+        bench,
         acquireLock,
         releaseLock,
         normalisePassphrase,
@@ -371,5 +440,10 @@
     };
 
     root.dgbCrypto = api;
+
+    // ?crypto-bench on a developer host runs the benchmark once the page has loaded.
+    if (typeof location !== "undefined" && typeof document !== "undefined" && /[?&]crypto-bench\b/.test(location.search || "") && benchEnabled()) {
+        window.addEventListener("load", () => setTimeout(() => bench().catch(() => {}), 1500));
+    }
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

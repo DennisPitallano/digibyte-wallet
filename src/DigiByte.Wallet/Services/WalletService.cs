@@ -326,7 +326,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _ => DigiByteNetwork.Mainnet,
     };
 
-    public async Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin)
+    public async Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin, bool allowLegacyProtection = false)
     {
         var count = await _walletStore.GetWalletCountAsync();
         if (count >= MaxWallets)
@@ -335,7 +335,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var walletId = Guid.NewGuid().ToString("N");
 
         RequireAcceptableCredential(pin, kind);
-        var protection = await StoreNewSecretAsync(walletId, mnemonic, pin, kind);
+        var protection = await StoreNewSecretAsync(walletId, mnemonic, pin, kind, allowLegacyProtection);
 
         var wallet = new WalletInfo
         {
@@ -366,7 +366,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// <summary>
     /// Create a wallet from a single WIF private key (paper wallet / legacy import).
     /// </summary>
-    public async Task<WalletInfo> CreateWalletFromWifAsync(string name, string wif, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin)
+    public async Task<WalletInfo> CreateWalletFromWifAsync(string name, string wif, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin, bool allowLegacyProtection = false)
     {
         var count = await _walletStore.GetWalletCountAsync();
         if (count >= MaxWallets)
@@ -381,7 +381,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         // Protect the WIF with the credential (same pattern as mnemonic)
         RequireAcceptableCredential(pin, kind);
-        var protection = await StoreNewSecretAsync(walletId, wif, pin, kind);
+        var protection = await StoreNewSecretAsync(walletId, wif, pin, kind, allowLegacyProtection);
 
         var networkName = detectedNetwork == DigiByteNetwork.Mainnet ? "mainnet"
             : detectedNetwork == DigiByteNetwork.Testnet ? "testnet" : "regtest";
@@ -417,7 +417,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Create a watch-only wallet from an extended public key (xpub).
     /// Can view balances and receive, but cannot sign or send transactions.
     /// </summary>
-    public async Task<WalletInfo> CreateWatchOnlyWalletAsync(string name, string xpub, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin)
+    public async Task<WalletInfo> CreateWatchOnlyWalletAsync(string name, string xpub, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin, bool allowLegacyProtection = false)
     {
         var count = await _walletStore.GetWalletCountAsync();
         if (count >= MaxWallets)
@@ -434,7 +434,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         // Protect the xpub with the credential (same pattern as mnemonic/WIF)
         RequireAcceptableCredential(pin, kind);
-        var protection = await StoreNewSecretAsync(walletId, xpub.Trim(), pin, kind);
+        var protection = await StoreNewSecretAsync(walletId, xpub.Trim(), pin, kind, allowLegacyProtection);
 
         var wallet = new WalletInfo
         {
@@ -558,8 +558,24 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         var info = await GetWalletAsync(walletId);
         var kind = info?.CredentialType == "passphrase" ? CredentialKind.Passphrase : CredentialKind.Pin;
-        return Remember(await _vault.OpenAsync(slot, credential, kind));
+        var opened = await _vault.OpenAsync(slot, credential, kind);
+
+        // A wallet created with legacy protection (the device could not run the stronger one) becomes standard as soon as an
+        // unlock on a capable device has upgraded it.
+        if (opened.Success && info is { ProtectionLevel: "legacy" } && await _vault.HasV2Async(slot))
+        {
+            info.ProtectionLevel = "standard";
+            await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+            SyncSessionProtection(info);
+        }
+        return Remember(opened);
     }
+
+    /// <summary>
+    /// If the automatic upgrade of this wallet's protection was put off by the device (cannot run it, or out of memory),
+    /// says why, once, so the page can show a calm note. The wallet works as before.
+    /// </summary>
+    public CryptoFailure? TakeMigrationDeferred(string walletId) => _vault.TakeMigrationDeferred(WalletKeyStore.SeedSlot(walletId));
 
     /// <summary>
     /// Why the most recent unlock, PIN check or seed read failed, or null if it succeeded. Lets a page avoid calling an
@@ -1934,14 +1950,16 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     }
 
     /// <summary>Stores a brand-new wallet secret and returns its protection level ("standard" or "legacy").</summary>
-    private async Task<string> StoreNewSecretAsync(string walletId, string secret, string credential, CredentialKind kind)
+    private async Task<string> StoreNewSecretAsync(string walletId, string secret, string credential, CredentialKind kind, bool allowLegacy)
     {
         var outcome = await _vault.SealAsync(WalletKeyStore.SeedSlot(walletId),
-            System.Text.Encoding.UTF8.GetBytes(secret), credential, kind);
+            System.Text.Encoding.UTF8.GetBytes(secret), credential, kind, allowLegacy);
         return outcome switch
         {
             ProtectedSecretStore.SealOutcome.V2 => "standard",
             ProtectedSecretStore.SealOutcome.Legacy => "legacy",
+            ProtectedSecretStore.SealOutcome.NeedsLegacyConsent =>
+                throw new LegacyProtectionConsentRequiredException(_vault.LastSealFailure ?? CryptoFailure.Unsupported),
             _ => throw new InvalidOperationException("The wallet could not be protected on this device."),
         };
     }
@@ -1975,8 +1993,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var plaintext = opened.Value!;
         try
         {
-            var outcome = await _vault.SealAsync(WalletKeyStore.SeedSlot(walletId), plaintext, newCredential, newKind);
-            if (outcome == ProtectedSecretStore.SealOutcome.Failed) return ChangeCredentialOutcome.Failed;
+            var outcome = await _vault.SealAsync(WalletKeyStore.SeedSlot(walletId), plaintext, newCredential, newKind,
+                allowLegacy: wallet.ProtectionLevel == "legacy");
+            if (outcome is ProtectedSecretStore.SealOutcome.Failed or ProtectedSecretStore.SealOutcome.NeedsLegacyConsent)
+                return ChangeCredentialOutcome.Failed;
 
             wallet.CredentialType = CredentialTypeName(newKind);
             wallet.ProtectionLevel = outcome == ProtectedSecretStore.SealOutcome.Legacy ? "legacy" : "standard";
@@ -2040,8 +2060,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         }
 
         var outcome = await _vault.SealAsync(WalletKeyStore.SeedSlot(walletId),
-            System.Text.Encoding.UTF8.GetBytes(secret), newCredential, kind);
-        if (outcome == ProtectedSecretStore.SealOutcome.Failed) return false;
+            System.Text.Encoding.UTF8.GetBytes(secret), newCredential, kind, allowLegacy: wallet.ProtectionLevel == "legacy");
+        if (outcome is ProtectedSecretStore.SealOutcome.Failed or ProtectedSecretStore.SealOutcome.NeedsLegacyConsent) return false;
 
         var credentialType = kind == CredentialKind.Passphrase ? "passphrase" : "pin";
         var protection = outcome == ProtectedSecretStore.SealOutcome.Legacy ? "legacy" : "standard";

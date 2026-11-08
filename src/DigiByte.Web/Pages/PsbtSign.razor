@@ -294,7 +294,7 @@
             <div class="flex gap-2 w-full">
                 <button class="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300" @onclick="CancelPin">Cancel</button>
                 <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl disabled:opacity-50"
-                        @onclick="SubmitPinAsync" disabled="@(!Ready(pin) || isCheckingPin)">Confirm</button>
+                        @onclick="SubmitPinAsync" disabled="@(!Ready(pin) || isCheckingPin)">@(isCheckingPin ? "Checking..." : "Confirm")</button>
             </div>
         </div>
     </div>

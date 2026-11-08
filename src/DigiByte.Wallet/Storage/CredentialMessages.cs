@@ -16,11 +16,18 @@ public static class CredentialMessages
     /// <summary>Only a failed authentication is the user's mistake and counts toward the attempt limit.</summary>
     public static bool CountsAsAttempt(CryptoFailure? failure) => failure is null or CryptoFailure.WrongCredential;
 
+    /// <summary>The calm note shown when the automatic upgrade could not run on this device. The wallet is unaffected.</summary>
+    public static string MigrationDeferred(CryptoFailure why) => why == CryptoFailure.Unsupported
+        ? "This browser can't use the stronger protection yet. Your wallet works as before, and we'll try again when you unlock somewhere that supports it."
+        : "We couldn't strengthen this wallet's protection on this device right now because it ran low on memory. Your wallet works as before, and we'll try again the next time you unlock.";
+
     public static string ForFailure(CredentialKind kind, CryptoFailure failure) => failure switch
     {
         CryptoFailure.WrongCredential => Incorrect(kind),
         CryptoFailure.UnsupportedVersion =>
             "This wallet was saved by a newer version of the app. Update the app, then try again.",
+        CryptoFailure.Unsupported =>
+            "This browser can't run the protection this wallet needs. Update your browser or open the wallet in another one, then try again. This did not count as a wrong attempt.",
         CryptoFailure.ResourceExhausted =>
             $"This device ran out of memory while checking your {Word(kind)}. Close other tabs or apps and try again. This did not count as a wrong attempt.",
         _ => "The saved wallet data could not be read. Nothing was changed.",

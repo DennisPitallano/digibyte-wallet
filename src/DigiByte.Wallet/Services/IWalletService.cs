@@ -5,7 +5,7 @@ namespace DigiByte.Wallet.Services;
 
 public interface IWalletService
 {
-    Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin);
+    Task<WalletInfo> CreateWalletAsync(string name, string mnemonic, string pin, string? color = null, CredentialKind kind = CredentialKind.Pin, bool allowLegacyProtection = false);
     Task<WalletInfo?> GetWalletAsync(string walletId);
     Task<bool> UnlockWalletAsync(string walletId, string pin);
     Task LockWalletAsync();

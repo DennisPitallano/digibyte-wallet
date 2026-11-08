@@ -33,6 +33,15 @@
         <BakuMessage MessageId="unlock.greeting" Compact="true" Class="w-full max-w-[320px]" />
     }
 
+    @if (deferredNote is not null)
+    {
+        <div class="w-full max-w-[320px] rounded-2xl border border-slate-500/30 bg-slate-500/10 p-4 text-center" data-testid="deferred-note">
+            <p class="text-xs text-slate-600 dark:text-slate-300">@deferredNote</p>
+            <button class="mt-3 px-4 py-2 rounded-xl bg-dgb-500 text-white text-sm font-semibold press-effect"
+                    data-testid="deferred-note-ok" @onclick="DismissDeferredAsync">@L.T("biometric.weak.ok")</button>
+        </div>
+    }
+
     @if (showUpgradeNotice)
     {
         <div class="w-full max-w-[320px] rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center" data-testid="upgrade-notice">
@@ -401,6 +410,18 @@
                     return;
                 }
 
+                // The automatic upgrade could not run on this device: say so calmly, once. The wallet works as before.
+                var deferred = WalletService.TakeMigrationDeferred(walletId);
+                if (deferred is not null)
+                {
+                    AppState.IsWalletCreated = true;
+                    AppState.IsWalletUnlocked = true;
+                    AppState.ActiveWalletName = walletName;
+                    AppState.NotifyStateChanged();
+                    deferredNote = CredentialMessages.MigrationDeferred(deferred.Value);
+                    return;
+                }
+
                 await FinishUnlockAsync();
             }
             else
@@ -421,6 +442,13 @@
     }
 
     private bool showUpgradeNotice;
+    private string? deferredNote;
+
+    private async Task DismissDeferredAsync()
+    {
+        deferredNote = null;
+        await FinishUnlockAsync();
+    }
 
     // One-time biometric notices (upgrade offer, plain notice)
     private BiometricNotice.NoticeMode? bioNotice;

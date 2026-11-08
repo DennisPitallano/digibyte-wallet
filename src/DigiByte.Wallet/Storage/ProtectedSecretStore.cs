@@ -33,6 +33,7 @@ public sealed class ProtectedSecretStore
     private readonly TimeProvider _time;
     private readonly IMigrationLock _lock;
     private readonly HashSet<string> _justMigrated = new();
+    private readonly Dictionary<string, CryptoFailure> _deferred = new();
 
     public ProtectedSecretStore(ISecureStorage storage, ICryptoService crypto, TimeProvider? time = null, IMigrationLock? migrationLock = null)
     {
@@ -47,6 +48,24 @@ public sealed class ProtectedSecretStore
     {
         lock (_justMigrated) return _justMigrated.Remove(slot.RecordKey);
     }
+
+    /// <summary>
+    /// If the last attempt to upgrade this secret was put off because the device cannot run the protection (or ran out of
+    /// memory), says why, once, so the page can explain it calmly. The secret itself is unaffected.
+    /// </summary>
+    public CryptoFailure? TakeMigrationDeferred(ProtectedSlot slot)
+    {
+        lock (_deferred)
+        {
+            if (!_deferred.Remove(slot.RecordKey, out var why)) return null;
+            return why;
+        }
+    }
+
+    public Task<bool> HasV2Async(ProtectedSlot slot) => _storage.ContainsKeyAsync(slot.V2Key);
+
+    /// <summary>Why the last <see cref="SealAsync"/> asked for consent or failed, when the cause was the device.</summary>
+    public CryptoFailure? LastSealFailure { get; private set; }
 
     public static string Fingerprint(string legacyValue) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(legacyValue)));
@@ -92,6 +111,8 @@ public sealed class ProtectedSecretStore
         Legacy,
         /// <summary>Nothing was stored; storage is unchanged.</summary>
         Failed,
+        /// <summary>The device cannot run the memory-hard protection and legacy storage was not agreed to. Nothing was stored.</summary>
+        NeedsLegacyConsent,
     }
 
     /// <summary>
@@ -100,13 +121,28 @@ public sealed class ProtectedSecretStore
     /// new value first, then the old copies are removed, so every intermediate state still opens with the new credential.
     /// The old, weakly protected legacy copy is deleted immediately (FR-012).
     /// </summary>
-    public async Task<SealOutcome> SealAsync(ProtectedSlot slot, byte[] plaintext, string credential, CredentialKind kind)
+    public async Task<SealOutcome> SealAsync(ProtectedSlot slot, byte[] plaintext, string credential, CredentialKind kind, bool allowLegacy = false)
     {
+        LastSealFailure = null;
         var sealedResult = await _crypto.EncryptAsync(plaintext, credential, kind);
-        if (!sealedResult.Success) return SealOutcome.Failed;
+        if (!sealedResult.Success)
+        {
+            if (sealedResult.Failure is not (CryptoFailure.Unsupported or CryptoFailure.ResourceExhausted))
+                return SealOutcome.Failed;
+
+            // The device cannot run the memory-hard protection. Only with the user's agreement is the older format used;
+            // a wallet is never silently weakened.
+            LastSealFailure = sealedResult.Failure;
+            if (!allowLegacy) return SealOutcome.NeedsLegacyConsent;
+            return await WriteLegacyAsync(slot, plaintext, credential);
+        }
         var stored = sealedResult.Value!;
 
-        if (EnvelopeCodec.Parse(stored).Status == EnvelopeStatus.Ok)
+        var parsed = EnvelopeCodec.Parse(stored).Status;
+        if (parsed is EnvelopeStatus.Unreadable or EnvelopeStatus.UnsupportedVersion)
+            return SealOutcome.Failed; // never write anything that is not a valid, at-or-above-the-floor envelope
+
+        if (parsed == EnvelopeStatus.Ok)
         {
             var check = await _crypto.DecryptAsync(stored, credential);
             if (!check.Success || !check.Value!.AsSpan().SequenceEqual(plaintext)) return SealOutcome.Failed;
@@ -117,8 +153,17 @@ public sealed class ProtectedSecretStore
             return SealOutcome.V2;
         }
 
-        // No Argon2 here: keep the legacy format, and make sure a stale v2 value cannot shadow the new credential.
+        // The service itself produced the legacy format: keep it, and make sure a stale v2 value cannot shadow the new credential.
         await _storage.SetAsync(slot.LegacyKey, stored);
+        await _storage.RemoveAsync(slot.V2Key);
+        await _storage.RemoveAsync(slot.RecordKey);
+        return SealOutcome.Legacy;
+    }
+
+    private async Task<SealOutcome> WriteLegacyAsync(ProtectedSlot slot, byte[] plaintext, string credential)
+    {
+        var legacy = Convert.ToBase64String(await _crypto.EncryptAsync(plaintext, credential));
+        await _storage.SetAsync(slot.LegacyKey, legacy);
         await _storage.RemoveAsync(slot.V2Key);
         await _storage.RemoveAsync(slot.RecordKey);
         return SealOutcome.Legacy;
@@ -158,7 +203,13 @@ public sealed class ProtectedSecretStore
                 return;
 
             var sealedResult = await _crypto.EncryptAsync(plaintext, credential, kind);
-            if (!sealedResult.Success) return;
+            if (!sealedResult.Success)
+            {
+                // The device cannot run the protection right now: leave the wallet as it is and remember why.
+                if (sealedResult.Failure is CryptoFailure.Unsupported or CryptoFailure.ResourceExhausted)
+                    lock (_deferred) _deferred[slot.RecordKey] = sealedResult.Failure!.Value;
+                return;
+            }
             var envelope = sealedResult.Value!;
             // Only a real dgb2 envelope counts; a crypto service without Argon2 returns legacy bytes here.
             if (EnvelopeCodec.Parse(envelope).Status != EnvelopeStatus.Ok) return;

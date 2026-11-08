@@ -46,6 +46,8 @@ Final numbers come from the benchmark task on the reference phone and are then f
 
 **Honest effect on a six-digit PIN**: only one million candidates exist. On CPU, Argon2id at these settings costs a few times more per guess than PBKDF2 at 100,000 iterations. The much larger gap is against GPU or ASIC attackers, where memory cost dominates (order of hundreds of times, to be measured). That is a real improvement but not 1,000x, and it still means a PIN-only wallet is guessable with effort. Passphrases are the actual fix. This is why the spec nudges toward a passphrase and why wording must not oversell PIN protection. See Open item 1 in the plan.
 
+**First measurement (T047 helper, `dgbCrypto.bench()`, one development desktop, Chromium, median of 3)**: standard (64 MiB, 3 passes) 322 ms; low-memory (32 MiB, 3 passes) 188 ms; floor (19 MiB, 2 passes) 75 ms; legacy PBKDF2 (100,000 iterations) 18 ms. So the CPU cost per guess is roughly 18 times the legacy cost at the standard profile on this machine. This is one desktop only: the low-end phone, a mid-range phone and the GPU-class comparison that SC-002 and SC-003 need are still to be measured (T001), so the profiles stay provisional.
+
 **Alternatives**: higher memory (128 MiB or more) improves the GPU ratio but fails or crashes on low-end phones; more passes raise time linearly on the phone but only help the attacker ratio linearly too.
 
 ## R4: Migration, rollback, and storage layout

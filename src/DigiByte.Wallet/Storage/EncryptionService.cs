@@ -16,6 +16,8 @@ public enum CryptoFailure
     Unreadable,
     UnsupportedVersion,
     ResourceExhausted,
+    /// <summary>This browser or device cannot run the memory-hard protection at all (no WebAssembly or worker support).</summary>
+    Unsupported,
 }
 
 public sealed class CryptoResult<T>

@@ -212,7 +212,26 @@
     </div>
 </div>
 
+
+@if (legacyReason is { } legacyWhy)
+{
+    <LegacyProtectionConsent Reason="legacyWhy" OnAgree="AgreeLegacyAsync" OnCancel="CancelLegacy" />
+}
+
 @code {
+    // A browser that cannot run the stronger protection: the wallet is created with the earlier one only if the user agrees.
+    private CryptoFailure? legacyReason;
+    private bool legacyAgreed;
+
+    private async Task AgreeLegacyAsync()
+    {
+        legacyAgreed = true;
+        legacyReason = null;
+        await CreateWalletAsync();
+    }
+
+    private void CancelLegacy() => legacyReason = null;
+
     private enum Step { NameWallet, GenerateMnemonic, ConfirmMnemonic, SetPin }
     private Step step = Step.GenerateMnemonic;
     private string[] words = [];
@@ -356,10 +375,11 @@
             var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
-            await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind);
+            await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind, legacyAgreed);
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");
         }
+        catch (LegacyProtectionConsentRequiredException ex) { legacyReason = ex.Reason; }
         catch (Exception ex) { pinError = $"Failed to create wallet: {ex.Message}"; }
         finally { isCreating = false; }
     }

@@ -136,10 +136,10 @@
 
 **Independent Test**: Quickstart scenarios 9 and 10.
 
-- [ ] T044 [P] [US4] Write `tests/DigiByte.Wallet.Tests/UnsupportedDeviceTests.cs`: new wallet on a device reporting no Argon2 support requires an explicit agreement flag, is marked `legacy` protection (persisted in `WalletInfo.ProtectionLevel`), and upgrades to `v2` on the first unlock where capabilities allow; migration on a device that cannot allocate even the floor leaves the wallet in its current format and shows the explanation; no write below the floor under any path. The legacy write path used for this flow still works after T052 removes the wrappers.
-- [ ] T045 [US4] Implement the unsupported-device flow in `src/DigiByte.Wallet/Services/WalletService.cs` and the warning-and-agreement step in `src/DigiByte.Web/Pages/CreateWallet.razor` (FR-021, SC-013).
-- [ ] T046 [US4] Add the unlocking indicator (shown when derivation exceeds 300 ms) and double-submit protection to `src/DigiByte.Web/Pages/Unlock.razor`, `src/DigiByte.Web/Pages/PsbtSign.razor` and `src/DigiByte.Web/Pages/CreateWallet.razor`; keep the existing Baku behaviour on the unlock page unchanged.
-- [ ] T047 [US4] Add a `?crypto-bench` developer page or console helper in `src/DigiByte.Web/wwwroot/js/crypto.js` (disabled in release builds) that prints derive time and memory per profile, used by T001 and the quickstart benchmark.
+- [X] T044 [P] [US4] Write `tests/DigiByte.Wallet.Tests/UnsupportedDeviceTests.cs`: new wallet on a device reporting no Argon2 support requires an explicit agreement flag, is marked `legacy` protection (persisted in `WalletInfo.ProtectionLevel`), and upgrades to `v2` on the first unlock where capabilities allow; migration on a device that cannot allocate even the floor leaves the wallet in its current format and shows the explanation; no write below the floor under any path. The legacy write path used for this flow still works after T052 removes the wrappers.
+- [X] T045 [US4] Implement the unsupported-device flow in `src/DigiByte.Wallet/Services/WalletService.cs` and the warning-and-agreement step in `src/DigiByte.Web/Pages/CreateWallet.razor` (FR-021, SC-013).
+- [X] T046 [US4] Add the unlocking indicator (shown when derivation exceeds 300 ms) and double-submit protection to `src/DigiByte.Web/Pages/Unlock.razor`, `src/DigiByte.Web/Pages/PsbtSign.razor` and `src/DigiByte.Web/Pages/CreateWallet.razor`; keep the existing Baku behaviour on the unlock page unchanged.
+- [X] T047 [US4] Add a `?crypto-bench` developer page or console helper in `src/DigiByte.Web/wwwroot/js/crypto.js` (disabled in release builds) that prints derive time and memory per profile, used by T001 and the quickstart benchmark.
 
 ---
 

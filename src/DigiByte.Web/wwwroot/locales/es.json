@@ -271,5 +271,10 @@
   "biometric.weak.title": "Sobre el desbloqueo biom\u00e9trico aqu\u00ed",
   "biometric.weak.body": "En este navegador, el desbloqueo biom\u00e9trico es una comodidad: desbloquea m\u00e1s r\u00e1pido, pero reduce un poco la protecci\u00f3n de los datos guardados de tu billetera frente a usar solo tu PIN o frase de acceso. Puedes desactivarlo cuando quieras en Ajustes.",
   "biometric.weak.consent_yes": "Activarlo de todos modos",
-  "biometric.weak.ok": "Entendido"
+  "biometric.weak.ok": "Entendido",
+  "legacy.title": "Este dispositivo no puede usar la protecci\u00f3n m\u00e1s fuerte",
+  "legacy.reason_browser": "Este navegador no admite lo que necesita la protecci\u00f3n m\u00e1s fuerte de la billetera.",
+  "legacy.reason_memory": "Este dispositivo no tiene ahora suficiente memoria libre para la protecci\u00f3n m\u00e1s fuerte de la billetera.",
+  "legacy.body": "Tu billetera se puede crear igualmente, pero con la protecci\u00f3n anterior, m\u00e1s ligera. Se mejorar\u00e1 sola la primera vez que la desbloquees en un dispositivo o navegador que admita la m\u00e1s fuerte.",
+  "legacy.agree": "Crearla con la protecci\u00f3n anterior"
 }

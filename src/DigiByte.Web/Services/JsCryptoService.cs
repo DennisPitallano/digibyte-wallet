@@ -54,7 +54,7 @@ public class JsCryptoService : ICryptoService
         "WrongCredential" => CryptoFailure.WrongCredential,
         "UnsupportedVersion" => CryptoFailure.UnsupportedVersion,
         "ResourceExhausted" => CryptoFailure.ResourceExhausted,
-        "Unsupported" => CryptoFailure.ResourceExhausted, // browser cannot run Argon2id: environmental, not the user's fault
+        "Unsupported" => CryptoFailure.Unsupported, // this browser cannot run Argon2id at all
         _ => CryptoFailure.Unreadable,
     };
 

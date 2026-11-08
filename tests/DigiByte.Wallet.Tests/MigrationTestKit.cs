@@ -22,6 +22,9 @@ internal sealed class EnvelopeTestCrypto : ICryptoService
     /// <summary>When true, the next typed encrypt returns an envelope that opens to different plaintext.</summary>
     public bool CorruptNextEncrypt { get; set; }
 
+    /// <summary>When true, the typed encrypt returns an envelope whose memory cost is below the floor (a faulty or hostile service).</summary>
+    public bool ReturnBelowFloorEnvelope { get; set; }
+
     /// <summary>Throws from the typed decrypt of a dgb2 envelope (the read-back check) after this many calls (null = never).</summary>
     public int? ThrowOnTypedDecryptAfter { get; set; }
 
@@ -71,7 +74,19 @@ internal sealed class EnvelopeTestCrypto : ICryptoService
             CorruptNextEncrypt = false;
             plaintext = plaintext.Concat(new byte[] { 0x21 }).ToArray();
         }
-        return Task.FromResult(CryptoResult<string>.Ok(SealEnvelope(plaintext, credential, kind)));
+        var envelope = SealEnvelope(plaintext, credential, kind);
+        if (ReturnBelowFloorEnvelope) envelope = LowerMemory(envelope);
+        return Task.FromResult(CryptoResult<string>.Ok(envelope));
+    }
+
+    /// <summary>Rewrites the memory field of the header to 1,024 KiB, far below the 19,456 KiB floor.</summary>
+    private static string LowerMemory(string envelope)
+    {
+        var text = envelope["dgb2$".Length..].Replace('-', '+').Replace('_', '/');
+        text = text.PadRight(text.Length + (4 - text.Length % 4) % 4, '=');
+        var raw = Convert.FromBase64String(text);
+        raw[2] = 0; raw[3] = 0; raw[4] = 0x04; raw[5] = 0x00; // 1,024 KiB
+        return "dgb2$" + Convert.ToBase64String(raw).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
     public static string SealEnvelope(byte[] plaintext, string credential, CredentialKind kind)

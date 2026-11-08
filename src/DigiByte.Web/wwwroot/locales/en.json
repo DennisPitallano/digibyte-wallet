@@ -293,5 +293,10 @@
   "biometric.weak.title": "About biometric unlock here",
   "biometric.weak.body": "On this browser, biometric unlock is a convenience: it makes unlocking quicker, but it slightly lowers protection for your wallet's saved data compared with using only your PIN or passphrase. You can turn it off any time in Settings.",
   "biometric.weak.consent_yes": "Turn it on anyway",
-  "biometric.weak.ok": "Got it"
+  "biometric.weak.ok": "Got it",
+  "legacy.title": "This device can't use the stronger protection",
+  "legacy.reason_browser": "This browser doesn't support what the stronger wallet protection needs.",
+  "legacy.reason_memory": "This device doesn't have enough free memory for the stronger wallet protection right now.",
+  "legacy.body": "Your wallet can still be created, but with the earlier, lighter protection. It will upgrade by itself the first time you unlock it on a device or browser that supports the stronger one.",
+  "legacy.agree": "Create it with the earlier protection"
 }
