@@ -104,6 +104,7 @@
                     </div>
                     <p class="text-xs font-mono text-slate-800 dark:text-slate-200 break-all select-all">@pendingAddress</p>
                 </div>
+                <DigiIdAddressWarning />
             }
 
             @if (pendingRequest.IsUnsecure)
@@ -235,6 +236,7 @@
                         <CopyValueButton Value="@lastAuthAddress" Label="address" />
                     </div>
                     <span class="text-[10px] font-mono text-green-700 dark:text-green-400 break-all select-all">@lastAuthAddress</span>
+                    <DigiIdAddressWarning Compact="true" />
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Time</span>
@@ -308,6 +310,9 @@
             </div>
         </div>
     }
+
+    @* Recover funds (spec 009): the section carries id="recover-funds", which the warning beside every Digi-ID address links to. *@
+    <DigiIdRecoverFunds />
 </div>
 
 <DigiIdLoginDetailModal IsOpen="@(selectedEntry != null)" Entry="selectedEntry" OnClosed="CloseDetailsAsync" />
@@ -317,7 +322,7 @@
 @code {
     private enum AuthResult { None, Success, Failed }
 
-    private const string HistoryStorageKey = "digiid_login_history";
+    private const string HistoryStorageKey = DigiIdLoginRecord.HistoryStorageKey;
     private const int MaxHistoryEntries = 50;
 
     private string digiIdUri = "";

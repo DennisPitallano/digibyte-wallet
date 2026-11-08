@@ -191,6 +191,56 @@ public class DigiIdService
     }
 }
 
+/// <summary>
+/// Turns what a user types (a bare host or a pasted URL) into the exact domain string a Digi-ID login signs with.
+/// The login path takes <c>Uri.Host</c> from the callback URL (see <see cref="DigiIdService.ParseUri"/>), so this does the
+/// same: a hand-typed domain must derive the same site address as a real login, or a recovery check finds nothing.
+/// </summary>
+public static class DigiIdDomain
+{
+    private const int MaxHostLength = 253;
+
+    private static readonly string[] Schemes = ["web+digiid://", "digiid://", "https://", "http://"];
+
+    /// <summary>
+    /// The normalised domain (lowercase host, no scheme, port, path, query or fragment), or null if the input is not a usable
+    /// site name. Never throws.
+    /// </summary>
+    public static string? Normalize(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+
+        var text = input.Trim();
+        foreach (var scheme in Schemes)
+        {
+            if (text.StartsWith(scheme, StringComparison.OrdinalIgnoreCase))
+            {
+                text = text[scheme.Length..];
+                break;
+            }
+        }
+
+        // Another scheme, a stray "://", an email address, or user:password@ are not a site name.
+        if (text.Length == 0 || text.Contains("://") || text.Contains('@')) return null;
+        if (text.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))) return null;
+
+        try
+        {
+            if (!Uri.TryCreate("https://" + text, UriKind.Absolute, out var uri)) return null;
+
+            var host = uri.Host;
+            if (string.IsNullOrEmpty(host) || host.Length > MaxHostLength) return null;
+            if (host.All(c => c == '.')) return null;
+
+            return host;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}
+
 public class DigiIdRequest
 {
     public required string OriginalUri { get; init; }

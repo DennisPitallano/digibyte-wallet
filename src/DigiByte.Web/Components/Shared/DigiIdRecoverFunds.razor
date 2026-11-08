@@ -1,0 +1,701 @@
+@implements IDisposable
+@using System.Text.Json
+@using DigiByte.Crypto.DigiId
+@using DigiByte.Wallet.Models
+@using DigiByte.Wallet.Services
+@using DigiByte.Wallet.Storage
+@inject WalletService WalletService
+@inject ISecureStorage Storage
+@inject LocalizationService L
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@* "Recover funds" (spec 009). A Digi-ID address is a real DigiByte address that the wallet never watches. This section checks
+   the Digi-ID address of each site (login history plus websites typed in) for funds sent there by mistake, one request per
+   address, and never shows a failed lookup as "nothing found". Addresses are shown shortened and cannot be copied from here,
+   so they do not need the warning that sits beside full addresses. Nothing here shows a key, a path or a raw transaction. *@
+<section id="recover-funds" aria-labelledby="recover-heading"
+         class="flex flex-col gap-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 scroll-mt-4">
+    <div>
+        <h3 id="recover-heading" class="text-sm font-bold text-slate-900 dark:text-white">@L.T("identity.recover.title")</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">@L.T("identity.recover.intro")</p>
+    </div>
+
+    @if (!WalletService.IsUnlocked)
+    {
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed" role="status">@L.T("identity.recover.locked")</p>
+        <button type="button" class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500"
+                @onclick="GoToUnlock">@L.T("identity.recover.unlock")</button>
+    }
+    else if (!IsSeedWallet)
+    {
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed" role="status">@L.T("identity.recover.unsupported")</p>
+    }
+    else
+    {
+        @* Websites to check *@
+        <div class="flex flex-col gap-2">
+            <label for="recover-site-input" class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.siteLabel")</label>
+            <div class="flex gap-2">
+                <input id="recover-site-input" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
+                       placeholder="@L.T("identity.recover.sitePlaceholder")" @bind="siteInput" @bind:event="oninput" @onkeydown="OnSiteKeyDown"
+                       disabled="@(checking || busy)" aria-describedby="@(siteError != null ? "recover-site-error" : null)" aria-invalid="@(siteError != null ? "true" : null)"
+                       class="flex-1 min-w-0 px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500" />
+                <button type="button" @onclick="AddSite" disabled="@(checking || busy || string.IsNullOrWhiteSpace(siteInput))"
+                        class="px-4 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">@L.T("identity.recover.siteAdd")</button>
+            </div>
+            @if (siteError != null)
+            {
+                <p id="recover-site-error" class="text-[11px] text-red-500" role="alert">@siteError</p>
+            }
+            @if (manualDomains.Count > 0)
+            {
+                <ul class="flex flex-wrap gap-1.5" aria-label="@L.T("identity.recover.siteLabel")">
+                    @foreach (var d in manualDomains)
+                    {
+                        var domain = d;
+                        <li class="flex items-center gap-1 pl-2.5 pr-1 py-1 bg-dgb-50 dark:bg-dgb-800 rounded-full text-[11px] text-slate-700 dark:text-slate-200">
+                            <span class="break-all">@domain</span>
+                            <button type="button" @onclick="() => RemoveSite(domain)" disabled="@(checking || busy)" aria-label="@L.T("identity.recover.siteRemove", domain)"
+                                    class="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        @if (historyDomains.Count == 0 && manualDomains.Count == 0)
+        {
+            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">@L.T("identity.recover.historyEmpty")</p>
+        }
+        else
+        {
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("identity.recover.siteCount", AllDomains.Count)</p>
+        }
+
+        @if (checking)
+        {
+            <div class="flex items-center gap-3" role="status" aria-live="polite">
+                <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden="true"></div>
+                <span class="flex-1 text-xs text-slate-600 dark:text-slate-300">@L.T("identity.recover.checking", progressPct)</span>
+                <button type="button" @onclick="CancelCheck"
+                        class="px-3 py-1.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500">@L.T("identity.recover.cancel")</button>
+            </div>
+        }
+        else
+        {
+            <button type="button" @onclick="CheckAllAsync" disabled="@(AllDomains.Count == 0 || busy)"
+                    class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">
+                @(findings == null ? L.T("identity.recover.check") : L.T("identity.recover.checkAgain"))
+            </button>
+        }
+
+        @if (checkError != null)
+        {
+            <p class="text-xs text-red-500 leading-relaxed" role="alert">@checkError</p>
+        }
+
+        @* Results *@
+        @if (sweepError != null)
+        {
+            <p class="text-xs text-red-500 leading-relaxed" role="alert">@sweepError</p>
+        }
+
+        @if (planning)
+        {
+            <div class="flex items-center gap-3" role="status" aria-live="polite">
+                <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden="true"></div>
+                <span class="text-xs text-slate-600 dark:text-slate-300">@L.T("identity.recover.review.preparing")</span>
+            </div>
+        }
+        else if (plan != null)
+        {
+            @* Review: every figure is shown before anything is sent, and nothing is sent until the user confirms. *@
+            <div class="flex flex-col gap-2 p-3 rounded-xl border border-dgb-300 dark:border-dgb-700 bg-dgb-50/40 dark:bg-dgb-800/20" role="group" aria-labelledby="recover-review-heading">
+                <h4 id="recover-review-heading" class="text-sm font-bold text-slate-900 dark:text-white">@L.T("identity.recover.review.title")</h4>
+
+                @if (plan.Items.Count == 0)
+                {
+                    <p class="text-xs text-slate-600 dark:text-slate-300">@L.T("identity.recover.review.empty")</p>
+                }
+                else
+                {
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">@L.T("identity.recover.review.intro")</p>
+                    <ul class="flex flex-col gap-1.5">
+                        @foreach (var item in plan.Items)
+                        {
+                            <li class="flex flex-col gap-0.5 p-2.5 bg-white dark:bg-dgb-900 rounded-lg border border-slate-200/60 dark:border-dgb-800">
+                                <span class="text-sm font-semibold text-slate-900 dark:text-white break-all">@item.Domain</span>
+                                <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">@Shorten(item.SourceAddress)</span>
+                                <div class="flex items-center justify-between text-xs mt-1"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.amount")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(item.AmountSatoshis)</span></div>
+                                <div class="flex items-center justify-between text-xs"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.fee")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(item.EstimatedFeeSatoshis)</span></div>
+                                <div class="flex items-center justify-between text-xs"><span class="font-semibold text-slate-700 dark:text-slate-300">@L.T("identity.recover.review.arrives")</span><span class="font-semibold text-slate-900 dark:text-white">@Dgb(item.NetSatoshis)</span></div>
+                                <div class="flex items-center justify-between text-xs"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.to")</span><span class="font-mono text-[10px] text-slate-700 dark:text-slate-300">@Shorten(item.DestinationAddress)</span></div>
+                            </li>
+                        }
+                    </ul>
+                    <div class="flex flex-col gap-0.5 px-1 text-xs">
+                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.review.totals")</span>
+                        <div class="flex items-center justify-between"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.amount")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(plan.TotalAmountSatoshis)</span></div>
+                        <div class="flex items-center justify-between"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.fee")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(plan.TotalFeeSatoshis)</span></div>
+                        <div class="flex items-center justify-between"><span class="font-semibold text-slate-700 dark:text-slate-300">@L.T("identity.recover.review.arrives")</span><span class="font-bold text-slate-900 dark:text-white">@Dgb(plan.TotalNetSatoshis)</span></div>
+                    </div>
+                }
+
+                @if (plan.Remaining > 0)
+                {
+                    <p class="text-[11px] text-amber-700 dark:text-amber-400">@L.T("identity.recover.review.remaining", plan.Remaining)</p>
+                }
+
+                @if (plan.Excluded.Count > 0)
+                {
+                    <h5 class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">@L.T("identity.recover.review.excluded")</h5>
+                    <ul class="flex flex-col gap-1">
+                        @foreach (var e in plan.Excluded)
+                        {
+                            <li class="text-[11px] text-slate-600 dark:text-slate-300"><b class="break-all">@e.Domain</b>: @e.Reason</li>
+                        }
+                    </ul>
+                }
+
+                @if (executing)
+                {
+                    <div class="flex items-center gap-3 mt-1" role="status" aria-live="polite">
+                        <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden="true"></div>
+                        <span class="text-xs text-slate-600 dark:text-slate-300">@L.T("identity.recover.review.working", Math.Min(sweptSoFar + 1, plan.Items.Count), plan.Items.Count)</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex gap-2 mt-1">
+                        <button type="button" @onclick="CancelReview"
+                                class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500">@L.T("identity.recover.review.cancel")</button>
+                        @if (plan.Items.Count > 0)
+                        {
+                            <button type="button" @onclick="ConfirmSweepAsync" disabled="@executing"
+                                    class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">@L.T("identity.recover.review.confirm")</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (findings != null && !checking && plan == null && !planning)
+        {
+            <div class="flex flex-col gap-2" role="status" aria-live="polite">
+                @if (findings.Count > 0 && findings.All(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck))
+                {
+                    <p class="text-xs text-red-500 leading-relaxed" role="alert">@L.T("identity.recover.allFailed")</p>
+                }
+                else if (FundsFindings.Count == 0)
+                {
+                    @* Counts only the sites that were really checked, so a failed one is never counted as empty. *@
+                    <p class="text-xs text-slate-600 dark:text-slate-300">@L.T("identity.recover.nothingFound", findings.Count(f => f.Outcome == DigiIdFundOutcome.Empty))</p>
+                }
+
+                @if (FundsFindings.Count > 0)
+                {
+                    <h4 class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.found")</h4>
+                    <ul class="flex flex-col gap-1.5">
+                        @foreach (var f in FundsFindings)
+                        {
+                            <li class="flex flex-col gap-0.5 p-3 bg-slate-50 dark:bg-dgb-950 rounded-xl border border-slate-200/60 dark:border-dgb-800">
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="flex items-center gap-2 min-w-0">
+                                        @if (f.CanSweep)
+                                        {
+                                            <input type="checkbox" checked="@selected.Contains(f.Address)" aria-label="@L.T("identity.recover.select", f.Domain)"
+                                                   @onchange="e => ToggleSelect(f.Address, (bool)(e.Value ?? false))"
+                                                   class="w-4 h-4 flex-shrink-0 accent-dgb-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500" />
+                                        }
+                                        <span class="text-sm font-semibold text-slate-900 dark:text-white break-all">@f.Domain</span>
+                                    </label>
+                                    @if (f.InFlight)
+                                    {
+                                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex-shrink-0">@L.T("identity.recover.inFlight")</span>
+                                    }
+                                </div>
+                                <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">@Shorten(f.Address)</span>
+                                <div class="flex items-center justify-between text-xs mt-1">
+                                    <span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.confirmed")</span>
+                                    <span class="font-semibold text-slate-900 dark:text-white">@Dgb(f.ConfirmedSatoshis)</span>
+                                </div>
+                                @if (f.PendingSatoshis > 0)
+                                {
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.pending")</span>
+                                        <span class="text-slate-700 dark:text-slate-300">@Dgb(f.PendingSatoshis)</span>
+                                    </div>
+                                }
+                                @if (f.OtherOutputsCount > 0)
+                                {
+                                    <span class="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">@L.T("identity.recover.otherOutputs", f.OtherOutputsCount)</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                    <div class="flex items-center justify-between px-1 text-xs">
+                        <span class="font-semibold text-slate-700 dark:text-slate-300">@L.T("identity.recover.total")</span>
+                        <span class="font-bold text-slate-900 dark:text-white">@Dgb(FundsFindings.Sum(f => f.ConfirmedSatoshis))</span>
+                    </div>
+                    @if (FundsFindings.Sum(f => f.PendingSatoshis) > 0)
+                    {
+                        <div class="flex items-center justify-between px-1 text-xs">
+                            <span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.pending")</span>
+                            <span class="text-slate-700 dark:text-slate-300">@Dgb(FundsFindings.Sum(f => f.PendingSatoshis))</span>
+                        </div>
+                    }
+
+                    @if (Sweepable.Count > 0)
+                    {
+                        <div class="flex items-center justify-between gap-2 mt-1">
+                            <button type="button" @onclick="@(() => { if (SelectedCount == Sweepable.Count) SelectNone(); else SelectAll(); })"
+                                    class="text-[11px] font-semibold text-dgb-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 rounded">
+                                @(SelectedCount == Sweepable.Count ? L.T("identity.recover.selectNone") : L.T("identity.recover.selectAll"))
+                            </button>
+                        </div>
+                        <button type="button" @onclick="StartSweepAsync" disabled="@(SelectedCount == 0 || busy)"
+                                class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">
+                            @L.T("identity.recover.sweep", SelectedCount)
+                        </button>
+                    }
+                }
+
+                @* An empty address can still have outputs the wallet will not touch: say so, so nothing looks missing. *@
+                @foreach (var f in findings.Where(f => f.Outcome == DigiIdFundOutcome.Empty && f.OtherOutputsCount > 0))
+                {
+                    <p class="text-[11px] text-amber-700 dark:text-amber-400"><b>@f.Domain</b>: @L.T("identity.recover.otherOutputs", f.OtherOutputsCount)</p>
+                }
+
+                @if (FailedFindings.Count > 0 && !findings.All(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck))
+                {
+                    <h4 class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">@L.T("identity.recover.couldNotCheck")</h4>
+                    <ul class="flex flex-col gap-1">
+                        @foreach (var f in FailedFindings)
+                        {
+                            <li class="text-[11px] text-slate-600 dark:text-slate-300"><b class="break-all">@f.Domain</b>: @f.Error</li>
+                        }
+                    </ul>
+                }
+
+                @if (RetryableFindings.Count > 0)
+                {
+                    <button type="button" @onclick="RetryFailedAsync"
+                            class="w-full py-2 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500">
+                        @(findings.All(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck) ? L.T("identity.recover.retry") : L.T("identity.recover.retryFailed"))
+                    </button>
+                }
+            </div>
+        }
+
+        @* The user's sweeps. Saved, so they are still here after a reload; kept current while this section is open. *@
+        @if (records.Count > 0)
+        {
+            <div class="flex flex-col gap-2" role="region" aria-labelledby="recover-status-heading">
+                <div class="flex items-center justify-between gap-2">
+                    <h4 id="recover-status-heading" class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.status.title")</h4>
+                    <button type="button" @onclick="RefreshAsync" disabled="@refreshing"
+                            class="text-[11px] font-semibold text-dgb-500 hover:underline disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 rounded">@L.T("identity.recover.status.refresh")</button>
+                </div>
+                <ul class="flex flex-col gap-1.5" aria-live="polite">
+                    @foreach (var r in records)
+                    {
+                        <li class="flex flex-col gap-0.5 p-2.5 bg-slate-50 dark:bg-dgb-950 rounded-lg border border-slate-200/60 dark:border-dgb-800" @key="r.Id">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-sm font-semibold text-slate-900 dark:text-white break-all">@r.Domain</span>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 @StatusStyle(r.Status)">@StatusLabel(r.Status)</span>
+                            </div>
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("identity.recover.status.arrives", Dgb(Math.Max(0, r.AmountSatoshis - r.FeeSatoshis)))</span>
+                            @if (r.Status == DigiIdSweepStatus.Failed && !string.IsNullOrWhiteSpace(r.FailureReason))
+                            {
+                                <span class="text-[11px] text-red-500 leading-relaxed">@r.FailureReason</span>
+                            }
+                            @if (r.Status == DigiIdSweepStatus.Failed)
+                            {
+                                <button type="button" @onclick="() => RetrySweepAsync(r)" disabled="@(busy || checking)"
+                                        class="self-start mt-1 text-[11px] font-semibold text-dgb-500 hover:underline disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 rounded">@L.T("identity.recover.status.again")</button>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private const string RecoverFragment = "#recover-funds";
+
+    private List<string> historyDomains = [];
+    private readonly List<string> manualDomains = [];
+    private string siteInput = "";
+    private string? siteError;
+    private bool checking;
+    private int progressPct;
+    private string? checkError;
+    private List<DigiIdFundFinding>? findings;
+    private CancellationTokenSource? cts;
+
+    // Sweeping (User Story 3)
+    private readonly HashSet<string> selected = new(StringComparer.Ordinal);
+    private bool planning;
+    private bool executing;
+    private int sweptSoFar;
+    private DigiIdSweepPlan? plan;
+    private string? sweepError;
+    private IReadOnlyList<DigiIdSweepRecord> records = [];
+    private bool refreshing;
+    private System.Threading.Timer? refreshTimer;
+
+    /// <summary>How often the status of pending sweeps is refreshed while this section is open (FR-011).</summary>
+    private static readonly TimeSpan RefreshEvery = TimeSpan.FromSeconds(30);
+
+    /// <summary>A plan is being made or carried out: nothing else on the section may change what is being swept.</summary>
+    private bool busy => planning || executing;
+
+    private List<DigiIdFundFinding> Sweepable => FundsFindings.Where(f => f.CanSweep).ToList();
+    private int SelectedCount => Sweepable.Count(f => selected.Contains(f.Address));
+
+    /// <summary>Only a wallet made from a seed phrase has Digi-ID addresses (watch-only and single-key wallets do not).</summary>
+    private bool IsSeedWallet => WalletService.ActiveWallet?.WalletType == "hd";
+
+    private List<string> AllDomains => historyDomains.Concat(manualDomains).Distinct(StringComparer.Ordinal).ToList();
+    private List<DigiIdFundFinding> FundsFindings => findings?.Where(f => f.Outcome == DigiIdFundOutcome.Funds).ToList() ?? [];
+    private List<DigiIdFundFinding> FailedFindings => findings?.Where(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck).ToList() ?? [];
+
+    /// <summary>Failed lookups that can be tried again: not the entries that were never a valid site name.</summary>
+    private List<DigiIdFundFinding> RetryableFindings =>
+        findings?.Where(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck && f.Address != "").ToList() ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        L.OnLocaleChanged += OnLocaleChanged;
+        await LoadHistoryAsync();
+
+        // Sweeps are saved, so opening the section shows where earlier ones stand, even after a reload. The saved list is read
+        // from storage and shown at once; looking up the network for what changed can take a while, so it follows in the background.
+        if (WalletService.IsUnlocked && IsSeedWallet)
+        {
+            try { records = await WalletService.GetDigiIdSweepsAsync(); }
+            catch { records = []; }
+            UpdateRefreshTimer();
+            _ = InvokeAsync(async () =>
+            {
+                await RefreshAsync();
+                StateHasChanged();
+            });
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Arriving from a link to /identity#recover-funds (for example after unlocking): bring the section into view.
+        if (firstRender && Nav.Uri.EndsWith(RecoverFragment, StringComparison.Ordinal))
+        {
+            try { await JS.InvokeVoidAsync("domHelpers.scrollToElement", "recover-funds"); }
+            catch { /* scrolling is a convenience */ }
+        }
+    }
+
+    private void OnLocaleChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        L.OnLocaleChanged -= OnLocaleChanged;
+        refreshTimer?.Dispose(); // no refresh once the section is gone (FR-014)
+        refreshTimer = null;
+        cts?.Cancel();
+        cts?.Dispose();
+    }
+
+    /// <summary>The sites from the login history, as the domain a login signs with. Read again before every check.</summary>
+    private async Task LoadHistoryAsync()
+    {
+        try
+        {
+            var json = await Storage.GetAsync(DigiIdLoginRecord.HistoryStorageKey);
+            var records = json == null ? [] : JsonSerializer.Deserialize<List<DigiIdLoginRecord>>(json) ?? [];
+            historyDomains = records
+                .Select(r => DigiIdDomain.Normalize(r.Domain))
+                .Where(d => d != null)
+                .Select(d => d!)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+        catch
+        {
+            historyDomains = [];
+        }
+    }
+
+    private void GoToUnlock() =>
+        Nav.NavigateTo("/unlock?returnUrl=" + Uri.EscapeDataString("/identity" + RecoverFragment));
+
+    private void OnSiteKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddSite();
+    }
+
+    private void AddSite()
+    {
+        siteError = null;
+        var domain = DigiIdDomain.Normalize(siteInput);
+        if (domain == null)
+        {
+            siteError = L.T("identity.recover.siteInvalid");
+            return;
+        }
+
+        if (!manualDomains.Contains(domain, StringComparer.Ordinal) && !historyDomains.Contains(domain, StringComparer.Ordinal))
+            manualDomains.Add(domain);
+        siteInput = "";
+    }
+
+    private void RemoveSite(string domain) => manualDomains.Remove(domain);
+
+    private async Task CheckAllAsync()
+    {
+        if (busy) return;
+        await LoadHistoryAsync();
+        findings = null;
+        selected.Clear();
+        plan = null;
+        sweepError = null;
+        await RunScanAsync(AllDomains, mergeIntoExisting: false);
+    }
+
+    private async Task RetryFailedAsync()
+    {
+        await RunScanAsync(RetryableFindings.Select(f => f.Domain).ToList(), mergeIntoExisting: true);
+    }
+
+    private void CancelCheck() => cts?.Cancel();
+
+    private async Task RunScanAsync(List<string> domains, bool mergeIntoExisting)
+    {
+        if (checking || busy || domains.Count == 0) return;
+
+        checkError = null;
+        checking = true;
+        progressPct = 0;
+        cts?.Dispose();
+        cts = new CancellationTokenSource();
+        StateHasChanged();
+
+        try
+        {
+            var progress = new Progress<int>(p => { progressPct = p; _ = InvokeAsync(StateHasChanged); });
+            var result = await WalletService.ScanDigiIdFundsAsync(domains, progress, cts.Token);
+
+            if (mergeIntoExisting && findings != null)
+            {
+                var rechecked = result.Select(r => r.Domain).ToHashSet(StringComparer.Ordinal);
+                findings = findings.Where(f => !rechecked.Contains(f.Domain)).Concat(result).ToList();
+            }
+            else
+            {
+                findings = result.ToList();
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Locked, or a wallet without a seed: the message is written for the user and carries no key material.
+            checkError = ex.Message;
+        }
+        catch (Exception)
+        {
+            checkError = L.T("identity.recover.allFailed");
+        }
+        finally
+        {
+            checking = false;
+        }
+
+        // Only addresses that can still be swept stay selected.
+        var sweepable = Sweepable.Select(f => f.Address).ToHashSet(StringComparer.Ordinal);
+        selected.RemoveWhere(a => !sweepable.Contains(a));
+    }
+
+    // ─── Sweeping ───
+
+    private void ToggleSelect(string address, bool on)
+    {
+        if (on) selected.Add(address);
+        else selected.Remove(address);
+    }
+
+    private void SelectAll()
+    {
+        foreach (var f in Sweepable) selected.Add(f.Address);
+    }
+
+    private void SelectNone() => selected.Clear();
+
+    /// <summary>"Sweep selected": works out the plan for review. Nothing is sent and nothing is saved yet.</summary>
+    private async Task StartSweepAsync()
+    {
+        if (busy || checking) return;
+
+        var chosen = Sweepable.Where(f => selected.Contains(f.Address)).ToList();
+        if (chosen.Count == 0) return;
+
+        sweepError = null;
+        planning = true;
+        StateHasChanged();
+        try
+        {
+            plan = await WalletService.PlanDigiIdSweepAsync(chosen);
+        }
+        catch (InvalidOperationException ex)
+        {
+            plan = null;
+            sweepError = ex.Message; // locked, no seed, or too many unused addresses: written for the user
+        }
+        catch (Exception)
+        {
+            plan = null;
+            sweepError = L.T("identity.recover.error.generic");
+        }
+        finally
+        {
+            planning = false;
+        }
+    }
+
+    private void CancelReview()
+    {
+        if (executing) return;
+        plan = null; // nothing was sent and nothing was saved
+        sweepError = null;
+    }
+
+    /// <summary>"Confirm sweep": the one confirmation. Guarded so that a double click cannot send twice (FR-012).</summary>
+    private async Task ConfirmSweepAsync()
+    {
+        if (plan is null || executing || plan.Items.Count == 0) return;
+
+        var toRun = plan;
+        executing = true;
+        sweepError = null;
+        sweptSoFar = 0;
+        StateHasChanged();
+        try
+        {
+            var progress = new Progress<DigiIdSweepRecord>(done => { sweptSoFar++; _ = InvokeAsync(StateHasChanged); });
+            await WalletService.ExecuteDigiIdSweepAsync(toRun, progress);
+
+            plan = null;
+            selected.Clear();
+            await RefreshAsync();
+            MarkInFlight();
+        }
+        catch (InvalidOperationException ex)
+        {
+            plan = null;
+            sweepError = ex.Message;
+        }
+        catch (Exception)
+        {
+            plan = null;
+            sweepError = L.T("identity.recover.error.generic");
+        }
+        finally
+        {
+            executing = false;
+        }
+    }
+
+    /// <summary>"Sweep again" on a failed sweep: look at that site again, then offer it for review.</summary>
+    private async Task RetrySweepAsync(DigiIdSweepRecord record)
+    {
+        if (busy || checking) return;
+        if (!WalletService.IsUnlocked)
+        {
+            GoToUnlock();
+            return;
+        }
+
+        await RunScanAsync([record.Domain], mergeIntoExisting: findings != null);
+        selected.Clear();
+        var finding = findings?.FirstOrDefault(f => f.Domain == record.Domain);
+        if (finding is { CanSweep: true })
+        {
+            selected.Add(finding.Address);
+            await StartSweepAsync();
+        }
+    }
+
+    /// <summary>Marks the addresses whose sweeps are in flight, so they are not offered again.</summary>
+    private void MarkInFlight()
+    {
+        if (findings == null) return;
+        var inFlight = records.Where(r => r.IsInFlight).Select(r => r.SourceAddress).ToHashSet(StringComparer.Ordinal);
+        findings = findings.Select(f => inFlight.Contains(f.Address) ? f with { InFlight = true } : f).ToList();
+    }
+
+    // ─── Status ───
+
+    /// <summary>Brings the saved sweeps up to date. Runs when the section opens, on the Refresh button, and about every 30 seconds while one is pending.</summary>
+    private async Task RefreshAsync()
+    {
+        if (refreshing || !WalletService.IsUnlocked || !IsSeedWallet) return;
+
+        refreshing = true;
+        try
+        {
+            records = await WalletService.RefreshDigiIdSweepsAsync();
+            MarkInFlight();
+        }
+        catch
+        {
+            // Keep showing what is shown; the next refresh tries again.
+        }
+        finally
+        {
+            refreshing = false;
+        }
+
+        UpdateRefreshTimer();
+    }
+
+    /// <summary>The timer runs only while this section is open and at least one sweep is still moving (FR-011, FR-014).</summary>
+    private void UpdateRefreshTimer()
+    {
+        var needed = WalletService.IsUnlocked && records.Any(r => r.IsInFlight);
+        if (needed && refreshTimer == null)
+        {
+            refreshTimer = new System.Threading.Timer(_ => _ = InvokeAsync(async () =>
+            {
+                await RefreshAsync();
+                StateHasChanged();
+            }), null, RefreshEvery, RefreshEvery);
+        }
+        else if (!needed && refreshTimer != null)
+        {
+            refreshTimer.Dispose();
+            refreshTimer = null;
+        }
+    }
+
+    private string StatusLabel(DigiIdSweepStatus status) => status switch
+    {
+        DigiIdSweepStatus.Sending => L.T("identity.recover.status.sending"),
+        DigiIdSweepStatus.Pending => L.T("identity.recover.status.pending"),
+        DigiIdSweepStatus.Confirmed => L.T("identity.recover.status.confirmed"),
+        _ => L.T("identity.recover.status.failed"),
+    };
+
+    private static string StatusStyle(DigiIdSweepStatus status) => status switch
+    {
+        DigiIdSweepStatus.Confirmed => "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+        DigiIdSweepStatus.Failed => "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+        _ => "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+    };
+
+    private static string Dgb(long satoshis) => (satoshis / 100_000_000m).ToString("0.########") + " DGB";
+
+    private static string Shorten(string address) =>
+        address.Length <= 16 ? address : $"{address[..8]}…{address[^6..]}";
+}
