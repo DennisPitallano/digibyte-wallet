@@ -114,6 +114,8 @@ Run on 2026-11-09 against a Debug build of the feature branch (`dotnet run`, Chr
 | 7. Throttle wording (wrong credential only) | Pass for the wrong-passphrase message in English and Spanish ("2 attempts remaining before lockout"). The allocation-failure hook was not exercised. |
 | 12. Wording | Credential strings translate in Spanish on Unlock and Create. Not every changed screen was visited. Unlock still shows some pre-existing hard-coded English ("Welcome back", "Unlock", "Good to see you"). |
 | 13. CSP | Not conclusive. A Debug build reports one inline-script violation and cannot register the service worker, because CSP hashes and the service worker are produced at publish time. Needs a published build. |
-| 2, 3, 4, 5, 6, 8, 9, 10, 11 | Not run. They need the previous build's profile, test hooks, a second browser, a WebAssembly-disabled browser, a real phone, or a published build for offline. |
+| 2. Automatic migration | Pass. A wallet and PIN were created in the previous build (main), then opened in this build on the same origin. After unlocking with the old PIN: `wallet_seed_v2_{id}` (`dgb2$`) and `wallet_migration_{id}` existed, `wallet_seed_{id}` was byte-for-byte unchanged (SHA-256 matched the one recorded beforehand), the upgrade notice was shown, and the recovery phrase on the backup page matched the 24 words from creation. |
+| 4. Rollback (simulated) | Pass. The PIN change in the older build was simulated by rewriting the legacy copy under a new PIN with the same legacy encrypt function. The new build ignored the stale v2 copy, unlocked with the new PIN, re-migrated, and the new envelope opens only with the new PIN. A real old build was not used for the change. |
+| 3, 5, 6, 8, 9, 10, 11 | Not run. They need the previous build's profile, test hooks, a second browser, a WebAssembly-disabled browser, a real phone, or a published build for offline. |
 
 Frozen profile parameters: not yet; they depend on the T001 benchmark.
