@@ -20,16 +20,16 @@
 
 - [ ] T001 Run the benchmark spike and record results in `specs/009-stronger-pin-protection/research.md` under R3: Argon2id derivation time and peak memory for 64 MiB/3 passes, 32 MiB/3 passes and 19 MiB/2 passes on the reference low-end phone, a mid-range phone and desktop, plus legacy PBKDF2 per-guess cost; choose and freeze the three profile values, pick the reference phone, and check SC-002 (at least 100x for a GPU-class attacker; the benchmark measures phone and desktop CPU time, so derive the GPU figure by comparing memory cost with published GPU rates for PBKDF2-SHA256 and Argon2id and record the source and assumptions) and SC-003 (3 s typical, 6 s worst case). Stop and report if SC-002 or SC-003 cannot be met.
 - [X] T002 [P] Vendor the pinned Argon2id WASM build under `src/DigiByte.Web/wwwroot/js/vendor/` with its licence text and a recorded SHA-256 in `src/DigiByte.Web/wwwroot/js/vendor/README.md`; confirm it instantiates under the existing CSP (`'wasm-unsafe-eval'`) with no policy change.
-- [X] T003 [P] Add `tests/js/` with a `node --test` runner entry (`"test": "node --test tests/js"` in `src/DigiByte.Web/package.json`, no new dependencies) and shared fixtures folder `tests/js/fixtures/`.
-- [ ] T004 [P] Generate fixtures once from the current code and commit them to both `tests/js/fixtures/` and `tests/DigiByte.Wallet.Tests/Fixtures/`: one legacy ciphertext (known PIN and plaintext), one `dgb2` value per profile, and tampered variants (flipped header bit, flipped ciphertext bit, truncated, unknown version `dgb3$`, below-floor parameters).
-- [X] T005 [P] Add `.github/workflows` job (or extend the existing wallet CI if present) to run `dotnet test tests/DigiByte.Wallet.Tests` and `node --test tests/js`.
+- [X] T003 [P] Add `src/DigiByte.Web/tests/js/` with a `node --test` runner entry (`"test": "node --test tests/js"` in `src/DigiByte.Web/package.json`, no new dependencies) and shared fixtures folder `src/DigiByte.Web/tests/js/fixtures/`.
+- [ ] T004 [P] Generate fixtures once from the current code and commit them to both `src/DigiByte.Web/tests/js/fixtures/` and `tests/DigiByte.Wallet.Tests/Fixtures/`: one legacy ciphertext (known PIN and plaintext), one `dgb2` value per profile, and tampered variants (flipped header bit, flipped ciphertext bit, truncated, unknown version `dgb3$`, below-floor parameters).
+- [X] T005 [P] Add `.github/workflows` job (or extend the existing wallet CI if present) to run `dotnet test tests/DigiByte.Wallet.Tests` and `npm test` in `src/DigiByte.Web` (`node --test tests/js`).
 
 ## Phase 2: Foundational (blocks every user story)
 
 ### Tests first (must fail before implementation)
 
 - [ ] T006 [P] Write `tests/DigiByte.Wallet.Tests/EnvelopeCodecTests.cs`: parse and format round trip; reject truncated input, unknown prefix `dgb3$`, unknown kdf id, kind not in {1, 2}, memory below 19,456 KiB, passes below 2, lanes other than 1; legacy value detected as legacy; header bytes exposed for use as additional authenticated data (per [contracts/envelope-format.md](contracts/envelope-format.md)).
-- [ ] T007 [P] Write `tests/js/crypto.test.mjs`: Argon2id known-answer vectors; `encryptV2` then `decryptV2` round trip for each profile; wrong credential returns `WrongCredential`; flipped header bit fails authentication (parameter downgrade is detected); legacy fixture decrypts via `decryptV2`; `ResourceExhausted` when the worker cannot allocate (stubbed); nothing is written below the floor.
+- [ ] T007 [P] Write `src/DigiByte.Web/tests/js/crypto.test.mjs`: Argon2id known-answer vectors; `encryptV2` then `decryptV2` round trip for each profile; wrong credential returns `WrongCredential`; flipped header bit fails authentication (parameter downgrade is detected); legacy fixture decrypts via `decryptV2`; `ResourceExhausted` when the worker cannot allocate (stubbed); nothing is written below the floor.
 - [ ] T008 [P] Write `tests/DigiByte.Wallet.Tests/CryptoResultTests.cs`: a fake `ICryptoService` returns each `CryptoFailure` and the wrappers map `WrongCredential` to false/null and surface the others distinctly.
 
 ### Implementation
@@ -79,8 +79,8 @@
 
 **Note**: the recovery UI step (T027) sits in the US1 phase because it uses the credential input from T033; quickstart scenario 6 needs T027 as well as T025 and T026.
 
-- [ ] T025 [P] [US3] Write `tests/DigiByte.Wallet.Tests/WalletRecoveryTests.cs`: reset with the correct phrase re-protects under the new credential as `v2` and deletes the legacy copy and any migration record's legacy flag; old credential stops working; invalid or malformed phrase changes nothing in storage (assert full storage snapshot equality); passphrase wallet can switch to a PIN and back; watch-only and imported-key wallets recover by re-import.
-- [ ] T026 [US3] Update `ResetPinAsync` in `src/DigiByte.Wallet/Services/WalletService.cs` (and the equivalent reset paths around lines 1868 to 1912) to write `v2`, remove the legacy copy, accept either credential kind, and make no storage writes before the phrase is validated; make T025 pass.
+- [ ] T025 [P] [US3] Write `tests/DigiByte.Wallet.Tests/WalletRecoveryTests.cs`: reset with the correct phrase re-protects under the new credential as `v2` and deletes the legacy copy and any migration record's legacy flag; old credential stops working; invalid or malformed phrase changes nothing in storage (assert full storage snapshot equality); passphrase wallet can switch to a PIN and back; multisig config and DigiDollar payloads open with the new credential and not the old; watch-only and imported-key wallets recover by re-import.
+- [ ] T026 [US3] Update `ResetPinAsync` in `src/DigiByte.Wallet/Services/WalletService.cs` (and the equivalent reset paths around lines 1868 to 1912) to write `v2`, remove the legacy copy, accept either credential kind, re-encrypt multisig config and DigiDollar store payloads under the new credential (deleting their legacy copies), and make no storage writes before the phrase is validated; make T025 pass.
 
 ---
 
@@ -93,8 +93,8 @@
 ### Tests first
 
 - [ ] T028 [P] [US1] Write `tests/DigiByte.Wallet.Tests/CredentialPolicyTests.cs`: minimum 12 characters after NFKC; reject common-list entries, trivially repeated and sequential strings, over 256 characters; accept valid; composed and decomposed forms of the same text are equal; leading and trailing spaces are preserved as typed; each rejection returns a specific reason code.
-- [ ] T029 [P] [US1] Write `tests/DigiByte.Wallet.Tests/CredentialChangeTests.cs`: PIN to passphrase requires the current PIN first, writes `v2` with kind `passphrase`, deletes legacy immediately, and the PIN alone no longer unlocks; wrong current PIN changes nothing.
-- [ ] T030 [P] [US1] Write `tests/js/passphrase.test.mjs`: NFKC normalisation parity between JS and the C# policy fixtures; same visible text from different Unicode forms derives the same key.
+- [ ] T029 [P] [US1] Write `tests/DigiByte.Wallet.Tests/CredentialChangeTests.cs`: PIN to passphrase requires the current PIN first, writes `v2` with kind `passphrase`, deletes legacy immediately, re-encrypts multisig and DigiDollar payloads under the new credential, and the PIN alone no longer unlocks; wrong current PIN changes nothing.
+- [ ] T030 [P] [US1] Write `src/DigiByte.Web/tests/js/passphrase.test.mjs`: NFKC normalisation parity between JS and the C# policy fixtures; same visible text from different Unicode forms derives the same key.
 - [ ] T058 [P] [US1] Write `tests/DigiByte.Wallet.Tests/UpgradeNudgeTests.cs`: dismissing the passphrase upgrade card persists `PassphraseNudgeDismissed`, the card does not reappear on later unlocks or sessions, and reopening from settings shows it again (SC-010); no balance-based or recurring trigger exists.
 
 ### Implementation
@@ -103,7 +103,7 @@
 - [ ] T032 [P] [US1] Add `src/DigiByte.Web/wwwroot/data/common-passwords.txt` (compact lowercased deny list of about 10,000 entries; the final size is chosen in this task and recorded in `research.md` R6) with its source and licence noted in `src/DigiByte.Web/wwwroot/data/README.md`.
 - [ ] T033 [US1] Create `src/DigiByte.Web/Components/CredentialInput.razor` (six-digit PIN input or masked passphrase field with show/hide, rejection reason text, no autocomplete, `data-testid` attributes) and use it in the pages below.
 - [ ] T034 [US1] Update `src/DigiByte.Web/Pages/CreateWallet.razor`: choice between PIN and passphrase with a short honest explanation, passphrase recommended for larger holdings, confirm field, rejection reasons shown before anything is stored; creation uses `CredentialKind` and writes `v2` only; make the Wallet service calls in `CreateWalletAsync`, `CreateWalletFromWifAsync`, `CreateWatchOnlyWalletAsync` take the kind.
-- [ ] T035 [US1] Add `ChangeCredentialAsync` to `src/DigiByte.Wallet/Services/WalletService.cs` (PIN to passphrase and passphrase to PIN, current credential required, legacy copy deleted, biometric flags handled in T041); make T029 pass.
+- [ ] T035 [US1] Add `ChangeCredentialAsync` to `src/DigiByte.Wallet/Services/WalletService.cs` (PIN to passphrase and passphrase to PIN, current credential required, legacy copy deleted, multisig config and DigiDollar store payloads re-encrypted under the new credential with their legacy copies deleted, biometric flags handled in T041); make T029 pass.
 - [ ] T036 [US1] Add the "Use a passphrase" upgrade card with dismiss to the wallet settings page in `src/DigiByte.Web/Pages/Settings.razor`, persisting `PassphraseNudgeDismissed`; no balance-triggered or recurring reminders (SC-010).
 - [ ] T037 [US1] Update `src/DigiByte.Web/Pages/Unlock.razor` and `src/DigiByte.Web/Pages/PsbtSign.razor` to show the PIN input or the passphrase input according to `WalletInfo.CredentialType`.
 - [ ] T027 [US3] Update the reset UI in `src/DigiByte.Web/Pages/Unlock.razor` and `src/DigiByte.Web/Pages/RecoverWallet.razor` to choose the new credential type during recovery (uses the component from T033, so this task runs after T033 and is placed in the US1 phase).
@@ -119,8 +119,8 @@
 ### Tests first
 
 - [ ] T038 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/` with `PinAttemptThrottleTests.cs`: identical thresholds and delays for PIN and passphrase; messages say "PIN" or "passphrase"; only `WrongCredential` increments; `ResourceExhausted` and `UnsupportedVersion` do not; reset on success.
-- [ ] T039 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/BiometricServiceTests.cs`: PRF enrolment stores no `bio_key`; migration of a wallet with biometrics enrolled keeps biometric unlock working; one-time re-enrolment prompt state (`bio_prf_state`); non-PRF path sets the weak warning once and respects a decline; credential-gated actions (view phrase, change credential, enrol biometrics) still require the credential.
-- [ ] T040 [P] [US5] Write `tests/js/webauthn-prf.test.mjs` with a stubbed `navigator.credentials`: PRF enabled result yields a derived key never persisted; PRF missing yields `prfSupported: false`.
+- [ ] T039 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/BiometricServiceTests.cs`: PRF enrolment stores no `bio_key`, and the stored `bio_seed_{id}` cannot be decrypted without the PRF-derived key (SC-011); migration of a wallet with biometrics enrolled keeps biometric unlock working; one-time re-enrolment prompt state (`bio_prf_state`); non-PRF path sets the weak warning once and respects a decline; credential-gated actions (view phrase, change credential, enrol biometrics) still require the credential.
+- [ ] T040 [P] [US5] Write `src/DigiByte.Web/tests/js/webauthn-prf.test.mjs` with a stubbed `navigator.credentials`: PRF enabled result yields a derived key never persisted; PRF missing yields `prfSupported: false`.
 
 ### Implementation
 
@@ -163,13 +163,13 @@
 - [ ] T053 [P] Audit for secrets in logs and telemetry: grep for credential and key handling in `src/DigiByte.Web/` and confirm no console, error report or analytics path includes a credential, derived key or plaintext (FR-005); add a short note to `docs/SECURITY.md`.
 - [ ] T054 [P] Update What's New in the version info (as done for 0.4.0) in the web app and `src/DigiByte.Web/ANNOUNCEMENT.md`, describing the automatic upgrade and the passphrase option.
 - [ ] T057 [P] Run a small usability check for SC-006 (at least 5 people, mix of English and Spanish): create a passphrase wallet, lock, unlock, and state what happens if the credential is forgotten; record results in `specs/009-stronger-pin-protection/research.md`. If this cannot be run before release, mark SC-006 as a post-release measure in `spec.md`.
-- [ ] T055 Run `dotnet test` for the whole solution and `node --test tests/js`; confirm every new test was seen failing before its implementation task (constitution III).
+- [ ] T055 Run `dotnet test` for the whole solution and `npm test` in `src/DigiByte.Web` (`node --test tests/js`); confirm every new test was seen failing before its implementation task (constitution III).
 
 ---
 
 ## Dependencies & execution order
 
-- **Phase 1** can start immediately; T001 (benchmark) gates T009 and the final parameters. T002 to T005 are parallel.
+- **Phase 1** can start immediately; T001 (benchmark) gates T009, T004, T007, T012 and the final parameters (until it lands, use provisional profiles marked "to be frozen" and re-run T004 and T007 once frozen). T002 to T005 are parallel.
 - **Phase 2** blocks everything else. Within it: tests T006 to T008 first, then T009 to T016.
 - **US2 (Phase 3)** needs Phase 2 only. It delivers protection to every existing wallet and is the recommended first slice.
 - **US3 (Phase 4)** needs Phase 2 and the `v2` handling from T020/T021; its UI step T027 sits in the US1 phase because it needs the component from T033.

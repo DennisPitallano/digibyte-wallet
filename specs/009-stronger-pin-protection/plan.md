@@ -76,7 +76,7 @@ src/DigiByte.Wallet/
 src/DigiByte.Web/
 ├── wwwroot/js/crypto.js              # versioned encrypt/decrypt, dispatch to worker
 ├── wwwroot/js/crypto-worker.js       # NEW: Argon2id in a dedicated worker
-├── wwwroot/js/vendor/argon2id.*      # NEW: vendored, pinned, hash recorded
+├── wwwroot/js/vendor/hash-wasm-argon2.umd.min.js  # NEW: vendored, pinned, hash recorded
 ├── wwwroot/js/webauthn.js            # PRF-based bio key, capability detection
 ├── wwwroot/data/common-passwords.txt # NEW: compact deny list, cached by the service worker
 ├── Services/JsCryptoService.cs       # typed results, failure classification
