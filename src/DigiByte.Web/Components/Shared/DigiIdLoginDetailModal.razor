@@ -38,6 +38,7 @@
 
                 @Field("Callback URL", Entry.CallbackUrl)
                 @Field("Signing address", Entry.Address)
+                <DigiIdAddressWarning Compact="true" OnLinkClicked="Close" />
                 @Field("Challenge (nonce)", Entry.Nonce)
                 @Field("Signed URI", Entry.Uri)
                 @Field("Signature", Entry.Signature)

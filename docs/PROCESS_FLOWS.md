@@ -428,6 +428,52 @@ Login history:
 
 Manual entry:
   → Paste digiid:// URI → press Sign → same flow as scan
+
+Address warning (every place a Digi-ID address is shown in full or can be copied):
+  → DigiIdAddressWarning: "identity address, not watched by the wallet, never use it to receive payments",
+    with a link to /identity#recover-funds. Shown under the signing address (approval panel), under
+    "Address used" (success panel), in the login detail dialog, and in Help. The shortened address in a
+    history row is exempt: tapping the row opens the dialog, which carries the warning.
+```
+
+#### Recover funds (`/identity#recover-funds`)
+
+A Digi-ID address is a real DigiByte address that the wallet never watches. If someone sends DGB to one, the
+funds are not lost, since the key comes from the seed, but they are invisible. This section finds and moves them.
+It needs an unlocked wallet made from a seed phrase (watch-only and single-key wallets have no Digi-ID addresses).
+
+```
+Sites to check: login history (digiid_login_history) + websites the user types in
+  → DigiIdDomain.Normalize(): same host string a login signs with (lowercase, no scheme/port/path)
+  → the address is derived from the site with THIS wallet; the address saved in the history is never trusted
+
+Check (ScanDigiIdFundsAsync):
+  → one GetVerifiedUtxosAsync request PER ADDRESS (4 at a time), never batched:
+    an explorer must not learn that two sites belong to the same person
+  → a lookup that fails is "Could not check" (with Retry), never "nothing found"
+  → confirmed and pending are shown; only confirmed can be swept
+  → outputs the address's own standard script does not describe (a token, say) are left untouched
+    and reported as "other outputs left untouched"
+
+Sweep (PlanDigiIdSweepAsync → review → ExecuteDigiIdSweepAsync):
+  → plan: re-check each address, estimate the fee (Legacy inputs, never below 100 sat/vB),
+    drop addresses whose net would be under 0.0001 DGB, give each remaining address its OWN fresh
+    receive address; nothing is saved or sent, so Cancel leaves the wallet as it was
+  → at most 18 to 19 addresses per confirmation: the highest destination plus one is saved as the next
+    receive index, and must stay inside the 20 unused addresses a restore from seed can reach
+    (the address the Receive page already shows is one of those 20)
+  → confirm once: save the new receive index first (if that fails, nothing is sent), then for each
+    address in turn: record "Sending" (this blocks a second sweep of it), re-check, sign with the site key,
+    broadcast ONE transaction for that address alone, record "Pending" and add it to the history
+  → one address failing does not stop the others; its funds stay on the Digi-ID address
+  → if the wallet locks part way, nothing more is sent and the rest are recorded "Failed: wallet locked"
+
+Status (GetDigiIdSweepsAsync, RefreshDigiIdSweepsAsync):
+  → records are saved per wallet (digiid_sweeps_{walletId}) and hold no key; the list shows at once on
+    open, then is refreshed in the background, on the Refresh button, and about every 30 seconds
+    while the section is open and a sweep is pending (never while the page is closed)
+  → Pending → Confirmed at one confirmation; Pending → Failed if the network does not know it for 10 minutes;
+    a sweep interrupted before sending, with the funds still there, becomes Failed so it can be tried again
 ```
 
 ### Settings (`/settings`)

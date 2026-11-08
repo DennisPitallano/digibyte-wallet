@@ -4,6 +4,11 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **Recover funds on the Digi-ID page** — A Digi-ID address is a real DigiByte address, but the wallet never watched it, so DGB sent to one by mistake was invisible. The ID page now has a **Recover funds** section for a wallet made from a seed phrase. It checks the Digi-ID address of each site in your login history, plus any website name you type in (useful after restoring a wallet, when the history is empty), and lists the confirmed and pending funds found. You review the amount, the network fee estimate and where the funds will arrive, confirm once, and each site's funds are moved into your wallet. Sweeps are saved and their status is shown (Sending, Pending, Confirmed, Failed) after a reload, and kept current while the section is open. Funds smaller than the fee, pending funds, and outputs that are not ordinary DGB are left alone and reported. Security-relevant: this is a new signing and broadcast path.
+- **Privacy by design** — Each address is looked up in its own request, each site is swept in its own transaction, and each transaction pays to a different new address, so neither a block explorer nor the blockchain can tell that your sites belong to the same person. One confirmation covers up to 18 to 19 sites; the review says how many more can follow once the first round confirms.
+- **Warning beside every Digi-ID address** — The signing address on the approval panel, on the success panel, in the login detail dialog and in Help now says it is an identity address, that the wallet does not watch it, and that it must never be used to receive payments, with a link to Recover funds. Available in English and Spanish; other languages show English. A new Help entry explains it, including that DigiDollar and other tokens must never be sent to a Digi-ID address.
+
 ### Security
 - Closed several server-side holes found in an external review. Details follow once the fixes are deployed and the advisory is published.
 - Removed Google Analytics (`gtag.js`) from the wallet; no third-party script runs in the wallet origin.

@@ -6,6 +6,9 @@ namespace DigiByte.Wallet.Models;
 /// </summary>
 public record DigiIdLoginRecord
 {
+    /// <summary>Storage key of the login history (a JSON list of these records). Shared by the Identity page and the Recover funds section.</summary>
+    public const string HistoryStorageKey = "digiid_login_history";
+
     public required string Domain { get; init; }
     public required string Address { get; init; }
     public required DateTime Timestamp { get; init; }

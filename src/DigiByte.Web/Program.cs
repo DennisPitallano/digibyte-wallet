@@ -69,6 +69,7 @@ builder.Services.AddScoped<MemoryCacheService>();
 
 // ── Wallet & services ──
 builder.Services.AddScoped<TransactionTracker>();
+builder.Services.AddScoped<DigiIdSweepStore>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();

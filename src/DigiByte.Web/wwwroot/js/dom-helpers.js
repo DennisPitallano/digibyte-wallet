@@ -7,6 +7,10 @@ window.domHelpers = {
     selectElement: function (id) {
         document.getElementById(id)?.select();
     },
+    // Bring an element into view, for links that point at a section of the same page (for example /identity#recover-funds).
+    scrollToElement: function (id) {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
     autoSizeTxList: function () {
         var main = document.querySelector('main');
         if (main) main.style.overflow = 'hidden';

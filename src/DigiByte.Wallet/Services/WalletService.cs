@@ -15,6 +15,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     private readonly ICryptoService _crypto;
     private readonly IBlockchainService _blockchain;
     private readonly TransactionTracker _txTracker;
+    private readonly DigiIdSweepStore? _digiIdSweeps;
 
     // Multi-wallet session: holds all unlocked wallets in memory
     private class UnlockedWalletSession
@@ -263,13 +264,19 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         return null;
     }
 
-    public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker)
+    /// <param name="sweepStore">
+    /// Where Digi-ID recovery sweeps are remembered. Optional so that code that builds a wallet without it keeps working; the
+    /// Digi-ID recovery methods then refuse to run.
+    /// </param>
+    public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
+        DigiIdSweepStore? sweepStore = null)
     {
         _keyStore = walletStore;
         _walletStore = walletStore;
         _crypto = crypto;
         _blockchain = blockchain;
         _txTracker = txTracker;
+        _digiIdSweeps = sweepStore;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -1943,6 +1950,557 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         var siteKey = _hd.DeriveDigiIdKey(DigiIdService.DeriveSiteIndex(domain));
         return DigiIdService.GetAddress(siteKey.PrivateKey);
+    }
+
+    // ─── Digi-ID funds recovery (spec 009) ───
+    // A Digi-ID address is a real DigiByte address, but the wallet never watches it. These methods find funds that were sent
+    // to one anyway. Every key stays inside this class: results carry addresses and amounts only (FR-015).
+
+    /// <summary>How many Digi-ID address lookups run at once. Each one is still its own request (FR-004b).</summary>
+    private const int DigiIdLookupConcurrency = 4;
+
+    private const string DigiIdNotAValidSiteName = "not a valid site name";
+    private const string DigiIdCouldNotReachNetwork = "Could not reach the network. Try again.";
+
+    private sealed record DigiIdSite(string Domain, string? Address, string? ScriptHex);
+
+    /// <summary>
+    /// The unlocked HD session, or an <see cref="InvalidOperationException"/> that says why recovery cannot run: locked,
+    /// watch-only or single-key (no seed, so no Digi-ID addresses), or not set up with a sweep store.
+    /// </summary>
+    private (UnlockedWalletSession Session, HdKeyDerivation Hd, DigiIdSweepStore Store) RequireDigiIdRecovery()
+    {
+        EnsureUnlocked();
+        var session = ActiveSession!;
+
+        if (session.Hd is null || session.Hd.IsWatchOnly)
+            throw new InvalidOperationException("Digi-ID requires an HD wallet with private keys.");
+        if (_digiIdSweeps is null)
+            throw new InvalidOperationException("Digi-ID recovery is not configured.");
+
+        return (session, session.Hd, _digiIdSweeps);
+    }
+
+    /// <summary>
+    /// Checks the Digi-ID address of each site for funds, one request per address (FR-004b). The address is derived from the
+    /// site with this wallet and never read from the login history. A site that cannot be looked up is reported as
+    /// <see cref="DigiIdFundOutcome.CouldNotCheck"/>, never as empty (FR-007). Cancelling returns the findings that finished.
+    /// Throws <see cref="InvalidOperationException"/> if the wallet is locked or has no seed; never throws for a network failure.
+    /// </summary>
+    public async Task<IReadOnlyList<DigiIdFundFinding>> ScanDigiIdFundsAsync(
+        IEnumerable<string> domains, IProgress<int>? progress = null, CancellationToken ct = default)
+    {
+        var (session, hd, store) = RequireDigiIdRecovery();
+
+        // The distinct sites first (cheap, no network): a valid site once however it was typed, an invalid entry once as typed.
+        var sites = new List<DigiIdSite>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var input in domains ?? [])
+        {
+            var domain = DigiIdDomain.Normalize(input);
+            if (domain is null)
+            {
+                var typed = (input ?? "").Trim();
+                if (seen.Add("invalid:" + typed)) sites.Add(new DigiIdSite(typed, null, null));
+                continue;
+            }
+
+            if (!seen.Add("site:" + domain)) continue;
+            sites.Add(DeriveDigiIdSite(hd, domain));
+        }
+
+        if (sites.Count == 0) return [];
+
+        var inFlight = await store.GetInFlightAddressesAsync(session.Info.Id);
+        var results = new DigiIdFundFinding?[sites.Count];
+        var finished = 0;
+        void ReportOne() => progress?.Report((int)(Interlocked.Increment(ref finished) * 100L / sites.Count));
+
+        using var gate = new SemaphoreSlim(DigiIdLookupConcurrency);
+
+        async Task CheckAsync(int index, DigiIdSite site)
+        {
+            if (site.Address is null)
+            {
+                results[index] = new DigiIdFundFinding
+                {
+                    Domain = site.Domain, Address = "", Outcome = DigiIdFundOutcome.CouldNotCheck, Error = DigiIdNotAValidSiteName,
+                };
+                ReportOne();
+                return;
+            }
+
+            try { await gate.WaitAsync(ct); }
+            catch (OperationCanceledException) { return; }
+
+            try
+            {
+                results[index] = await LookUpDigiIdSiteAsync(site, inFlight.Contains(site.Address), ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return;
+            }
+            finally
+            {
+                gate.Release();
+            }
+
+            ReportOne();
+        }
+
+        await Task.WhenAll(sites.Select((site, index) => CheckAsync(index, site)));
+        return results.Where(r => r is not null).Select(r => r!).ToList();
+    }
+
+    /// <summary>The Digi-ID address a site gets in this wallet (Legacy P2PKH, always mainnet), and its standard script.</summary>
+    private static DigiIdSite DeriveDigiIdSite(HdKeyDerivation hd, string normalizedDomain)
+    {
+        var address = DigiIdService.GetAddress(hd.DeriveDigiIdKey(DigiIdService.DeriveSiteIndex(normalizedDomain)).PrivateKey);
+        return new DigiIdSite(normalizedDomain, address, BitcoinAddress.Create(address, DigiByteNetwork.Mainnet).ScriptPubKey.ToHex());
+    }
+
+    private readonly record struct DigiIdPlainOutputs(long Confirmed, int ConfirmedCount, long Pending, int OtherCount, List<UtxoInfo> ConfirmedUtxos);
+
+    /// <summary>
+    /// Splits an address's outputs into plain DGB (confirmed and pending) and others. An output the address's own standard
+    /// script does not describe is not plain DGB and is left alone (FR-016). With no script returned there is nothing to
+    /// compare, and the lookup was by this address, so it counts as plain.
+    /// </summary>
+    private static DigiIdPlainOutputs SplitDigiIdOutputs(IEnumerable<UtxoInfo> utxos, string? ownScriptHex)
+    {
+        long confirmed = 0, pending = 0;
+        var other = 0;
+        var confirmedUtxos = new List<UtxoInfo>();
+        foreach (var u in utxos)
+        {
+            if (!string.IsNullOrEmpty(u.ScriptPubKey) && !string.Equals(u.ScriptPubKey, ownScriptHex, StringComparison.OrdinalIgnoreCase))
+            {
+                other++;
+                continue;
+            }
+
+            if (u.Confirmations >= 1)
+            {
+                confirmed += u.AmountSatoshis;
+                confirmedUtxos.Add(u);
+            }
+            else
+            {
+                pending += u.AmountSatoshis;
+            }
+        }
+
+        return new DigiIdPlainOutputs(confirmed, confirmedUtxos.Count, pending, other, confirmedUtxos);
+    }
+
+    private async Task<DigiIdFundFinding> LookUpDigiIdSiteAsync(DigiIdSite site, bool inFlight, CancellationToken ct)
+    {
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            var plain = SplitDigiIdOutputs(await _blockchain.GetVerifiedUtxosAsync(site.Address!), site.ScriptHex);
+
+            return new DigiIdFundFinding
+            {
+                Domain = site.Domain,
+                Address = site.Address!,
+                ConfirmedSatoshis = plain.Confirmed,
+                PendingSatoshis = plain.Pending,
+                Outcome = plain.Confirmed + plain.Pending > 0 ? DigiIdFundOutcome.Funds : DigiIdFundOutcome.Empty,
+                InFlight = inFlight,
+                OtherOutputsCount = plain.OtherCount,
+            };
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // The reason shown is fixed on purpose: a raw exception could carry the address or a server's reply.
+            return new DigiIdFundFinding
+            {
+                Domain = site.Domain,
+                Address = site.Address!,
+                Outcome = DigiIdFundOutcome.CouldNotCheck,
+                Error = DigiIdCouldNotReachNetwork,
+                InFlight = inFlight,
+            };
+        }
+    }
+
+    /// <summary>
+    /// How long a sweep the network does not know yet may stay Pending before it counts as dropped. An explorer can lag behind
+    /// the node that took the transaction, so a missing transaction is not failed at once.
+    /// </summary>
+    public TimeSpan DigiIdSweepDropGrace { get; set; } = TimeSpan.FromMinutes(10);
+
+    private readonly HashSet<string> _digiIdSweepsRunning = new(StringComparer.Ordinal);
+    private readonly object _digiIdRunLock = new();
+
+    private const string DigiIdFundsStayMessage = " Your funds are still on the Digi-ID address.";
+
+    /// <summary>
+    /// Re-checks the addresses the user selected and works out one sweep per address: its amount, estimated fee, what would
+    /// arrive, and a fresh unused receive address to pay to (FR-008, FR-008a, FR-009, FR-010). Saves nothing and sends nothing,
+    /// so cancelling leaves the wallet as it was. At most <see cref="DigiIdSweepPlanner.MaxItemsPerRound"/> addresses are
+    /// planned, fewer if unused addresses already handed out leave less room; the rest are counted in the plan.
+    /// Throws <see cref="InvalidOperationException"/> if the wallet is locked or has no seed, or has too many unused addresses
+    /// in a row to hand out more.
+    /// </summary>
+    public async Task<DigiIdSweepPlan> PlanDigiIdSweepAsync(
+        IEnumerable<DigiIdFundFinding> selected, int feeRateSatPerVByte = DigiIdSweepPlanner.MinFeeRateSatPerVByte, CancellationToken ct = default)
+    {
+        var (session, hd, store) = RequireDigiIdRecovery();
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
+
+        var info = session.Info;
+        var firstIndex = NextNewReceivingIndex(info);
+
+        // The highest destination plus one is saved as the next receive index, and must stay inside the window a restore scans
+        // past the last used address. That is what limits how many addresses one confirmation can sweep.
+        var room = Math.Min(DigiIdSweepPlanner.MaxItemsPerRound, info.UsedReceivingCount + ReceiveGapLimit - 1 - firstIndex);
+        if (room <= 0)
+            throw new InvalidOperationException(
+                $"You have {ReceiveGapLimit} unused addresses in a row. Use one of them first, then sweep again: restoring from your " +
+                $"seed only looks {ReceiveGapLimit} addresses past the last one used.");
+
+        var inFlight = await store.GetInFlightAddressesAsync(info.Id);
+
+        // Each site's address is derived again here, from its name: a finding handed in by the caller is only a pointer.
+        var sites = new List<DigiIdSite>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var finding in selected ?? [])
+        {
+            var domain = DigiIdDomain.Normalize(finding.Domain);
+            if (domain is null || !seen.Add(domain)) continue;
+            sites.Add(DeriveDigiIdSite(hd, domain));
+        }
+
+        var knownFunds = (selected ?? []).Where(f => f.Outcome == DigiIdFundOutcome.Funds && f.ConfirmedSatoshis > 0)
+            .Select(f => DigiIdDomain.Normalize(f.Domain)).Where(d => d != null).ToHashSet(StringComparer.Ordinal);
+
+        var candidates = new DigiIdSweepCandidate?[sites.Count];
+        using var gate = new SemaphoreSlim(DigiIdLookupConcurrency);
+
+        async Task CheckAsync(int index, DigiIdSite site)
+        {
+            if (inFlight.Contains(site.Address!))
+            {
+                candidates[index] = new DigiIdSweepCandidate(site.Domain, site.Address!, 0, 0, InFlight: true);
+                return;
+            }
+
+            // Nothing confirmed was found before, so there is nothing to re-check.
+            if (!knownFunds.Contains(site.Domain))
+            {
+                candidates[index] = new DigiIdSweepCandidate(site.Domain, site.Address!, 0, 0);
+                return;
+            }
+
+            await gate.WaitAsync(ct);
+            try
+            {
+                var plain = SplitDigiIdOutputs(await _blockchain.GetVerifiedUtxosAsync(site.Address!), site.ScriptHex);
+                candidates[index] = new DigiIdSweepCandidate(site.Domain, site.Address!, plain.Confirmed, plain.ConfirmedCount);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                candidates[index] = new DigiIdSweepCandidate(site.Domain, site.Address!, 0, 0, LookupFailed: true);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        await Task.WhenAll(sites.Select((site, index) => CheckAsync(index, site)));
+
+        var destinations = Enumerable.Range(0, room)
+            .Select(i => (Index: firstIndex + i, Address: hd.DeriveReceivingAddress(firstIndex + i, ScriptPubKeyType.Segwit).ToString()))
+            .ToList();
+
+        return DigiIdSweepPlanner.Build(candidates.Where(c => c is not null).Select(c => c!).ToList(), feeRateSatPerVByte, room, destinations);
+    }
+
+    /// <summary>
+    /// Sweeps each planned address in its own transaction to its own destination (FR-008a). The new receive index is saved
+    /// first, and if that fails nothing is sent. An address that already has a sweep in flight is skipped and its existing
+    /// record returned (FR-012). One address failing does not stop the others, and a failed address keeps its funds. If the
+    /// wallet locks part way, nothing more is sent and the unsent addresses are recorded as failed with "wallet locked".
+    /// Throws <see cref="InvalidOperationException"/> if the wallet is locked or has no seed before it starts.
+    /// </summary>
+    public async Task<IReadOnlyList<DigiIdSweepRecord>> ExecuteDigiIdSweepAsync(
+        DigiIdSweepPlan plan, IProgress<DigiIdSweepRecord>? progress = null, CancellationToken ct = default)
+    {
+        var (session, hd, store) = RequireDigiIdRecovery();
+        if (plan.Items.Count == 0) return [];
+
+        var info = session.Info;
+        var walletId = info.Id;
+
+        // Save the highest destination plus one as the next receive index, before anything is sent: the swept funds then land on
+        // addresses the wallet scans, and the Receive page shows a fresh address and never one of the destinations.
+        var previous = info.NextReceivingIndex;
+        var wanted = plan.Items.Max(i => i.DestinationIndex) + 1;
+        if (wanted > previous)
+        {
+            info.NextReceivingIndex = wanted;
+            try
+            {
+                await PersistAddressIndexesAsync(info);
+            }
+            catch (Exception ex)
+            {
+                info.NextReceivingIndex = previous;
+                throw new InvalidOperationException("Could not save the new receive addresses, so nothing was sent. Try again.", ex);
+            }
+        }
+
+        var results = new List<DigiIdSweepRecord>(plan.Items.Count);
+        foreach (var item in plan.Items)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            var record = IsStillUnlocked(walletId)
+                ? await SweepDigiIdAddressAsync(hd, store, walletId, item, plan.FeeRateSatPerVByte)
+                : await FailDigiIdItemAsync(store, walletId, item, "wallet locked");
+
+            results.Add(record);
+            progress?.Report(record);
+        }
+
+        return results;
+    }
+
+    private bool IsStillUnlocked(string walletId) => _activeWalletId == walletId && _sessions.ContainsKey(walletId);
+
+    /// <summary>Records an address as not swept, with a reason, unless a sweep of it is already in flight (then that record is returned).</summary>
+    private static async Task<DigiIdSweepRecord> FailDigiIdItemAsync(DigiIdSweepStore store, string walletId, DigiIdSweepPlanItem item, string reason)
+    {
+        var (created, record) = await store.TryBeginAsync(walletId, NewDigiIdSweepRecord(item));
+        return created ? await store.TransitionAsync(walletId, record.Id, DigiIdSweepStatus.Failed, failureReason: reason) : record;
+    }
+
+    private static DigiIdSweepRecord NewDigiIdSweepRecord(DigiIdSweepPlanItem item)
+    {
+        var now = DateTime.UtcNow;
+        return new DigiIdSweepRecord
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Domain = item.Domain,
+            SourceAddress = item.SourceAddress,
+            DestinationAddress = item.DestinationAddress,
+            AmountSatoshis = item.AmountSatoshis,
+            FeeSatoshis = item.EstimatedFeeSatoshis,
+            Status = DigiIdSweepStatus.Sending,
+            CreatedUtc = now,
+            UpdatedUtc = now,
+        };
+    }
+
+    private async Task<DigiIdSweepRecord> SweepDigiIdAddressAsync(
+        HdKeyDerivation hd, DigiIdSweepStore store, string walletId, DigiIdSweepPlanItem item, int feeRateSatPerVByte)
+    {
+        // The record is written before anything is sent, under the store's lock: a second sweep of this address cannot start.
+        var (created, record) = await store.TryBeginAsync(walletId, NewDigiIdSweepRecord(item));
+        if (!created) return record;
+
+        lock (_digiIdRunLock) _digiIdSweepsRunning.Add(item.SourceAddress);
+        try
+        {
+            return await SendDigiIdSweepAsync(hd, store, walletId, record, item, feeRateSatPerVByte);
+        }
+        finally
+        {
+            lock (_digiIdRunLock) _digiIdSweepsRunning.Remove(item.SourceAddress);
+        }
+    }
+
+    private async Task<DigiIdSweepRecord> SendDigiIdSweepAsync(
+        HdKeyDerivation hd, DigiIdSweepStore store, string walletId, DigiIdSweepRecord record, DigiIdSweepPlanItem item, int feeRateSatPerVByte)
+    {
+        Task<DigiIdSweepRecord> Fail(string reason) =>
+            store.TransitionAsync(walletId, record.Id, DigiIdSweepStatus.Failed, failureReason: reason);
+
+        var broadcastTried = false;
+        try
+        {
+            // The key is the one this wallet derives for the site, and it must be the address that was planned: a plan that
+            // names any other address is not signed for.
+            var domain = DigiIdDomain.Normalize(item.Domain);
+            if (domain is null) return await Fail("Not a valid site name.");
+
+            var key = hd.DeriveDigiIdKey(DigiIdService.DeriveSiteIndex(domain)).PrivateKey;
+            if (!string.Equals(DigiIdService.GetAddress(key), item.SourceAddress, StringComparison.Ordinal))
+                return await Fail("This is not the Digi-ID address of that site." + DigiIdFundsStayMessage);
+
+            var source = BitcoinAddress.Create(item.SourceAddress, DigiByteNetwork.Mainnet);
+
+            // Look again now: the plan may be minutes old. Only confirmed plain outputs are spent.
+            var plain = SplitDigiIdOutputs(await _blockchain.GetVerifiedUtxosAsync(item.SourceAddress), source.ScriptPubKey.ToHex());
+            if (plain.ConfirmedUtxos.Count == 0) return await Fail("Nothing confirmed was left to sweep.");
+
+            var network = CurrentNetwork;
+            var coins = plain.ConfirmedUtxos.Select(u => new DigiByte.Crypto.Transactions.Utxo
+            {
+                TransactionId = uint256.Parse(u.TxId),
+                OutputIndex = u.OutputIndex,
+                Amount = Money.Satoshis(u.AmountSatoshis),
+                ScriptPubKey = source.ScriptPubKey,
+                PrivateKey = key,
+                Confirmations = u.Confirmations,
+            }).ToList();
+
+            var destination = BitcoinAddress.Create(item.DestinationAddress, network);
+            var feeRate = new FeeRate(Money.Satoshis(DigiIdSweepPlanner.EffectiveFeeRate(feeRateSatPerVByte) * 1000L));
+            var tx = new DigiByte.Crypto.Transactions.DigiByteTransactionBuilder(network).BuildSendAllTransaction(coins, destination, feeRate);
+
+            var total = plain.Confirmed;
+            var fee = tx.GetFee(coins.Select(c => c.ToCoin()).ToArray())?.Satoshi ?? 0;
+            var net = total - fee;
+            if (net < DigiIdSweepPlanner.MinNetSatoshis) return await Fail("Too small to sweep: after the network fee almost nothing would arrive." + DigiIdFundsStayMessage);
+
+            broadcastTried = true;
+            var txId = await _blockchain.BroadcastTransactionAsync(tx.ToBytes());
+
+            DigiIdSweepRecord pending;
+            try
+            {
+                pending = await store.TransitionAsync(walletId, record.Id, DigiIdSweepStatus.Pending, txId: txId, feeSatoshis: fee, amountSatoshis: total);
+            }
+            catch
+            {
+                // It was sent but could not be saved. Do not call it failed: the funds are moving. The record stays as it is, and
+                // a later refresh leaves it for the user to check in the transaction history.
+                return record;
+            }
+
+            try { await _txTracker.RecordSendAsync(txId, destination.ToString(), net, fee, "Digi-ID recovery sweep"); }
+            catch { /* the history entry is a convenience; the sweep is sent and recorded */ }
+
+            return pending;
+        }
+        catch (Exception)
+        {
+            // The reason is fixed on purpose: a raw exception could carry a server's reply or part of a transaction.
+            return await Fail(broadcastTried
+                ? "The network did not accept the transaction." + DigiIdFundsStayMessage
+                : "Could not send." + DigiIdFundsStayMessage);
+        }
+    }
+
+    /// <summary>
+    /// The saved sweeps of the active wallet, newest first, read from storage only: no network lookup, so it is instant. Show
+    /// these at once when the section opens, then bring them up to date with <see cref="RefreshDigiIdSweepsAsync"/>. Needs no
+    /// key. Throws <see cref="InvalidOperationException"/> if the wallet is locked.
+    /// </summary>
+    public async Task<IReadOnlyList<DigiIdSweepRecord>> GetDigiIdSweepsAsync()
+    {
+        EnsureUnlocked();
+        var store = _digiIdSweeps ?? throw new InvalidOperationException("Digi-ID recovery is not configured.");
+        return await store.GetAllAsync(ActiveSession!.Info.Id);
+    }
+
+    /// <summary>
+    /// Brings the saved sweeps of the active wallet up to date and returns them, newest first. A Pending sweep is looked up on
+    /// its own: Confirmed at one confirmation, Failed if the network has not known it for <see cref="DigiIdSweepDropGrace"/>.
+    /// A lookup that fails leaves the record as it was. A sweep that was interrupted before it was sent, whose funds are still
+    /// on the address, becomes Failed so the address is offered again. Needs no key. Throws
+    /// <see cref="InvalidOperationException"/> if the wallet is locked.
+    /// </summary>
+    public async Task<IReadOnlyList<DigiIdSweepRecord>> RefreshDigiIdSweepsAsync(CancellationToken ct = default)
+    {
+        EnsureUnlocked();
+        var store = _digiIdSweeps ?? throw new InvalidOperationException("Digi-ID recovery is not configured.");
+        var walletId = ActiveSession!.Info.Id;
+
+        foreach (var record in (await store.GetAllAsync(walletId)).Where(r => r.IsInFlight))
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                if (record.Status == DigiIdSweepStatus.Pending && !string.IsNullOrEmpty(record.TxId))
+                    await RefreshPendingDigiIdSweepAsync(store, walletId, record, ct);
+                else if (record.Status == DigiIdSweepStatus.Sending && record.TxId is null)
+                    await RefreshInterruptedDigiIdSweepAsync(store, walletId, record, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (InvalidOperationException)
+            {
+                // The record changed under us (for example finished in another call). The next read shows how it ended.
+            }
+        }
+
+        return await store.GetAllAsync(walletId);
+    }
+
+    private async Task RefreshPendingDigiIdSweepAsync(DigiIdSweepStore store, string walletId, DigiIdSweepRecord record, CancellationToken ct)
+    {
+        TransactionInfo? tx;
+        try
+        {
+            tx = await _blockchain.GetTransactionAsync(record.TxId!);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return; // Could not look it up: leave it Pending.
+        }
+
+        if (tx is { Confirmations: >= 1 })
+        {
+            await store.TransitionAsync(walletId, record.Id, DigiIdSweepStatus.Confirmed);
+        }
+        else if (tx is null && DateTime.UtcNow - record.UpdatedUtc >= DigiIdSweepDropGrace)
+        {
+            await store.TransitionAsync(walletId, record.Id, DigiIdSweepStatus.Failed,
+                failureReason: "The network no longer knows this transaction. Check your transaction history before sweeping again.");
+        }
+    }
+
+    private async Task RefreshInterruptedDigiIdSweepAsync(DigiIdSweepStore store, string walletId, DigiIdSweepRecord record, CancellationToken ct)
+    {
+        // A sweep that is being sent right now by this wallet is not interrupted.
+        lock (_digiIdRunLock)
+        {
+            if (_digiIdSweepsRunning.Contains(record.SourceAddress)) return;
+        }
+
+        try
+        {
+            var source = BitcoinAddress.Create(record.SourceAddress, DigiByteNetwork.Mainnet);
+            var plain = SplitDigiIdOutputs(await _blockchain.GetVerifiedUtxosAsync(record.SourceAddress), source.ScriptPubKey.ToHex());
+
+            // Funds still there: it never went out, so offer the address again. Funds gone: it may have been sent, so leave
+            // the record and let the user check the transaction history.
+            if (plain.Confirmed + plain.Pending > 0)
+                await store.TransitionAsync(walletId, record.Id, DigiIdSweepStatus.Failed,
+                    failureReason: "Interrupted before it was sent." + DigiIdFundsStayMessage);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Could not look it up: leave it as it is.
+        }
     }
 
     private void EnsureUnlocked()
