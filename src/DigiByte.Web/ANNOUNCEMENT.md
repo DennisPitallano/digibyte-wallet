@@ -1,6 +1,8 @@
-# Stronger PIN protection (next release)
+# DigiByte Wallet v0.5.0 - Stronger PIN protection
 
-> Draft. Set the version, date and release link when the tag is cut.
+> Release date: November 2026
+> Live at: https://dgbwallet.app
+> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.5.0
 
 ## Short post (~280 chars)
 

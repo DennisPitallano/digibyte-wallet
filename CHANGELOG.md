@@ -4,7 +4,14 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-09
+
 ### Added
+- **Stronger PIN and passphrase protection** — The wallet now turns your PIN or passphrase into an encryption key with Argon2id, a method that needs a lot of memory for every guess, instead of PBKDF2 alone. The result is stored in a versioned `dgb2` envelope whose header is authenticated. Three cost profiles (standard 64 MiB, low-memory 32 MiB, floor 19 MiB) are tried in order so the wallet still unlocks on small devices. The cost values are provisional: they have not yet been measured on a low-end phone (T001), and each stored value carries its own parameters so they can be raised later without breaking existing wallets. Security-relevant: this changes how every stored secret is encrypted. Finding DGB-04 of the external review.
+- **Passphrase option** — Choose a passphrase (at least 12 characters, normalised, checked against a list of common passwords) instead of a 6-digit PIN when you create or reset a wallet. A forgotten passphrase cannot be reset; only the recovery phrase restores access.
+- **Automatic upgrade** — Existing wallets upgrade the first time they are unlocked, with the same PIN and no action needed. The upgrade is safe to interrupt. The old copy is kept for 7 days so an older version of the app can still unlock, then removed.
+- **Biometric protection** — Where the browser supports it, the biometric key comes from the authenticator itself instead of being stored next to the data it protects. Existing biometric users keep working and are offered a one-time re-enrolment after their next PIN unlock. Where it is not supported, a plain warning explains that biometrics lowers protection against copied browser data.
+- **Browsers that cannot run Argon2id** — A new wallet is created with the older protection only after an explicit agreement, is marked as such, and is upgraded when opened on a capable device.
 - **Recover funds on the Digi-ID page** — A Digi-ID address is a real DigiByte address, but the wallet never watched it, so DGB sent to one by mistake was invisible. The ID page now has a **Recover funds** section for a wallet made from a seed phrase. It checks the Digi-ID address of each site in your login history, plus any website name you type in (useful after restoring a wallet, when the history is empty), and lists the confirmed and pending funds found. You review the amount, the network fee estimate and where the funds will arrive, confirm once, and each site's funds are moved into your wallet. Sweeps are saved and their status is shown (Sending, Pending, Confirmed, Failed) after a reload, and kept current while the section is open. Funds smaller than the fee, pending funds, and outputs that are not ordinary DGB are left alone and reported. Security-relevant: this is a new signing and broadcast path.
 - **Privacy by design** — Each address is looked up in its own request, each site is swept in its own transaction, and each transaction pays to a different new address, so neither a block explorer nor the blockchain can tell that your sites belong to the same person. One confirmation covers up to 18 to 19 sites; the review says how many more can follow once the first round confirms.
 - **Warning beside every Digi-ID address** — The signing address on the approval panel, on the success panel, in the login detail dialog and in Help now says it is an identity address, that the wallet does not watch it, and that it must never be used to receive payments, with a link to Recover funds. Available in English and Spanish; other languages show English. A new Help entry explains it, including that DigiDollar and other tokens must never be sent to a Digi-ID address.
@@ -20,6 +27,9 @@ All notable changes to the DigiByte Wallet project.
 ### Changed
 - The public directory no longer accepts new entries or deletions; lookups are unchanged.
 - Digi-ID sign-in now requires an https site on port 443.
+- Unlock, signing and reset messages say "PIN" or "passphrase" correctly in English and Spanish, and an environmental failure (such as low memory) is no longer counted as a wrong attempt.
+- The unlock and PSBT-signing pages show a progress indicator while the key is derived, and ignore a second tap.
+- App version bumped to 0.5.0.
 
 ## [0.4.0] - 2026-11-06
 

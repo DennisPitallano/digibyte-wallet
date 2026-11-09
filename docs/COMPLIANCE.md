@@ -1,6 +1,6 @@
 # DigiByte Protocol Compliance
 
-> **Version:** 0.4.0 | **Last Updated:** November 2026
+> **Version:** 0.5.0 | **Last Updated:** November 2026
 
 This document details the wallet's compliance with DigiByte protocol standards (BIPs), network parameters, address formats, and regulatory considerations. It is intended for technical reviewers, auditors, and developers evaluating interoperability with the DigiByte network.
 
