@@ -4,13 +4,15 @@ namespace DigiByte.Web.Services;
 
 /// <summary>
 /// Reads the deployment's <c>config.json</c> (written when the web container starts) so the own-node settings can change without
-/// a rebuild (specs/005-wallet-own-node-source/contracts/runtime-config.md). Only the <c>OwnNode</c> section is accepted: the file
-/// can never override any other setting. A missing or invalid file simply means "no overrides"; nothing here throws, and no value is logged.
+/// a rebuild (specs/005-wallet-own-node-source/contracts/runtime-config.md). Only the <c>OwnNode</c> section and the three
+/// <c>DigiDollar</c> switches (ViewEnabled, SendEnabled, OracleEnabled) are accepted: the file can never override any other setting. A missing or invalid file simply means "no overrides"; nothing here throws, and no value is logged.
 /// </summary>
 public static class RuntimeConfigLoader
 {
     public const string FileName = "config.json";
     private const string Section = "OwnNode";
+    private const string DdSection = "DigiDollar";
+    private static readonly string[] DdKeys = ["ViewEnabled", "SendEnabled", "OracleEnabled"];
 
     /// <summary>Fetches and parses <c>config.json</c> from the app's own origin. Any failure means no overrides.</summary>
     public static async Task<IReadOnlyDictionary<string, string?>> FetchAsync(HttpClient http)
@@ -45,12 +47,23 @@ public static class RuntimeConfigLoader
 
             foreach (var section in doc.RootElement.EnumerateObject())
             {
-                if (!string.Equals(section.Name, Section, StringComparison.OrdinalIgnoreCase) ||
-                    section.Value.ValueKind != JsonValueKind.Object)
+                if (section.Value.ValueKind != JsonValueKind.Object)
                     continue;
+                var isOwnNode = string.Equals(section.Name, Section, StringComparison.OrdinalIgnoreCase);
+                var isDd = string.Equals(section.Name, DdSection, StringComparison.OrdinalIgnoreCase);
+                if (!isOwnNode && !isDd)
+                    continue;
+                var sectionName = isOwnNode ? Section : DdSection;
 
                 foreach (var setting in section.Value.EnumerateObject())
                 {
+                    string? canonical = setting.Name;
+                    if (isDd)
+                    {
+                        canonical = DdKeys.FirstOrDefault(k => string.Equals(k, setting.Name, StringComparison.OrdinalIgnoreCase));
+                        if (canonical is null)
+                            continue;
+                    }
                     var text = setting.Value.ValueKind switch
                     {
                         JsonValueKind.String => setting.Value.GetString(),
@@ -60,7 +73,7 @@ public static class RuntimeConfigLoader
                         _ => null,   // objects, arrays and null are not settings
                     };
                     if (text is not null)
-                        result[$"{Section}:{setting.Name}"] = text;
+                        result[$"{sectionName}:{canonical}"] = text;
                 }
             }
         }

@@ -45,13 +45,26 @@ public class RuntimeConfigLoaderTests
     {
         var values = RuntimeConfigLoader.Parse("""
             { "NodeApiUrl": "https://evil.example.org",
-              "DigiDollar": { "Backend": "nodeapi", "SendEnabled": true },
+              "DigiDollar": { "Backend": "nodeapi", "EsploraMainnetUrl": "https://evil.example.org" },
               "PriceApiUrl": "https://evil.example.org/price",
               "OwnNode": { "Enabled": true },
               "OwnNodeExtra": { "Enabled": true } }
             """);
 
         Assert.Equal(["OwnNode:Enabled"], values.Keys);
+    }
+
+    [Fact]
+    public void DigiDollarSwitches_AreAccepted_OtherDigiDollarKeysAreNot()
+    {
+        var values = RuntimeConfigLoader.Parse("""
+            { "DigiDollar": { "viewenabled": false, "SendEnabled": false, "OracleEnabled": true, "Backend": "esplora" } }
+            """);
+
+        Assert.Equal("false", values["DigiDollar:ViewEnabled"]);
+        Assert.Equal("false", values["DigiDollar:SendEnabled"]);
+        Assert.Equal("true", values["DigiDollar:OracleEnabled"]);
+        Assert.Equal(3, values.Count);
     }
 
     [Fact]
