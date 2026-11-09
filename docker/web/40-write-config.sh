@@ -10,6 +10,9 @@
 #   WALLET_NODE_STABLE_SECONDS     whole number
 #   WALLET_NODE_HEIGHT_TOLERANCE   whole number
 #   WALLET_DEV_VIEW                true | false
+#   WALLET_DD_VIEW                 true | false   DigiDollar:ViewEnabled   (false hides every DigiDollar section)
+#   WALLET_DD_SEND                 true | false   DigiDollar:SendEnabled
+#   WALLET_DD_ORACLE               true | false   DigiDollar:OracleEnabled
 #
 # Nothing here is secret: everything in config.json is readable by any visitor's browser.
 # Values that do not look right are left out (the wallet then uses its defaults) instead of producing broken JSON.
@@ -41,9 +44,20 @@ if [ -n "${WALLET_NODE_STABLE_SECONDS:-}" ] && is_number "$WALLET_NODE_STABLE_SE
 if [ -n "${WALLET_NODE_HEIGHT_TOLERANCE:-}" ] && is_number "$WALLET_NODE_HEIGHT_TOLERANCE"; then add HeightTolerance "$WALLET_NODE_HEIGHT_TOLERANCE"; fi
 if [ -n "${WALLET_DEV_VIEW:-}" ] && is_bool "$WALLET_DEV_VIEW"; then add DevView "$WALLET_DEV_VIEW"; fi
 
-if [ -n "$pairs" ]; then
-    printf '{"OwnNode":{%s}}\n' "$pairs" > "$OUT"
-else
-    printf '{}\n' > "$OUT"
+dd=""
+add_dd() {
+    if [ -n "$dd" ]; then dd="$dd,"; fi
+    dd="$dd\"$1\":$2"
+}
+if [ -n "${WALLET_DD_VIEW:-}" ] && is_bool "$WALLET_DD_VIEW"; then add_dd ViewEnabled "$WALLET_DD_VIEW"; fi
+if [ -n "${WALLET_DD_SEND:-}" ] && is_bool "$WALLET_DD_SEND"; then add_dd SendEnabled "$WALLET_DD_SEND"; fi
+if [ -n "${WALLET_DD_ORACLE:-}" ] && is_bool "$WALLET_DD_ORACLE"; then add_dd OracleEnabled "$WALLET_DD_ORACLE"; fi
+
+out_json=""
+if [ -n "$pairs" ]; then out_json="\"OwnNode\":{$pairs}"; fi
+if [ -n "$dd" ]; then
+    if [ -n "$out_json" ]; then out_json="$out_json,"; fi
+    out_json="$out_json\"DigiDollar\":{$dd}"
 fi
+printf '{%s}\n' "$out_json" > "$OUT"
 echo "40-write-config: wrote $OUT"
