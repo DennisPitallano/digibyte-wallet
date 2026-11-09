@@ -258,3 +258,16 @@ test("fixture: tampered variants are refused with the right failure class", asyn
     assert.equal((await crypto.decryptV2(fx.tampered.belowFloorMemory, fx.pin)).reason, "Unreadable");
     assert.equal((await crypto.decryptV2(fx.tampered.belowFloorPasses, fx.pin)).reason, "Unreadable");
 });
+
+test("bench report lists every row with its time and device facts", () => {
+    const text = crypto._formatBench(
+        [
+            { profile: "standard", memoryKiB: 65536, passes: 3, ms: 812, ok: true },
+            { profile: "floor", memoryKiB: 19456, passes: 2, ms: 0, ok: false, reason: "ResourceExhausted" },
+        ],
+        { userAgent: "TestUA", cores: 8, memoryGb: 4 }
+    );
+    assert.match(text, /ua: TestUA/);
+    assert.match(text, /standard\s+65536\s+3\s+812\s+ok/);
+    assert.match(text, /floor\s+19456\s+2\s+0\s+FAIL ResourceExhausted/);
+});

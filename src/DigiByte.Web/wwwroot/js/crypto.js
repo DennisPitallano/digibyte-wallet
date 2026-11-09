@@ -368,6 +368,41 @@
         return rows;
     }
 
+    // Plain-text report of the benchmark rows, with the device facts that matter for freezing the profiles (T001).
+    function formatBench(rows, device) {
+        const d = device || {};
+        const lines = [
+            "crypto-bench",
+            "ua: " + (d.userAgent || "?"),
+            "cores: " + (d.cores ?? "?") + "  memory(GB, capped): " + (d.memoryGb ?? "?"),
+            "",
+            "profile        memKiB  passes     ms  ok",
+        ];
+        for (const r of rows) {
+            lines.push(
+                String(r.profile).padEnd(14) + " " + String(r.memoryKiB).padStart(6) + " " + String(r.passes).padStart(7) + " " +
+                String(r.ms).padStart(6) + "  " + (r.ok ? "ok" : "FAIL " + (r.reason || ""))
+            );
+        }
+        return lines.join("\n");
+    }
+
+    // Shows the report on screen (a phone has no console). Only reached from the gated ?crypto-bench path.
+    function showBenchReport(rows) {
+        const text = formatBench(rows, {
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+            cores: typeof navigator !== "undefined" ? navigator.hardwareConcurrency : undefined,
+            memoryGb: typeof navigator !== "undefined" ? navigator.deviceMemory : undefined,
+        });
+        const box = document.createElement("pre");
+        box.id = "crypto-bench-report";
+        box.textContent = text;
+        const st = box.style;
+        st.position = "fixed"; st.inset = "0"; st.zIndex = "2147483647"; st.margin = "0"; st.padding = "16px";
+        st.overflow = "auto"; st.whiteSpace = "pre-wrap"; st.background = "#000"; st.color = "#0f0"; st.font = "12px monospace";
+        document.body.appendChild(box);
+    }
+
     function capabilities() {
         const worker = typeof Worker !== "undefined";
         return {
@@ -437,13 +472,14 @@
             deriver = fn;
         },
         _profiles: PROFILES,
+        _formatBench: formatBench,
     };
 
     root.dgbCrypto = api;
 
     // ?crypto-bench on a developer host runs the benchmark once the page has loaded.
     if (typeof location !== "undefined" && typeof document !== "undefined" && /[?&]crypto-bench\b/.test(location.search || "") && benchEnabled()) {
-        window.addEventListener("load", () => setTimeout(() => bench().catch(() => {}), 1500));
+        window.addEventListener("load", () => setTimeout(() => bench().then(showBenchReport).catch(() => {}), 1500));
     }
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);
