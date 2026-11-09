@@ -104,7 +104,7 @@ The existing attempt throttle and biometric unlock continue to work with both cr
 **Acceptance Scenarios**:
 
 1. **Given** repeated wrong credentials on the unlock or PSBT-signing page, **When** the failure threshold is reached, **Then** the same delays apply for PIN and passphrase wallets, and the messages say "PIN" or "passphrase" correctly.
-2. **Given** a wallet with biometric unlock enrolled, **When** it is migrated to the new format, **Then** biometric unlock continues to work without re-enrolment.
+2. **Given** a wallet with biometric unlock enrolled, **When** it is migrated to the new format, **Then** biometric unlock keeps working straight away, with no action needed from the user. Where the browser supports the stronger biometric protection (FR-018a), they are offered a one-time re-enrolment after their next credential unlock; if they decline, biometric unlock keeps working as before and the plain warning of FR-018b is shown once.
 3. **Given** a user has enrolled biometrics on a passphrase wallet, **When** they perform actions that require the credential today (view recovery phrase, change credential, sign multisig), **Then** those still require the credential, as they do for PIN wallets.
 4. **Given** the throttle resets when a page is left, **When** the product describes protection, **Then** it does not claim the throttle protects against offline copying; only the stronger derivation and a passphrase do.
 
