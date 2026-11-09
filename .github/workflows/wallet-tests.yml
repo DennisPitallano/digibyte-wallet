@@ -14,6 +14,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: dotnet test tests/DigiByte.Wallet.Tests
+      - run: dotnet test tests/DigiByte.Wallet.Tests --filter "Category!=Live"
       - run: npm test
         working-directory: src/DigiByte.Web

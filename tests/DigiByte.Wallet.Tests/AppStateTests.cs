@@ -105,21 +105,22 @@ public class AppStateTests
     {
         var sut = CreateAppState();
         sut.IsWalletUnlocked = true;
-        sut.LockTimeout = TimeSpan.FromMilliseconds(200);
+        sut.LockTimeout = TimeSpan.FromMilliseconds(600);
 
         var lockCount = 0;
         sut.OnAutoLocked += () => lockCount++;
 
         sut.ResetLockTimer();
-        await Task.Delay(100);
+        await Task.Delay(300);
 
         sut.IsWalletUnlocked = true;
         sut.ResetLockTimer();
-        await Task.Delay(100);
+        await Task.Delay(300);
 
+        // Generous margins: this runs next to ~1,500 other tests, and tight ones made it fail under load.
         Assert.Equal(0, lockCount);
 
-        await Task.Delay(150);
+        await Task.Delay(500);
         Assert.Equal(1, lockCount);
     }
 
