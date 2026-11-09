@@ -46,7 +46,7 @@ The DigiByte Wallet is a **self-custodial** Progressive Web App (PWA) built with
 │  │  └────┬─────┘  └──────┬───────┘  └────────┬─────────┘ │ │
 │  │       │               │                    │            │ │
 │  │  ┌────┴────────────── ┴────────────────────┴─────────┐ │ │
-│  │  │     SubtleCrypto (AES-256-GCM + PBKDF2)          │ │ │
+│  │  │     SubtleCrypto (AES-256-GCM) + Argon2id worker   │ │ │
 │  │  └───────────────────────┬───────────────────────────┘ │ │
 │  │                          │                              │ │
 │  │  ┌───────────────────────┴───────────────────────────┐ │ │
@@ -115,31 +115,51 @@ The DigiByte Wallet is a **self-custodial** Progressive Web App (PWA) built with
 
 ## Cryptographic Primitives
 
-### Encryption: AES-256-GCM with PBKDF2 Key Derivation
+### Encryption: AES-256-GCM with Argon2id Key Derivation
 
-All sensitive data is encrypted before storage using the Web Crypto API (`SubtleCrypto`).
+All sensitive data is encrypted before storage using the Web Crypto API (`SubtleCrypto`) for AES-256-GCM and a memory-hard
+key derivation, Argon2id, that runs in the browser (specification `009-stronger-pin-protection`, finding DGB-04).
 
 | Parameter | Value |
 |-----------|-------|
 | Algorithm | AES-256-GCM (authenticated encryption) |
-| Key Derivation | PBKDF2-SHA256 |
-| Iterations | 100,000 |
+| Key Derivation | Argon2id, parallelism 1, 32-byte output, run in a dedicated Web Worker that is terminated after each use |
+| Implementation | `hash-wasm` 4.13.0 (MIT), a WebAssembly build vendored in `wwwroot/js/vendor/` with its SHA-256 recorded; same-origin, covered by the existing `'wasm-unsafe-eval'` CSP entry |
+| Cost profiles | standard 64 MiB, 3 passes; low-memory 32 MiB, 3 passes; floor 19,456 KiB (19 MiB), 2 passes. The app tries standard, then falls back to smaller profiles when the device cannot allocate, and never goes below the floor. The profile values are provisional until they are frozen against device benchmarks (see below). |
 | Salt | 16 bytes (cryptographically random per encryption) |
-| IV (nonce) | 12 bytes (cryptographically random per encryption) |
+| Nonce | 12 bytes (cryptographically random per encryption) |
 | Key Size | 256 bits |
-| Authentication Tag | 128 bits (auto-appended by GCM) |
+| Authentication Tag | 128 bits (appended by GCM) |
 
-**Packed ciphertext format:**
+**Stored format, the `dgb2` envelope** (`dgb2$` followed by base64url, unpadded):
 ```
-[salt: 16 bytes] [iv: 12 bytes] [ciphertext + auth tag]
-→ Base64-encoded for storage
+[header: 9 bytes] [salt: 16] [nonce: 12] [ciphertext + auth tag]
+header = version(1) | kdf id(1) | memory KiB(4, big-endian) | passes(1) | lanes(1) | credential kind(1: PIN, 2: passphrase)
 ```
 
 **Security properties:**
-- **Non-deterministic**: Random salt + IV per encryption means identical plaintexts produce different ciphertexts
-- **Authenticated**: GCM provides integrity — tampered ciphertext fails decryption
-- **Key stretching**: 100,000 PBKDF2 iterations slow brute-force
-- **No key reuse**: Each encryption generates fresh salt → fresh derived key
+- **Self-describing**: the parameters used are stored with each value, so they can change later without guesswork.
+- **Parameter downgrade is detected**: the 9-byte header is the AES-GCM additional authenticated data, so changing the stored memory, passes or credential kind makes decryption fail.
+- **Floor enforced on read and write**: anything below the floor profile is refused when written and when read.
+- **Unknown versions are refused untouched**: a value with a newer prefix (`dgb3$` and up) produces an "update required" message and is never altered or counted as a wrong credential.
+- **Non-deterministic and no key reuse**: fresh salt and nonce for every encryption.
+- **Environmental failures are not wrong credentials**: running out of memory, an unsupported browser or unreadable data are reported as such and do not count toward the attempt limit.
+
+**Credential types.** A wallet is protected by either a six-digit PIN (ASCII digits) or a passphrase of 12 to 256
+characters, normalised with Unicode NFKC so the same visible text gives the same key on every device. Passphrases on a
+common-password deny list (about 2,300 entries of 12 or more characters, from SecLists, MIT) and trivially repeated or
+sequential strings are refused. The deny list is a filter, not a strength meter.
+
+**Legacy format (still readable, never written for existing wallets).** Before this change values were
+`Base64(salt(16) | iv(12) | ciphertext+tag)` with the key from PBKDF2-SHA256, 100,000 iterations, no stored parameters and no
+authenticated header. They remain readable indefinitely for unlock, recovery and export. Legacy values never contain `$`,
+which is how the two formats are told apart.
+
+**Device benchmark status.** One development desktop (Chromium, median of 3) measured the standard profile at about 322 ms
+per derivation, the low-memory profile at about 188 ms, the floor at about 75 ms and legacy PBKDF2 at about 18 ms. The
+reference low-end phone, a mid-range phone and the GPU-class comparison are still to be measured, and the profile values stay
+provisional until they are. A developer-only helper, `dgbCrypto.bench()`, prints these figures (localhost, or with
+`localStorage.dgbBench = "1"`; off in release builds).
 
 ### HD Key Derivation: BIP39 / BIP84
 
@@ -169,8 +189,12 @@ All persistent data resides in **browser IndexedDB**, scoped to the application'
 ```
 IndexedDB: 'digibyte-wallet' (version 1)
 └── Object Store: 'keyval'
-    ├── wallet_seed_{walletId}         → AES-256-GCM encrypted mnemonic/WIF/xpub (Base64)
-    ├── wallet_info_{walletId}         → JSON metadata (name, type, network, creation date)
+    ├── wallet_seed_v2_{walletId}      → `dgb2$` envelope: Argon2id + AES-256-GCM encrypted mnemonic/WIF/xpub
+    ├── wallet_seed_{walletId}         → legacy PBKDF2 value (Base64). Kept untouched for 7 days after an upgrade so an older
+    │                                    app version can still unlock; removed on the first unlock after that, and at once when
+    │                                    the PIN or passphrase is changed or reset
+    ├── wallet_migration_{walletId}    → JSON {migratedAt, legacyFingerprint, legacyRemovedAt} for the upgrade above
+    ├── wallet_info_{walletId}         → JSON metadata (name, type, network, creation date, credential type, protection level)
     ├── active_wallet_id               → GUID of currently active wallet
     ├── multisig_wallet_list           → JSON array of multisig wallet entries
     ├── multisig_config_{walletId}     → JSON multisig config (redeem script, co-signers, threshold)
@@ -184,9 +208,10 @@ IndexedDB: 'digibyte-wallet' (version 1)
 
 | Data | Encrypted | Encryption Key |
 |------|-----------|---------------|
-| Mnemonic seed phrase | ✅ AES-256-GCM | Derived from PIN via PBKDF2 |
-| WIF private key | ✅ AES-256-GCM | Derived from PIN via PBKDF2 |
-| Extended public key (xpub) | ✅ AES-256-GCM | Derived from PIN via PBKDF2 |
+| Mnemonic seed phrase | ✅ AES-256-GCM | Derived from the PIN or passphrase via Argon2id (legacy values: PBKDF2) |
+| WIF private key | ✅ AES-256-GCM | Derived from the PIN or passphrase via Argon2id (legacy values: PBKDF2) |
+| Extended public key (xpub) | ✅ AES-256-GCM | Derived from the PIN or passphrase via Argon2id (legacy values: PBKDF2) |
+| DigiDollar store | ✅ AES-256-GCM | Derived from the unlocked seed with HKDF-SHA256, not from the PIN or passphrase |
 | Wallet metadata | ❌ Plaintext JSON | — |
 | Multisig config (redeem script) | ❌ Plaintext JSON | — |
 | Contacts | ❌ Plaintext JSON | — |
@@ -197,11 +222,25 @@ IndexedDB: 'digibyte-wallet' (version 1)
 ### Key Lifecycle
 
 ```
-CREATE:  Mnemonic generated → encrypted with PIN → stored in IndexedDB
-UNLOCK:  PIN entered → PBKDF2 derives key → AES-GCM decrypt → keys held in WASM memory
-LOCK:    Keys zeroed from memory → requires PIN to unlock again
-DELETE:  IndexedDB.clear() → all data wiped (irreversible)
+CREATE:   Mnemonic generated → Argon2id key from the PIN or passphrase → AES-GCM → stored as a dgb2 envelope
+UNLOCK:   Credential entered → Argon2id (in a worker) → AES-GCM decrypt → keys held in WASM memory
+          A legacy value that unlocks is re-encrypted as a dgb2 envelope (see below), the old copy kept for 7 days
+LOCK:     Keys zeroed from memory → requires the credential to unlock again
+RECOVER:  Valid recovery phrase + a new PIN or passphrase → new dgb2 envelope → old copies deleted
+DELETE:   IndexedDB.clear() → all data wiped (irreversible)
 ```
+
+**Automatic upgrade of existing wallets.** On a successful unlock of a legacy-format wallet the app writes a new `dgb2` value,
+reads it back and checks it decrypts to the identical secret, and only then records the upgrade. Any failure (interruption,
+storage full, out of memory, another tab) leaves the old value intact and usable and is retried at the next unlock; it never
+blocks the unlock. A per-wallet cross-tab lock (Web Locks, with a storage-lease fallback) prevents two tabs rewriting at once.
+If the stored legacy value changes after an upgrade (an older app version changed the PIN), the legacy value wins and the
+wallet upgrades again.
+
+**Devices that cannot run Argon2id.** If a browser cannot run the memory-hard function at all (or has no free memory for even
+the floor profile), a new wallet is created with the legacy protection only after a plain warning and the user's explicit
+agreement. It is marked `legacy` and upgrades by itself on its first unlock on a capable browser. An existing wallet is never
+moved to a weaker format.
 
 ### Memory Security
 
@@ -215,11 +254,13 @@ DELETE:  IndexedDB.clear() → all data wiped (irreversible)
 
 ## Authentication & Access Control
 
-### PIN Lockout with Exponential Backoff
+### PIN and Passphrase Lockout with Exponential Backoff
 
-The wallet uses a 6-digit PIN for authentication. Failed attempts trigger a progressive lockout.
+The wallet is unlocked with a 6-digit PIN or a passphrase. Wrong attempts trigger a progressive lockout, identical for both
+credential types; only the wording differs. Problems that are not the user's mistake (out of memory, unsupported browser,
+unreadable data, data from a newer version) are explained separately and are not counted.
 
-**Implementation:** Client-side enforcement in `Unlock.razor`
+**Implementation:** Client-side enforcement in `PinAttemptThrottle`, used by `Unlock.razor` and `PsbtSign.razor`
 
 | Failed Attempts | Lockout Duration |
 |----------------|-----------------|
@@ -239,23 +280,39 @@ delay = 15 × 2^(min(failedAttempts - 3, 5)) seconds
 **Brute-force analysis:**
 - PIN space: 10^6 = 1,000,000 combinations
 - Without lockout: trivially crackable by automated tool
-- With lockout: ~1,000,000 attempts × average 2 min delay = ~3.8 years
-- **BUT**: Lockout is client-side (in-memory). Attacker with device access can:
-  - Clear browser localStorage
-  - Extract IndexedDB ciphertext directly
-  - Attempt offline brute-force against AES-256-GCM ciphertext
+- The lockout is client-side and per page: it slows guessing inside the app and does nothing against an attacker who copies the
+  browser's storage. Such an attacker can clear localStorage, extract the IndexedDB ciphertext and guess offline.
 
-**Offline brute-force against extracted ciphertext:**
-- 100,000 PBKDF2 iterations with 6-digit PIN (10^6 space)
-- On modern GPU: ~1,000 PBKDF2-SHA256 ops/sec per core
-- Full keyspace: ~1,000 seconds ≈ **17 minutes** on a single GPU
-- **This is the primary risk** — see [Recommendations](#recommendations-for-future-hardening)
+**Offline guessing against extracted ciphertext:**
+- Every guess now costs an Argon2id derivation (64 MiB, 3 passes at the standard profile) instead of 100,000 PBKDF2 iterations.
+  On one development desktop that is about 322 ms against about 18 ms, roughly 18 times the CPU cost per guess. Because
+  Argon2id is memory-hard, the gap against GPU and specialised hardware is expected to be much larger; the target is at least
+  100 times (specification 009, SC-002) and the measured figure will be recorded here once the device benchmark is complete.
+- **A six-digit PIN is still a short secret.** There are only a million candidates, so someone who holds a copy of the browser
+  data can still work through them with effort. That is a limit of the PIN's size, not of the key derivation.
+- **A passphrase is the real protection.** A passphrase of 12 or more characters that is not on the deny list is not practically
+  guessable offline with realistic resources. The app offers it at wallet creation, in Settings (a dismissible tip on PIN
+  wallets) and during recovery, and does not require it.
 
 ### Recovery Flow
 
-- Users can reset their PIN by entering their 24-word mnemonic seed phrase
-- The seed is re-encrypted with the new PIN
+- Users can reset their PIN or passphrase by entering their 24-word mnemonic seed phrase (or, for imported-key and watch-only
+  wallets, re-importing the key or xpub), and can switch between a PIN and a passphrase while doing so
+- The secret is re-encrypted as a `dgb2` envelope under the new credential; the old credential stops working and any legacy
+  copy is deleted at once
+- An invalid or malformed phrase changes nothing in storage
 - No server interaction required
+- A forgotten passphrase cannot be reset by the project or anyone else; the recovery phrase is the only way back in
+
+### Biometric Unlock
+
+Biometric unlock keeps a copy of each wallet's seed encrypted with an AES key. Where the browser supports the WebAuthn **PRF**
+extension, that key is derived from the authenticator at each unlock (HKDF-SHA256 over the PRF output) and is never stored, so a
+copy of the browser's storage is not enough to open the seed copies. Enrolments made before this change stored a random key next
+to each ciphertext; the app offers a one-time upgrade after the next credential unlock, re-protects every wallet's copy under the
+derived key and then deletes the stored key. Where PRF is not available, biometric unlock works as before but it is only a
+convenience: the app says so plainly, asks before turning it on, and shows existing users the same notice once. Credential-gated
+actions (viewing the recovery phrase, changing the credential, signing) still ask for the credential.
 
 ---
 
@@ -391,9 +448,19 @@ The `<meta>` copies of `X-Content-Type-Options` and `Referrer-Policy` stay for l
 
 Google Analytics was removed from the wallet origin (`gtag.js`, `js/analytics.js` and their CSP entries). No third-party script runs in the wallet origin and none is loaded from a CDN. First-party analytics, if wanted, is a separate spec.
 
-### Known gap: PIN key derivation
+### PIN and passphrase key derivation (DGB-04)
 
-The wallet's encryption key is derived from the six-digit PIN with PBKDF2. Someone who copies a browser profile can guess a six-digit PIN offline far faster than the on-screen lockout allows. The wallet now says so where the PIN is set; moving to a memory-hard function (Argon2id) with a versioned envelope is a separate spec (FR-014 of `008-security-hardening`).
+Finding DGB-04 of the external review was that the wallet key came straight from the six-digit PIN with PBKDF2 at 100,000
+iterations, so a copied browser profile allowed fast offline guessing. Specification `009-stronger-pin-protection` replaces
+it with Argon2id in a versioned envelope, adds an optional passphrase, upgrades existing wallets automatically with a rollback
+window, and closes the stored biometric key where the browser allows. See Cryptographic Primitives, Key Management and Known
+Limitations for the details and what remains.
+
+**Implementation versus this document.** Implemented and covered by tests: the envelope and codec, Argon2id in a worker, the
+passphrase, automatic upgrade with the 7-day legacy copy, recovery and credential change, unsupported-device handling, the
+biometric PRF path and its upgrade, and localised wording. **Not yet done:** freezing the Argon2id profile values against the
+reference low-end phone, a mid-range phone and desktop, and recording the GPU-class cost ratio (SC-002) and unlock timings
+(SC-003); running the real PRF path on a device with a platform authenticator; and a small usability check (SC-006).
 
 ### Self-Hosted Assets (Supply Chain Mitigation)
 
@@ -762,13 +829,25 @@ Until shared transactions are fully checked (Story 4), other participants' amoun
 | `'unsafe-inline'` in CSP | Slightly wider XSS attack surface | Required by Blazor; no current workaround |
 | Single-origin IndexedDB | Any same-origin XSS compromise accesses all data | Data is encrypted; key material requires PIN |
 
-### PIN Security
+### PIN and Passphrase Protection
 
 | Limitation | Impact |
 |-----------|--------|
-| 6-digit keyspace (10^6) | Brutable offline against extracted ciphertext (~17 min on GPU) |
-| Client-side lockout only | Attacker with device access can bypass timer |
+| A 6-digit PIN has only 10^6 candidates | Someone with a copy of the browser data can still guess a PIN offline with effort, although each guess now costs far more. A passphrase removes this |
+| Client-side lockout only, and per page | Attacker with device access can bypass the timer; the count resets when the page is left. It slows guessing in the app, nothing more |
 | No server-side enforcement | No second factor; no remote wipe |
+| The old copy stays for 7 days after an upgrade | For up to 7 days the legacy PBKDF2 copy exists so an older app version can still unlock; the full protection applies once it is removed |
+| Wallets created without Argon2id support | Created with the legacy protection only after the user's agreement, marked `legacy`, and upgraded automatically on a capable browser |
+| Biometric unlock without PRF | The key is stored next to the ciphertext, so the biometric prompt is a convenience and not extra protection. The user is told and can decline |
+| A forgotten passphrase cannot be reset | Only the recovery phrase restores access |
+| Recovery does not check the phrase belongs to this wallet | There is no old credential to compare with, so any valid phrase is accepted and replaces the stored secret; the user is expected to enter their own |
+| The deny list is small | About 2,300 common entries of 12 or more characters; it is a filter, not a strength meter |
+| The memory-hard cost needs free memory | On low-memory devices the app falls back to smaller profiles, down to the 19 MiB floor, and below that keeps the old format rather than weakening anything |
+| Argon2id profile values are provisional | They are frozen after benchmarking real devices (see Known gap above) |
+
+### Secrets in Logs and Telemetry (audit, FR-005)
+
+The web app was audited for credential and key handling. There is no analytics or telemetry path: the only `console` calls in app code are the service worker's install messages, the QR scanner's camera error object, and the developer-only `?crypto-bench` table (disabled in release builds), which uses a fixed dummy credential and prints only profile, time and memory. No credential, derived key or plaintext is logged, sent to the JS worker beyond the derivation request, or included in an error message. User-visible failures for unlock, create and recover show either a fixed localised message or the exception text of a .NET or interop error, which does not carry call arguments.
 
 ### Multisig Limitations
 

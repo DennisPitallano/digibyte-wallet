@@ -208,11 +208,11 @@ public class DigiDollarStoreTests
     }
 
     /// <summary>Real AES-256-GCM keyed by SHA-256 of the secret; decrypt returns null on a wrong key or corrupt data.</summary>
-    private sealed class AesGcmTestCrypto : ICryptoService
+    private sealed class AesGcmTestCrypto : LegacyCryptoBase
     {
         private static byte[] Key(string pin) => SHA256.HashData(Encoding.UTF8.GetBytes(pin));
 
-        public Task<byte[]> EncryptAsync(byte[] plaintext, string pin)
+        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin)
         {
             var nonce = RandomNumberGenerator.GetBytes(12);
             var tag = new byte[16];
@@ -222,7 +222,7 @@ public class DigiDollarStoreTests
             return Task.FromResult(nonce.Concat(tag).Concat(cipher).ToArray());
         }
 
-        public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin)
+        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin)
         {
             try
             {

@@ -1,0 +1,201 @@
+@using DigiByte.Wallet.Models
+@using DigiByte.Wallet.Storage
+@inject WalletService WalletService
+@inject CommonPasswordList CommonList
+@inject LocalizationService L
+
+@* How this wallet is protected, with the dismissible "use a passphrase" tip for PIN wallets (FR-001, SC-010) and the
+   form to switch between PIN and passphrase. The tip is gentle: no balance-based or recurring reminder. *@
+
+@if (wallet is not null)
+{
+    <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-3" data-testid="protection-card">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("protection.title")</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400" data-testid="protection-current">
+                    @(wallet!.Kind == CredentialKind.Passphrase ? L.T("protection.current_passphrase") : L.T("protection.current_pin"))
+                </p>
+            </div>
+            @if (!showForm)
+            {
+                <button class="px-3 py-2 text-xs font-semibold rounded-xl bg-dgb-500 text-white press-effect" data-testid="protection-change"
+                        @onclick="OpenForm">
+                    @(wallet.Kind == CredentialKind.Pin ? L.T("protection.use_passphrase") : L.T("protection.change"))
+                </button>
+            }
+        </div>
+
+        @if (wallet.Kind == CredentialKind.Pin && !showForm)
+        {
+            @if (showNudge)
+            {
+                <div class="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 flex flex-col gap-2" data-testid="passphrase-nudge">
+                    <p class="text-xs text-slate-700 dark:text-slate-200">@L.T("protection.nudge")</p>
+                    <button class="self-start text-xs font-semibold text-slate-500 hover:text-slate-700" data-testid="nudge-dismiss"
+                            @onclick="DismissNudgeAsync">@L.T("protection.dismiss")</button>
+                </div>
+            }
+            else
+            {
+                <button class="self-start text-xs font-semibold text-dgb-500 hover:text-dgb-600" data-testid="nudge-show"
+                        @onclick="ShowNudgeAsync">@L.T("protection.show_tip")</button>
+            }
+        }
+
+        @if (showForm)
+        {
+            <div class="flex flex-col gap-3 items-center rounded-xl bg-slate-50 dark:bg-dgb-950 p-3" data-testid="protection-form">
+                <div class="flex justify-center gap-2" role="group" aria-label="@L.T("create.credential.choose")">
+                    <button type="button" data-testid="change-to-pin"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 @(newKind == CredentialKind.Pin ? "border-dgb-500 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                            @onclick="() => SelectNewKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
+                    <button type="button" data-testid="change-to-passphrase"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 @(newKind == CredentialKind.Passphrase ? "border-dgb-500 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                            @onclick="() => SelectNewKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
+                </div>
+                @if (newKind == CredentialKind.Passphrase)
+                {
+                    <p class="text-xs text-amber-600 dark:text-amber-400 text-center max-w-xs">@L.T("create.passphrase.unrecoverable")</p>
+                }
+
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@L.T("protection.current_label")</p>
+                <CredentialInput @ref="currentInput" Kind="wallet.Kind" ValueChanged="v => { current = v; error = null; }" OnSubmit="SubmitAsync" />
+
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@L.T("protection.new_label")</p>
+                <CredentialInput @ref="newInput" Kind="newKind" IsNew="true" AutoFocus="false" ValueChanged="v => { next = v; error = null; }" OnSubmit="SubmitAsync" />
+                @if (newKind == CredentialKind.Passphrase)
+                {
+                    <CredentialInput @ref="confirmInput" Kind="CredentialKind.Passphrase" IsNew="true" AutoFocus="false"
+                                     Placeholder="@L.T("create.passphrase.confirm")" ValueChanged="v => confirm = v" OnSubmit="SubmitAsync" />
+                }
+
+                @if (error is not null)
+                {
+                    <p role="alert" class="text-sm text-red-500 font-medium text-center" data-testid="protection-error">@error</p>
+                }
+                <div class="flex gap-2 w-full">
+                    <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                            @onclick="CloseForm" disabled="@busy">@L.T("common.cancel")</button>
+                    <button class="flex-1 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                            data-testid="protection-submit" @onclick="SubmitAsync" disabled="@(busy || current.Length == 0 || next.Length == 0)">
+                        @(busy ? L.T("protection.working") : L.T("protection.apply"))
+                    </button>
+                </div>
+            </div>
+        }
+
+        @if (done)
+        {
+            <p role="status" class="text-xs text-green-600 dark:text-green-400" data-testid="protection-done">@L.T("protection.done")</p>
+        }
+    </div>
+}
+
+@code {
+    private WalletInfo? wallet;
+    private bool showNudge;
+    private bool showForm;
+    private bool busy;
+    private bool done;
+    private string? error;
+    private CredentialKind newKind = CredentialKind.Passphrase;
+    private string current = "", next = "", confirm = "";
+    private CredentialInput? currentInput, newInput, confirmInput;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        wallet = WalletService.ActiveWallet;
+        showNudge = wallet is not null && await WalletService.ShouldShowPassphraseNudgeAsync(wallet.Id);
+    }
+
+    private async Task OpenForm()
+    {
+        done = false;
+        error = null;
+        current = next = confirm = "";
+        newKind = wallet!.Kind == CredentialKind.Pin ? CredentialKind.Passphrase : CredentialKind.Pin;
+        showForm = true;
+        await CommonList.EnsureLoadedAsync();
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+        error = null;
+    }
+
+    private async Task SelectNewKindAsync(CredentialKind kind)
+    {
+        if (kind == newKind) return;
+        newKind = kind;
+        next = confirm = "";
+        error = null;
+        newInput?.Clear();
+        if (kind == CredentialKind.Passphrase) await CommonList.EnsureLoadedAsync();
+    }
+
+    private async Task DismissNudgeAsync()
+    {
+        await WalletService.SetPassphraseNudgeDismissedAsync(wallet!.Id, true);
+        showNudge = false;
+    }
+
+    private async Task ShowNudgeAsync()
+    {
+        await WalletService.SetPassphraseNudgeDismissedAsync(wallet!.Id, false);
+        await RefreshAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (busy || wallet is null || current.Length == 0 || next.Length == 0) return;
+        error = null;
+
+        if (newKind == CredentialKind.Passphrase)
+        {
+            var check = CredentialPolicy.Check(next, CommonList);
+            if (!check.Accepted) { error = L.T(CredentialPolicy.ReasonKey(check.Reason)); return; }
+            if (CredentialPolicy.Normalise(next) != CredentialPolicy.Normalise(confirm)) { error = L.T("create.passphrase.mismatch"); return; }
+        }
+        else if (!CredentialPolicy.IsValidPin(next))
+        {
+            error = L.T("protection.pin_invalid");
+            return;
+        }
+
+        busy = true;
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            var outcome = await WalletService.ChangeCredentialAsync(wallet.Id, current, next, newKind);
+            switch (outcome)
+            {
+                case ChangeCredentialOutcome.Changed:
+                    showForm = false;
+                    done = true;
+                    current = next = confirm = "";
+                    await RefreshAsync();
+                    break;
+                case ChangeCredentialOutcome.WrongCredential:
+                    error = L.T("protection.wrong_current");
+                    currentInput?.Clear();
+                    current = "";
+                    break;
+                case ChangeCredentialOutcome.WeakPassphrase:
+                    error = L.T("passphrase.reject.common");
+                    break;
+                default:
+                    error = L.T("protection.failed");
+                    break;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

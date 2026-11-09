@@ -212,12 +212,12 @@ public class WalletServicePsbtTests
     // ─── PIN check ───
 
     /// <summary>Keeps the PIN with the stored seed, so a wrong PIN fails to decrypt, unlike the pass-through crypto.</summary>
-    private sealed class PinCheckingCrypto : ICryptoService
+    private sealed class PinCheckingCrypto : LegacyCryptoBase
     {
-        public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) =>
+        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) =>
             Task.FromResult(Encoding.UTF8.GetBytes(pin + "|").Concat(plaintext).ToArray());
 
-        public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin)
+        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin)
         {
             var prefix = Encoding.UTF8.GetBytes(pin + "|");
             return Task.FromResult(ciphertext.AsSpan().StartsWith(prefix) ? ciphertext[prefix.Length..] : null);

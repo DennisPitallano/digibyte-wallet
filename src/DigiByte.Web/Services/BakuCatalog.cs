@@ -35,7 +35,7 @@ public static class BakuCatalog
         new("backup.why", BakuSeverity.Info, "trustworthy", "Write it down", "These words are the only way to restore your wallet. Store them offline and never share them."),
         new("backup.done", BakuSeverity.Info, "celebrating", "Backup confirmed!", "Great job. Your wallet is ready."),
         new("wallet.created", BakuSeverity.Info, "celebrating", "Wallet created!", "You are all set to receive your first DGB."),
-        new("unlock.greeting", BakuSeverity.Info, "greeting", "Good to see you", "Enter your PIN to unlock your wallet."),
+        new("unlock.greeting", BakuSeverity.Info, "greeting", "Good to see you", "Unlock your wallet to continue."),
         new("seed.reveal", BakuSeverity.Critical, "locked", "Anyone can see your screen", "Nobody legitimate will ever ask for your recovery phrase. Make sure no one is watching.", RequiresConfirmation: true),
         new("send.new-address", BakuSeverity.Warning, "guard", "New address", "You have not sent to this address before. Double-check every character with the recipient.", RequiresConfirmation: true),
         new("send.large-amount", BakuSeverity.Warning, "protective", "Large send", "This is half or more of your balance. Make sure the amount is right.", RequiresConfirmation: true),

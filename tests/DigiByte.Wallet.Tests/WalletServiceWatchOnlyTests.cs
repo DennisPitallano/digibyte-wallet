@@ -190,12 +190,12 @@ public class WalletServiceWatchOnlyTests
     }
     /// Fake crypto that just passes data through (base64), not truly encrypted.
     /// </summary>
-    private class FakeCryptoService : ICryptoService
+    private class FakeCryptoService : LegacyCryptoBase
     {
-        public Task<byte[]> EncryptAsync(byte[] plaintext, string pin) =>
+        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) =>
             Task.FromResult(plaintext);
 
-        public Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) =>
+        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) =>
             Task.FromResult<byte[]?>(ciphertext);
     }
 

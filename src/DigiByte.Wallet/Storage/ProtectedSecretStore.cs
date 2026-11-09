@@ -1,0 +1,256 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using DigiByte.Wallet.Services;
+using DigiByte.Wallet.Storage.Envelope;
+
+namespace DigiByte.Wallet.Storage;
+
+/// <summary>The three storage keys that together hold one protected secret during and after migration.</summary>
+public sealed record ProtectedSlot(string LegacyKey, string V2Key, string RecordKey);
+
+/// <summary>Per-secret migration state (<c>wallet_migration_{id}</c>).</summary>
+public sealed class MigrationRecord
+{
+    public DateTimeOffset MigratedAt { get; set; }
+    /// <summary>SHA-256 (hex) of the legacy value at migration time. A mismatch means an older app version changed it.</summary>
+    public string LegacyFingerprint { get; set; } = "";
+    public DateTimeOffset? LegacyRemovedAt { get; set; }
+}
+
+/// <summary>
+/// Opens protected secrets and moves them from the legacy format to the <c>dgb2</c> envelope.
+/// Storage layout and read order: contracts/storage-keys.md. Migration steps: research R4.
+/// The legacy value is never modified by migration; it is removed only after the rollback window.
+/// </summary>
+public sealed class ProtectedSecretStore
+{
+    /// <summary>How long the legacy copy is kept after a verified migration (clarification: 7 days).</summary>
+    public static readonly TimeSpan LegacyRetention = TimeSpan.FromDays(7);
+
+    private readonly ISecureStorage _storage;
+    private readonly ICryptoService _crypto;
+    private readonly TimeProvider _time;
+    private readonly IMigrationLock _lock;
+    private readonly HashSet<string> _justMigrated = new();
+    private readonly Dictionary<string, CryptoFailure> _deferred = new();
+
+    public ProtectedSecretStore(ISecureStorage storage, ICryptoService crypto, TimeProvider? time = null, IMigrationLock? migrationLock = null)
+    {
+        _storage = storage;
+        _crypto = crypto;
+        _time = time ?? TimeProvider.System;
+        _lock = migrationLock ?? NoMigrationLock.Instance;
+    }
+
+    /// <summary>True once, right after this secret was migrated in this session, so the UI can show the one-time upgrade notice.</summary>
+    public bool TakeMigrationNotice(ProtectedSlot slot)
+    {
+        lock (_justMigrated) return _justMigrated.Remove(slot.RecordKey);
+    }
+
+    /// <summary>
+    /// If the last attempt to upgrade this secret was put off because the device cannot run the protection (or ran out of
+    /// memory), says why, once, so the page can explain it calmly. The secret itself is unaffected.
+    /// </summary>
+    public CryptoFailure? TakeMigrationDeferred(ProtectedSlot slot)
+    {
+        lock (_deferred)
+        {
+            if (!_deferred.Remove(slot.RecordKey, out var why)) return null;
+            return why;
+        }
+    }
+
+    public Task<bool> HasV2Async(ProtectedSlot slot) => _storage.ContainsKeyAsync(slot.V2Key);
+
+    /// <summary>Why the last <see cref="SealAsync"/> asked for consent or failed, when the cause was the device.</summary>
+    public CryptoFailure? LastSealFailure { get; private set; }
+
+    public static string Fingerprint(string legacyValue) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(legacyValue)));
+
+    public async Task<bool> ExistsAsync(ProtectedSlot slot) =>
+        await _storage.ContainsKeyAsync(slot.LegacyKey) || await _storage.ContainsKeyAsync(slot.V2Key);
+
+    /// <summary>
+    /// Decrypts the secret with <paramref name="credential"/>. A successful open of a legacy-only (or stale) secret
+    /// migrates it; a successful open from <c>v2</c> may remove an expired legacy copy. Neither can fail the open.
+    /// </summary>
+    public async Task<CryptoResult<byte[]>> OpenAsync(ProtectedSlot slot, string credential, CredentialKind kind, bool migrate = true)
+    {
+        var legacy = await _storage.GetAsync(slot.LegacyKey);
+        var v2 = await _storage.GetAsync(slot.V2Key);
+        var record = await ReadRecordAsync(slot);
+
+        if (legacy is null && v2 is null)
+            return CryptoResult<byte[]>.Fail(CryptoFailure.Unreadable);
+
+        var useV2 = v2 is not null && (legacy is null || (record is not null && record.LegacyFingerprint == Fingerprint(legacy)));
+
+        if (useV2)
+        {
+            var opened = await _crypto.DecryptAsync(v2!, credential);
+            if (opened.Success && migrate)
+                await TryRemoveExpiredLegacyAsync(slot, legacy, record);
+            return opened;
+        }
+
+        var result = await _crypto.DecryptAsync(legacy!, credential);
+        if (result.Success && migrate)
+            await TryMigrateAsync(slot, legacy!, result.Value!, credential, kind);
+        return result;
+    }
+
+    /// <summary>What <see cref="SealAsync"/> did.</summary>
+    public enum SealOutcome
+    {
+        /// <summary>Stored as a verified <c>dgb2</c> envelope; the legacy copy and migration record were deleted.</summary>
+        V2,
+        /// <summary>The crypto service cannot produce an envelope: stored in the legacy format (and any stale v2 deleted).</summary>
+        Legacy,
+        /// <summary>Nothing was stored; storage is unchanged.</summary>
+        Failed,
+        /// <summary>The device cannot run the memory-hard protection and legacy storage was not agreed to. Nothing was stored.</summary>
+        NeedsLegacyConsent,
+    }
+
+    /// <summary>
+    /// Replaces the secret under a new credential (credential change or recovery). The new value is built and
+    /// verified in memory before anything is written, so a failure leaves the old value untouched. Order of writes:
+    /// new value first, then the old copies are removed, so every intermediate state still opens with the new credential.
+    /// The old, weakly protected legacy copy is deleted immediately (FR-012).
+    /// </summary>
+    public async Task<SealOutcome> SealAsync(ProtectedSlot slot, byte[] plaintext, string credential, CredentialKind kind, bool allowLegacy = false)
+    {
+        LastSealFailure = null;
+        var sealedResult = await _crypto.EncryptAsync(plaintext, credential, kind);
+        if (!sealedResult.Success)
+        {
+            if (sealedResult.Failure is not (CryptoFailure.Unsupported or CryptoFailure.ResourceExhausted))
+                return SealOutcome.Failed;
+
+            // The device cannot run the memory-hard protection. Only with the user's agreement is the older format used;
+            // a wallet is never silently weakened.
+            LastSealFailure = sealedResult.Failure;
+            if (!allowLegacy) return SealOutcome.NeedsLegacyConsent;
+            return await WriteLegacyAsync(slot, plaintext, credential);
+        }
+        var stored = sealedResult.Value!;
+
+        var parsed = EnvelopeCodec.Parse(stored).Status;
+        if (parsed is EnvelopeStatus.Unreadable or EnvelopeStatus.UnsupportedVersion)
+            return SealOutcome.Failed; // never write anything that is not a valid, at-or-above-the-floor envelope
+
+        if (parsed == EnvelopeStatus.Ok)
+        {
+            var check = await _crypto.DecryptAsync(stored, credential);
+            if (!check.Success || !check.Value!.AsSpan().SequenceEqual(plaintext)) return SealOutcome.Failed;
+
+            await _storage.SetAsync(slot.V2Key, stored);
+            await _storage.RemoveAsync(slot.LegacyKey);
+            await _storage.RemoveAsync(slot.RecordKey);
+            return SealOutcome.V2;
+        }
+
+        // The service itself produced the legacy format: keep it, and make sure a stale v2 value cannot shadow the new credential.
+        await _storage.SetAsync(slot.LegacyKey, stored);
+        await _storage.RemoveAsync(slot.V2Key);
+        await _storage.RemoveAsync(slot.RecordKey);
+        return SealOutcome.Legacy;
+    }
+
+    private async Task<SealOutcome> WriteLegacyAsync(ProtectedSlot slot, byte[] plaintext, string credential)
+    {
+        var legacy = Convert.ToBase64String(await _crypto.EncryptAsync(plaintext, credential));
+        await _storage.SetAsync(slot.LegacyKey, legacy);
+        await _storage.RemoveAsync(slot.V2Key);
+        await _storage.RemoveAsync(slot.RecordKey);
+        return SealOutcome.Legacy;
+    }
+
+    private async Task TryRemoveExpiredLegacyAsync(ProtectedSlot slot, string? legacy, MigrationRecord? record)
+    {
+        if (legacy is null || record is null) return;
+        if (_time.GetUtcNow() - record.MigratedAt < LegacyRetention) return;
+        try
+        {
+            await _storage.RemoveAsync(slot.LegacyKey);
+            record.LegacyRemovedAt = _time.GetUtcNow();
+            await _storage.SetAsync(slot.RecordKey, JsonSerializer.Serialize(record));
+        }
+        catch
+        {
+            // Cleanup is best effort; it is retried on the next successful unlock.
+        }
+    }
+
+    private async Task TryMigrateAsync(ProtectedSlot slot, string legacy, byte[] plaintext, string credential, CredentialKind kind)
+    {
+        IAsyncDisposable? held = null;
+        var wroteV2 = false;
+        var recorded = false;
+        try
+        {
+            held = await _lock.TryAcquireAsync(slot.RecordKey);
+            if (held is null) return; // cannot lock: do not migrate, try on the next unlock
+
+            // Another tab may have finished while we waited for the lock.
+            var current = await ReadRecordAsync(slot);
+            if (current is not null
+                && current.LegacyFingerprint == Fingerprint(legacy)
+                && await _storage.ContainsKeyAsync(slot.V2Key))
+                return;
+
+            var sealedResult = await _crypto.EncryptAsync(plaintext, credential, kind);
+            if (!sealedResult.Success)
+            {
+                // The device cannot run the protection right now: leave the wallet as it is and remember why.
+                if (sealedResult.Failure is CryptoFailure.Unsupported or CryptoFailure.ResourceExhausted)
+                    lock (_deferred) _deferred[slot.RecordKey] = sealedResult.Failure!.Value;
+                return;
+            }
+            var envelope = sealedResult.Value!;
+            // Only a real dgb2 envelope counts; a crypto service without Argon2 returns legacy bytes here.
+            if (EnvelopeCodec.Parse(envelope).Status != EnvelopeStatus.Ok) return;
+
+            await _storage.SetAsync(slot.V2Key, envelope);
+            wroteV2 = true;
+
+            var check = await _crypto.DecryptAsync(envelope, credential);
+            if (!check.Success || !check.Value!.AsSpan().SequenceEqual(plaintext))
+                return; // finally removes the unverified v2 value
+
+            await _storage.SetAsync(slot.RecordKey, JsonSerializer.Serialize(new MigrationRecord
+            {
+                MigratedAt = _time.GetUtcNow(),
+                LegacyFingerprint = Fingerprint(legacy),
+            }));
+            recorded = true;
+            lock (_justMigrated) _justMigrated.Add(slot.RecordKey);
+        }
+        catch
+        {
+            // Migration problems are silent and never block the unlock (FR-010, FR-011).
+        }
+        finally
+        {
+            if (wroteV2 && !recorded)
+            {
+                try { await _storage.RemoveAsync(slot.V2Key); } catch { /* the stale v2 is ignored without a record */ }
+            }
+            if (held is not null)
+            {
+                try { await held.DisposeAsync(); } catch { /* releasing a lock must not surface */ }
+            }
+        }
+    }
+
+    private async Task<MigrationRecord?> ReadRecordAsync(ProtectedSlot slot)
+    {
+        var json = await _storage.GetAsync(slot.RecordKey);
+        if (json is null) return null;
+        try { return JsonSerializer.Deserialize<MigrationRecord>(json); }
+        catch (JsonException) { return null; }
+    }
+}

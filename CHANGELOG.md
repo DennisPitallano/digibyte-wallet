@@ -12,6 +12,7 @@ All notable changes to the DigiByte Wallet project.
 ### Security
 - Closed several server-side holes found in an external review. Details follow once the fixes are deployed and the advisory is published.
 - Removed Google Analytics (`gtag.js`) from the wallet; no third-party script runs in the wallet origin.
+- The web server now revalidates scripts, styles and data files that keep their name across releases (such as `js/crypto.js`) instead of caching them for a year as immutable; only the fingerprinted `_framework/` files stay immutable. A stale `crypto.js` next to a new build would break unlock.
 - The wallet's web server now sends frame, content-type and referrer headers on every route.
 - `/api/health` on all three APIs reports the commit the running build came from (`commit`).
 - Merchant registration and the Digi-ID callback proxy are rate limited per client.

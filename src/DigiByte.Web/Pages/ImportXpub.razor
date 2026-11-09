@@ -1,4 +1,5 @@
 @page "/import-xpub"
+@using DigiByte.Wallet.Storage
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
@@ -154,7 +155,26 @@
     }
 </div>
 
+
+@if (legacyReason is { } legacyWhy)
+{
+    <LegacyProtectionConsent Reason="legacyWhy" OnAgree="AgreeLegacyAsync" OnCancel="CancelLegacy" />
+}
+
 @code {
+    // A browser that cannot run the stronger protection: the wallet is created with the earlier one only if the user agrees.
+    private CryptoFailure? legacyReason;
+    private bool legacyAgreed;
+
+    private async Task AgreeLegacyAsync()
+    {
+        legacyAgreed = true;
+        legacyReason = null;
+        await ImportAsync();
+    }
+
+    private void CancelLegacy() => legacyReason = null;
+
     private enum Step { NameWallet, EnterXpub, SetPin }
     private Step step = Step.EnterXpub;
 
@@ -269,10 +289,11 @@
             var name = isAddWalletMode ? walletName.Trim() : "Watch-Only Wallet";
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
-            await WalletService.CreateWatchOnlyWalletAsync(name, xpubInput.Trim(), pin, color);
+            await WalletService.CreateWatchOnlyWalletAsync(name, xpubInput.Trim(), pin, color, allowLegacyProtection: legacyAgreed);
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");
         }
+        catch (LegacyProtectionConsentRequiredException ex) { legacyReason = ex.Reason; }
         catch (Exception ex) { pinError = $"Failed to import: {ex.Message}"; }
         finally { isImporting = false; }
     }

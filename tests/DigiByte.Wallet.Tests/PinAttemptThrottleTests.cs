@@ -1,3 +1,4 @@
+using DigiByte.Wallet.Storage;
 using DigiByte.Web.Services;
 
 namespace DigiByte.Wallet.Tests;
@@ -15,7 +16,7 @@ public class PinAttemptThrottleTests
         var throttle = NewThrottle();
 
         Assert.Equal("Incorrect PIN. 2 attempts remaining before lockout.", throttle.RecordFailure());
-        Assert.Equal("Incorrect PIN. 1 attempts remaining before lockout.", throttle.RecordFailure());
+        Assert.Equal("Incorrect PIN. 1 attempt remaining before lockout.", throttle.RecordFailure());
 
         Assert.False(throttle.IsLockedOut);
     }
@@ -73,5 +74,44 @@ public class PinAttemptThrottleTests
         _now = _now.AddSeconds(10.2);
 
         Assert.Equal("Too many attempts. Try again in 5s.", throttle.LockoutMessage);
+    }
+
+    [Fact]
+    public void A_passphrase_wallet_is_told_about_the_passphrase_not_the_PIN()
+    {
+        var throttle = NewThrottle();
+        throttle.Kind = CredentialKind.Passphrase;
+
+        Assert.Equal("Incorrect passphrase. 2 attempts remaining before lockout.", throttle.RecordFailure());
+        Assert.Equal("Incorrect passphrase. 1 attempt remaining before lockout.", throttle.RecordFailure());
+        Assert.Equal("Incorrect passphrase. Locked for 15s after 3 failed attempts.", throttle.RecordFailure());
+    }
+
+    [Fact]
+    public void Thresholds_and_delays_are_identical_for_both_credential_types()
+    {
+        var pin = NewThrottle();
+        var phrase = NewThrottle();
+        phrase.Kind = CredentialKind.Passphrase;
+
+        for (var i = 0; i < 8; i++)
+        {
+            pin.RecordFailure();
+            phrase.RecordFailure();
+            Assert.Equal(pin.IsLockedOut, phrase.IsLockedOut);
+            Assert.Equal(pin.LockoutMessage, phrase.LockoutMessage);
+            _now = _now.AddSeconds(1);
+        }
+    }
+
+    [Fact]
+    public void Switching_the_credential_kind_changes_the_wording_from_then_on()
+    {
+        var throttle = NewThrottle();
+        Assert.StartsWith("Incorrect PIN.", throttle.RecordFailure());
+
+        throttle.Kind = CredentialKind.Passphrase;
+
+        Assert.StartsWith("Incorrect passphrase.", throttle.RecordFailure());
     }
 }

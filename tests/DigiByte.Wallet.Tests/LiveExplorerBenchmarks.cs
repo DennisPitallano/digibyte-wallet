@@ -7,8 +7,10 @@ namespace DigiByte.Wallet.Tests;
 /// Live benchmarks comparing Esplora (digiexplorer.info) vs Blockbook (digibyteblockexplorer.com).
 /// These tests hit real APIs — they require internet access and may be slow.
 /// 
-/// Run with: dotnet test --filter "FullyQualifiedName~LiveExplorerBenchmarks" --logger "console;verbosity=detailed"
+/// Tagged Category=Live so CI skips them (an explorer outage must not fail a pull request): dotnet test --filter "Category!=Live".
+/// Run with: dotnet test --filter "Category=Live" --logger "console;verbosity=detailed"
 /// </summary>
+[Trait("Category", "Live")]
 public class LiveExplorerBenchmarks
 {
     // Known mainnet legacy addresses (both Esplora and Blockbook accept D... format)

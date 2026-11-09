@@ -1,4 +1,5 @@
 @page "/recover-wallet"
+@using DigiByte.Wallet.Storage
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
@@ -299,7 +300,26 @@
     <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 </div>
 
+
+@if (legacyReason is { } legacyWhy)
+{
+    <LegacyProtectionConsent Reason="legacyWhy" OnAgree="AgreeLegacyAsync" OnCancel="CancelLegacy" />
+}
+
 @code {
+    // A browser that cannot run the stronger protection: the wallet is created with the earlier one only if the user agrees.
+    private CryptoFailure? legacyReason;
+    private bool legacyAgreed;
+
+    private async Task AgreeLegacyAsync()
+    {
+        legacyAgreed = true;
+        legacyReason = null;
+        await RecoverAsync();
+    }
+
+    private void CancelLegacy() => legacyReason = null;
+
     private enum Step { NameWallet, EnterMnemonic, SetPin }
     private Step step = Step.EnterMnemonic;
 
@@ -617,17 +637,18 @@
             {
                 var name = isAddWalletMode ? walletName.Trim() : "Imported Wallet";
                 var color = isAddWalletMode ? walletColor : null;
-                await WalletService.CreateWalletFromWifAsync(name, wifInput.Trim(), pin, color);
+                await WalletService.CreateWalletFromWifAsync(name, wifInput.Trim(), pin, color, allowLegacyProtection: legacyAgreed);
             }
             else
             {
                 var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
                 var color = isAddWalletMode ? walletColor : null;
-                await WalletService.CreateWalletAsync(name, mnemonicInput, pin, color);
+                await WalletService.CreateWalletAsync(name, mnemonicInput, pin, color, allowLegacyProtection: legacyAgreed);
             }
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");
         }
+        catch (LegacyProtectionConsentRequiredException ex) { legacyReason = ex.Reason; }
         catch (Exception ex) { pinError = $"Failed to recover wallet: {ex.Message}"; }
         finally { isRecovering = false; }
     }

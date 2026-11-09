@@ -1,9 +1,11 @@
 @page "/settings/psbt-sign"
 @using DigiByte.Crypto.Psbt
 @implements IDisposable
+@inject LocalizationService L
 @inject PsbtSigningService Signing
 @inject IPsbtKeyProvider Keys
 @inject WalletService WalletService
+@using DigiByte.Wallet.Storage
 @inject ContactService ContactService
 @inject AppState AppState
 @inject BiometricService Biometric
@@ -288,12 +290,12 @@
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         @* A darker panel than the PIN boxes (dgb-900) so the empty boxes stay visible in dark mode. *@
         <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 p-5 flex flex-col items-center gap-4">
-            <p class="text-sm font-semibold text-slate-900 dark:text-white">Enter your PIN to sign</p>
-            <PinInput @ref="pinInput" ValueChanged="v => pin = v" OnComplete="SubmitPinAsync" Error="@pinError" />
+            <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("credential.enter_to_sign", CredentialText.Word(L, credKind))</p>
+            <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="v => pin = v" OnSubmit="SubmitPinAsync" Error="@pinError" />
             <div class="flex gap-2 w-full">
                 <button class="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300" @onclick="CancelPin">Cancel</button>
                 <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl disabled:opacity-50"
-                        @onclick="SubmitPinAsync" disabled="@(pin.Length < 6 || isCheckingPin)">Confirm</button>
+                        @onclick="SubmitPinAsync" disabled="@(!Ready(pin) || isCheckingPin)">@(isCheckingPin ? L.T("credential.checking") : "Confirm")</button>
             </div>
         </div>
     </div>
@@ -301,6 +303,10 @@
 </AuthGuard>
 
 @code {
+    // The wallet's credential type decides which input is shown (PIN boxes or a passphrase field).
+    private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
+    private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
+    private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
     private const decimal SatoshisPerDgb = 100_000_000m;
 
     // The page holds the PSBT only while it is open; the signing service holds none between calls.
@@ -322,8 +328,9 @@
         result is { IsComplete: true } && Keys.CanSign && review is not null && review.Inputs.Any(i => i.Owner == InputOwner.Wallet);
 
     private readonly PinAttemptThrottle pinThrottle = new();
+    private bool throttleLocalised;
     private TaskCompletionSource<bool>? pinPrompt;
-    private PinInput? pinInput;
+    private CredentialInput? pinInput;
     private string pin = "";
     private string? pinError;
     private bool isCheckingPin;
@@ -587,7 +594,7 @@
 
     private async Task SubmitPinAsync()
     {
-        if (pinPrompt is null || isCheckingPin || pin.Length < 6) return;
+        if (pinPrompt is null || isCheckingPin || !Ready(pin)) return;
         if (pinThrottle.IsLockedOut)
         {
             pinError = pinThrottle.LockoutMessage;
@@ -608,7 +615,12 @@
             }
             else
             {
-                pinError = pinThrottle.RecordFailure();
+                pinThrottle.Kind = credKind;
+                if (!throttleLocalised) { pinThrottle.Localize = L.T; throttleLocalised = true; }
+                var failure = WalletService.LastCredentialFailure;
+                pinError = CredentialMessages.CountsAsAttempt(failure)
+                    ? pinThrottle.RecordFailure()
+                    : CredentialText.ForFailure(L, credKind, failure!.Value);
                 pin = "";
                 pinInput?.Clear();
             }

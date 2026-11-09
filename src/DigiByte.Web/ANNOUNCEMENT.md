@@ -1,3 +1,31 @@
+# Stronger PIN protection (next release)
+
+> Draft. Set the version, date and release link when the tag is cut.
+
+## Short post (~280 chars)
+
+🟦 DigiByte Wallet now protects your PIN with Argon2id, a memory-hard method that makes every guess much more costly. Existing wallets upgrade automatically the next time you unlock. You can also choose a passphrase for a longer-lasting option.
+
+→ https://dgbwallet.app
+
+---
+
+## Medium post
+
+**Stronger protection for your PIN, with an optional passphrase**
+
+Your seed has always been encrypted in your browser and never sent to our server. This release changes how the PIN or passphrase that protects it is turned into a key: it now uses **Argon2id**, which needs a lot of memory for each attempt, instead of PBKDF2.
+
+- **Automatic upgrade.** Unlock as usual and your wallet is upgraded. Nothing to do and no change to your PIN.
+- **Passphrase option.** Choose a passphrase instead of a 6-digit PIN when you create or reset a wallet. A PIN is stronger than before, and a passphrase goes further. A forgotten passphrase cannot be reset, so keep your recovery phrase safe.
+- **Older copy kept for 7 days.** After an upgrade the previous copy stays for 7 days so an older version of the app can still unlock. It is then removed.
+- **Biometric unlock** now uses the device's authenticator key where the browser supports it, with a one-time re-enrolment.
+- **Older browsers.** If a browser cannot run the new protection, the wallet tells you and asks for your agreement before using the previous method.
+
+Details: [`docs/SECURITY.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/docs/SECURITY.md)
+
+---
+
 # DigiByte Wallet v0.1.4 — Verifiable Self-Custody Release
 
 > Release date: April 2026
