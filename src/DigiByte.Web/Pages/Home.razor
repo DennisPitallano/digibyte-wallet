@@ -10,6 +10,7 @@
 @inject IBlockchainService Blockchain
 @inject ISecureStorage Storage
 @inject TransactionTracker TxTracker
+@inject MarketSnapshotService Market
 
 <PageTitle>DigiByte Wallet — Self-Custodial DGB Wallet</PageTitle>
 
@@ -31,7 +32,7 @@
             @if (allWallets.Count > 1)
             {
                 var activeColor = WalletService.ActiveWallet?.Color ?? "#0066FF";
-                <button class="flex items-center gap-1.5 mb-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-dgb-400/30 transition-all press-effect"
+                <button class="flex items-center gap-1.5 mb-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-dgb-300 dark:hover:border-dgb-400/30 transition-all press-effect"
                         @onclick="() => showWalletPicker = true">
                     <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm" style="background-color: @activeColor;"></div>
                     <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
@@ -78,13 +79,28 @@
                         }
                         <OutOfDateTag />
                         <div class="flex-1"></div>
-                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors disabled:opacity-40" title="Refresh"
+                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors"
+                                title="@(hideBalance ? "Show balance" : "Hide balance")" aria-label="@(hideBalance ? "Show balance" : "Hide balance")" aria-pressed="@(hideBalance ? "true" : "false")"
+                                @onclick="ToggleHideBalanceAsync">
+                            <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                @if (hideBalance)
+                                {
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                                }
+                                else
+                                {
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                }
+                            </svg>
+                        </button>
+                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors disabled:opacity-40" title="Refresh" aria-label="Refresh"
                                 @onclick="ManualRefreshAsync" disabled="@isRefreshing">
                             <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300 @(isRefreshing ? "animate-spin" : "")" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M20.015 4.356v4.992" />
                             </svg>
                         </button>
-                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Wallet Info"
+                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Wallet Info" aria-label="Wallet info"
                                 @onclick="() => showWalletInfo = true">
                             <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
@@ -96,29 +112,55 @@
                         <div class="h-9 w-40 skeleton mt-1 rounded-lg" style="background:rgba(0,102,204,0.1)"></div>
                         <div class="h-4 w-24 skeleton mt-1.5 rounded" style="background:rgba(0,102,204,0.08)"></div>
                     }
+                    else if (hideBalance)
+                    {
+                        <h1 class="text-3xl font-extrabold mt-0.5 balance-mask" aria-label="Balance hidden">••••••</h1>
+                        <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">Balance hidden</p>
+                    }
                     else if (AppState.IsSimpleMode)
                     {
-                        <h1 class="@BalanceSize(AppState.FiatSymbol + FormatFiat(fiatValue)) font-extrabold mt-0.5 tracking-tight whitespace-nowrap">@AppState.FiatSymbol@FormatFiat(fiatValue)</h1>
+                        <h1 class="@BalanceSize(AppState.FiatSymbol + FormatFiat(fiatValue)) font-extrabold mt-0.5 tracking-tight whitespace-nowrap tabular-nums">@AppState.FiatSymbol@FormatFiat(ShownFiat)</h1>
                         @if (isLoadingPrice)
                         {
                             <div class="h-4 w-28 skeleton mt-1 rounded" style="background:rgba(0,102,204,0.08)"></div>
                         }
                         else
                         {
-                            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">@balance.TotalDgb.ToString("N8") DGB</p>
+                            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5 tabular-nums">@ShownDgb.ToString("N8") DGB</p>
                         }
                     }
                     else
                     {
-                        <h1 class="@BalanceSize(balance.TotalDgb.ToString("N8")) font-extrabold mt-0.5 tracking-tight whitespace-nowrap">@balance.TotalDgb.ToString("N8") <span class="text-base font-bold opacity-80">DGB</span></h1>
+                        <h1 class="@BalanceSize(balance.TotalDgb.ToString("N8")) font-extrabold mt-0.5 tracking-tight whitespace-nowrap tabular-nums">@ShownDgb.ToString("N8") <span class="text-base font-bold opacity-80">DGB</span></h1>
                         @if (isLoadingPrice)
                         {
                             <div class="h-4 w-28 skeleton mt-1 rounded" style="background:rgba(0,102,204,0.08)"></div>
                         }
                         else
                         {
-                            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">@AppState.FiatSymbol@FormatFiat(fiatValue) @AppState.FiatCurrency</p>
+                            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5 tabular-nums">@AppState.FiatSymbol@FormatFiat(ShownFiat) @AppState.FiatCurrency</p>
                         }
+                    }
+
+                    @* DGB price move: 24h change and a 7-day sparkline; opens Analytics. Left out when the data is unavailable. *@
+                    @if (market is not null)
+                    {
+                        var up = market.Change24h >= 0;
+                        <a href="/analytics" class="mt-1.5 flex items-center gap-2 w-fit no-underline"
+                           aria-label="DGB price @(up ? "up" : "down") @Math.Abs(market.Change24h).ToString("N2") percent in 24 hours. Open analytics.">
+                            <span class="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full @(up ? "text-green-700 dark:text-green-300 bg-green-500/15" : "text-red-700 dark:text-red-300 bg-red-500/15")">
+                                <span aria-hidden="true">@(up ? "▲" : "▼")</span>@Math.Abs(market.Change24h).ToString("N2")%
+                            </span>
+                            <span class="text-[11px] text-dgb-500/80 dark:text-dgb-300/80">DGB 24h</span>
+                            @if (market.SparkPath is not null)
+                            {
+                                <svg viewBox="0 0 100 24" preserveAspectRatio="none" class="w-16 h-5" aria-hidden="true">
+                                    <path d="@market.SparkPath" fill="none" stroke="@(market.SparkUp ? "#22c55e" : "#ef4444")" stroke-width="1.5"
+                                          stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+                                </svg>
+                                <span class="text-[11px] text-dgb-500/80 dark:text-dgb-300/80">7d</span>
+                            }
+                        </a>
                     }
 
                     @* Wallet address with copy & QR *@
@@ -126,13 +168,13 @@
                     {
                         <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-dgb-300/30 dark:border-white/10">
                             <span class="text-[11px] font-mono text-dgb-500/70 dark:text-dgb-300/80 truncate flex-1">@TruncateAddress(receivingAddress)</span>
-                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Copy address"
+                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Copy address" aria-label="Copy address"
                                     @onclick="CopyAddress">
                                 <svg class="w-3.5 h-3.5 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
                                 </svg>
                             </button>
-                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Show QR code"
+                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Show QR code" aria-label="Show QR code"
                                     @onclick="ShowAddressQr">
                                 <svg class="w-3.5 h-3.5 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
@@ -158,98 +200,49 @@
             }
             </div> @* end card stack *@
 
-            @* Action Buttons — Swipeable Pages *@
-            <div class="relative" @ontouchstart="OnActionTouchStart" @ontouchstart:stopPropagation
-                 @ontouchmove:stopPropagation @ontouchend="OnActionTouchEnd" @ontouchend:stopPropagation>
-                <div @ref="actionScrollRef" class="overflow-x-auto snap-x snap-mandatory scrollbar-hide" style="-webkit-overflow-scrolling: touch;">
-                    <div class="flex w-[200%]">
-                        @* Page 1: Core Actions *@
-                        <div class="w-1/2 flex justify-center gap-5 snap-center shrink-0 mt-3">
-                            <button class="flex flex-col items-center gap-1 group @(isWatchOnly ? "opacity-40 pointer-events-none" : "")" @onclick="OnSend">
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Send</span>
-                            </button>
-                            <button class="flex flex-col items-center gap-1 group" @onclick="OnReceive">
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
-                            </button>
-                            <button class="flex flex-col items-center gap-1 group" @onclick="OnContacts">
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Contacts</span>
-                            </button>
-                            <button class="flex flex-col items-center gap-1 group" @onclick="OnScan">
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 14.625v2.625m3.375-2.625v2.625M16.875 20.25h-3.375v-2.625" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Scan</span>
-                            </button>
-                            <button class="flex flex-col items-center gap-1 group" @onclick="OnMultisig">
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Multisig</span>
-                            </button>
-                        </div>
-                        @* Page 2: Tools & Utilities *@
-                        <div class="w-1/2 flex justify-center gap-5 snap-center shrink-0 mt-3">
-                            <button class="flex flex-col items-center gap-1 group @(isWatchOnly ? "opacity-40 pointer-events-none" : "")" @onclick="OnConsolidate">
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Consolidate</span>
-                            </button>
-                            <button class="flex flex-col items-center gap-1 group" @onclick='() => Nav.NavigateTo("/donation-history")'>
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Donate</span>
-                            </button>
-                            <button class="flex flex-col items-center gap-1 group" @onclick='() => Nav.NavigateTo("/roadmap")'>
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Roadmap</span>
-                            </button>
-                            <button class="flex flex-col items-center gap-1 group" @onclick='() => Nav.NavigateTo("/settings")'>
-                                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.431.992a7.723 7.723 0 0 1 0 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                    </svg>
-                                </div>
-                                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Settings</span>
-                            </button>
-                        </div>
+            @* Action buttons: the four everyday actions plus More, which opens a sheet with the rest. *@
+            <div class="flex justify-center gap-5 mt-3">
+                <button type="button" class="flex flex-col items-center gap-1 group disabled:opacity-40" @onclick="OnSend" disabled="@isWatchOnly">
+                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                        <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+                        </svg>
                     </div>
-                </div>
-                @* Page Indicators *@
-                <div class="flex justify-center gap-1.5 mt-2">
-                    <div class="rounded-full transition-all duration-200 @(actionPage == 0 ? "w-4 h-1 bg-dgb-500" : "w-1.5 h-1 bg-slate-300 dark:bg-dgb-800")"></div>
-                    <div class="rounded-full transition-all duration-200 @(actionPage == 1 ? "w-4 h-1 bg-dgb-500" : "w-1.5 h-1 bg-slate-300 dark:bg-dgb-800")"></div>
-                </div>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Send</span>
+                </button>
+                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnReceive">
+                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                        <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
+                        </svg>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
+                </button>
+                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnScan">
+                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                        <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 14.625v2.625m3.375-2.625v2.625M16.875 20.25h-3.375v-2.625" />
+                        </svg>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Scan</span>
+                </button>
+                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnContacts">
+                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                        <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                        </svg>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Contacts</span>
+                </button>
+                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="() => showMore = true" aria-haspopup="dialog">
+                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                        <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                        </svg>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">More</span>
+                </button>
             </div>
         </div>
 
@@ -294,6 +287,10 @@
                     <button class="text-[11px] text-dgb-500 font-medium shrink-0" @onclick="OnContacts">See all</button>
                 </div>
             }
+
+            @* First-run checklist: one row, opens a sheet. Hides itself when done or dismissed. *@
+            <GettingStarted Ready="checklistReady" WalletType="@WalletService.ActiveWallet?.WalletType" Class="mt-3"
+                            HasFunds="@(transactions.Count > 0 || balance.TotalDgb > 0)" HasContact="hasUserContact" />
 
             @* Baku tip (dismissible); the empty-state message below takes priority when it applies *@
             <BakuMessage MessageId="home.tip" Class="mt-3" />
@@ -377,7 +374,9 @@
             {
                 <div id="tx-list" class="overflow-y-auto thin-scrollbar flex flex-col gap-0.5 rounded-xl">
                     <Virtualize Items="@transactions" Context="tx" OverscanCount="5">
-                        <TransactionRow @key="tx.TxId" Tx="tx" OnOpen="OpenTxDetail" />
+                        <TransactionRow @key="tx.TxId" Tx="tx" OnOpen="OpenTxDetail" Name="@NameFor(tx)"
+                                        FiatPrice="dgbPrice" FiatSymbol="@AppState.FiatSymbol" FiatDecimals="AppState.FiatDecimals"
+                                        HideAmounts="hideBalance" />
                     </Virtualize>
                 </div>
             }
@@ -474,6 +473,50 @@
         </div>
     }
 
+    @* More actions bottom sheet *@
+    @if (showMore)
+    {
+        <div class="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true" aria-label="More actions" @onclick="() => showMore = false">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-enter"></div>
+            <div class="sheet-enter relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px]" @onclick:stopPropagation="true">
+                <div class="flex justify-center pt-3 pb-1">
+                    <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700"></div>
+                </div>
+                <div class="flex items-center justify-between px-5 pb-3">
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">More</h3>
+                    <button type="button" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                            aria-label="Close" @onclick="() => showMore = false">
+                        <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="px-4 pb-4 flex flex-col gap-2">
+                    @foreach (var item in MoreActions)
+                    {
+                        var action = item;
+                        var blocked = action.NeedsKeys && isWatchOnly;
+                        <button type="button" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all text-left press-effect disabled:opacity-40"
+                                disabled="@blocked" @onclick="() => OpenMore(action.Href)">
+                            <div class="w-10 h-10 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="@action.Icon" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white">@action.Label</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">@(blocked ? "Not available for watch-only wallets" : action.Description)</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                            </svg>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
     @* Wallet Picker Bottom Sheet *@
     <WalletPickerSheet IsOpen="@showWalletPicker"
                        OnClose="() => showWalletPicker = false"
@@ -504,6 +547,43 @@
     private bool isWatchOnly => WalletService.ActiveWallet?.WalletType == "xpub";
     private bool showWalletPicker;
     private List<WalletInfo> allWallets = [];
+
+    // Hide-balance preference (kept across sessions on this device)
+    private const string HideBalanceKey = "pref:hideBalance";
+    private bool hideBalance;
+
+    // Count-up when the balance changes: holds the in-between value while animating, null otherwise.
+    private decimal? animatedDgb;
+    private int _animToken;
+    private decimal ShownDgb => animatedDgb ?? balance.TotalDgb;
+    private decimal ShownFiat => ShownDgb * dgbPrice;
+
+    // 24h change + sparkline for the balance card
+    private MarketSnapshot? market;
+
+    // Contact names by address, to title transaction rows ("To Alice")
+    private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
+
+    // Getting-started checklist inputs
+    private bool checklistReady;
+    private bool hasUserContact;
+
+    // More sheet
+    private bool showMore;
+    private sealed record MoreAction(string Label, string Description, string Href, string Icon, bool NeedsKeys = false);
+    private static readonly MoreAction[] MoreActions =
+    [
+        new("Multisig", "Shared wallets that need several signatures", "/multisig",
+            "M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"),
+        new("Consolidate", "Combine small amounts to lower future fees", "/consolidate",
+            "M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5", NeedsKeys: true),
+        new("Analytics", "DGB price and network stats", "/analytics",
+            "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"),
+        new("Donate", "Support the wallet and see past donations", "/donation-history",
+            "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"),
+        new("Roadmap", "What is built and what comes next", "/roadmap",
+            "M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"),
+    ];
 
     // Pull-to-refresh state
     private double pullDistance;
@@ -548,6 +628,9 @@
             ? WalletService.GetReceivingAddressAsync()
             : Task.FromResult("");
 
+        try { hideBalance = await Storage.GetAsync(HideBalanceKey) == "1"; } catch { }
+        _ = LoadMarketAsync();
+
         // Try IndexedDB cache first — instant display
         await LoadFromCacheAsync();
 
@@ -578,7 +661,8 @@
         }
 
         // Contacts & address are fast (IndexedDB) — await them
-        try { quickContacts = (await contactsTask).Take(6).ToList(); } catch { }
+        try { ApplyContacts(await contactsTask); } catch { }
+        checklistReady = true;
         try { receivingAddress = await addressTask; } catch { }
 
         // Start the always-on background refresh poller so incoming funds and new
@@ -594,6 +678,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _animToken++; // stop any running count-up
         // Stop pending-tx confirmation poller
         if (_confirmationPollTimer != null)
         {
@@ -852,7 +937,11 @@
         isLoadingBalance = true;
         try
         {
+            var before = balance.TotalDgb;
+            var hadData = hasCachedData || before > 0;
             balance = await WalletService.GetBalanceAsync();
+            if (hadData && !hideBalance && balance.TotalDgb != before)
+                _ = AnimateBalanceAsync(before, balance.TotalDgb);
         }
         catch { balanceFetchFailed = true; }
         finally { isLoadingBalance = false; StateHasChanged(); }
@@ -904,29 +993,68 @@
     private void OnSend() => Nav.NavigateTo("/send");
     private void OnReceive() => Nav.NavigateTo("/receive");
     private void OnContacts() => Nav.NavigateTo("/contacts");
-    private void OnMultisig() => Nav.NavigateTo("/multisig");
-    private void OnConsolidate() => Nav.NavigateTo("/consolidate");
     private void OnScan() { showScanner = true; }
-    private static void OnActionTouchStart(TouchEventArgs e) { /* stop propagation only */ }
 
-    private ElementReference actionScrollRef;
-    private int actionPage;
-
-    private async Task OnActionTouchEnd(TouchEventArgs e)
+    private void OpenMore(string href)
     {
-        // Small delay for snap-scroll to settle
-        await Task.Delay(150);
+        showMore = false;
+        Nav.NavigateTo(href);
+    }
+
+    private void ApplyContacts(List<Contact> all)
+    {
+        quickContacts = all.Take(6).ToList();
+        hasUserContact = all.Any(c => !c.IsWallet);
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in all)
+            if (!string.IsNullOrWhiteSpace(c.Address)) names[c.Address] = c.Name;
+        contactNames = names;
+    }
+
+    private string? NameFor(TransactionRecord tx) =>
+        tx.CounterpartyAddress is { Length: > 0 } a && contactNames.TryGetValue(a, out var n) ? n : null;
+
+    private async Task ToggleHideBalanceAsync()
+    {
+        hideBalance = !hideBalance;
+        _animToken++; animatedDgb = null;
+        try { await Storage.SetAsync(HideBalanceKey, hideBalance ? "1" : "0"); } catch { }
+    }
+
+    private async Task LoadMarketAsync()
+    {
+        var snapshot = await Market.GetAsync();
+        if (snapshot is null) return;
+        market = snapshot;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Counts the headline balance from the old value to the new one (about 0.6s, ease-out). Skipped under reduced motion.</summary>
+    private async Task AnimateBalanceAsync(decimal from, decimal to)
+    {
+        var token = ++_animToken;
         try
         {
-            var page = await JS.InvokeAsync<int>("domHelpers.getScrollPage", actionScrollRef);
-            if (page != actionPage)
-            {
-                actionPage = page;
-                StateHasChanged();
-            }
+            if (await JS.InvokeAsync<bool>("domHelpers.prefersReducedMotion")) return;
         }
-        catch { }
+        catch { return; }
+
+        const int steps = 18;
+        for (var i = 1; i < steps; i++)
+        {
+            if (token != _animToken) return;
+            var eased = 1 - Math.Pow(1 - i / (double)steps, 3);
+            animatedDgb = from + (to - from) * (decimal)eased;
+            StateHasChanged();
+            await Task.Delay(33);
+        }
+        if (token == _animToken)
+        {
+            animatedDgb = null;
+            StateHasChanged();
+        }
     }
+
     private bool showScanner;
 
     private void OnQrScanned(string data)
@@ -1019,7 +1147,7 @@
             await Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync());
             if (balance.TotalDgb > 0) await LoadPriceAsync();
             await SaveToCacheAsync();
-            quickContacts = (await ContactService.GetAllWithWalletsAsync(WalletService)).Take(6).ToList();
+            ApplyContacts(await ContactService.GetAllWithWalletsAsync(WalletService));
         }
         catch { }
         finally
@@ -1089,7 +1217,7 @@
                 await Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync());
                 if (balance.TotalDgb > 0) await LoadPriceAsync();
                 await SaveToCacheAsync();
-                quickContacts = (await ContactService.GetAllWithWalletsAsync(WalletService)).Take(6).ToList();
+                ApplyContacts(await ContactService.GetAllWithWalletsAsync(WalletService));
             }
             catch { }
             finally
@@ -1133,11 +1261,12 @@
         AppState.NotifyStateChanged();
 
         balance = new WalletBalance();
+        _animToken++; animatedDgb = null;
         transactions = [];
         receivingAddress = "";
         addressQrDataUri = null;
         hasCachedData = false;
-        quickContacts = (await ContactService.GetAllWithWalletsAsync(WalletService)).Take(6).ToList();
+        ApplyContacts(await ContactService.GetAllWithWalletsAsync(WalletService));
 
         // Position on opposite side (no animation)
         isCardAnimating = false;
@@ -1189,11 +1318,12 @@
 
             // Reset UI state for the new wallet
             balance = new WalletBalance();
+        _animToken++; animatedDgb = null;
             transactions = [];
             receivingAddress = "";
             addressQrDataUri = null;
             hasCachedData = false;
-            quickContacts = (await ContactService.GetAllWithWalletsAsync(WalletService)).Take(6).ToList();
+            ApplyContacts(await ContactService.GetAllWithWalletsAsync(WalletService));
 
             // Load cache for the new wallet (keys are now wallet-scoped)
             await LoadFromCacheAsync();

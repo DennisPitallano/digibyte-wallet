@@ -8,7 +8,7 @@
 @inject CommonPasswordList CommonList
 @using DigiByte.Wallet.Storage
 
-<PageTitle>Unlock Wallet</PageTitle>
+<PageTitle>Unlock Wallet — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col items-center justify-center min-h-[75vh] gap-8">
     <div class="flex flex-col items-center gap-3 float-in">
@@ -19,9 +19,9 @@
         <h2 class="text-lg font-bold text-slate-900 dark:text-white">Welcome back</h2>
         @if (!string.IsNullOrEmpty(walletName))
         {
-            <div class="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
+            <div class="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 backdrop-blur-sm">
                 <span class="w-3 h-3 rounded-full flex-shrink-0 shadow-lg" style="background-color: @walletColor; box-shadow: 0 0 8px @(walletColor)66;"></span>
-                <span class="text-base font-bold text-white tracking-wide">@walletName</span>
+                <span class="text-base font-bold text-slate-900 dark:text-white tracking-wide">@walletName</span>
             </div>
         }
             <p class="text-sm text-slate-400 dark:text-slate-500">@(credKind == CredentialKind.Pin ? "Enter your 6-digit PIN" : L.T("unlock.passphrase_prompt"))</p>
@@ -56,18 +56,18 @@
     @if (biometricEnabled)
     {
         <div class="flex flex-col items-center gap-2 slide-up-delay-1">
-            <button class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all press-effect disabled:opacity-50"
+            <button class="w-16 h-16 rounded-2xl bg-white dark:bg-white/10 border border-slate-200 dark:border-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-slate-50 dark:hover:bg-white/20 transition-all press-effect disabled:opacity-50"
                     @onclick="BiometricUnlockAsync" disabled="@isBiometricUnlocking">
                 @if (isBiometricUnlocking)
                 {
-                    <svg class="animate-spin h-7 w-7 text-dgb-400" fill="none" viewBox="0 0 24 24">
+                    <svg class="animate-spin h-7 w-7 text-dgb-500 dark:text-dgb-400" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                     </svg>
                 }
                 else
                 {
-                    <svg class="w-7 h-7 text-dgb-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <svg class="w-7 h-7 text-dgb-500 dark:text-dgb-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a48.667 48.667 0 0 0-1.418 8.773 7.498 7.498 0 0 1-1.332-5.023A7.5 7.5 0 0 1 7.864 4.243ZM14.25 14.25a2.25 2.25 0 0 0-4.5 0v.75a2.25 2.25 0 0 0 4.5 0v-.75Zm-2.25-6.75a4.5 4.5 0 0 0-4.5 4.5v.75a4.5 4.5 0 0 0 9 0v-.75a4.5 4.5 0 0 0-4.5-4.5Z" />
                     </svg>
                 }

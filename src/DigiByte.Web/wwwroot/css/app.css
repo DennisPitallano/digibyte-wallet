@@ -30,14 +30,8 @@ a { text-decoration: none; color: inherit; }
 
 /* ===== Animations ===== */
 
-/* Navigation progress bar */
-@keyframes navpulse {
-    0%   { width: 20%; margin-left: 0; }
-    50%  { width: 50%; margin-left: 25%; }
-    100% { width: 20%; margin-left: 80%; }
-}
-
-/* Page entrance — fade + slide up */
+/* Page entrance: fade only. A transform here would become the containing block
+   for position:fixed modals rendered inside pages, so keep it to opacity. */
 @keyframes page-enter {
     from { opacity: 0; }
     to   { opacity: 1; }
@@ -51,7 +45,7 @@ a { text-decoration: none; color: inherit; }
     from { opacity: 0; }
     to   { opacity: 1; }
 }
-.fade-in           { animation: fade-in 0.4s ease both; }
+.fade-in           { animation: fade-in 0.3s ease both; }
 .fade-in-delay-1   { animation: fade-in 0.4s ease 0.08s both; }
 .fade-in-delay-2   { animation: fade-in 0.4s ease 0.16s both; }
 .fade-in-delay-3   { animation: fade-in 0.4s ease 0.24s both; }
@@ -225,10 +219,6 @@ body:has(.modal-overlay) nav {
 }
 
 /* ===== Skeleton loading ===== */
-@keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-}
 .skeleton {
     background: linear-gradient(90deg,
         rgba(148,163,184,0.1) 25%,
@@ -246,19 +236,20 @@ body:has(.modal-overlay) nav {
     background-size: 200% 100%;
 }
 
-/* ===== Success animation ===== */
-@keyframes check-pop {
-    0% { transform: scale(0); opacity: 0; }
-    50% { transform: scale(1.2); }
-    100% { transform: scale(1); opacity: 1; }
-}
-.check-pop { animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* ===== Safe areas (notch / home indicator; needs viewport-fit=cover) ===== */
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-area-top    { padding-top: calc(1rem + env(safe-area-inset-top, 0px)); }
 
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+/* iOS zooms the page when a focused field's text is under 16px. Pinch-zoom is
+   allowed now, so lift small fields to 16px on iOS only instead of locking zoom. */
+@supports (-webkit-touch-callout: none) {
+    input.text-xs, input.text-sm,
+    textarea.text-xs, textarea.text-sm,
+    select.text-xs, select.text-sm { font-size: 16px; }
 }
-.fade-in { animation: fade-in 0.3s ease both; }
+
+/* Balance hidden by the user: keep layout, hide digits */
+.balance-mask { letter-spacing: 0.15em; }
 
 /* ===== Shake animation (PIN error) ===== */
 @keyframes shake {

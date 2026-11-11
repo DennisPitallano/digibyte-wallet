@@ -1,8 +1,9 @@
-@* One row of a transaction list: direction icon, date, amount and confirmations. Shared by Home and the All transactions page. *@
-<div class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors"
-     role="button" tabindex="0" @onclick="() => OnOpen.InvokeAsync(Tx)">
+@* One row of a transaction list: direction icon, who it was with (when known), time, memo, amount, fiat value and confirmations.
+   Shared by Home and the All transactions page. *@
+<div class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500/40"
+     role="button" tabindex="0" aria-label="@AriaLabel" @onclick="Open" @onkeydown="OnKeyDown">
     <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @(sent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
-        <svg class="w-4 h-4 @(sent ? "text-red-500" : "text-green-500")" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <svg class="w-4 h-4 @(sent ? "text-red-500" : "text-green-500")" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
             @if (sent)
             {
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
@@ -14,14 +15,33 @@
         </svg>
     </div>
     <div class="flex-1 min-w-0">
-        <p class="text-xs font-semibold text-slate-900 dark:text-white">@(sent ? "Sent" : "Received")</p>
-        <p class="text-[10px] text-slate-400 dark:text-slate-500">@Tx.Timestamp.ToString("MMM d, h:mm tt")</p>
-    </div>
-    <div class="text-right">
-        <p class="text-xs font-bold @(sent ? "text-red-500" : "text-green-500")">
-            @(sent ? "-" : "+")@Tx.AmountDgb.ToString("N4") DGB
+        <p class="text-xs font-semibold text-slate-900 dark:text-white truncate">@Title</p>
+        <p class="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+            @WhenText
+            @if (!string.IsNullOrWhiteSpace(Tx.Memo))
+            {
+                <span> · @Tx.Memo</span>
+            }
         </p>
-        <ConfirmationBadge Confirmations="Tx.Confirmations" />
+    </div>
+    <div class="text-right flex-shrink-0">
+        @if (HideAmounts)
+        {
+            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 balance-mask" aria-label="Amount hidden">••••</p>
+        }
+        else
+        {
+            <p class="text-xs font-bold tabular-nums @(sent ? "text-red-500" : "text-green-500")">
+                @(sent ? "-" : "+")@Tx.AmountDgb.ToString("N4") DGB
+            </p>
+        }
+        <div class="flex items-center justify-end gap-1.5">
+            @if (!HideAmounts && FiatPrice > 0)
+            {
+                <span class="text-[10px] tabular-nums text-slate-400 dark:text-slate-500">≈ @FiatSymbol@FiatText</span>
+            }
+            <ConfirmationBadge Confirmations="Tx.Confirmations" />
+        </div>
     </div>
 </div>
 
@@ -29,5 +49,57 @@
     [Parameter, EditorRequired] public TransactionRecord Tx { get; set; } = default!;
     [Parameter] public EventCallback<TransactionRecord> OnOpen { get; set; }
 
+    /// <summary>Contact or address-label name for the other side, when the caller knows one.</summary>
+    [Parameter] public string? Name { get; set; }
+
+    /// <summary>Fiat price of one DGB; 0 leaves the fiat value out.</summary>
+    [Parameter] public decimal FiatPrice { get; set; }
+    [Parameter] public string FiatSymbol { get; set; } = "";
+    [Parameter] public int FiatDecimals { get; set; } = 2;
+
+    /// <summary>The user chose to hide balances: amounts show as dots.</summary>
+    [Parameter] public bool HideAmounts { get; set; }
+
+    /// <summary>Show only the time (the list already has a day heading above this row).</summary>
+    [Parameter] public bool TimeOnly { get; set; }
+
     private bool sent => Tx.Direction == TransactionDirection.Sent;
+
+    private string DisplayName => !string.IsNullOrWhiteSpace(Name) ? Name! : Tx.CounterpartyName ?? "";
+
+    private string Title => DisplayName.Length > 0
+        ? (sent ? $"To {DisplayName}" : $"From {DisplayName}")
+        : (sent ? "Sent" : "Received");
+
+    private string WhenText
+    {
+        get
+        {
+            var local = Tx.Timestamp.ToLocalTime();
+            if (TimeOnly) return local.ToString("h:mm tt");
+            var today = DateTime.Now.Date;
+            if (local.Date == today) return $"Today, {local:h:mm tt}";
+            if (local.Date == today.AddDays(-1)) return $"Yesterday, {local:h:mm tt}";
+            return local.ToString(local.Year == today.Year ? "MMM d, h:mm tt" : "MMM d, yyyy");
+        }
+    }
+
+    private string FiatText
+    {
+        get
+        {
+            var v = Tx.AmountDgb * FiatPrice;
+            if (v >= 1m) return v.ToString("N" + FiatDecimals);
+            return v >= 0.01m ? v.ToString("N2") : "<0.01";
+        }
+    }
+
+    private string AriaLabel => HideAmounts
+        ? $"{Title}, {WhenText}, amount hidden"
+        : $"{Title}, {Tx.AmountDgb:N4} DGB, {WhenText}";
+
+    private Task Open() => OnOpen.InvokeAsync(Tx);
+
+    private Task OnKeyDown(KeyboardEventArgs e) =>
+        e.Key is "Enter" or " " ? Open() : Task.CompletedTask;
 }

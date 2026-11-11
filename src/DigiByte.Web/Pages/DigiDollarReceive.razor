@@ -9,15 +9,12 @@
 @inject NotificationService Notifications
 @inject AppState AppState
 
-<PageTitle>@L.T("dd.receive.title")</PageTitle>
+<PageTitle>@L.T("dd.receive.title") — DigiByte Wallet</PageTitle>
 
 <AuthGuard>
 <DigiDollarRouteGuard>
     <div class="flex flex-col items-center gap-5">
-        <div class="flex items-center justify-between w-full slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">@L.T("dd.receive.title")</h2>
-            <a class="text-xs font-medium text-dgb-500" href="/digidollar">@L.T("dd.back")</a>
-        </div>
+        <PageHeader Title="@L.T("dd.receive.title")" BackLabel="@L.T("dd.back")" BackHref="/digidollar" />
 
         <div class="w-full flex flex-col gap-2">
             <DigiDollarHealthBanner />

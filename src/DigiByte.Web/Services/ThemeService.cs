@@ -6,8 +6,13 @@ public class ThemeService
 {
     private readonly IJSRuntime _js;
     private bool _isDark;
+    private string _mode = "dark";
 
+    /// <summary>True when the page is currently drawn dark. In "system" mode this is the value at the last read.</summary>
     public bool IsDark => _isDark;
+
+    /// <summary>"light", "dark" or "system" (follow the device).</summary>
+    public string Mode => _mode;
 
     public event Action? OnThemeChanged;
 
@@ -16,22 +21,21 @@ public class ThemeService
         _js = js;
     }
 
+    /// <summary>Reads the saved choice. Call before showing theme controls; safe to call more than once.</summary>
     public async Task InitializeAsync()
     {
-        _isDark = await _js.InvokeAsync<bool>("themeManager.init");
+        _mode = await _js.InvokeAsync<string>("themeManager.getMode");
+        _isDark = await _js.InvokeAsync<bool>("themeManager.isDark");
     }
 
-    public async Task ToggleAsync()
+    public async Task SetModeAsync(string mode)
     {
-        _isDark = !_isDark;
-        await _js.InvokeVoidAsync("themeManager.setDark", _isDark);
+        _mode = mode is "light" or "system" ? mode : "dark";
+        _isDark = await _js.InvokeAsync<bool>("themeManager.setMode", _mode);
         OnThemeChanged?.Invoke();
     }
 
-    public async Task SetDarkAsync(bool isDark)
-    {
-        _isDark = isDark;
-        await _js.InvokeVoidAsync("themeManager.setDark", isDark);
-        OnThemeChanged?.Invoke();
-    }
+    public Task ToggleAsync() => SetModeAsync(_isDark ? "light" : "dark");
+
+    public Task SetDarkAsync(bool isDark) => SetModeAsync(isDark ? "dark" : "light");
 }

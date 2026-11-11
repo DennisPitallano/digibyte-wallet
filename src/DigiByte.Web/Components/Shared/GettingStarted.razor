@@ -1,0 +1,157 @@
+@* First-run checklist for Home: one compact row with progress that opens a sheet listing the steps.
+   Shows until every step is done or the user hides it (remembered on this device). *@
+@inject NavigationManager Nav
+@inject ISecureStorage Storage
+@inject BiometricService Biometric
+
+@if (Ready && loaded && !dismissed && doneCount < steps.Count)
+{
+    <button type="button" class="w-full flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-dgb-200 dark:border-dgb-700/60 hover:border-dgb-300 dark:hover:border-dgb-600 transition-colors text-left press-effect @Class"
+            aria-haspopup="dialog" @onclick="() => open = true">
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-semibold text-slate-900 dark:text-white">Getting started</span>
+                <span class="text-[11px] font-medium tabular-nums text-slate-500 dark:text-slate-400">@doneCount of @steps.Count done</span>
+            </div>
+            <div class="mt-1.5 h-1.5 rounded-full bg-slate-100 dark:bg-dgb-800 overflow-hidden" role="progressbar"
+                 aria-label="Getting started progress" aria-valuemin="0" aria-valuemax="@steps.Count" aria-valuenow="@doneCount">
+                <div class="h-full rounded-full bg-dgb-500 transition-all duration-500" style="width: @(doneCount * 100 / steps.Count)%"></div>
+            </div>
+        </div>
+        <svg class="w-4 h-4 text-slate-300 dark:text-slate-600 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+    </button>
+
+    @if (open)
+    {
+        <div class="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true" aria-label="Getting started" @onclick="() => open = false">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-enter"></div>
+            <div class="sheet-enter relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px]" @onclick:stopPropagation="true">
+                <div class="flex justify-center pt-3 pb-1">
+                    <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700"></div>
+                </div>
+                <div class="flex items-center justify-between px-5 pb-3">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Getting started</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@doneCount of @steps.Count done</p>
+                    </div>
+                    <button type="button" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                            aria-label="Close" @onclick="() => open = false">
+                        <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="px-4 flex flex-col gap-2">
+                    @foreach (var item in steps)
+                    {
+                        var step = item;
+                        <button type="button" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all text-left press-effect"
+                                @onclick="() => Go(step.Href)">
+                            @if (step.Done)
+                            {
+                                <span class="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                    </svg>
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="w-7 h-7 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></span>
+                            }
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold @(step.Done ? "text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white")">
+                                    @step.Title<span class="sr-only">@(step.Done ? " (done)" : " (to do)")</span>
+                                </p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">@step.Description</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                            </svg>
+                        </button>
+                    }
+                </div>
+                <div class="flex justify-center py-3">
+                    <button type="button" class="text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors px-3 py-1.5"
+                            @onclick="DismissAsync">Don't show this again</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private const string DismissedKey = "pref:gettingStartedDismissed";
+
+    /// <summary>False while Home is still loading, so the list never flashes steps as undone.</summary>
+    [Parameter] public bool Ready { get; set; }
+
+    /// <summary>"privatekey", "xpub", or anything else for a seed (HD) wallet.</summary>
+    [Parameter] public string? WalletType { get; set; }
+
+    [Parameter] public bool HasFunds { get; set; }
+    [Parameter] public bool HasContact { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private sealed record Step(string Title, string Description, string Href, bool Done);
+
+    private List<Step> steps = [];
+    private int doneCount;
+    private bool loaded;
+    private bool dismissed;
+    private bool open;
+    private bool biometricSupported;
+    private bool biometricEnabled;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { dismissed = await Storage.GetAsync(DismissedKey) == "1"; } catch { }
+        if (!dismissed)
+        {
+            try
+            {
+                biometricSupported = await Biometric.IsSupportedAsync();
+                if (biometricSupported) biometricEnabled = await Biometric.IsEnabledAsync();
+            }
+            catch { }
+        }
+        loaded = true;
+        Build();
+    }
+
+    protected override void OnParametersSet() => Build();
+
+    private void Build()
+    {
+        var watchOnly = WalletType == "xpub";
+        var list = new List<Step>();
+
+        // A seed wallet's phrase was confirmed when it was created, or typed in when it was recovered.
+        if (!watchOnly && WalletType != "privatekey")
+            list.Add(new("Recovery phrase saved", "View it again any time, and keep a copy offline", "/backup-seed", true));
+
+        list.Add(new("Receive your first DGB", "Share your address or QR code", "/receive", HasFunds));
+        list.Add(new("Add a contact", "Send to a name instead of a long address", "/contacts", HasContact));
+
+        if (biometricSupported && !watchOnly)
+            list.Add(new("Turn on biometric unlock", "Fingerprint or face, set up in Settings", "/settings", biometricEnabled));
+
+        steps = list;
+        doneCount = list.Count(s => s.Done);
+    }
+
+    private void Go(string href)
+    {
+        open = false;
+        Nav.NavigateTo(href);
+    }
+
+    private async Task DismissAsync()
+    {
+        dismissed = true;
+        open = false;
+        try { await Storage.SetAsync(DismissedKey, "1"); } catch { }
+    }
+}

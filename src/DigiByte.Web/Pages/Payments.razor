@@ -5,13 +5,13 @@
 @inject IJSRuntime JS
 @inject IConfiguration Config
 
-<PageTitle>Payments</PageTitle>
+<PageTitle>Payments — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Payments</h2>
         <button class="w-9 h-9 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-colors press-effect"
-                @onclick="ShowCreateForm">
+                aria-label="New payment request" @onclick="ShowCreateForm">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -26,7 +26,7 @@
             <div class="flex flex-col gap-1">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount (optional)</label>
                 <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl">
-                    <input type="number" @bind="createAmount" step="0.00000001" min="0" placeholder="0.00"
+                    <input type="number" inputmode="decimal" @bind="createAmount" step="0.00000001" min="0" placeholder="0.00"
                            class="flex-1 px-3 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
                     <span class="pr-3 text-sm font-bold text-dgb-500">DGB</span>
                 </div>

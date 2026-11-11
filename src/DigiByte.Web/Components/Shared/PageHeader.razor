@@ -1,0 +1,59 @@
+@* Shared page header for pages opened from another page: a Back link, the title (with an optional subtitle),
+   and an optional action on the right (child content). Tab roots (Wallet, Pay, P2P, ID, Settings) do not use it. *@
+@inject NavigationManager Nav
+@inject AppState AppState
+@inject IJSRuntime JS
+
+<div class="flex flex-col gap-1.5 w-full slide-up @Class">
+    <button type="button" class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit"
+            @onclick="GoBackAsync">
+        <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
+        @BackLabel
+    </button>
+    <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+            @if (TitleContent is not null)
+            {
+                @TitleContent
+            }
+            else
+            {
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">@Title</h2>
+            }
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">@Subtitle</p>
+            }
+        </div>
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+
+    /// <summary>Replaces the plain title, for headers with a logo or badge next to it.</summary>
+    [Parameter] public RenderFragment? TitleContent { get; set; }
+
+    /// <summary>Optional action shown on the right of the title row.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public string BackLabel { get; set; } = "Back";
+
+    /// <summary>Where Back goes when the page was opened directly (shared link, reload), so there is no in-app page to return to.</summary>
+    [Parameter] public string BackHref { get; set; } = "/";
+
+    [Parameter] public string? Class { get; set; }
+
+    private async Task GoBackAsync()
+    {
+        // history.back() only when the previous entry is a page of this app; otherwise it would leave the wallet.
+        if (AppState.InAppNavigations > 0)
+            await JS.InvokeVoidAsync("history.back");
+        else
+            Nav.NavigateTo(BackHref);
+    }
+}
