@@ -4,14 +4,14 @@
 @inject AppState AppState
 @inject IJSRuntime JS
 
-<PageTitle>Receive DGB</PageTitle>
+<PageTitle>Receive DGB — DigiByte Wallet</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col items-center gap-5">
     <div class="flex items-center justify-between w-full slide-up">
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Receive DigiByte</h2>
         @{ var recvWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
-        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
             <div class="w-2 h-2 rounded-full" style="background-color: @recvWalletColor;"></div>
             <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
         </div>
@@ -96,7 +96,7 @@
                            class="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 outline-none" />
                     @if (!string.IsNullOrEmpty(addressLabel))
                     {
-                        <button class="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" @onclick="ClearLabel" title="Remove label">
+                        <button class="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" @onclick="ClearLabel" title="Remove label" aria-label="Remove label">
                             <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                             </svg>

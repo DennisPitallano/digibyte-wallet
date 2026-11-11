@@ -1,21 +1,46 @@
 @page "/transactions"
 @inject WalletService WalletService
+@inject ContactService ContactService
+@inject IBlockchainService Blockchain
+@inject MemoryCacheService Cache
+@inject ISecureStorage Storage
+@inject AppState AppState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<PageTitle>All transactions — DigiByte Wallet</PageTitle>
+<PageTitle>All Transactions — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-3">
     <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-1" @onclick="GoBack">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
         Back
     </button>
 
     <div class="slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">All transactions</h2>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">All Transactions</h2>
         @if (!loading && !failed)
         {
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">@all.Count in total</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                @(shown.Count == all.Count ? $"{all.Count} in total" : $"{shown.Count} of {all.Count}")
+            </p>
+        }
+    </div>
+
+    @* Search: name, address, memo, transaction ID or amount *@
+    <div class="flex items-center gap-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-3 focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all">
+        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input type="search" value="@query" @oninput="OnQueryInput" placeholder="Search name, address, memo or amount"
+               aria-label="Search transactions" autocomplete="off" spellcheck="false"
+               class="flex-1 min-w-0 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none" />
+        @if (query.Length > 0)
+        {
+            <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" aria-label="Clear search" @onclick="ClearQuery">
+                <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
         }
     </div>
 
@@ -48,15 +73,27 @@
     else if (shown.Count == 0)
     {
         <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
-            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">@(all.Count == 0 ? "No transactions yet" : "No transactions match this filter")</p>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                @(all.Count == 0 ? "No transactions yet" : query.Length > 0 ? $"Nothing matches \"{query}\"" : "No transactions match this filter")
+            </p>
+            @if (all.Count > 0 && query.Length > 0)
+            {
+                <button class="mt-2 text-xs font-semibold text-dgb-500 hover:text-dgb-600" @onclick="ClearQuery">Clear search</button>
+            }
         </div>
     }
     else
     {
         <div class="flex flex-col gap-0.5">
-            @foreach (var tx in shown.Take(visibleCount))
+            @foreach (var day in shown.Take(visibleCount).GroupBy(t => t.Timestamp.ToLocalTime().Date))
             {
-                <TransactionRow @key="tx.TxId" Tx="tx" OnOpen="OpenTx" />
+                <h3 @key="day.Key" class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-2 mb-1 px-1">@DayLabel(day.Key)</h3>
+                @foreach (var tx in day)
+                {
+                    <TransactionRow @key="tx.TxId" Tx="tx" OnOpen="OpenTx" Name="@NameFor(tx)" TimeOnly="true"
+                                    FiatPrice="price" FiatSymbol="@AppState.FiatSymbol" FiatDecimals="AppState.FiatDecimals"
+                                    HideAmounts="hideAmounts" />
+                }
             }
         </div>
         @if (shown.Count > visibleCount)
@@ -81,12 +118,23 @@
     private List<TransactionRecord> all = [];
     private List<TransactionRecord> shown = [];
     private string filter = "all";
+    private string query = "";
     private int visibleCount = PageSize;
     private bool loading = true;
     private bool failed;
     private TransactionRecord? selected;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    // Display extras; each is optional and the list works without them.
+    private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
+    private decimal price;
+    private bool hideAmounts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { hideAmounts = await Storage.GetAsync("pref:hideBalance") == "1"; } catch { }
+        _ = LoadExtrasAsync();
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -109,6 +157,33 @@
         }
     }
 
+    /// <summary>Contact names and the fiat price: nice to have, so failures are ignored.</summary>
+    private async Task LoadExtrasAsync()
+    {
+        try
+        {
+            var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in await ContactService.GetAllWithWalletsAsync(WalletService))
+                if (!string.IsNullOrWhiteSpace(c.Address)) names[c.Address] = c.Name;
+            contactNames = names;
+        }
+        catch { }
+
+        try
+        {
+            var p = await Cache.GetOrFetchAsync(
+                $"price:{AppState.FiatCurrency}",
+                () => Blockchain.GetDgbPriceAsync(AppState.FiatCurrency),
+                TimeSpan.FromMinutes(5));
+            if (p > 0) price = p;
+        }
+        catch { }
+
+        // Search matches contact names too, so re-run it now that they are loaded.
+        if (!loading && !failed) ApplyFilter();
+        await InvokeAsync(StateHasChanged);
+    }
+
     private void SetFilter(string key)
     {
         filter = key;
@@ -116,12 +191,52 @@
         ApplyFilter();
     }
 
-    private void ApplyFilter() => shown = filter switch
+    private void OnQueryInput(ChangeEventArgs e)
     {
-        "received" => all.Where(t => t.Direction == TransactionDirection.Received).ToList(),
-        "sent" => all.Where(t => t.Direction == TransactionDirection.Sent).ToList(),
-        _ => all,
-    };
+        query = (e.Value?.ToString() ?? "").Trim();
+        visibleCount = PageSize;
+        ApplyFilter();
+    }
+
+    private void ClearQuery()
+    {
+        query = "";
+        visibleCount = PageSize;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<TransactionRecord> result = filter switch
+        {
+            "received" => all.Where(t => t.Direction == TransactionDirection.Received),
+            "sent" => all.Where(t => t.Direction == TransactionDirection.Sent),
+            _ => all,
+        };
+        if (query.Length > 0) result = result.Where(Matches);
+        shown = result.ToList();
+    }
+
+    private bool Matches(TransactionRecord t)
+    {
+        const StringComparison ci = StringComparison.OrdinalIgnoreCase;
+        return (NameFor(t)?.Contains(query, ci) ?? false)
+            || (t.CounterpartyAddress?.Contains(query, ci) ?? false)
+            || (t.Memo?.Contains(query, ci) ?? false)
+            || t.TxId.Contains(query, ci)
+            || t.AmountDgb.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture).Contains(query, ci);
+    }
+
+    private string? NameFor(TransactionRecord tx) =>
+        tx.CounterpartyAddress is { Length: > 0 } a && contactNames.TryGetValue(a, out var n) ? n : tx.CounterpartyName;
+
+    private static string DayLabel(DateTime day)
+    {
+        var today = DateTime.Now.Date;
+        if (day == today) return "Today";
+        if (day == today.AddDays(-1)) return "Yesterday";
+        return day.ToString(day.Year == today.Year ? "ddd, MMM d" : "MMM d, yyyy");
+    }
 
     private void OpenTx(TransactionRecord tx) => selected = tx;
 

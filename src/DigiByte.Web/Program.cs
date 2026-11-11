@@ -81,6 +81,7 @@ builder.Services.AddScoped<MultisigWalletService>();
 builder.Services.AddScoped<BiometricService>();
 builder.Services.AddScoped<SpendingLimitService>();
 builder.Services.AddScoped<AddressLabelService>();
+builder.Services.AddScoped<MarketSnapshotService>();
 
 // ── Blockchain service chain: Own Node (pruned) → Explorer list (with fallback) ──
 // Mock demo data is only available in Development — production throws if all backends fail.

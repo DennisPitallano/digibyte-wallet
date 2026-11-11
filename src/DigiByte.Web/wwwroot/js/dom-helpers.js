@@ -58,6 +58,10 @@ window.domHelpers = {
             root.__trap = null;
         }
     },
+    // True when the user asked the OS for less motion; count-up animations are skipped.
+    prefersReducedMotion: function () {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    },
     // True when the tab is backgrounded (minimized, switched away, screen off).
     // Used by Home page poller to pause network refreshes while hidden.
     isHidden: function () {

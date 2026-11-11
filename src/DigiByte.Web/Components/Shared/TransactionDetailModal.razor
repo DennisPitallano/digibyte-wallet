@@ -23,7 +23,7 @@
                 </div>
                 <div>
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white">@(IsSent ? "Sent" : "Received")</h3>
-                    <p class="text-xs text-slate-400 dark:text-slate-500">@Tx.Timestamp.ToString("MMMM d, yyyy h:mm tt")</p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">@Tx.Timestamp.ToLocalTime().ToString("MMMM d, yyyy h:mm tt")</p>
                 </div>
             </div>
 
@@ -73,12 +73,12 @@
                                     <input type="text" @bind="editLabelText" @bind:event="oninput"
                                            placeholder="e.g. Alice, Rent, Shop..."
                                            class="flex-1 px-2 py-1 text-[10px] bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-dgb-500/30" />
-                                    <button class="text-green-500 press-effect" @onclick="SaveLabel" title="Save">
+                                    <button class="text-green-500 press-effect" @onclick="SaveLabel" title="Save" aria-label="Save">
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                                         </svg>
                                     </button>
-                                    <button class="text-slate-400 press-effect" @onclick="CancelEditLabel" title="Cancel">
+                                    <button class="text-slate-400 press-effect" @onclick="CancelEditLabel" title="Cancel" aria-label="Cancel">
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                                         </svg>
@@ -126,7 +126,7 @@
                     <span class="text-slate-400 dark:text-slate-500 flex-shrink-0">TX ID</span>
                     <div class="flex items-center gap-1">
                         <span class="font-mono text-slate-700 dark:text-slate-300 text-[10px] truncate max-w-[160px]">@Tx.TxId</span>
-                        <button class="text-dgb-500 hover:text-dgb-600 flex-shrink-0 press-effect" @onclick="CopyTxId" title="Copy">
+                        <button class="text-dgb-500 hover:text-dgb-600 flex-shrink-0 press-effect" @onclick="CopyTxId" title="Copy" aria-label="Copy">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
                             </svg>

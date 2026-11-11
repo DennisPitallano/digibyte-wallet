@@ -64,7 +64,7 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400">@(settings.Enabled ? "Active" : "Disabled")</p>
                 </div>
             </div>
-            <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(settings.Enabled ? "bg-dgb-500" : "bg-slate-300")"
+            <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(settings.Enabled ? "bg-dgb-500" : "bg-slate-300 dark:bg-dgb-700")"
                     @onclick="ToggleEnabled">
                 <span class="absolute top-1 left-1 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200 @(settings.Enabled ? "translate-x-5" : "translate-x-0")"></span>
             </button>
@@ -84,7 +84,7 @@
                         </div>
                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200">Daily</p>
                     </div>
-                    <input type="number" min="0" step="0.01" value="@settings.DailyLimitDgb"
+                    <input type="number" inputmode="decimal" min="0" step="0.01" value="@settings.DailyLimitDgb"
                            @onchange="(e) => OnLimitChanged(e, nameof(settings.DailyLimitDgb))"
                            placeholder="0"
                            class="w-28 text-right px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-1 focus:ring-dgb-500/20" />
@@ -98,7 +98,7 @@
                         </div>
                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200">Weekly</p>
                     </div>
-                    <input type="number" min="0" step="0.1" value="@settings.WeeklyLimitDgb"
+                    <input type="number" inputmode="decimal" min="0" step="0.1" value="@settings.WeeklyLimitDgb"
                            @onchange="(e) => OnLimitChanged(e, nameof(settings.WeeklyLimitDgb))"
                            placeholder="0"
                            class="w-28 text-right px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-1 focus:ring-dgb-500/20" />
@@ -112,7 +112,7 @@
                         </div>
                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200">Monthly</p>
                     </div>
-                    <input type="number" min="0" step="1" value="@settings.MonthlyLimitDgb"
+                    <input type="number" inputmode="decimal" min="0" step="1" value="@settings.MonthlyLimitDgb"
                            @onchange="(e) => OnLimitChanged(e, nameof(settings.MonthlyLimitDgb))"
                            placeholder="0"
                            class="w-28 text-right px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-1 focus:ring-dgb-500/20" />
@@ -149,7 +149,7 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400">@(settings.HardBlock ? "Sends over limit are blocked" : "Warn only — sends still allowed")</p>
                     </div>
                 </div>
-                <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(settings.HardBlock ? "bg-red-500" : "bg-slate-300")"
+                <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(settings.HardBlock ? "bg-red-500" : "bg-slate-300 dark:bg-dgb-700")"
                         @onclick="ToggleHardBlock">
                     <span class="absolute top-1 left-1 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200 @(settings.HardBlock ? "translate-x-5" : "translate-x-0")"></span>
                 </button>
