@@ -288,6 +288,10 @@
                 </div>
             }
 
+            @* First-run checklist: one row, opens a sheet. Hides itself when done or dismissed. *@
+            <GettingStarted Ready="checklistReady" WalletType="@WalletService.ActiveWallet?.WalletType" Class="mt-3"
+                            HasFunds="@(transactions.Count > 0 || balance.TotalDgb > 0)" HasContact="hasUserContact" />
+
             @* Baku tip (dismissible); the empty-state message below takes priority when it applies *@
             <BakuMessage MessageId="home.tip" Class="mt-3" />
 
@@ -560,6 +564,10 @@
     // Contact names by address, to title transaction rows ("To Alice")
     private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
 
+    // Getting-started checklist inputs
+    private bool checklistReady;
+    private bool hasUserContact;
+
     // More sheet
     private bool showMore;
     private sealed record MoreAction(string Label, string Description, string Href, string Icon, bool NeedsKeys = false);
@@ -654,6 +662,7 @@
 
         // Contacts & address are fast (IndexedDB) — await them
         try { ApplyContacts(await contactsTask); } catch { }
+        checklistReady = true;
         try { receivingAddress = await addressTask; } catch { }
 
         // Start the always-on background refresh poller so incoming funds and new
@@ -995,6 +1004,7 @@
     private void ApplyContacts(List<Contact> all)
     {
         quickContacts = all.Take(6).ToList();
+        hasUserContact = all.Any(c => !c.IsWallet);
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in all)
             if (!string.IsNullOrWhiteSpace(c.Address)) names[c.Address] = c.Name;

@@ -7,15 +7,14 @@
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Multisig Wallets</h2>
+    <PageHeader Title="Multisig Wallets">
         <button class="p-2 rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white transition-colors press-effect"
                 @onclick='() => Nav.NavigateTo("/multisig/create")'>
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
         </button>
-    </div>
+    </PageHeader>
 
     @if (isLoading)
     {

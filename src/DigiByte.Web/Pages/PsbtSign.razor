@@ -20,12 +20,8 @@
 
 <AuthGuard>
 <div class="flex flex-col gap-5">
-    <div class="slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Sign a PSBT</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Review a partially signed transaction made elsewhere, then add this wallet's signatures.
-        </p>
-    </div>
+    <PageHeader Title="Sign a PSBT" BackHref="/settings"
+                Subtitle="Review a partially signed transaction made elsewhere, then add this wallet's signatures." />
 
     @if (AppState.IsSimpleMode)
     {

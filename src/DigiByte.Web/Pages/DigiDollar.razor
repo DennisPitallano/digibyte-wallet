@@ -18,7 +18,8 @@
         var vis = Dd.Visibility;
     }
     <div class="flex flex-col gap-4">
-        <div class="flex items-center justify-between slide-up">
+        <PageHeader BackLabel="@L.T("dd.back")">
+            <TitleContent>
             <div class="flex items-center gap-2.5">
                 <DigiDollarLogo Size="30" />
                 <h2 class="text-xl font-bold text-slate-900 dark:text-white">@L.T("dd.title")</h2>
@@ -27,12 +28,15 @@
                     <span class="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-full uppercase">@AppState.NetworkMode</span>
                 }
             </div>
+            </TitleContent>
+            <ChildContent>
             <button class="w-9 h-9 rounded-xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center press-effect text-slate-500 dark:text-slate-400"
                     aria-label="@L.T("dd.refresh")" title="@L.T("dd.refresh")" disabled="@Dd.IsRefreshing"
                     @onclick="RefreshAsync">
                 <DdIcon Name="refresh" Class="@("w-4 h-4 " + (Dd.IsRefreshing ? "animate-spin" : ""))" StrokeWidth="2" />
             </button>
-        </div>
+            </ChildContent>
+        </PageHeader>
 
         <DigiDollarHealthBanner OracleDetails="false" />
         <BakuMessage MessageId="dd.tip" />

@@ -33,6 +33,9 @@ public class AppState : IDisposable
     public bool IsTestnet { get; set; }
     public string NetworkMode { get; set; } = "mainnet";
 
+    /// <summary>Route changes since the app loaded. Above zero means history.back() stays inside the app.</summary>
+    public int InAppNavigations { get; set; }
+
     public event Action? OnChange;
     public event Action? OnAutoLocked;
 

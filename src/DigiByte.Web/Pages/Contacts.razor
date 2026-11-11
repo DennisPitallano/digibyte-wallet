@@ -5,15 +5,14 @@
 <PageTitle>Contacts — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Contacts</h2>
+    <PageHeader Title="Contacts">
         <button class="w-9 h-9 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-colors press-effect"
                 @onclick="ShowAddForm">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
         </button>
-    </div>
+    </PageHeader>
 
     @* Search *@
     <div class="slide-up-delay-1">

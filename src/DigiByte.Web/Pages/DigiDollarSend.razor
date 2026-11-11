@@ -7,10 +7,7 @@
 <AuthGuard>
 <DigiDollarRouteGuard RequireSend="true">
     <div class="flex flex-col gap-5">
-        <div class="flex items-center justify-between slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">@L.T("dd.send.title")</h2>
-            <a class="text-xs font-medium text-dgb-500" href="/digidollar">@L.T("dd.back")</a>
-        </div>
+        <PageHeader Title="@L.T("dd.send.title")" BackLabel="@L.T("dd.back")" BackHref="/digidollar" />
         <DigiDollarHealthBanner />
         <DigiDollarPriceLine />
         <DigiDollarSendForm />
