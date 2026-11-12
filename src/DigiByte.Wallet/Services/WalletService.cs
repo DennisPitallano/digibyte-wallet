@@ -2744,6 +2744,22 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     }
 
     /// <summary>
+    /// Change the wallet card's surface finish and persist it. An unknown finish falls back to the default.
+    /// </summary>
+    public async Task ChangeWalletTextureAsync(string walletId, string texture)
+    {
+        var info = await GetWalletAsync(walletId);
+        if (info == null) return;
+
+        texture = WalletInfo.NormalizeTexture(texture);
+        info.Texture = texture;
+        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+
+        if (_sessions.TryGetValue(walletId, out var session))
+            session.Info.Texture = texture;
+    }
+
+    /// <summary>
     /// Strips the 6-char bech32 checksum from DigiByte SegWit addresses so that
     /// addresses with different checksum variants (bech32 vs bech32m) compare equal
     /// when they encode the same witness program.
