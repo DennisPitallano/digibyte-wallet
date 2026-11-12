@@ -3,6 +3,8 @@
 @inject ThemeService Theme
 @inject NavigationManager Nav
 @inject AppState AppState
+@inject WalletService WalletService
+@inject IJSRuntime JS
 
 <ToastContainer />
 <BakuWarningDialog />
@@ -36,7 +38,7 @@
         <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
              @onclick:stopPropagation="true">
             <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Version Info</h3>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">@(autoWhatsNew ? "Updated to v" + AppVersion.Version : "Version Info")</h3>
                 <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
                         @onclick="() => showVersionInfo = false">
                     <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -121,6 +123,29 @@
     private static readonly string[] HiddenNavPaths = ["/welcome", "/create-wallet", "/recover-wallet", "/unlock", "/about", "/roadmap", "/sponsors", "/analytics", "/deployment", "/help", "/help/multisig", "/multisig/room", "/recovery"];
     private bool showVersionInfo;
 
+    // "What's New" opens by itself once after an update (never on a fresh install).
+    private const string SeenVersionKey = "dgb-seen-version";
+    private bool autoWhatsNew;
+    private bool whatsNewChecked;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Wait until the wallet is unlocked and Home is showing, so it never covers the unlock or setup screens.
+        if (whatsNewChecked || CurrentPath != "/" || !WalletService.IsUnlocked) return;
+        whatsNewChecked = true;
+        try
+        {
+            var seen = await JS.InvokeAsync<string?>("localStorage.getItem", SeenVersionKey);
+            if (seen == AppVersion.Version) return;
+            await JS.InvokeVoidAsync("localStorage.setItem", SeenVersionKey, AppVersion.Version);
+            if (seen is null) return; // first run on this device: nothing is "new" yet
+            autoWhatsNew = true;
+            showVersionInfo = true;
+            StateHasChanged();
+        }
+        catch { }
+    }
+
     private string CurrentPath => new Uri(Nav.Uri).AbsolutePath;
 
     private bool ShowNav
@@ -144,6 +169,7 @@
     {
         InvokeAsync(() =>
         {
+            autoWhatsNew = false;
             showVersionInfo = true;
             StateHasChanged();
         });

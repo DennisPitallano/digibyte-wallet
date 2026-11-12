@@ -139,7 +139,7 @@
                     @if (!string.IsNullOrWhiteSpace(mnemonicInput))
                     {
                         var wc = mnemonicInput.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 text-right">@wc / @(wc > 12 ? "24" : "12") words</p>
+                        <p class="text-[11px] text-slate-400 dark:text-slate-500 text-right">@wc / @(wc > 12 ? "24" : "12") words</p>
                     }
                 }
                 else
@@ -148,10 +148,10 @@
                     <div class="flex items-center gap-2 mb-1">
                         <p class="text-xs text-slate-400 dark:text-slate-500">Words: @wordCount</p>
                         <div class="flex-1"></div>
-                        <button type="button" class="text-[10px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
+                        <button type="button" class="text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
                                 @onclick="() => SetWordCount(12)">12</button>
                         <span class="text-slate-300 dark:text-slate-600">|</span>
-                        <button type="button" class="text-[10px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
+                        <button type="button" class="text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
                                 @onclick="() => SetWordCount(24)">24</button>
                     </div>
                     <div class="grid grid-cols-3 gap-2">
@@ -159,7 +159,7 @@
                         {
                             var idx = i;
                             <div class="relative flex items-center gap-1.5">
-                                <span class="text-[10px] text-slate-400 dark:text-slate-500 w-5 text-right font-mono">@((idx + 1).ToString())</span>
+                                <span class="text-[11px] text-slate-400 dark:text-slate-500 w-5 text-right font-mono">@((idx + 1).ToString())</span>
                                 <input type="@(showMnemonic ? "text" : "password")"
                                        value="@wordInputs[idx]"
                                        @oninput="(e) => OnWordInput(idx, e.Value?.ToString() ?? string.Empty)"
@@ -198,7 +198,7 @@
 
                 @if (mnemonicError != null)
                 {
-                    <p class="text-sm text-red-500 font-medium">@mnemonicError</p>
+                    <InlineError Message="@mnemonicError" />
                 }
             </div>
 
@@ -240,7 +240,7 @@
 
                 @if (wifError != null)
                 {
-                    <p class="text-sm text-red-500 font-medium">@wifError</p>
+                    <InlineError Message="@wifError" />
                 }
             </div>
 

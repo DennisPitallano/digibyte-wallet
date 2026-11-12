@@ -3,7 +3,7 @@
 
 @if (IsOpen)
 {
-    <div class="fixed inset-0 z-[60] flex items-end justify-center" @onclick="Close">
+    <div class="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true" @onclick="Close">
         @* Backdrop *@
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
@@ -72,11 +72,11 @@
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
                                 @if (wallet.WalletType == "xpub")
                                 {
-                                    <span class="text-[9px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
+                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
                                 }
                                 else if (wallet.WalletType == "privatekey")
                                 {
-                                    <span class="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
+                                    <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
                                 }
                             </div>
                             <p class="text-[11px] text-slate-400 dark:text-slate-500">

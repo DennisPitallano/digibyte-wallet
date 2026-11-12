@@ -1,5 +1,6 @@
 @page "/receive"
 @inject WalletService WalletService
+@inject ClipboardService Clipboard
 @inject AddressLabelService LabelService
 @inject AppState AppState
 @inject IJSRuntime JS
@@ -12,7 +13,7 @@
         @{ var recvWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
         <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
             <div class="w-2 h-2 rounded-full" style="background-color: @recvWalletColor;"></div>
-            <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
         </div>
     </PageHeader>
 
@@ -122,7 +123,7 @@
             </button>
             @if (generateError != null)
             {
-                <p class="text-xs text-red-500 text-center">@generateError</p>
+                <InlineError Message="@generateError" Class="justify-center" />
             }
         }
 
@@ -276,7 +277,7 @@
     private async Task CopyAddress()
     {
         if (Payload is not { } payload) return;
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", payload);
+        await Clipboard.CopyAsync(payload, toast: false);
         copied = true; StateHasChanged();
         await Task.Delay(2000);
         copied = false; StateHasChanged();

@@ -12,18 +12,14 @@
 <PageTitle>DigiByte Analytics — DGB Price & Network Stats</PageTitle>
 
 <div class="flex flex-col gap-4">
-    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-        Back
-    </button>
-    <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">DigiByte Analytics</h2>
+    <PageHeader Title="DigiByte Analytics" />
 
     @* Price Card *@
     <div class="slide-up-delay-1 bg-gradient-to-br from-dgb-900 to-dgb-700 rounded-2xl p-5 text-white">
         <p class="flex items-center gap-1.5 text-xs text-dgb-200 font-medium">DGB / <CurrencyFlag Code="@AppState.FiatCurrency" Class="w-5 h-[15px]" />@AppState.FiatCurrency</p>
         @if (price > 0)
         {
-            <h2 class="text-3xl font-extrabold mt-1">@AppState.FiatSymbol@price.ToString("N6")</h2>
+            <h2 class="text-3xl font-extrabold mt-1 tabular-nums">@AppState.FiatSymbol@price.ToString("N6")</h2>
             <p class="text-sm mt-1 @(priceChange >= 0 ? "text-green-400" : "text-red-400")">
                 @(priceChange >= 0 ? "+" : "")@priceChange.ToString("N2")% (24h)
             </p>
@@ -42,27 +38,27 @@
                 <DigiDollarLogo Size="16" />@L.T("dd.title")
             </h3>
             <OracleStatusPanel Health="oracleHealth" Loading="oracleLoading" Culture="System.Globalization.CultureInfo.CurrentCulture" />
-            <p class="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">@L.T("dd.oracle.analytics.hint")</p>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center mt-1">@L.T("dd.oracle.analytics.hint")</p>
         </div>
     }
 
     @* Market Stats *@
     <div class="slide-up-delay-2 grid grid-cols-2 gap-2">
         <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
-            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Market Cap</p>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Market Cap</p>
             <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatLarge(marketCap)</p>
         </div>
         <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
-            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">24h Volume</p>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-semibold">24h Volume</p>
             <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatLarge(volume24h)</p>
         </div>
         <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
-            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Circulating Supply</p>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Circulating Supply</p>
             <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@FormatNumber(circulatingSupply) DGB</p>
         </div>
         <div class="bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 p-3">
-            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Block Height</p>
-            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">@blockHeight.ToString("N0")</p>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-semibold">Block Height</p>
+            <p class="text-sm font-bold text-slate-900 dark:text-white mt-0.5 tabular-nums">@blockHeight.ToString("N0")</p>
         </div>
     </div>
 
@@ -119,7 +115,7 @@
                 </div>
             }
         </div>
-        <p class="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">Data from CoinGecko</p>
+        <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center mt-1">Data from CoinGecko</p>
     </div>
 </div>
 

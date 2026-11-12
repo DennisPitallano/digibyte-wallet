@@ -1,0 +1,64 @@
+@* Pull down at the top of a page to refresh it. Wrap the page content; OnRefresh runs when the pull passes the threshold.
+   Only arms when the page is scrolled to the top, so normal scrolling is untouched. *@
+@inject IJSRuntime JS
+
+<div @ontouchstart="OnTouchStart" @ontouchmove="OnTouchMove" @ontouchend="OnTouchEnd" @ontouchcancel="OnTouchEnd">
+    @if (pull > 0 || refreshing)
+    {
+        <div class="flex justify-center overflow-hidden transition-all duration-150" aria-hidden="true"
+             style="height: @((refreshing ? 36 : Math.Min(pull / 2, 36)).ToString(System.Globalization.CultureInfo.InvariantCulture))px; opacity: @(refreshing ? "1" : Math.Min(pull / Threshold, 1).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))">
+            <div class="w-6 h-6 mt-1 border-2 border-dgb-500 border-t-transparent rounded-full @(refreshing ? "animate-spin" : "")"
+                 style="transform: rotate(@((pull * 2).ToString("0", System.Globalization.CultureInfo.InvariantCulture))deg)"></div>
+        </div>
+    }
+    <span class="sr-only" role="status">@(refreshing ? "Refreshing" : "")</span>
+    @ChildContent
+</div>
+
+@code {
+    private const double Threshold = 80;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    private double startY;
+    private double pull;
+    private bool armed;
+    private bool refreshing;
+
+    private async Task OnTouchStart(TouchEventArgs e)
+    {
+        armed = false;
+        if (refreshing || e.Touches.Length == 0) return;
+        startY = e.Touches[0].ClientY;
+        try { armed = await JS.InvokeAsync<bool>("domHelpers.isScrolledToTop"); } catch { }
+    }
+
+    private void OnTouchMove(TouchEventArgs e)
+    {
+        if (!armed || refreshing || e.Touches.Length == 0) return;
+        var next = Math.Max(0, (e.Touches[0].ClientY - startY) * 0.5);
+        if (Math.Abs(next - pull) < 4) return; // skip tiny moves to limit re-renders
+        pull = next;
+    }
+
+    private async Task OnTouchEnd(TouchEventArgs e)
+    {
+        var go = armed && pull >= Threshold && !refreshing;
+        armed = false;
+        pull = 0;
+        if (!go) return;
+
+        refreshing = true;
+        StateHasChanged();
+        try
+        {
+            try { await JS.InvokeVoidAsync("domHelpers.haptic", 10); } catch { }
+            await OnRefresh.InvokeAsync();
+        }
+        finally
+        {
+            refreshing = false;
+        }
+    }
+}

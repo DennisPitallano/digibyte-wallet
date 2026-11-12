@@ -19,7 +19,7 @@
             <div class="flex-1">
                 <p class="text-xs font-bold text-indigo-800 dark:text-indigo-300">Have a backup file?</p>
                 <p class="text-[11px] text-indigo-700 dark:text-indigo-400 leading-relaxed mt-0.5">
-                    Upload the <code class="text-[10px]">.txt</code> backup file exported from the multisig wallet detail page.
+                    Upload the <code class="text-[11px]">.txt</code> backup file exported from the multisig wallet detail page.
                 </p>
                 <label class="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-xl cursor-pointer transition-colors press-effect">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13" /></svg>
@@ -28,7 +28,7 @@
                 </label>
                 @if (!string.IsNullOrEmpty(fileName))
                 {
-                    <p class="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1">@fileName loaded</p>
+                    <p class="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1">@fileName loaded</p>
                 }
             </div>
         </div>
@@ -36,7 +36,7 @@
 
     <div class="flex items-center gap-3 slide-up-delay-1">
         <div class="flex-1 border-t border-slate-200 dark:border-dgb-800"></div>
-        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">or paste manually</span>
+        <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">or paste manually</span>
         <div class="flex-1 border-t border-slate-200 dark:border-dgb-800"></div>
     </div>
 
@@ -70,7 +70,7 @@
 
     @if (!string.IsNullOrEmpty(error))
     {
-        <p class="text-sm text-red-500 font-medium">@error</p>
+        <InlineError Message="@error" />
     }
 
     <div class="flex flex-col gap-2 slide-up-delay-2">

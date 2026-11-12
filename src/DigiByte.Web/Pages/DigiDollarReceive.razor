@@ -3,6 +3,7 @@
 @using DigiByte.Wallet.Services
 @implements IDisposable
 @inject DigiDollarViewModel Dd
+@inject ClipboardService Clipboard
 @inject IDigiDollarService Service
 @inject LocalizationService L
 @inject IJSRuntime JS
@@ -145,7 +146,7 @@
     private async Task CopyAsync()
     {
         if (current is null) return;
-        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", current.Address); }
+        try { await Clipboard.CopyAsync(current.Address, toast: false); }
         catch { return; } // clipboard blocked: nothing to confirm
         copied = true;
         StateHasChanged();

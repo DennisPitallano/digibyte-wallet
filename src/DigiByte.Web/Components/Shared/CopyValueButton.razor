@@ -1,7 +1,8 @@
 @inject IJSRuntime JS
+@inject ClipboardService Clipboard
 
 <button type="button"
-        class="flex-shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold press-effect @(failed ? "text-red-500" : "text-dgb-500 hover:text-dgb-600")"
+        class="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold press-effect @(failed ? "text-red-500" : "text-dgb-500 hover:text-dgb-600")"
         aria-label="Copy @Label"
         @onclick="CopyAsync" @onclick:stopPropagation="true">
     @if (copied)
@@ -36,7 +37,7 @@
         failed = false;
         try
         {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Value);
+            await Clipboard.CopyAsync(Value, toast: false);
             copied = true;
         }
         catch

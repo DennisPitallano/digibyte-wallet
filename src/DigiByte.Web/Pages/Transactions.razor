@@ -8,16 +8,12 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<PageTitle>All Transactions — DigiByte Wallet</PageTitle>
+<PageTitle>Activity — DigiByte Wallet</PageTitle>
 
+<PullToRefresh OnRefresh="LoadAsync">
 <div class="flex flex-col gap-3">
-    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-1" @onclick="GoBack">
-        <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-        Back
-    </button>
-
     <div class="slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">All Transactions</h2>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Activity</h2>
         @if (!loading && !failed)
         {
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -25,6 +21,22 @@
             </p>
         }
     </div>
+
+    @* This month at a glance *@
+    @if (!loading && !failed && all.Count > 0)
+    {
+        var (monthIn, monthOut) = MonthTotals();
+        <div class="grid grid-cols-2 gap-2" aria-label="This month">
+            <div class="bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 px-3 py-2.5">
+                <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Received this month</p>
+                <p class="text-sm font-bold tabular-nums text-green-500 mt-0.5">@(hideAmounts ? "••••" : "+" + monthIn.ToString("N2")) <span class="text-[11px] font-semibold text-slate-400">DGB</span></p>
+            </div>
+            <div class="bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 px-3 py-2.5">
+                <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Sent this month</p>
+                <p class="text-sm font-bold tabular-nums text-red-500 mt-0.5">@(hideAmounts ? "••••" : "-" + monthOut.ToString("N2")) <span class="text-[11px] font-semibold text-slate-400">DGB</span></p>
+            </div>
+        </div>
+    }
 
     @* Search: name, address, memo, transaction ID or amount *@
     <div class="flex items-center gap-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-3 focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all">
@@ -105,6 +117,7 @@
         }
     }
 </div>
+</PullToRefresh>
 
 <TransactionDetailModal IsOpen="@(selected != null)" Tx="@selected"
     OnClosed="() => selected = null"
@@ -230,6 +243,20 @@
     private string? NameFor(TransactionRecord tx) =>
         tx.CounterpartyAddress is { Length: > 0 } a && contactNames.TryGetValue(a, out var n) ? n : tx.CounterpartyName;
 
+    /// <summary>DGB received and sent since the first of the current month (local time), from the loaded history.</summary>
+    private (decimal In, decimal Out) MonthTotals()
+    {
+        var now = DateTime.Now;
+        var start = new DateTime(now.Year, now.Month, 1);
+        decimal received = 0, sent = 0;
+        foreach (var t in all)
+        {
+            if (t.Timestamp.ToLocalTime() < start) continue;
+            if (t.Direction == TransactionDirection.Received) received += t.AmountDgb; else sent += t.AmountDgb;
+        }
+        return (received, sent);
+    }
+
     private static string DayLabel(DateTime day)
     {
         var today = DateTime.Now.Date;
@@ -246,5 +273,4 @@
         Nav.NavigateTo($"/contacts?add={Uri.EscapeDataString(address)}");
     }
 
-    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
 }

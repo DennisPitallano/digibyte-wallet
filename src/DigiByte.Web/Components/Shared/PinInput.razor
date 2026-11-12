@@ -1,6 +1,6 @@
 @inject IJSRuntime JS
 
-<div class="flex justify-center gap-2 @(showError ? "animate-shake" : "")" role="group" aria-label="PIN entry">
+<div id="@GroupId" class="flex justify-center gap-2 @(showError ? "animate-shake" : "")" role="group" aria-label="PIN entry">
     @for (int i = 0; i < Length; i++)
     {
         var idx = i;
@@ -44,6 +44,7 @@
     private string? _lastError;
 
     private string InputId(int idx) => $"pin-{_instanceId}-{idx}";
+    private string GroupId => $"pin-{_instanceId}";
 
     protected override void OnInitialized()
     {
@@ -53,6 +54,11 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            // Focus advance and paste are handled in the page so fast typing and password managers do not drop digits.
+            try { await JS.InvokeVoidAsync("domHelpers.initPinGroup", GroupId); } catch { }
+        }
         if (firstRender && AutoFocus)
         {
             await Task.Delay(100); // Let DOM settle
@@ -64,6 +70,7 @@
         {
             _lastError = Error;
             showError = true;
+            try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 30, 40, 30 }); } catch { }
             StateHasChanged();
             await Task.Delay(600); // Shake duration
             showError = false;
@@ -96,9 +103,8 @@
         }
         else if (val.Length == 1 && char.IsDigit(val[0]))
         {
+            // The page script has already moved focus to the next box.
             digits[idx] = val;
-            if (idx < Length - 1)
-                await FocusInput(idx + 1);
         }
         else
         {

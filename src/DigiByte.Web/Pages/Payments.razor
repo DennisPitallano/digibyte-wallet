@@ -1,5 +1,6 @@
 @page "/payments"
 @inject PaymentRequestService PaymentService
+@inject ClipboardService Clipboard
 @inject WalletService WalletService
 @inject AppState AppState
 @inject IJSRuntime JS
@@ -58,7 +59,7 @@
             </div>
             @if (activeRequest.AmountDgb.HasValue)
             {
-                <p class="text-lg font-bold text-slate-900 dark:text-white">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
+                <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
             }
             @if (!string.IsNullOrEmpty(activeRequest.Label))
             {
@@ -195,7 +196,7 @@
     private async Task CopyUri()
     {
         if (activeRequest == null) return;
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", activeRequest.ToUri());
+        await Clipboard.CopyAsync(activeRequest.ToUri(), toast: false);
         copied = true; StateHasChanged();
         await Task.Delay(2000);
         copied = false; StateHasChanged();

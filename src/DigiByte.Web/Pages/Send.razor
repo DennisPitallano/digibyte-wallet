@@ -10,6 +10,7 @@
 @inject SpendingLimitService SpendingLimit
 @inject BakuService Baku
 @inject NodeSourceStatusService NodeStatus
+@inject IJSRuntime JS
 
 <PageTitle>Send DGB — DigiByte Wallet</PageTitle>
 
@@ -39,7 +40,7 @@ else
         @{ var sendWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
         <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
             <div class="w-2 h-2 rounded-full" style="background-color: @sendWalletColor;"></div>
-            <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
         </div>
     </PageHeader>
 
@@ -77,7 +78,7 @@ else
                 var r = batchRecipients[index];
                 <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 flex flex-col gap-2 @(index > 0 ? "slide-up" : "")">
                     <div class="flex items-center justify-between">
-                        <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Recipient @(index + 1)</span>
+                        <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Recipient @(index + 1)</span>
                         @if (batchRecipients.Count > 2)
                         {
                             <button type="button" @onclick="() => RemoveBatchRecipient(index)"
@@ -128,7 +129,7 @@ else
                                     else
                                     {
                                         <div class="w-5 h-5 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
-                                            <span class="text-[9px] font-bold text-dgb-600 dark:text-dgb-400">@contact.Name[..1].ToUpper()</span>
+                                            <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400">@contact.Name[..1].ToUpper()</span>
                                         </div>
                                     }
                                     <div class="min-w-0">
@@ -142,9 +143,9 @@ else
                     {
                         <div class="flex items-center gap-1.5">
                             <div class="w-4 h-4 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center">
-                                <span class="text-[8px] font-bold text-dgb-600 dark:text-dgb-400">@r.Name[..1].ToUpper()</span>
+                                <span class="text-[10px] font-bold text-dgb-600 dark:text-dgb-400">@r.Name[..1].ToUpper()</span>
                             </div>
-                            <span class="text-[10px] font-medium text-dgb-600 dark:text-dgb-400">@r.Name</span>
+                            <span class="text-[11px] font-medium text-dgb-600 dark:text-dgb-400">@r.Name</span>
                         </div>
                     }
                     <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-100 dark:border-dgb-800 rounded-lg">
@@ -155,7 +156,7 @@ else
                     </div>
                     @if (!string.IsNullOrEmpty(r.Error))
                     {
-                        <p class="text-[10px] text-red-500 font-medium">@r.Error</p>
+                        <InlineError Message="@r.Error" />
                     }
                 </div>
             }
@@ -173,16 +174,16 @@ else
             <div class="bg-slate-50 dark:bg-dgb-900/50 rounded-xl border border-slate-100 dark:border-dgb-800 p-3 flex flex-col gap-1.5">
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Amount</span>
-                    <span class="text-xs font-bold text-slate-900 dark:text-white">@BatchTotal.ToString("N8") DGB</span>
+                    <span class="text-xs font-bold text-slate-900 dark:text-white tabular-nums">@BatchTotal.ToString("N8") DGB</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Fee</span>
-                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">~@estimatedFee.ToString("N4") DGB</span>
+                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">~@estimatedFee.ToString("N4") DGB</span>
                 </div>
                 <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Grand Total</span>
-                    <span class="text-xs font-bold text-dgb-500">~@((BatchTotal + estimatedFee).ToString("N8")) DGB</span>
+                    <span class="text-xs font-bold text-dgb-500 tabular-nums">~@((BatchTotal + estimatedFee).ToString("N8")) DGB</span>
                 </div>
                 @if (!isLoadingBalance)
                 {
@@ -197,14 +198,26 @@ else
 
             @if (batchError != null)
             {
-                <p class="text-xs text-red-500 font-medium text-center">@batchError</p>
+                <InlineError Message="@batchError" Class="justify-center" />
             }
         </div>
     }
     else
     {
     <div class="flex flex-col gap-1.5 slide-up-delay-1">
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recipient</label>
+        <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recipient</label>
+            @if (string.IsNullOrEmpty(recipientName))
+            {
+                <button type="button" class="flex items-center gap-1 text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors disabled:opacity-50"
+                        @onclick="PasteRecipientAsync" disabled="@isFormDisabled">
+                    <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                    </svg>
+                    Paste
+                </button>
+            }
+        </div>
         @if (!string.IsNullOrEmpty(recipientName))
         {
             <div class="flex items-center gap-2 bg-dgb-50 dark:bg-dgb-900 border border-dgb-200 dark:border-dgb-700 rounded-xl px-3 py-2.5">
@@ -275,7 +288,7 @@ else
                 </div>
             }
         }
-        @if (addressError != null) { <p class="text-xs text-red-500 font-medium">@addressError</p> }
+        @if (addressError != null) { <InlineError Message="@addressError" /> }
     </div>
 
     @* Amount *@
@@ -309,6 +322,15 @@ else
                 </svg>
             </button>
         </div>
+        @* Quick amounts: a share of what is available *@
+        <div class="flex gap-2" role="group" aria-label="Quick amounts">
+            @foreach (var (label, share) in AmountShares)
+            {
+                var fraction = share;
+                <button type="button" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect disabled:opacity-50"
+                        @onclick="() => SetAmountShare(fraction)" disabled="@(isFormDisabled || isLoadingBalance || availableBalance <= 0)">@label</button>
+            }
+        </div>
         <p class="text-xs text-slate-400 dark:text-slate-500">
             @if (isLoadingPrice)
             {
@@ -328,7 +350,7 @@ else
             }
         </p>
         <p class="text-xs text-slate-400 dark:text-slate-500">Minimum send: 0.0001 DGB</p>
-        @if (amountError != null) { <p class="text-xs text-red-500 font-medium">@amountError</p> }
+        @if (amountError != null) { <InlineError Message="@amountError" /> }
         @if (amountWarning != null) { <p class="text-xs text-amber-500 font-medium">@amountWarning</p> }
     </div>
     } @* end single-recipient mode *@
@@ -380,7 +402,7 @@ else
                 </button>
             }
         </div>
-        <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold">~@estimatedFee.ToString("N4") DGB</span>
+        <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold tabular-nums">~@estimatedFee.ToString("N4") DGB</span>
     </div>
     }
 
@@ -403,7 +425,7 @@ else
     @* Batch Info Modal *@
     @if (showBatchInfo)
     {
-        <div class="modal-overlay" @onclick="() => showBatchInfo = false">
+        <div class="modal-overlay" role="dialog" aria-modal="true" @onclick="() => showBatchInfo = false">
             <div class="modal-card flex flex-col gap-3 max-w-sm max-h-[80vh]" @onclick:stopPropagation="true">
                 <div class="flex items-center gap-3 flex-shrink-0">
                     <div class="w-9 h-9 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
@@ -418,7 +440,7 @@ else
                     <p>Send DGB to <strong>multiple recipients in a single transaction</strong> — up to 20 addresses at once.</p>
 
                     <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-100 dark:border-green-900/20">
-                        <p class="text-[10px] font-semibold text-green-600 dark:text-green-400 uppercase mb-1.5">✅ Advantages</p>
+                        <p class="text-[11px] font-semibold text-green-600 dark:text-green-400 uppercase mb-1.5">Advantages</p>
                         <ul class="flex flex-col gap-0.5 text-[11px] text-slate-600 dark:text-slate-300">
                             <li><strong>Lower fees</strong> — one tx costs far less than many separate ones</li>
                             <li><strong>Faster</strong> — all recipients paid in a single broadcast</li>
@@ -428,7 +450,7 @@ else
                     </div>
 
                     <div class="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-2.5 border border-amber-100 dark:border-amber-900/20">
-                        <p class="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase mb-1.5">⚠️ Things to know</p>
+                        <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase mb-1.5">Things to know</p>
                         <ul class="flex flex-col gap-0.5 text-[11px] text-slate-600 dark:text-slate-300">
                             <li><strong>All or nothing</strong> — if it fails, no one gets paid</li>
                             <li><strong>Privacy</strong> — all addresses visible in the same tx</li>
@@ -437,7 +459,7 @@ else
                     </div>
 
                     <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-2.5 border border-slate-100 dark:border-dgb-800">
-                        <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1.5">💡 Real-world scenarios</p>
+                        <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1.5">Real-world scenarios</p>
                         <ul class="flex flex-col gap-0.5 text-[11px] text-slate-600 dark:text-slate-300">
                             <li><strong>Payroll</strong> — pay your team in one transaction</li>
                             <li><strong>Donations</strong> — split across multiple charities</li>
@@ -456,7 +478,7 @@ else
     @* Fee Info Modal *@
     @if (showFeeInfo)
     {
-        <div class="modal-overlay" @onclick="() => showFeeInfo = false">
+        <div class="modal-overlay" role="dialog" aria-modal="true" @onclick="() => showFeeInfo = false">
             <div class="modal-card flex flex-col gap-4 max-w-sm" @onclick:stopPropagation="true">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
@@ -483,9 +505,9 @@ else
                     <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800">
                         <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Speed options</p>
                         <div class="flex flex-col gap-1.5 text-xs">
-                            <div class="flex justify-between"><span>🐢 Slow (100 sat/vB)</span><span>Cheapest — may take a few blocks</span></div>
-                            <div class="flex justify-between"><span>⚡ Normal (200 sat/vB)</span><span>Recommended — ~15 seconds</span></div>
-                            <div class="flex justify-between"><span>🚀 Fast (400 sat/vB)</span><span>Priority — next block</span></div>
+                            <div class="flex justify-between"><span>Slow (100 sat/vB)</span><span>Cheapest — may take a few blocks</span></div>
+                            <div class="flex justify-between"><span>Normal (200 sat/vB)</span><span>Recommended — ~15 seconds</span></div>
+                            <div class="flex justify-between"><span>Fast (400 sat/vB)</span><span>Priority — next block</span></div>
                         </div>
                     </div>
 
@@ -501,7 +523,7 @@ else
     @* Confirm Modal — centered card *@
     @if (showConfirm)
     {
-        <div class="modal-overlay" @onclick="() => { if (!isSending) { showConfirm = false; sendError = null; } }">
+        <div class="modal-overlay" role="dialog" aria-modal="true" @onclick="() => { if (!isSending) { showConfirm = false; sendError = null; } }">
             <div class="modal-card flex flex-col gap-5" @onclick:stopPropagation="true">
                 @* Header *@
                 <div class="flex flex-col items-center gap-2">
@@ -528,20 +550,20 @@ else
                                     @if (!string.IsNullOrEmpty(r.Name))
                                     {
                                         <p class="text-xs font-semibold text-slate-900 dark:text-white">@r.Name</p>
-                                        <p class="text-[10px] font-mono text-slate-400 truncate">@TruncateAddress(r.Address)</p>
+                                        <p class="text-[11px] font-mono text-slate-400 truncate">@TruncateAddress(r.Address)</p>
                                     }
                                     else
                                     {
-                                        <p class="text-[10px] font-mono font-medium text-slate-900 dark:text-white truncate">@TruncateAddress(r.Address)</p>
+                                        <p class="text-[11px] font-mono font-medium text-slate-900 dark:text-white truncate">@TruncateAddress(r.Address)</p>
                                     }
                                 </div>
-                                <span class="text-xs font-bold text-slate-900 dark:text-white ml-2 flex-shrink-0">@r.Amount.ToString("N8") DGB</span>
+                                <span class="text-xs font-bold text-slate-900 dark:text-white ml-2 flex-shrink-0 tabular-nums">@r.Amount.ToString("N8") DGB</span>
                             </div>
                             <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                         }
                         <div class="flex justify-between">
                             <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Total</span>
-                            <span class="text-sm font-bold text-slate-900 dark:text-white">@BatchTotal.ToString("N8") DGB</span>
+                            <span class="text-sm font-bold text-slate-900 dark:text-white tabular-nums">@BatchTotal.ToString("N8") DGB</span>
                         </div>
                     }
                     else
@@ -552,24 +574,25 @@ else
                                 @if (!string.IsNullOrEmpty(recipientName))
                                 {
                                     <p class="text-sm font-semibold text-slate-900 dark:text-white">@recipientName</p>
-                                    <p class="text-[10px] font-mono text-slate-400">@TruncateAddress(destinationAddress)</p>
+                                    <p class="text-[11px] font-mono text-slate-400 max-w-[210px] ml-auto break-words leading-relaxed" aria-label="@destinationAddress">@ChunkAddress(destinationAddress)</p>
                                 }
                                 else
                                 {
-                                    <p class="text-xs font-mono font-medium text-slate-900 dark:text-white">@TruncateAddress(destinationAddress)</p>
+                                    <p class="text-xs font-mono font-medium text-slate-900 dark:text-white max-w-[210px] ml-auto break-words leading-relaxed" aria-label="@destinationAddress">@ChunkAddress(destinationAddress)</p>
+                                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Check the first and last groups against the address you were given.</p>
                                 }
                             </div>
                         </div>
                         <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                         <div class="flex justify-between">
                             <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Amount</span>
-                            <span class="text-sm font-bold text-slate-900 dark:text-white">@amountDgb.ToString("N8") DGB</span>
+                            <span class="text-sm font-bold text-slate-900 dark:text-white tabular-nums">@amountDgb.ToString("N8") DGB</span>
                         </div>
                     }
                     <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                     <div class="flex justify-between">
                         <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Network Fee</span>
-                        <span class="text-xs text-slate-600 dark:text-slate-300">~@estimatedFee.ToString("N4") DGB</span>
+                        <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">~@estimatedFee.ToString("N4") DGB</span>
                     </div>
                 </div>
 
@@ -595,7 +618,7 @@ else
 
                 @if (sendError != null)
                 {
-                    <p class="text-xs text-red-500 font-medium text-center bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl">@sendError</p>
+                    <InlineError Message="@sendError" Class="justify-center" />
                     <BakuMessage MessageId="send.error" Compact="true" />
                 }
 
@@ -903,6 +926,36 @@ else
         destinationAddress = "";
         recipientName = "";
     }
+
+    private static readonly (string Label, decimal Share)[] AmountShares = [("25%", 0.25m), ("50%", 0.5m), ("75%", 0.75m), ("Max", 1m)];
+
+    private void SetAmountShare(decimal share)
+    {
+        if (share >= 1m) { SetMaxAmount(); }
+        else
+        {
+            var dgb = Math.Floor(availableBalance * share * 100_000_000m) / 100_000_000m;
+            amount = isAmountInFiat ? Math.Round(dgb * dgbPrice, 2) : dgb;
+        }
+        UpdateAmountWarning();
+        RecalcFee();
+    }
+
+    /// <summary>Fills the recipient from the clipboard: a plain address or a digibyte: payment link (which may carry an amount).</summary>
+    private async Task PasteRecipientAsync()
+    {
+        addressError = null;
+        string text;
+        try { text = (await JS.InvokeAsync<string>("navigator.clipboard.readText"))?.Trim() ?? ""; }
+        catch { addressError = "The browser did not allow reading the clipboard. Paste into the field instead."; return; }
+        if (text.Length == 0) { addressError = "The clipboard is empty."; return; }
+        if (text.Length > 512) { addressError = "That does not look like an address."; return; }
+        OnQrScanned(text);
+    }
+
+    /// <summary>The address in groups of four, so it can be compared group by group.</summary>
+    private static string ChunkAddress(string addr) =>
+        string.Join(" ", Enumerable.Range(0, (addr.Length + 3) / 4).Select(i => addr.Substring(i * 4, Math.Min(4, addr.Length - i * 4))));
 
     private void SetMaxAmount()
     {

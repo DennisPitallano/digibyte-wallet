@@ -12,6 +12,29 @@
         U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Self-hosted JetBrains Mono variable font: used for numbers, amounts, addresses and IDs */
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 100 800;
+    font-display: swap;
+    src: url('../fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+        U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Numbers: anything marked tabular-nums, plus amount and numeric fields, renders in JetBrains Mono
+   with fixed-width digits so values line up and do not jitter as they change. */
+.tabular-nums,
+input[type="number"],
+input[inputmode="decimal"],
+input[inputmode="numeric"] {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;

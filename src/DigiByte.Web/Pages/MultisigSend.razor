@@ -58,7 +58,7 @@ else
 
         @if (!string.IsNullOrEmpty(error))
         {
-            <p class="text-sm text-red-500 font-medium">@error</p>
+            <InlineError Message="@error" />
         }
 
         <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2 disabled:opacity-50"

@@ -2,6 +2,7 @@
 @using DigiByte.Crypto.Psbt
 @implements IDisposable
 @inject LocalizationService L
+@inject ClipboardService Clipboard
 @inject PsbtSigningService Signing
 @inject IPsbtKeyProvider Keys
 @inject WalletService WalletService
@@ -63,7 +64,7 @@
 
             @if (loadRefusal is not null)
             {
-                <p class="text-sm text-red-500 font-medium">@loadRefusal.Message</p>
+                <InlineError Message="@loadRefusal.Message" />
             }
 
             <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
@@ -138,7 +139,7 @@
                                 <span class="text-sm font-semibold text-slate-900 dark:text-white">@Dgb(output.Amount) DGB</span>
                                 @if (output.IsWallet)
                                 {
-                                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">Returns to this wallet</span>
+                                    <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">Returns to this wallet</span>
                                 }
                             </div>
                             @switch (output.Label)
@@ -193,7 +194,7 @@
 
                 @if (!string.IsNullOrEmpty(error))
                 {
-                    <p class="text-sm text-red-500 font-medium">@error</p>
+                    <InlineError Message="@error" />
                 }
 
                 @if (sentTxId is not null)
@@ -252,7 +253,7 @@
 
 @if (showBroadcastConfirm && review is not null && result is not null)
 {
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
         <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 p-5 flex flex-col gap-3 max-h-[90vh] overflow-y-auto">
             <p class="text-sm font-semibold text-slate-900 dark:text-white">Broadcast this transaction?</p>
             <p class="text-xs text-slate-500 dark:text-slate-400">Once sent, it can't be undone.</p>
@@ -283,7 +284,7 @@
 
 @if (pinPrompt is not null)
 {
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
         @* A darker panel than the PIN boxes (dgb-900) so the empty boxes stay visible in dark mode. *@
         <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 p-5 flex flex-col items-center gap-4">
             <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("credential.enter_to_sign", CredentialText.Word(L, credKind))</p>
@@ -643,7 +644,7 @@
         if (result is null) return;
         try
         {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", result.SignedPsbtBase64);
+            await Clipboard.CopyAsync(result.SignedPsbtBase64, toast: false);
             copied = true;
         }
         catch (Exception)

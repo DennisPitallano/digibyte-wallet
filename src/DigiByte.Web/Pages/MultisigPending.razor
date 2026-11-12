@@ -1,5 +1,6 @@
 @page "/multisig/{WalletId}/pending"
 @inject MultisigWalletService MultisigService
+@inject ClipboardService Clipboard
 @inject WalletService WalletService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -8,15 +9,7 @@
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <div class="flex items-center gap-3 slide-up">
-        <button class="p-2 rounded-xl bg-slate-100 dark:bg-dgb-800 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
-                @onclick="GoBack">
-            <svg class="w-4 h-4 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-        </button>
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Pending Transactions</h2>
-    </div>
+    <PageHeader Title="Pending Transactions" BackHref="/multisig" />
 
     @if (isLoading)
     {
@@ -50,7 +43,7 @@
                     @* Header *@
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-xs font-bold uppercase tracking-wider @StatusColor(tx.Status)">@StatusText(tx.Status)</span>
-                        <span class="text-[10px] text-slate-400">@tx.CreatedAt.ToString("MMM d, HH:mm")</span>
+                        <span class="text-[11px] text-slate-400">@tx.CreatedAt.ToString("MMM d, HH:mm")</span>
                     </div>
 
                     @* Description *@
@@ -62,7 +55,7 @@
                     @* Signature progress *@
                     <div class="mt-3 mb-1">
                         <div class="flex items-center justify-between mb-1">
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400">Signatures</span>
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400">Signatures</span>
                             <span class="text-xs font-bold @(tx.HasEnoughSignatures ? "text-green-500" : "text-amber-500")">
                                 @tx.SignatureCount / @tx.RequiredSignatures
                             </span>
@@ -206,7 +199,7 @@
 
     private async Task ExportPSBT(PendingMultisigTransaction tx)
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", tx.PsbtBase64);
+        await Clipboard.CopyAsync(tx.PsbtBase64, toast: false);
         message = "PSBT copied to clipboard. Share with co-signers.";
     }
 

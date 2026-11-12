@@ -22,7 +22,7 @@
         </div>
         @if (lookupError != null)
         {
-            <p class="text-xs text-red-500 font-medium">@lookupError</p>
+            <InlineError Message="@lookupError" />
         }
         @if (resolvedEntry != null)
         {
@@ -36,7 +36,7 @@
                     <p class="text-sm font-semibold text-green-700 dark:text-green-400">@@resolvedEntry.Username</p>
                     <p class="text-xs font-mono text-green-600/70 dark:text-green-500/70 truncate">@resolvedEntry.Address</p>
                 </div>
-                <button class="px-3 py-1.5 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-lg press-effect"
+                <button class="px-3 py-1.5 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect"
                         @onclick="SendToResolved">
                     Send
                 </button>
@@ -70,7 +70,7 @@
                         </p>
                         @if (isDigiByte)
                         {
-                            <span class="text-[10px] font-bold text-dgb-500 bg-dgb-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">BEST</span>
+                            <span class="text-[11px] font-bold text-dgb-500 bg-dgb-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">BEST</span>
                         }
                     </div>
                     <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">@FormatTime(fee.EstimatedTime)</p>
@@ -79,7 +79,7 @@
                     <p class="text-sm font-bold @(isDigiByte ? "text-dgb-500" : "text-slate-900 dark:text-white")">
                         @AppState.FiatSymbol@fee.FeeAmount.ToString("N2")
                     </p>
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500">@fee.FeePercent.ToString("N2")%</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">@fee.FeePercent.ToString("N2")%</p>
                 </div>
             </div>
         }
@@ -89,7 +89,7 @@
     @if (savings > 0)
     {
         <div class="scale-in bg-gradient-to-r from-dgb-500 to-dgb-600 rounded-2xl p-4 text-white text-center">
-            <p class="text-lg font-extrabold">Save @AppState.FiatSymbol@savings.ToString("N2")</p>
+            <p class="text-lg font-extrabold tabular-nums">Save @AppState.FiatSymbol@savings.ToString("N2")</p>
             <p class="text-sm text-dgb-200 mt-0.5">by sending with DigiByte instead of traditional services</p>
         </div>
     }
@@ -98,7 +98,7 @@
     <div class="slide-up-delay-5 bg-white dark:bg-dgb-900 rounded-2xl border border-dashed border-dgb-300 dark:border-dgb-700 p-4 flex flex-col gap-3 relative overflow-hidden">
         <div class="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span class="text-[9px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Coming Soon</span>
+            <span class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Coming Soon</span>
         </div>
         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Register Your Username</h3>
         <p class="text-xs text-slate-500 dark:text-slate-400">Let others send you DGB by name instead of an address.</p>

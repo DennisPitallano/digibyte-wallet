@@ -78,7 +78,7 @@
                 <svg class="w-3 h-3 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
-                <span class="text-[10px] text-green-600 dark:text-green-400 font-medium">Settled on the DigiByte blockchain</span>
+                <span class="text-[11px] text-green-600 dark:text-green-400 font-medium">Settled on the DigiByte blockchain</span>
             </div>
         }
         else
@@ -89,11 +89,11 @@
                 </svg>
                 @if (Confirmations == 0)
                 {
-                    <span class="text-[10px] text-dgb-500 dark:text-dgb-400 font-medium">DigiByte blocks every ~15 seconds</span>
+                    <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-medium">DigiByte blocks every ~15 seconds</span>
                 }
                 else
                 {
-                    <span class="text-[10px] text-dgb-500 dark:text-dgb-400 font-medium">
+                    <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-medium">
                         @(6 - Confirmations) more · ~@((6 - Confirmations) * 15)s at DGB's 15s block time
                     </span>
                 }
@@ -106,14 +106,14 @@ else
     @* Compact inline display for transaction list rows *@
     @if (Confirmations == 0)
     {
-        <span class="text-[9px] font-semibold text-amber-500 flex items-center gap-0.5">
+        <span class="text-[11px] font-semibold text-amber-500 flex items-center gap-0.5">
             <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0"></span>
             Pending
         </span>
     }
     else if (Confirmations >= 6)
     {
-        <span class="text-[9px] font-semibold text-green-500 flex items-center gap-0.5">
+        <span class="text-[11px] font-semibold text-green-500 flex items-center gap-0.5">
             <svg class="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
@@ -123,7 +123,7 @@ else
     else
     {
         <div class="flex flex-col items-end gap-0.5">
-            <span class="text-[9px] text-dgb-500 dark:text-dgb-400 font-semibold">@Confirmations / 6 conf</span>
+            <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-semibold">@Confirmations / 6 conf</span>
             @* Small block squares instead of pill dots *@
             <div class="flex gap-0.5 items-center">
                 @for (int i = 1; i <= 6; i++)

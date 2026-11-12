@@ -10,7 +10,7 @@
    disabled for one second after opening so a stray double tap cannot sign. Focus is trapped and Esc cancels.
    Layout: centered with bottom padding for the fixed tab bar, because the page's stacking context keeps this overlay
    beneath that bar (a bottom-aligned sheet would hide its own buttons). *@
-<div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm px-3 pt-4 pb-24"
+<div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm px-3 pt-4 pb-24" role="dialog" aria-modal="true"
      @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true">
     <div id="@DialogId" role="dialog" aria-modal="true" aria-labelledby="dd-confirm-title"
          class="w-full max-w-[480px] max-h-full overflow-y-auto bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col gap-4 slide-up">
