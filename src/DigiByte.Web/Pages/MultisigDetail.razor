@@ -1,5 +1,6 @@
 @page "/multisig/{WalletId}"
 @inject MultisigWalletService MultisigService
+@inject ClipboardService Clipboard
 @inject IBlockchainService Blockchain
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -80,8 +81,8 @@ else
                     </button>
                 </div>
             </div>
-            <p class="text-[10px] font-mono text-slate-500 dark:text-slate-500 break-all leading-relaxed max-h-16 overflow-y-auto">@config.RedeemScriptHex</p>
-            <p class="text-[10px] text-slate-400 mt-1">Share this with co-signers to import this wallet.</p>
+            <p class="text-[11px] font-mono text-slate-500 dark:text-slate-500 break-all leading-relaxed max-h-16 overflow-y-auto">@config.RedeemScriptHex</p>
+            <p class="text-[11px] text-slate-400 mt-1">Share this with co-signers to import this wallet.</p>
         </div>
 
         @* Backup Warning *@
@@ -111,15 +112,15 @@ else
                 {
                     <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-dgb-800/50">
                         <div class="w-7 h-7 rounded-lg @(signer.IsLocal ? "bg-dgb-100 dark:bg-dgb-700" : "bg-slate-100 dark:bg-dgb-800") flex items-center justify-center">
-                            <span class="text-[10px] font-bold @(signer.IsLocal ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500")">@signer.Name[..1].ToUpper()</span>
+                            <span class="text-[11px] font-bold @(signer.IsLocal ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500")">@signer.Name[..1].ToUpper()</span>
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-slate-900 dark:text-white">@signer.Name</p>
-                            <p class="text-[10px] font-mono text-slate-400 truncate">@signer.PublicKeyHex[..16]...</p>
+                            <p class="text-[11px] font-mono text-slate-400 truncate">@signer.PublicKeyHex[..16]...</p>
                         </div>
                         @if (signer.IsLocal)
                         {
-                            <span class="text-[9px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">YOU</span>
+                            <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">YOU</span>
                         }
                     </div>
                 }
@@ -192,7 +193,7 @@ else
 
     private async Task CopyAddress()
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", config!.Address);
+        await Clipboard.CopyAsync(config!.Address, toast: false);
         copied = true;
         StateHasChanged();
         await Task.Delay(2000);
@@ -201,7 +202,7 @@ else
 
     private async Task CopyRedeemScript()
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", config!.RedeemScriptHex);
+        await Clipboard.CopyAsync(config!.RedeemScriptHex, toast: false);
         copiedScript = true;
         StateHasChanged();
         await Task.Delay(2000);

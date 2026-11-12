@@ -1,0 +1,16 @@
+@* One look for inline form and action errors: an icon plus the message, announced to screen readers.
+   The icon means the error does not rely on red text alone. Renders nothing when there is no message. *@
+@if (!string.IsNullOrEmpty(Message))
+{
+    <p role="alert" class="flex items-start gap-1.5 text-xs text-red-500 font-medium @Class">
+        <svg class="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+        </svg>
+        <span class="min-w-0">@Message</span>
+    </p>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

@@ -39,7 +39,7 @@ else
         @{ var walletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
         <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
             <div class="w-2 h-2 rounded-full" style="background-color: @walletColor;"></div>
-            <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
         </div>
     </div>
 
@@ -78,20 +78,20 @@ else
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Total UTXOs</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Total UTXOs</p>
                     <p class="text-lg font-bold text-slate-900 dark:text-white">@utxos.Count</p>
                 </div>
                 <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Total Balance</p>
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">@totalDgb.ToString("N8")</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Total Balance</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">@totalDgb.ToString("N8")</p>
                 </div>
                 <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Dust UTXOs</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Dust UTXOs</p>
                     <p class="text-lg font-bold @(dustCount > 0 ? "text-amber-500" : "text-green-500")">@dustCount</p>
                 </div>
                 <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Est. Fee</p>
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">@estimatedFeeDgb.ToString("N8")</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Est. Fee</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">@estimatedFeeDgb.ToString("N8")</p>
                 </div>
             </div>
         </div>
@@ -113,14 +113,14 @@ else
                         var isDust = utxo.AmountSatoshis < 100_000; // < 0.001 DGB
                         <div class="flex items-center justify-between py-2 px-2 rounded-lg @(isDust ? "bg-amber-50/50 dark:bg-amber-900/10" : "")">
                             <div class="flex-1 min-w-0">
-                                <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">@utxo.TxId[..12]...@utxo.TxId[^6..]</p>
-                                <p class="text-[9px] text-slate-400">@utxo.Confirmations conf</p>
+                                <p class="text-[11px] font-mono text-slate-400 dark:text-slate-500 truncate">@utxo.TxId[..12]...@utxo.TxId[^6..]</p>
+                                <p class="text-[11px] text-slate-400">@utxo.Confirmations conf</p>
                             </div>
                             <div class="text-right flex items-center gap-2">
-                                <p class="text-xs font-semibold @(isDust ? "text-amber-500" : "text-slate-900 dark:text-white")">@amountDgb.ToString("N8") DGB</p>
+                                <p class="text-xs font-semibold  tabular-nums@(isDust ? "text-amber-500" : "text-slate-900 dark:text-white")">@amountDgb.ToString("N8") DGB</p>
                                 @if (isDust)
                                 {
-                                    <span class="text-[8px] font-bold text-amber-500 bg-amber-100 dark:bg-amber-900/20 px-1.5 py-0.5 rounded-full">DUST</span>
+                                    <span class="text-[10px] font-bold text-amber-500 bg-amber-100 dark:bg-amber-900/20 px-1.5 py-0.5 rounded-full">DUST</span>
                                 }
                             </div>
                         </div>
@@ -156,7 +156,7 @@ else
                             </button>
                         }
                     </div>
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-2 text-center">@selectedFeeRate sat/vB &middot; @utxos.Count inputs → 1 output</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">@selectedFeeRate sat/vB &middot; @utxos.Count inputs → 1 output</p>
                 </div>
 
                 @* Fee Computation Breakdown *@
@@ -174,7 +174,7 @@ else
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-500 dark:text-slate-400">Estimated tx size</span>
-                            <span class="font-semibold text-slate-900 dark:text-white">@estVBytes.ToString("N0") vBytes</span>
+                            <span class="font-semibold text-slate-900 dark:text-white tabular-nums">@estVBytes.ToString("N0") vBytes</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-500 dark:text-slate-400">Fee rate</span>
@@ -183,15 +183,15 @@ else
                         <hr class="border-slate-100 dark:border-dgb-800" />
                         <div class="flex justify-between">
                             <span class="text-slate-500 dark:text-slate-400">Total fee</span>
-                            <span class="font-semibold text-slate-900 dark:text-white">@feeSats.ToString("N0") sats (@estimatedFeeDgb.ToString("N8") DGB)</span>
+                            <span class="font-semibold text-slate-900 dark:text-white tabular-nums">@feeSats.ToString("N0") sats (@estimatedFeeDgb.ToString("N8") DGB)</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-500 dark:text-slate-400">Balance</span>
-                            <span class="font-semibold text-slate-900 dark:text-white">@totalDgb.ToString("N8") DGB</span>
+                            <span class="font-semibold text-slate-900 dark:text-white tabular-nums">@totalDgb.ToString("N8") DGB</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-green-600 dark:text-green-400 font-medium">You'll receive</span>
-                            <span class="font-bold text-green-600 dark:text-green-400">@((totalDgb - estimatedFeeDgb).ToString("N8")) DGB</span>
+                            <span class="font-bold text-green-600 dark:text-green-400 tabular-nums">@((totalDgb - estimatedFeeDgb).ToString("N8")) DGB</span>
                         </div>
                     </div>
                 </div>
@@ -210,19 +210,19 @@ else
                         <div class="flex flex-col gap-1.5 text-xs">
                             <div class="flex justify-between">
                                 <span class="text-emerald-600/70 dark:text-emerald-500/70">Before consolidation</span>
-                                <span class="font-semibold text-slate-900 dark:text-white">~@futureBeforeSats.ToString("N0") sats <span class="text-slate-400 font-normal">(@futureBeforeVBytes vB)</span></span>
+                                <span class="font-semibold text-slate-900 dark:text-white tabular-nums">~@futureBeforeSats.ToString("N0") sats <span class="text-slate-400 font-normal">(@futureBeforeVBytes vB)</span></span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-emerald-600/70 dark:text-emerald-500/70">After consolidation</span>
-                                <span class="font-semibold text-slate-900 dark:text-white">~@futureAfterSats.ToString("N0") sats <span class="text-slate-400 font-normal">(@futureAfterVBytes vB)</span></span>
+                                <span class="font-semibold text-slate-900 dark:text-white tabular-nums">~@futureAfterSats.ToString("N0") sats <span class="text-slate-400 font-normal">(@futureAfterVBytes vB)</span></span>
                             </div>
                             <hr class="border-emerald-200/50 dark:border-emerald-800/30" />
                             <div class="flex justify-between items-center">
                                 <span class="text-emerald-700 dark:text-emerald-300 font-medium">You save per send</span>
-                                <span class="font-bold text-emerald-700 dark:text-emerald-300">~@savingsSats.ToString("N0") sats <span class="text-emerald-500 text-[10px] font-semibold">(-@savingsPercent%)</span></span>
+                                <span class="font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">~@savingsSats.ToString("N0") sats <span class="text-emerald-500 text-[11px] font-semibold">(-@savingsPercent%)</span></span>
                             </div>
                         </div>
-                        <p class="text-[10px] text-emerald-600/60 dark:text-emerald-500/50 mt-0.5">Estimated at @selectedFeeRate sat/vB with 1 input + 2 outputs (send + change)</p>
+                        <p class="text-[11px] text-emerald-600/60 dark:text-emerald-500/50 mt-0.5">Estimated at @selectedFeeRate sat/vB with 1 input + 2 outputs (send + change)</p>
                     </div>
                 }
 
@@ -240,15 +240,15 @@ else
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
                         <p class="text-sm font-bold text-green-700 dark:text-green-400">Consolidation Complete!</p>
-                        <p class="text-[10px] text-green-600 dark:text-green-500 mt-1 font-mono break-all">@txId</p>
+                        <p class="text-[11px] text-green-600 dark:text-green-500 mt-1 font-mono break-all">@txId</p>
                         <div class="flex flex-col gap-1.5 text-xs mt-3 text-left">
                             <div class="flex justify-between">
                                 <span class="text-green-600 dark:text-green-500">Fee paid</span>
-                                <span class="font-semibold text-green-700 dark:text-green-400">@consolidatedFeeDgb.ToString("N8") DGB</span>
+                                <span class="font-semibold text-green-700 dark:text-green-400 tabular-nums">@consolidatedFeeDgb.ToString("N8") DGB</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-green-600 dark:text-green-500">Net received</span>
-                                <span class="font-bold text-green-700 dark:text-green-400">@((consolidatedTotalDgb - consolidatedFeeDgb).ToString("N8")) DGB</span>
+                                <span class="font-bold text-green-700 dark:text-green-400 tabular-nums">@((consolidatedTotalDgb - consolidatedFeeDgb).ToString("N8")) DGB</span>
                             </div>
                         </div>
                         <button class="mt-3 px-5 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"

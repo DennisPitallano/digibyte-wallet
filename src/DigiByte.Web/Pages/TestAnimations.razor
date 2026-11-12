@@ -11,19 +11,19 @@
         <div class="flex items-end gap-6 flex-wrap">
             <div class="flex flex-col items-center gap-2">
                 <SpinningCoin Size="40" />
-                <span class="text-[10px] text-slate-400">40px</span>
+                <span class="text-[11px] text-slate-400">40px</span>
             </div>
             <div class="flex flex-col items-center gap-2">
                 <SpinningCoin Size="64" />
-                <span class="text-[10px] text-slate-400">64px</span>
+                <span class="text-[11px] text-slate-400">64px</span>
             </div>
             <div class="flex flex-col items-center gap-2">
                 <SpinningCoin Size="96" />
-                <span class="text-[10px] text-slate-400">96px</span>
+                <span class="text-[11px] text-slate-400">96px</span>
             </div>
             <div class="flex flex-col items-center gap-2">
                 <SpinningCoin Size="120" />
-                <span class="text-[10px] text-slate-400">120px</span>
+                <span class="text-[11px] text-slate-400">120px</span>
             </div>
         </div>
     </section>
@@ -34,11 +34,11 @@
         <div class="flex items-center gap-6">
             <div class="flex flex-col items-center gap-2">
                 <SpinningCoin Size="72" Paused="true" />
-                <span class="text-[10px] text-slate-400">Paused</span>
+                <span class="text-[11px] text-slate-400">Paused</span>
             </div>
             <div class="flex flex-col items-center gap-2">
                 <SpinningCoin Size="72" />
-                <span class="text-[10px] text-slate-400">Spinning</span>
+                <span class="text-[11px] text-slate-400">Spinning</span>
             </div>
         </div>
     </section>
@@ -84,15 +84,15 @@
         <div class="grid grid-cols-2 gap-3">
             <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
                 <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-dgb-500 scale-in"></div>
-                <span class="text-[10px] text-slate-400">.scale-in</span>
+                <span class="text-[11px] text-slate-400">.scale-in</span>
             </div>
             <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
                 <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-dgb-500 float"></div>
-                <span class="text-[10px] text-slate-400">.float</span>
+                <span class="text-[11px] text-slate-400">.float</span>
             </div>
             <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
                 <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-dgb-500 glow-pulse"></div>
-                <span class="text-[10px] text-slate-400">.glow-pulse</span>
+                <span class="text-[11px] text-slate-400">.glow-pulse</span>
             </div>
             <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-center">
                 <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-green-500 check-pop flex items-center justify-center">
@@ -100,7 +100,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                     </svg>
                 </div>
-                <span class="text-[10px] text-slate-400">.check-pop</span>
+                <span class="text-[11px] text-slate-400">.check-pop</span>
             </div>
         </div>
     </section>
@@ -126,7 +126,7 @@
                         @onclick="() => { _previewConf = Math.Max(0, _previewConf - 1); }">
                     ← Prev block
                 </button>
-                <button class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-dgb-500 text-white
+                <button class="flex-1 px-3 py-2 text-xs font-semibold rounded-xl bg-dgb-500 text-white
                                hover:bg-dgb-600 transition-colors press-effect disabled:opacity-40"
                         disabled="@(_previewConf >= 6)"
                         @onclick="() => { _previewConf = Math.Min(6, _previewConf + 1); }">
@@ -161,7 +161,7 @@
                         <div class="h-10 flex items-center">
                             <ConfirmationBadge Confirmations="confs" Expanded="false" />
                         </div>
-                        <span class="text-[9px] text-slate-400">@confs conf</span>
+                        <span class="text-[11px] text-slate-400">@confs conf</span>
                     </div>
                 }
             </div>
@@ -175,7 +175,7 @@
                 @onclick="ReplayAnimations">
             Replay All
         </button>
-        <p class="text-[10px] text-slate-400 mt-1">Re-triggers one-shot animations by re-rendering the section above.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Re-triggers one-shot animations by re-rendering the section above.</p>
     </section>
 </div>
 

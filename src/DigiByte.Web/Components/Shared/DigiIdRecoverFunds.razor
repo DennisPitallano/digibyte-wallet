@@ -35,7 +35,7 @@
     {
         @* Websites to check *@
         <div class="flex flex-col gap-2">
-            <label for="recover-site-input" class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.siteLabel")</label>
+            <label for="recover-site-input" class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.siteLabel")</label>
             <div class="flex gap-2">
                 <input id="recover-site-input" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
                        placeholder="@L.T("identity.recover.sitePlaceholder")" @bind="siteInput" @bind:event="oninput" @onkeydown="OnSiteKeyDown"
@@ -128,16 +128,16 @@
                         {
                             <li class="flex flex-col gap-0.5 p-2.5 bg-white dark:bg-dgb-900 rounded-lg border border-slate-200/60 dark:border-dgb-800">
                                 <span class="text-sm font-semibold text-slate-900 dark:text-white break-all">@item.Domain</span>
-                                <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">@Shorten(item.SourceAddress)</span>
+                                <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">@Shorten(item.SourceAddress)</span>
                                 <div class="flex items-center justify-between text-xs mt-1"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.amount")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(item.AmountSatoshis)</span></div>
                                 <div class="flex items-center justify-between text-xs"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.fee")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(item.EstimatedFeeSatoshis)</span></div>
                                 <div class="flex items-center justify-between text-xs"><span class="font-semibold text-slate-700 dark:text-slate-300">@L.T("identity.recover.review.arrives")</span><span class="font-semibold text-slate-900 dark:text-white">@Dgb(item.NetSatoshis)</span></div>
-                                <div class="flex items-center justify-between text-xs"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.to")</span><span class="font-mono text-[10px] text-slate-700 dark:text-slate-300">@Shorten(item.DestinationAddress)</span></div>
+                                <div class="flex items-center justify-between text-xs"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.to")</span><span class="font-mono text-[11px] text-slate-700 dark:text-slate-300">@Shorten(item.DestinationAddress)</span></div>
                             </li>
                         }
                     </ul>
                     <div class="flex flex-col gap-0.5 px-1 text-xs">
-                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.review.totals")</span>
+                        <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.review.totals")</span>
                         <div class="flex items-center justify-between"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.amount")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(plan.TotalAmountSatoshis)</span></div>
                         <div class="flex items-center justify-between"><span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.review.fee")</span><span class="text-slate-800 dark:text-slate-200">@Dgb(plan.TotalFeeSatoshis)</span></div>
                         <div class="flex items-center justify-between"><span class="font-semibold text-slate-700 dark:text-slate-300">@L.T("identity.recover.review.arrives")</span><span class="font-bold text-slate-900 dark:text-white">@Dgb(plan.TotalNetSatoshis)</span></div>
@@ -151,7 +151,7 @@
 
                 @if (plan.Excluded.Count > 0)
                 {
-                    <h5 class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">@L.T("identity.recover.review.excluded")</h5>
+                    <h5 class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">@L.T("identity.recover.review.excluded")</h5>
                     <ul class="flex flex-col gap-1">
                         @foreach (var e in plan.Excluded)
                         {
@@ -197,7 +197,7 @@
 
                 @if (FundsFindings.Count > 0)
                 {
-                    <h4 class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.found")</h4>
+                    <h4 class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.found")</h4>
                     <ul class="flex flex-col gap-1.5">
                         @foreach (var f in FundsFindings)
                         {
@@ -214,10 +214,10 @@
                                     </label>
                                     @if (f.InFlight)
                                     {
-                                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex-shrink-0">@L.T("identity.recover.inFlight")</span>
+                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex-shrink-0">@L.T("identity.recover.inFlight")</span>
                                     }
                                 </div>
-                                <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">@Shorten(f.Address)</span>
+                                <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">@Shorten(f.Address)</span>
                                 <div class="flex items-center justify-between text-xs mt-1">
                                     <span class="text-slate-500 dark:text-slate-400">@L.T("identity.recover.confirmed")</span>
                                     <span class="font-semibold text-slate-900 dark:text-white">@Dgb(f.ConfirmedSatoshis)</span>
@@ -271,7 +271,7 @@
 
                 @if (FailedFindings.Count > 0 && !findings.All(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck))
                 {
-                    <h4 class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">@L.T("identity.recover.couldNotCheck")</h4>
+                    <h4 class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">@L.T("identity.recover.couldNotCheck")</h4>
                     <ul class="flex flex-col gap-1">
                         @foreach (var f in FailedFindings)
                         {
@@ -295,7 +295,7 @@
         {
             <div class="flex flex-col gap-2" role="region" aria-labelledby="recover-status-heading">
                 <div class="flex items-center justify-between gap-2">
-                    <h4 id="recover-status-heading" class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.status.title")</h4>
+                    <h4 id="recover-status-heading" class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.status.title")</h4>
                     <button type="button" @onclick="RefreshAsync" disabled="@refreshing"
                             class="text-[11px] font-semibold text-dgb-500 hover:underline disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 rounded">@L.T("identity.recover.status.refresh")</button>
                 </div>
@@ -305,7 +305,7 @@
                         <li class="flex flex-col gap-0.5 p-2.5 bg-slate-50 dark:bg-dgb-950 rounded-lg border border-slate-200/60 dark:border-dgb-800" @key="r.Id">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="text-sm font-semibold text-slate-900 dark:text-white break-all">@r.Domain</span>
-                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 @StatusStyle(r.Status)">@StatusLabel(r.Status)</span>
+                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 @StatusStyle(r.Status)">@StatusLabel(r.Status)</span>
                             </div>
                             <span class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("identity.recover.status.arrives", Dgb(Math.Max(0, r.AmountSatoshis - r.FeeSatoshis)))</span>
                             @if (r.Status == DigiIdSweepStatus.Failed && !string.IsNullOrWhiteSpace(r.FailureReason))

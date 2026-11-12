@@ -1,5 +1,6 @@
 @page "/settings/xpub"
 @inject WalletService WalletService
+@inject ClipboardService Clipboard
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
@@ -46,7 +47,7 @@
                 </div>
             </div>
             <div class="w-full">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Account xpub</p>
+                <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Account xpub</p>
                 <p class="font-mono text-xs text-slate-700 dark:text-slate-300 break-all bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800 select-all">
                     @xpub
                 </p>
@@ -95,7 +96,7 @@
         if (xpub is null) return;
         try
         {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", xpub);
+            await Clipboard.CopyAsync(xpub, toast: false);
             copied = true;
             StateHasChanged();
             await Task.Delay(1500);

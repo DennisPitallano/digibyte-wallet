@@ -25,7 +25,7 @@
                 <h2 class="text-xl font-bold text-slate-900 dark:text-white">@L.T("dd.title")</h2>
                 @if (AppState.NetworkMode != "mainnet")
                 {
-                    <span class="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-full uppercase">@AppState.NetworkMode</span>
+                    <span class="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-full uppercase">@AppState.NetworkMode</span>
                 }
             </div>
             </TitleContent>
@@ -99,7 +99,7 @@
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                         <DdIcon Name="receive" Class="w-5 h-5 text-dgb-500" StrokeWidth="2" />
                     </div>
-                    <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.receive")</span>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.receive")</span>
                 </button>
                 @if (canSend)
                 {
@@ -107,13 +107,13 @@
                         <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                             <DdIcon Name="send" Class="w-5 h-5 text-dgb-500" StrokeWidth="2" />
                         </div>
-                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.send")</span>
+                        <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.send")</span>
                     </button>
                     <button class="flex flex-col items-center gap-1 group" @onclick="@(() => Nav.NavigateTo("/digidollar/send?scan=1"))">
                         <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                             <DdIcon Name="qr" Class="w-5 h-5 text-dgb-500" StrokeWidth="2" />
                         </div>
-                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.scan")</span>
+                        <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@L.T("dd.scan")</span>
                     </button>
                 }
                 @* Teaser only: minting is a separate, later release. Nothing here starts a mint flow. *@
@@ -121,9 +121,9 @@
                         @onclick="@(() => Notifications.Show(L.T("dd.mint.toast"), ToastType.Info, 3000))">
                     <div class="relative w-12 h-12 rounded-2xl bg-white/60 dark:bg-dgb-900/60 border border-dashed border-slate-300 dark:border-dgb-700 flex items-center justify-center group-active:scale-90 transition-transform">
                         <DdIcon Name="mint" Class="w-5 h-5 text-slate-400 dark:text-slate-500" StrokeWidth="2" />
-                        <span class="absolute -top-1.5 -right-2 text-[8px] font-bold uppercase tracking-wide bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full">@L.T("dd.mint.soon")</span>
+                        <span class="absolute -top-1.5 -right-2 text-[10px] font-bold uppercase tracking-wide bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full">@L.T("dd.mint.soon")</span>
                     </div>
-                    <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500">@L.T("dd.mint")</span>
+                    <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500">@L.T("dd.mint")</span>
                 </button>
             </div>
 
@@ -157,11 +157,11 @@
                                     <p class="text-sm font-semibold text-slate-900 dark:text-white">@DirectionLabel(tx)</p>
                                     @if (tx.Status == DdTxStatus.Pending)
                                     {
-                                        <span class="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/25 px-1.5 py-0.5 rounded-full">@L.T("dd.status.pending")</span>
+                                        <span class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/25 px-1.5 py-0.5 rounded-full">@L.T("dd.status.pending")</span>
                                     }
                                     else if (tx.Status == DdTxStatus.Failed)
                                     {
-                                        <span class="text-[10px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/25 px-1.5 py-0.5 rounded-full">@L.T("dd.status.failed")</span>
+                                        <span class="text-[11px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/25 px-1.5 py-0.5 rounded-full">@L.T("dd.status.failed")</span>
                                     }
                                 </div>
                                 @if (tx.CounterpartyAddress is { } who)

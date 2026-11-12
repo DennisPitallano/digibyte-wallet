@@ -4,7 +4,7 @@
    - Upgrade: an existing enrolment can now be linked to the device's own security (FR-018a), asking once.
    - Plain: on a browser without that capability, biometric unlock is a convenience and not extra protection (FR-018b). *@
 
-<div class="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm scale-in" data-testid="biometric-notice">
+<div class="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm scale-in" role="dialog" aria-modal="true" data-testid="biometric-notice">
     <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 mx-6 max-w-sm shadow-2xl flex flex-col items-center gap-4"
          @onclick:stopPropagation="true">
         @if (Mode == NoticeMode.Upgrade)

@@ -57,18 +57,18 @@
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
                                 @if (isActive)
                                 {
-                                    <span class="text-[9px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-900/40 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Active</span>
+                                    <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-900/40 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Active</span>
                                 }
                                 @if (wallet.WalletType == "xpub")
                                 {
-                                    <span class="text-[9px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
+                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
                                 }
                                 else if (wallet.WalletType == "privatekey")
                                 {
-                                    <span class="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
+                                    <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
                                 }
                             </div>
-                            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Created @wallet.CreatedAt.ToString("MMM d, yyyy")</p>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Created @wallet.CreatedAt.ToString("MMM d, yyyy")</p>
                         </div>
                     </div>
 
@@ -120,7 +120,7 @@
     @* Rename Modal *@
     @if (renameWallet != null)
     {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @onclick="CancelRename">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="CancelRename">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
                  @onclick:stopPropagation="true">
                 <h3 class="text-sm font-bold text-slate-900 dark:text-white">Rename Wallet</h3>
@@ -139,11 +139,11 @@
     @* Color Picker Modal *@
     @if (colorWallet != null)
     {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @onclick="CancelColorPick">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="CancelColorPick">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
                  @onclick:stopPropagation="true">
                 <h3 class="text-sm font-bold text-slate-900 dark:text-white">Wallet Color</h3>
-                <p class="text-[10px] text-slate-400 dark:text-slate-500">Choose a color for <strong>@colorWallet.Name</strong></p>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500">Choose a color for <strong>@colorWallet.Name</strong></p>
                 <div class="flex flex-wrap gap-3 justify-center">
                     @foreach (var c in WalletInfo.ColorPalette)
                     {
@@ -173,7 +173,7 @@
     @* Delete Confirmation Modal *@
     @if (deleteWallet != null)
     {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @onclick="CancelDelete">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="CancelDelete">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
                  @onclick:stopPropagation="true">
                 <h3 class="text-sm font-bold text-red-600 dark:text-red-400">Delete Wallet</h3>
@@ -184,13 +184,13 @@
                     </p>
                 </div>
                 <div>
-                    <p class="text-[10px] text-slate-400 mb-1.5">Type the wallet name to confirm:</p>
+                    <p class="text-[11px] text-slate-400 mb-1.5">Type the wallet name to confirm:</p>
                     <input type="text" @bind="deleteConfirmInput" placeholder="@deleteWallet.Name"
                            class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-red-300 dark:border-red-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none text-center" />
                 </div>
                 @if (deleteError != null)
                 {
-                    <p class="text-xs text-red-500 font-medium">@deleteError</p>
+                    <InlineError Message="@deleteError" />
                 }
                 <div class="flex gap-2">
                     <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"

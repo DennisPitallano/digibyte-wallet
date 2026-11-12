@@ -4,7 +4,7 @@
 @* Shown when a new wallet cannot get the stronger protection on this browser or device. The wallet is created with the
    earlier protection only if the user agrees; it is marked as such and upgrades by itself on a capable device (FR-021). *@
 
-<div class="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm scale-in" data-testid="legacy-consent">
+<div class="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm scale-in" role="dialog" aria-modal="true" data-testid="legacy-consent">
     <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 mx-6 max-w-sm shadow-2xl flex flex-col items-center gap-4"
          @onclick:stopPropagation="true">
         <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("legacy.title")</h3>

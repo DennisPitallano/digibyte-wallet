@@ -1,7 +1,7 @@
 @* Bottom sheet for choosing the display currency: searchable, grouped by region, with country flags. *@
 @if (IsOpen)
 {
-    <div class="fixed inset-0 z-[60] flex items-end justify-center" @onclick="Close" @onkeydown="OnKeyDown">
+    <div class="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true" @onclick="Close" @onkeydown="OnKeyDown">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
         <div class="relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px] flex flex-col max-h-[75vh] scale-in"

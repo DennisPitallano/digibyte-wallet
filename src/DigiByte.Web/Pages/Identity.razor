@@ -14,7 +14,7 @@
         @{ var idWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
         <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
             <div class="w-2 h-2 rounded-full" style="background-color: @idWalletColor;"></div>
-            <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
         </div>
     </div>
 
@@ -73,7 +73,7 @@
 
         @if (parseError != null)
         {
-            <p class="text-sm text-red-500 font-medium">@parseError</p>
+            <InlineError Message="@parseError" />
         }
     </div>
 
@@ -92,14 +92,14 @@
 
             <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-200/60 dark:border-dgb-800">
                 <p class="text-base font-bold text-slate-900 dark:text-white text-center">@pendingRequest.Domain</p>
-                <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-1 text-center truncate">@pendingRequest.CallbackUrl</p>
+                <p class="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-1 text-center truncate">@pendingRequest.CallbackUrl</p>
             </div>
 
             @if (pendingAddress != null)
             {
                 <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-200/60 dark:border-dgb-800 flex flex-col gap-1.5">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Signing address</span>
+                        <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Signing address</span>
                         <CopyValueButton Value="@pendingAddress" Label="signing address" />
                     </div>
                     <p class="text-xs font-mono text-slate-800 dark:text-slate-200 break-all select-all">@pendingAddress</p>
@@ -120,7 +120,7 @@
             }
 
             <div class="bg-dgb-50/50 dark:bg-dgb-800/30 rounded-xl p-3">
-                <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed text-center">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed text-center">
                     This will sign a cryptographic challenge proving you own a DigiByte address.
                     No funds will be sent. A site-specific key is used — your main wallet keys are never exposed.
                 </p>
@@ -232,15 +232,15 @@
             <div class="w-full bg-green-100/50 dark:bg-green-900/20 rounded-xl px-3 py-2 flex flex-col gap-1">
                 <div class="flex flex-col gap-1">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Address used</span>
+                        <span class="text-[11px] text-green-600/70 dark:text-green-500/70">Address used</span>
                         <CopyValueButton Value="@lastAuthAddress" Label="address" />
                     </div>
-                    <span class="text-[10px] font-mono text-green-700 dark:text-green-400 break-all select-all">@lastAuthAddress</span>
+                    <span class="text-[11px] font-mono text-green-700 dark:text-green-400 break-all select-all">@lastAuthAddress</span>
                     <DigiIdAddressWarning Compact="true" />
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-green-600/70 dark:text-green-500/70">Time</span>
-                    <span class="text-[10px] text-green-700 dark:text-green-400">@DateTime.Now.ToString("h:mm:ss tt")</span>
+                    <span class="text-[11px] text-green-600/70 dark:text-green-500/70">Time</span>
+                    <span class="text-[11px] text-green-700 dark:text-green-400">@DateTime.Now.ToString("h:mm:ss tt")</span>
                 </div>
             </div>
             <button class="text-xs text-green-600 dark:text-green-400 font-medium hover:underline mt-1" @onclick="ResetState">Authenticate another site</button>
@@ -258,7 +258,7 @@
             </div>
             <div class="text-center">
                 <p class="text-base font-bold text-red-700 dark:text-red-400">Authentication Failed</p>
-                <p class="text-sm text-red-600 dark:text-red-500 mt-0.5">@authErrorTitle</p>
+                <InlineError Message="@authErrorTitle" />
             </div>
             @if (authErrorDetail != null)
             {
@@ -299,11 +299,11 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@e.Domain</p>
-                            <p class="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">@TruncateAddress(e.Address)</p>
+                            <p class="text-[11px] font-mono text-slate-400 dark:text-slate-500 truncate">@TruncateAddress(e.Address)</p>
                         </div>
                         <div class="text-right flex-shrink-0">
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400">@FormatRelativeTime(e.Timestamp)</p>
-                            <p class="text-[9px] text-slate-300 dark:text-slate-600">@e.Timestamp.ToLocalTime().ToString("MMM d, h:mm tt")</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">@FormatRelativeTime(e.Timestamp)</p>
+                            <p class="text-[11px] text-slate-300 dark:text-slate-600">@e.Timestamp.ToLocalTime().ToString("MMM d, h:mm tt")</p>
                         </div>
                     </button>
                 }

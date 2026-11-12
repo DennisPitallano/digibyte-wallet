@@ -96,7 +96,7 @@
                         <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
                         <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
                         @DonationBadge(sponsor)
-                        <p class="text-[10px] text-dgb-500">Visit ↗</p>
+                        <p class="text-[11px] text-dgb-500">Visit ↗</p>
                     </a>
                 }
                 else
@@ -174,7 +174,7 @@
     {
         if (entry.Donations < 2) return;
         builder.OpenElement(0, "span");
-        builder.AddAttribute(1, "class", "text-[10px] font-semibold text-rose-500");
+        builder.AddAttribute(1, "class", "text-[11px] font-semibold text-rose-500");
         builder.AddContent(2, $"♥ Donated {entry.Donations} times");
         builder.CloseElement();
     };
