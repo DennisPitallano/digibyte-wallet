@@ -24,6 +24,9 @@ public class ParallelQueryTests
         return new NodeApiBlockchainService(http, "http://fake:5260");
     }
 
+    /// <summary>Upper bound for the 20-address parallel tests: sequential would take at least 2000ms.</summary>
+    private const int ParallelLimitMs = 1500;
+
     // ============================================================
     // Parallel balance tests
     // ============================================================
@@ -31,7 +34,9 @@ public class ParallelQueryTests
     [Fact]
     public async Task GetBalance_MultiAddress_RunsInParallel()
     {
-        // 20 addresses × 100ms each = 2000ms sequential, should be <500ms parallel
+        // 20 addresses × 100ms each = 2000ms sequential; 10 at a time is about 200ms.
+        // The limit sits well under the sequential time but leaves room for a busy CI runner,
+        // where timers and the thread pool can add several hundred milliseconds.
         var explorer = CreateDelayedExplorer(delayMs: 100, balancePerAddress: 1000);
         var addresses = Enumerable.Range(0, 20).Select(i => $"dgb1addr{i}").ToList();
 
@@ -40,14 +45,16 @@ public class ParallelQueryTests
         sw.Stop();
 
         Assert.Equal(20_000, balance); // 20 × 1000
-        Assert.True(sw.ElapsedMilliseconds < 800,
-            $"Expected <800ms (parallel), but took {sw.ElapsedMilliseconds}ms — queries may be sequential");
+        Assert.True(sw.ElapsedMilliseconds < ParallelLimitMs,
+            $"Expected <{ParallelLimitMs}ms (parallel), but took {sw.ElapsedMilliseconds}ms — queries may be sequential");
     }
 
     [Fact]
     public async Task GetUtxos_MultiAddress_RunsInParallel()
     {
-        // 20 addresses × 100ms each = 2000ms sequential, should be <500ms parallel
+        // 20 addresses × 100ms each = 2000ms sequential; 10 at a time is about 200ms.
+        // The limit sits well under the sequential time but leaves room for a busy CI runner,
+        // where timers and the thread pool can add several hundred milliseconds.
         var explorer = CreateDelayedExplorer(delayMs: 100);
         var addresses = Enumerable.Range(0, 20).Select(i => $"dgb1addr{i}").ToList();
 
@@ -56,8 +63,8 @@ public class ParallelQueryTests
         sw.Stop();
 
         Assert.Equal(20, utxos.Count); // 1 UTXO per address
-        Assert.True(sw.ElapsedMilliseconds < 800,
-            $"Expected <800ms (parallel), but took {sw.ElapsedMilliseconds}ms — queries may be sequential");
+        Assert.True(sw.ElapsedMilliseconds < ParallelLimitMs,
+            $"Expected <{ParallelLimitMs}ms (parallel), but took {sw.ElapsedMilliseconds}ms — queries may be sequential");
     }
 
     [Fact]

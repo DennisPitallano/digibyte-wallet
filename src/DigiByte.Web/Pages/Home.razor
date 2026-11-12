@@ -856,7 +856,10 @@
             {
                 var cached = System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(txJson);
                 if (cached != null && cached.Count > 0)
+                {
                     transactions = cached;
+                    knownTxIds ??= cached.Select(t => t.TxId).ToHashSet();
+                }
             }
 
             if (hasCachedData) StateHasChanged();
@@ -947,12 +950,6 @@
             balance = await WithTimeout(WalletService.GetBalanceAsync());
             if (hadData && !hideBalance && balance.TotalDgb != before)
                 _ = AnimateBalanceAsync(before, balance.TotalDgb);
-            if (hadData && balance.TotalDgb > before)
-            {
-                // Funds arrived while the wallet was open: say so, with a short haptic tick.
-                Notifications.Success(hideBalance ? "Payment received" : $"+{(balance.TotalDgb - before):0.########} DGB received");
-                try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 15, 40, 25 }); } catch { }
-            }
         }
         catch { balanceFetchFailed = true; }
         finally { isLoadingBalance = false; StateHasChanged(); }
@@ -969,6 +966,42 @@
             return await task;
         _ = task.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
         throw new TimeoutException();
+    }
+
+    // Transaction IDs already seen for this wallet; null until the first list (cache or network) has been recorded.
+    private HashSet<string>? knownTxIds;
+
+    /// <summary>
+    /// Says "received" once per incoming transaction that appears while Home is open. It goes by transaction ID,
+    /// not by a change in the balance figure: a balance read can come back low when an explorer drops some
+    /// address lookups, and the next good read would then look like money arriving.
+    /// </summary>
+    private async Task AnnounceNewReceivedAsync()
+    {
+        if (knownTxIds is null)
+        {
+            // First list for this wallet: record it without announcing anything.
+            knownTxIds = transactions.Select(t => t.TxId).ToHashSet();
+            return;
+        }
+
+        // Only recent transactions count as arrivals; an older one showing up late is history filling in.
+        var cutoff = DateTime.UtcNow.AddMinutes(-15);
+        var arrived = transactions
+            .Where(t => !knownTxIds.Contains(t.TxId)
+                        && t.Direction == TransactionDirection.Received
+                        && (t.Confirmations <= 2 || t.Timestamp.ToUniversalTime() >= cutoff))
+            .ToList();
+        foreach (var t in transactions) knownTxIds.Add(t.TxId);
+        if (arrived.Count == 0) return;
+
+        var message = hideBalance
+            ? (arrived.Count == 1 ? "Payment received" : $"{arrived.Count} payments received")
+            : arrived.Count == 1
+                ? $"+{arrived[0].AmountDgb:0.########} DGB received"
+                : $"{arrived.Count} payments received, +{arrived.Sum(t => t.AmountDgb):0.########} DGB";
+        Notifications.Success(message);
+        try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 15, 40, 25 }); } catch { }
     }
 
     private async Task LoadPriceAsync()
@@ -992,6 +1025,7 @@
         try
         {
             transactions = await WithTimeout(WalletService.GetTransactionHistoryAsync());
+            await AnnounceNewReceivedAsync();
 
             // Start poller if any txs are still under 6 confirmations
             if (transactions.Any(t => t.Confirmations < 6))
@@ -1287,6 +1321,7 @@
         balance = new WalletBalance();
         _animToken++; animatedDgb = null;
         transactions = [];
+        knownTxIds = null;
         receivingAddress = "";
         addressQrDataUri = null;
         hasCachedData = false;
@@ -1344,6 +1379,7 @@
             balance = new WalletBalance();
         _animToken++; animatedDgb = null;
             transactions = [];
+            knownTxIds = null;
             receivingAddress = "";
             addressQrDataUri = null;
             hasCachedData = false;

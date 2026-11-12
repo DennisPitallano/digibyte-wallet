@@ -12,6 +12,9 @@ public class NotificationService
 
     public void Show(string message, ToastType type = ToastType.Info, int durationMs = 3000)
     {
+        // The same message is never stacked: a repeat while it is still on screen is dropped.
+        if (_active.Any(t => t.Message == message && t.Type == type)) return;
+
         var toast = new ToastNotification
         {
             Id = Guid.NewGuid().ToString("N"),
