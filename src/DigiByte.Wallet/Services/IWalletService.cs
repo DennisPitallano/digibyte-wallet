@@ -21,5 +21,6 @@ public interface IWalletService
     bool IsWalletUnlockedInSession(string walletId);
     Task RenameWalletAsync(string walletId, string newName);
     Task ChangeWalletColorAsync(string walletId, string color);
+    Task ChangeWalletTextureAsync(string walletId, string texture);
     Task DeleteWalletAsync(string walletId);
 }

@@ -205,6 +205,54 @@ public class MultiWalletTests
 
     #endregion
 
+    #region Change Wallet Texture
+
+    [Fact]
+    public async Task NewWallet_HasDefaultTexture()
+    {
+        var service = CreateService();
+        var wallet = await service.CreateWalletAsync("Test", GenerateMnemonic(), Pin);
+
+        Assert.Equal(WalletInfo.DefaultTexture, wallet.Texture);
+    }
+
+    [Fact]
+    public async Task ChangeWalletTextureAsync_UpdatesStoredAndActiveTexture()
+    {
+        var service = CreateService();
+        var wallet = await service.CreateWalletAsync("Test", GenerateMnemonic(), Pin);
+
+        await service.ChangeWalletTextureAsync(wallet.Id, "leather");
+
+        var info = await service.GetWalletAsync(wallet.Id);
+        Assert.Equal("leather", info?.Texture);
+        Assert.Equal("leather", service.ActiveWallet?.Texture);
+    }
+
+    [Fact]
+    public async Task ChangeWalletTextureAsync_UnknownTexture_FallsBackToDefault()
+    {
+        var service = CreateService();
+        var wallet = await service.CreateWalletAsync("Test", GenerateMnemonic(), Pin);
+        await service.ChangeWalletTextureAsync(wallet.Id, "metal");
+
+        await service.ChangeWalletTextureAsync(wallet.Id, "velvet\" onload=\"x");
+
+        var info = await service.GetWalletAsync(wallet.Id);
+        Assert.Equal(WalletInfo.DefaultTexture, info?.Texture);
+    }
+
+    [Fact]
+    public async Task ChangeWalletTextureAsync_NonExistentWallet_DoesNotThrow()
+    {
+        var service = CreateService();
+        await service.CreateWalletAsync("Test", GenerateMnemonic(), Pin);
+
+        await service.ChangeWalletTextureAsync("non-existent-id", "leather");
+    }
+
+    #endregion
+
     #region Delete Wallet
 
     [Fact]

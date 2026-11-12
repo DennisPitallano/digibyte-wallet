@@ -30,7 +30,8 @@
 
         @* ===== Balance + Actions (normal flow) ===== *@
         <div>
-            @* Wallet Header *@
+            @* Wallet Header: wallet picker on the left, "Supported by" pill on the right. Either may be absent; an empty row takes no space. *@
+            <div class="flex items-center gap-2">
             @if (allWallets.Count > 1)
             {
                 var activeColor = WalletService.ActiveWallet?.Color ?? "#0066FF";
@@ -43,6 +44,9 @@
                     </svg>
                 </button>
             }
+                @* Newest sponsors: loads quietly in the background and hides itself on any problem. *@
+                <SponsorsStrip />
+            </div>
 
             @* Balance Card Stack *@
             <div class="relative">
@@ -56,11 +60,14 @@
                          style="transform: translateX(@(i * 10)px) scale(@(1 - i * 0.04)); background: linear-gradient(135deg, @(lc)18, @(lc)08); z-index: @(5 - i);"></div>
                 }
             }
-            @* Balance Card *@
-            <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-gradient-to-br dark:from-dgb-900 dark:via-dgb-800 dark:to-dgb-700 border border-dgb-200 dark:border-dgb-700/50 px-5 py-4 text-dgb-900 dark:text-white shadow-lg shadow-gray-200/50 dark:shadow-dgb-900/25"
+            @* Balance Card. With a finish chosen, the card becomes that material in the wallet's colour and its text stays light. *@
+            @{ var cardTexture = WalletInfo.NormalizeTexture(WalletService.ActiveWallet?.Texture); }
+            <div class="@(cardTexture == WalletInfo.DefaultTexture ? "" : "dark wallet-card-textured") relative overflow-hidden rounded-2xl bg-white dark:bg-gradient-to-br dark:from-dgb-900 dark:via-dgb-800 dark:to-dgb-700 border border-dgb-200 dark:border-dgb-700/50 px-5 py-4 text-dgb-900 dark:text-white shadow-lg shadow-gray-200/50 dark:shadow-dgb-900/25"
                  style="z-index: 10; transform: translateX(@(cardSwipeOffset)px); @(isCardAnimating ? "transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);" : "")">
                 @* Tinted with the wallet's own colour, so multi-wallet users can tell wallets apart at a glance *@
                 <div class="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-2xl" style="background-color: @(WalletService.ActiveWallet?.Color ?? "#0066FF")40;"></div>
+                @* The wallet's chosen finish (leather, cotton, plastic, metal), set in Manage Wallets. "smooth" draws nothing. *@
+                <div class="wallet-tex wallet-tex-@cardTexture" style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF");" aria-hidden="true"></div>
                 <div class="absolute left-0 top-4 bottom-4 w-1 rounded-r-full" style="background-color: @(WalletService.ActiveWallet?.Color ?? "#0066FF");"></div>
                 <div class="absolute -bottom-6 -left-6 w-20 h-20 bg-dgb-50/50 dark:bg-dgb-400/10 rounded-full blur-xl"></div>
                 <div class="absolute -bottom-4 -right-4 opacity-[0.08] dark:opacity-[0.10] pointer-events-none">
@@ -253,9 +260,6 @@
         @* ===== DigiDollar (view/send switches, seed wallets only; loads independently of DGB) ===== *@
         <DigiDollarHomeCard DgbSatoshis="@(balance.ConfirmedSatoshis + balance.UnconfirmedSatoshis)" />
         <DigiDollarUnavailableLine />
-
-        @* "Supported by" (newest sponsors): loads quietly in the background and hides itself on any problem. *@
-        <SponsorsStrip />
 
         @* ===== TX AREA ===== *@
         <div>

@@ -507,3 +507,92 @@ body:has(.modal-overlay) nav {
     border-bottom-left-radius: 2px;
     transform: rotate(45deg);
 }
+
+/* ===== Wallet card finishes =====
+   Each wallet can have a finish (set in Manage Wallets): smooth, leather, cotton, plastic or metal. "smooth" draws nothing and
+   leaves the normal card. The others paint an opaque material in the wallet's own colour (--wc) over the card: a grey height
+   map (SVG noise lit from the top-left, or a drawn weave) blended onto the colour, so the grain has real highlights and
+   shadows instead of flat lines. .wallet-card-textured goes on the card itself and keeps its text light on the material. */
+.wallet-tex {
+    --wc: #0066FF;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-size: cover;
+    background-position: center;
+}
+.wallet-tex-smooth { display: none; }
+.wallet-tex::after {
+    content: "";
+    position: absolute;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.wallet-card-textured {
+    color: #fff;
+    border-color: rgba(0, 0, 0, 0.35) !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+.wallet-card-textured [class*="text-dgb-"] { color: rgba(255, 255, 255, 0.85) !important; }
+
+/* Leather: creased pebbled hide, a soft sheen, a padded edge and a stitched seam. */
+.wallet-tex-leather {
+    background-image:
+        radial-gradient(120% 95% at 22% 0%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 58%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='260'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.2' numOctaves='2' seed='11' result='a'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' seed='4' result='b'/%3E%3CfeComposite in='a' in2='b' operator='arithmetic' k1='0' k2='0.8' k3='0.25' k4='0'/%3E%3CfeGaussianBlur stdDeviation='0.7'/%3E%3CfeDiffuseLighting surfaceScale='1.5' diffuseConstant='1' lighting-color='%23fff'%3E%3CfeDistantLight azimuth='235' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E"),
+        linear-gradient(140deg, color-mix(in srgb, var(--wc) 66%, #1c0f07), color-mix(in srgb, var(--wc) 40%, #0c0603));
+    background-blend-mode: soft-light, overlay, normal;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -4px 8px rgba(0, 0, 0, 0.40), inset 0 0 0 1px rgba(0, 0, 0, 0.30);
+}
+.wallet-tex-leather::after {
+    inset: 7px;
+    border-radius: 10px;
+    border: 1.5px dashed color-mix(in srgb, var(--wc) 30%, #f1e2c6);
+    opacity: 0.8;
+    filter: drop-shadow(0 1px 0.5px rgba(0, 0, 0, 0.6));
+}
+
+/* Cotton: matte woven canvas with a hemmed, stitched edge. */
+.wallet-tex-cotton {
+    background-image:
+        radial-gradient(130% 100% at 30% 0%, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 65%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='256'%3E%3Cdefs%3E%3ClinearGradient id='h' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%233d3d3d'/%3E%3Cstop offset='.45' stop-color='%23d2d2d2'/%3E%3Cstop offset='1' stop-color='%233d3d3d'/%3E%3C/linearGradient%3E%3ClinearGradient id='v' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23454545'/%3E%3Cstop offset='.45' stop-color='%23bdbdbd'/%3E%3Cstop offset='1' stop-color='%233a3a3a'/%3E%3C/linearGradient%3E%3Cpattern id='w' width='8' height='8' patternUnits='userSpaceOnUse'%3E%3Crect width='8' height='8' fill='%232e2e2e'/%3E%3Crect x='-0.4' y='0.4' width='4.8' height='3.2' rx='1.2' fill='url(%23h)'/%3E%3Crect x='4.4' y='-0.4' width='3.2' height='4.8' rx='1.2' fill='url(%23v)'/%3E%3Crect x='0.4' y='3.6' width='3.2' height='4.8' rx='1.2' fill='url(%23v)'/%3E%3Crect x='3.6' y='4.4' width='4.8' height='3.2' rx='1.2' fill='url(%23h)'/%3E%3C/pattern%3E%3Cfilter id='z' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='9' result='n'/%3E%3CfeColorMatrix in='n' values='0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1' result='g'/%3E%3CfeComposite in='SourceGraphic' in2='g' operator='arithmetic' k1='0' k2='0.78' k3='0.22' k4='0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23w)' filter='url(%23z)'/%3E%3C/svg%3E"),
+        linear-gradient(140deg, color-mix(in srgb, var(--wc) 72%, #20242b), color-mix(in srgb, var(--wc) 52%, #101318));
+    background-size: cover, 480px 256px, cover;
+    background-position: center, 0 0, center;
+    background-blend-mode: soft-light, overlay, normal;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.30), inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+}
+.wallet-tex-cotton::after {
+    inset: 6px;
+    border-radius: 11px;
+    border: 1.5px dashed color-mix(in srgb, var(--wc) 25%, #ffffff);
+    opacity: 0.65;
+    filter: drop-shadow(0 1px 0.5px rgba(0, 0, 0, 0.5));
+}
+
+/* Plastic: moulded, faintly grained, with a hard glossy reflection and a bevelled rim. */
+.wallet-tex-plastic {
+    background-image:
+        linear-gradient(112deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.14) 24%, rgba(255, 255, 255, 0) 24.6%),
+        radial-gradient(90% 70% at 85% 110%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 70%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='260'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' seed='2'/%3E%3CfeDiffuseLighting surfaceScale='0.9' diffuseConstant='1' lighting-color='%23fff'%3E%3CfeDistantLight azimuth='235' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E"),
+        linear-gradient(160deg, color-mix(in srgb, var(--wc) 88%, #0a0f18), color-mix(in srgb, var(--wc) 58%, #05080d));
+    background-blend-mode: normal, normal, soft-light, normal;
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.30), inset 1px 0 0 rgba(255, 255, 255, 0.18), inset -1px 0 0 rgba(0, 0, 0, 0.20);
+}
+
+/* Metal: brushed, anodised aluminium. The colour is muted toward steel and broad bands reflect across the brush lines. */
+.wallet-tex-metal {
+    background-image:
+        linear-gradient(100deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 20%, rgba(0, 0, 0, 0.22) 38%, rgba(255, 255, 255, 0.38) 56%, rgba(255, 255, 255, 0) 74%, rgba(0, 0, 0, 0.24) 100%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='260'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.003 1.3' numOctaves='2' seed='5'/%3E%3CfeColorMatrix values='0 0 0 0.6 0.2  0 0 0 0.6 0.2  0 0 0 0.6 0.2  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E"),
+        linear-gradient(180deg, color-mix(in srgb, var(--wc) 52%, #59626d), color-mix(in srgb, var(--wc) 40%, #2b3138));
+    background-blend-mode: soft-light, overlay, normal;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.50), inset 0 -1px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+}
+
+/* Small previews (the texture picker): no seam, it would crowd a thumbnail. */
+.wallet-tex-swatch::after { display: none; }

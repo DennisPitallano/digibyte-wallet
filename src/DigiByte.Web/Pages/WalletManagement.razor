@@ -79,6 +79,7 @@
                             Rename
                         </button>
                         <button class="py-2 px-3 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect"
+                                title="Color and texture" aria-label="Change color and texture"
                                 @onclick="() => StartColorPick(wallet)">
                             <span class="w-3.5 h-3.5 rounded-full inline-block align-middle" style="background-color: @wColor;"></span>
                         </button>
@@ -142,8 +143,8 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="CancelColorPick">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
                  @onclick:stopPropagation="true">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Wallet Color</h3>
-                <p class="text-[11px] text-slate-400 dark:text-slate-500">Choose a color for <strong>@colorWallet.Name</strong></p>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Wallet Look</h3>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500">Choose a color and texture for <strong>@colorWallet.Name</strong></p>
                 <div class="flex flex-wrap gap-3 justify-center">
                     @foreach (var c in WalletInfo.ColorPalette)
                     {
@@ -157,6 +158,21 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                                 </svg>
                             }
+                        </button>
+                    }
+                </div>
+                @* Texture: each swatch previews the finish on the chosen color. *@
+                <div class="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Wallet texture">
+                    @foreach (var t in WalletInfo.TexturePalette)
+                    {
+                        var selected = t == selectedTexture;
+                        <button type="button" role="radio" aria-checked="@(selected ? "true" : "false")"
+                                class="flex flex-col items-center gap-1 press-effect" @onclick="() => selectedTexture = t">
+                            <span class="relative overflow-hidden block w-full h-9 rounded-lg text-white transition-all @(selected ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-dgb-900 ring-dgb-500" : "")"
+                                  style="background: linear-gradient(135deg, @selectedColor, color-mix(in srgb, @selectedColor 70%, #000));">
+                                <span class="wallet-tex wallet-tex-swatch wallet-tex-@t" style="--wc: @selectedColor;" aria-hidden="true"></span>
+                            </span>
+                            <span class="text-[11px] font-semibold capitalize @(selected ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500 dark:text-slate-400")">@t</span>
                         </button>
                     }
                 </div>
@@ -219,6 +235,7 @@
     // Color picker state
     private WalletInfo? colorWallet;
     private string selectedColor = "";
+    private string selectedTexture = WalletInfo.DefaultTexture;
 
     private void GoToSettings() => Nav.NavigateTo("/settings");
     private void GoToBackupSeed(string walletId) => Nav.NavigateTo($"/backup-seed?walletId={walletId}");
@@ -261,6 +278,7 @@
     {
         colorWallet = wallet;
         selectedColor = wallet.Color ?? "#0066FF";
+        selectedTexture = WalletInfo.NormalizeTexture(wallet.Texture);
     }
 
     private void CancelColorPick()
@@ -273,6 +291,7 @@
     {
         if (colorWallet == null) return;
         await WalletService.ChangeWalletColorAsync(colorWallet.Id, selectedColor);
+        await WalletService.ChangeWalletTextureAsync(colorWallet.Id, selectedTexture);
         AppState.NotifyStateChanged();
         colorWallet = null;
         selectedColor = "";

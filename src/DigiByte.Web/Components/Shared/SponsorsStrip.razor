@@ -7,30 +7,26 @@
 
 @if (entries.Count > 0)
 {
-    <a href="/sponsors" aria-label="Supported by @entries.Count of @total sponsors. See all sponsors"
-       class="flex items-center gap-2.5 px-3 py-1.5 bg-white dark:bg-dgb-900 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors no-underline fade-in">
-        <span class="text-rose-500 text-base leading-none" aria-hidden="true">♥</span>
-        <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 overflow-hidden">
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">Supported by</span>
-                <div class="flex items-center -space-x-2">
-                    @foreach (var sponsor in entries)
-                    {
-                        <span title="@sponsor.Name" class="rounded-full ring-2 ring-white dark:ring-dgb-900"><SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" SizeClass="w-7 h-7" LetterClass="text-xs" /></span>
-                    }
-                </div>
-                @if (total > entries.Count)
-                {
-                    <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 shrink-0">+@(total - entries.Count)</span>
-                }
-            </div>
+    @* A compact pill that sits at the top of Home, on the same row as the wallet picker (right-aligned). *@
+    <a href="/sponsors" title="Supported by our sponsors. See all" aria-label="Supported by @entries.Count of @total sponsors. See all sponsors"
+       class="ml-auto mb-2 flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 min-w-0 rounded-full bg-slate-100 dark:bg-white/5 border border-rose-200/80 dark:border-rose-900/40 hover:border-rose-300 dark:hover:border-rose-700/60 transition-colors no-underline fade-in press-effect">
+        <span class="text-rose-500 text-sm leading-none" aria-hidden="true">♥</span>
+        <span class="hidden sm:inline text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">Supported by</span>
+        <div class="flex items-center -space-x-1.5">
+            @foreach (var sponsor in entries)
+            {
+                <span title="@sponsor.Name" class="rounded-full ring-2 ring-slate-100 dark:ring-dgb-950"><SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" SizeClass="w-5 h-5" LetterClass="text-[10px]" /></span>
+            }
         </div>
-        <span class="text-[11px] font-semibold text-dgb-500 shrink-0">See all</span>
+        @if (total > entries.Count)
+        {
+            <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 shrink-0 pr-1">+@(total - entries.Count)</span>
+        }
     </a>
 }
 
 @code {
-    private const int MaxShown = 5;
+    private const int MaxShown = 4;
     private static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(30);
 
     private IReadOnlyList<SponsorEntry> entries = [];

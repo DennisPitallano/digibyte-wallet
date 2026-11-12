@@ -62,6 +62,22 @@ public class WalletInfo
         "#6366F1", // Indigo
         "#14B8A6", // Teal
     ];
+
+    /// <summary>
+    /// Surface finish of the wallet card: one of <see cref="TexturePalette"/>. Purely cosmetic. Wallets saved before this existed read as "smooth".
+    /// </summary>
+    public string Texture { get; set; } = DefaultTexture;
+
+    public const string DefaultTexture = "smooth";
+
+    /// <summary>
+    /// The wallet card finishes a user can choose from. The first is the default (no texture).
+    /// </summary>
+    public static readonly string[] TexturePalette = [DefaultTexture, "leather", "cotton", "plastic", "metal"];
+
+    /// <summary>Returns <paramref name="texture"/> if it is a known finish, otherwise the default. Safe to put in a CSS class name.</summary>
+    public static string NormalizeTexture(string? texture) =>
+        texture is not null && Array.IndexOf(TexturePalette, texture) >= 0 ? texture : DefaultTexture;
 }
 
 public class WalletBalance
