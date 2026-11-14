@@ -78,6 +78,46 @@ public class MultisigWalletService
         return config;
     }
 
+    /// <summary>File name and text for a multisig backup file (the format the Import page reads back).</summary>
+    public static (string FileName, string Content) BuildBackup(MultisigWalletConfig config)
+    {
+        var label = config.Label.Replace(" ", "-").ToLowerInvariant();
+        var content = $"DigiByte Multisig Wallet Backup\n" +
+                      $"==============================\n" +
+                      $"Label: {config.Label}\n" +
+                      $"Threshold: {config.RequiredSignatures}-of-{config.TotalSigners}\n" +
+                      $"Address: {config.Address}\n" +
+                      $"Address Type: {config.AddressType}\n\n" +
+                      $"Redeem Script (hex):\n{config.RedeemScriptHex}\n\n" +
+                      $"Co-Signers:\n" +
+                      string.Join("\n", config.CoSigners.Select(cs => $"  - {cs.Name}: {cs.PublicKeyHex}")) +
+                      $"\n\nIMPORTANT: Keep this file safe. You need the redeem script to recover this multisig wallet.\n" +
+                      $"Your seed phrase alone CANNOT restore multisig wallets.\n" +
+                      $"To restore: Multisig → Import → paste the redeem script above.\n" +
+                      $"No backup file? Each signer restores their own seed, then Multisig → Create with the same threshold and all public keys above.\n";
+        return ($"multisig-{label}-redeem-script.txt", content);
+    }
+
+    /// <summary>
+    /// Finds which key in a redeem script belongs to <paramref name="ownPubKeyHex"/> (keys are BIP67-sorted, so the
+    /// position isn't something a person can know). Returns -1 when the key isn't in the script (watch-only) or the
+    /// script is not a valid multisig script.
+    /// </summary>
+    public static int FindOwnKeyIndex(string redeemScriptHex, string? ownPubKeyHex)
+    {
+        if (string.IsNullOrWhiteSpace(ownPubKeyHex) || string.IsNullOrWhiteSpace(redeemScriptHex))
+            return -1;
+        try
+        {
+            var script = new Script(Convert.FromHexString(redeemScriptHex.Trim()));
+            var parsed = PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(script);
+            if (parsed == null) return -1;
+            return Array.FindIndex(parsed.PubKeys,
+                pk => string.Equals(pk.ToHex(), ownPubKeyHex.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+        catch { return -1; }
+    }
+
     /// <summary>
     /// Imports a multisig wallet from a redeem script hex (shared by another co-signer).
     /// </summary>

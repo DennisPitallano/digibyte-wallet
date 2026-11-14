@@ -9,6 +9,7 @@
 @inject IJSRuntime JS
 @inject IConfiguration Config
 @inject BakuService Baku
+@inject ClipboardService Clipboard
 
 <PageTitle>Settings — DigiByte Wallet</PageTitle>
 
@@ -97,6 +98,24 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
         </a>
+
+        @* Multisig public key — what co-signers ask for when building a shared wallet *@
+        @if (WalletService.IsUnlocked && WalletService.ActiveWallet?.WalletType != "xpub")
+        {
+            <button type="button" @onclick="CopyMultisigPublicKey" class="slide-up w-full flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Copy my public key</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">For wallet <b>@(WalletService.ActiveWallet?.Name ?? "Wallet")</b> · send to co-signers (safe to share)</p>
+                    </div>
+                </div>
+            </button>
+        }
 
         @* Merchant Dashboard — for shop owners. Same URL pattern as the Payments page.
            Uses the actual DigiPay product logo so the card reads as the sibling
@@ -639,6 +658,15 @@
         BakuMode.Off => "No tips, guidance or mascot images. Warnings show as text.",
         _ => "Guidance, tips and warnings.",
     };
+
+    private async Task CopyMultisigPublicKey()
+    {
+        string? key = null;
+        try { key = WalletService.GetPublicKey(); } catch { }
+        if (string.IsNullOrEmpty(key)) return;
+        try { await Clipboard.CopyAsync(key, message: $"Public key copied for {WalletService.ActiveWallet?.Name ?? "wallet"}"); }
+        catch { } // clipboard blocked: nothing to confirm
+    }
 
     private async Task ResetBakuTipsAsync()
     {
