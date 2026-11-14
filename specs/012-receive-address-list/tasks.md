@@ -126,7 +126,7 @@ description: "Task list for Your Addresses on the Receive Page"
 - [x] T027 Run `dotnet build` and `dotnet test tests/DigiByte.Wallet.Tests`; only the live-explorer benchmark tests may fail
 - [x] T028 Check a watch-only (xpub) wallet on Receive in the preview (the page treats it as an HD wallet): the list shows, switching works, and generating a new address works or behaves exactly as Receive does today for that wallet; fix or hide the list for that wallet type if derivation is not possible, and note the outcome in `research.md`; also try a multisig wallet if one can be created, and note what Receive does for it
 - [x] T029 Run the manual steps in `specs/012-receive-address-list/quickstart.md` in the preview (HD wallet, single-key wallet, phone width 375 px, no network); confirm the page makes no new network request and logs no addresses (FR-010), that 50 generated addresses are usable in under 3 seconds (SC-004), that any generated address can be put in the QR code within 2 taps (newest 10) or 3 taps (after "Show more") from opening Receive (SC-001), and that a wallet with only one generated address shows that one address and nothing looks broken (story 1, scenario 5), and that switching to an older address and reloading leaves the newest address as the wallet's current one (FR-011)
-- [ ] T030 Commit locally with Conventional Commits (`feat(web): ...`); do not push or open a PR until asked
+- [x] T030 Commit locally with Conventional Commits (`feat(web): ...`); do not push or open a PR until asked
 
 ---
 
