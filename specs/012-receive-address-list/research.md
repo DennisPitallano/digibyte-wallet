@@ -75,3 +75,11 @@ No "NEEDS CLARIFICATION" items remain after the eight clarification answers. The
 **Finding**: Watch-only (xpub) wallets are not treated as single-key wallets on Receive, and they have a public-key-only HD derivation (`IsWatchOnly`), so the same derivation calls work for them.
 
 **Decision**: Show the list for them like any HD wallet. Task T028 confirms it in the preview, and notes what Receive does for a multisig wallet.
+
+## R13. Offline and empty history (found while building)
+
+**Finding**: `GetTransactionHistoryAsync` returns whatever it could read: when the explorer is unreachable it returns only the locally tracked records, and for a wallet with no transactions it returns an empty list. Neither case can be told apart from a real, complete history, and the failure flag on the fallback service is not set for this call.
+
+**Decision**: The page only uses a loaded history when it carries wallet-address data (Home's cached copy, or a fresh load that does). An empty or data-less answer leaves every status "Status unknown", never "Unused". The helper keeps its own rule (an empty loaded list means unused), so the choice lives in the page. A wallet with no transactions at all therefore shows "Status unknown" until its first transaction; that is the safe side of the trade-off.
+
+**Known limit**: if the explorer is down and the only records are local ones that did carry addresses, an address paid only through the explorer could still read "Unused". Local records get their addresses from an explorer merge, so this needs an explorer that went down after a successful load.

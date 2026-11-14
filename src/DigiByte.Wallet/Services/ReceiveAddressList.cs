@@ -56,11 +56,12 @@ public static class ReceiveAddressList
         string? onShowAddress)
     {
         var onShowKey = onShowAddress is null ? null : AddressKey.Normalize(onShowAddress);
+        var counts = CountByAddress(history);
         var entries = new List<ReceiveAddressEntry>(addressesNewestFirst.Count);
         foreach (var (index, address) in addressesNewestFirst)
         {
             var key = AddressKey.Normalize(address);
-            var (status, count) = StatusOf(address, history);
+            var (status, count) = StatusFrom(counts, key);
             entries.Add(new ReceiveAddressEntry(
                 index, address,
                 labelLookup.TryGetValue(key, out var label) ? label : null,
@@ -70,8 +71,34 @@ public static class ReceiveAddressList
         return entries;
     }
 
-    /// <summary>The status and transaction count of one address, with the same rules as <see cref="Build"/>.</summary>
+    /// <summary>
+    /// The status and transaction count of one address, with the same rules as <see cref="Build"/>. The privacy notice uses
+    /// this for the address on show, so it works while the list is folded and no entry has been built.
+    /// </summary>
     public static (ReceiveAddressStatus Status, int TransactionCount) StatusOf(
         string address, IReadOnlyList<TransactionRecord>? history) =>
-        (ReceiveAddressStatus.Unknown, 0);
+        StatusFrom(CountByAddress(history), AddressKey.Normalize(address));
+
+    /// <summary>
+    /// Transactions per address (normalized), or null when no usable history exists. A history in which no record carries
+    /// wallet addresses (records cached by an older version) is not usable: a missing address could just be missing data.
+    /// An empty history is usable: nothing has happened yet.
+    /// </summary>
+    private static Dictionary<string, int>? CountByAddress(IReadOnlyList<TransactionRecord>? history)
+    {
+        if (history is null) return null;
+        if (history.Count > 0 && !history.Any(t => t.WalletAddresses.Count > 0 || t.WalletReceivedAddresses.Count > 0))
+            return null;
+
+        return ActivityAddressIndex.Build(history, new Dictionary<string, string>())
+            .ToDictionary(u => u.Key, u => u.TransactionCount);
+    }
+
+    private static (ReceiveAddressStatus Status, int TransactionCount) StatusFrom(Dictionary<string, int>? counts, string key)
+    {
+        if (counts is null) return (ReceiveAddressStatus.Unknown, 0);
+        return counts.TryGetValue(key, out var n) && n > 0
+            ? (ReceiveAddressStatus.Used, n)
+            : (ReceiveAddressStatus.Unused, 0);
+    }
 }

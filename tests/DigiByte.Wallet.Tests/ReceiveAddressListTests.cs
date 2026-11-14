@@ -98,6 +98,96 @@ public class ReceiveAddressListTests
         Assert.All(entries, e => Assert.Equal(ReceiveAddressStatus.Unknown, e.Status));
     }
 
+    // ── Status: used, unused or unknown, from the history the wallet already loads ──
+
+    private static TransactionRecord Tx(string id, string[]? wallet = null, string[]? receivedTo = null) => new()
+    {
+        TxId = id,
+        Direction = TransactionDirection.Received,
+        AmountSatoshis = 100,
+        FeeSatoshis = 0,
+        Timestamp = DateTime.UtcNow,
+        Confirmations = 1,
+        WalletAddresses = (wallet ?? []).ToList(),
+        WalletReceivedAddresses = (receivedTo ?? []).ToList(),
+    };
+
+    [Fact]
+    public void Status_AddressInEitherList_IsUsed_WithTheRightCount_AndOthersAreUnused()
+    {
+        var history = new List<TransactionRecord>
+        {
+            Tx("a", wallet: [Addr(3)]),
+            Tx("b", wallet: [Addr(3), Addr(4)]),
+            Tx("c", wallet: [Addr(1)], receivedTo: [Addr(3)]),
+        };
+
+        var entries = ReceiveAddressList.Build(NewestFirst(5, 6), history, Labels(), onShowAddress: null);
+
+        var three = entries.Single(e => e.Index == 3);
+        Assert.Equal(ReceiveAddressStatus.Used, three.Status);
+        Assert.Equal(3, three.TransactionCount);
+        Assert.Equal(1, entries.Single(e => e.Index == 4).TransactionCount);
+        Assert.Equal(ReceiveAddressStatus.Used, entries.Single(e => e.Index == 1).Status);
+        Assert.Equal(ReceiveAddressStatus.Unused, entries.Single(e => e.Index == 5).Status);
+        Assert.Equal(0, entries.Single(e => e.Index == 5).TransactionCount);
+    }
+
+    [Fact]
+    public void StatusOf_GivesTheSameStatusAndCountAsTheMatchingEntry()
+    {
+        var history = new List<TransactionRecord> { Tx("a", wallet: [Addr(3)]), Tx("b", wallet: [Addr(3)]) };
+        var entry = ReceiveAddressList.Build(NewestFirst(5, 6), history, Labels(), onShowAddress: null).Single(e => e.Index == 3);
+
+        var (status, count) = ReceiveAddressList.StatusOf(Addr(3), history);
+
+        Assert.Equal(entry.Status, status);
+        Assert.Equal(entry.TransactionCount, count);
+        Assert.Equal((ReceiveAddressStatus.Unused, 0), ReceiveAddressList.StatusOf(Addr(5), history));
+    }
+
+    [Fact]
+    public void Status_ABech32ChecksumVariantInTheHistory_StillMarksTheAddressUsed_CountedOnce()
+    {
+        const string variantOfAddr3 = "dgb1qlist00000000000000000003zzzzzz";
+        var history = new List<TransactionRecord> { Tx("a", wallet: [variantOfAddr3, Addr(3)]) };
+
+        var (status, count) = ReceiveAddressList.StatusOf(Addr(3), history);
+
+        Assert.Equal(ReceiveAddressStatus.Used, status);
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void Status_AnEmptyLoadedHistory_IsUnused_WhileNoHistoryIsUnknown()
+    {
+        Assert.Equal(ReceiveAddressStatus.Unused, ReceiveAddressList.StatusOf(Addr(1), new List<TransactionRecord>()).Status);
+        Assert.Equal(ReceiveAddressStatus.Unknown, ReceiveAddressList.StatusOf(Addr(1), null).Status);
+    }
+
+    [Fact]
+    public void Status_RecordsWithoutAnyWalletAddressData_GiveUnknown_NeverUnused()
+    {
+        // Records cached by an older version carry no wallet addresses: a missing address may just be missing data.
+        var history = new List<TransactionRecord> { Tx("a"), Tx("b") };
+
+        var entries = ReceiveAddressList.Build(NewestFirst(5, 3), history, Labels(), onShowAddress: null);
+
+        Assert.All(entries, e => Assert.Equal(ReceiveAddressStatus.Unknown, e.Status));
+    }
+
+    [Fact]
+    public void Status_OneRecordWithAddressData_MakesTheOthersUnused()
+    {
+        // Once any record carries wallet addresses the history is trustworthy for every address.
+        var history = new List<TransactionRecord> { Tx("a"), Tx("b", wallet: [Addr(5)]) };
+
+        var entries = ReceiveAddressList.Build(NewestFirst(5, 3), history, Labels(), onShowAddress: null);
+
+        Assert.Equal(ReceiveAddressStatus.Used, entries.Single(e => e.Index == 5).Status);
+        Assert.Equal(ReceiveAddressStatus.Unused, entries.Single(e => e.Index == 4).Status);
+    }
+
     // ── The newest listed address is the one Receive shows today ──
 
     private static async Task<WalletService> CreateAsync(Env env)

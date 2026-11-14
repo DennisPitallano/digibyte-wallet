@@ -3,6 +3,7 @@
 @inject ClipboardService Clipboard
 @inject AddressLabelService LabelService
 @inject AppState AppState
+@inject ISecureStorage Storage
 @inject IJSRuntime JS
 
 <PageTitle>Receive DGB — DigiByte Wallet</PageTitle>
@@ -45,6 +46,14 @@
                     </div>
                 </div>
             </div>
+
+            @* Reusing an address links payments together. Shown only when the address on show is known to be used; never blocks copy or share. *@
+            @if (onShowUsed)
+            {
+                <p class="w-full text-center text-[11px] leading-snug text-amber-600 dark:text-amber-400" role="note">
+                    This address has been used before. A new address is better for privacy.
+                </p>
+            }
 
             <div class="w-full flex flex-col items-center gap-3 fade-in-delay-2">
                 @if (requestAmount is not null)
@@ -150,6 +159,7 @@
                                         <span class="block text-xs font-semibold text-slate-900 dark:text-white truncate">@entry.Label</span>
                                     }
                                     <span class="block text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate" title="@entry.Address">@ShortAddress(entry.Address)</span>
+                                    <span class="block text-[10px] @StatusClass(entry.Status)">@StatusText(entry)</span>
                                 </span>
                                 @if (entry.IsOnShow)
                                 {
@@ -297,6 +307,7 @@
         // Default to segwit for HD wallets, legacy for WIF
         addressFormat = isWifWallet ? "legacy" : "segwit";
         await GenerateAddress();
+        _ = LoadHistoryAsync(); // background: the page and the QR code never wait for it
     }
 
     // ── Your addresses (spec 012) ──
@@ -314,6 +325,70 @@
 
     private static string ShortAddress(string text) =>
         text.Length > 22 ? $"{text[..10]}…{text[^6..]}" : text;
+
+    // Which addresses were used, from history the wallet already has: Home's cached copy first, and one background load
+    // only when that holds no wallet-address data. Until it is known every entry says "Status unknown", never "Unused".
+    private IReadOnlyList<TransactionRecord>? history;
+    private bool historyLoading;
+    private bool onShowUsed;
+
+    private static string StatusText(ReceiveAddressEntry entry) => entry.Status switch
+    {
+        ReceiveAddressStatus.Used => $"Used · {entry.TransactionCount} transaction{(entry.TransactionCount == 1 ? "" : "s")}",
+        ReceiveAddressStatus.Unused => "Unused",
+        _ => "Status unknown",
+    };
+
+    private static string StatusClass(ReceiveAddressStatus status) => status switch
+    {
+        ReceiveAddressStatus.Used => "text-amber-600 dark:text-amber-400",
+        ReceiveAddressStatus.Unused => "text-green-600 dark:text-green-400",
+        _ => "text-slate-400 dark:text-slate-500",
+    };
+
+    /// <summary>Updates the privacy notice: the address on show is used, according to the history known so far.</summary>
+    private void RefreshOnShowStatus() =>
+        onShowUsed = !isWifWallet && address is not null
+            && ReceiveAddressList.StatusOf(address, history).Status == ReceiveAddressStatus.Used;
+
+    private static bool HasWalletAddressData(IReadOnlyList<TransactionRecord>? records) =>
+        records is not null && records.Any(t => t.WalletAddresses.Count > 0 || t.WalletReceivedAddresses.Count > 0);
+
+    private async Task LoadHistoryAsync()
+    {
+        if (isWifWallet || historyLoading || WalletService.ActiveWallet is not { } wallet) return;
+        historyLoading = true;
+        try
+        {
+            // 1. The history Home already cached: no request at all.
+            try
+            {
+                var json = await Storage.GetAsync($"cache:transactions:{wallet.Id}");
+                var cached = json is null ? null : System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(json);
+                if (HasWalletAddressData(cached)) { ApplyHistory(cached); return; }
+            }
+            catch { /* an unreadable cache is the same as no cache */ }
+
+            // 2. No usable cache: the same history call Home and Activity use (it has its own 30 second cache). That call
+            //    returns whatever it could read, so an empty answer cannot be told apart from an unreachable explorer. Only a
+            //    history that carries wallet addresses is used; otherwise every status stays unknown, never "unused".
+            try
+            {
+                var loaded = await WalletService.GetTransactionHistoryAsync(0, 1000);
+                if (HasWalletAddressData(loaded)) ApplyHistory(loaded);
+            }
+            catch { /* offline or locked: statuses stay unknown */ }
+        }
+        finally { historyLoading = false; }
+    }
+
+    private void ApplyHistory(IReadOnlyList<TransactionRecord>? records)
+    {
+        history = records;
+        RefreshOnShowStatus();
+        if (shownCount > 0) RebuildEntries();
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private async Task ToggleListAsync()
     {
@@ -355,7 +430,7 @@
         var window = new List<(int Index, string Address)>();
         for (var i = newest; i >= start; i--)
             if (derivedByIndex.TryGetValue(i, out var a)) window.Add((i, a));
-        entries = ReceiveAddressList.Build(window, history: null, walletAddressLabels, address);
+        entries = ReceiveAddressList.Build(window, history, walletAddressLabels, address);
     }
 
     /// <summary>Puts the chosen address in the QR code, copy, share and download; the amount and note stay as they are.</summary>
@@ -364,6 +439,7 @@
         address = entry.Address;
         GenerateQrCode();
         await LoadLabel();
+        RefreshOnShowStatus();
         RebuildEntries();
     }
 
@@ -372,6 +448,7 @@
         address = await WalletService.GetReceivingAddressAsync(addressFormat);
         GenerateQrCode();
         await LoadLabel();
+        RefreshOnShowStatus();
     }
 
     private async Task SetLegacy() => await SetFormat("legacy");
@@ -427,6 +504,7 @@
             address = newAddress;
             GenerateQrCode();
             await LoadLabel();
+            RefreshOnShowStatus();
 
             // The new address is the newest entry and the one on show. Only a list that was already opened needs updating.
             derivedByIndex[newIndex] = newAddress;
