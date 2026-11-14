@@ -112,8 +112,8 @@ description: "Task list for Your Addresses on the Receive Page"
 
 **Independent Test**: Choose "View activity" on a used address and see Activity filtered to it; unused addresses have no such action.
 
-- [ ] T023 [US5] In `src/DigiByte.Web/Pages/Receive.razor`, show a "View activity" action only on entries whose status is `Used`; it writes `pref:activityAddress:<walletId>` (the address as generated) to `ISecureStorage` and navigates to `/transactions` with `NavigationManager`; storage errors are ignored and the navigation still happens
-- [ ] T024 [US5] Verify in the preview that Activity opens with that address chosen (the restore in `src/DigiByte.Web/Pages/Transactions.razor` only applies when the address still appears in the history); no change to `Transactions.razor` is expected
+- [x] T023 [US5] In `src/DigiByte.Web/Pages/Receive.razor`, show a "View activity" action only on entries whose status is `Used`; it writes `pref:activityAddress:<walletId>` (the address as generated) to `ISecureStorage` and navigates to `/transactions` with `NavigationManager`; storage errors are ignored and the navigation still happens
+- [x] T024 [US5] Verify in the preview that Activity opens with that address chosen (the restore in `src/DigiByte.Web/Pages/Transactions.razor` only applies when the address still appears in the history); no change to `Transactions.razor` is expected
 
 **Checkpoint**: All five stories work.
 

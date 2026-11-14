@@ -4,6 +4,7 @@
 @inject AddressLabelService LabelService
 @inject AppState AppState
 @inject ISecureStorage Storage
+@inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <PageTitle>Receive DGB — DigiByte Wallet</PageTitle>
@@ -185,6 +186,14 @@
                                             <span class="text-[11px] font-semibold text-dgb-500 flex-shrink-0">Showing</span>
                                         }
                                     </button>
+                                    @* Only a used address has anything to show on Activity; unused and unknown ones get no action. *@
+                                    @if (entry.Status == ReceiveAddressStatus.Used)
+                                    {
+                                        <button type="button" class="px-1.5 py-1 text-[11px] font-semibold text-dgb-600 dark:text-dgb-400 hover:underline flex-shrink-0"
+                                                aria-label="View activity for this address" @onclick="() => ViewActivityAsync(entry)">
+                                            View activity
+                                        </button>
+                                    }
                                     <button type="button" class="p-2 text-slate-400 hover:text-dgb-500 transition-colors flex-shrink-0"
                                             aria-label="@(string.IsNullOrEmpty(entry.Label) ? "Name this address" : "Rename this address")" title="Name this address"
                                             @onclick="() => StartRename(entry)">
@@ -624,6 +633,21 @@
         await LoadWalletLabelsAsync();
         // The box under the QR code shows the name of the address on show.
         if (AddressKey.Normalize(entry.Address) == AddressKey.Normalize(address ?? "")) await LoadLabel();
+    }
+
+    /// <summary>
+    /// Opens Activity filtered to this address. Activity restores the address it remembers (the same preference the Activity
+    /// picker writes) once its history has loaded, so nothing new is needed on that page.
+    /// </summary>
+    private async Task ViewActivityAsync(ReceiveAddressEntry entry)
+    {
+        try
+        {
+            if (WalletService.ActiveWallet is { } wallet)
+                await Storage.SetAsync($"pref:activityAddress:{wallet.Id}", entry.Address);
+        }
+        catch { /* the filter is a convenience: Activity still opens */ }
+        Nav.NavigateTo("/transactions");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
