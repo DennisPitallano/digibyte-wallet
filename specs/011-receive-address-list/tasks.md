@@ -31,9 +31,9 @@ description: "Task list for Your Addresses on the Receive Page"
 **Purpose**: The helper every story reads. Status logic with a loaded history comes in US2; here the list is built with every status `Unknown`.
 
 - [ ] T003 [P] Create `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs` with failing tests for `ReceiveAddressList.NextWindow(currentCount, generatedCount)` ("min(currentCount + 10, generatedCount)") and `WindowStart(currentIndex, shownCount)` ("never below 0"), including `generatedCount` smaller than 10 and exactly 10
-- [ ] T004 [P] In the same test file, add failing tests for `ReceiveAddressList.Build(...)`: entries keep the newest-first order given; `Label` comes from the label lookup (normalized key); `IsOnShow` is set only on the entry matching the on-show address compared in normalized form (bech32 checksum variants match); empty input returns an empty list; `history` null gives `Status = Unknown` for every entry
-- [ ] T005 Create `src/DigiByte.Wallet/Services/ReceiveAddressList.cs` with `ReceiveAddressStatus` (`Used`, `Unused`, `Unknown`), `ReceiveAddressEntry` (Index, Address, Label, Status, TransactionCount, IsOnShow per data-model.md), `NextWindow`, `WindowStart` and `Build` (history null means every status is `Unknown`; "Unknown is never presented as Unused")
-- [ ] T006 Add a test in the same test file, using the wallet test environment (`using static DigiByte.Wallet.Tests.ChangeAddressTests;`, see `tests/DigiByte.Wallet.Tests/ReceiveAddressTests.cs`), that pins research R1: `GetReceivingAddressesAsync(count, startIndex)` over indexes 0 to `NextReceivingIndex` gives the address `GetReceivingAddressAsync()` returns as the last one, and after `GenerateNewReceivingAddressAsync()` the range is exactly one longer with the new address last
+- [ ] T004 [P] In `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs`, add failing tests for `ReceiveAddressList.Build(...)`: entries keep the newest-first order given; `Label` comes from the label lookup (normalized key); `IsOnShow` is set only on the entry matching the on-show address compared in normalized form (bech32 checksum variants match); empty input returns an empty list; `history` null gives `Status = Unknown` for every entry
+- [ ] T005 Create `src/DigiByte.Wallet/Services/ReceiveAddressList.cs` with `ReceiveAddressStatus` (`Used`, `Unused`, `Unknown`), `ReceiveAddressEntry` (Index, Address, Label, Status, TransactionCount, IsOnShow per data-model.md), `NextWindow`, `WindowStart`, `Build` and `StatusOf(address, history)` (the status and count of one address, so the privacy notice can use the address on show without deriving the list; history null means every status is `Unknown`; "Unknown is never presented as Unused")
+- [ ] T006 Add a test in `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs`, using the wallet test environment (`using static DigiByte.Wallet.Tests.ChangeAddressTests;`, see `tests/DigiByte.Wallet.Tests/ReceiveAddressTests.cs`), that pins research R1: `GetReceivingAddressesAsync(count, startIndex)` over indexes 0 to `NextReceivingIndex` gives the address `GetReceivingAddressAsync()` returns as the last one, and after `GenerateNewReceivingAddressAsync()` the range is exactly one longer with the new address last
 
 **Checkpoint**: Helper and window math ready and tested.
 
@@ -43,14 +43,14 @@ description: "Task list for Your Addresses on the Receive Page"
 
 **Goal**: A "Your addresses" list on Receive (HD wallets): the newest 10, "Show more" adds 10, choosing one puts it in the QR code, copy, share and download.
 
-**Independent Test**: Generate three addresses, open Receive, choose the first in the list, and confirm the QR code, copy and share carry it; the amount entered earlier is kept.
+**Independent Test**: Generate three addresses, open Receive, open the folded "Your addresses" row, choose the first in the list, and confirm the QR code, copy and share carry it; the amount entered earlier is kept.
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] In `src/DigiByte.Web/Pages/Receive.razor`, for HD wallets only (`!isWifWallet`), add the list state: `ShownCount` "Starts at 10; 'Show more' adds 10 until Index 0 is listed, then the control is gone" and `OnShowIndex` "starts at the newest (current) index each visit; changing it is never saved"; derive the newest 10 with `WalletService.GetReceivingAddressesAsync(count, startIndex)` using `ReceiveAddressList.WindowStart`, and keep derived addresses for the visit so "Show more" never derives the same index twice
-- [ ] T008 [US1] In the same file, render the list under the QR card: newest first, shortened address, the entry on show marked, a "Show more" button that disappears once index 0 is listed; hide the whole list when the wallet is single-key (the legacy/SegWit switch stays as it is)
-- [ ] T009 [US1] In the same file, make choosing an entry set the on-show address, rebuild the QR code and the payload (so copy, share and download use it) and reload its name into the name box, leaving `requestAmount` and `requestNote` untouched and writing nothing to storage or to `NextReceivingIndex`
-- [ ] T010 [US1] In the same file, keep the page opening on the newest address (today's `GenerateAddress` behavior) and check that leaving and returning to Receive after switching shows the newest address again (FR-012)
+- [ ] T007 [US1] In `src/DigiByte.Web/Pages/Receive.razor`, for HD wallets only (`!isWifWallet`), add the list state: `ShownCount` "Starts at 10; 'Show more' adds 10 until Index 0 is listed, then the control is gone" and `OnShowIndex` "starts at the newest (current) index each visit; changing it is never saved"; derive the newest 10 with `WalletService.GetReceivingAddressesAsync(count, startIndex)` using `ReceiveAddressList.WindowStart` the first time the folded row is opened (research R9), and keep derived addresses for the visit so "Show more" never derives the same index twice
+- [ ] T008 [US1] In `src/DigiByte.Web/Pages/Receive.razor`, render a folded "Your addresses (N)" row under the QR card (folded on every visit, tap to open, open or closed state not saved, N = number of generated addresses) and, when opened, the list: newest first, shortened address, the entry on show marked, a "Show more" button that disappears once index 0 is listed; hide the whole list when the wallet is single-key (the legacy/SegWit switch stays as it is)
+- [ ] T009 [US1] In `src/DigiByte.Web/Pages/Receive.razor`, make choosing an entry set the on-show address, rebuild the QR code and the payload (so copy, share and download use it) and reload its name into the name box, leaving `requestAmount` and `requestNote` untouched and writing nothing to storage or to `NextReceivingIndex`
+- [ ] T010 [US1] In `src/DigiByte.Web/Pages/Receive.razor`, keep the page opening on the newest address (today's `GenerateAddress` behavior) and check that leaving and returning to Receive after switching shows the newest address again (FR-012)
 
 **Checkpoint**: US1 works alone and is demoable.
 
@@ -64,15 +64,16 @@ description: "Task list for Your Addresses on the Receive Page"
 
 ### Tests for User Story 2 (write first, must fail)
 
-- [ ] T011 [P] [US2] In `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs`: with a loaded history, an address found in `WalletAddresses` or `WalletReceivedAddresses` is `Used` with the right `TransactionCount`; an address not found is `Unused`
-- [ ] T012 [P] [US2] Same file: a bech32 checksum variant of a listed address in the history still marks it `Used` (counted once); an empty loaded history (empty list, not null) gives `Unused` for every entry while a null history gives `Unknown`
-- [ ] T013 [P] [US2] Same file: records that carry no wallet address data (older cached records) leave the status as `Unused` only if at least one record in the history has address data, otherwise `Unknown` (research R3 known limit)
+- [ ] T011 [P] [US2] In `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs`: with a loaded history, an address found in `WalletAddresses` or `WalletReceivedAddresses` is `Used` with the right `TransactionCount`; an address not found is `Unused`; `StatusOf(address, history)` gives the same status and count as the matching entry from `Build`
+- [ ] T012 [P] [US2] In `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs`: a bech32 checksum variant of a listed address in the history still marks it `Used` (counted once); an empty loaded history (empty list, not null) gives `Unused` for every entry while a null history gives `Unknown`
+- [ ] T013 [P] [US2] In `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs`: records that carry no wallet address data (older cached records) leave the status as `Unused` only if at least one record in the history has address data, otherwise `Unknown` (research R3 known limit)
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Extend `ReceiveAddressList.Build` in `src/DigiByte.Wallet/Services/ReceiveAddressList.cs` with the status rules from data-model.md, reusing `ActivityAddressIndex.Build` for the counts
-- [ ] T015 [US2] In `src/DigiByte.Web/Pages/Receive.razor`, inject `ISecureStorage`, read the cached history `cache:transactions:<walletId>` once for the visit, and show a status badge per entry ("Used · N", "Unused", or nothing/"Unknown"); the list and the QR code must appear without waiting for this
-- [ ] T016 [US2] In the same file, when the cache is missing or holds no address data, load the history once in the background with `WalletService.GetTransactionHistoryAsync(0, 1000)` (its own 30 second cache applies), refresh the badges when it returns, and on failure leave every status `Unknown`; make no other network request
+- [ ] T014 [US2] Extend `ReceiveAddressList.Build` in `src/DigiByte.Wallet/Services/ReceiveAddressList.cs` and `StatusOf` with the status rules from data-model.md, reusing `ActivityAddressIndex.Build` for the counts
+- [ ] T015 [US2] In `src/DigiByte.Web/Pages/Receive.razor`, inject `ISecureStorage`, read the cached history `cache:transactions:<walletId>` once for the visit when the page opens (not only when the list is opened, so the privacy notice can use it), and show a status label per entry ("Used · N", "Unused", or a muted "Status unknown" while the status is not known; it is replaced when the history arrives); the list and the QR code must appear without waiting for this
+- [ ] T016 [US2] In `src/DigiByte.Web/Pages/Receive.razor`, when the cache is missing or holds no address data, load the history once in the background with `WalletService.GetTransactionHistoryAsync(0, 1000)` (its own 30 second cache applies), refresh the status labels when it returns, and on failure leave every status `Unknown`; make no other network request
+- [ ] T017 [US2] In `src/DigiByte.Web/Pages/Receive.razor`, show a short non-blocking notice under the QR code ("This address has been used before. A new address is better for privacy.") only when the address on show has status `Used`; it must not be shown for `Unused` or `Unknown`, takes the status of the address on show from `ReceiveAddressList.StatusOf` and the cached history directly (so it works while the list is folded and was never opened, without deriving any list entry), must update when the user switches address, and must never block or delay copy, share or download (FR-013)
 
 **Checkpoint**: US1 and US2 work independently.
 
@@ -84,9 +85,9 @@ description: "Task list for Your Addresses on the Receive Page"
 
 **Independent Test**: Name an address in the list, then see it in the box under the QR code and in the Activity picker; rename it on Activity and see it here.
 
-- [ ] T017 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, load the whole label store once with `AddressLabelService.GetAllAsync(walletId)`, build the lookup with `ActivityAddressIndex.BuildLabelLookup`, and show each name in its list entry (long names shortened in the list, full in the editor)
-- [ ] T018 [US3] In the same file, add a pencil per entry that opens an inline name editor (Enter saves, Escape cancels, an empty name removes the label, the text box takes focus when it opens, and the name is limited to 50 characters like the existing name box under the QR code), using `AddressLabelService.SetLabelAsync(walletId, entry.Address, text)` with the address as generated, then refresh the lookup and the list
-- [ ] T019 [US3] In the same file, make the existing name box under the QR code (`SaveLabel`, `ClearLabel`) refresh the same lookup after it saves, and make the box show the new name when a name is set from the list for the address on show
+- [ ] T018 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, load the whole label store once with `AddressLabelService.GetAllAsync(walletId)`, build the lookup with `ActivityAddressIndex.BuildLabelLookup`, and show each name in its list entry (long names shortened in the list, full in the editor)
+- [ ] T019 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, add a pencil per entry that opens an inline name editor (Enter saves, Escape cancels, an empty name removes the label, the text box takes focus when it opens, and the name is limited to 50 characters like the existing name box under the QR code), using `AddressLabelService.SetLabelAsync(walletId, entry.Address, text)` with the address as generated, then refresh the lookup and the list
+- [ ] T020 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, make the existing name box under the QR code (`SaveLabel`, `ClearLabel`) refresh the same lookup after it saves, and make the box show the new name when a name is set from the list for the address on show
 
 **Checkpoint**: US3 works with US1.
 
@@ -98,8 +99,8 @@ description: "Task list for Your Addresses on the Receive Page"
 
 **Independent Test**: Generate a new address and see it on top and shown; with the limit reached see the existing message and an unchanged list.
 
-- [ ] T020 [US4] In `src/DigiByte.Web/Pages/Receive.razor`, after `GenerateNewReceivingAddressAsync()` succeeds add the new address as the newest entry, set it as on show, and keep `ShownCount` so the visible window grows by one; on `InvalidOperationException` keep today's inline message, and leave the list and the on-show address unchanged
-- [ ] T021 [P] [US4] Confirm the existing tests that cover the limit and the save failure still pass unchanged (`tests/DigiByte.Wallet.Tests/AddressDiscoveryReliabilityTests.cs`, `tests/DigiByte.Wallet.Tests/ReceiveAddressTests.cs`); add a test in `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs` only if none checks that a failed generate leaves `NextReceivingIndex` unchanged
+- [ ] T021 [US4] In `src/DigiByte.Web/Pages/Receive.razor`, after `GenerateNewReceivingAddressAsync()` succeeds add the new address as the newest entry, set it as on show, and keep `ShownCount` so the visible window grows by one; on `InvalidOperationException` keep today's inline message, and leave the list and the on-show address unchanged
+- [ ] T022 [P] [US4] Confirm the existing tests that cover the limit and the save failure still pass unchanged (`tests/DigiByte.Wallet.Tests/AddressDiscoveryReliabilityTests.cs`, `tests/DigiByte.Wallet.Tests/ReceiveAddressTests.cs`); add a test in `tests/DigiByte.Wallet.Tests/ReceiveAddressListTests.cs` only if none checks that a failed generate leaves `NextReceivingIndex` unchanged
 
 **Checkpoint**: US4 works with US1.
 
@@ -111,8 +112,8 @@ description: "Task list for Your Addresses on the Receive Page"
 
 **Independent Test**: Choose "View activity" on a used address and see Activity filtered to it; unused addresses have no such action.
 
-- [ ] T022 [US5] In `src/DigiByte.Web/Pages/Receive.razor`, show a "View activity" action only on entries whose status is `Used`; it writes `pref:activityAddress:<walletId>` (the address as generated) to `ISecureStorage` and navigates to `/transactions` with `NavigationManager`; storage errors are ignored and the navigation still happens
-- [ ] T023 [US5] Verify in the preview that Activity opens with that address chosen (the restore in `src/DigiByte.Web/Pages/Transactions.razor` only applies when the address still appears in the history); no change to `Transactions.razor` is expected
+- [ ] T023 [US5] In `src/DigiByte.Web/Pages/Receive.razor`, show a "View activity" action only on entries whose status is `Used`; it writes `pref:activityAddress:<walletId>` (the address as generated) to `ISecureStorage` and navigates to `/transactions` with `NavigationManager`; storage errors are ignored and the navigation still happens
+- [ ] T024 [US5] Verify in the preview that Activity opens with that address chosen (the restore in `src/DigiByte.Web/Pages/Transactions.razor` only applies when the address still appears in the history); no change to `Transactions.razor` is expected
 
 **Checkpoint**: All five stories work.
 
@@ -120,27 +121,27 @@ description: "Task list for Your Addresses on the Receive Page"
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T024 [P] Check `docs/` (ARCHITECTURE.md, PROCESS_FLOWS.md) and the Help page for a description of the Receive screen and update it if one exists
-- [ ] T025 [P] Check the locale resource files and `LocaleParityTests` for any new UI strings ("Your addresses", "Show more", "Used", "Unused", "View activity", "Name this address") and add them if the page uses localized text; the Receive page may use plain English like the surrounding code
-- [ ] T026 Run `dotnet build` and `dotnet test tests/DigiByte.Wallet.Tests`; only the live-explorer benchmark tests may fail
-- [ ] T027 Check a watch-only (xpub) wallet on Receive in the preview (the page treats it as an HD wallet): the list shows, switching works, and generating a new address works or behaves exactly as Receive does today for that wallet; fix or hide the list for that wallet type if derivation is not possible, and note the outcome in `research.md`; also try a multisig wallet if one can be created, and note what Receive does for it
-- [ ] T028 Run the manual steps in `specs/011-receive-address-list/quickstart.md` in the preview (HD wallet, single-key wallet, phone width 375 px, no network); confirm the page makes no new network request and logs no addresses (FR-010), that 50 generated addresses are usable in under 3 seconds (SC-004), that any generated address can be put in the QR code within 2 interactions from opening Receive (SC-001), and that a wallet with only one generated address shows that one address and nothing looks broken (story 1, scenario 5)
-- [ ] T029 Commit locally with Conventional Commits (`feat(web): ...`); do not push or open a PR until asked
+- [ ] T025 [P] Check `docs/` (ARCHITECTURE.md, PROCESS_FLOWS.md) and the Help page for a description of the Receive screen and update it if one exists
+- [ ] T026 [P] Check the locale resource files and `LocaleParityTests` for any new UI strings ("Your addresses", "Show more", "Used", "Unused", "View activity", "Name this address") and add them if the page uses localized text; the Receive page may use plain English like the surrounding code
+- [ ] T027 Run `dotnet build` and `dotnet test tests/DigiByte.Wallet.Tests`; only the live-explorer benchmark tests may fail
+- [ ] T028 Check a watch-only (xpub) wallet on Receive in the preview (the page treats it as an HD wallet): the list shows, switching works, and generating a new address works or behaves exactly as Receive does today for that wallet; fix or hide the list for that wallet type if derivation is not possible, and note the outcome in `research.md`; also try a multisig wallet if one can be created, and note what Receive does for it
+- [ ] T029 Run the manual steps in `specs/011-receive-address-list/quickstart.md` in the preview (HD wallet, single-key wallet, phone width 375 px, no network); confirm the page makes no new network request and logs no addresses (FR-010), that 50 generated addresses are usable in under 3 seconds (SC-004), that any generated address can be put in the QR code within 2 taps (newest 10) or 3 taps (after "Show more") from opening Receive (SC-001), and that a wallet with only one generated address shows that one address and nothing looks broken (story 1, scenario 5), and that switching to an older address and reloading leaves the newest address as the wallet's current one (FR-011)
+- [ ] T030 Commit locally with Conventional Commits (`feat(web): ...`); do not push or open a PR until asked
 
 ---
 
 ## Dependencies & Execution Order
 
 - Setup (Phase 1) then Foundational (Phase 2, blocks the stories).
-- US1 needs Foundational. US2 needs Foundational and the list from US1 to show badges (its tests T011 to T013 only need Foundational). US3 needs the list from US1. US4 needs the list from US1. US5 needs US2 (it needs the `Used` status).
+- US1 needs Foundational. US2 needs Foundational and the list from US1 to show status labels (its tests T011 to T013 only need Foundational). US3 needs the list from US1. US4 needs the list from US1. US5 needs US2 (it needs the `Used` status). The privacy notice (T017) needs the status from T015 and T016 and the switching from T009.
 - Within a story: tests first and failing, then the helper, then the page.
-- T007 to T010 edit the same file in order; T011 to T013 can be written together; T017 and T020 touch the same file as T007 to T010, so they run after US1.
+- T007 to T010 edit the same file in order; T011 to T013 can be written together; T018 and T021 touch the same file as T007 to T010, so they run after US1.
 
 ## Parallel Examples
 
 - T003 and T004 (one test file, written together) while T002 reads the page.
 - T011, T012 and T013 together.
-- T021 and T024/T025 in parallel with page work.
+- T022 and T025/T026 in parallel with page work.
 
 ## Implementation Strategy
 

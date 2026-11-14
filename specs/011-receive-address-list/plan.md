@@ -6,7 +6,7 @@
 
 ## Summary
 
-Add a "Your addresses" list to the Receive page for HD wallets: the newest 10 receiving addresses (more on request), each with its name and whether it is used or unused. Choosing one puts it in the QR code, copy, share and download; naming reuses the Activity labels; a used address can open Activity already filtered to it. The wallet already derives address ranges (`GetReceivingAddressesAsync`) and the page already has everything else, so almost all of the work is in the page plus one small pure helper in `DigiByte.Wallet` that turns the address list, the transaction history and the labels into list entries. No change to how addresses are generated, no backend, no new network call: used/unused comes from the history Home already caches.
+Add a "Your addresses (N)" row to the Receive page for HD wallets. It starts folded on every visit; tapping it opens the newest 10 receiving addresses (more on request), each with its name and whether it is used, unused or "Status unknown". Choosing one puts it in the QR code, copy, share and download; a short privacy notice appears under the QR code when the address on show is used; naming reuses the Activity labels; a used address can open Activity already filtered to it. The wallet already derives address ranges (`GetReceivingAddressesAsync`) and the page already has everything else, so almost all of the work is in the page plus one small pure helper in `DigiByte.Wallet` that turns the address list, the transaction history and the labels into list entries. No change to how addresses are generated, no backend, no new network call: used/unused comes from the history Home already caches.
 
 ## Technical Context
 
@@ -24,11 +24,11 @@ Add a "Your addresses" list to the Receive page for HD wallets: the newest 10 re
 
 **Performance Goals**: SC-004: with 50 generated addresses Receive is ready in under 3 seconds on a typical phone. Only the newest 10 are derived at first, 10 more per "Show more".
 
-**Constraints**: No new network request; works offline (status unknown); the existing limit and save-failure messages stay unchanged; the page opens on the newest address and switching is not saved.
+**Constraints**: No new network request; works offline (entries show a muted "Status unknown" label); the existing limit and save-failure messages stay unchanged; the page opens on the newest address with the list folded, and neither switching nor opening the list is saved.
 
 **Scale/Scope**: One page, one helper, one test file
 
-**Notes**: A locked wallet never reaches the page (its auth guard sends the user to unlock), so nothing is listed. Watch-only (xpub) wallets use the HD path on Receive today; task T027 checks that the list works for them.
+**Notes**: A locked wallet never reaches the page (its auth guard sends the user to unlock), so nothing is listed. Watch-only (xpub) wallets use the HD path on Receive today; task T028 checks that the list works for them.
 
 ## Constitution Check
 

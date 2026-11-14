@@ -20,6 +20,7 @@ Nothing new is stored. These are in-memory shapes for one visit to Receive.
 | Field | Meaning | Rules |
 |---|---|---|
 | `ShownCount` | How many entries are listed | Starts at 10; "Show more" adds 10 until `Index` 0 is listed, then the control is gone |
+| `ListOpen` | Whether the "Your addresses (N)" row is open | Starts folded on every visit; never saved |
 | `OnShowIndex` | Which address is in the QR code | Starts at the newest (current) index each visit; changing it is never saved (FR-012) |
 
 ## Relationships

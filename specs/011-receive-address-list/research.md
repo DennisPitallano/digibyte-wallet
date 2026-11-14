@@ -53,3 +53,25 @@ No "NEEDS CLARIFICATION" items remain after the five clarification answers. Thes
 ## R8. Limit and save-failure messages
 
 **Decision**: Unchanged. "Generate new address" still calls `GenerateNewReceivingAddressAsync`; its `InvalidOperationException` message still goes to the existing inline error, and the list is not changed on failure.
+
+## R9. Folded row (clarified)
+
+**Decision**: Render a "Your addresses (N)" row under the QR card, folded on every visit and opened by a tap; the open or closed state is page state only and is never saved. N is the number of generated addresses (`NextReceivingIndex + 1`). The row is a button with `aria-expanded`, so it works with a keyboard and a screen reader. Deriving the first 10 addresses can wait until the row is first opened, which keeps the page as fast as it is today for people who never open it.
+
+**Alternatives**: Always open (pushes "Generate new address" and the share buttons down; rejected in clarify); open on desktop only (two layouts to test).
+
+## R10. Privacy notice for a used address (clarified)
+
+**Decision**: When the address on show has status `Used`, show a one-line notice under the QR code ("This address has been used before. A new address is better for privacy."). It is page text that depends only on the entry status already computed for the list, so it adds no request and never blocks copy, share or download. It is absent for `Unused` and `Unknown`. If the user opens Receive without ever opening the list, the status for the address on show is still needed: read it from the same cached history (R3) so the notice can appear even while the list is folded; it takes the status of the address on show from the helper's `StatusOf`, without deriving any list entry.
+
+**Alternatives**: Confirm before sharing a used address (an extra tap for a legitimate use such as a fixed donation address; rejected in clarify); no notice (loses the privacy hint).
+
+## R11. Unknown status label (clarified)
+
+**Decision**: While no history is known, or the load failed, each entry shows a muted "Status unknown" label instead of a status; it is replaced when the history arrives. This is the page text for `ReceiveAddressStatus.Unknown`; the helper itself only returns the status.
+
+## R12. Watch-only wallets
+
+**Finding**: Watch-only (xpub) wallets are not treated as single-key wallets on Receive, and they have a public-key-only HD derivation (`IsWatchOnly`), so the same derivation calls work for them.
+
+**Decision**: Show the list for them like any HD wallet. Task T028 confirms it in the preview, and notes what Receive does for a multisig wallet.

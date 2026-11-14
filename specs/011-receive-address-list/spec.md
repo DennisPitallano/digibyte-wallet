@@ -17,20 +17,23 @@
 - Q: Should the existing name box under the QR code stay now that addresses can be named in the list? → A: Yes. Both stay, they edit the same name, and a change in one shows in the other at once.
 - Q: What should "View activity" do on addresses that have no transactions yet? → A: It is hidden on unused addresses and on addresses whose status is unknown, so it only appears where it leads to real transactions.
 - Q: When the user leaves Receive and comes back, which address should be on show? → A: Always the newest generated address, as today. Switching to an older address lasts only for the current visit and nothing is saved.
+- Q: Should Receive warn when the user switches to an address that has already been used? → A: Yes, with a short non-blocking notice under the QR code ("A new address is better for privacy"), shown only when the address on show is used; it never blocks or delays copy, share or download.
+- Q: Should the "Your addresses" list be open all the time below the QR card, or folded until tapped? → A: Folded by default: a "Your addresses (N)" row under the QR card opens the list when tapped. It starts folded on every visit and the open or closed state is not saved.
+- Q: When an address's status cannot be determined (no history loaded yet, or the load failed), should the list show a label or nothing? → A: A small muted "Status unknown" label on each entry; it is replaced by the real status once the history is known, and it is never shown as "unused".
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See and switch between my receiving addresses (Priority: P1)
 
-A user who has generated several receiving addresses opens Receive and sees a "Your addresses" list. Choosing an address in the list shows it in the QR code, with its copy and share actions, so they can hand out any of their addresses again, not only the newest one.
+A user who has generated several receiving addresses opens Receive and sees a folded "Your addresses (N)" row; tapping it opens the list. Choosing an address in the list shows it in the QR code, with its copy and share actions, so they can hand out any of their addresses again, not only the newest one.
 
 **Why this priority**: This is the core ask. Today only the newest address can be shown, and older ones can be found only through the Activity list.
 
-**Independent Test**: Generate three addresses, open Receive, pick the first one in the list, and confirm the QR code, copy and share now carry that address.
+**Independent Test**: Generate three addresses, open Receive, open the folded "Your addresses" row, pick the first one in the list, and confirm the QR code, copy and share now carry that address.
 
 **Acceptance Scenarios**:
 
-1. **Given** a wallet with several generated addresses, **When** the user opens Receive, **Then** a list shows the newest 10 addresses, newest first, with the address on show marked.
+1. **Given** a wallet with several generated addresses, **When** the user opens Receive, **Then** a folded "Your addresses (N)" row is shown under the QR card, and **When** they tap it, **Then** a list shows the newest 10 addresses, newest first, with the address on show marked.
 2. **Given** more than 10 generated addresses, **When** the user chooses "Show more", **Then** 10 more are added, until all are shown and the control disappears.
 3. **Given** the list, **When** the user chooses another address, **Then** the QR code, the displayed address, and the copy, share and download actions use that address.
 4. **Given** a payment request amount is entered, **When** the user switches address, **Then** the request (QR code and link) uses the newly chosen address and keeps the amount.
@@ -51,7 +54,8 @@ Each listed address shows whether it has been used yet (it has received or sent 
 
 1. **Given** an address that has a transaction, **When** the list is shown, **Then** it shows as used, with how many transactions it has.
 2. **Given** an address with no transactions, **When** the list is shown, **Then** it shows as unused.
-3. **Given** the status cannot be determined because the network is unreachable, **When** the list is shown, **Then** the addresses are still listed and the status is simply left out or marked as unknown, never wrongly shown as unused.
+3. **Given** the status cannot be determined because the network is unreachable, **When** the list is shown, **Then** the addresses are still listed and each entry shows a muted "Status unknown" label, never "unused", and the label is replaced by the real status once the history is known.
+4. **Given** the address on show is used, **When** the user looks at the QR code, **Then** a short non-blocking notice says a new address is better for privacy, and copy, share and download still work at once; the notice is absent for unused and unknown addresses.
 
 ---
 
@@ -118,9 +122,9 @@ Each listed address has a "View activity" action that opens the Activity page al
 
 ### Functional Requirements
 
-- **FR-001**: For HD wallets, the Receive page MUST show a list of the receiving addresses the user has generated, newest first, with the address on show marked. It MUST show the newest 10 at first and offer "Show more", which adds 10 at a time until every generated address can be reached.
+- **FR-001**: For HD wallets, the Receive page MUST show a "Your addresses (N)" row under the QR card, folded on every visit and opened by tapping it (the open or closed state is not saved), that opens a list of the receiving addresses the user has generated, newest first, with the address on show marked. It MUST show the newest 10 at first and offer "Show more", which adds 10 at a time until every generated address can be reached.
 - **FR-002**: Choosing an address in the list MUST make the QR code, displayed address, and copy, share and download actions use it, and MUST keep any entered payment request amount and note.
-- **FR-003**: Each listed address MUST show whether it is unused or used (with its transaction count when known); when the status is unknown it MUST NOT be shown as unused.
+- **FR-003**: Each listed address MUST show whether it is unused or used (with its transaction count when known); when the status is unknown it MUST show a muted "Status unknown" label and MUST NOT be shown as unused.
 - **FR-004**: The list MUST include addresses that have no transactions yet.
 - **FR-005**: Users MUST be able to set, change and remove an address's name from the list, using the same names as the Activity page; a change MUST show at once in both places. The existing name box under the QR code MUST stay and edit the same name, so a change made there shows in the list and the other way round.
 - **FR-006**: Users MUST still be able to generate a new address; it MUST appear as the newest entry and be shown.
@@ -130,6 +134,7 @@ Each listed address has a "View activity" action that opens the Activity page al
 - **FR-010**: The list MUST be shown from the wallet's own derivation and the transaction history the wallet already loads; the feature MUST NOT send addresses or names to any new service.
 - **FR-011**: Showing the list MUST NOT change which address the wallet treats as its current receiving address, except when the user generates a new one.
 - **FR-012**: Each time Receive opens, the newest generated address MUST be the one on show; switching to another address MUST last only for the current visit and MUST NOT be saved.
+- **FR-013**: When the address on show is used, Receive MUST show a short notice under the QR code that a new address is better for privacy; the notice MUST NOT block or delay copy, share or download, and MUST NOT be shown when the status is unknown or unused.
 
 ### Key Entities
 
@@ -140,17 +145,17 @@ Each listed address has a "View activity" action that opens the Activity page al
 
 ### Measurable Outcomes
 
-- **SC-001**: A user can show any of their generated addresses in the QR code within 2 interactions from opening Receive.
+- **SC-001**: A user can show any of their generated addresses in the QR code within 3 taps from opening Receive (open the list, "Show more" if needed, choose the address), and the newest 10 within 2.
 - **SC-002**: 100% of generated addresses can be reached in the list (the newest 10 at first, the rest through "Show more"), and used and unused addresses are told apart correctly in 100% of cases where the transaction history is available.
 - **SC-003**: A name set on Receive appears on Activity, and the other way round, with no extra step.
-- **SC-004**: With 50 generated addresses the Receive page is ready to use in under 3 seconds on a typical phone.
+- **SC-004**: With 50 generated addresses the Receive page is ready to use in under 3 seconds on a mid-range phone (checked in the preview at 375 px width with CPU throttling).
 - **SC-005**: Generating a new address and the existing limit message behave exactly as before in all cases covered by the existing tests.
 
 ## Assumptions
 
 - Only the SegWit receiving addresses of an HD wallet are listed (what Receive shows today); legacy forms are out of scope.
 - "Generated" means every address up to and including the newest one the wallet has handed out.
-- Usage status comes only from the transaction history the wallet already loads (clarified); no per-address lookup is added. Addresses found in that history are used; the others are unused when the history is loaded and unknown when it is not.
+- Usage status comes only from the transaction history the wallet already loads (clarified); no per-address lookup is added. Addresses found in that history are used; the others are unused when the history is loaded and unknown when it is not. One exception: if the loaded history carries no wallet-address data at all (records cached by an older version), every status is unknown, because a missing address could simply be missing data.
 - Multi-select, deleting or hiding addresses, and exporting the list are out of scope.
 - Change addresses are not shown.
 - The Activity address filter from spec 010 already exists and is reused for "View activity".
