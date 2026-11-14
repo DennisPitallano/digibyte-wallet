@@ -69,7 +69,7 @@ specs/011-receive-address-list/
 ```text
 src/
 ├── DigiByte.Wallet/
-│   └── Services/ReceiveAddressList.cs          # NEW: entries, status, windowing (pure, testable)
+│   └── Services/ReceiveAddressList.cs          # NEW: entries, status, StatusOf, windowing (pure, testable)
 └── DigiByte.Web/
     └── Pages/Receive.razor                     # list, switching, naming, view activity
 

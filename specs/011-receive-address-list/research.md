@@ -1,6 +1,6 @@
 # Research: Your Addresses on the Receive Page
 
-No "NEEDS CLARIFICATION" items remain after the five clarification answers. These are the facts from the code and the decisions that follow.
+No "NEEDS CLARIFICATION" items remain after the eight clarification answers. These are the facts from the code and the decisions that follow.
 
 ## R1. Which addresses are "generated", and which is the newest?
 

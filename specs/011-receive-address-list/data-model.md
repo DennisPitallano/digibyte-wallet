@@ -23,6 +23,10 @@ Nothing new is stored. These are in-memory shapes for one visit to Receive.
 | `ListOpen` | Whether the "Your addresses (N)" row is open | Starts folded on every visit; never saved |
 | `OnShowIndex` | Which address is in the QR code | Starts at the newest (current) index each visit; changing it is never saved (FR-012) |
 
+## Status of one address
+
+`StatusOf(address, history)` gives the status and transaction count of a single address with the same rules as the list entries. The privacy notice (FR-013) uses it for the address on show, so it works while the list is folded and no entry has been derived. With a null history it returns `Unknown`.
+
 ## Relationships
 
 - `ReceiveAddressEntry.Label` and `Status` are read from the label store and from the history (`TransactionRecord.WalletAddresses` / `WalletReceivedAddresses`, spec 010) through `ActivityAddressIndex`.
