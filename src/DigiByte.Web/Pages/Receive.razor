@@ -3,6 +3,8 @@
 @inject ClipboardService Clipboard
 @inject AddressLabelService LabelService
 @inject AppState AppState
+@inject ISecureStorage Storage
+@inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <PageTitle>Receive DGB — DigiByte Wallet</PageTitle>
@@ -45,6 +47,14 @@
                     </div>
                 </div>
             </div>
+
+            @* Reusing an address links payments together. Shown only when the address on show is known to be used; never blocks copy or share. *@
+            @if (onShowUsed)
+            {
+                <p class="w-full text-center text-[11px] leading-snug text-amber-600 dark:text-amber-400" role="note">
+                    This address has been used before. A new address is better for privacy.
+                </p>
+            }
 
             <div class="w-full flex flex-col items-center gap-3 fade-in-delay-2">
                 @if (requestAmount is not null)
@@ -115,6 +125,94 @@
                 </div>
             }
         </div>
+
+        @* Your addresses: every receiving address generated so far. Folded on every visit; the newest 10, then 10 more at a time. *@
+        @if (!isWifWallet)
+        {
+            <div class="w-full bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                <button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left"
+                        aria-expanded="@(listOpen ? "true" : "false")" aria-controls="your-addresses-panel" @onclick="ToggleListAsync">
+                    <span class="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        <svg class="w-4 h-4 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm0 5.25h.007v.008H3.75V12Zm0 5.25h.007v.008H3.75v-.008Z" />
+                        </svg>
+                        Your addresses (@GeneratedCount)
+                    </span>
+                    <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 @(listOpen ? "rotate-180" : "")" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                </button>
+                @if (listOpen)
+                {
+                    <div id="your-addresses-panel" class="px-1.5 pb-1.5 flex flex-col gap-0.5 fade-in">
+                        @if (listLoading && entries.Count == 0)
+                        {
+                            <p class="px-2 py-3 text-xs text-slate-400 text-center">Loading addresses...</p>
+                        }
+                        @foreach (var entry in entries)
+                        {
+                            @if (editingIndex == entry.Index)
+                            {
+                                @* Naming the address: Enter saves, Escape cancels; an empty name removes the label. *@
+                                <div @key="entry.Index" class="flex items-center gap-1 px-2.5 py-2">
+                                    <input type="text" @ref="renameInput" @bind="editLabelText" @bind:event="oninput" maxlength="50"
+                                           @onkeydown="e => OnRenameKey(e, entry)"
+                                           placeholder="Name, e.g. Donations" aria-label="Name for @ShortAddress(entry.Address)"
+                                           class="flex-1 min-w-0 px-2 py-1 text-xs bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-dgb-500" />
+                                    <button type="button" class="p-1 text-green-500 press-effect" aria-label="Save name" @onclick="() => SaveRenameAsync(entry)">
+                                        <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                    </button>
+                                    <button type="button" class="p-1 text-slate-400 press-effect" aria-label="Cancel" @onclick="CancelRename">
+                                        <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div @key="entry.Index" class="flex items-center rounded-lg transition-colors hover:bg-slate-50 dark:hover:bg-dgb-800 @(entry.IsOnShow ? "bg-dgb-50 dark:bg-dgb-800" : "")">
+                                    <button type="button" aria-current="@(entry.IsOnShow ? "true" : "false")"
+                                            class="flex-1 min-w-0 flex items-center justify-between gap-3 pl-2.5 pr-1 py-2 text-left"
+                                            @onclick="() => SelectEntry(entry)">
+                                        <span class="min-w-0">
+                                            @if (!string.IsNullOrEmpty(entry.Label))
+                                            {
+                                                <span class="block text-xs font-semibold text-slate-900 dark:text-white truncate">@entry.Label</span>
+                                            }
+                                            <span class="block text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate" title="@entry.Address">@ShortAddress(entry.Address)</span>
+                                            <span class="block text-[10px] @StatusClass(entry.Status)">@StatusText(entry)</span>
+                                        </span>
+                                        @if (entry.IsOnShow)
+                                        {
+                                            <span class="text-[11px] font-semibold text-dgb-500 flex-shrink-0">Showing</span>
+                                        }
+                                    </button>
+                                    @* Only a used address has anything to show on Activity; unused and unknown ones get no action. *@
+                                    @if (entry.Status == ReceiveAddressStatus.Used)
+                                    {
+                                        <button type="button" class="px-1.5 py-1 text-[11px] font-semibold text-dgb-600 dark:text-dgb-400 hover:underline flex-shrink-0"
+                                                aria-label="View activity for this address" @onclick="() => ViewActivityAsync(entry)">
+                                            View activity
+                                        </button>
+                                    }
+                                    <button type="button" class="p-2 text-slate-400 hover:text-dgb-500 transition-colors flex-shrink-0"
+                                            aria-label="@(string.IsNullOrEmpty(entry.Label) ? "Name this address" : "Rename this address")" title="Name this address"
+                                            @onclick="() => StartRename(entry)">
+                                        <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" /></svg>
+                                    </button>
+                                </div>
+                            }
+                        }
+                        @if (shownCount < GeneratedCount)
+                        {
+                            <button type="button" class="self-center mt-1 px-3 py-1.5 text-xs font-semibold text-dgb-600 dark:text-dgb-400 disabled:opacity-50"
+                                    disabled="@listLoading" @onclick="ShowMoreAsync">
+                                Show more
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        }
 
         @if (!isWifWallet)
         {
@@ -244,6 +342,141 @@
         // Default to segwit for HD wallets, legacy for WIF
         addressFormat = isWifWallet ? "legacy" : "segwit";
         await GenerateAddress();
+        _ = LoadHistoryAsync(); // background: the page and the QR code never wait for it
+        _ = LoadWalletLabelsAsync();
+    }
+
+    // ── Your addresses (spec 012) ──
+    // The list starts folded on every visit and nothing about it is saved. The address on show also starts as the newest
+    // one on every visit. Switching only changes what this page shows; it never moves the wallet's current receiving index.
+    private bool listOpen;
+    private bool listLoading;
+    private int shownCount;
+    private readonly Dictionary<int, string> derivedByIndex = new();
+    private IReadOnlyList<ReceiveAddressEntry> entries = [];
+    private IReadOnlyDictionary<string, string> walletAddressLabels = new Dictionary<string, string>();
+
+    /// <summary>How many receiving addresses the wallet has generated: indexes 0 to the current one.</summary>
+    private int GeneratedCount => (WalletService.ActiveWallet?.NextReceivingIndex ?? 0) + 1;
+
+    private static string ShortAddress(string text) =>
+        text.Length > 22 ? $"{text[..10]}…{text[^6..]}" : text;
+
+    // Which addresses were used, from history the wallet already has: Home's cached copy first, and one background load
+    // only when that holds no wallet-address data. Until it is known every entry says "Status unknown", never "Unused".
+    private IReadOnlyList<TransactionRecord>? history;
+    private bool historyLoading;
+    private bool onShowUsed;
+
+    private static string StatusText(ReceiveAddressEntry entry) => entry.Status switch
+    {
+        ReceiveAddressStatus.Used => $"Used · {entry.TransactionCount} transaction{(entry.TransactionCount == 1 ? "" : "s")}",
+        ReceiveAddressStatus.Unused => "Unused",
+        _ => "Status unknown",
+    };
+
+    private static string StatusClass(ReceiveAddressStatus status) => status switch
+    {
+        ReceiveAddressStatus.Used => "text-amber-600 dark:text-amber-400",
+        ReceiveAddressStatus.Unused => "text-green-600 dark:text-green-400",
+        _ => "text-slate-400 dark:text-slate-500",
+    };
+
+    /// <summary>Updates the privacy notice: the address on show is used, according to the history known so far.</summary>
+    private void RefreshOnShowStatus() =>
+        onShowUsed = !isWifWallet && address is not null
+            && ReceiveAddressList.StatusOf(address, history).Status == ReceiveAddressStatus.Used;
+
+    private static bool HasWalletAddressData(IReadOnlyList<TransactionRecord>? records) =>
+        records is not null && records.Any(t => t.WalletAddresses.Count > 0 || t.WalletReceivedAddresses.Count > 0);
+
+    private async Task LoadHistoryAsync()
+    {
+        if (isWifWallet || historyLoading || WalletService.ActiveWallet is not { } wallet) return;
+        historyLoading = true;
+        try
+        {
+            // 1. The history Home already cached: no request at all.
+            try
+            {
+                var json = await Storage.GetAsync($"cache:transactions:{wallet.Id}");
+                var cached = json is null ? null : System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(json);
+                if (HasWalletAddressData(cached)) { ApplyHistory(cached); return; }
+            }
+            catch { /* an unreadable cache is the same as no cache */ }
+
+            // 2. No usable cache: the same history call Home and Activity use (it has its own 30 second cache). That call
+            //    returns whatever it could read, so an empty answer cannot be told apart from an unreachable explorer. Only a
+            //    history that carries wallet addresses is used; otherwise every status stays unknown, never "unused".
+            try
+            {
+                var loaded = await WalletService.GetTransactionHistoryAsync(0, 1000);
+                if (HasWalletAddressData(loaded)) ApplyHistory(loaded);
+            }
+            catch { /* offline or locked: statuses stay unknown */ }
+        }
+        finally { historyLoading = false; }
+    }
+
+    private void ApplyHistory(IReadOnlyList<TransactionRecord>? records)
+    {
+        history = records;
+        RefreshOnShowStatus();
+        if (shownCount > 0) RebuildEntries();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ToggleListAsync()
+    {
+        listOpen = !listOpen;
+        // The addresses are derived the first time the row is opened, so a visit that never opens it costs nothing.
+        if (listOpen && shownCount == 0)
+            await ShowWindowAsync(Math.Min(ReceiveAddressList.PageSize, GeneratedCount));
+    }
+
+    private Task ShowMoreAsync() => ShowWindowAsync(ReceiveAddressList.NextWindow(shownCount, GeneratedCount));
+
+    /// <summary>Derives the addresses a window of <paramref name="count"/> newest addresses still lacks, then rebuilds the list.</summary>
+    private async Task ShowWindowAsync(int count)
+    {
+        if (listLoading) return;
+        listLoading = true;
+        try
+        {
+            await Task.Yield(); // let the page paint "Loading" before the derivation work starts
+            var newest = GeneratedCount - 1;
+            var (start, size) = ReceiveAddressList.WindowStart(newest, count);
+            var missing = Enumerable.Range(start, size).Where(i => !derivedByIndex.ContainsKey(i)).ToList();
+            if (missing.Count > 0)
+            {
+                var derived = await WalletService.GetReceivingAddressesAsync(missing.Count, missing[0]);
+                foreach (var (index, derivedAddress) in derived) derivedByIndex[index] = derivedAddress;
+            }
+            shownCount = count;
+            RebuildEntries();
+        }
+        catch { /* the list is a convenience: leave it as it was */ }
+        finally { listLoading = false; }
+    }
+
+    private void RebuildEntries()
+    {
+        var newest = GeneratedCount - 1;
+        var (start, _) = ReceiveAddressList.WindowStart(newest, shownCount);
+        var window = new List<(int Index, string Address)>();
+        for (var i = newest; i >= start; i--)
+            if (derivedByIndex.TryGetValue(i, out var a)) window.Add((i, a));
+        entries = ReceiveAddressList.Build(window, history, walletAddressLabels, address);
+    }
+
+    /// <summary>Puts the chosen address in the QR code, copy, share and download; the amount and note stay as they are.</summary>
+    private async Task SelectEntry(ReceiveAddressEntry entry)
+    {
+        address = entry.Address;
+        GenerateQrCode();
+        await LoadLabel();
+        RefreshOnShowStatus();
+        RebuildEntries();
     }
 
     private async Task GenerateAddress()
@@ -251,6 +484,7 @@
         address = await WalletService.GetReceivingAddressAsync(addressFormat);
         GenerateQrCode();
         await LoadLabel();
+        RefreshOnShowStatus();
     }
 
     private async Task SetLegacy() => await SetFormat("legacy");
@@ -302,9 +536,19 @@
         generateError = null;
         try
         {
-            (_, address) = await WalletService.GenerateNewReceivingAddressAsync();
+            var (newIndex, newAddress) = await WalletService.GenerateNewReceivingAddressAsync();
+            address = newAddress;
             GenerateQrCode();
             await LoadLabel();
+            RefreshOnShowStatus();
+
+            // The new address is the newest entry and the one on show. Only a list that was already opened needs updating.
+            derivedByIndex[newIndex] = newAddress;
+            if (shownCount > 0)
+            {
+                shownCount = Math.Min(shownCount + 1, GeneratedCount);
+                RebuildEntries();
+            }
         }
         catch (InvalidOperationException ex)
         {
@@ -331,6 +575,7 @@
     {
         if (address == null || WalletService.ActiveWallet == null) return;
         await LabelService.SetLabelAsync(WalletService.ActiveWallet.Id, address, addressLabel);
+        await LoadWalletLabelsAsync(); // the list shows the same name at once
     }
 
     private async Task ClearLabel()
@@ -338,5 +583,78 @@
         if (address == null || WalletService.ActiveWallet == null) return;
         addressLabel = "";
         await LabelService.RemoveLabelAsync(WalletService.ActiveWallet.Id, address);
+        await LoadWalletLabelsAsync();
+    }
+
+    // ── Names in the list (spec 012): the same labels as the box under the QR code and as the Activity page ──
+
+    private int? editingIndex;
+    private string editLabelText = "";
+    private ElementReference renameInput;
+    private bool focusRenameInput;
+
+    /// <summary>Loads the whole label store (once per change) and rebuilds the list so every entry shows its name.</summary>
+    private async Task LoadWalletLabelsAsync()
+    {
+        try
+        {
+            if (WalletService.ActiveWallet is not { } wallet) return;
+            var labels = await LabelService.GetAllAsync(wallet.Id);
+            walletAddressLabels = ActivityAddressIndex.BuildLabelLookup(
+                labels.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
+            if (shownCount > 0) RebuildEntries();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { /* names are a convenience: the list still works without them */ }
+    }
+
+    private void StartRename(ReceiveAddressEntry entry)
+    {
+        editingIndex = entry.Index;
+        editLabelText = entry.Label ?? "";
+        focusRenameInput = true;
+    }
+
+    private void CancelRename() => editingIndex = null;
+
+    private async Task OnRenameKey(KeyboardEventArgs e, ReceiveAddressEntry entry)
+    {
+        if (e.Key == "Enter") await SaveRenameAsync(entry);
+        else if (e.Key == "Escape") CancelRename();
+    }
+
+    /// <summary>Sets, changes or (with an empty name) removes the label of a listed address.</summary>
+    private async Task SaveRenameAsync(ReceiveAddressEntry entry)
+    {
+        if (WalletService.ActiveWallet is not { } wallet) return;
+        try { await LabelService.SetLabelAsync(wallet.Id, entry.Address, editLabelText); }
+        catch { return; }
+        editingIndex = null;
+        await LoadWalletLabelsAsync();
+        // The box under the QR code shows the name of the address on show.
+        if (AddressKey.Normalize(entry.Address) == AddressKey.Normalize(address ?? "")) await LoadLabel();
+    }
+
+    /// <summary>
+    /// Opens Activity filtered to this address. Activity restores the address it remembers (the same preference the Activity
+    /// picker writes) once its history has loaded, so nothing new is needed on that page.
+    /// </summary>
+    private async Task ViewActivityAsync(ReceiveAddressEntry entry)
+    {
+        try
+        {
+            if (WalletService.ActiveWallet is { } wallet)
+                await Storage.SetAsync($"pref:activityAddress:{wallet.Id}", entry.Address);
+        }
+        catch { /* the filter is a convenience: Activity still opens */ }
+        Nav.NavigateTo("/transactions");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Put the cursor in the name box as soon as it appears.
+        if (!focusRenameInput || editingIndex is null) return;
+        focusRenameInput = false;
+        try { await renameInput.FocusAsync(); } catch { }
     }
 }

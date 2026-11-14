@@ -345,7 +345,20 @@ Actions:
   → ShareAddress() → navigator.share() native API
   → GenerateNewAddress() → HD only: increment address index
 
-WIF wallets: fixed Legacy + SegWit addresses (no "generate new")
+Your addresses (HD only, folded on every visit, spec 012):
+  → "Your addresses (N)" row; first open derives the newest 10 via GetReceivingAddressesAsync(count, startIndex),
+    "Show more" adds 10 at a time; ReceiveAddressList builds the entries (pure, in DigiByte.Wallet)
+  → Choosing an entry changes only what the page shows (QR, copy, share, download); the amount and note stay, nothing is
+    saved and NextReceivingIndex is not touched. Receive always opens on the newest address
+  → Status per entry: Used · N / Unused / Status unknown, from Home's cached history (cache:transactions:<walletId>) or one
+    background GetTransactionHistoryAsync; a history without wallet-address data, or an empty one, leaves every status
+    unknown (the call cannot tell an unreachable explorer from an empty wallet)
+  → A used address on show shows a short privacy notice under the QR code (never blocks copy or share)
+  → Names: AddressLabelService (the same labels as the Activity page); the pencil per entry and the "Label this address"
+    box edit the same name
+  → "View activity" (used addresses only): writes pref:activityAddress:<walletId> and navigates to /transactions
+
+WIF wallets: fixed Legacy + SegWit addresses (no "generate new", no list)
 HD wallets: can generate unlimited addresses from derivation path
 ```
 
