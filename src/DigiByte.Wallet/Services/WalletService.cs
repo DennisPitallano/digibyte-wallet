@@ -268,8 +268,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Where Digi-ID recovery sweeps are remembered. Optional so that code that builds a wallet without it keeps working; the
     /// Digi-ID recovery methods then refuse to run.
     /// </param>
+    private readonly WalletSyncStateStore? _syncStates;
+
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
-        DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null)
+        DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null,
+        WalletSyncStateStore? syncStateStore = null)
     {
         _keyStore = walletStore;
         _walletStore = walletStore;
@@ -279,6 +282,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _digiIdSweeps = sweepStore;
         _vault = new ProtectedSecretStore(walletStore.Storage, crypto, time, migrationLock);
         _passwordList = passwordList;
+        _syncStates = syncStateStore;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -1528,6 +1532,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     {
         _sessions.Remove(walletId);
         await _walletStore.DeleteWalletAsync(walletId);
+        // The gateway sync record goes with the wallet (FR-009a); it is rebuilt by the bootstrap rule if the wallet is restored.
+        if (_syncStates is not null)
+            await _syncStates.DeleteAsync(walletId);
 
         if (_activeWalletId == walletId)
         {
@@ -1563,6 +1570,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     public async Task WipeAllDataAsync()
     {
         await _walletStore.ClearAllAsync();
+        if (_syncStates is not null)
+            await _syncStates.DeleteAllAsync();
         _sessions.Clear();
         _activeWalletId = null;
     }

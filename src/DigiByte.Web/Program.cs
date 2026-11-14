@@ -70,6 +70,7 @@ builder.Services.AddScoped<MemoryCacheService>();
 // ── Wallet & services ──
 builder.Services.AddScoped<TransactionTracker>();
 builder.Services.AddScoped<DigiIdSweepStore>();
+builder.Services.AddScoped<WalletSyncStateStore>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IMigrationLock, WebLockMigrationLock>();
 builder.Services.AddScoped<CommonPasswordList>();
