@@ -85,9 +85,9 @@ description: "Task list for Your Addresses on the Receive Page"
 
 **Independent Test**: Name an address in the list, then see it in the box under the QR code and in the Activity picker; rename it on Activity and see it here.
 
-- [ ] T018 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, load the whole label store once with `AddressLabelService.GetAllAsync(walletId)`, build the lookup with `ActivityAddressIndex.BuildLabelLookup`, and show each name in its list entry (long names shortened in the list, full in the editor)
-- [ ] T019 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, add a pencil per entry that opens an inline name editor (Enter saves, Escape cancels, an empty name removes the label, the text box takes focus when it opens, and the name is limited to 50 characters like the existing name box under the QR code), using `AddressLabelService.SetLabelAsync(walletId, entry.Address, text)` with the address as generated, then refresh the lookup and the list
-- [ ] T020 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, make the existing name box under the QR code (`SaveLabel`, `ClearLabel`) refresh the same lookup after it saves, and make the box show the new name when a name is set from the list for the address on show
+- [x] T018 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, load the whole label store once with `AddressLabelService.GetAllAsync(walletId)`, build the lookup with `ActivityAddressIndex.BuildLabelLookup`, and show each name in its list entry (long names shortened in the list, full in the editor)
+- [x] T019 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, add a pencil per entry that opens an inline name editor (Enter saves, Escape cancels, an empty name removes the label, the text box takes focus when it opens, and the name is limited to 50 characters like the existing name box under the QR code), using `AddressLabelService.SetLabelAsync(walletId, entry.Address, text)` with the address as generated, then refresh the lookup and the list
+- [x] T020 [US3] In `src/DigiByte.Web/Pages/Receive.razor`, make the existing name box under the QR code (`SaveLabel`, `ClearLabel`) refresh the same lookup after it saves, and make the box show the new name when a name is set from the list for the address on show
 
 **Checkpoint**: US3 works with US1.
 
