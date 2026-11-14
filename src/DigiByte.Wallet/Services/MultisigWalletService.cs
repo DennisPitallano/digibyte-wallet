@@ -20,6 +20,7 @@ public class MultisigWalletService
     private const string MultisigConfigPrefix = "multisig_config_";
     private const string MultisigPendingPrefix = "multisig_pending_";
     private const string MultisigListKey = "multisig_wallet_list";
+    private const string MultisigDraftsKey = "multisig_drafts";
 
     public MultisigWalletService(ISecureStorage storage, IBlockchainService blockchain, ICryptoService crypto)
     {
@@ -333,6 +334,51 @@ public class MultisigWalletService
         await _storage.RemoveAsync(MultisigConfigPrefix + walletId);
         await _storage.RemoveAsync(MultisigPendingPrefix + walletId);
         await RemoveFromWalletListAsync(walletId);
+    }
+
+    // ─── Drafts (setup saved for later, e.g. while waiting for co-signers' keys) ───
+
+    /// <summary>Lists saved drafts, most recently updated first.</summary>
+    public async Task<List<MultisigDraft>> ListDraftsAsync()
+    {
+        var json = await _storage.GetAsync(MultisigDraftsKey);
+        if (string.IsNullOrEmpty(json)) return [];
+        try
+        {
+            var drafts = JsonSerializer.Deserialize<List<MultisigDraft>>(json) ?? [];
+            return drafts.OrderByDescending(d => d.UpdatedAt).ToList();
+        }
+        catch (JsonException) { return []; }
+    }
+
+    public async Task<MultisigDraft?> GetDraftAsync(string draftId)
+    {
+        var drafts = await ListDraftsAsync();
+        return drafts.FirstOrDefault(d => d.Id == draftId);
+    }
+
+    /// <summary>Saves a new draft (blank Id gets a new one) or replaces the existing draft with the same Id.</summary>
+    public async Task<MultisigDraft> SaveDraftAsync(MultisigDraft draft)
+    {
+        if (string.IsNullOrWhiteSpace(draft.Name))
+            throw new ArgumentException("A draft needs a wallet name.", nameof(draft));
+
+        var drafts = await ListDraftsAsync();
+        if (string.IsNullOrEmpty(draft.Id))
+            draft.Id = Guid.NewGuid().ToString("N");
+        draft.UpdatedAt = DateTime.UtcNow;
+
+        drafts.RemoveAll(d => d.Id == draft.Id);
+        drafts.Add(draft);
+        await _storage.SetAsync(MultisigDraftsKey, JsonSerializer.Serialize(drafts));
+        return draft;
+    }
+
+    public async Task DeleteDraftAsync(string draftId)
+    {
+        var drafts = await ListDraftsAsync();
+        if (drafts.RemoveAll(d => d.Id == draftId) > 0)
+            await _storage.SetAsync(MultisigDraftsKey, JsonSerializer.Serialize(drafts));
     }
 
     // ─── Private persistence helpers ───

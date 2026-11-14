@@ -51,6 +51,35 @@ public class MultisigWalletConfig
 }
 
 /// <summary>
+/// A multisig wallet setup saved part-way, for when the co-signers' public keys aren't available yet.
+/// Holds only public information; nothing here can spend funds.
+/// </summary>
+public class MultisigDraft
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int RequiredSignatures { get; set; } = 2;
+    public int TotalSigners { get; set; } = 3;
+
+    /// <summary>Public key of the wallet that started the draft. Used to warn if it's resumed from a different wallet.</summary>
+    public string OwnPublicKeyHex { get; set; } = "";
+    public string OwnWalletName { get; set; } = "";
+
+    /// <summary>The other co-signers entered so far. Name and key may be blank or unchecked.</summary>
+    public List<DraftCoSigner> CoSigners { get; set; } = [];
+
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public string Label => $"{RequiredSignatures}-of-{TotalSigners}";
+}
+
+public class DraftCoSigner
+{
+    public string Name { get; set; } = "";
+    public string PublicKeyHex { get; set; } = "";
+}
+
+/// <summary>
 /// A co-signer in a multisig wallet.
 /// </summary>
 public class CoSigner
