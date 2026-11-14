@@ -63,9 +63,14 @@ public class DigiByteNetworkSet : INetworkSet
             .SetName("dgb-mainnet")
             .SetChainName(ChainName.Mainnet)
             .SetNetworkSet(this)
+            // The seeds DigiByte Core lists in its chain parameters. The SPV gateway finds peers through these.
             .AddDNSSeeds(new[]
             {
-                new DNSSeedData("seed1.digibyte.io", "seed1.digibyte.io"),
+                new DNSSeedData("seed.digibyte.io", "seed.digibyte.io"),
+                new DNSSeedData("seed.diginode.tools", "seed.diginode.tools"),
+                new DNSSeedData("seed.digibyte.link", "seed.digibyte.link"),
+                new DNSSeedData("seed.aroundtheblock.app", "seed.aroundtheblock.app"),
+                new DNSSeedData("seed.tuyul.cc", "seed.tuyul.cc"),
             })
             .SetGenesis(genesisHex);
 
@@ -104,7 +109,12 @@ public class DigiByteNetworkSet : INetworkSet
             .SetName("dgb-testnet")
             .SetChainName(ChainName.Testnet)
             .SetNetworkSet(this)
-            .AddDNSSeeds(Array.Empty<DNSSeedData>())
+            .AddDNSSeeds(new[]
+            {
+                new DNSSeedData("testnetseed.digibyte.io", "testnetseed.digibyte.io"),
+                new DNSSeedData("testnetseed.digibyte.link", "testnetseed.digibyte.link"),
+                new DNSSeedData("testnetseed.digibyte.services", "testnetseed.digibyte.services"),
+            })
             .SetGenesis(genesisHex);
 
         return builder.BuildAndRegister();
