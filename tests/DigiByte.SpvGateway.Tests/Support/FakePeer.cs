@@ -67,6 +67,17 @@ internal sealed class FakePeer(PeerEndpoint endpoint, ulong services, int startH
         return Task.FromResult<IReadOnlyList<BlockHeader80>>(Chain.Skip(start).Take(2000).ToList());
     }
 
+    /// <summary>Whole blocks this peer can serve, by block hash.</summary>
+    public Dictionary<uint256, byte[]> Blocks { get; } = [];
+
+    public List<uint256> BlockRequests { get; } = [];
+
+    public Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken)
+    {
+        BlockRequests.Add(hash);
+        return Task.FromResult(Blocks.TryGetValue(hash, out var block) ? block : null);
+    }
+
     public ValueTask DisposeAsync()
     {
         Connected = false;

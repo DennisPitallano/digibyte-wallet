@@ -19,6 +19,9 @@ public interface IPeerSession : IAsyncDisposable
 
     /// <summary>Asks for the headers that follow the first locator hash the peer knows (up to 2000).</summary>
     Task<IReadOnlyList<BlockHeader80>> GetHeadersAsync(IReadOnlyList<uint256> locator, CancellationToken cancellationToken);
+
+    /// <summary>Asks for one whole block (with witness data). Returns null when the peer does not have it.</summary>
+    Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken);
 }
 
 /// <summary>Opens a connection and completes the handshake. Throws when the peer cannot be reached or does not answer properly.</summary>
@@ -146,6 +149,9 @@ public sealed class PeerManager : IPeerStatusSource, IAsyncDisposable
             _sessions.Remove(peer);
         await peer.DisposeAsync();
     }
+
+    /// <summary>The peer sent a block that is not the one asked for, or whose transactions do not match its header: same treatment as an invalid header.</summary>
+    public Task ReportInvalidBlockAsync(IPeerSession peer) => ReportInvalidHeaderAsync(peer);
 
     /// <summary>
     /// A peer to ask. With <paramref name="needFullHistory"/> only full-history peers qualify (old blocks); otherwise full-history peers

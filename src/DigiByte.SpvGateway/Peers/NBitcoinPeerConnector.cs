@@ -85,6 +85,27 @@ internal sealed class NBitcoinPeerSession : IPeerSession
         return payload.Headers.Select(h => BlockHeader80.Parse(h.ToBytes())).ToList();
     }
 
+    private readonly SemaphoreSlim _blockLock = new(1, 1);
+
+    public async Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken)
+    {
+        // One request at a time per peer, so a late answer to an earlier request is never taken for this one.
+        await _blockLock.WaitAsync(cancellationToken);
+        try
+        {
+            using var listener = _node.CreateListener().Where(m =>
+                (m.Message.Payload is BlockPayload block && block.Object.GetHash() == hash)
+                || (m.Message.Payload is NotFoundPayload missing && missing.Inventory.Any(i => i.Hash == hash)));
+            await _node.SendMessageAsync(new GetDataPayload(new InventoryVector(InventoryType.MSG_WITNESS_BLOCK, hash)));
+            var message = await Task.Run(() => listener.ReceiveMessage(cancellationToken), cancellationToken);
+            return message.Message.Payload is BlockPayload found ? found.Object.ToBytes() : null;
+        }
+        finally
+        {
+            _blockLock.Release();
+        }
+    }
+
     public ValueTask DisposeAsync()
     {
         _node.DisconnectAsync();

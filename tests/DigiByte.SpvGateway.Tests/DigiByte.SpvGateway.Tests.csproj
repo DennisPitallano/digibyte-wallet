@@ -29,6 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Fixtures/blocks-mainnet.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\DigiByte.Crypto.Tests\Headers\Fixtures\headers-mainnet-run.json" Link="Fixtures\headers-mainnet-run.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
