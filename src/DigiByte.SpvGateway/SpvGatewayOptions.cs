@@ -30,6 +30,9 @@ public sealed class SpvGatewayOptions
     /// <summary>Requests per client per minute before the gateway answers <c>rate_limited</c>.</summary>
     public int RateLimitPerMinute { get; init; } = 120;
 
+    /// <summary>Connect to peers and download headers. Turned off by tests and by an operator who only wants to serve what is stored.</summary>
+    public bool PeersEnabled { get; init; } = true;
+
     /// <summary>The number of peer connections the gateway aims for.</summary>
     public int PeerTarget { get; init; } = 8;
 
@@ -61,6 +64,7 @@ public sealed class SpvGatewayOptions
             MaxHeadersPerRequest = ReadInt(get, "SpvGateway:MaxHeadersPerRequest", 1, 2000) ?? 2000,
             ScanRangeCapBlocks = ReadInt(get, "SpvGateway:ScanRangeCapBlocks", 1000, 1_000_000) ?? 50_000,
             RateLimitPerMinute = ReadInt(get, "SpvGateway:RateLimitPerMinute", 1, 100_000) ?? 120,
+            PeersEnabled = !string.Equals(get("SpvGateway:PeersEnabled")?.Trim(), "false", StringComparison.OrdinalIgnoreCase),
             PeerTarget = peerTarget,
             MinHealthyPeers = Math.Min(minHealthy, peerTarget),
             MaxPeersPerRange = ReadInt(get, "SpvGateway:MaxPeersPerRange", 1, 16) ?? 2,

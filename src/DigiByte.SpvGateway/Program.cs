@@ -7,6 +7,8 @@ using DigiByte.Crypto.Headers.Hashers;
 using DigiByte.SpvGateway;
 using DigiByte.SpvGateway.Endpoints;
 using DigiByte.SpvGateway.Health;
+using DigiByte.Crypto.Networks;
+using DigiByte.SpvGateway.Peers;
 using DigiByte.SpvGateway.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,7 +27,23 @@ builder.Services.AddSingleton(sp =>
     return SpvGatewayOptions.FromConfiguration(key => configuration[key]);
 });
 builder.Services.AddSingleton(sp => new ClientLimiter(sp.GetRequiredService<SpvGatewayOptions>().RateLimitPerMinute));
-builder.Services.AddSingleton<IPeerStatusSource, NoPeersStatusSource>();
+// Peer layer: the book of known peers, the connector (real sockets) and the manager that keeps enough of them connected.
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<SpvGatewayOptions>();
+    Directory.CreateDirectory(options.DataDirectory);
+    return PeerBook.Open(Path.Combine(options.DataDirectory, "peers.db"));
+});
+builder.Services.AddSingleton(sp => new NBitcoinPeerConnector(
+    sp.GetRequiredService<SpvGatewayOptions>().Network == GatewayNetwork.Testnet ? DigiByteNetworkSet.Instance.Testnet : DigiByteNetworkSet.Instance.Mainnet));
+builder.Services.AddSingleton(sp => new PeerManager(
+    sp.GetRequiredService<SpvGatewayOptions>(), sp.GetRequiredService<PeerBook>(),
+    sp.GetRequiredService<NBitcoinPeerConnector>(), sp.GetRequiredService<NBitcoinPeerConnector>()));
+builder.Services.AddSingleton<IPeerStatusSource>(sp => sp.GetRequiredService<PeerManager>());
+builder.Services.AddSingleton(sp => new HeaderDownloader(
+    sp.GetRequiredService<HeaderStore>(), sp.GetRequiredService<HeaderSync>(), sp.GetRequiredService<PeerManager>()));
+if (SpvGatewayOptions.FromConfiguration(key => builder.Configuration[key]).PeersEnabled)
+    builder.Services.AddHostedService<PeerSyncService>();
 builder.Services.AddSingleton(sp =>
 {
     var options = sp.GetRequiredService<SpvGatewayOptions>();

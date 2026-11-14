@@ -24,7 +24,7 @@ internal sealed class GatewayFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            var values = new Dictionary<string, string?>(_settings) { ["SpvGateway:DataDirectory"] = DataDirectory };
+            var values = new Dictionary<string, string?>(_settings) { ["SpvGateway:DataDirectory"] = DataDirectory, ["SpvGateway:PeersEnabled"] = "false" };
             config.AddInMemoryCollection(values);
         });
     }
