@@ -23,6 +23,15 @@
                 <span> · @Tx.Memo</span>
             }
         </p>
+        @if (!string.IsNullOrEmpty(WalletAddressText))
+        {
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 truncate" title="@WalletAddressText">
+                <span class="font-mono">@ShortAddress(WalletAddressText)</span>@if (WalletAddressMore > 0)
+                {
+                    <span> +@WalletAddressMore more</span>
+                }
+            </p>
+        }
     </div>
     <div class="text-right flex-shrink-0">
         @if (HideAmounts)
@@ -62,6 +71,16 @@
 
     /// <summary>Show only the time (the list already has a day heading above this row).</summary>
     [Parameter] public bool TimeOnly { get; set; }
+
+    /// <summary>The user's own address (or its label) this transaction used; nothing extra is shown when empty.</summary>
+    [Parameter] public string? WalletAddressText { get; set; }
+
+    /// <summary>How many other wallet addresses the transaction used besides <see cref="WalletAddressText"/>.</summary>
+    [Parameter] public int WalletAddressMore { get; set; }
+
+    /// <summary>Shortens a long address to its start and end; a label or short text is shown as is.</summary>
+    private static string ShortAddress(string text) =>
+        text.Length > 22 && !text.Contains(' ') ? $"{text[..10]}…{text[^6..]}" : text;
 
     private bool sent => Tx.Direction == TransactionDirection.Sent;
 

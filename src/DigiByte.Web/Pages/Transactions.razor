@@ -4,6 +4,7 @@
 @inject IBlockchainService Blockchain
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
+@inject AddressLabelService LabelService
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -103,6 +104,7 @@
                 @foreach (var tx in day)
                 {
                     <TransactionRow @key="tx.TxId" Tx="tx" OnOpen="OpenTx" Name="@NameFor(tx)" TimeOnly="true"
+                                    WalletAddressText="@WalletAddressOf(tx).Primary" WalletAddressMore="WalletAddressOf(tx).MoreCount"
                                     FiatPrice="price" FiatSymbol="@AppState.FiatSymbol" FiatDecimals="AppState.FiatDecimals"
                                     HideAmounts="hideAmounts" />
                 }
@@ -141,6 +143,12 @@
     private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
     private decimal price;
     private bool hideAmounts;
+
+    // Labels of the wallet's own addresses (normalized address -> label), for the address line on each row.
+    private IReadOnlyDictionary<string, string> walletAddressLabels = new Dictionary<string, string>();
+
+    private (string? Primary, int MoreCount) WalletAddressOf(TransactionRecord tx) =>
+        ActivityAddressIndex.Display(tx, walletAddressLabels);
 
     protected override async Task OnInitializedAsync()
     {
@@ -189,6 +197,17 @@
                 () => Blockchain.GetDgbPriceAsync(AppState.FiatCurrency),
                 TimeSpan.FromMinutes(5));
             if (p > 0) price = p;
+        }
+        catch { }
+
+        try
+        {
+            if (WalletService.ActiveWallet is { } wallet)
+            {
+                var labels = await LabelService.GetAllAsync(wallet.Id);
+                walletAddressLabels = ActivityAddressIndex.BuildLabelLookup(
+                    labels.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
+            }
         }
         catch { }
 

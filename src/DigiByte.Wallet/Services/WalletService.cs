@@ -41,6 +41,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     // which wallet and how many receive and change addresses it was built for.
     private (string? WalletId, int ReceiveCount, int ChangeCount)? _cachedAddressesFor;
     private List<string>? _cachedAddresses;
+    /// <summary>Index in <see cref="_cachedAddresses"/> where an HD wallet's change addresses start (receive addresses come first).</summary>
+    private int _cachedChangeStart = int.MaxValue;
     private (string? WalletId, int ReceiveCount, int ChangeCount)? _cachedKeyMapFor;
     private Dictionary<string, ExtKey>? _cachedAddressKeyMap;
     private const int UnscannedChangeLimit = 100;
@@ -693,6 +695,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             return _cachedAddresses;
 
         List<string> addresses;
+        var changeStart = int.MaxValue;
         if (_singleKey != null)
         {
             var net = EffectiveNetwork;
@@ -710,6 +713,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 if (i < MinScannedReceive)
                     addresses.Add(_hd.DeriveReceivingAddress(i, ScriptPubKeyType.Legacy).ToString());
             }
+            changeStart = addresses.Count;
             for (int i = 0; i < ScannedChangeCount; i++)
             {
                 addresses.Add(_hd!.DeriveChangeAddress(i, ScriptPubKeyType.Segwit).ToString());
@@ -719,8 +723,22 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         }
 
         _cachedAddresses = addresses;
+        _cachedChangeStart = changeStart;
         _cachedAddressesFor = cacheKey;
         return addresses;
+    }
+
+    /// <summary>
+    /// Normalized change addresses of an HD wallet, from the same scan as <see cref="GetAllAddresses"/>. Empty for
+    /// single-key wallets, which send their change back to their own addresses.
+    /// </summary>
+    private HashSet<string> GetChangeAddressKeys()
+    {
+        var all = GetAllAddresses();
+        var keys = new HashSet<string>();
+        for (var i = _cachedChangeStart; i < all.Count; i++)
+            keys.Add(AddressKey.Normalize(all[i]));
+        return keys;
     }
 
     public Task<List<(int Index, string Address)>> GetReceivingAddressesAsync(int count, int startIndex = 0)
@@ -1372,9 +1390,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                     foreach (var tx in txInfos)
                         allTxs.TryAdd(tx.TxId, tx);
 
+                var ownByKey = new Dictionary<string, string>();
+                foreach (var a in rawAddresses) ownByKey.TryAdd(NormalizeAddress(a), a);
+                var changeKeys = GetChangeAddressKeys();
+                var singleKey = _singleKey != null;
+
                 var explorerRecords = allTxs.Values.Select(tx =>
                 {
                     var isSent = tx.Inputs.Any(i => isOurs(i.Address));
+                    var (walletAddresses, receivedTo) = TransactionAddressResolver.Resolve(tx, isSent, ownByKey, changeKeys, singleKey);
                     var matchingOutputs = tx.Outputs.Where(o => isOurs(o.Address)).ToList();
                     var amount = isSent
                         ? tx.Outputs.Where(o => !isOurs(o.Address)).Sum(o => o.AmountSatoshis)
@@ -1392,6 +1416,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                             ? tx.Outputs.FirstOrDefault(o => !isOurs(o.Address))?.Address
                             : tx.Inputs.FirstOrDefault(i => !isOurs(i.Address))?.Address,
                         Memo = ExtractOpReturnMemo(tx.Outputs),
+                        WalletAddresses = walletAddresses,
+                        WalletReceivedAddresses = receivedTo,
                     };
                 }).ToList();
 
@@ -1400,6 +1426,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 foreach (var tx in explorerRecords) merged.TryAdd(tx.TxId, tx);
                 foreach (var tx in localTxs) merged[tx.TxId] = tx; // local overwrites
                 var localToCheck = localTxs.ToList();
+
+                // A local record replaces the explorer's version above, so give it the addresses the explorer found
+                // and save them: they then still show after a reload when the explorer is unreachable.
+                var explorerById = explorerRecords.ToDictionary(r => r.TxId);
+                var filled = TransactionAddressResolver.CopyMissing(localToCheck, explorerById);
+                if (filled.Count > 0)
+                    await _txTracker.SetWalletAddressesAsync(filled.ToDictionary(
+                        r => r.TxId, r => (r.WalletAddresses, r.WalletReceivedAddresses)));
+
                 localTxs = merged.Values.ToList();
 
                 await RepairUnderRecordedBatchesAsync(localToCheck, allTxs, isOurs);
@@ -2765,14 +2800,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// when they encode the same witness program.
     /// Legacy/P2SH addresses are returned as-is (lowercased).
     /// </summary>
-    private static string NormalizeAddress(string address)
-    {
-        if (address != null && address.Length > 10 &&
-            (address.StartsWith("dgb1", StringComparison.OrdinalIgnoreCase) ||
-             address.StartsWith("dgbt1", StringComparison.OrdinalIgnoreCase)))
-            return address[..^6].ToLowerInvariant();
-        return address?.ToLowerInvariant() ?? "";
-    }
+    private static string NormalizeAddress(string address) => AddressKey.Normalize(address);
 
     /// <summary>
     /// Extract a UTF-8 memo from the first OP_RETURN output, if any.
