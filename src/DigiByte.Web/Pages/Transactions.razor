@@ -57,7 +57,7 @@
         }
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="relative flex flex-wrap items-center gap-2">
         <div class="flex gap-2" role="tablist" aria-label="Filter transactions">
             @foreach (var (key, label) in Filters)
             {
@@ -71,7 +71,7 @@
         @* Address filter: the wallet's own addresses that appear in the activity *@
         @if (usedAddresses.Count > 0)
         {
-            <div class="relative">
+            <div class="flex items-center gap-1">
                 <button type="button" aria-haspopup="listbox" aria-expanded="@showAddressPicker"
                         class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors max-w-[14rem] @(selectedAddress != null ? "bg-dgb-500 text-white" : "bg-white dark:bg-dgb-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-dgb-800")"
                         @onclick="() => showAddressPicker = !showAddressPicker">
@@ -82,7 +82,7 @@
                 </button>
                 @if (selectedAddress != null)
                 {
-                    <button type="button" class="ml-1 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors align-middle" aria-label="Clear address filter" @onclick="ClearAddress">
+                    <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" aria-label="Clear address filter" @onclick="ClearAddress">
                         <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -92,7 +92,7 @@
                 {
                     <div class="fixed inset-0 z-20" @onclick="() => showAddressPicker = false"></div>
                     <ul role="listbox" aria-label="Your addresses"
-                        class="absolute left-0 top-full mt-1 z-30 w-72 max-w-[calc(100vw-2rem)] max-h-72 overflow-y-auto thin-scrollbar bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl shadow-lg p-1">
+                        class="absolute left-0 right-0 top-full mt-1 z-30 max-h-72 overflow-y-auto thin-scrollbar bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl shadow-lg p-1">
                         @foreach (var used in usedAddresses)
                         {
                             var isSelected = selectedAddress != null && AddressKey.Normalize(selectedAddress) == used.Key;

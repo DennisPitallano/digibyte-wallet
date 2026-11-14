@@ -116,8 +116,8 @@ description: "Task list for Wallet Addresses in Activity"
 - [x] T030 [P] Check locale resource files for UI strings and add any new labels ("used addresses", "+N more", clear filter) so `LocaleParityTests` still passes
 - [x] T031 Verify SC-004: add a test building 500 transactions / 100 addresses through `Build` and `Matches` and assert it completes in under 1 second (SC-004), using a generous limit so slow machines do not fail it
 - [x] T032 Run `dotnet build` and `dotnet test` for all affected test projects; fix regressions
-- [ ] T033 Run the manual walkthrough in `specs/010-activity-wallet-addresses/quickstart.md` at phone and desktop widths, and confirm in the browser network and console output that the feature makes no new network requests and logs no addresses (FR-010)
-- [ ] T034 Commit locally with Conventional Commits (`feat(web): ...`); do not push until asked
+- [x] T033 Run the manual walkthrough in `specs/010-activity-wallet-addresses/quickstart.md` at phone and desktop widths, and confirm in the browser network and console output that the feature makes no new network requests and logs no addresses (FR-010)
+- [x] T034 Commit locally with Conventional Commits (`feat(web): ...`); do not push until asked
 
 ---
 
