@@ -76,14 +76,14 @@ description: "Task list for Wallet Addresses in Activity"
 
 ### Tests for User Story 2 (write first, must fail)
 
-- [ ] T019 [P] [US2] In `tests/DigiByte.Wallet.Tests/ActivityAddressIndexTests.cs`: `Build` returns one entry per normalized address, counts both lists, sorted newest first
-- [ ] T020 [P] [US2] Same file: change-only and unreferenced addresses never appear; pending transactions count
-- [ ] T021 [P] [US2] Same file: empty history and records with no address data return an empty list without throwing
+- [x] T019 [P] [US2] In `tests/DigiByte.Wallet.Tests/ActivityAddressIndexTests.cs`: `Build` returns one entry per normalized address, counts both lists, sorted newest first
+- [x] T020 [P] [US2] Same file: change-only and unreferenced addresses never appear; pending transactions count
+- [x] T021 [P] [US2] Same file: empty history and records with no address data return an empty list without throwing
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Add `UsedAddress` and `Build(transactions, labels)` to `src/DigiByte.Wallet/Services/ActivityAddressIndex.cs` per data-model.md
-- [ ] T023 [US2] Add the address picker (label, shortened address, count; sheet-like on phones) to the filter bar in `src/DigiByte.Web/Pages/Transactions.razor`, hidden when there are no used addresses
+- [x] T022 [US2] Add `UsedAddress` and `Build(transactions, labels)` to `src/DigiByte.Wallet/Services/ActivityAddressIndex.cs` per data-model.md
+- [x] T023 [US2] Add the address picker (label, shortened address, count; sheet-like on phones) to the filter bar in `src/DigiByte.Web/Pages/Transactions.razor`, hidden when there are no used addresses
 
 **Checkpoint**: US1 and US2 work independently.
 
@@ -97,14 +97,14 @@ description: "Task list for Wallet Addresses in Activity"
 
 ### Tests for User Story 3 (write first, must fail)
 
-- [ ] T024 [P] [US3] In `tests/DigiByte.Wallet.Tests/ActivityAddressIndexTests.cs`: `Matches` is true for null/empty key, true when the key is in either list, false otherwise, encoding-independent
-- [ ] T025 [P] [US3] Same file: self-transfer matches the filter for both its funding and receiving address
+- [x] T024 [P] [US3] In `tests/DigiByte.Wallet.Tests/ActivityAddressIndexTests.cs`: `Matches` is true for null/empty key, true when the key is in either list, false otherwise, encoding-independent
+- [x] T025 [P] [US3] Same file: self-transfer matches the filter for both its funding and receiving address
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Add `Matches(transaction, addressKey)` to `src/DigiByte.Wallet/Services/ActivityAddressIndex.cs`
-- [ ] T027 [US3] In `src/DigiByte.Web/Pages/Transactions.razor` add `selectedAddressKey` state, apply it in `ApplyFilter()` together with the existing filter and search (AND), and add a one-action clear control plus the empty-state clear (FR-005, FR-006)
-- [ ] T028 [US3] Extend the search predicate in `ApplyFilter()` in `src/DigiByte.Web/Pages/Transactions.razor` to also match the wallet addresses and their labels (FR-009)
+- [x] T026 [US3] Add `Matches(transaction, addressKey)` to `src/DigiByte.Wallet/Services/ActivityAddressIndex.cs`
+- [x] T027 [US3] In `src/DigiByte.Web/Pages/Transactions.razor` add `selectedAddressKey` state, apply it in `ApplyFilter()` together with the existing filter and search (AND), and add a one-action clear control plus the empty-state clear (FR-005, FR-006)
+- [x] T028 [US3] Extend the search predicate in `ApplyFilter()` in `src/DigiByte.Web/Pages/Transactions.razor` to also match the wallet addresses and their labels (FR-009)
 
 **Checkpoint**: All three stories work.
 
@@ -112,10 +112,10 @@ description: "Task list for Wallet Addresses in Activity"
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T029 [P] Check `docs/` (ARCHITECTURE.md, PROCESS_FLOWS.md) for a description of the activity screen and update it if one exists
-- [ ] T030 [P] Check locale resource files for UI strings and add any new labels ("used addresses", "+N more", clear filter) so `LocaleParityTests` still passes
-- [ ] T031 Verify SC-004: add a test building 500 transactions / 100 addresses through `Build` and `Matches` and assert it completes in under 1 second (SC-004), using a generous limit so slow machines do not fail it
-- [ ] T032 Run `dotnet build` and `dotnet test` for all affected test projects; fix regressions
+- [x] T029 [P] Check `docs/` (ARCHITECTURE.md, PROCESS_FLOWS.md) for a description of the activity screen and update it if one exists
+- [x] T030 [P] Check locale resource files for UI strings and add any new labels ("used addresses", "+N more", clear filter) so `LocaleParityTests` still passes
+- [x] T031 Verify SC-004: add a test building 500 transactions / 100 addresses through `Build` and `Matches` and assert it completes in under 1 second (SC-004), using a generous limit so slow machines do not fail it
+- [x] T032 Run `dotnet build` and `dotnet test` for all affected test projects; fix regressions
 - [ ] T033 Run the manual walkthrough in `specs/010-activity-wallet-addresses/quickstart.md` at phone and desktop widths, and confirm in the browser network and console output that the feature makes no new network requests and logs no addresses (FR-010)
 - [ ] T034 Commit locally with Conventional Commits (`feat(web): ...`); do not push until asked
 
