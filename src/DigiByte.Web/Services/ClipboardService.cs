@@ -8,6 +8,13 @@ namespace DigiByte.Web.Services;
 /// </summary>
 public sealed class ClipboardService(IJSRuntime js, NotificationService notifications)
 {
+    /// <summary>Reads the clipboard text, or null when the browser refuses (permission denied, unsupported).</summary>
+    public async Task<string?> ReadAsync()
+    {
+        try { return await js.InvokeAsync<string>("navigator.clipboard.readText"); }
+        catch { return null; }
+    }
+
     /// <summary>Copies <paramref name="text"/>. Throws when the browser refuses, as the raw clipboard call does.</summary>
     public async Task CopyAsync(string text, bool toast = true, string message = "Copied")
     {

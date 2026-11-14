@@ -4,6 +4,15 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **Copy your multisig public key** — Settings has a new **Copy my public key** card, and the multisig create screen has a **Copy** button next to your key. Both name the wallet the key belongs to, since each wallet has its own key.
+- **Backup prompt after creating a multisig** — Creating a multisig now ends on a "Wallet created" screen with **Download backup file** and **Copy redeem script**, instead of jumping to the wallet list. The backup file also explains how to restore without it (restore each seed, then create again with the same threshold and public keys).
+
+### Changed
+- **Easier co-signer entry** — Each co-signer key field has a **Paste** button and checks the key as you type: a green check when valid, a clear message when it is malformed, not compressed (66 characters starting with 02 or 03), or a duplicate of your key or another co-signer's. The create screen shows the step name and "N of M added".
+- **Import finds your key for you** — Importing a multisig no longer asks for a "key position" number. The wallet looks for your key in the redeem script and says whether you can sign or the wallet will be watch-only.
+- **Multisig guide and Help corrected** — They no longer say the public key is in settings or the receive page, and now explain how to create a wallet without everyone online.
+
 ## [0.5.0] - 2026-11-09
 
 ### Added

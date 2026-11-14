@@ -1,5 +1,6 @@
 @page "/multisig/import"
 @inject MultisigWalletService MultisigService
+@inject WalletService WalletService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -56,16 +57,20 @@
                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none"></textarea>
         </div>
 
-        @* Own Key Index *@
-        <div class="flex flex-col gap-1.5 slide-up-delay-1">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Your Key Position (optional)</label>
-            <input type="number" inputmode="numeric" @bind="ownKeyIndex" min="-1" max="14"
-                   placeholder="-1 for watch-only"
-                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-            <p class="text-[11px] text-slate-400 dark:text-slate-500">
-                Enter -1 for watch-only, or 0-based index of your key in the script.
-            </p>
-        </div>
+        @* Own key — detected automatically from the script *@
+        @if (!string.IsNullOrWhiteSpace(redeemScriptHex))
+        {
+            <div class="slide-up-delay-1 rounded-2xl p-3 border text-[11px] leading-relaxed @(ownKeyIndex >= 0 ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30 text-green-700 dark:text-green-400" : "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30 text-amber-700 dark:text-amber-400")">
+                @if (ownKeyIndex >= 0)
+                {
+                    <span>Your key is in this wallet (signer @(ownKeyIndex + 1)). You'll be able to sign transactions.</span>
+                }
+                else
+                {
+                    <span>Your key isn't in this script, so the wallet will be imported as <b>watch-only</b> (you can see the balance but can't sign). If you expected to sign, make sure your public key was included when the wallet was created.</span>
+                }
+            </div>
+        }
     </div>
 
     @if (!string.IsNullOrEmpty(error))
@@ -97,10 +102,21 @@
 @code {
     private string walletName = "";
     private string redeemScriptHex = "";
-    private int ownKeyIndex = -1;
+    private string? ownPubKeyHex;
+    // Position of this wallet's key inside the pasted script, or -1 (watch-only). Keys are sorted, so it's detected, not typed.
+    private int ownKeyIndex => MultisigWalletService.FindOwnKeyIndex(redeemScriptHex, ownPubKeyHex);
     private string? error;
     private bool isImporting;
     private string? fileName;
+
+    protected override void OnInitialized()
+    {
+        if (WalletService.IsUnlocked)
+        {
+            try { ownPubKeyHex = WalletService.GetPublicKey(); }
+            catch { }
+        }
+    }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {

@@ -27,6 +27,30 @@ public class MultisigWalletServiceTests
             new FakeCryptoService());
     }
 
+    // ─── FindOwnKeyIndex ───
+
+    [Fact]
+    public async Task FindOwnKeyIndex_LocatesOwnKeyInSortedScript_AndReturnsMinusOneForOutsiders()
+    {
+        var keys = GenerateKeys(3);
+        var coSigners = keys.Select((k, i) => new CoSigner { Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex() }).ToList();
+        var config = await CreateService().CreateMultisigWalletAsync("Idx", 2, coSigners);
+
+        // Keys are BIP67-sorted inside the script, so the index must come from the script itself.
+        var sorted = PayToMultiSigTemplate.Instance
+            .ExtractScriptPubKeyParameters(new Script(Convert.FromHexString(config.RedeemScriptHex)))!
+            .PubKeys.Select(p => p.ToHex()).ToList();
+        foreach (var k in keys)
+        {
+            var expected = sorted.FindIndex(h => h.Equals(k.PubKey.ToHex(), StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(expected, MultisigWalletService.FindOwnKeyIndex(config.RedeemScriptHex, k.PubKey.ToHex()));
+        }
+
+        Assert.Equal(-1, MultisigWalletService.FindOwnKeyIndex(config.RedeemScriptHex, new Key().PubKey.ToHex()));
+        Assert.Equal(-1, MultisigWalletService.FindOwnKeyIndex(config.RedeemScriptHex, null));
+        Assert.Equal(-1, MultisigWalletService.FindOwnKeyIndex("not-hex", keys[0].PubKey.ToHex()));
+    }
+
     // ─── CreateMultisigWalletAsync ───
 
     [Fact]
