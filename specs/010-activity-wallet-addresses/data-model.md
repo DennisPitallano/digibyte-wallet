@@ -28,4 +28,4 @@ Rules: one entry per normalized address; only addresses with at least one transa
 
 ## Activity filter state (page state, not stored)
 
-`filter` (all/received/sent), `query` (search text), `selectedAddressKey` (null = all). They combine with AND (FR-006). Search text also matches the wallet addresses (FR-009). State resets when the page is reopened (spec assumption; remembering the choice is a possible later change).
+`filter` (all/received/sent), `query` (search text), `selectedAddressKey` (null = all). They combine with AND (FR-006). Search text also matches the wallet addresses (FR-009). The chosen address (not the tabs or search text) is remembered per wallet as a small preference and restored on the next visit if that address still appears in the activity (FR-011). Labels edited in the picker use the same label store as the Receive page (FR-012).

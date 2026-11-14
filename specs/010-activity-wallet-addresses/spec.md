@@ -16,6 +16,7 @@
 - Q: Where should the list of used addresses live? → A: An address picker in the activity filter bar; each entry shows label, address and transaction count, and choosing one applies the filter.
 - Q: Should the used-address picker also list receiving addresses with no transactions yet? → A: No; only addresses with at least one transaction (pending included).
 - Q: How should a transfer between two of your own addresses appear and filter? → A: One row with its current direction, showing the funding address; it matches the address filter for either the funding or the receiving address, and the details view shows both.
+- Added after the first build (requested by the user): the chosen address is remembered between visits (User Story 4), and addresses can be named from the picker (User Story 5). This replaces the earlier default that the filter resets when the page is reopened.
 - Q: When one received transaction pays more than one of your addresses, what should the row show? → A: The first paid address plus "+N more"; the details view lists all of them.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -68,6 +69,39 @@ The user picks one of their addresses and the activity list narrows to only tran
 
 ---
 
+### User Story 4 - Remember the chosen address (Priority: P3)
+
+When the user leaves the Activity page and comes back, the address they were filtering by is still selected, so they do not have to pick it again.
+
+**Why this priority**: Convenience for people who track one address (for example a shop or donation address); the filter already works without it.
+
+**Independent Test**: Choose an address, go to another page and return to Activity; the same address is still selected and the list is filtered.
+
+**Acceptance Scenarios**:
+
+1. **Given** an address is chosen, **When** the user leaves and returns to Activity, **Then** the same address is still chosen.
+2. **Given** a remembered address, **When** the user clears the filter, **Then** nothing is remembered on the next visit.
+3. **Given** a remembered address that no longer appears in the activity, **When** the page opens, **Then** it shows the full list with no filter.
+4. **Given** several wallets, **When** the user switches wallet, **Then** each wallet keeps its own remembered address.
+
+---
+
+### User Story 5 - Name an address from the picker (Priority: P3)
+
+From the address picker the user can give an address a name, change it, or remove it, without leaving the Activity page.
+
+**Why this priority**: Makes the picker easier to read when several receiving addresses exist; labels can already be set on the Receive page.
+
+**Independent Test**: Open the picker, name an address, and see the name on the picker entry, on the rows that used it, and in search.
+
+**Acceptance Scenarios**:
+
+1. **Given** an address without a name, **When** the user names it in the picker, **Then** the name shows in the picker, on its rows and is found by search.
+2. **Given** a named address, **When** the user changes or clears the name, **Then** all those places update at once.
+3. **Given** the user starts naming an address, **When** they cancel, **Then** nothing changes.
+
+---
+
 ### Edge Cases
 
 - A sent transaction spending from several wallet addresses at once: all are associated with it, and filtering by any one of them includes it.
@@ -92,6 +126,8 @@ The user picks one of their addresses and the activity list narrows to only tran
 - **FR-007**: Change-only addresses MUST NOT be presented as used receiving addresses.
 - **FR-008**: Transactions involving several wallet addresses MUST be associated with every one of them for display and filtering.
 - **FR-009**: Search in the existing search box MUST also match the user's own wallet addresses and their labels.
+- **FR-011**: The chosen address filter MUST be remembered per wallet and restored on the next visit to Activity when that address still has activity; clearing the filter MUST forget it.
+- **FR-012**: Users MUST be able to set, change and remove an address's label from the address picker, using the same labels as the Receive page; the change MUST show at once in the picker, on rows and in search.
 - **FR-010**: The feature MUST NOT expose address data to anyone other than the wallet's user, and MUST NOT send it to external services.
 
 ### Key Entities

@@ -22,3 +22,8 @@ Expected: the new tests pass, the build succeeds, and the existing wallet tests 
 9. Turn off the network and reload. History from storage still shows; rows without known addresses show none and nothing errors.
 
 Expected outcomes follow the success criteria in [spec.md](spec.md); the data details are in [data-model.md](data-model.md) and the helper contract in [contracts/activity-addresses-ui.md](contracts/activity-addresses-ui.md).
+
+## Added steps (remember and rename)
+
+10. Choose an address in the picker, open another tab such as Wallet, and come back to Activity. The same address is still chosen (FR-011). Clear it, leave and return: no address is chosen.
+11. Open the picker and use the rename control on an address: type a name and save. The name shows in the picker, on the rows for that address, and search finds it. Change it, then empty it to remove it (FR-012).

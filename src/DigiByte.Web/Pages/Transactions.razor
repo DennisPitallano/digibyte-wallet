@@ -97,17 +97,42 @@
                         {
                             var isSelected = selectedAddress != null && AddressKey.Normalize(selectedAddress) == used.Key;
                             <li role="option" aria-selected="@isSelected">
-                                <button type="button" class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors @(isSelected ? "bg-dgb-50 dark:bg-dgb-800" : "")"
-                                        @onclick="() => SelectAddress(used.Address)">
-                                    <span class="min-w-0">
-                                        @if (!string.IsNullOrEmpty(used.Label))
-                                        {
-                                            <span class="block text-xs font-semibold text-slate-900 dark:text-white truncate">@used.Label</span>
-                                        }
-                                        <span class="block text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate">@ShortAddress(used.Address)</span>
-                                    </span>
-                                    <span class="text-[11px] tabular-nums text-slate-400 flex-shrink-0">@used.TransactionCount</span>
-                                </button>
+                                @if (editingKey == used.Key)
+                                {
+                                    @* Naming the address: Enter saves, Escape cancels; an empty name removes the label *@
+                                    <div class="flex items-center gap-1 px-3 py-2">
+                                        <input type="text" @ref="renameInput" @bind="editLabelText" @bind:event="oninput" maxlength="40"
+                                               @onkeydown="e => OnRenameKey(e, used)"
+                                               placeholder="Name, e.g. Donations" aria-label="Name for @ShortAddress(used.Address)"
+                                               class="flex-1 min-w-0 px-2 py-1 text-xs bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-dgb-500/30" />
+                                        <button type="button" class="p-1 text-green-500 press-effect" aria-label="Save name" @onclick="() => SaveRenameAsync(used)">
+                                            <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                        </button>
+                                        <button type="button" class="p-1 text-slate-400 press-effect" aria-label="Cancel" @onclick="CancelRename">
+                                            <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="flex items-center rounded-lg hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors @(isSelected ? "bg-dgb-50 dark:bg-dgb-800" : "")">
+                                        <button type="button" class="flex-1 min-w-0 flex items-center justify-between gap-3 pl-3 pr-1 py-2 text-left"
+                                                @onclick="() => SelectAddress(used.Address)">
+                                            <span class="min-w-0">
+                                                @if (!string.IsNullOrEmpty(used.Label))
+                                                {
+                                                    <span class="block text-xs font-semibold text-slate-900 dark:text-white truncate">@used.Label</span>
+                                                }
+                                                <span class="block text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate">@ShortAddress(used.Address)</span>
+                                            </span>
+                                            <span class="text-[11px] tabular-nums text-slate-400 flex-shrink-0">@used.TransactionCount</span>
+                                        </button>
+                                        <button type="button" class="p-2 text-slate-400 hover:text-dgb-500 transition-colors flex-shrink-0" aria-label="@(string.IsNullOrEmpty(used.Label) ? "Name this address" : "Rename this address")" title="Name this address"
+                                                @onclick="() => StartRename(used)">
+                                            <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" /></svg>
+                                        </button>
+                                    </div>
+                                }
                             </li>
                         }
                     </ul>
@@ -225,6 +250,7 @@
         selectedAddress = address;
         showAddressPicker = false;
         visibleCount = PageSize;
+        _ = SaveAddressPrefAsync(address);
         ApplyFilter();
     }
 
@@ -233,7 +259,94 @@
         selectedAddress = null;
         showAddressPicker = false;
         visibleCount = PageSize;
+        _ = SaveAddressPrefAsync(null);
         ApplyFilter();
+    }
+
+    // The chosen address is remembered per wallet, so it is still chosen the next time Activity opens (FR-011).
+    private string? AddressPrefKey => WalletService.ActiveWallet is { } w ? $"pref:activityAddress:{w.Id}" : null;
+    private bool addressPrefRestored;
+
+    private async Task SaveAddressPrefAsync(string? address)
+    {
+        try
+        {
+            if (AddressPrefKey is not { } key) return;
+            if (address is null) await Storage.RemoveAsync(key);
+            else await Storage.SetAsync(key, address);
+        }
+        catch { }
+    }
+
+    /// <summary>Puts back the remembered address, once, if it still has activity; otherwise forgets it.</summary>
+    private async Task RestoreAddressPrefAsync()
+    {
+        if (addressPrefRestored) return;
+        addressPrefRestored = true;
+        try
+        {
+            if (AddressPrefKey is not { } key) return;
+            var saved = await Storage.GetAsync(key);
+            if (string.IsNullOrEmpty(saved)) return;
+            if (usedAddresses.FirstOrDefault(u => u.Key == AddressKey.Normalize(saved)) is { } match)
+                selectedAddress = match.Address;
+            else
+                await Storage.RemoveAsync(key);
+        }
+        catch { }
+    }
+
+    // Naming an address from the picker (FR-012). Uses the same label store as the Receive page.
+    private string? editingKey;
+    private string editLabelText = "";
+
+    private ElementReference renameInput;
+    private bool focusRenameInput;
+
+    private void StartRename(UsedAddress used)
+    {
+        editingKey = used.Key;
+        editLabelText = used.Label ?? "";
+        focusRenameInput = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Put the cursor in the name box as soon as it appears.
+        if (!focusRenameInput || editingKey is null) return;
+        focusRenameInput = false;
+        try { await renameInput.FocusAsync(); } catch { }
+    }
+
+    private void CancelRename() => editingKey = null;
+
+    private async Task OnRenameKey(KeyboardEventArgs e, UsedAddress used)
+    {
+        if (e.Key == "Enter") await SaveRenameAsync(used);
+        else if (e.Key == "Escape") CancelRename();
+    }
+
+    private async Task SaveRenameAsync(UsedAddress used)
+    {
+        if (WalletService.ActiveWallet is not { } wallet) return;
+        try { await LabelService.SetLabelAsync(wallet.Id, used.Address, editLabelText); }
+        catch { return; }
+        editingKey = null;
+        await LoadWalletLabelsAsync();
+        RefreshUsedAddresses();
+        ApplyFilter();
+    }
+
+    private async Task LoadWalletLabelsAsync()
+    {
+        try
+        {
+            if (WalletService.ActiveWallet is not { } wallet) return;
+            var labels = await LabelService.GetAllAsync(wallet.Id);
+            walletAddressLabels = ActivityAddressIndex.BuildLabelLookup(
+                labels.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
+        }
+        catch { }
     }
 
     protected override async Task OnInitializedAsync()
@@ -252,9 +365,13 @@
         {
             all = await WalletService.GetTransactionHistoryAsync(0, MaxLoaded);
             RefreshUsedAddresses();
+            await RestoreAddressPrefAsync();
             // A chosen address that no longer appears (for example after a refresh) would leave an empty list with no way out.
             if (selectedAddress != null && !usedAddresses.Any(u => u.Key == AddressKey.Normalize(selectedAddress)))
+            {
                 selectedAddress = null;
+                _ = SaveAddressPrefAsync(null);
+            }
             ApplyFilter();
         }
         catch (Exception)
@@ -290,16 +407,7 @@
         }
         catch { }
 
-        try
-        {
-            if (WalletService.ActiveWallet is { } wallet)
-            {
-                var labels = await LabelService.GetAllAsync(wallet.Id);
-                walletAddressLabels = ActivityAddressIndex.BuildLabelLookup(
-                    labels.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
-            }
-        }
-        catch { }
+        await LoadWalletLabelsAsync();
 
         // Search matches contact names and address labels too, so re-run it now that they are loaded.
         if (!loading && !failed)

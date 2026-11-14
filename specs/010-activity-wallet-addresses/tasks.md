@@ -110,6 +110,17 @@ description: "Task list for Wallet Addresses in Activity"
 
 ---
 
+## Phase 5b: Added after the first build (US4 and US5, both P3)
+
+**US4 goal**: the chosen address is remembered per wallet. **US5 goal**: addresses can be named from the picker. Both depend on the picker (T023) and filter (T027).
+
+- [x] T035 [US4] In `src/DigiByte.Web/Pages/Transactions.razor`, save the chosen address as a per-wallet preference (key `pref:activityAddress:<walletId>` through the injected `ISecureStorage`, like `pref:hideBalance`) when an address is chosen, and remove it when the filter is cleared
+- [x] T036 [US4] In the same file, restore the saved address once after the first history load, only if it is still in the used-address list; otherwise ignore it and remove it
+- [x] T037 [US5] In the same file, add a rename control to each picker entry (inline text box with save and cancel) that calls `AddressLabelService.SetLabelAsync(walletId, address, text)` (an empty text removes the label), then refreshes the label lookup, the used-address list and the rows
+- [x] T038 Verify US4 and US5 in the preview (quickstart steps 10 and 11) and update `quickstart.md`
+
+---
+
 ## Phase 6: Polish & Cross-Cutting
 
 - [x] T029 [P] Check `docs/` (ARCHITECTURE.md, PROCESS_FLOWS.md) for a description of the activity screen and update it if one exists
