@@ -10,7 +10,7 @@ Every response carries `X-Network` (`mainnet` or `testnet`). A request whose add
 { "error": "over_limit", "message": "Too many addresses in one request (max 100).", "retryAfterSeconds": 5 }
 ```
 
-Codes: `bad_request`, `wrong_network`, `over_limit`, `rate_limited` (`429`), `range_unavailable`, `not_ready` (`503`), `internal`.
+Codes: `bad_request`, `wrong_network`, `over_limit`, `rate_limited` (`429`), `range_unavailable`, `not_ready` (`503`), `not_found` (`404`), `internal`.
 
 ## GET /v1/health
 

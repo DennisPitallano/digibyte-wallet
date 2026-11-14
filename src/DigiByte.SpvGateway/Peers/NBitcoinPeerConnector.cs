@@ -60,15 +60,115 @@ public sealed class NBitcoinPeerConnector(Network network, TimeSpan? connectTime
     }
 }
 
+/// <summary>The legacy <c>reject</c> message (BIP 61), which NBitcoin no longer models: message name, code, reason and, for transactions, the id.</summary>
+internal sealed record RejectMessage(uint256 Hash, string Description)
+{
+    public static RejectMessage? Parse(Payload payload)
+    {
+        if (payload is not UnknownPayload unknown || unknown.Command != "reject")
+            return null;
+        try
+        {
+            var bytes = unknown.Data;
+            var position = 0;
+            var message = ReadString(bytes, ref position);
+            var code = bytes[position++];
+            var reason = ReadString(bytes, ref position);
+            if (message != "tx" || bytes.Length < position + 32)
+                return null;
+            return new RejectMessage(new uint256(bytes.AsSpan(position, 32)), $"{code}: {reason}");
+        }
+        catch (IndexOutOfRangeException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static string ReadString(byte[] bytes, ref int position)
+    {
+        var length = bytes[position++]; // reject strings are short, so the length is a single byte
+        var text = System.Text.Encoding.UTF8.GetString(bytes, position, length);
+        position += length;
+        return text;
+    }
+}
+
 internal sealed class NBitcoinPeerSession : IPeerSession
 {
     private readonly Node _node;
+
+    private readonly object _announcedGate = new();
+    private readonly HashSet<uint256> _announced = [];
+    private readonly Queue<uint256> _announcedOrder = new();
 
     public NBitcoinPeerSession(PeerEndpoint endpoint, Node node)
     {
         Endpoint = endpoint;
         _node = node;
+        // Remember which transactions this peer announces, so a relayed transaction can be seen coming back from other peers.
+        _node.MessageReceived += (_, message) =>
+        {
+            if (message.Message.Payload is not InvPayload inv)
+                return;
+            lock (_announcedGate)
+                foreach (var item in inv.Where(i => (i.Type & InventoryType.MSG_TX) != 0))
+                    if (_announced.Add(item.Hash))
+                    {
+                        _announcedOrder.Enqueue(item.Hash);
+                        if (_announcedOrder.Count > 5000)
+                            _announced.Remove(_announcedOrder.Dequeue());
+                    }
+        };
     }
+
+    public bool HasAnnounced(uint256 txid)
+    {
+        lock (_announcedGate)
+            return _announced.Contains(txid);
+    }
+
+    public async Task<PeerRelayOutcome> RelayTransactionAsync(uint256 txid, byte[] raw, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        using var listener = _node.CreateListener().Where(m =>
+            (m.Message.Payload is GetDataPayload request && request.Inventory.Any(i => i.Hash == txid))
+            || RejectMessage.Parse(m.Message.Payload) is { } reject && reject.Hash == txid);
+        try
+        {
+            await _node.SendMessageAsync(new InvPayload(new InventoryVector(InventoryType.MSG_TX, txid)));
+            var transaction = Transaction.Load(raw, DigiByteNetworkFor(_node));
+            var first = await Task.Run(() => listener.ReceiveMessage(timeout.Token), timeout.Token);
+            if (RejectMessage.Parse(first.Message.Payload) is { } early)
+                return new PeerRelayOutcome(false, early.Description);
+            await _node.SendMessageAsync(new TxPayload(transaction));
+            // A peer that refuses the transaction says so right after receiving it.
+            using var rejectWindow = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            rejectWindow.CancelAfter(TimeSpan.FromSeconds(2));
+            try
+            {
+                var second = await Task.Run(() => listener.ReceiveMessage(rejectWindow.Token), rejectWindow.Token);
+                if (RejectMessage.Parse(second.Message.Payload) is { } late)
+                    return new PeerRelayOutcome(true, late.Description);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // No reject within the window: the usual sign of acceptance.
+            }
+            return new PeerRelayOutcome(true, null);
+        }
+        catch (Exception e) when (e is OperationCanceledException or IOException or InvalidOperationException && !cancellationToken.IsCancellationRequested)
+        {
+            return new PeerRelayOutcome(false, null);
+        }
+    }
+
+    private static Network DigiByteNetworkFor(Node node) => node.Network;
+
 
     public PeerEndpoint Endpoint { get; }
     public ulong Services => (ulong)_node.PeerVersion.Services;

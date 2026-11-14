@@ -28,6 +28,8 @@ public enum StoreAddResult
 public sealed class HeaderStore : IDisposable
 {
     private readonly SqliteConnection _db;
+    // A SqliteConnection must not be used from two threads at once, and the sync loop and the HTTP endpoints share this store.
+    private readonly object _gate = new();
     private readonly string _network;
 
     private HeaderStore(SqliteConnection db, string network)
@@ -76,100 +78,121 @@ public sealed class HeaderStore : IDisposable
     /// <summary>Stores the checkpoint's headers as the best chain, with zero work. Does nothing if they are already there.</summary>
     public void SeedCheckpoint(Checkpoint checkpoint)
     {
-        using var tx = _db.BeginTransaction();
-        for (var i = 0; i < checkpoint.Headers.Count; i++)
+        lock (_gate)
         {
-            var header = checkpoint.Headers[i];
-            using var cmd = _db.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = """
-                INSERT OR IGNORE INTO headers (network, hash, height, prev_hash, raw, algo, chain_work, is_best)
-                VALUES ($n, $h, $height, $p, $raw, $algo, $w, 1)
-                """;
-            Bind(cmd, header, checkpoint.FirstHeight + i, BigInteger.Zero);
-            cmd.ExecuteNonQuery();
+            using var tx = _db.BeginTransaction();
+            for (var i = 0; i < checkpoint.Headers.Count; i++)
+            {
+                var header = checkpoint.Headers[i];
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = """
+                    INSERT OR IGNORE INTO headers (network, hash, height, prev_hash, raw, algo, chain_work, is_best)
+                    VALUES ($n, $h, $height, $p, $raw, $algo, $w, 1)
+                    """;
+                Bind(cmd, header, checkpoint.FirstHeight + i, BigInteger.Zero);
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
         }
-        tx.Commit();
     }
 
     public StoreAddResult TryAdd(BlockHeader80 header, int height, BigInteger chainWork)
     {
-        if (header.Algorithm == PowAlgorithm.Unknown)
-            return StoreAddResult.UnknownAlgorithm;
-        if (Get(header.Hash) is not null)
-            return StoreAddResult.Duplicate;
+        lock (_gate)
+        {
+            if (header.Algorithm == PowAlgorithm.Unknown)
+                return StoreAddResult.UnknownAlgorithm;
+            if (Get(header.Hash) is not null)
+                return StoreAddResult.Duplicate;
 
-        var parent = Get(header.PrevHash);
-        if (parent is null)
-            return StoreAddResult.ParentMissing;
-        if (parent.Height != height - 1)
-            return StoreAddResult.HeightMismatch;
+            var parent = Get(header.PrevHash);
+            if (parent is null)
+                return StoreAddResult.ParentMissing;
+            if (parent.Height != height - 1)
+                return StoreAddResult.HeightMismatch;
 
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = """
-            INSERT INTO headers (network, hash, height, prev_hash, raw, algo, chain_work, is_best)
-            VALUES ($n, $h, $height, $p, $raw, $algo, $w, 0)
-            """;
-        Bind(cmd, header, height, chainWork);
-        cmd.ExecuteNonQuery();
-        return StoreAddResult.Added;
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO headers (network, hash, height, prev_hash, raw, algo, chain_work, is_best)
+                VALUES ($n, $h, $height, $p, $raw, $algo, $w, 0)
+                """;
+            Bind(cmd, header, height, chainWork);
+            cmd.ExecuteNonQuery();
+            return StoreAddResult.Added;
+        }
     }
 
     public StoredHeader? Get(uint256 hash)
     {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT height, raw, chain_work, is_best FROM headers WHERE network = $n AND hash = $h";
-        cmd.Parameters.AddWithValue("$n", _network);
-        cmd.Parameters.AddWithValue("$h", hash.ToBytes());
-        using var reader = cmd.ExecuteReader();
-        return reader.Read() ? Read(reader) : null;
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT height, raw, chain_work, is_best FROM headers WHERE network = $n AND hash = $h";
+            cmd.Parameters.AddWithValue("$n", _network);
+            cmd.Parameters.AddWithValue("$h", hash.ToBytes());
+            using var reader = cmd.ExecuteReader();
+            return reader.Read() ? Read(reader) : null;
+        }
     }
 
     public StoredHeader? GetBest(int height)
     {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT height, raw, chain_work, is_best FROM headers WHERE network = $n AND height = $height AND is_best = 1";
-        cmd.Parameters.AddWithValue("$n", _network);
-        cmd.Parameters.AddWithValue("$height", height);
-        using var reader = cmd.ExecuteReader();
-        return reader.Read() ? Read(reader) : null;
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT height, raw, chain_work, is_best FROM headers WHERE network = $n AND height = $height AND is_best = 1";
+            cmd.Parameters.AddWithValue("$n", _network);
+            cmd.Parameters.AddWithValue("$height", height);
+            using var reader = cmd.ExecuteReader();
+            return reader.Read() ? Read(reader) : null;
+        }
     }
 
     public StoredHeader? BestTip()
     {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT height, raw, chain_work, is_best FROM headers WHERE network = $n AND is_best = 1 ORDER BY height DESC LIMIT 1";
-        cmd.Parameters.AddWithValue("$n", _network);
-        using var reader = cmd.ExecuteReader();
-        return reader.Read() ? Read(reader) : null;
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT height, raw, chain_work, is_best FROM headers WHERE network = $n AND is_best = 1 ORDER BY height DESC LIMIT 1";
+            cmd.Parameters.AddWithValue("$n", _network);
+            using var reader = cmd.ExecuteReader();
+            return reader.Read() ? Read(reader) : null;
+        }
     }
 
     /// <summary>The height of the earliest stored header on the best chain, or null when the store is empty.</summary>
     public int? EarliestHeight()
     {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT MIN(height) FROM headers WHERE network = $n AND is_best = 1";
-        cmd.Parameters.AddWithValue("$n", _network);
-        var value = cmd.ExecuteScalar();
-        return value is null or DBNull ? null : Convert.ToInt32(value);
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT MIN(height) FROM headers WHERE network = $n AND is_best = 1";
+            cmd.Parameters.AddWithValue("$n", _network);
+            var value = cmd.ExecuteScalar();
+            return value is null or DBNull ? null : Convert.ToInt32(value);
+        }
     }
 
     /// <summary>Up to <paramref name="count"/> consecutive best-chain headers starting at <paramref name="from"/>.</summary>
     public IReadOnlyList<BlockHeader80> BestRange(int from, int count)
     {
-        var result = new List<BlockHeader80>();
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = """
-            SELECT height, raw, chain_work, is_best FROM headers
-            WHERE network = $n AND is_best = 1 AND height >= $from AND height < $to ORDER BY height
-            """;
-        cmd.Parameters.AddWithValue("$n", _network);
-        cmd.Parameters.AddWithValue("$from", from);
-        cmd.Parameters.AddWithValue("$to", from + count);
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            result.Add(Read(reader).Header);
-        return result;
+        lock (_gate)
+        {
+            var result = new List<BlockHeader80>();
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT height, raw, chain_work, is_best FROM headers
+                WHERE network = $n AND is_best = 1 AND height >= $from AND height < $to ORDER BY height
+                """;
+            cmd.Parameters.AddWithValue("$n", _network);
+            cmd.Parameters.AddWithValue("$from", from);
+            cmd.Parameters.AddWithValue("$to", from + count);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                result.Add(Read(reader).Header);
+            return result;
+        }
     }
 
     /// <summary>
@@ -178,15 +201,18 @@ public sealed class HeaderStore : IDisposable
     /// </summary>
     public IReadOnlyList<StoredHeader> BranchEndingAt(uint256 tip, int count)
     {
-        var result = new List<StoredHeader>();
-        var current = Get(tip);
-        while (current is not null && result.Count < count)
+        lock (_gate)
         {
-            result.Add(current);
-            current = Get(current.Header.PrevHash);
+            var result = new List<StoredHeader>();
+            var current = Get(tip);
+            while (current is not null && result.Count < count)
+            {
+                result.Add(current);
+                current = Get(current.Header.PrevHash);
+            }
+            result.Reverse();
+            return result;
         }
-        result.Reverse();
-        return result;
     }
 
     /// <summary>
@@ -196,73 +222,79 @@ public sealed class HeaderStore : IDisposable
     /// </summary>
     public int SetBestTip(uint256 newTip)
     {
-        using var tx = _db.BeginTransaction();
+        lock (_gate)
+        {
+            using var tx = _db.BeginTransaction();
 
-        var branch = new List<StoredHeader>();
-        var cursor = Get(newTip) ?? throw new InvalidOperationException("The new tip is not stored.");
-        while (!cursor.IsBestChain)
-        {
-            branch.Add(cursor);
-            cursor = Get(cursor.Header.PrevHash) ?? throw new InvalidOperationException("The branch does not reach the best chain.");
-        }
-        var forkHeight = cursor.Height;
+            var branch = new List<StoredHeader>();
+            var cursor = Get(newTip) ?? throw new InvalidOperationException("The new tip is not stored.");
+            while (!cursor.IsBestChain)
+            {
+                branch.Add(cursor);
+                cursor = Get(cursor.Header.PrevHash) ?? throw new InvalidOperationException("The branch does not reach the best chain.");
+            }
+            var forkHeight = cursor.Height;
 
-        int replaced;
-        using (var count = _db.CreateCommand())
-        {
-            count.Transaction = tx;
-            count.CommandText = "SELECT COUNT(*) FROM headers WHERE network = $n AND is_best = 1 AND height > $f";
-            count.Parameters.AddWithValue("$n", _network);
-            count.Parameters.AddWithValue("$f", forkHeight);
-            replaced = Convert.ToInt32(count.ExecuteScalar());
-        }
-        // Count only those above the fork that the new branch actually replaces (the rest of the old chain stays if the new tip is higher).
-        using (var clear = _db.CreateCommand())
-        {
-            clear.Transaction = tx;
-            clear.CommandText = "UPDATE headers SET is_best = 0 WHERE network = $n AND is_best = 1 AND height > $f";
-            clear.Parameters.AddWithValue("$n", _network);
-            clear.Parameters.AddWithValue("$f", forkHeight);
-            clear.ExecuteNonQuery();
-        }
-        foreach (var header in branch)
-        {
-            using var set = _db.CreateCommand();
-            set.Transaction = tx;
-            set.CommandText = "UPDATE headers SET is_best = 1 WHERE network = $n AND hash = $h";
-            set.Parameters.AddWithValue("$n", _network);
-            set.Parameters.AddWithValue("$h", header.Header.Hash.ToBytes());
-            set.ExecuteNonQuery();
-        }
+            int replaced;
+            using (var count = _db.CreateCommand())
+            {
+                count.Transaction = tx;
+                count.CommandText = "SELECT COUNT(*) FROM headers WHERE network = $n AND is_best = 1 AND height > $f";
+                count.Parameters.AddWithValue("$n", _network);
+                count.Parameters.AddWithValue("$f", forkHeight);
+                replaced = Convert.ToInt32(count.ExecuteScalar());
+            }
+            // Count only those above the fork that the new branch actually replaces (the rest of the old chain stays if the new tip is higher).
+            using (var clear = _db.CreateCommand())
+            {
+                clear.Transaction = tx;
+                clear.CommandText = "UPDATE headers SET is_best = 0 WHERE network = $n AND is_best = 1 AND height > $f";
+                clear.Parameters.AddWithValue("$n", _network);
+                clear.Parameters.AddWithValue("$f", forkHeight);
+                clear.ExecuteNonQuery();
+            }
+            foreach (var header in branch)
+            {
+                using var set = _db.CreateCommand();
+                set.Transaction = tx;
+                set.CommandText = "UPDATE headers SET is_best = 1 WHERE network = $n AND hash = $h";
+                set.Parameters.AddWithValue("$n", _network);
+                set.Parameters.AddWithValue("$h", header.Header.Hash.ToBytes());
+                set.ExecuteNonQuery();
+            }
 
-        // A plain extension replaces nothing; a reorganization replaces the old chain's headers above the fork point.
-        var depth = branch.Count > 0 && replaced > 0 ? replaced : 0;
-        if (depth > 0)
-        {
-            using var log = _db.CreateCommand();
-            log.Transaction = tx;
-            log.CommandText = "INSERT INTO reorgs (network, fork_height, depth, at_utc) VALUES ($n, $f, $d, $t)";
-            log.Parameters.AddWithValue("$n", _network);
-            log.Parameters.AddWithValue("$f", forkHeight);
-            log.Parameters.AddWithValue("$d", depth);
-            log.Parameters.AddWithValue("$t", DateTime.UtcNow.ToString("O"));
-            log.ExecuteNonQuery();
+            // A plain extension replaces nothing; a reorganization replaces the old chain's headers above the fork point.
+            var depth = branch.Count > 0 && replaced > 0 ? replaced : 0;
+            if (depth > 0)
+            {
+                using var log = _db.CreateCommand();
+                log.Transaction = tx;
+                log.CommandText = "INSERT INTO reorgs (network, fork_height, depth, at_utc) VALUES ($n, $f, $d, $t)";
+                log.Parameters.AddWithValue("$n", _network);
+                log.Parameters.AddWithValue("$f", forkHeight);
+                log.Parameters.AddWithValue("$d", depth);
+                log.Parameters.AddWithValue("$t", DateTime.UtcNow.ToString("O"));
+                log.ExecuteNonQuery();
+            }
+            tx.Commit();
+            return depth;
         }
-        tx.Commit();
-        return depth;
     }
 
     /// <summary>The recorded reorganizations as (fork height, depth), oldest first.</summary>
     public IReadOnlyList<(int ForkHeight, int Depth)> Reorganizations()
     {
-        var result = new List<(int, int)>();
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT fork_height, depth FROM reorgs WHERE network = $n ORDER BY id";
-        cmd.Parameters.AddWithValue("$n", _network);
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            result.Add((reader.GetInt32(0), reader.GetInt32(1)));
-        return result;
+        lock (_gate)
+        {
+            var result = new List<(int, int)>();
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT fork_height, depth FROM reorgs WHERE network = $n ORDER BY id";
+            cmd.Parameters.AddWithValue("$n", _network);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                result.Add((reader.GetInt32(0), reader.GetInt32(1)));
+            return result;
+        }
     }
 
     private void Bind(SqliteCommand cmd, BlockHeader80 header, int height, BigInteger chainWork)

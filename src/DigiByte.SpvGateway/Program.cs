@@ -6,6 +6,7 @@ using DigiByte.Crypto.Headers;
 using DigiByte.Crypto.Headers.Hashers;
 using DigiByte.SpvGateway;
 using DigiByte.SpvGateway.Endpoints;
+using DigiByte.SpvGateway.Broadcast;
 using DigiByte.SpvGateway.Health;
 using DigiByte.SpvGateway.Index;
 using DigiByte.SpvGateway.Matching;
@@ -21,6 +22,12 @@ if (port is not null)
 {
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
+
+// The framework request log writes the full URL, and GET /v1/tx/{txid} puts a transaction id in it. The gateway logs nothing about
+// what a client asks for (FR-021), so that log is raised to warnings only. Nothing else in this service logs request data.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Http.Result", LogLevel.Warning);
 
 // Everything is built from the options when first needed, so a test host can change the configuration.
 builder.Services.AddSingleton(sp =>
@@ -58,6 +65,10 @@ builder.Services.AddSingleton(sp => new BlockIndexer(
     sp.GetRequiredService<SpvGatewayOptions>(), sp.GetRequiredService<HeaderStore>(), sp.GetRequiredService<BlockIndexStore>(), sp.GetRequiredService<BlockFetcher>()));
 builder.Services.AddSingleton<IBlockMatcher>(sp => new FullBlockMatcher(sp.GetRequiredService<BlockIndexStore>()));
 builder.Services.AddSingleton<ScanService>();
+builder.Services.AddSingleton<ProofService>();
+builder.Services.AddSingleton(sp => new BroadcastRelay(
+    sp.GetRequiredService<PeerManager>(),
+    sp.GetRequiredService<SpvGatewayOptions>().Network == GatewayNetwork.Testnet ? DigiByteNetworkSet.Instance.Testnet : DigiByteNetworkSet.Instance.Mainnet));
 if (SpvGatewayOptions.FromConfiguration(key => builder.Configuration[key]).PeersEnabled)
     builder.Services.AddHostedService<PeerSyncService>();
 builder.Services.AddSingleton(sp =>
@@ -75,15 +86,27 @@ builder.Services.AddSingleton(sp =>
     return new HeaderSync(sp.GetRequiredService<HeaderStore>(), Checkpoints.Mainnet, PowHashers.Available);
 });
 
+// The wallet runs in a browser on another origin, so the gateway answers cross-origin requests. It is anonymous and sets no cookies, so any
+// origin may read it; credentials are never allowed. The extra request header lets a wallet pass the free ngrok browser warning page.
+builder.Services.AddCors(cors => cors.AddDefaultPolicy(policy => policy
+    .AllowAnyOrigin()
+    .WithMethods("GET", "POST", "OPTIONS")
+    .WithHeaders("Content-Type", "ngrok-skip-browser-warning")
+    .WithExposedHeaders("X-Network", "X-Tip-Height", "X-Tip-Hash", "Retry-After")
+    .SetPreflightMaxAge(TimeSpan.FromHours(1))));
+
 var app = builder.Build();
 
 // Create the sync (which seeds the checkpoint into the store) before the first request.
 app.Services.GetRequiredService<HeaderSync>();
 
+app.UseCors();
 app.UseMiddleware<GatewayMiddleware>();
 app.MapHealth();
 app.MapHeaders();
 app.MapScan();
+app.MapBroadcast();
+app.MapProofs();
 
 app.Run();
 

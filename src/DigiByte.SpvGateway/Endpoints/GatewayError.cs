@@ -9,6 +9,7 @@ public enum GatewayError
     RateLimited,
     RangeUnavailable,
     NotReady,
+    NotFound,
     Internal,
 }
 
@@ -22,6 +23,7 @@ public static class GatewayErrors
         GatewayError.RateLimited => "rate_limited",
         GatewayError.RangeUnavailable => "range_unavailable",
         GatewayError.NotReady => "not_ready",
+        GatewayError.NotFound => "not_found",
         _ => "internal",
     };
 
@@ -33,6 +35,7 @@ public static class GatewayErrors
         GatewayError.RateLimited => 429,
         GatewayError.RangeUnavailable => 404,
         GatewayError.NotReady => 503,
+        GatewayError.NotFound => 404,
         _ => 500,
     };
 }

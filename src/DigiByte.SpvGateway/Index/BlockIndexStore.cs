@@ -49,7 +49,7 @@ public sealed class BlockIndexStore : IDisposable
             RemoveCore(entry.Height);
             Exec("INSERT INTO indexed_blocks (height, hash, tx_count, indexed_at) VALUES ($h, $x, $c, $t)",
                 ("$h", entry.Height), ("$x", entry.Hash.ToBytes()), ("$c", entry.TransactionCount), ("$t", now.UtcDateTime.ToString("O")));
-            foreach (var (kind, keys) in new[] { (0, entry.Outputs), (1, entry.Spends) })
+            foreach (var (kind, keys) in new[] { (0, entry.Outputs), (1, entry.Spends), (2, entry.TxKeys ?? []) })
                 foreach (var key in keys)
                     Exec("INSERT INTO entries (height, tx_index, kind, key) VALUES ($h, $i, $k, $key)",
                         ("$h", entry.Height), ("$i", key.TxIndex), ("$k", kind), ("$key", key.Key));
@@ -147,6 +147,22 @@ public sealed class BlockIndexStore : IDisposable
             }
         }
         return hits.OrderBy(h => h.Item1).ThenBy(h => h.Item2).ToList();
+    }
+
+    /// <summary>The (height, position) pairs whose transaction id starts with the given short key.</summary>
+    public IReadOnlyList<(int Height, int TxIndex)> FindByTxid(byte[] txidKey)
+    {
+        var hits = new List<(int, int)>();
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT height, tx_index FROM entries WHERE kind = 2 AND key = $key ORDER BY height";
+            cmd.Parameters.AddWithValue("$key", txidKey);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                hits.Add((reader.GetInt32(0), reader.GetInt32(1)));
+        }
+        return hits;
     }
 
     private int? Scalar(string sql)

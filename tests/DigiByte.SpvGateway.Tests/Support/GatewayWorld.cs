@@ -33,6 +33,7 @@ internal sealed class GatewayWorld
     {
         services.AddSingleton(Manager);
         services.AddSingleton<IPeerStatusSource>(Manager);
+        services.AddSingleton(new DigiByte.SpvGateway.Broadcast.BroadcastRelay(Manager, Network, TimeSpan.Zero));
         services.AddSingleton(sp => new BlockFetcher(Manager, sp.GetRequiredService<HeaderStore>(), Network));
         // The fixture holds blocks from FirstHeight on, so the index must not start earlier.
         services.AddSingleton(sp => new BlockIndexer(sp.GetRequiredService<SpvGatewayOptions>(), sp.GetRequiredService<HeaderStore>(), sp.GetRequiredService<BlockIndexStore>(), sp.GetRequiredService<BlockFetcher>(), null, FirstHeight));
@@ -46,7 +47,7 @@ internal sealed class GatewayWorld
             foreach (var block in RealBlocks.All)
                 peer.Blocks[block.Hash] = block.Raw;
         var book = PeerBook.Open(":memory:");
-        world.Manager = new PeerManager(new SpvGatewayOptions { PeerTarget = 1 }, book, world.Peers, world.Peers, new FakeTimeProvider());
+        world.Manager = new PeerManager(new SpvGatewayOptions { PeerTarget = 8 }, book, world.Peers, world.Peers, new FakeTimeProvider());
         await world.Manager.MaintainAsync(default);
         return world;
     }

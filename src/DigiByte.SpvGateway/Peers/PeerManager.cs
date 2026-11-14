@@ -22,7 +22,18 @@ public interface IPeerSession : IAsyncDisposable
 
     /// <summary>Asks for one whole block (with witness data). Returns null when the peer does not have it.</summary>
     Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken);
+
+    /// <summary>Offers a transaction to the peer (inv), hands it over when the peer asks (getdata, tx), and waits briefly for a reject.</summary>
+    Task<PeerRelayOutcome> RelayTransactionAsync(uint256 txid, byte[] raw, CancellationToken cancellationToken);
+
+    /// <summary>True when this peer has announced the transaction to the gateway, which shows it spread through the network.</summary>
+    bool HasAnnounced(uint256 txid);
 }
+
+/// <summary>What happened when a transaction was offered to one peer.</summary>
+/// <param name="Delivered">The peer asked for the transaction and the gateway sent it.</param>
+/// <param name="RejectReason">The peer reject message (code and text), when it sent one.</param>
+public sealed record PeerRelayOutcome(bool Delivered, string? RejectReason);
 
 /// <summary>Opens a connection and completes the handshake. Throws when the peer cannot be reached or does not answer properly.</summary>
 public interface IPeerConnector

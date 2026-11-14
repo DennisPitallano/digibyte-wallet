@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <!-- Real mainnet headers shared with the Crypto tests. -->
+    <Content Include="..\DigiByte.Crypto.Tests\Headers\Fixtures\merkle-mainnet.json" Link="Fixtures\merkle-mainnet.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\DigiByte.Crypto.Tests\Headers\Fixtures\headers-mainnet-run.json" Link="Fixtures\headers-mainnet-run.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

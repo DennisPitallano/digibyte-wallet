@@ -72,6 +72,25 @@ internal sealed class FakePeer(PeerEndpoint endpoint, ulong services, int startH
 
     public List<uint256> BlockRequests { get; } = [];
 
+    /// <summary>Raw transactions offered to this peer.</summary>
+    public List<byte[]> Relayed { get; } = [];
+
+    /// <summary>When false the peer never asks for the transaction (no answer).</summary>
+    public bool TakesTransactions { get; set; } = true;
+
+    /// <summary>When set the peer sends a reject with this reason after receiving the transaction.</summary>
+    public string? RejectReason { get; set; }
+
+    public HashSet<uint256> Announced { get; } = [];
+
+    public Task<PeerRelayOutcome> RelayTransactionAsync(uint256 txid, byte[] raw, CancellationToken cancellationToken)
+    {
+        Relayed.Add(raw);
+        return Task.FromResult(new PeerRelayOutcome(TakesTransactions, TakesTransactions ? RejectReason : null));
+    }
+
+    public bool HasAnnounced(uint256 txid) => Announced.Contains(txid);
+
     public Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken)
     {
         BlockRequests.Add(hash);
