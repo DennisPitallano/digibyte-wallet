@@ -150,7 +150,7 @@
                 <div class="slide-up-delay-1 flex flex-col gap-2 p-3 bg-white dark:bg-dgb-900 rounded-2xl border @(state == KeyState.Valid ? "border-green-300 dark:border-green-700/50" : "border-slate-200/80 dark:border-dgb-800")">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-400 w-4">@(idx + 2)</span>
-                        <input type="text" @bind="entry.Name" placeholder="Name (e.g. Alice)" maxlength="40" autocomplete="off"
+                        <input type="text" @bind="entry.Name" @bind:event="oninput" placeholder="Name (e.g. Alice)" maxlength="40" autocomplete="off"
                                class="flex-1 px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
                         @if (state == KeyState.Valid)
                         {
