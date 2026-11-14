@@ -110,6 +110,28 @@ public class TransactionTracker
     }
 
     /// <summary>
+    /// Saves the wallet addresses found for tracked transactions, keyed by TxId, so they still show after a
+    /// reload when the explorer is unreachable. Leaves records that already have addresses alone.
+    /// </summary>
+    public async Task SetWalletAddressesAsync(
+        IReadOnlyDictionary<string, (List<string> Wallet, List<string> ReceivedTo)> addressesByTxId)
+    {
+        var all = await GetAllAsync();
+        var changed = false;
+        foreach (var tx in all)
+        {
+            if (tx.WalletAddresses.Count > 0 || tx.WalletReceivedAddresses.Count > 0) continue;
+            if (!addressesByTxId.TryGetValue(tx.TxId, out var found)) continue;
+            if (found.Wallet.Count == 0 && found.ReceivedTo.Count == 0) continue;
+
+            tx.WalletAddresses = [.. found.Wallet];
+            tx.WalletReceivedAddresses = [.. found.ReceivedTo];
+            changed = true;
+        }
+        if (changed) await SaveAsync(all);
+    }
+
+    /// <summary>
     /// Update confirmation count for tracked txs.
     /// </summary>
     public async Task UpdateConfirmationsAsync(IBlockchainService blockchain)

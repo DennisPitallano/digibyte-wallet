@@ -382,6 +382,7 @@
                 <div id="tx-list" class="overflow-y-auto thin-scrollbar flex flex-col gap-0.5 rounded-xl">
                     <Virtualize Items="@transactions" Context="tx" OverscanCount="5">
                         <TransactionRow @key="tx.TxId" Tx="tx" OnOpen="OpenTxDetail" Name="@NameFor(tx)"
+                                        WalletAddressText="@WalletAddressText(tx)" WalletAddressMore="WalletAddressMore(tx)"
                                         FiatPrice="dgbPrice" FiatSymbol="@AppState.FiatSymbol" FiatDecimals="AppState.FiatDecimals"
                                         HideAmounts="hideBalance" />
                     </Virtualize>
@@ -1029,6 +1030,7 @@
         try
         {
             transactions = await WithTimeout(WalletService.GetTransactionHistoryAsync());
+            await LoadWalletAddressLabelsAsync();
             await AnnounceNewReceivedAsync();
 
             // Start poller if any txs are still under 6 confirmations
@@ -1075,6 +1077,25 @@
 
     private string? NameFor(TransactionRecord tx) =>
         tx.CounterpartyAddress is { Length: > 0 } a && contactNames.TryGetValue(a, out var n) ? n : null;
+
+    // Labels of the wallet's own addresses, for the address line on each row. Optional: rows show the plain address without them.
+    private IReadOnlyDictionary<string, string> walletAddressLabels = new Dictionary<string, string>();
+
+    private async Task LoadWalletAddressLabelsAsync()
+    {
+        try
+        {
+            if (WalletService.ActiveWallet is not { } wallet) return;
+            var labels = await LabelService.GetAllAsync(wallet.Id);
+            walletAddressLabels = ActivityAddressIndex.BuildLabelLookup(
+                labels.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
+        }
+        catch { }
+    }
+
+    private string? WalletAddressText(TransactionRecord tx) => ActivityAddressIndex.Display(tx, walletAddressLabels).Primary;
+
+    private int WalletAddressMore(TransactionRecord tx) => ActivityAddressIndex.Display(tx, walletAddressLabels).MoreCount;
 
     private async Task ToggleHideBalanceAsync()
     {

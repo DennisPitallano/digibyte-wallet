@@ -119,6 +119,19 @@ public class TransactionRecord
     public string? CounterpartyName { get; set; }
     public string? Memo { get; set; }
 
+    /// <summary>
+    /// The user's own addresses this transaction ties to, in display order. Received: the addresses that were
+    /// paid. Sent: the addresses that funded it. Empty when unknown. No duplicates (compared in normalized
+    /// form). Never contains change-only addresses.
+    /// </summary>
+    public List<string> WalletAddresses { get; set; } = [];
+
+    /// <summary>
+    /// Sent transactions only: the user's own non-change addresses the transaction paid (a transfer between
+    /// own addresses). Empty for received transactions and ordinary sends.
+    /// </summary>
+    public List<string> WalletReceivedAddresses { get; set; } = [];
+
     public decimal AmountDgb => AmountSatoshis / 100_000_000m;
 }
 

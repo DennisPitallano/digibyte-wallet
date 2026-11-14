@@ -114,6 +114,32 @@
                     </div>
                 }
 
+                @* Your addresses: the wallet addresses this transaction paid or was funded from *@
+                @if (Tx.WalletAddresses.Count > 0)
+                {
+                    <div class="flex justify-between items-start text-xs gap-2">
+                        <span class="text-slate-400 dark:text-slate-500 flex-shrink-0">@(IsSent ? "Your addresses" : "Paid to")</span>
+                        <div class="flex flex-col gap-1.5 items-end min-w-0">
+                            @foreach (var address in Tx.WalletAddresses)
+                            {
+                                @WalletAddressRow(address)
+                            }
+                        </div>
+                    </div>
+                }
+                @if (Tx.WalletReceivedAddresses.Count > 0)
+                {
+                    <div class="flex justify-between items-start text-xs gap-2">
+                        <span class="text-slate-400 dark:text-slate-500 flex-shrink-0">Sent to your address</span>
+                        <div class="flex flex-col gap-1.5 items-end min-w-0">
+                            @foreach (var address in Tx.WalletReceivedAddresses)
+                            {
+                                @WalletAddressRow(address)
+                            }
+                        </div>
+                    </div>
+                }
+
                 @* Memo *@
                 @if (!string.IsNullOrEmpty(Tx.Memo))
                 {
@@ -232,14 +258,60 @@
     [Parameter] public EventCallback<string> OnAddContact { get; set; }
 
     private bool copied;
+    private string? copiedAddress;
+    private IReadOnlyDictionary<string, string> walletAddressLabels = new Dictionary<string, string>();
     private string? counterpartyLabel;
     private string? contactName;
     private bool isEditingLabel;
     private string editLabelText = "";
     private bool IsSent => Tx?.Direction == DigiByte.Wallet.Models.TransactionDirection.Sent;
 
+    /// <summary>One of the user's own addresses: its label (if any), the full address and a copy button.</summary>
+    private RenderFragment WalletAddressRow(string address) => __builder =>
+    {
+        var label = walletAddressLabels.TryGetValue(AddressKey.Normalize(address), out var l) ? l : null;
+        <div class="flex flex-col items-end min-w-0">
+            @if (!string.IsNullOrEmpty(label))
+            {
+                <span class="text-[11px] font-medium text-dgb-500">@label</span>
+            }
+            <div class="flex items-center gap-1 min-w-0">
+                <span class="font-mono text-slate-700 dark:text-slate-300 break-all text-[11px] text-right">@address</span>
+                <button class="text-dgb-500 hover:text-dgb-600 flex-shrink-0 press-effect" @onclick="() => CopyWalletAddress(address)" title="Copy address" aria-label="Copy address">
+                    @if (copiedAddress == address)
+                    {
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    }
+                    else
+                    {
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" /></svg>
+                    }
+                </button>
+            </div>
+        </div>
+    };
+
+    private async Task CopyWalletAddress(string address)
+    {
+        try { await Clipboard.CopyAsync(address, message: "Address copied"); } catch { }
+        copiedAddress = address;
+    }
+
     protected override async Task OnParametersSetAsync()
     {
+        copiedAddress = null;
+        try
+        {
+            if (IsOpen && Tx is { } open && (open.WalletAddresses.Count > 0 || open.WalletReceivedAddresses.Count > 0)
+                && WalletService.ActiveWallet is { } wallet)
+            {
+                var labels = await LabelService.GetAllAsync(wallet.Id);
+                walletAddressLabels = ActivityAddressIndex.BuildLabelLookup(
+                    labels.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
+            }
+        }
+        catch { }
+
         if (IsOpen && Tx?.CounterpartyAddress != null && WalletService.ActiveWallet != null)
         {
             counterpartyLabel = await LabelService.GetLabelAsync(
