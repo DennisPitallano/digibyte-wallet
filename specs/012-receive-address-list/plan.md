@@ -2,7 +2,7 @@
 
 **Branch**: `feature/receive-address-list` | **Date**: 2026-11-14 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `/specs/011-receive-address-list/spec.md`
+**Input**: Feature specification from `/specs/012-receive-address-list/spec.md`
 
 ## Summary
 
@@ -54,7 +54,7 @@ Result: no violations; Complexity Tracking not needed.
 ### Documentation (this feature)
 
 ```text
-specs/011-receive-address-list/
+specs/012-receive-address-list/
 ├── plan.md
 ├── research.md
 ├── data-model.md
