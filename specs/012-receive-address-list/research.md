@@ -83,3 +83,18 @@ No "NEEDS CLARIFICATION" items remain after the eight clarification answers. The
 **Decision**: The page only uses a loaded history when it carries wallet-address data (Home's cached copy, or a fresh load that does). An empty or data-less answer leaves every status "Status unknown", never "Unused". The helper keeps its own rule (an empty loaded list means unused), so the choice lives in the page. A wallet with no transactions at all therefore shows "Status unknown" until its first transaction; that is the safe side of the trade-off.
 
 **Known limit**: if the explorer is down and the only records are local ones that did carry addresses, an address paid only through the explorer could still read "Unused". Local records get their addresses from an explorer merge, so this needs an explorer that went down after a successful load.
+
+## R14. Outcome of the watch-only and multisig check (task T028)
+
+- **Watch-only (xpub)**: confirmed by a test (`WatchOnlyWallet_ListsTheSameAddressesAsItsSeedWallet_AndCanGenerateMore`). The wallet derives exactly the addresses its seed wallet would, and "Generate new address" works, so the list is shown for it like any HD wallet.
+- **Multisig**: multisig wallets are not a wallet type of `WalletService`; they have their own pages (`MultisigDetail`, `MultisigCreate`) and never reach Receive, so this feature does not affect them.
+- **Single-key (WIF)**: the list, the history load and the privacy notice are all guarded by `!isWifWallet`, so the legacy/SegWit switch behaves as before. Checked by reading the page; not opened in the browser.
+
+## R15. Manual walkthrough results (task T029)
+
+Checked in the preview with a throwaway testnet wallet (12 generated addresses) and a stubbed explorer:
+- Receive was ready, with the QR code, in about 0.4 s. Opening the list showed the newest 10 addresses in about 0.6 s. Only the newest address is derived when the page opens, so the time does not grow with the number of generated addresses (SC-004).
+- With Home's history already cached, Receive made no explorer request at all; its only request was the existing price poll (FR-010). Receive adds no logging.
+- Any of the newest 10 addresses can be shown in 2 taps (open the row, choose), older ones in 3 (SC-001).
+- No horizontal scroll at 375 px, and the list fits the screen.
+- Observation, not part of this feature: the app's existing HTTP client logs "Sending HTTP request GET .../address/<address>/txs" to the browser console for explorer calls made by Home and Activity. It is existing behavior and could be a separate follow-up.

@@ -220,6 +220,27 @@ public class ReceiveAddressListTests
     }
 
     [Fact]
+    public async Task WatchOnlyWallet_ListsTheSameAddressesAsItsSeedWallet_AndCanGenerateMore()
+    {
+        // A watch-only (xpub) wallet is not a single-key wallet: Receive treats it as HD and shows the list, so it must derive
+        // exactly the addresses its seed wallet would.
+        var env = new Env();
+        var xpub = env.Hd.GetAccountExtPubKey().ToString(Network);
+        var service = env.NewService();
+        await service.CreateWatchOnlyWalletAsync("Watch", xpub, Pin);
+
+        var listed = await service.GetReceivingAddressesAsync(4, 0);
+
+        Assert.Equal(Enumerable.Range(0, 4).Select(env.ReceiveAddress), listed.Select(a => a.Address));
+        Assert.Equal(env.ReceiveAddress(0), await service.GetReceivingAddressAsync());
+
+        var (index, address) = await service.GenerateNewReceivingAddressAsync();
+
+        Assert.Equal(env.ReceiveAddress(index), address);
+        Assert.Equal(address, await service.GetReceivingAddressAsync());
+    }
+
+    [Fact]
     public async Task ListingAddresses_DoesNotMoveTheCurrentReceivingIndex()
     {
         var env = new Env();
