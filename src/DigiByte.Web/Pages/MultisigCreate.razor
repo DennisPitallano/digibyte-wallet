@@ -180,8 +180,18 @@
             <b>Restoring a lost wallet?</b> Each signer first restores their own seed phrase, then use the same threshold and everyone's original public keys here. You'll get the same address back.
         </p>
 
+        @if (draftWalletMismatch)
+        {
+            <div class="rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-3">
+                <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                    This draft was started with the wallet <b>@draftOwnWalletName</b>, which has a different public key from the wallet that's open now.
+                    Switch to <b>@draftOwnWalletName</b> to finish it, or the other signers will have the wrong key for you.
+                </p>
+            </div>
+        }
+
         <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed px-1">
-            Don't have everyone's key yet? Come back later: nothing is saved until you finish, and nobody else needs to be online while you create the wallet.
+            Don't have everyone's key yet? Tap <b>Save draft</b> and finish later. Nobody else needs to be online while you create the wallet.
         </p>
 
         @if (!string.IsNullOrEmpty(error))
@@ -190,6 +200,10 @@
         }
 
         <div class="flex flex-col gap-2 slide-up-delay-2">
+            <button class="w-full py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-200 font-semibold rounded-2xl press-effect disabled:opacity-50"
+                    @onclick="SaveDraft" disabled="@isSavingDraft">
+                @(isSavingDraft ? "Saving…" : "Save draft and finish later")
+            </button>
             <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
                     @onclick="GoToReview" disabled="@(!AllSignersValid())">
                 @(AllSignersValid() ? "Review Wallet" : $"Complete {coSignerEntries.Count - ValidCount} more co-signer{(coSignerEntries.Count - ValidCount == 1 ? "" : "s")} to continue")
@@ -400,7 +414,82 @@
 
     private bool AllSignersValid()
     {
-        return !string.IsNullOrWhiteSpace(ownPubKeyHex) && ValidCount == coSignerEntries.Count;
+        return !string.IsNullOrWhiteSpace(ownPubKeyHex) && ValidCount == coSignerEntries.Count && !draftWalletMismatch;
+    }
+
+    // ─── Drafts ───
+
+    [SupplyParameterFromQuery(Name = "draft")] public string? DraftId { get; set; }
+
+    private string? draftId;
+    private string draftOwnWalletName = "";
+    private bool draftWalletMismatch;
+    private bool isSavingDraft;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(DraftId)) return;
+        var draft = await MultisigService.GetDraftAsync(DraftId);
+        if (draft == null) return; // deleted or never existed: start a fresh setup
+
+        draftId = draft.Id;
+        walletName = draft.Name;
+        totalSigners = Math.Clamp(draft.TotalSigners, 2, 7);
+        requiredSigs = Math.Clamp(draft.RequiredSignatures, 1, totalSigners);
+        InitCoSignerSlots();
+        for (int i = 0; i < coSignerEntries.Count && i < draft.CoSigners.Count; i++)
+        {
+            coSignerEntries[i].Name = draft.CoSigners[i].Name;
+            coSignerEntries[i].PubKeyHex = draft.CoSigners[i].PublicKeyHex;
+        }
+
+        draftOwnWalletName = string.IsNullOrWhiteSpace(draft.OwnWalletName) ? "the original wallet" : draft.OwnWalletName;
+        draftWalletMismatch = !string.IsNullOrEmpty(draft.OwnPublicKeyHex)
+            && !string.Equals(draft.OwnPublicKeyHex, ownPubKeyHex, StringComparison.OrdinalIgnoreCase);
+        step = Step.AddSigners;
+    }
+
+    private async Task SaveDraft()
+    {
+        isSavingDraft = true;
+        error = null;
+        try
+        {
+            var draft = new DigiByte.Wallet.Models.MultisigDraft
+            {
+                Id = draftId ?? "",
+                Name = walletName.Trim(),
+                RequiredSignatures = requiredSigs,
+                TotalSigners = totalSigners,
+                // Keep the original owner's key when resuming under a different wallet, so the warning stays accurate.
+                OwnPublicKeyHex = draftWalletMismatch ? "" : ownPubKeyHex,
+                OwnWalletName = WalletService.ActiveWallet?.Name ?? "",
+                CoSigners = coSignerEntries.Select(e => new DigiByte.Wallet.Models.DraftCoSigner
+                {
+                    Name = e.Name.Trim(),
+                    PublicKeyHex = e.PubKeyHex.Trim(),
+                }).ToList(),
+            };
+            if (draftWalletMismatch)
+            {
+                var existing = await MultisigService.GetDraftAsync(draftId!);
+                if (existing != null)
+                {
+                    draft.OwnPublicKeyHex = existing.OwnPublicKeyHex;
+                    draft.OwnWalletName = existing.OwnWalletName;
+                }
+            }
+            await MultisigService.SaveDraftAsync(draft);
+            Nav.NavigateTo("/multisig");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isSavingDraft = false;
+        }
     }
 
     // Compressed keys only: 33 bytes, 02/03 prefix. This is what the guide asks co-signers for.
@@ -471,6 +560,10 @@
             }
 
             createdConfig = await MultisigService.CreateMultisigWalletAsync(walletName, requiredSigs, coSigners);
+            if (draftId != null)
+            {
+                try { await MultisigService.DeleteDraftAsync(draftId); } catch { } // the wallet exists; a leftover draft is harmless
+            }
             step = Step.Done;
         }
         catch (Exception ex)

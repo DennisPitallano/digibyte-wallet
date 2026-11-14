@@ -27,6 +27,55 @@ public class MultisigWalletServiceTests
             new FakeCryptoService());
     }
 
+    // ─── Drafts ───
+
+    [Fact]
+    public async Task Drafts_SaveListUpdateDelete_RoundTrip()
+    {
+        var storage = new FakeSecureStorage();
+        var sut = CreateService(storage);
+
+        var saved = await sut.SaveDraftAsync(new MultisigDraft
+        {
+            Name = "Family",
+            RequiredSignatures = 2,
+            TotalSigners = 3,
+            OwnPublicKeyHex = "02aa",
+            CoSigners = [new DraftCoSigner { Name = "Alice", PublicKeyHex = "" }, new DraftCoSigner()],
+        });
+        Assert.False(string.IsNullOrEmpty(saved.Id));
+
+        // A fresh service on the same storage sees it (it survives a reload).
+        var reloaded = await CreateService(storage).GetDraftAsync(saved.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal("Family", reloaded!.Name);
+        Assert.Equal("Alice", reloaded.CoSigners[0].Name);
+
+        // Saving again with the same id replaces it rather than adding a second one.
+        reloaded.CoSigners[0].PublicKeyHex = "03bb";
+        await sut.SaveDraftAsync(reloaded);
+        var all = await sut.ListDraftsAsync();
+        Assert.Single(all);
+        Assert.Equal("03bb", all[0].CoSigners[0].PublicKeyHex);
+
+        await sut.DeleteDraftAsync(saved.Id);
+        Assert.Empty(await sut.ListDraftsAsync());
+        Assert.Null(await sut.GetDraftAsync(saved.Id));
+    }
+
+    [Fact]
+    public async Task Drafts_RequireAName_AndListNewestFirst()
+    {
+        var sut = CreateService();
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.SaveDraftAsync(new MultisigDraft { Name = "  " }));
+
+        var first = await sut.SaveDraftAsync(new MultisigDraft { Name = "First" });
+        await Task.Delay(5);
+        var second = await sut.SaveDraftAsync(new MultisigDraft { Name = "Second" });
+        var all = await sut.ListDraftsAsync();
+        Assert.Equal([second.Id, first.Id], all.Select(d => d.Id).ToArray());
+    }
+
     // ─── FindOwnKeyIndex ───
 
     [Fact]

@@ -28,7 +28,7 @@
             }
         </div>
     }
-    else if (wallets.Count == 0)
+    else if (wallets.Count == 0 && drafts.Count == 0)
     {
         <div class="flex flex-col items-center justify-center gap-4 py-12 text-center slide-up-delay-1">
             <div class="w-16 h-16 rounded-full bg-dgb-50 dark:bg-dgb-900/50 flex items-center justify-center">
@@ -50,6 +50,42 @@
     }
     else
     {
+        @if (drafts.Count > 0)
+        {
+            <div class="flex flex-col gap-2 slide-up-delay-1">
+                <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1">Drafts · waiting for co-signers</p>
+                @foreach (var draft in drafts)
+                {
+                    var filled = draft.CoSigners.Count(c => !string.IsNullOrWhiteSpace(c.PublicKeyHex));
+                    var needed = draft.TotalSigners - 1;
+                    <div class="p-4 bg-amber-50/60 dark:bg-amber-900/10 rounded-2xl border border-amber-200/80 dark:border-amber-800/30">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@draft.Name</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">@draft.Label draft · @filled of @needed co-signer keys added</p>
+                            </div>
+                            <span class="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full flex-shrink-0">DRAFT</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-3">
+                            <button class="flex-1 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect"
+                                    @onclick="() => ContinueDraft(draft.Id)">Continue</button>
+                            @if (confirmDeleteId == draft.Id)
+                            {
+                                <button class="py-2 px-3 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl press-effect"
+                                        @onclick="() => DeleteDraft(draft.Id)">Delete draft?</button>
+                                <button class="py-2 px-3 text-xs font-medium text-slate-500" @onclick="() => confirmDeleteId = null">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-red-500"
+                                        @onclick="() => confirmDeleteId = draft.Id">Delete</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
         <div class="flex flex-col gap-2">
             @foreach (var (wallet, config) in wallets)
             {
@@ -95,11 +131,23 @@
 
     private bool isLoading = true;
     private List<(WalletEntry Wallet, MultisigWalletConfig? Config)> wallets = [];
+    private List<MultisigDraft> drafts = [];
+    private string? confirmDeleteId;
+
+    private void ContinueDraft(string draftId) => Nav.NavigateTo($"/multisig/create?draft={draftId}");
+
+    private async Task DeleteDraft(string draftId)
+    {
+        await MultisigService.DeleteDraftAsync(draftId);
+        drafts.RemoveAll(d => d.Id == draftId);
+        confirmDeleteId = null;
+    }
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
+            drafts = await MultisigService.ListDraftsAsync();
             var rawList = await MultisigService.ListWalletsAsync();
             foreach (var (id, name) in rawList)
             {
