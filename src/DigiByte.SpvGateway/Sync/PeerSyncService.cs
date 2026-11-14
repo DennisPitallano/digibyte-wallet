@@ -2,8 +2,8 @@ using DigiByte.SpvGateway.Peers;
 
 namespace DigiByte.SpvGateway.Sync;
 
-/// <summary>Background loop: keep peers connected, then bring the header chain level with them. Failures are logged and retried.</summary>
-public sealed class PeerSyncService(PeerManager peers, HeaderDownloader downloader, ILogger<PeerSyncService> logger) : BackgroundService
+/// <summary>Background loop: keep peers connected, bring the header chain level with them, then index the new blocks. Failures are logged and retried.</summary>
+public sealed class PeerSyncService(PeerManager peers, HeaderDownloader downloader, BlockIndexer indexer, ILogger<PeerSyncService> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(20);
 
@@ -16,6 +16,9 @@ public sealed class PeerSyncService(PeerManager peers, HeaderDownloader download
             {
                 await peers.MaintainAsync(stoppingToken);
                 var result = await downloader.DownloadAsync(stoppingToken);
+                var indexed = await indexer.IndexAsync(stoppingToken);
+                if (indexed > 0)
+                    logger.LogInformation("Indexed {Count} block(s)", indexed);
                 if (result.Accepted > 0 || result.PeersDropped > 0)
                     logger.LogInformation("Headers: {Accepted} new, tip {Tip}, {Dropped} peer(s) dropped", result.Accepted, result.TipHeight, result.PeersDropped);
             }

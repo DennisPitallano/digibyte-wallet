@@ -45,6 +45,48 @@ public static class MerkleProof
         return current == merkleRoot;
     }
 
+    /// <summary>The merkle root of a block with these transaction ids, in block order.</summary>
+    public static uint256 Root(IReadOnlyList<uint256> txids)
+    {
+        if (txids.Count == 0)
+            throw new ArgumentException("A block has at least one transaction.", nameof(txids));
+        var level = txids.ToList();
+        while (level.Count > 1)
+            level = NextLevel(level);
+        return level[0];
+    }
+
+    /// <summary>The sibling hashes that tie the transaction at <paramref name="index"/> to the root, bottom first (what <see cref="Verify"/> consumes).</summary>
+    public static List<uint256> BuildBranch(IReadOnlyList<uint256> txids, int index)
+    {
+        if (index < 0 || index >= txids.Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+        var branch = new List<uint256>();
+        var level = txids.ToList();
+        var position = index;
+        while (level.Count > 1)
+        {
+            var sibling = position ^ 1;
+            branch.Add(sibling < level.Count ? level[sibling] : level[position]); // a lone last node is paired with itself
+            level = NextLevel(level);
+            position >>= 1;
+        }
+        return branch;
+    }
+
+    private static List<uint256> NextLevel(List<uint256> level)
+    {
+        var next = new List<uint256>((level.Count + 1) / 2);
+        var buffer = new byte[64];
+        for (var i = 0; i < level.Count; i += 2)
+        {
+            level[i].ToBytes().CopyTo(buffer, 0);
+            level[i + 1 < level.Count ? i + 1 : i].ToBytes().CopyTo(buffer, 32);
+            next.Add(Hashes.DoubleSHA256(buffer));
+        }
+        return next;
+    }
+
     /// <summary>The transaction id (double SHA-256 of the serialization without witness data) of a raw transaction.</summary>
     public static uint256 TransactionId(byte[] rawTransaction)
     {

@@ -100,4 +100,56 @@ public class MerkleProofTests
         Assert.False(MerkleProof.IsAmbiguousTransactionSize(new byte[65]));
         Assert.False(MerkleProof.IsAmbiguousTransactionSize(new byte[63]));
     }
+
+    private static List<uint256> Ids(int count) =>
+        Enumerable.Range(1, count).Select(i => NBitcoin.Crypto.Hashes.DoubleSHA256(BitConverter.GetBytes(i))).ToList();
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(33)]
+    public void A_built_branch_verifies_for_every_position_in_trees_of_any_shape(int count)
+    {
+        var ids = Ids(count);
+        var root = MerkleProof.Root(ids);
+
+        for (var index = 0; index < count; index++)
+        {
+            var branch = MerkleProof.BuildBranch(ids, index);
+            Assert.True(MerkleProof.Verify(ids[index], index, branch, root), $"{count} transactions, position {index}");
+        }
+    }
+
+    [Fact]
+    public void The_root_matches_the_one_in_real_blocks_for_the_fixture_branches()
+    {
+        // A one-transaction block has the transaction id as its root and an empty branch.
+        var id = Ids(1)[0];
+
+        Assert.Equal(id, MerkleProof.Root([id]));
+        Assert.Empty(MerkleProof.BuildBranch([id], 0));
+    }
+
+    [Fact]
+    public void A_branch_built_for_one_position_does_not_prove_another()
+    {
+        var ids = Ids(6);
+        var root = MerkleProof.Root(ids);
+
+        Assert.False(MerkleProof.Verify(ids[1], 2, MerkleProof.BuildBranch(ids, 1), root));
+    }
+
+    [Fact]
+    public void Building_a_branch_for_a_position_outside_the_block_throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => MerkleProof.BuildBranch(Ids(3), 3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MerkleProof.BuildBranch(Ids(3), -1));
+        Assert.Throws<ArgumentException>(() => MerkleProof.Root([]));
+    }
 }

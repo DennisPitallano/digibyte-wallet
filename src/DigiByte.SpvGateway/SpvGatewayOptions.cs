@@ -27,6 +27,9 @@ public sealed class SpvGatewayOptions
     /// <summary>The most blocks one scan request may cover.</summary>
     public int ScanRangeCapBlocks { get; init; } = 50_000;
 
+    /// <summary>How long one scan may fetch blocks before it answers with what it has (complete: false).</summary>
+    public int ScanBudgetSeconds { get; init; } = 20;
+
     /// <summary>Requests per client per minute before the gateway answers <c>rate_limited</c>.</summary>
     public int RateLimitPerMinute { get; init; } = 120;
 
@@ -63,6 +66,7 @@ public sealed class SpvGatewayOptions
             MaxAddressesPerRequest = ReadInt(get, "SpvGateway:MaxAddressesPerRequest", 1, 1000) ?? 100,
             MaxHeadersPerRequest = ReadInt(get, "SpvGateway:MaxHeadersPerRequest", 1, 2000) ?? 2000,
             ScanRangeCapBlocks = ReadInt(get, "SpvGateway:ScanRangeCapBlocks", 1000, 1_000_000) ?? 50_000,
+            ScanBudgetSeconds = ReadInt(get, "SpvGateway:ScanBudgetSeconds", 1, 300) ?? 20,
             RateLimitPerMinute = ReadInt(get, "SpvGateway:RateLimitPerMinute", 1, 100_000) ?? 120,
             PeersEnabled = !string.Equals(get("SpvGateway:PeersEnabled")?.Trim(), "false", StringComparison.OrdinalIgnoreCase),
             PeerTarget = peerTarget,

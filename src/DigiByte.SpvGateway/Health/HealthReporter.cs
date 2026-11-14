@@ -41,7 +41,7 @@ public static class HealthReporter
     /// <summary>More than this many blocks behind the best peer means the gateway is still catching up.</summary>
     public const int SyncingLagBlocks = 5;
 
-    public static HealthReport Build(SpvGatewayOptions options, HeaderStore store, PeerSnapshot peers)
+    public static HealthReport Build(SpvGatewayOptions options, HeaderStore store, PeerSnapshot peers, int? indexedFromHeight = null)
     {
         var tip = store.BestTip()?.Height ?? 0;
         var lag = peers.BestPeerHeight is { } best ? Math.Max(0, best - tip) : 0;
@@ -65,7 +65,7 @@ public static class HealthReporter
             peers.FullHistoryPeerCount,
             peers.FilterPeerCount,
             "blocks",
-            null, // the block index does not exist yet; this becomes the first indexed height when it does
+            indexedFromHeight,
             Version);
     }
 

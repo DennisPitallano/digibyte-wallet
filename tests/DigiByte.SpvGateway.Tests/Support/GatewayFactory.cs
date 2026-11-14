@@ -1,6 +1,7 @@
 using DigiByte.SpvGateway.Sync;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,8 +13,11 @@ internal sealed class GatewayFactory : WebApplicationFactory<Program>
 {
     private readonly Dictionary<string, string?> _settings;
 
-    public GatewayFactory(Dictionary<string, string?>? settings = null)
+    private readonly Action<IServiceCollection>? _configureServices;
+
+    public GatewayFactory(Dictionary<string, string?>? settings = null, Action<IServiceCollection>? configureServices = null)
     {
+        _configureServices = configureServices;
         _settings = settings ?? [];
         DataDirectory = Path.Combine(Path.GetTempPath(), "spvgw-" + Guid.NewGuid().ToString("N"));
     }
@@ -27,6 +31,8 @@ internal sealed class GatewayFactory : WebApplicationFactory<Program>
             var values = new Dictionary<string, string?>(_settings) { ["SpvGateway:DataDirectory"] = DataDirectory, ["SpvGateway:PeersEnabled"] = "false" };
             config.AddInMemoryCollection(values);
         });
+        if (_configureServices is not null)
+            builder.ConfigureTestServices(_configureServices);
     }
 
     public HeaderSync Sync => Services.GetRequiredService<HeaderSync>();

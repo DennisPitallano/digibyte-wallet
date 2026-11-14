@@ -7,6 +7,8 @@ using DigiByte.Crypto.Headers.Hashers;
 using DigiByte.SpvGateway;
 using DigiByte.SpvGateway.Endpoints;
 using DigiByte.SpvGateway.Health;
+using DigiByte.SpvGateway.Index;
+using DigiByte.SpvGateway.Matching;
 using DigiByte.Crypto.Networks;
 using DigiByte.SpvGateway.Peers;
 using DigiByte.SpvGateway.Sync;
@@ -42,6 +44,20 @@ builder.Services.AddSingleton(sp => new PeerManager(
 builder.Services.AddSingleton<IPeerStatusSource>(sp => sp.GetRequiredService<PeerManager>());
 builder.Services.AddSingleton(sp => new HeaderDownloader(
     sp.GetRequiredService<HeaderStore>(), sp.GetRequiredService<HeaderSync>(), sp.GetRequiredService<PeerManager>()));
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<SpvGatewayOptions>();
+    Directory.CreateDirectory(options.DataDirectory);
+    var network = options.Network == GatewayNetwork.Testnet ? "testnet" : "mainnet";
+    return BlockIndexStore.Open(Path.Combine(options.DataDirectory, $"index-{network}.db"));
+});
+builder.Services.AddSingleton(sp => new BlockFetcher(
+    sp.GetRequiredService<PeerManager>(), sp.GetRequiredService<HeaderStore>(),
+    sp.GetRequiredService<SpvGatewayOptions>().Network == GatewayNetwork.Testnet ? DigiByteNetworkSet.Instance.Testnet : DigiByteNetworkSet.Instance.Mainnet));
+builder.Services.AddSingleton(sp => new BlockIndexer(
+    sp.GetRequiredService<SpvGatewayOptions>(), sp.GetRequiredService<HeaderStore>(), sp.GetRequiredService<BlockIndexStore>(), sp.GetRequiredService<BlockFetcher>()));
+builder.Services.AddSingleton<IBlockMatcher>(sp => new FullBlockMatcher(sp.GetRequiredService<BlockIndexStore>()));
+builder.Services.AddSingleton<ScanService>();
 if (SpvGatewayOptions.FromConfiguration(key => builder.Configuration[key]).PeersEnabled)
     builder.Services.AddHostedService<PeerSyncService>();
 builder.Services.AddSingleton(sp =>
@@ -67,6 +83,7 @@ app.Services.GetRequiredService<HeaderSync>();
 app.UseMiddleware<GatewayMiddleware>();
 app.MapHealth();
 app.MapHeaders();
+app.MapScan();
 
 app.Run();
 
