@@ -54,7 +54,7 @@ public sealed class NodeSourceOptions
         };
     }
 
-    private static int? ReadInt(Func<string, string?> get, string key, int min, int max)
+    internal static int? ReadInt(Func<string, string?> get, string key, int min, int max)
     {
         var raw = get(key);
         if (string.IsNullOrWhiteSpace(raw) || !int.TryParse(raw.Trim(), out var value))
@@ -62,7 +62,7 @@ public sealed class NodeSourceOptions
         return value < min || value > max ? null : value;
     }
 
-    private static string? NormalizeUrl(string? raw)
+    internal static string? NormalizeUrl(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
             return null;

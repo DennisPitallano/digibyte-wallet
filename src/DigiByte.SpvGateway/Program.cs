@@ -1,5 +1,13 @@
-// DigiByte SPV gateway: a small light-client service that talks the DigiByte peer protocol and answers the wallet over HTTP.
-// This is the Phase 1 skeleton (specs/011-p2p-spv-gateway, T001). Real endpoints arrive in later phases.
+// DigiByte SPV gateway: a small light-client service that talks the DigiByte peer protocol and answers the wallet over HTTP
+// (specs/011-p2p-spv-gateway). This file wires the parts that exist so far: options, the header store and sync, the rate limiter,
+// the health report and the header endpoint. Scan, broadcast and the peer layer arrive in later tasks.
+
+using DigiByte.Crypto.Headers;
+using DigiByte.Crypto.Headers.Hashers;
+using DigiByte.SpvGateway;
+using DigiByte.SpvGateway.Endpoints;
+using DigiByte.SpvGateway.Health;
+using DigiByte.SpvGateway.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,9 +18,37 @@ if (port is not null)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
+// Everything is built from the options when first needed, so a test host can change the configuration.
+builder.Services.AddSingleton(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    return SpvGatewayOptions.FromConfiguration(key => configuration[key]);
+});
+builder.Services.AddSingleton(sp => new ClientLimiter(sp.GetRequiredService<SpvGatewayOptions>().RateLimitPerMinute));
+builder.Services.AddSingleton<IPeerStatusSource, NoPeersStatusSource>();
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<SpvGatewayOptions>();
+    Directory.CreateDirectory(options.DataDirectory);
+    var network = options.Network == GatewayNetwork.Testnet ? "testnet" : "mainnet";
+    return HeaderStore.Open(Path.Combine(options.DataDirectory, $"headers-{network}.db"), network);
+});
+builder.Services.AddSingleton(sp =>
+{
+    // Only mainnet has a built-in checkpoint so far; testnet needs one before it can sync (task T103).
+    if (sp.GetRequiredService<SpvGatewayOptions>().Network == GatewayNetwork.Testnet)
+        throw new InvalidOperationException("The testnet gateway needs a testnet checkpoint, which is not built in yet.");
+    return new HeaderSync(sp.GetRequiredService<HeaderStore>(), Checkpoints.Mainnet, PowHashers.Available);
+});
+
 var app = builder.Build();
 
-app.MapGet("/v1/health", () => Results.Ok(new { status = "starting", network = "mainnet" }));
+// Create the sync (which seeds the checkpoint into the store) before the first request.
+app.Services.GetRequiredService<HeaderSync>();
+
+app.UseMiddleware<GatewayMiddleware>();
+app.MapHealth();
+app.MapHeaders();
 
 app.Run();
 

@@ -9,6 +9,10 @@
 #   WALLET_NODE_CHECK_SECONDS      whole number
 #   WALLET_NODE_STABLE_SECONDS     whole number
 #   WALLET_NODE_HEIGHT_TOLERANCE   whole number
+#   WALLET_GATEWAY_ENABLED         true | false   SpvGateway:Enabled (P2P light-client gateway, spec 011; default off)
+#   WALLET_GATEWAY_API_URL         https://spv.example.org   (http:// or https://; its origin must also be in the connect-src of index.html)
+#   WALLET_GATEWAY_POSITION        backup | first  (first is ignored until the wallet checks proof of work itself)
+#   WALLET_GATEWAY_CHECK_SECONDS / _STABLE_SECONDS / _HEIGHT_TOLERANCE   whole numbers
 #   WALLET_DEV_VIEW                true | false
 #   WALLET_DD_VIEW                 true | false   DigiDollar:ViewEnabled   (false hides every DigiDollar section)
 #   WALLET_DD_SEND                 true | false   DigiDollar:SendEnabled
@@ -44,6 +48,18 @@ if [ -n "${WALLET_NODE_STABLE_SECONDS:-}" ] && is_number "$WALLET_NODE_STABLE_SE
 if [ -n "${WALLET_NODE_HEIGHT_TOLERANCE:-}" ] && is_number "$WALLET_NODE_HEIGHT_TOLERANCE"; then add HeightTolerance "$WALLET_NODE_HEIGHT_TOLERANCE"; fi
 if [ -n "${WALLET_DEV_VIEW:-}" ] && is_bool "$WALLET_DEV_VIEW"; then add DevView "$WALLET_DEV_VIEW"; fi
 
+gw=""
+add_gw() {
+    if [ -n "$gw" ]; then gw="$gw,"; fi
+    gw="$gw\"$1\":$2"
+}
+if [ -n "${WALLET_GATEWAY_ENABLED:-}" ] && is_bool "$WALLET_GATEWAY_ENABLED"; then add_gw Enabled "$WALLET_GATEWAY_ENABLED"; fi
+if [ -n "${WALLET_GATEWAY_API_URL:-}" ] && is_url "$WALLET_GATEWAY_API_URL"; then add_gw ApiUrl "\"$(json_escape "$WALLET_GATEWAY_API_URL")\""; fi
+if [ "${WALLET_GATEWAY_POSITION:-}" = "backup" ] || [ "${WALLET_GATEWAY_POSITION:-}" = "first" ]; then add_gw Position "\"$WALLET_GATEWAY_POSITION\""; fi
+if [ -n "${WALLET_GATEWAY_CHECK_SECONDS:-}" ] && is_number "$WALLET_GATEWAY_CHECK_SECONDS"; then add_gw CheckIntervalSeconds "$WALLET_GATEWAY_CHECK_SECONDS"; fi
+if [ -n "${WALLET_GATEWAY_STABLE_SECONDS:-}" ] && is_number "$WALLET_GATEWAY_STABLE_SECONDS"; then add_gw StablePeriodSeconds "$WALLET_GATEWAY_STABLE_SECONDS"; fi
+if [ -n "${WALLET_GATEWAY_HEIGHT_TOLERANCE:-}" ] && is_number "$WALLET_GATEWAY_HEIGHT_TOLERANCE"; then add_gw HeightTolerance "$WALLET_GATEWAY_HEIGHT_TOLERANCE"; fi
+
 dd=""
 add_dd() {
     if [ -n "$dd" ]; then dd="$dd,"; fi
@@ -55,6 +71,10 @@ if [ -n "${WALLET_DD_ORACLE:-}" ] && is_bool "$WALLET_DD_ORACLE"; then add_dd Or
 
 out_json=""
 if [ -n "$pairs" ]; then out_json="\"OwnNode\":{$pairs}"; fi
+if [ -n "$gw" ]; then
+    if [ -n "$out_json" ]; then out_json="$out_json,"; fi
+    out_json="$out_json\"SpvGateway\":{$gw}"
+fi
 if [ -n "$dd" ]; then
     if [ -n "$out_json" ]; then out_json="$out_json,"; fi
     out_json="$out_json\"DigiDollar\":{$dd}"

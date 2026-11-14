@@ -195,4 +195,49 @@ public class HeaderChainVerifierTests
 
         Assert.Equal(System.Numerics.BigInteger.Zero, CompactTarget.ToBigInteger(0));
     }
+
+    [Fact]
+    public void Truncating_takes_headers_and_their_work_back_off_the_tip()
+    {
+        var chain = NewChain();
+        foreach (var h in After(CheckpointHeight + 1, CheckpointHeight + 4))
+            Assert.True(chain.TryAppend(h).Accepted);
+        var workAtFour = chain.WorkSinceCheckpoint;
+        foreach (var h in After(CheckpointHeight + 5, CheckpointHeight + 10))
+            Assert.True(chain.TryAppend(h).Accepted);
+
+        chain.TruncateTo(CheckpointHeight + 4);
+
+        Assert.Equal(CheckpointHeight + 4, chain.TipHeight);
+        Assert.Equal(HeaderFixtures.At(CheckpointHeight + 4).Id, chain.TipHash.ToString());
+        Assert.Equal(workAtFour, chain.WorkSinceCheckpoint);
+        Assert.Equal(4, chain.UncheckedProofOfWorkCount);
+        // The chain can grow again from there, including along a different branch.
+        Assert.True(chain.TryAppend(HeaderFixtures.Header(CheckpointHeight + 5)).Accepted);
+    }
+
+    [Fact]
+    public void Truncating_to_the_checkpoint_empties_the_chain_of_appended_headers()
+    {
+        var chain = NewChain();
+        foreach (var h in After(CheckpointHeight + 1, CheckpointHeight + 3))
+            chain.TryAppend(h);
+
+        chain.TruncateTo(CheckpointHeight);
+
+        Assert.Equal(CheckpointHeight, chain.TipHeight);
+        Assert.Equal(System.Numerics.BigInteger.Zero, chain.WorkSinceCheckpoint);
+        Assert.Equal(0, chain.UncheckedProofOfWorkCount);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1000)]
+    public void Truncating_below_the_checkpoint_or_above_the_tip_is_refused(int offset)
+    {
+        var chain = NewChain();
+        chain.TryAppend(HeaderFixtures.Header(CheckpointHeight + 1));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => chain.TruncateTo(CheckpointHeight + offset));
+    }
 }

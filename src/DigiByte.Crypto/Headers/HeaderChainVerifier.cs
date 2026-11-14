@@ -1,3 +1,4 @@
+using System.Numerics;
 using NBitcoin;
 
 namespace DigiByte.Crypto.Headers;
@@ -36,6 +37,9 @@ public readonly record struct AppendResult(bool Accepted, HeaderRejection Reason
 public sealed class HeaderChain
 {
     private readonly List<BlockHeader80> _headers;
+    // One entry per header appended after the checkpoint, so a reorganization can take them back off.
+    private readonly List<BigInteger> _work = [];
+    private readonly List<bool> _workUnchecked = [];
     private readonly DigiByteConsensus _consensus;
     private readonly IPowHasher? _hasher;
     private readonly int _firstHeight;
@@ -55,6 +59,12 @@ public sealed class HeaderChain
     public int TipHeight => _firstHeight + _headers.Count - 1;
 
     public uint256 TipHash => _headers[^1].Hash;
+
+    /// <summary>
+    /// The work added by the headers appended since the checkpoint, counted the way DigiByte Core counts block work (see <see cref="BlockWork"/>).
+    /// Only meaningful for comparing chains that start at the same checkpoint.
+    /// </summary>
+    public BigInteger WorkSinceCheckpoint { get; private set; }
 
     /// <summary>How many appended headers passed every check except proof of work, because no hasher could compute theirs.</summary>
     public int UncheckedProofOfWorkCount { get; private set; }
@@ -90,10 +100,39 @@ public sealed class HeaderChain
             workChecked = true;
         }
 
+        // The block's work is computed from the state before it is added: every algorithm's next target, given the parent.
+        if (!BlockWork.TryProofOfNextBlock(_headers, _firstHeight, _consensus, out var blockWork))
+            return Reject(HeaderRejection.WindowTooShort);
+
         _headers.Add(header);
+        _work.Add(blockWork);
+        _workUnchecked.Add(!workChecked);
+        WorkSinceCheckpoint += blockWork;
         if (!workChecked)
             UncheckedProofOfWorkCount++;
         return new AppendResult(true, HeaderRejection.None, workChecked);
+    }
+
+    /// <summary>
+    /// Takes headers back off the tip until the chain ends at <paramref name="height"/>, for a reorganization. The checkpoint itself can
+    /// never be removed.
+    /// </summary>
+    public void TruncateTo(int height)
+    {
+        if (height < CheckpointHeight || height > TipHeight)
+            throw new ArgumentOutOfRangeException(nameof(height), $"The height must be between the checkpoint ({CheckpointHeight}) and the tip ({TipHeight}).");
+
+        var remove = TipHeight - height;
+        for (var i = 0; i < remove; i++)
+        {
+            var last = _work.Count - 1;
+            WorkSinceCheckpoint -= _work[last];
+            if (_workUnchecked[last])
+                UncheckedProofOfWorkCount--;
+            _work.RemoveAt(last);
+            _workUnchecked.RemoveAt(last);
+            _headers.RemoveAt(_headers.Count - 1);
+        }
     }
 
     private static AppendResult Reject(HeaderRejection reason) => new(false, reason, false);

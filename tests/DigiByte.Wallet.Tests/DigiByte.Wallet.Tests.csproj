@@ -29,6 +29,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Real mainnet headers shared with the Crypto tests. -->
+    <Content Include="..\DigiByte.Crypto.Tests\Headers\Fixtures\headers-mainnet-run.json" Link="Fixtures\headers-mainnet-run.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\DigiByte.Wallet\DigiByte.Wallet.csproj" />
     <ProjectReference Include="..\..\src\DigiByte.Web\DigiByte.Web.csproj" />
   </ItemGroup>

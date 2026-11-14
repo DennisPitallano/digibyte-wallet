@@ -31,7 +31,7 @@ The source health report. Never contains wallet or address data.
 }
 ```
 
-`status` is `starting`, `syncing`, `ok` or `unhealthy`. Answers `200` for every state it can report on, like the node health endpoint in feature 005.
+`indexedFromHeight` is null until the block index exists. `status` is `starting` (no peer has connected yet), `unhealthy` (fewer connected peers than the configured minimum, 4 by default), `syncing` (more than 5 blocks behind the best peer) or `ok`. Answers `200` for every state it can report on, like the node health endpoint in feature 005.
 
 ## GET /v1/headers?from={height}&count={n}
 
