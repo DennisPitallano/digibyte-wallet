@@ -107,3 +107,46 @@ public class BlockIndexerTests
         Assert.Equal(expected, indexer.WindowStart(tip, earliest));
     }
 }
+
+public class BlockIndexerParallelTests
+{
+    [Fact]
+    public async Task Blocks_are_asked_for_in_parallel_across_the_peers_and_the_index_stays_contiguous()
+    {
+        var world = await GatewayWorld.CreateAsync();
+        for (var i = 1; i < 4; i++)
+            world.Peers.Add($"{40 + i}.{30 + i}.1.1").Blocks.Clear();
+        foreach (var peer in world.Peers.Peers)
+            foreach (var block in RealBlocks.All)
+                peer.Blocks[block.Hash] = block.Raw;
+        await world.Manager.MaintainAsync(default);
+        using var factory = new GatewayFactory(new Dictionary<string, string?> { ["SpvGateway:IndexFetchParallelism"] = "8" }, world.Register);
+        factory.Sync.Ingest(GatewayWorld.Heights.Select(RealHeaders.At));
+        var indexer = (BlockIndexer)factory.Services.GetService(typeof(BlockIndexer))!;
+        var index = (BlockIndexStore)factory.Services.GetService(typeof(BlockIndexStore))!;
+
+        var added = await indexer.IndexAsync(default);
+
+        Assert.Equal(GatewayWorld.Heights.Count, added);
+        Assert.Equal(GatewayWorld.Heights.First(), index.IndexedFromHeight());
+        Assert.Equal(GatewayWorld.Heights.Last(), index.IndexedToHeight());
+        Assert.True(world.Peers.Peers.Count(p => p.BlockRequests.Count > 0) >= 2, "the requests should be spread over several peers");
+    }
+
+    [Fact]
+    public async Task A_block_nobody_has_stops_the_window_at_the_gap_and_keeps_what_came_before_it()
+    {
+        var world = await GatewayWorld.CreateAsync();
+        var missing = GatewayWorld.Heights[5];
+        world.Peers.Peers.Single().Blocks.Remove(RealHeaders.At(missing).Hash);
+        using var factory = new GatewayFactory(new Dictionary<string, string?> { ["SpvGateway:IndexFetchParallelism"] = "16" }, world.Register);
+        factory.Sync.Ingest(GatewayWorld.Heights.Select(RealHeaders.At));
+        var indexer = (BlockIndexer)factory.Services.GetService(typeof(BlockIndexer))!;
+        var index = (BlockIndexStore)factory.Services.GetService(typeof(BlockIndexStore))!;
+
+        var added = await indexer.IndexAsync(default);
+
+        Assert.Equal(5, added);
+        Assert.Equal(GatewayWorld.Heights[4], index.IndexedToHeight());
+    }
+}

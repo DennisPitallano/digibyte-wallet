@@ -19,11 +19,24 @@ public sealed class PeerSyncService(SpvGatewayOptions options, PeerManager peers
             {
                 await peers.MaintainAsync(stoppingToken);
                 var result = await downloader.DownloadAsync(stoppingToken);
-                var indexed = await indexer.IndexAsync(stoppingToken);
-                if (indexed > 0)
-                    logger.LogInformation("Indexed {Count} block(s)", indexed);
                 if (result.Accepted > 0 || result.PeersDropped > 0)
                     logger.LogInformation("Headers: {Accepted} new, tip {Tip}, {Dropped} peer(s) dropped", result.Accepted, result.TipHeight, result.PeersDropped);
+
+                // While there are blocks to index keep going without waiting for the next tick (checking for new headers in between), so a
+                // first fill is limited by the peers and not by the timer.
+                int indexed;
+                do
+                {
+                    indexed = await indexer.IndexAsync(stoppingToken);
+                    if (indexed > 0)
+                    {
+                        logger.LogInformation("Indexed {Count} block(s)", indexed);
+                        var more = await downloader.DownloadAsync(stoppingToken);
+                        if (more.Accepted > 0)
+                            logger.LogInformation("Headers: {Accepted} new, tip {Tip}", more.Accepted, more.TipHeight);
+                    }
+                }
+                while (indexed > 0 && !stoppingToken.IsCancellationRequested);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

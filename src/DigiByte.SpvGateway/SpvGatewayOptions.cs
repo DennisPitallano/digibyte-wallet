@@ -36,6 +36,9 @@ public sealed class SpvGatewayOptions
     /// <summary>How long a scan waits for a free slot before the gateway says it is busy.</summary>
     public int ScanQueueWaitSeconds { get; init; } = 10;
 
+    /// <summary>How many blocks the indexer asks for at once while filling the index (spread over the peers).</summary>
+    public int IndexFetchParallelism { get; init; } = 32;
+
     /// <summary>Requests per client per minute before the gateway answers <c>rate_limited</c>.</summary>
     public int RateLimitPerMinute { get; init; } = 120;
 
@@ -74,6 +77,7 @@ public sealed class SpvGatewayOptions
             ScanRangeCapBlocks = ReadInt(get, "SpvGateway:ScanRangeCapBlocks", 1000, 1_000_000) ?? 50_000,
             MaxConcurrentScans = ReadInt(get, "SpvGateway:MaxConcurrentScans", 1, 64) ?? 4,
             ScanQueueWaitSeconds = ReadInt(get, "SpvGateway:ScanQueueWaitSeconds", 1, 120) ?? 10,
+            IndexFetchParallelism = ReadInt(get, "SpvGateway:IndexFetchParallelism", 1, 256) ?? 32,
             ScanBudgetSeconds = ReadInt(get, "SpvGateway:ScanBudgetSeconds", 1, 300) ?? 20,
             RateLimitPerMinute = ReadInt(get, "SpvGateway:RateLimitPerMinute", 1, 100_000) ?? 120,
             PeersEnabled = !string.Equals(get("SpvGateway:PeersEnabled")?.Trim(), "false", StringComparison.OrdinalIgnoreCase),

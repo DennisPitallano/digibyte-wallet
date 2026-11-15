@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DigiByte SPV gateway</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 100 900; font-display: swap; src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 100 800; font-display: swap; src: url('/fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2'); }
+
+  :root {
+    --bg1: #061226; --bg2: #0b2447; --card: rgba(18, 41, 74, .62); --line: rgba(255,255,255,.09);
+    --text: #eaf2ff; --muted: #8fa9cf; --blue: #2f80ed; --blue2: #5aa2ff; --green: #22c55e; --amber: #f5a623; --red: #ef4444;
+    --glow: 0 0 0 1px var(--line), 0 18px 50px -20px rgba(0,0,0,.65);
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg1: #eaf1fb; --bg2: #f8fbff; --card: rgba(255,255,255,.8); --line: rgba(11,36,71,.1); --text: #0b2447; --muted: #5a6f93; --glow: 0 0 0 1px var(--line), 0 18px 40px -22px rgba(11,36,71,.35); }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    font: 15px/1.5 'Inter', system-ui, sans-serif; color: var(--text);
+    background: radial-gradient(1200px 600px at 80% -10%, #2f80ed26, transparent 60%), radial-gradient(900px 500px at -10% 110%, #22c55e14, transparent 60%), linear-gradient(160deg, var(--bg1), var(--bg2));
+    background-attachment: fixed; -webkit-font-smoothing: antialiased;
+  }
+  .num, .tabular-nums { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  main { max-width: 760px; margin: 0 auto; padding: 22px 16px 48px; display: grid; gap: 16px; }
+  .card { position: relative; overflow: hidden; background: var(--card); border-radius: 20px; padding: 18px; box-shadow: var(--glow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          animation: rise .7s cubic-bezier(.2,.8,.2,1) both; }
+  .card:nth-of-type(2) { animation-delay: .08s } .card:nth-of-type(3) { animation-delay: .16s } .card:nth-of-type(4) { animation-delay: .24s }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+  h1 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+  h2 { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  small, .muted { color: var(--muted); }
+
+  /* --- Baku and his bubble --- */
+  .hero { display: flex; align-items: center; gap: 14px; }
+  .baku { position: relative; width: 112px; height: 112px; flex: none; }
+  .baku::before { content: ''; position: absolute; inset: 10% 8% 0; border-radius: 50%; background: radial-gradient(closest-side, var(--halo, #2f80ed66), transparent); filter: blur(6px); animation: halo 3.2s ease-in-out infinite; }
+  .baku img { position: relative; width: 100%; height: 100%; object-fit: contain; animation: bob 3.4s ease-in-out infinite; transition: opacity .25s, transform .25s; filter: drop-shadow(0 10px 14px rgba(0,0,0,.35)); }
+  .baku img.swap { opacity: 0; transform: scale(.9) rotate(-3deg); }
+  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-1.2deg); } 50% { transform: translateY(-7px) rotate(1.2deg); } }
+  @keyframes halo { 0%,100% { opacity: .55; transform: scale(.95); } 50% { opacity: 1; transform: scale(1.08); } }
+  .bubble { position: relative; flex: 1; background: linear-gradient(180deg, #ffffff12, #ffffff06); border: 1px solid var(--line); border-radius: 18px; padding: 12px 16px; }
+  .bubble::before { content: ''; position: absolute; left: -7px; top: 34px; width: 14px; height: 14px; background: inherit; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); background: #ffffff0d; }
+  .bubble .who { font-size: 11px; font-weight: 700; color: var(--blue2); letter-spacing: .06em; }
+  .bubble p { margin-top: 2px; min-height: 3em; }
+  .caret::after { content: '▍'; margin-left: 2px; color: var(--blue2); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 3px 12px 3px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; transition: background .4s; }
+  .pill i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: ping 1.6s ease-out infinite; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 #fff9; } 100% { box-shadow: 0 0 0 9px #fff0; } }
+
+  /* --- headers --- */
+  .headers { display: grid; grid-template-columns: 148px 1fr; gap: 18px; align-items: center; }
+  .ring { position: relative; width: 148px; height: 148px; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .track { stroke: #ffffff14; } .ring .arc { stroke: url(#grad); stroke-linecap: round; transition: stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1); }
+  .ring.syncing .arc { animation: dash-glow 2s ease-in-out infinite; }
+  @keyframes dash-glow { 50% { filter: drop-shadow(0 0 7px #5aa2ffcc); } }
+  .ring .mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+  .ring .pct { font-size: 30px; font-weight: 700; } .ring .lbl { font-size: 11px; color: var(--muted); }
+  .rail { position: relative; height: 46px; overflow: hidden; border-radius: 12px; background: #ffffff08; border: 1px solid var(--line); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+  .rail .track { position: absolute; top: 7px; left: 0; display: flex; gap: 8px; animation: slide 9s linear infinite; }
+  .rail.done .track { animation: none; transform: translateX(10px); }
+  @keyframes slide { to { transform: translateX(-50%); } }
+  .chip { flex: none; height: 32px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; border-radius: 9px; font-size: 12px; color: var(--blue2); background: #2f80ed1f; border: 1px solid #2f80ed44; }
+  .chip.new { animation: pop .6s cubic-bezier(.2,1.4,.4,1) both; background: #22c55e22; border-color: #22c55e66; color: #6ee7a0; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .headline { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .bigline { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 4px; }
+  .bigline .big { font-size: 26px; font-weight: 700; } .bigline small { font-size: 12px; }
+
+  /* --- block chain --- */
+  .chain { display: flex; align-items: center; margin: 18px 2px 6px; }
+  .node { position: relative; flex: none; text-align: center; }
+  .cube { position: relative; z-index: 2; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: #ffffff0d; border: 1px solid var(--line); color: var(--muted); transition: background .5s, border-color .5s, transform .5s; }
+  .cube svg { width: 18px; height: 18px; }
+  .node.done .cube { background: linear-gradient(145deg, #22c55e, #16a34a); border-color: #22c55e; color: #fff; box-shadow: 0 6px 18px -6px #22c55e99; animation: pop .55s cubic-bezier(.2,1.4,.4,1) both; }
+  .node.now .cube { background: linear-gradient(145deg, #3b8cff, #2f6fe0); border-color: #5aa2ff; color: #fff; animation: pulse 1.4s ease-in-out infinite; }
+  .node.now .cube svg { animation: spin 2.4s linear infinite; }
+  .node.now::after { content: ''; position: absolute; left: 50%; top: 19px; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 12px; background: #5aa2ff; opacity: .35; z-index: 1; animation: ring 1.4s ease-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.1); } } @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes ring { to { transform: scale(2); opacity: 0; } }
+  .node .h { margin-top: 6px; font-size: 10px; color: var(--muted); }
+  .link { flex: 1; min-width: 6px; height: 3px; border-radius: 3px; background: #ffffff14; overflow: hidden; margin-bottom: 18px; }
+  .link > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #22c55e, #2f80ed); transition: width .7s ease; }
+  .link.full > i { width: 100%; }
+  .chain.complete .node.done .cube { animation: wave 1.6s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms); }
+  @keyframes wave { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-7px); } }
+  .progress { height: 12px; border-radius: 8px; background: #ffffff14; overflow: hidden; margin: 8px 0 6px; position: relative; }
+  .progress > div { height: 100%; width: 0; border-radius: 8px; background: linear-gradient(90deg, #2f80ed, #5aa2ff); transition: width .9s cubic-bezier(.2,.8,.2,1); position: relative; }
+  .progress > div::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, #ffffff66 50%, transparent 80%); transform: translateX(-100%); animation: shimmer 1.8s infinite; }
+  .progress.done > div { background: linear-gradient(90deg, #16a34a, #22c55e); } .progress.done > div::after { animation: none; }
+  @keyframes shimmer { to { transform: translateX(100%); } }
+  .row2 { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .row2 b { font-weight: 600; }
+
+  /* --- peers + tiles --- */
+  .peers { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .peer { width: 18px; height: 18px; border-radius: 50%; background: #ffffff14; border: 1px solid var(--line); transition: all .4s; }
+  .peer.on { background: var(--green); border-color: transparent; box-shadow: 0 0 12px #22c55e99; animation: peerpop .6s cubic-bezier(.2,1.4,.4,1) both; animation-delay: calc(var(--i) * 70ms); }
+  .peer.filter { border-radius: 5px; transform: rotate(45deg); background: var(--blue2); box-shadow: 0 0 12px #5aa2ff99; }
+  @keyframes peerpop { from { transform: scale(0); } to { transform: scale(1); } }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .tile { background: #ffffff0a; border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .tile .k { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); } .tile .k svg { width: 14px; height: 14px; }
+  .tile .v { margin-top: 4px; font-size: 19px; font-weight: 700; word-break: break-all; }
+  .tile .v.small { font-size: 14px; }
+  footer { text-align: center; font-size: 12px; color: var(--muted); }
+  @media (max-width: 560px) { .headers { grid-template-columns: 1fr; justify-items: center; } .rail { width: 100%; } .hero { flex-direction: column; text-align: center; } .bubble::before { display: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <div class="hero">
+      <div class="baku"><img id="baku" src="/baku/greeting.webp" alt="Baku, the wallet mascot"></div>
+      <div class="bubble">
+        <div class="who">BAKU <span class="muted">· gateway watch</span></div>
+        <p id="say" class="caret">Hi! I'm connecting to the DigiByte network…</p>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap">
+      <h1>DigiByte SPV gateway</h1>
+      <span id="status" class="pill" style="background:var(--amber)"><i></i><span id="statusText">starting</span></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="headline"><h2>Step 1 · Header chain</h2><small id="hdrHint">Checking every block header</small></div>
+    <div class="headers">
+      <div class="ring syncing" id="ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <defs><linearGradient id="grad" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#5aa2ff"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+          <circle class="track" cx="60" cy="60" r="52" fill="none" stroke-width="9"/>
+          <circle class="arc" id="arc" cx="60" cy="60" r="52" fill="none" stroke-width="9" stroke-dasharray="326.73" stroke-dashoffset="326.73"/>
+        </svg>
+        <div class="mid"><div class="pct num" id="hdrPct">0%</div><div class="lbl" id="hdrLbl">syncing</div></div>
+      </div>
+      <div>
+        <div class="rail" id="rail"><div class="track" id="railTrack"></div></div>
+        <div class="bigline"><span class="big num" id="hdrHeight">–</span><small>verified header height</small></div>
+        <div class="row2"><small>Behind the peers: <b class="num" id="lag">–</b> blocks</small><small id="hdrRate" class="num"></small></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="headline"><h2>Step 2 · Block index</h2><small id="idxHint">Waiting for headers</small></div>
+    <div class="chain" id="chain"></div>
+    <div class="progress" id="idxBar"><div id="idxFill"></div></div>
+    <div class="row2">
+      <span><b class="num" id="idxHave">0</b> <small>of</small> <b class="num" id="idxTotal">0</b> <small>blocks · </small><b class="num" id="idxPct">0%</b></span>
+      <small class="num" id="idxRate"></small>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="headline"><h2>Network</h2><small>Peers the gateway is talking to</small></div>
+    <div class="peers" id="peers"></div>
+    <div class="tiles">
+      <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Network</div><div class="v" id="tNet">–</div></div>
+      <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>Peers</div><div class="v num" id="tPeers">–</div></div>
+      <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Index starts at</div><div class="v num small" id="tFrom">–</div></div>
+      <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 9 5v10l-9 5-9-5V7z"/></svg>Matching</div><div class="v" id="tMode">–</div></div>
+      <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Version</div><div class="v num small" id="tVer">–</div></div>
+    </div>
+  </section>
+
+  <footer>Updates every 2 seconds · this page shows only what the gateway reports about itself</footer>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const CUBE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>';
+  const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>';
+
+  // numbers count up instead of jumping
+  const shown = new WeakMap();
+  function count(el, to, suffix = '', decimals = 0) {
+    const from = shown.has(el) ? shown.get(el) : 0;
+    shown.set(el, to);
+    if (from === to) { el.textContent = (decimals ? to.toFixed(decimals) : fmt(to)) + suffix; return; }
+    const start = performance.now(), dur = 700;
+    const step = now => {
+      const t = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - t, 3), v = from + (to - from) * e;
+      el.textContent = (decimals ? v.toFixed(decimals) : fmt(v)) + suffix;
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  // Baku: pose + words change with the state; words are typed out
+  let pose = '', said = '', typing = 0;
+  function baku(newPose, text, halo) {
+    if (newPose !== pose) {
+      pose = newPose;
+      const img = $('baku'); img.classList.add('swap');
+      setTimeout(() => { img.src = '/baku/' + newPose + '.webp'; img.classList.remove('swap'); }, 220);
+    }
+    if (halo) document.querySelector('.baku').style.setProperty('--halo', halo);
+    if (text !== said) {
+      said = text; const p = $('say'); clearInterval(typing); let i = 0; p.classList.add('caret');
+      typing = setInterval(() => { p.textContent = text.slice(0, ++i); if (i >= text.length) { clearInterval(typing); p.classList.remove('caret'); } }, 14);
+    }
+  }
+
+  // rolling rates
+  const hist = { hdr: [], idx: [] };
+  function rate(list, value) {
+    const now = Date.now(); list.push([now, value]);
+    while (list.length > 2 && now - list[0][0] > 20000) list.shift();
+    const [t0, v0] = list[0]; const dt = (now - t0) / 1000;
+    return dt > 3 ? (value - v0) / dt : 0;
+  }
+  const eta = s => !isFinite(s) || s <= 0 ? '' : s < 90 ? Math.ceil(s) + ' s left' : s < 5400 ? Math.ceil(s / 60) + ' min left' : (s / 3600).toFixed(1) + ' h left';
+
+  let startLag = null, lastHeight = null, peerCount = -1;
+  function chips(height, fresh) {
+    const t = $('railTrack'); const list = [];
+    for (let i = 0; i < 16; i++) list.push(height - i);
+    const html = list.map((h, i) => '<span class="chip' + (fresh && i === 0 ? ' new' : '') + ' num">#' + fmt(h) + '</span>').join('');
+    t.innerHTML = html + html; // doubled so the slide loops without a gap
+  }
+
+  function renderChain(from, to, headerHeight, done) {
+    const chain = $('chain'); const total = Math.max(1, headerHeight - from + 1);
+    const frontier = to == null ? from : to;
+    const count = 9; let nodes = '';
+    const lastShown = Math.min(headerHeight, Math.max(from + count - 1, frontier + 4));
+    const firstShown = Math.max(from, lastShown - count + 1);
+    for (let h = firstShown; h <= lastShown; h++) {
+      const i = h - firstShown;
+      const state = to != null && h <= to ? 'done' : (h === (to == null ? from : to + 1) ? 'now' : '');
+      if (i > 0) nodes += '<div class="link' + (state === 'done' || state === 'now' ? ' full' : '') + '"><i></i></div>';
+      nodes += '<div class="node ' + state + '" style="--i:' + i + '"><div class="cube">' + (state === 'done' ? CHECK : CUBE) + '</div><div class="h num">' + (h % 1000).toString().padStart(3, '0') + '</div></div>';
+    }
+    chain.className = 'chain' + (done ? ' complete' : '');
+    chain.innerHTML = nodes;
+  }
+
+  async function tick() {
+    let h, st;
+    try {
+      [h, st] = await Promise.all([fetch('/v1/health', { cache: 'no-store' }).then(r => r.json()), fetch('/status.json', { cache: 'no-store' }).then(r => r.json())]);
+    } catch (e) {
+      $('statusText').textContent = 'unreachable'; $('status').style.background = 'var(--red)';
+      baku('error', "I can't reach the gateway right now. I'll keep trying.", '#ef444466'); return;
+    }
+    const colors = { ok: 'var(--green)', syncing: 'var(--amber)', starting: 'var(--amber)', unhealthy: 'var(--red)' };
+    $('statusText').textContent = h.status; $('status').style.background = colors[h.status] || 'var(--red)';
+
+    // --- headers ---
+    if (startLag === null || h.lagBlocks > startLag) startLag = Math.max(h.lagBlocks, 1);
+    const hdrDone = h.lagBlocks <= 0 && h.peerCount > 0;
+    const pct = hdrDone ? 100 : Math.max(0, Math.min(99, (1 - h.lagBlocks / startLag) * 100));
+    $('arc').style.strokeDashoffset = 326.73 * (1 - pct / 100);
+    count($('hdrPct'), pct, '%'); $('hdrLbl').textContent = hdrDone ? 'level' : 'syncing';
+    $('ring').classList.toggle('syncing', !hdrDone); $('rail').classList.toggle('done', hdrDone);
+    count($('hdrHeight'), h.headerHeight); count($('lag'), h.lagBlocks);
+    const hr = rate(hist.hdr, h.headerHeight);
+    $('hdrRate').textContent = !hdrDone && hr > 0 ? fmt(hr) + ' blocks/s · ' + eta(h.lagBlocks / hr) : (hdrDone ? 'in step with the network' : '');
+    $('hdrHint').textContent = hdrDone ? 'Every header checked, proof of work included' : 'Checking every block header';
+    chips(h.headerHeight, lastHeight !== null && h.headerHeight !== lastHeight); lastHeight = h.headerHeight;
+
+    // --- index ---
+    const from = st.indexedFromHeight, to = st.indexedToHeight;
+    const total = from == null ? 0 : Math.max(1, h.headerHeight - from + 1);
+    const have = from == null ? 0 : Math.max(0, to - from + 1);
+    const ipct = total ? Math.min(100, have / total * 100) : 0;
+    const idxDone = total > 0 && have >= total;
+    $('idxFill').style.width = ipct + '%'; $('idxBar').classList.toggle('done', idxDone);
+    count($('idxHave'), have); count($('idxTotal'), total); count($('idxPct'), ipct, '%');
+    const ir = from == null ? 0 : rate(hist.idx, have);
+    $('idxRate').textContent = idxDone ? 'all indexed' : (ir > 0 ? ir.toFixed(1) + ' blocks/s · ' + eta((total - have) / ir) : (from == null ? 'not started' : ''));
+    $('idxHint').textContent = from == null ? (hdrDone ? 'Starting…' : 'Starts when the headers are level') : (idxDone ? 'Ready to answer wallet scans' : 'Fetching and indexing blocks');
+    renderChain(from == null ? h.headerHeight - 8 : from, from == null ? null : to, h.headerHeight, idxDone);
+
+    // --- network ---
+    const full = h.fullHistoryPeerCount, filt = h.filterPeerCount, total12 = Math.max(12, h.peerCount);
+    if (peerCount !== h.peerCount) {
+      peerCount = h.peerCount;
+      $('peers').innerHTML = Array.from({ length: total12 }, (_, i) => '<span class="peer' + (i < h.peerCount ? ' on' : '') + (i < filt ? ' filter' : '') + '" style="--i:' + i + '"></span>').join('');
+    }
+    $('tNet').textContent = h.network; $('tMode').textContent = h.matchingMode; $('tVer').textContent = h.buildVersion;
+    $('tPeers').textContent = h.peerCount + ' (' + full + ' full)';
+    $('tFrom').textContent = from == null ? 'not started' : fmt(from);
+
+    // --- Baku ---
+    if (h.status === 'unhealthy') baku('guard', 'I only see ' + h.peerCount + ' peer' + (h.peerCount === 1 ? '' : 's') + '. I need a few more before I can vouch for the chain.', '#f5a62366');
+    else if (h.status === 'starting') baku('greeting', "Hi! I'm connecting to the DigiByte network…", '#2f80ed66');
+    else if (!hdrDone) baku('thinking', 'Reading the chain headers and checking each one. ' + fmt(h.lagBlocks) + ' to go.', '#2f80ed66');
+    else if (!idxDone) baku('idea', 'Headers are level! Now I am collecting blocks so wallets can scan them (' + ipct.toFixed(0) + '%).', '#5aa2ff77');
+    else baku('celebrating', 'All caught up and indexed. Ready for wallets! 🎉', '#22c55e77');
+  }
+  tick(); setInterval(tick, 2000);
+})();
+</script>
+</body>
+</html>

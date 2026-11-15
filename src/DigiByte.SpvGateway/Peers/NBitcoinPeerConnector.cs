@@ -177,34 +177,52 @@ internal sealed class NBitcoinPeerSession : IPeerSession
     public int StartHeight => _node.PeerVersion.StartHeight;
     public bool IsConnected => _node.State == NodeState.HandShaked && _node.IsConnected;
 
-    public async Task<IReadOnlyList<BlockHeader80>> GetHeadersAsync(IReadOnlyList<uint256> locator, CancellationToken cancellationToken)
+    /// <summary>
+    /// Waits for the first message that <paramref name="pick"/> turns into an answer, without holding a thread: the wait is a task completed
+    /// from the message event, so many requests can be outstanding on one peer (blocking waits would exhaust the thread pool).
+    /// </summary>
+    private async Task<T> AskAsync<T>(Payload request, Func<Payload, (bool Match, T Value)> pick, CancellationToken cancellationToken)
     {
-        using var listener = _node.CreateListener().Where(m => m.Message.Payload is HeadersPayload);
-        await _node.SendMessageAsync(new GetHeadersPayload(new BlockLocator { Blocks = locator.ToList() }));
-        var payload = await Task.Run(() => listener.ReceivePayload<HeadersPayload>(cancellationToken), cancellationToken);
-        return payload.Headers.Select(h => BlockHeader80.Parse(h.ToBytes())).ToList();
-    }
-
-    private readonly SemaphoreSlim _blockLock = new(1, 1);
-
-    public async Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken)
-    {
-        // One request at a time per peer, so a late answer to an earlier request is never taken for this one.
-        await _blockLock.WaitAsync(cancellationToken);
+        var answer = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        NodeEventMessageIncoming handler = (_, message) =>
+        {
+            var (match, value) = pick(message.Message.Payload);
+            if (match)
+                answer.TrySetResult(value);
+        };
+        _node.MessageReceived += handler;
         try
         {
-            using var listener = _node.CreateListener().Where(m =>
-                (m.Message.Payload is BlockPayload block && block.Object.GetHash() == hash)
-                || (m.Message.Payload is NotFoundPayload missing && missing.Inventory.Any(i => i.Hash == hash)));
-            await _node.SendMessageAsync(new GetDataPayload(new InventoryVector(InventoryType.MSG_WITNESS_BLOCK, hash)));
-            var message = await Task.Run(() => listener.ReceiveMessage(cancellationToken), cancellationToken);
-            return message.Message.Payload is BlockPayload found ? found.Object.ToBytes() : null;
+            await _node.SendMessageAsync(request);
+            using var registration = cancellationToken.Register(() => answer.TrySetCanceled(cancellationToken));
+            return await answer.Task;
         }
         finally
         {
-            _blockLock.Release();
+            _node.MessageReceived -= handler;
         }
     }
+
+    public Task<IReadOnlyList<BlockHeader80>> GetHeadersAsync(IReadOnlyList<uint256> locator, CancellationToken cancellationToken) =>
+        AskAsync<IReadOnlyList<BlockHeader80>>(
+            new GetHeadersPayload(new BlockLocator { Blocks = locator.ToList() }),
+            payload => payload is HeadersPayload headers
+                ? (true, headers.Headers.Select(h => BlockHeader80.Parse(h.ToBytes())).ToList())
+                : (false, []),
+            cancellationToken);
+
+    public Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken) =>
+        // Each call listens only for the block (or not-found) that names its own hash, so replies cannot be mixed up and several blocks can
+        // be asked of one peer at once.
+        AskAsync<byte[]?>(
+            new GetDataPayload(new InventoryVector(InventoryType.MSG_WITNESS_BLOCK, hash)),
+            payload => payload switch
+            {
+                BlockPayload block when block.Object.GetHash() == hash => (true, block.Object.ToBytes()),
+                NotFoundPayload missing when missing.Inventory.Any(i => i.Hash == hash) => (true, null),
+                _ => (false, null),
+            },
+            cancellationToken);
 
     public ValueTask DisposeAsync()
     {

@@ -102,8 +102,10 @@ var app = builder.Build();
 app.Services.GetRequiredService<HeaderSync>();
 
 app.UseCors();
+app.UseStaticFiles(); // the status page fonts and mascot images (wwwroot)
 app.UseMiddleware<GatewayMiddleware>();
 app.MapHealth();
+app.MapStatusPage();
 app.MapHeaders();
 app.MapScan();
 app.MapBroadcast();

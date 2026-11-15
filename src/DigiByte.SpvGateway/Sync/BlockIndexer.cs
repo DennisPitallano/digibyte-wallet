@@ -33,13 +33,40 @@ public sealed class BlockIndexer(SpvGatewayOptions options, HeaderStore headers,
 
         var next = (index.IndexedToHeight() ?? (start - 1)) + 1;
         var added = 0;
-        for (var height = Math.Max(next, start); height <= tip && added < maxBlocks && !cancellationToken.IsCancellationRequested; height++)
+        var parallel = Math.Max(1, options.IndexFetchParallelism);
+        var first = Math.Max(next, start);
+        var last = Math.Min(tip.Value, first + maxBlocks - 1);
+
+        // A sliding window: up to <parallel> blocks are on the way at once (spread over the peers), and each is added the moment it and all
+        // the blocks before it have arrived, so one slow peer delays only the blocks behind it and the index stays contiguous.
+        var pending = new Queue<(int Height, Task<NBitcoin.Block?> Block)>();
+        var nextToRequest = first;
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
         {
-            var block = await fetcher.FetchAsync(height, cancellationToken);
-            if (block is null)
-                break; // no peer could supply it right now; the next round tries again from here
-            index.Add(BlockIndexBuilder.Build(block, height), _time.GetUtcNow());
-            added++;
+            while (!stop.IsCancellationRequested && (pending.Count > 0 || nextToRequest <= last))
+            {
+                while (pending.Count < parallel && nextToRequest <= last)
+                {
+                    var height = nextToRequest++;
+                    pending.Enqueue((height, fetcher.FetchAsync(height, stop.Token)));
+                }
+                var (headHeight, headTask) = pending.Dequeue();
+                var block = await headTask;
+                if (block is null)
+                    break; // no peer could supply it right now; the next round tries again from here
+                index.Add(BlockIndexBuilder.Build(block, headHeight), _time.GetUtcNow());
+                added++;
+            }
+        }
+        finally
+        {
+            // Whatever is still in flight is no longer needed.
+            await stop.CancelAsync();
+            foreach (var (_, task) in pending)
+            {
+                try { await task; } catch (OperationCanceledException) { }
+            }
         }
         return added;
     }

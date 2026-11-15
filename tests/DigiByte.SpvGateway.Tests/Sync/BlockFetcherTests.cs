@@ -62,7 +62,8 @@ public class BlockFetcherTests
         var block = await fetcher.FetchAsync(Sample.Height, default);
 
         Assert.NotNull(block);
-        Assert.All(net.Peers, p => Assert.Single(p.BlockRequests));
+        // The requests are spread over the peers, so the one without the block may or may not be asked first; the good one answered.
+        Assert.Contains(net.Peers, p => p.BlockRequests.Count == 1 && p.Blocks.ContainsKey(Sample.Hash));
     }
 
     [Fact]
@@ -119,5 +120,29 @@ public class BlockFetcherTests
 
         Assert.Null(await fetcher.FetchAsync(30_000_000, default));
         Assert.All(net.Peers, p => Assert.Empty(p.BlockRequests));
+    }
+}
+
+public class BlockFetcherScoringTests
+{
+    [Fact]
+    public async Task A_peer_that_keeps_saying_it_has_no_block_is_asked_less_and_less_while_a_good_peer_serves_everything()
+    {
+        var net = new FakePeerNetwork();
+        var good = net.Add("21.11.1.1");
+        var bad = net.Add("22.12.1.1");
+        foreach (var b in RealBlocks.All)
+            good.Blocks[b.Hash] = b.Raw; // the bad peer has none
+        var manager = new DigiByte.SpvGateway.Peers.PeerManager(new SpvGatewayOptions { PeerTarget = 2 }, DigiByte.SpvGateway.Peers.PeerBook.Open(":memory:"), net, net, new Microsoft.Extensions.Time.Testing.FakeTimeProvider());
+        await manager.MaintainAsync(default);
+        var store = DigiByte.SpvGateway.Sync.HeaderStore.Open(":memory:", "mainnet");
+        new DigiByte.SpvGateway.Sync.HeaderSync(store, DigiByte.Crypto.Headers.Checkpoints.Mainnet, hasher: null).Ingest(GatewayWorld.Heights.Select(RealHeaders.At));
+        var fetcher = new DigiByte.SpvGateway.Sync.BlockFetcher(manager, store, DigiByte.Crypto.Networks.DigiByteNetworkSet.Instance.Mainnet);
+
+        foreach (var height in GatewayWorld.Heights)
+            Assert.NotNull(await fetcher.FetchAsync(height, default));
+
+        // It was tried at the start, then learned from: far fewer requests than blocks.
+        Assert.True(bad.BlockRequests.Count < GatewayWorld.Heights.Count / 2, $"the bad peer was asked {bad.BlockRequests.Count} times");
     }
 }

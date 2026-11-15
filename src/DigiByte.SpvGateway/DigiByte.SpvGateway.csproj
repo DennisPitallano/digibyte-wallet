@@ -16,6 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The operator status page is a single HTML file inside the assembly. -->
+    <EmbeddedResource Include="Endpoints\status.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="DigiByte.SpvGateway.Tests" />
   </ItemGroup>
 
