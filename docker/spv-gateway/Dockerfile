@@ -25,8 +25,8 @@ COPY --from=build /app/publish .
 # API port
 EXPOSE 5290
 
-# SQLite files (headers, block index, peer book) live on a volume so a restart resumes from stored state.
-VOLUME ["/data"]
+# SQLite files (headers, block index, peer book) live in /data. No VOLUME instruction: Railway rejects it ("use Railway Volumes"), so mount a
+# Railway Volume at /data (docs/RAILWAY_NODE.md). Without one the data is lost on each deploy and the gateway syncs from scratch.
 
 # Environment defaults, overridden by docker-compose / Railway. Mainnet by default.
 ENV ASPNETCORE_URLS=http://+:5290
