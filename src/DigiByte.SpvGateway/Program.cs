@@ -69,8 +69,9 @@ builder.Services.AddSingleton<ProofService>();
 builder.Services.AddSingleton(sp => new BroadcastRelay(
     sp.GetRequiredService<PeerManager>(),
     sp.GetRequiredService<SpvGatewayOptions>().Network == GatewayNetwork.Testnet ? DigiByteNetworkSet.Instance.Testnet : DigiByteNetworkSet.Instance.Mainnet));
-if (SpvGatewayOptions.FromConfiguration(key => builder.Configuration[key]).PeersEnabled)
-    builder.Services.AddHostedService<PeerSyncService>();
+// Always registered; the service checks SpvGateway:PeersEnabled itself when it starts, because the configuration a test host adds is
+// not visible yet while this file runs (which used to start real peer connections inside every test host).
+builder.Services.AddHostedService<PeerSyncService>();
 builder.Services.AddSingleton(sp =>
 {
     var options = sp.GetRequiredService<SpvGatewayOptions>();
@@ -107,6 +108,7 @@ app.MapHeaders();
 app.MapScan();
 app.MapBroadcast();
 app.MapProofs();
+app.MapFee();
 
 app.Run();
 

@@ -352,6 +352,7 @@ public class FallbackBlockchainService : IBlockchainService
             Console.WriteLine($"[Broadcast] ✓ spv-gateway succeeded — txid: {txId}");
             InvalidateCache();
             ActiveBackend = "spv-gateway";
+            LastBroadcast = (_gatewaySource as IBroadcastReporter)?.LastBroadcast;
             return txId;
         }
         catch (Exception ex)
@@ -366,8 +367,15 @@ public class FallbackBlockchainService : IBlockchainService
     /// For writes: NodeApi first (direct node), then all explorers in order.
     /// Never falls back to mock for broadcasts.
     /// </summary>
+    /// <summary>
+    /// What the gateway said about the last send, only when the gateway carried it; null otherwise (so a send through an explorer or the
+    /// node shows nothing extra).
+    /// </summary>
+    public BroadcastReport? LastBroadcast { get; private set; }
+
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
+        LastBroadcast = null;
         var hexPreview = Convert.ToHexString(rawTransaction).ToLower();
         Console.WriteLine($"[Broadcast] Starting — tx size: {rawTransaction.Length} bytes, hex preview: {hexPreview[..Math.Min(40, hexPreview.Length)]}...");
 

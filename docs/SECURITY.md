@@ -252,6 +252,19 @@ moved to a weaker format.
 
 ---
 
+## P2P light-client gateway (specs/011-p2p-spv-gateway)
+
+- **What the service sees**: the addresses a wallet asks about (in request bodies, never URLs), outpoints it already owns, and transaction ids for proof requests.
+  It never receives keys, seed words or extended public keys. It stores and logs nothing about a request; the framework request log is off because it wrote URLs.
+- **What a dishonest gateway can and cannot do**: it cannot make the wallet accept a payment that is not in a block, because every transaction is matched to a header
+  the wallet verified itself. It can withhold transactions or lie about the tip; the wallet compares its headers with public explorers to catch the second.
+  Until the wallet checks proof of work itself, the headers are checked for linkage, difficulty and time only, so a chain with real work built on a hidden fork is
+  caught only by the explorer comparison. This is why nothing is labelled "verified" yet.
+- **Peers**: the gateway sends peers block hashes, header locators and the transaction being broadcast; never an address, script hash or filter.
+- **Anonymous endpoints** are rate limited per client, bounded (addresses, outpoints, range, concurrent scans) and refuse bodies over the limit.
+- **Local data**: the wallet's sync record lists its transactions and is stored on the device unencrypted like the other caches; it is deleted with the wallet and
+  never exported.
+
 ## Authentication & Access Control
 
 ### PIN and Passphrase Lockout with Exponential Backoff

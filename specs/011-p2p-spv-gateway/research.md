@@ -154,3 +154,5 @@ Peer software was DigiByte 9.26.3 to 9.26.7. Only 8 of 150 probed addresses answ
 - Measure average block size and peer throughput, then set the index window and chunk size.
 - Choose checkpoint heights per network (after the last retarget era change).
 - Confirm how `connect-src` for the gateway origin is currently managed for the node API.
+
+**Update (T112 and T113, native only)**: the wallet can now check proof of work (`SpvGateway:CheckProofOfWork`, default off). Native cost per header on the development machine, measured on the real headers of the fixture: SHA-256d 0.003 ms, Skein 0.035 ms, Odocrypt 0.35 ms, Qubit 0.37 ms, Scrypt 2.2 ms. These numbers are NOT WebAssembly numbers; T113 asks for those and they have not been taken. Rough reading only: if WebAssembly were 20 times slower, Scrypt would take about 45 ms a header and a week of blocks (about 40,000) would need several minutes, so the measurement decides whether "verified" can ever be offered. Until it is taken, `GatewayCapabilities.WalletPowVerified` stays false.

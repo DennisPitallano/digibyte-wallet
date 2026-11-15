@@ -30,6 +30,12 @@ public sealed class SpvGatewayOptions
     /// <summary>How long one scan may fetch blocks before it answers with what it has (complete: false).</summary>
     public int ScanBudgetSeconds { get; init; } = 20;
 
+    /// <summary>How many scans run at once. More wait their turn, so a heavy restore cannot starve the others (SC-009).</summary>
+    public int MaxConcurrentScans { get; init; } = 4;
+
+    /// <summary>How long a scan waits for a free slot before the gateway says it is busy.</summary>
+    public int ScanQueueWaitSeconds { get; init; } = 10;
+
     /// <summary>Requests per client per minute before the gateway answers <c>rate_limited</c>.</summary>
     public int RateLimitPerMinute { get; init; } = 120;
 
@@ -66,6 +72,8 @@ public sealed class SpvGatewayOptions
             MaxAddressesPerRequest = ReadInt(get, "SpvGateway:MaxAddressesPerRequest", 1, 1000) ?? 100,
             MaxHeadersPerRequest = ReadInt(get, "SpvGateway:MaxHeadersPerRequest", 1, 2000) ?? 2000,
             ScanRangeCapBlocks = ReadInt(get, "SpvGateway:ScanRangeCapBlocks", 1000, 1_000_000) ?? 50_000,
+            MaxConcurrentScans = ReadInt(get, "SpvGateway:MaxConcurrentScans", 1, 64) ?? 4,
+            ScanQueueWaitSeconds = ReadInt(get, "SpvGateway:ScanQueueWaitSeconds", 1, 120) ?? 10,
             ScanBudgetSeconds = ReadInt(get, "SpvGateway:ScanBudgetSeconds", 1, 300) ?? 20,
             RateLimitPerMinute = ReadInt(get, "SpvGateway:RateLimitPerMinute", 1, 100_000) ?? 120,
             PeersEnabled = !string.Equals(get("SpvGateway:PeersEnabled")?.Trim(), "false", StringComparison.OrdinalIgnoreCase),

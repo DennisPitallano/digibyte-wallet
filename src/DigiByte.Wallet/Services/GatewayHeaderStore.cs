@@ -48,6 +48,9 @@ public sealed class GatewayHeaderStore
         _chain = new HeaderChain(checkpoint, _consensus, hasher);
     }
 
+    /// <summary>The height of the first header held (the oldest one in the built-in checkpoint).</summary>
+    public int FirstHeight => _checkpoint.FirstHeight;
+
     public int TipHeight => _chain.TipHeight;
 
     public uint256 TipHash => _chain.TipHash;

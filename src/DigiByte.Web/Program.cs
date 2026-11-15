@@ -159,7 +159,6 @@ builder.Services.AddScoped(sp => new NodeSourceMonitor(
 builder.Services.AddScoped<INodeSourceState>(sp => sp.GetRequiredService<NodeSourceMonitor>());
 builder.Services.AddScoped<INodeReadFailureSink>(sp => sp.GetRequiredService<NodeSourceMonitor>());
 builder.Services.AddScoped<NodeSourceMonitorLoop>();
-builder.Services.AddScoped<NodeSourceStatusService>();
 
 // ── The P2P light-client gateway as a blockchain source (specs/011-p2p-spv-gateway) ──
 // Off by default (SpvGateway:Enabled). When on, it is used only while its own monitor says it is ready, never above the explorers
@@ -171,7 +170,9 @@ builder.Services.AddSingleton(spvGateway);
 builder.Services.AddHttpClient("SpvGateway");
 builder.Services.AddHttpClient("SpvGatewayHealth");
 builder.Services.AddScoped(sp => new GatewayClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("SpvGateway"), spvGateway));
-builder.Services.AddScoped(sp => new GatewayHeaderStore(sp.GetRequiredService<ISecureStorage>(), DigiByte.Crypto.Headers.Checkpoints.Mainnet, "mainnet"));
+builder.Services.AddScoped(sp => new GatewayHeaderStore(sp.GetRequiredService<ISecureStorage>(), DigiByte.Crypto.Headers.Checkpoints.Mainnet, "mainnet",
+    // Proof of work is checked only when asked for (spec FR-013): the cost under WebAssembly is not measured yet, so the default is off.
+    spvGateway.CheckProofOfWork ? DigiByte.Crypto.Headers.Hashers.PowHashers.Available : null));
 builder.Services.AddScoped(sp => new GatewayHeaderSync(sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<GatewayClient>()));
 builder.Services.AddScoped(sp => new GatewayProofChecker(sp.GetRequiredService<GatewayHeaderStore>()));
 builder.Services.AddScoped(sp => new GatewayIncrementalSync(
@@ -195,6 +196,13 @@ builder.Services.AddScoped(sp => new P2pGatewayBlockchainService(
     sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<IGatewayWalletScopeProvider>(), sp.GetRequiredService<GatewayClient>(),
     crossCheck: sp.GetRequiredService<GatewayTipCrossCheck>(),
     proofUpgrader: sp.GetRequiredService<GatewayProofUpgrader>()));
+builder.Services.AddScoped(sp => new BirthHeightService(sp.GetRequiredService<ISecureStorage>(), sp.GetRequiredService<GatewayHeaderStore>()));
+builder.Services.AddScoped(sp => new ScanProgressStore(sp.GetRequiredService<ISecureStorage>()));
+builder.Services.AddScoped(sp => new GatewayRestoreScanner(
+    sp.GetRequiredService<GatewayClient>(), sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<GatewayProofChecker>(),
+    sp.GetRequiredService<ScanProgressStore>(), sp.GetRequiredService<GatewayIncrementalSync>(), sp.GetRequiredService<WalletSyncStateStore>()));
+builder.Services.AddScoped(sp => new GatewayRestoreServices(
+    sp.GetRequiredService<BirthHeightService>(), sp.GetRequiredService<GatewayRestoreScanner>(), sp.GetRequiredService<ScanProgressStore>()));
 builder.Services.AddScoped(sp => new GatewayOwnSendRecorder(sp.GetRequiredService<WalletSyncStateStore>()));
 builder.Services.AddScoped(sp => new GatewayStateBootstrap(sp.GetRequiredService<WalletSyncStateStore>(), sp.GetRequiredService<GatewayHeaderStore>()));
 builder.Services.AddScoped(sp => new GatewayBootstrapCoordinator(
@@ -222,6 +230,9 @@ builder.Services.AddScoped<FallbackBlockchainService>(sp =>
         gatewayPosition: spvGateway.Position);
 });
 builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<FallbackBlockchainService>());
+builder.Services.AddScoped(sp => new NodeSourceStatusService(
+    sp.GetRequiredService<INodeSourceState>(), sp.GetRequiredService<FallbackBlockchainService>(),
+    spvGatewayOn ? sp.GetRequiredKeyedService<NodeSourceMonitor>("gateway") : null));
 
 // ── DigiDollar (non-custodial, being rebuilt per specs/001-digidollar-wallet) ──
 // Two independent switches (FR-022), both false by default: ship dark, then beta, then GA with no code change.

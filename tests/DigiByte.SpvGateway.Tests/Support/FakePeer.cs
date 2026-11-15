@@ -57,6 +57,7 @@ internal sealed class FakePeer(PeerEndpoint endpoint, ulong services, int startH
 
     public Task<IReadOnlyList<BlockHeader80>> GetHeadersAsync(IReadOnlyList<uint256> locator, CancellationToken cancellationToken)
     {
+        Locators.Add(locator.ToList());
         var start = 0;
         foreach (var hash in locator)
         {
@@ -71,6 +72,12 @@ internal sealed class FakePeer(PeerEndpoint endpoint, ulong services, int startH
     public Dictionary<uint256, byte[]> Blocks { get; } = [];
 
     public List<uint256> BlockRequests { get; } = [];
+
+    /// <summary>Every locator a client sent with getheaders.</summary>
+    public List<IReadOnlyList<uint256>> Locators { get; } = [];
+
+    /// <summary>How long a block request takes, to make scans slow in tests.</summary>
+    public TimeSpan BlockDelay { get; set; }
 
     /// <summary>Raw transactions offered to this peer.</summary>
     public List<byte[]> Relayed { get; } = [];
@@ -91,10 +98,12 @@ internal sealed class FakePeer(PeerEndpoint endpoint, ulong services, int startH
 
     public bool HasAnnounced(uint256 txid) => Announced.Contains(txid);
 
-    public Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken)
+    public async Task<byte[]?> GetBlockAsync(uint256 hash, CancellationToken cancellationToken)
     {
         BlockRequests.Add(hash);
-        return Task.FromResult(Blocks.TryGetValue(hash, out var block) ? block : null);
+        if (BlockDelay > TimeSpan.Zero)
+            await Task.Delay(BlockDelay, cancellationToken);
+        return Blocks.TryGetValue(hash, out var block) ? block : null;
     }
 
     public ValueTask DisposeAsync()

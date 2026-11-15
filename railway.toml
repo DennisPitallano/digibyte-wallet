@@ -43,6 +43,25 @@
 #   Required volume: mount to /root/.digibyte (50+ GB for initial sync, ~2 GB pruned)
 #   Change RPC password in digibyte-mainnet.conf before deploying!
 #
+# ─── P2P light-client gateway (specs/011-p2p-spv-gateway) ────────────────────
+#
+# Service 7: digibyte-spv-gateway
+#   Dockerfile: docker/spv-gateway/Dockerfile
+#   Health check: /v1/health  (answers 200 for every state it can report on)
+#   Needs no DigiByte node: it talks the peer protocol to public peers.
+#   Volume: mount at /data. It holds the header chain, the block index for the scan window and the
+#     peer book, so a restart resumes from stored state. Size: ESTIMATED at about 2 GB for the
+#     default 90-day window (see docs/RAILWAY_NODE.md); measure on the first fill and adjust.
+#   Env vars (all optional, defaults shown):
+#     SpvGateway__Network=Mainnet            Mainnet | Testnet (testnet has no built-in checkpoint yet)
+#     SpvGateway__DataDirectory=/data
+#     SpvGateway__ScanWindowDays=90          how far back scans are answered directly
+#     SpvGateway__MaxConcurrentScans=4       scans that run at once; more wait their turn
+#     SpvGateway__RateLimitPerMinute=120     per client
+#     SpvGateway__TrustForwardedFor=true     ONLY behind Railway's proxy, so the limit sees real clients
+#   The wallet points at it with WALLET_GATEWAY_ENABLED=true and WALLET_GATEWAY_API_URL on digibyte-web.
+#   The gateway sees the addresses a wallet asks about and nothing else; it never receives keys.
+#
 # ─── DigiPay stack ──────────────────────────────────────────────────────────
 #
 # Service 5: digipay-api

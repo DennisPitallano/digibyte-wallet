@@ -47,6 +47,10 @@
                     <span> to @RecipientCount recipients</span>
                 }
             </p>
+            @if (!string.IsNullOrEmpty(Note))
+            {
+                <p class="text-xs text-amber-200 mt-2 max-w-[260px] mx-auto" data-testid="send-note">@Note</p>
+            }
             @if (!string.IsNullOrEmpty(TxId))
             {
                 <p class="text-[11px] font-mono text-white/40 mt-2 break-all max-w-[260px] mx-auto">@TxId</p>
@@ -69,6 +73,9 @@
     [Parameter] public decimal Amount { get; set; }
     [Parameter] public string? TxId { get; set; }
     [Parameter] public int RecipientCount { get; set; } = 1;
+
+    /// <summary>An extra line under the amount, such as "sent, not yet confirmed by peers".</summary>
+    [Parameter] public string? Note { get; set; }
 
     private static readonly string[] _colors = [
         "#4ade80", "#22d3ee", "#a78bfa", "#fb923c",

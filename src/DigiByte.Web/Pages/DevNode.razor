@@ -6,6 +6,8 @@
 @inject ExplorerBackends Explorers
 @inject IConfiguration Config
 @inject NavigationManager Nav
+@inject IServiceProvider Services
+@inject P2pGatewayOptions GatewayOptions
 
 <PageTitle>Node diagnostics — DigiByte Wallet</PageTitle>
 
@@ -44,6 +46,38 @@
             else
             {
                 <p class="text-xs text-slate-400">No check has finished yet.</p>
+            }
+        </section>
+
+        @* The P2P light-client gateway (specs/011-p2p-spv-gateway): same readiness rules, shown in the same developer view. *@
+        <section class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 flex flex-col gap-2" aria-label="Light-client gateway">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Light-client gateway</h2>
+            @{
+                var gateway = Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetKeyedService<NodeSourceMonitor>(Services, "gateway");
+                var gatewaySnapshot = gateway?.LastSnapshot;
+            }
+            @Row("Gateway use", GatewayOptions.Enabled ? "on" : "off")
+            @Row("Gateway API", GatewayOptions.ApiUrl ?? "(not set)")
+            @Row("Requested position", GatewayOptions.RequestedPosition.ToString())
+            @Row("Effective position", GatewayOptions.Position.ToString())
+            @if (gateway is not null)
+            {
+                @Row("State", gateway.State.ToString())
+                @Row("Reason", gateway.Reason.ToString())
+            }
+            @if (gatewaySnapshot is not null)
+            {
+                @Row("Checked at", gatewaySnapshot.CheckedAt.ToLocalTime().ToString("HH:mm:ss"))
+                @Row("Status reported", gatewaySnapshot.Health?.Status ?? "-")
+                @Row("Header height", gatewaySnapshot.Health?.Blocks?.ToString("N0") ?? "-")
+                @Row("Explorer height", gatewaySnapshot.ExplorerHeight?.ToString("N0") ?? "-")
+                @Row("Height difference", gatewaySnapshot.HeightDelta?.ToString() ?? "-")
+                @Row("Lag", gatewaySnapshot.Health?.Lag?.ToString() ?? "-")
+                @Row("Peers", gatewaySnapshot.Health?.Peers?.ToString() ?? "-")
+            }
+            else
+            {
+                <p class="text-xs text-slate-400">No gateway check has finished yet.</p>
             }
         </section>
 

@@ -271,11 +271,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     private readonly WalletSyncStateStore? _syncStates;
     private readonly GatewayBootstrapCoordinator? _gatewayBootstrap;
     private readonly GatewayOwnSendRecorder? _ownSends;
+    private readonly GatewayRestoreServices? _gatewayRestore;
 
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
         DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null,
         WalletSyncStateStore? syncStateStore = null, GatewayBootstrapCoordinator? gatewayBootstrap = null,
-        GatewayOwnSendRecorder? ownSendRecorder = null)
+        GatewayOwnSendRecorder? ownSendRecorder = null, GatewayRestoreServices? gatewayRestore = null)
     {
         _keyStore = walletStore;
         _walletStore = walletStore;
@@ -288,6 +289,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _syncStates = syncStateStore;
         _gatewayBootstrap = gatewayBootstrap;
         _ownSends = ownSendRecorder;
+        _gatewayRestore = gatewayRestore;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -666,6 +668,64 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Puts a transaction this wallet just broadcast into the gateway record at once (FR-009a). Never throws: the send has already
     /// happened and nothing here may change its result.
     /// </summary>
+    /// <summary>Remembers the verified block height at which a new wallet started (spec FR-008a). Best effort: never affects creating the wallet.</summary>
+    public async Task RecordBirthHeightAsync()
+    {
+        if (_gatewayRestore is null || _activeWalletId is null || _gatewayBootstrap is not { IsEnabled: true })
+            return;
+        try
+        {
+            await _gatewayRestore.Birth.RecordAtCreationAsync(_activeWalletId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Gateway] Could not record the birth height: {ex.GetType().Name}");
+        }
+    }
+
+    /// <summary>
+    /// Restores the unlocked wallet through the light-client gateway (spec FR-008, T095), starting at the height worked out from the date
+    /// the user gave, or the recorded birth height. Returns null when the gateway is not used here (feature off, not mainnet, no start
+    /// height, any failure): the ordinary explorer discovery then does the restore, so funds are never skipped. A result that says
+    /// "use the explorer" carries the explanation to show.
+    /// </summary>
+    public async Task<RestoreResult?> RestoreViaGatewayAsync(DateTimeOffset? firstUse, bool deep = false, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    {
+        if (_gatewayRestore is null || _gatewayBootstrap is not { IsEnabled: true } || !IsUnlocked || _activeWalletId is null || _hd is null)
+            return null;
+        if ((ActiveWallet?.WifNetwork ?? _networkMode) != "mainnet")
+            return null;
+        try
+        {
+            var walletId = _activeWalletId;
+            var birth = firstUse is { } date
+                ? await _gatewayRestore.Birth.SetFromDateAsync(walletId, date)
+                : await _gatewayRestore.Birth.GetAsync(walletId);
+            if (birth.Height is not { } start)
+                return null;
+            var hd = _hd;
+            var source = new HdRestoreAddresses(hd);
+            return await _gatewayRestore.Scanner.RestoreAsync(walletId, source, start, deep ? DeepScanGapLimit : ReceiveGapLimit,
+                deep ? ScanMode.Deep : ScanMode.Normal, progress, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Gateway] Restore through the gateway did not finish ({ex.GetType().Name}); the explorer restore carries on.");
+            return null;
+        }
+    }
+
+    private sealed class HdRestoreAddresses(HdKeyDerivation hd) : IRestoreAddressSource
+    {
+        public string Receive(int index) => hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString();
+
+        public string Change(int index) => hd.DeriveChangeAddress(index, ScriptPubKeyType.Segwit).ToString();
+    }
+
     private async Task RecordOwnSendAsync(byte[] rawTx)
     {
         if (_ownSends is null)
@@ -1496,6 +1556,20 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             catch (Exception ex) { Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}"); }
         }
 
+        // Label rows the gateway record knows (checked, unchecked, pending). Nothing changes for rows it does not know, or when the feature is off.
+        if (_syncStates is not null && _gatewayBootstrap is { IsEnabled: true } && _activeWalletId is not null)
+        {
+            try
+            {
+                if (await _syncStates.GetAsync(_activeWalletId) is { } record)
+                    GatewayVerificationLabeler.Apply(localTxs, record, GatewayCapabilities.WalletPowVerified);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Gateway] Could not label history: {ex.GetType().Name}");
+            }
+        }
+
         // Update confirmation counts in background
         _ = _txTracker.UpdateConfirmationsAsync(_blockchain);
 
@@ -1585,6 +1659,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         // The gateway sync record goes with the wallet (FR-009a); it is rebuilt by the bootstrap rule if the wallet is restored.
         if (_syncStates is not null)
             await _syncStates.DeleteAsync(walletId);
+        if (_gatewayRestore is not null)
+        {
+            await _gatewayRestore.Birth.DeleteAsync(walletId);
+            await _gatewayRestore.Progress.DeleteAsync(walletId);
+        }
 
         if (_activeWalletId == walletId)
         {

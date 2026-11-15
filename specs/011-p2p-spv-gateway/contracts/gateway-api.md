@@ -154,7 +154,7 @@ Works for any age that a peer with full history can still serve, by fetching tha
 
 ## GET /v1/fee
 
-Advisory fee estimate (spec assumption). `{ "satoshisPerVbyte": 12.5, "basis": "recent-blocks" }`. The wallet's existing fee source stays authoritative until this proves reliable.
+Advisory fee estimate (spec assumption). `{ "satoshisPerVbyte": 100, "basis": "network-minimum" }`. The gateway cannot see what recent transactions paid (a block does not hold the amounts of the outputs a transaction spends), so it reports the network minimum relay fee and says so. The wallet's existing fee source stays authoritative until this proves reliable.
 
 ## What the gateway never does
 

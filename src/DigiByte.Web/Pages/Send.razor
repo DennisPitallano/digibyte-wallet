@@ -652,7 +652,7 @@ else
     @* Success overlay *@
     @if (sentTxId != null)
     {
-        <TxSuccessOverlay Amount="@(isBatchMode ? BatchTotal : amountDgb)" TxId="@sentTxId" RecipientCount="@(isBatchMode ? batchRecipients.Count : 1)" />
+        <TxSuccessOverlay Amount="@(isBatchMode ? BatchTotal : amountDgb)" TxId="@sentTxId" RecipientCount="@(isBatchMode ? batchRecipients.Count : 1)" Note="@sentNote" />
     }
 
     <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
@@ -1165,6 +1165,7 @@ else
     }
 
     private string? sentTxId;
+    private string? sentNote;
 
     private async Task ConfirmSend()
     {
@@ -1211,6 +1212,10 @@ else
             catch { }
             isSending = false;
             sentTxId = txId;
+            // When the light-client gateway carried the send and no peer has confirmed it yet, say so; the wallet keeps watching.
+            sentNote = Blockchain is FallbackBlockchainService { LastBroadcast.IsUnconfirmedByPeers: true }
+                ? "Sent to the network. No peer has confirmed it yet; the wallet will keep watching."
+                : null;
             showConfirm = false;
             StateHasChanged();
             // Show success briefly, then go home and trigger a fresh fetch

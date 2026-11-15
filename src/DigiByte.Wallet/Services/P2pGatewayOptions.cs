@@ -44,6 +44,13 @@ public sealed class P2pGatewayOptions
     /// </summary>
     public bool BackgroundProving { get; init; }
 
+    /// <summary>
+    /// Check the proof of work of every header the wallet takes (spec FR-013, T112). Off by default: it is slow under WebAssembly and has not
+    /// been measured there yet, and the wallet never labels anything "verified" while <see cref="GatewayCapabilities.WalletPowVerified"/> is
+    /// false, whatever this says. Set it only to measure or test.
+    /// </summary>
+    public bool CheckProofOfWork { get; init; }
+
     public static P2pGatewayOptions FromConfiguration(Func<string, string?> get)
     {
         var checkSeconds = NodeSourceOptions.ReadInt(get, "SpvGateway:CheckIntervalSeconds", 10, 300) ?? DefaultCheckIntervalSeconds;
@@ -63,6 +70,7 @@ public sealed class P2pGatewayOptions
             HeightTolerance = NodeSourceOptions.ReadInt(get, "SpvGateway:HeightTolerance", 1, 50) ?? DefaultHeightTolerance,
             HealthTimeout = TimeSpan.FromSeconds(NodeSourceOptions.ReadInt(get, "SpvGateway:HealthTimeoutSeconds", 1, 10) ?? DefaultHealthTimeoutSeconds),
             BackgroundProving = IsTrue(get("SpvGateway:BackgroundProving")),
+            CheckProofOfWork = IsTrue(get("SpvGateway:CheckProofOfWork")),
         };
     }
 

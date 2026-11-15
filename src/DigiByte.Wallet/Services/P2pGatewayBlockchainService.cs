@@ -27,8 +27,11 @@ public interface IGatewayBroadcaster
 /// fails the wallet checks it throws <see cref="GatewayFaultException"/>; any other failure is an ordinary read failure. It never
 /// returns an empty list for a failure.
 /// </summary>
-public sealed class P2pGatewayBlockchainService : IBlockchainService
+public sealed class P2pGatewayBlockchainService : IBlockchainService, IBroadcastReporter
 {
+    /// <summary>What the gateway said about the most recent send, for the screen that shows the outcome.</summary>
+    public BroadcastReport? LastBroadcast { get; private set; }
+
     public static readonly TimeSpan DefaultMinRefreshInterval = TimeSpan.FromSeconds(10);
 
     private readonly GatewayHeaderSync _headerSync;
@@ -142,9 +145,11 @@ public sealed class P2pGatewayBlockchainService : IBlockchainService
 
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
+        LastBroadcast = null;
         var result = await _broadcaster.BroadcastAsync(rawTransaction);
         if (result.Outcome == "rejected")
             throw new InvalidOperationException("The network rejected the transaction: " + string.Join("; ", result.Rejections));
+        LastBroadcast = new BroadcastReport(result.Outcome, result.Rejections);
         // "accepted" is sent; "no_response" is sent but not yet confirmed by peers, and the wallet keeps watching.
         return result.Txid;
     }

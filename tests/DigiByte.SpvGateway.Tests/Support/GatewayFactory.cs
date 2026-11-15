@@ -14,12 +14,14 @@ internal sealed class GatewayFactory : WebApplicationFactory<Program>
     private readonly Dictionary<string, string?> _settings;
 
     private readonly Action<IServiceCollection>? _configureServices;
+    private readonly bool _ownsDirectory;
 
-    public GatewayFactory(Dictionary<string, string?>? settings = null, Action<IServiceCollection>? configureServices = null)
+    public GatewayFactory(Dictionary<string, string?>? settings = null, Action<IServiceCollection>? configureServices = null, string? dataDirectory = null)
     {
         _configureServices = configureServices;
         _settings = settings ?? [];
-        DataDirectory = Path.Combine(Path.GetTempPath(), "spvgw-" + Guid.NewGuid().ToString("N"));
+        _ownsDirectory = dataDirectory is null;
+        DataDirectory = dataDirectory ?? Path.Combine(Path.GetTempPath(), "spvgw-" + Guid.NewGuid().ToString("N"));
     }
 
     public string DataDirectory { get; }
@@ -45,6 +47,8 @@ internal sealed class GatewayFactory : WebApplicationFactory<Program>
         if (!disposing)
             return;
         SqliteConnection.ClearAllPools();
+        if (!_ownsDirectory)
+            return; // a test that brought its own folder keeps it, so a second run can open the same files
         try
         {
             if (Directory.Exists(DataDirectory))

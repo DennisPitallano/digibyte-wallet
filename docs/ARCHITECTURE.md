@@ -83,6 +83,18 @@ That is the order with node use switched off (the default). With node use on (`W
 - Promotion needs the node to stay ready for a stable period (default 2 minutes); demotion is immediate on a not-ready check, or after three failed node reads in a row.
 - In this mode the node client runs in strict mode (a failed request is an error, never a zero), a source switch clears cached answers, and the UI shows a data-source dot with a plain-language detail, plus a banner only on real degradation.
 
+### P2P light-client gateway (optional, off by default)
+
+`DigiByte.SpvGateway` is a separate ASP.NET service that depends only on `DigiByte.Crypto` (specs/011-p2p-spv-gateway). It connects to public peers, verifies
+headers (linkage, per-algorithm difficulty, proof of work for all five algorithms), indexes the blocks of a 90-day scan window in SQLite, and serves
+`/v1/health`, `/v1/headers`, `/v1/scan`, `/v1/utxos`, `/v1/tx`, `/v1/proofs`, `/v1/broadcast` and `/v1/fee`. It keeps nothing about a request.
+
+In the wallet it is one more source in the chain: `P2pGatewayBlockchainService` answers from the wallet's own sync record (`WalletSyncState`), which is
+refreshed through `GatewayIncrementalSync` and rebuilt only from transactions whose merkle proofs `GatewayProofChecker` matched to headers the wallet
+verified itself (`GatewayHeaderStore`, `GatewayHeaderSync`). `GatewayTipCrossCheck` compares those headers with public explorers. A readiness monitor with
+the same rules as the own-node monitor decides when it may be used, and it sits behind the explorers until the wallet checks proof of work itself.
+A question it cannot answer correctly throws `GatewayDeclinedException`, so the next source answers and the gateway is not demoted.
+
 ### Explorer Backends
 
 | Priority | Name | Type | URL | Notes |

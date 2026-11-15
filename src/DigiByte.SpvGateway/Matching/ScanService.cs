@@ -26,15 +26,48 @@ public sealed class ScanService(SpvGatewayOptions options, HeaderStore headers, 
 {
     public const int MaxOutpoints = 100;
 
+    // Scans that fetch blocks take a slot from this pool, so a heavy restore queues instead of starving other requests (SC-009).
+    private readonly SemaphoreSlim _slots = new(Math.Max(1, options.MaxConcurrentScans));
+
+    /// <summary>The number of scans running now.</summary>
+    public int ActiveScans => Math.Max(1, options.MaxConcurrentScans) - _slots.CurrentCount;
+
     public async Task<ScanResponse> ScanAsync(IReadOnlyList<BitcoinAddress> addresses, int fromHeight, int toHeight, IReadOnlyList<OutPoint> knownOutpoints, CancellationToken cancellationToken)
     {
         var (tip, indexedFrom, indexedTo) = Coverage();
         var scripts = addresses.Select(a => ScriptKey.Of(a.ScriptPubKey)).ToList();
         var outpoints = knownOutpoints.Select(OutpointKey.Of).ToList();
-        return await ScanCoreAsync(scripts, outpoints, fromHeight, toHeight, tip, indexedFrom, indexedTo, cancellationToken);
+        await EnterAsync(cancellationToken);
+        try
+        {
+            return await ScanCoreAsync(scripts, outpoints, fromHeight, toHeight, tip, indexedFrom, indexedTo, cancellationToken);
+        }
+        finally
+        {
+            _slots.Release();
+        }
+    }
+
+    private async Task EnterAsync(CancellationToken cancellationToken)
+    {
+        if (!await _slots.WaitAsync(TimeSpan.FromSeconds(options.ScanQueueWaitSeconds), cancellationToken))
+            throw new GatewayException(GatewayError.NotReady, "The gateway is busy with other scans. Try again shortly.", options.ScanQueueWaitSeconds);
     }
 
     public async Task<UtxoResponse> UtxosAsync(IReadOnlyList<BitcoinAddress> addresses, int fromHeight, CancellationToken cancellationToken)
+    {
+        await EnterAsync(cancellationToken);
+        try
+        {
+            return await UtxosCoreAsync(addresses, fromHeight, cancellationToken);
+        }
+        finally
+        {
+            _slots.Release();
+        }
+    }
+
+    private async Task<UtxoResponse> UtxosCoreAsync(IReadOnlyList<BitcoinAddress> addresses, int fromHeight, CancellationToken cancellationToken)
     {
         var (tip, indexedFrom, indexedTo) = Coverage();
         var wanted = addresses.Select(a => a.ScriptPubKey).ToList();

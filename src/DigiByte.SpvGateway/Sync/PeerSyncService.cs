@@ -3,12 +3,15 @@ using DigiByte.SpvGateway.Peers;
 namespace DigiByte.SpvGateway.Sync;
 
 /// <summary>Background loop: keep peers connected, bring the header chain level with them, then index the new blocks. Failures are logged and retried.</summary>
-public sealed class PeerSyncService(PeerManager peers, HeaderDownloader downloader, BlockIndexer indexer, ILogger<PeerSyncService> logger) : BackgroundService
+public sealed class PeerSyncService(SpvGatewayOptions options, PeerManager peers, HeaderDownloader downloader, BlockIndexer indexer, ILogger<PeerSyncService> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(20);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!options.PeersEnabled)
+            return;
+
         using var timer = new PeriodicTimer(Interval);
         do
         {

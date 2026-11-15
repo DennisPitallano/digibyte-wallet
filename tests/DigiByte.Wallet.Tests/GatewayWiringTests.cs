@@ -237,3 +237,50 @@ public class GatewayWiringTests
         Assert.True(created);
     }
 }
+
+/// <summary>The restore hooks on the wallet service do nothing unless the gateway feature is on (T095, T096).</summary>
+public class GatewayRestoreHookTests
+{
+    private sealed class MemoryStorage : ISecureStorage
+    {
+        private readonly Dictionary<string, string> _data = [];
+        public Task<string?> GetAsync(string key) => Task.FromResult(_data.TryGetValue(key, out var v) ? v : null);
+        public Task SetAsync(string key, string value) { _data[key] = value; return Task.CompletedTask; }
+        public Task RemoveAsync(string key) { _data.Remove(key); return Task.CompletedTask; }
+        public Task<bool> ContainsKeyAsync(string key) => Task.FromResult(_data.ContainsKey(key));
+        public Task ClearAsync() { _data.Clear(); return Task.CompletedTask; }
+        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) => Task.FromResult(_data.Keys.Where(k => k.StartsWith(prefix)).ToList());
+    }
+
+    private sealed class PassCrypto : LegacyCryptoBase
+    {
+        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
+        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(ciphertext);
+    }
+
+    [Fact]
+    public async Task Without_the_gateway_the_restore_hook_returns_nothing_and_the_explorer_restore_is_the_only_path()
+    {
+        var storage = new MemoryStorage();
+        var service = new WalletService(new WalletKeyStore(storage), new PassCrypto(), new FakeBlockchainForHooks(), new TransactionTracker(storage));
+        service.SetNetworkMode("mainnet");
+        await service.CreateWalletAsync("W", string.Join(' ', new Mnemonic(Wordlist.English, WordCount.Twelve).Words), "123456");
+
+        Assert.Null(await service.RestoreViaGatewayAsync(DateTimeOffset.UtcNow.AddDays(-30)));
+        await service.RecordBirthHeightAsync(); // does nothing and does not throw
+    }
+
+    private sealed class FakeBlockchainForHooks : IBlockchainService
+    {
+        public Task<long> GetBalanceAsync(string address) => Task.FromResult(0L);
+        public Task<long> GetBalanceAsync(IEnumerable<string> addresses) => Task.FromResult(0L);
+        public Task<List<UtxoInfo>> GetUtxosAsync(string address) => Task.FromResult(new List<UtxoInfo>());
+        public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => Task.FromResult(new List<UtxoInfo>());
+        public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => Task.FromResult("tx");
+        public Task<TransactionInfo?> GetTransactionAsync(string txId) => Task.FromResult<TransactionInfo?>(null);
+        public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) => Task.FromResult(new List<TransactionInfo>());
+        public Task<decimal> GetFeeRateAsync() => Task.FromResult(100m);
+        public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => Task.FromResult(0.01m);
+        public Task<int> GetBlockHeightAsync() => Task.FromResult(1000);
+    }
+}
