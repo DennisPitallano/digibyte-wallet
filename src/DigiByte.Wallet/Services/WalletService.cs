@@ -8,7 +8,7 @@ using NBitcoin;
 
 namespace DigiByte.Wallet.Services;
 
-public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider
+public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider, IGatewayWalletScopeProvider
 {
     private readonly IKeyStore _keyStore;
     private readonly WalletKeyStore _walletStore;
@@ -269,10 +269,13 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Digi-ID recovery methods then refuse to run.
     /// </param>
     private readonly WalletSyncStateStore? _syncStates;
+    private readonly GatewayBootstrapCoordinator? _gatewayBootstrap;
+    private readonly GatewayOwnSendRecorder? _ownSends;
 
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
         DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null,
-        WalletSyncStateStore? syncStateStore = null)
+        WalletSyncStateStore? syncStateStore = null, GatewayBootstrapCoordinator? gatewayBootstrap = null,
+        GatewayOwnSendRecorder? ownSendRecorder = null)
     {
         _keyStore = walletStore;
         _walletStore = walletStore;
@@ -283,6 +286,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _vault = new ProtectedSecretStore(walletStore.Storage, crypto, time, migrationLock);
         _passwordList = passwordList;
         _syncStates = syncStateStore;
+        _gatewayBootstrap = gatewayBootstrap;
+        _ownSends = ownSendRecorder;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -638,6 +643,42 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _cachedAddressKeyMap = null;
         _activeWalletId = null;
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// What the gateway source needs to know: the active wallet and every address it watches, with the change ones marked. Null when no
+    /// wallet is unlocked or when the wallet is not on mainnet (the gateway has a mainnet checkpoint only). Addresses are the only wallet
+    /// data that ever leaves the device, and only to the gateway the user configured.
+    /// </summary>
+    public Task<GatewayWalletScope?> GetScopeAsync()
+    {
+        if (!IsUnlocked || _activeWalletId is null)
+            return Task.FromResult<GatewayWalletScope?>(null);
+        if ((ActiveWallet?.WifNetwork ?? _networkMode) != "mainnet")
+            return Task.FromResult<GatewayWalletScope?>(null);
+        var addresses = GetAllAddresses();
+        var changeKeys = GetChangeAddressKeys();
+        var change = addresses.Where(a => changeKeys.Contains(AddressKey.Normalize(a))).ToHashSet();
+        return Task.FromResult<GatewayWalletScope?>(new GatewayWalletScope(_activeWalletId, addresses.ToList(), change));
+    }
+
+    /// <summary>
+    /// Puts a transaction this wallet just broadcast into the gateway record at once (FR-009a). Never throws: the send has already
+    /// happened and nothing here may change its result.
+    /// </summary>
+    private async Task RecordOwnSendAsync(byte[] rawTx)
+    {
+        if (_ownSends is null)
+            return;
+        try
+        {
+            if (await GetScopeAsync() is { } scope)
+                await _ownSends.RecordAsync(scope, rawTx);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Gateway] Could not record the send: {ex.GetType().Name}");
+        }
     }
 
     public async Task<WalletBalance> GetBalanceAsync()
@@ -1181,6 +1222,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         // Broadcast
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        await RecordOwnSendAsync(rawTx);
 
         // Track the transaction locally
         var feePaid = tx.GetFee(utxosToUse.Select(u => u.ToCoin()).ToArray());
@@ -1348,6 +1390,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         // Broadcast
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        await RecordOwnSendAsync(rawTx);
 
         // History is keyed by TxId, so the whole batch is one record: the full amount, and the
         // first recipient as counterparty (the same one an explorer-built record would show).
@@ -1381,6 +1424,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 var ourNormalized = new HashSet<string>(rawAddresses.Select(NormalizeAddress));
                 bool isOurs(string? addr) => addr != null && ourNormalized.Contains(NormalizeAddress(addr));
 
+                // For the gateway record (FR-009a): the explorer tip is read before the snapshot is taken. Only when the feature is on.
+                var tipBeforeSnapshot = _gatewayBootstrap is { IsEnabled: true } ? await _gatewayBootstrap.ReadTipAsync() : null;
+
                 var allTxs = new Dictionary<string, TransactionInfo>();
                 var semaphore = new SemaphoreSlim(10);
                 var txTasks = rawAddresses.Select(async addr =>
@@ -1393,6 +1439,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 foreach (var txInfos in txResults)
                     foreach (var tx in txInfos)
                         allTxs.TryAdd(tx.TxId, tx);
+
+                // Offer what the explorer returned to the gateway record. Runs in the background and never changes this result.
+                _gatewayBootstrap?.Offer(_activeWalletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),
+                    servedByGateway: _blockchain is FallbackBlockchainService { ActiveBackend: "spv-gateway" });
 
                 var ownByKey = new Dictionary<string, string>();
                 foreach (var a in rawAddresses) ownByKey.TryAdd(NormalizeAddress(a), a);
@@ -1726,6 +1776,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        await RecordOwnSendAsync(rawTx);
 
         var feePaid = tx.GetFee(availableUtxos.Select(u => u.ToCoin()).ToArray());
         var amountAfterFee = totalSatoshis - (feePaid?.Satoshi ?? 0);

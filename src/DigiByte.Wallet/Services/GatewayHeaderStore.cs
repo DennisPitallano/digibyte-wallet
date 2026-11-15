@@ -29,6 +29,8 @@ public sealed class GatewayHeaderStore
     private readonly IPowHasher? _hasher;
     private readonly DigiByteConsensus _consensus;
     private readonly int _chunkSize;
+    private readonly SemaphoreSlim _initGate = new(1, 1);
+    private bool _initialized;
     private HeaderChain _chain;
     private int _persistedCount;
 
@@ -59,6 +61,25 @@ public sealed class GatewayHeaderStore
     private string MetaKey => _prefix + "meta";
 
     private string ChunkKey(int index) => $"{_prefix}chunk:{index}";
+
+    /// <summary>Loads what was saved the first time it is called and does nothing afterwards. Safe to call from several places at once.</summary>
+    public async Task EnsureInitializedAsync()
+    {
+        if (_initialized)
+            return;
+        await _initGate.WaitAsync();
+        try
+        {
+            if (_initialized)
+                return;
+            await InitializeAsync();
+            _initialized = true;
+        }
+        finally
+        {
+            _initGate.Release();
+        }
+    }
 
     /// <summary>Loads what was saved, or starts from the checkpoint when nothing usable was.</summary>
     public async Task InitializeAsync()

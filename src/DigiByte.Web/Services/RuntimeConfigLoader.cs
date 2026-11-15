@@ -4,8 +4,9 @@ namespace DigiByte.Web.Services;
 
 /// <summary>
 /// Reads the deployment's <c>config.json</c> (written when the web container starts) so the own-node settings can change without
-/// a rebuild (specs/005-wallet-own-node-source/contracts/runtime-config.md). Only the <c>OwnNode</c> section and the three
-/// <c>DigiDollar</c> switches (ViewEnabled, SendEnabled, OracleEnabled) are accepted: the file can never override any other setting. A missing or invalid file simply means "no overrides"; nothing here throws, and no value is logged.
+/// a rebuild (specs/005-wallet-own-node-source/contracts/runtime-config.md). Only the <c>OwnNode</c> section, the three
+/// <c>DigiDollar</c> switches (ViewEnabled, SendEnabled, OracleEnabled) and the P2P gateway settings of the <c>SpvGateway</c> section
+/// (specs/011-p2p-spv-gateway) are accepted: the file can never override any other setting. A missing or invalid file simply means "no overrides"; nothing here throws, and no value is logged.
 /// </summary>
 public static class RuntimeConfigLoader
 {
@@ -13,6 +14,9 @@ public static class RuntimeConfigLoader
     private const string Section = "OwnNode";
     private const string DdSection = "DigiDollar";
     private static readonly string[] DdKeys = ["ViewEnabled", "SendEnabled", "OracleEnabled"];
+    private const string GatewaySection = "SpvGateway";
+    // Only what docker/web/40-write-config.sh writes. BackgroundProving is left out on purpose: it sends transaction ids, so it is a build-time choice.
+    private static readonly string[] GatewayKeys = ["Enabled", "ApiUrl", "Position", "CheckIntervalSeconds", "StablePeriodSeconds", "HeightTolerance"];
 
     /// <summary>Fetches and parses <c>config.json</c> from the app's own origin. Any failure means no overrides.</summary>
     public static async Task<IReadOnlyDictionary<string, string?>> FetchAsync(HttpClient http)
@@ -51,16 +55,17 @@ public static class RuntimeConfigLoader
                     continue;
                 var isOwnNode = string.Equals(section.Name, Section, StringComparison.OrdinalIgnoreCase);
                 var isDd = string.Equals(section.Name, DdSection, StringComparison.OrdinalIgnoreCase);
-                if (!isOwnNode && !isDd)
+                var isGateway = string.Equals(section.Name, GatewaySection, StringComparison.OrdinalIgnoreCase);
+                if (!isOwnNode && !isDd && !isGateway)
                     continue;
-                var sectionName = isOwnNode ? Section : DdSection;
+                var sectionName = isOwnNode ? Section : isDd ? DdSection : GatewaySection;
 
                 foreach (var setting in section.Value.EnumerateObject())
                 {
                     string? canonical = setting.Name;
-                    if (isDd)
+                    if (isDd || isGateway)
                     {
-                        canonical = DdKeys.FirstOrDefault(k => string.Equals(k, setting.Name, StringComparison.OrdinalIgnoreCase));
+                        canonical = (isDd ? DdKeys : GatewayKeys).FirstOrDefault(k => string.Equals(k, setting.Name, StringComparison.OrdinalIgnoreCase));
                         if (canonical is null)
                             continue;
                     }

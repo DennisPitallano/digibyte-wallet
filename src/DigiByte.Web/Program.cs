@@ -161,6 +161,51 @@ builder.Services.AddScoped<INodeReadFailureSink>(sp => sp.GetRequiredService<Nod
 builder.Services.AddScoped<NodeSourceMonitorLoop>();
 builder.Services.AddScoped<NodeSourceStatusService>();
 
+// ── The P2P light-client gateway as a blockchain source (specs/011-p2p-spv-gateway) ──
+// Off by default (SpvGateway:Enabled). When on, it is used only while its own monitor says it is ready, never above the explorers
+// until the wallet checks proof of work itself (see GatewayCapabilities), and every answer it gives is checked against headers the
+// wallet verified. Mainnet only: the gateway has a mainnet checkpoint and no testnet one yet.
+var spvGateway = P2pGatewayOptions.FromConfiguration(key => builder.Configuration[key]);
+var spvGatewayOn = spvGateway.Enabled && spvGateway.HasApiUrl;
+builder.Services.AddSingleton(spvGateway);
+builder.Services.AddHttpClient("SpvGateway");
+builder.Services.AddHttpClient("SpvGatewayHealth");
+builder.Services.AddScoped(sp => new GatewayClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("SpvGateway"), spvGateway));
+builder.Services.AddScoped(sp => new GatewayHeaderStore(sp.GetRequiredService<ISecureStorage>(), DigiByte.Crypto.Headers.Checkpoints.Mainnet, "mainnet"));
+builder.Services.AddScoped(sp => new GatewayHeaderSync(sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<GatewayClient>()));
+builder.Services.AddScoped(sp => new GatewayProofChecker(sp.GetRequiredService<GatewayHeaderStore>()));
+builder.Services.AddScoped(sp => new GatewayIncrementalSync(
+    sp.GetRequiredService<GatewayClient>(), sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<GatewayProofChecker>(),
+    sp.GetRequiredService<WalletSyncStateStore>()));
+builder.Services.AddScoped<IGatewayWalletScopeProvider>(sp => new LazyGatewayScopeProvider(() => sp.GetRequiredService<WalletService>()));
+// An independent view of the chain for the header cross-check: plain requests with a hard budget (the "Blockchain" client retries for up
+// to 45 seconds, which a read must never wait for). Mainnet explorers only; the gateway is mainnet only.
+builder.Services.AddHttpClient("BlockHash");
+builder.Services.AddScoped<IExplorerBlockHashSource>(sp => new ExplorerBlockHashSource(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("BlockHash"),
+    [new ExplorerHashEndpoint("https://digiexplorer.info/api", ExplorerHashKind.Esplora),
+     new ExplorerHashEndpoint("https://digibyteblockexplorer.com", ExplorerHashKind.Blockbook)]));
+builder.Services.AddScoped(sp => new GatewayTipCrossCheck(sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<IExplorerBlockHashSource>()));
+// Proof requests reveal transaction ids, so this upgrader is only ever started by the gateway source itself (the gateway is then the
+// answering source). The background-proving switch for explorer-served wallets is not wired in the first release.
+builder.Services.AddScoped(sp => new GatewayProofUpgrader(
+    sp.GetRequiredService<GatewayClient>(), sp.GetRequiredService<GatewayProofChecker>(), sp.GetRequiredService<WalletSyncStateStore>(), () => spvGatewayOn));
+builder.Services.AddScoped(sp => new P2pGatewayBlockchainService(
+    sp.GetRequiredService<GatewayHeaderSync>(), sp.GetRequiredService<GatewayIncrementalSync>(), sp.GetRequiredService<WalletSyncStateStore>(),
+    sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<IGatewayWalletScopeProvider>(), sp.GetRequiredService<GatewayClient>(),
+    crossCheck: sp.GetRequiredService<GatewayTipCrossCheck>(),
+    proofUpgrader: sp.GetRequiredService<GatewayProofUpgrader>()));
+builder.Services.AddScoped(sp => new GatewayOwnSendRecorder(sp.GetRequiredService<WalletSyncStateStore>()));
+builder.Services.AddScoped(sp => new GatewayStateBootstrap(sp.GetRequiredService<WalletSyncStateStore>(), sp.GetRequiredService<GatewayHeaderStore>()));
+builder.Services.AddScoped(sp => new GatewayBootstrapCoordinator(
+    sp.GetRequiredService<GatewayStateBootstrap>(), sp.GetRequiredService<FallbackBlockchainService>(), () => spvGatewayOn));
+// Its own readiness monitor (the same rules as the node one): health report plus an explorer height cross-check.
+builder.Services.AddKeyedScoped("gateway", (sp, _) => new NodeSourceMonitor(
+    spvGateway.ToMonitorOptions(),
+    new GatewayHealthHttpSource(sp.GetRequiredService<IHttpClientFactory>().CreateClient("SpvGatewayHealth"), spvGateway),
+    sp.GetRequiredService<ExplorerHeightSource>(), new SystemClock()));
+builder.Services.AddKeyedScoped("gateway", (sp, _) => new NodeSourceMonitorLoop(sp.GetRequiredKeyedService<NodeSourceMonitor>("gateway"), spvGateway.ToMonitorOptions()));
+
 builder.Services.AddScoped<FallbackBlockchainService>(sp =>
 {
     var nodeApi = sp.GetRequiredService<NodeApiBlockchainService>();
@@ -170,7 +215,11 @@ builder.Services.AddScoped<FallbackBlockchainService>(sp =>
     var mock = isDevelopment ? sp.GetRequiredService<MockBlockchainService>() : null;
     return new FallbackBlockchainService(nodeApi, explorers, priceHttp, isDevelopment, priceApiUrl, mock,
         sp.GetRequiredService<FiatRateProvider>(),
-        sp.GetRequiredService<INodeSourceState>(), sp.GetRequiredService<INodeReadFailureSink>());
+        sp.GetRequiredService<INodeSourceState>(), sp.GetRequiredService<INodeReadFailureSink>(),
+        gatewaySource: spvGatewayOn ? sp.GetRequiredService<P2pGatewayBlockchainService>() : null,
+        gatewayState: spvGatewayOn ? sp.GetRequiredKeyedService<NodeSourceMonitor>("gateway") : null,
+        gatewayFailureSink: spvGatewayOn ? sp.GetRequiredKeyedService<NodeSourceMonitor>("gateway") : null,
+        gatewayPosition: spvGateway.Position);
 });
 builder.Services.AddScoped<IBlockchainService>(sp => sp.GetRequiredService<FallbackBlockchainService>());
 
@@ -235,5 +284,8 @@ await localization.InitializeAsync();
 
 // Start the own-node readiness checks in the background (does nothing unless OwnNode:Enabled is true).
 host.Services.GetRequiredService<NodeSourceMonitorLoop>().Start();
+// The gateway readiness checks, likewise (does nothing unless SpvGateway:Enabled is true and an address is set).
+if (spvGatewayOn)
+    host.Services.GetRequiredKeyedService<NodeSourceMonitorLoop>("gateway").Start();
 
 await host.RunAsync();

@@ -84,8 +84,11 @@ public sealed class WalletSyncStateStore(ISecureStorage storage)
         {
             if (!IsHash(tx.Txid))
                 throw new InvalidSyncStateException("A transaction id is not a hash.");
-            if (tx.Height < 0 || (tx.Height > 0 && !IsHash(tx.BlockHash)))
-                throw new InvalidSyncStateException("A confirmed transaction needs its height and block hash.");
+            if (tx.Height < 0)
+                throw new InvalidSyncStateException("A transaction height cannot be negative.");
+            // A proven transaction names its block. An explorer-sourced one may not, when its block is older than the wallet headers reach.
+            if (tx.Height > 0 && tx.Origin == SyncOrigin.GatewayProven && !IsHash(tx.BlockHash))
+                throw new InvalidSyncStateException("A proven confirmed transaction needs its block hash.");
             if (tx.Origin == SyncOrigin.GatewayProven && string.IsNullOrEmpty(tx.Raw))
                 throw new InvalidSyncStateException("A gateway-proven transaction must keep its raw bytes.");
         }

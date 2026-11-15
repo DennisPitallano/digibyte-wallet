@@ -328,6 +328,12 @@ public class FallbackBlockchainService : IBlockchainService
             Console.WriteLine("[Read] ✓ spv-gateway succeeded");
             return (true, result);
         }
+        catch (GatewayDeclinedException ex)
+        {
+            // The gateway cannot answer this one correctly (no wallet record yet, headers behind): not a failure, so the monitor is not told.
+            Console.WriteLine($"[Read] spv-gateway declined: {ex.Message}");
+            return (false, default);
+        }
         catch (Exception ex)
         {
             Console.WriteLine($"[Read] ✗ spv-gateway failed: {ex.Message}");

@@ -16,14 +16,14 @@ public enum SyncOrigin
 /// <summary>One transaction the wallet knows about.</summary>
 /// <param name="Txid">The transaction id.</param>
 /// <param name="Height">The height of its block, 0 while it is not in a block.</param>
-/// <param name="BlockHash">The hash of that block, empty while it is not in a block.</param>
+/// <param name="BlockHash">The hash of that block. Empty while it is not in a block, and for an explorer-sourced entry whose block is older than the wallet headers reach.</param>
 /// <param name="Raw">The serialized transaction as hex. Required for gateway-proven entries, optional for explorer-sourced ones.</param>
 /// <param name="Origin">Where the record came from.</param>
 /// <param name="Disputed">The gateway contradicts what the explorer reported about it.</param>
 /// <param name="IsOwnSend">The wallet signed and sent it.</param>
 public sealed record SyncTransaction(string Txid, int Height, string BlockHash, string? Raw, SyncOrigin Origin, bool Disputed = false, bool IsOwnSend = false)
 {
-    public bool IsConfirmed => Height > 0 && BlockHash.Length == 64;
+    public bool IsConfirmed => Height > 0;
 }
 
 /// <summary>An output of the wallet that is not spent as far as the state knows. Sent to the gateway only as <c>txid:vout</c>.</summary>
@@ -42,10 +42,12 @@ public sealed record SyncOutpoint(string Txid, int Vout, long Amount, string Scr
 /// <param name="Transactions">Every transaction the wallet knows.</param>
 /// <param name="UnspentOutpoints">The wallet unspent outputs, sent as <c>knownOutpoints</c>.</param>
 /// <param name="UpdatedAt">Informational.</param>
+/// <param name="SpentOutpoints">Outputs of the wallet that were spent, kept with their amount and script so a history row can show what a spending transaction took in.</param>
 public sealed record WalletSyncState(
     string WalletId,
     int LastSyncedHeight,
     string LastSyncedHash,
     IReadOnlyList<SyncTransaction> Transactions,
     IReadOnlyList<SyncOutpoint> UnspentOutpoints,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<SyncOutpoint>? SpentOutpoints = null);

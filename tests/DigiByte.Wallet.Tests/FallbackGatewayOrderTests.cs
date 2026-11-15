@@ -55,6 +55,34 @@ public class FallbackGatewayOrderTests
         }
     }
 
+    private sealed class DecliningGateway : IBlockchainService
+    {
+        public Task<long> GetBalanceAsync(string address) => throw new GatewayDeclinedException("no record yet");
+        public Task<long> GetBalanceAsync(IEnumerable<string> addresses) => throw new GatewayDeclinedException("no record yet");
+        public Task<List<UtxoInfo>> GetUtxosAsync(string address) => throw new GatewayDeclinedException("no record yet");
+        public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => throw new GatewayDeclinedException("no record yet");
+        public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => throw new GatewayDeclinedException("no record yet");
+        public Task<TransactionInfo?> GetTransactionAsync(string txId) => throw new GatewayDeclinedException("no record yet");
+        public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) => throw new GatewayDeclinedException("no record yet");
+        public Task<decimal> GetFeeRateAsync() => throw new GatewayDeclinedException("no record yet");
+        public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => throw new GatewayDeclinedException("no record yet");
+        public Task<int> GetBlockHeightAsync() => throw new GatewayDeclinedException("no record yet");
+    }
+
+    [Fact]
+    public async Task A_gateway_that_declines_is_skipped_without_counting_as_a_failed_read()
+    {
+        var rig = new Rig(NodeSourceState.Active, GatewayPosition.First, gatewayOverride: new DecliningGateway());
+
+        Assert.Equal(100, await rig.Sut.GetBalanceAsync("DAbc"));
+        Assert.Equal(100, await rig.Sut.GetBalanceAsync("DAbc2"));
+        Assert.Equal(100, await rig.Sut.GetBalanceAsync("DAbc3"));
+
+        Assert.Equal(0, rig.GatewayState.Failures);
+        Assert.Equal(NodeSourceState.Active, rig.GatewayState.State);
+        Assert.NotEqual("spv-gateway", rig.Sut.ActiveBackend);
+    }
+
     // ================= backup position =================
 
     [Fact]

@@ -39,7 +39,7 @@ public sealed record GatewayProofsAnswer(IReadOnlyList<GatewayTransactionProof> 
 /// <see cref="GatewayRequestException"/>: it never turns a failure into an empty result, so an outage cannot read as "no funds". Request
 /// bodies hold only addresses, heights, outpoints and signed transactions, never a key, seed word or extended public key.
 /// </summary>
-public sealed class GatewayClient(HttpClient http, P2pGatewayOptions options) : IGatewayHeaderFeed
+public sealed class GatewayClient(HttpClient http, P2pGatewayOptions options) : IGatewayHeaderFeed, IGatewayScanner, IGatewayBroadcaster, IGatewayProofSource
 {
     public const int MaxPerRequest = 100;
 
