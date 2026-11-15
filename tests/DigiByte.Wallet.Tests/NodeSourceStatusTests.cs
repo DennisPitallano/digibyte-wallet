@@ -226,3 +226,89 @@ public class NodeSourceStatusTests
     }
 }
 
+
+/// <summary>The light-client gateway in the status wording (specs/011-p2p-spv-gateway, T101, T110).</summary>
+public class GatewayStatusWordingTests
+{
+    private static NodeSourceStatusView NodeOff() =>
+        NodeSourceStatus.Compute(NodeSourceState.Disabled, NodeNotReadyReason.None, nodeWasActive: false, allSourcesFailed: false);
+
+    [Fact]
+    public void Without_a_gateway_the_view_is_returned_unchanged()
+    {
+        var view = NodeOff();
+
+        Assert.Equal(view, NodeSourceStatus.WithGateway(view, NodeSourceState.Disabled, NodeNotReadyReason.None, gatewayAnswering: false));
+    }
+
+    [Fact]
+    public void A_gateway_that_is_answering_is_named_with_the_address_note_and_never_as_protection_from_a_dishonest_source()
+    {
+        var view = NodeSourceStatus.WithGateway(NodeOff(), NodeSourceState.Active, NodeNotReadyReason.None, gatewayAnswering: true);
+
+        Assert.True(view.Visible);
+        Assert.Equal(NodeSourceDot.Green, view.Dot);
+        Assert.Contains("light-client gateway", view.Detail);
+        Assert.Contains("sees the addresses this wallet asks about", view.Detail);
+        Assert.Contains("checked itself", view.Detail);
+        Assert.DoesNotContain("protect", view.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("trustless", view.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void A_ready_gateway_that_is_not_answering_is_a_backup_and_the_dot_stays_neutral()
+    {
+        var view = NodeSourceStatus.WithGateway(NodeOff(), NodeSourceState.Active, NodeNotReadyReason.None, gatewayAnswering: false);
+
+        Assert.Equal(NodeSourceDot.Neutral, view.Dot);
+        Assert.Contains("ready as a backup", view.Detail);
+        Assert.Contains("sees the addresses", view.Detail);
+    }
+
+    [Theory]
+    [InlineData(NodeSourceState.Stabilizing, NodeNotReadyReason.None, "being checked")]
+    [InlineData(NodeSourceState.NotReady, NodeNotReadyReason.Syncing, "still syncing")]
+    [InlineData(NodeSourceState.NotReady, NodeNotReadyReason.Starting, "still syncing")]
+    [InlineData(NodeSourceState.Unavailable, NodeNotReadyReason.None, "not available")]
+    public void A_gateway_that_is_not_ready_says_why_and_makes_no_privacy_claim_about_itself(NodeSourceState state, NodeNotReadyReason reason, string expected)
+    {
+        var view = NodeSourceStatus.WithGateway(NodeOff(), state, reason, gatewayAnswering: false);
+
+        Assert.Contains(expected, view.Detail);
+        Assert.DoesNotContain("sees the addresses", view.Detail);
+        Assert.Equal(NodeSourceDot.Neutral, view.Dot);
+    }
+
+    [Fact]
+    public void The_node_wording_is_kept_and_the_gateway_line_is_added_after_it()
+    {
+        var node = NodeSourceStatus.Compute(NodeSourceState.Active, NodeNotReadyReason.None, nodeWasActive: true, allSourcesFailed: false);
+
+        var view = NodeSourceStatus.WithGateway(node, NodeSourceState.Active, NodeNotReadyReason.None, gatewayAnswering: false);
+
+        Assert.StartsWith(node.Detail, view.Detail);
+        Assert.Equal(node.PrivacyLine, view.PrivacyLine);
+        Assert.Equal(node.Dot, view.Dot);
+    }
+
+    [Fact]
+    public void A_total_outage_keeps_its_red_dot_and_banner_whatever_the_gateway_says()
+    {
+        var outage = NodeSourceStatus.Compute(NodeSourceState.Active, NodeNotReadyReason.None, nodeWasActive: true, allSourcesFailed: true);
+
+        var view = NodeSourceStatus.WithGateway(outage, NodeSourceState.Active, NodeNotReadyReason.None, gatewayAnswering: false);
+
+        Assert.Equal(NodeSourceDot.Red, view.Dot);
+        Assert.True(view.ShowBanner);
+    }
+
+    [Theory]
+    [InlineData(NodeSourceState.Disabled, "Not in use")]
+    [InlineData(NodeSourceState.Active, "Ready")]
+    [InlineData(NodeSourceState.Stabilizing, "Checking")]
+    [InlineData(NodeSourceState.Unavailable, "Unreachable")]
+    public void The_deployment_badge_follows_the_monitor_state(NodeSourceState state, string label)
+    {
+        Assert.Equal(label, NodeSourceStatus.GatewayBadge(state, NodeNotReadyReason.None).Label);
+    }
+}

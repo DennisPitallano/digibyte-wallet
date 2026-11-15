@@ -93,6 +93,61 @@ public static class NodeSourceStatus
         return new NodeSourceStatusView(true, NodeSourceDot.Neutral, detail, null, false, null);
     }
 
+    /// <summary>The note every gateway line carries: the service sees the addresses the wallet asks about (spec FR-021, T110).</summary>
+    public const string GatewayPrivacyLine =
+        "The light-client gateway sees the addresses this wallet asks about. Your keys never leave your device.";
+
+    /// <summary>
+    /// Adds the P2P light-client gateway (specs/011-p2p-spv-gateway) to what the status panel says. When the gateway is not configured
+    /// the view is returned unchanged. "Checked" is described as matching transactions to block headers the wallet checked itself, never
+    /// as protection against a dishonest source.
+    /// </summary>
+    public static NodeSourceStatusView WithGateway(NodeSourceStatusView view, NodeSourceState gatewayState, NodeNotReadyReason gatewayReason, bool gatewayAnswering)
+    {
+        if (gatewayState == NodeSourceState.Disabled)
+            return view;
+
+        string line;
+        if (gatewayAnswering)
+        {
+            line = "Balances and history are being answered by the wallet's light-client gateway and matched to block headers this wallet checked itself. " + GatewayPrivacyLine;
+        }
+        else if (gatewayState == NodeSourceState.Active)
+        {
+            line = "The wallet's light-client gateway is ready as a backup. " + GatewayPrivacyLine;
+        }
+        else
+        {
+            line = gatewayState == NodeSourceState.Stabilizing
+                ? "The light-client gateway is being checked and will be used as a backup when it is ready."
+                : gatewayReason is NodeNotReadyReason.Starting or NodeNotReadyReason.Syncing
+                    ? "The light-client gateway is still syncing and is not being used yet."
+                    : "The light-client gateway is not available right now and is not being used.";
+        }
+
+        var detail = view.Visible ? view.Detail + " " + line : line;
+        var privacy = view.PrivacyLine;
+        var dot = view.Dot == NodeSourceDot.None ? NodeSourceDot.Neutral : view.Dot;
+        if (gatewayAnswering && dot == NodeSourceDot.Neutral)
+            dot = NodeSourceDot.Green;
+        return view with { Visible = true, Dot = dot, Detail = detail, PrivacyLine = privacy };
+    }
+
+    /// <summary>Badge for the light-client gateway row on the Deployment page.</summary>
+    public static NodeDeploymentBadge GatewayBadge(NodeSourceState state, NodeNotReadyReason reason) => state switch
+    {
+        NodeSourceState.Disabled => new("Not in use", NodeBadgeTone.Muted),
+        NodeSourceState.Active => new("Ready", NodeBadgeTone.Good),
+        NodeSourceState.Stabilizing => new("Checking", NodeBadgeTone.Warn),
+        NodeSourceState.Unavailable => new("Unreachable", NodeBadgeTone.Warn),
+        _ => reason switch
+        {
+            NodeNotReadyReason.Starting or NodeNotReadyReason.Syncing => new("Syncing", NodeBadgeTone.Warn),
+            NodeNotReadyReason.HeightDrift => new("Out of step", NodeBadgeTone.Warn),
+            _ => new("Unavailable", NodeBadgeTone.Warn),
+        },
+    };
+
     /// <summary>Badge for the "Node API + DigiByte Node" row on the Deployment page, from the live monitor state.</summary>
     public static NodeDeploymentBadge DeploymentBadge(NodeSourceState state, NodeNotReadyReason reason) => state switch
     {

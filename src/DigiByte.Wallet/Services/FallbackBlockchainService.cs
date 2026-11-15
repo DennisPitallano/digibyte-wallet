@@ -28,6 +28,10 @@ public class FallbackBlockchainService : IBlockchainService
     private readonly bool _isDevelopment;
     private readonly INodeSourceState? _nodeState;
     private readonly INodeReadFailureSink? _nodeFailureSink;
+    private readonly IBlockchainService? _gatewaySource;
+    private readonly INodeSourceState? _gatewayState;
+    private readonly INodeReadFailureSink? _gatewayFailureSink;
+    private readonly GatewayPosition _gatewayPosition;
     private bool _isRegtest;
 
     /// <summary>Time budget for one node read on a fast route (transaction lookup, fee, height) while the node is active.</summary>
@@ -35,6 +39,15 @@ public class FallbackBlockchainService : IBlockchainService
 
     /// <summary>Time budget for one node read on an address route, used only as the fallback; the node answers these by scanning (about 14 s).</summary>
     public TimeSpan AddressNodeReadBudget { get; set; } = TimeSpan.FromSeconds(20);
+
+    /// <summary>Time budget for one read through the SPV gateway while it is active (specs/011-p2p-spv-gateway).</summary>
+    public TimeSpan GatewayReadBudget { get; set; } = TimeSpan.FromSeconds(8);
+
+    /// <summary>
+    /// True when the SPV gateway is configured, not on regtest, and its monitor says it is active. Never waits on the gateway's health:
+    /// the monitor decides in the background, so no read or send is held up by it.
+    /// </summary>
+    private bool GatewayActive => _gatewaySource is not null && _gatewayState is { IsActive: true } && !_isRegtest;
 
     // Track which explorers are currently failing to skip them temporarily
     private readonly Dictionary<int, DateTime> _explorerCooldowns = new();
@@ -81,10 +94,18 @@ public class FallbackBlockchainService : IBlockchainService
         MockBlockchainService? mock = null,
         FiatRateProvider? fx = null,
         INodeSourceState? nodeState = null,
-        INodeReadFailureSink? failureSink = null)
+        INodeReadFailureSink? failureSink = null,
+        IBlockchainService? gatewaySource = null,
+        INodeSourceState? gatewayState = null,
+        INodeReadFailureSink? gatewayFailureSink = null,
+        GatewayPosition gatewayPosition = GatewayPosition.Backup)
     {
         _nodeState = nodeState;
         _nodeFailureSink = failureSink;
+        _gatewaySource = gatewaySource;
+        _gatewayState = gatewayState;
+        _gatewayFailureSink = gatewayFailureSink;
+        _gatewayPosition = gatewayPosition;
         _nodeApi = nodeApi;
         _explorers = explorers.ToList();
         _priceHttp = priceHttp;
@@ -97,6 +118,8 @@ public class FallbackBlockchainService : IBlockchainService
         // (Spendable outputs are never cached: they must be fresh for signing.)
         if (_nodeState is not null)
             _nodeState.Changed += InvalidateCache;
+        if (_gatewayState is not null)
+            _gatewayState.Changed += InvalidateCache;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -154,6 +177,15 @@ public class FallbackBlockchainService : IBlockchainService
         }
 
         var nodeActive = !LegacyOrder && _nodeState!.IsActive;
+
+        // The SPV gateway when it is first in line: only while its monitor says it is active. A failed, slow or empty answer is
+        // reported to the monitor and the usual sources are asked as if it were not there.
+        if (GatewayActive && _gatewayPosition == GatewayPosition.First)
+        {
+            var viaGateway = await TryGatewayAsync(call);
+            if (viaGateway.Answered)
+                return viaGateway.Value!;
+        }
 
         // Fast routes (transaction lookup, fee, height): the active node first. A failed or over-budget read is answered by an
         // explorer for this request and reported to the monitor; a null (not found) is not authoritative, so the explorers are asked too.
@@ -222,6 +254,14 @@ public class FallbackBlockchainService : IBlockchainService
                 return viaNode.Value!;
         }
 
+        // The SPV gateway as a backup: asked only after the explorers (and the node, where it applies) could not answer.
+        if (GatewayActive && _gatewayPosition == GatewayPosition.Backup)
+        {
+            var viaGateway = await TryGatewayAsync(call);
+            if (viaGateway.Answered)
+                return viaGateway.Value!;
+        }
+
         // 3. Mock fallback — development only
         if (_isDevelopment && _mock != null)
         {
@@ -268,11 +308,74 @@ public class FallbackBlockchainService : IBlockchainService
     }
 
     /// <summary>
+    /// Asks the SPV gateway with a time budget. <c>Answered</c> is false when it failed, ran over the budget or returned null (not found,
+    /// which is not authoritative). Failures are reported to the gateway's monitor so repeated ones demote it at once.
+    /// </summary>
+    private async Task<(bool Answered, T? Value)> TryGatewayAsync<T>(Func<IBlockchainService, Task<T>> call)
+    {
+        try
+        {
+            Console.WriteLine("[Read] Trying spv-gateway (active)...");
+            var result = await call(_gatewaySource!).WaitAsync(GatewayReadBudget);
+            _gatewayFailureSink?.ReportNodeReadSuccess();
+            if (result is null)
+            {
+                Console.WriteLine("[Read] spv-gateway: not found, asking the other sources");
+                return (false, default);
+            }
+            IsDemoMode = false;
+            ActiveBackend = "spv-gateway";
+            Console.WriteLine("[Read] ✓ spv-gateway succeeded");
+            return (true, result);
+        }
+        catch (GatewayDeclinedException ex)
+        {
+            // The gateway cannot answer this one correctly (no wallet record yet, headers behind): not a failure, so the monitor is not told.
+            Console.WriteLine($"[Read] spv-gateway declined: {ex.Message}");
+            return (false, default);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Read] ✗ spv-gateway failed: {ex.Message}");
+            _gatewayFailureSink?.ReportNodeReadFailure();
+            return (false, default);
+        }
+    }
+
+    /// <summary>Sends a transaction through the SPV gateway. Returns null (and moves on) when it could not.</summary>
+    private async Task<string?> TryGatewayBroadcastAsync(byte[] rawTransaction)
+    {
+        try
+        {
+            Console.WriteLine("[Broadcast] Trying spv-gateway...");
+            var txId = await _gatewaySource!.BroadcastTransactionAsync(rawTransaction);
+            Console.WriteLine($"[Broadcast] ✓ spv-gateway succeeded — txid: {txId}");
+            InvalidateCache();
+            ActiveBackend = "spv-gateway";
+            LastBroadcast = (_gatewaySource as IBroadcastReporter)?.LastBroadcast;
+            return txId;
+        }
+        catch (Exception ex)
+        {
+            // A rejected broadcast is not a failed read, so the monitor is not told.
+            Console.WriteLine($"[Broadcast] ✗ spv-gateway failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// For writes: NodeApi first (direct node), then all explorers in order.
     /// Never falls back to mock for broadcasts.
     /// </summary>
+    /// <summary>
+    /// What the gateway said about the last send, only when the gateway carried it; null otherwise (so a send through an explorer or the
+    /// node shows nothing extra).
+    /// </summary>
+    public BroadcastReport? LastBroadcast { get; private set; }
+
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
+        LastBroadcast = null;
         var hexPreview = Convert.ToHexString(rawTransaction).ToLower();
         Console.WriteLine($"[Broadcast] Starting — tx size: {rawTransaction.Length} bytes, hex preview: {hexPreview[..Math.Min(40, hexPreview.Length)]}...");
 
@@ -295,6 +398,14 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
+        // The SPV gateway when it is first in line and active.
+        if (GatewayActive && _gatewayPosition == GatewayPosition.First)
+        {
+            var viaGateway = await TryGatewayBroadcastAsync(rawTransaction);
+            if (viaGateway is not null)
+                return viaGateway;
+        }
+
         // Try each explorer
         Exception? lastError = null;
         for (int i = 0; i < _explorers.Count; i++)
@@ -315,6 +426,14 @@ public class FallbackBlockchainService : IBlockchainService
                 Console.WriteLine($"[Broadcast] ✗ {name} failed: {ex.Message}");
                 lastError = ex;
             }
+        }
+
+        // The SPV gateway as a backup: relays to several peers when every explorer refused.
+        if (GatewayActive && _gatewayPosition == GatewayPosition.Backup)
+        {
+            var viaGateway = await TryGatewayBroadcastAsync(rawTransaction);
+            if (viaGateway is not null)
+                return viaGateway;
         }
 
         Console.WriteLine($"[Broadcast] ✗ ALL BACKENDS FAILED. Last error: {lastError?.Message}");
@@ -393,6 +512,20 @@ public class FallbackBlockchainService : IBlockchainService
             return await ((IBlockchainService)_mock).GetVerifiedUtxosAsync(address);
 
         Exception? lastError = null;
+        if (GatewayActive && _gatewayPosition == GatewayPosition.First)
+        {
+            try
+            {
+                var viaGateway = await _gatewaySource!.GetVerifiedUtxosAsync(address).WaitAsync(GatewayReadBudget);
+                _gatewayFailureSink?.ReportNodeReadSuccess();
+                return viaGateway;
+            }
+            catch (Exception ex)
+            {
+                _gatewayFailureSink?.ReportNodeReadFailure();
+                lastError = ex;
+            }
+        }
         if (!_isRegtest)
         {
             for (int i = 0; i < _explorers.Count; i++)
@@ -417,6 +550,21 @@ public class FallbackBlockchainService : IBlockchainService
             }
             catch (Exception ex)
             {
+                lastError = ex;
+            }
+        }
+
+        if (GatewayActive && _gatewayPosition == GatewayPosition.Backup)
+        {
+            try
+            {
+                var viaGateway = await _gatewaySource!.GetVerifiedUtxosAsync(address).WaitAsync(GatewayReadBudget);
+                _gatewayFailureSink?.ReportNodeReadSuccess();
+                return viaGateway;
+            }
+            catch (Exception ex)
+            {
+                _gatewayFailureSink?.ReportNodeReadFailure();
                 lastError = ex;
             }
         }

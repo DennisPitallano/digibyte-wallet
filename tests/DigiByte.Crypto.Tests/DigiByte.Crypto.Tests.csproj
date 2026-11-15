@@ -23,4 +23,8 @@
     <ProjectReference Include="..\..\src\DigiByte.Wallet\DigiByte.Wallet.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Headers\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

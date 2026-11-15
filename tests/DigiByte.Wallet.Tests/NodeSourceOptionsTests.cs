@@ -23,6 +23,7 @@ public class NodeSourceOptionsTests
         Assert.Equal(5, o.HeightTolerance);
         Assert.Equal(TimeSpan.FromSeconds(3), o.HealthTimeout);
         Assert.False(o.DevView);
+        Assert.True(o.PublicStatus);
     }
 
     [Fact]
@@ -140,5 +141,16 @@ public class NodeSourceOptionsTests
     public void Enabled_OnlyAcceptsTrue(string value, bool expected)
     {
         Assert.Equal(expected, From(("OwnNode:Enabled", value)).Enabled);
+    }
+
+    [Theory]
+    [InlineData("false", false)]
+    [InlineData("False", false)]
+    [InlineData("true", true)]
+    [InlineData("", true)]
+    [InlineData("no", true)]
+    public void PublicStatus_IsOnUnlessSwitchedOff(string value, bool expected)
+    {
+        Assert.Equal(expected, From(("OwnNode:PublicStatus", value)).PublicStatus);
     }
 }

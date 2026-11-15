@@ -24,6 +24,37 @@ public class RuntimeConfigLoaderTests
         Assert.Equal("false", values["OwnNode:DevView"]);
     }
 
+    [Fact]
+    public void TheGatewaySettingsAreAcceptedAndNothingElseInThatSection()
+    {
+        var values = RuntimeConfigLoader.Parse("""
+            { "SpvGateway": { "Enabled": true, "ApiUrl": "https://gateway.example.org", "Position": "backup", "CheckIntervalSeconds": 30,
+                              "StablePeriodSeconds": 120, "HeightTolerance": 5, "BackgroundProving": true, "DataDirectory": "/etc" } }
+            """);
+
+        Assert.Equal("true", values["SpvGateway:Enabled"]);
+        Assert.Equal("https://gateway.example.org", values["SpvGateway:ApiUrl"]);
+        Assert.Equal("backup", values["SpvGateway:Position"]);
+        Assert.Equal("30", values["SpvGateway:CheckIntervalSeconds"]);
+        Assert.Equal("120", values["SpvGateway:StablePeriodSeconds"]);
+        Assert.Equal("5", values["SpvGateway:HeightTolerance"]);
+        Assert.False(values.ContainsKey("SpvGateway:BackgroundProving"));
+        Assert.False(values.ContainsKey("SpvGateway:DataDirectory"));
+    }
+
+    [Fact]
+    public void TheGatewaySettingsReachTheWalletOptions()
+    {
+        var values = RuntimeConfigLoader.Parse("""{ "SpvGateway": { "Enabled": true, "ApiUrl": "https://gateway.example.org/", "Position": "first" } }""");
+
+        var options = DigiByte.Wallet.Services.P2pGatewayOptions.FromConfiguration(key => values.TryGetValue(key, out var v) ? v : null);
+
+        Assert.True(options.Enabled);
+        Assert.Equal("https://gateway.example.org", options.ApiUrl);
+        // Asking for "first" has no effect until the wallet checks proof of work itself.
+        Assert.Equal(DigiByte.Wallet.Services.GatewayPosition.Backup, options.Position);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

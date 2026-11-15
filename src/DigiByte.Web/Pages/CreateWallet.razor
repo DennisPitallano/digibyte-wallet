@@ -376,6 +376,8 @@
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
             await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind, legacyAgreed);
+            // Remember where this wallet started, so a later restore can begin there (specs/011-p2p-spv-gateway). Best effort.
+            await WalletService.RecordBirthHeightAsync();
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");
         }

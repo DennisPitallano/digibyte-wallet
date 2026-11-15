@@ -5,6 +5,7 @@
 @inject AppState AppState
 @inject MemoryCacheService Cache
 @inject INodeSourceState NodeState
+@inject IServiceProvider Services
 @implements IDisposable
 
 <PageTitle>Deployment — DigiByte Wallet</PageTitle>
@@ -50,6 +51,30 @@
                 </div>
                 <span class="text-[11px] font-bold px-2 py-0.5 rounded-full @nodePill">@nodeBadge.Label</span>
             </div>
+            @{
+                // The light-client gateway (specs/011-p2p-spv-gateway): shown only when it is switched on.
+                var gatewayMonitor = Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetKeyedService<NodeSourceMonitor>(Services, "gateway");
+                var gatewayOn = gatewayMonitor is not null && gatewayMonitor.State != NodeSourceState.Disabled;
+                var gatewayBadge = gatewayOn ? NodeSourceStatus.GatewayBadge(gatewayMonitor!.State, gatewayMonitor.Reason) : null;
+            }
+            @if (gatewayBadge is not null)
+            {
+                var gDot = gatewayBadge.Tone switch { NodeBadgeTone.Good => "bg-green-500 animate-pulse", NodeBadgeTone.Warn => "bg-amber-500", _ => "bg-slate-300" };
+                var gPill = gatewayBadge.Tone switch
+                {
+                    NodeBadgeTone.Good => "text-green-500 bg-green-50 dark:bg-green-900/20",
+                    NodeBadgeTone.Warn => "text-amber-600 bg-amber-50 dark:bg-amber-900/20",
+                    _ => "text-slate-400 bg-slate-100 dark:bg-dgb-800",
+                };
+                <div class="flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                    <div class="w-2 h-2 rounded-full @gDot"></div>
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Light-client gateway</p>
+                        <p class="text-[11px] text-slate-400">Peer-to-peer service that checks your transactions against block headers — used as a backup</p>
+                    </div>
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full @gPill">@gatewayBadge.Label</span>
+                </div>
+            }
         </div>
     </div>
 

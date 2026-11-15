@@ -137,8 +137,32 @@ else
     }
 }
 
+@if (Tag is { } tag)
+{
+    <span class="@(Expanded ? "mt-2 self-start" : "mt-0.5 block text-right") text-[10px] font-medium @tag.Css" title="@tag.Hint" data-testid="verification-tag">@tag.Label</span>
+}
+
 @code {
     [Parameter] public int Confirmations { get; set; }
+
+    /// <summary>
+    /// What the wallet can say about the transaction when the P2P gateway record knows it (specs/011-p2p-spv-gateway). Null shows nothing
+    /// extra, so nothing changes for a wallet that does not use the gateway. Pending states are already shown by the confirmation count.
+    /// </summary>
+    [Parameter] public DigiByte.Wallet.Models.TransactionVerificationState? Verification { get; set; }
+
+    private const string CheckedHint =
+        "Checked: this wallet matched the transaction to block headers it checked itself. It is not protection against a dishonest data source.";
+
+    private (string Label, string Css, string Hint)? Tag => Verification switch
+    {
+        DigiByte.Wallet.Models.TransactionVerificationState.Checked => ("Checked", "text-green-600 dark:text-green-400", CheckedHint),
+        DigiByte.Wallet.Models.TransactionVerificationState.Verified => ("Verified", "text-green-600 dark:text-green-400", "Verified: block headers and their proof of work were checked by this wallet."),
+        DigiByte.Wallet.Models.TransactionVerificationState.Unchecked => ("Unchecked", "text-slate-400 dark:text-slate-500", "Unchecked: this transaction came from a public explorer and has not been matched to block headers yet."),
+        DigiByte.Wallet.Models.TransactionVerificationState.Disputed => ("Disputed", "text-amber-600 dark:text-amber-400", "Disputed: the data sources disagree about this transaction. It is not counted as spendable until that is resolved."),
+        DigiByte.Wallet.Models.TransactionVerificationState.Rejected => ("Rejected", "text-red-500", "Rejected: the proof for this transaction did not match the block headers this wallet checked."),
+        _ => null,
+    };
 
     /// <summary>
     /// When true renders the expanded 6-step progress bar with DGB speed context.

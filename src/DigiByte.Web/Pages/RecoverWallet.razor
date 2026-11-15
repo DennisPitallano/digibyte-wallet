@@ -3,6 +3,7 @@
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
+@inject DigiByte.Wallet.Services.P2pGatewayOptions Gateway
 
 <PageTitle>@(isAddWalletMode ? "Add" : "Recover") Wallet — DigiByte Wallet</PageTitle>
 
@@ -274,6 +275,25 @@
             }
         </div>
 
+        @if (!string.IsNullOrEmpty(restoreNote))
+        {
+            <p class="text-xs text-amber-600 dark:text-amber-400 text-center" role="status" data-testid="restore-note">@restoreNote</p>
+        }
+        @if (restorePercent >= 0)
+        {
+            <p class="text-xs text-slate-500 text-center" role="status">Restoring through the light-client gateway. This may take a while.</p>
+        }
+        @if (Gateway.Enabled && !isPrivateKeyMode)
+        {
+            @* Optional: when the wallet was first used. With it, a restore through the light-client gateway reads only the blocks since then. *@
+            <div class="flex flex-col gap-1">
+                <label for="first-use" class="text-xs font-semibold text-slate-500 dark:text-slate-400">Approximately when did you first use this wallet? (optional)</label>
+                <input id="first-use" type="date" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-dgb-700 bg-white dark:bg-dgb-900 text-sm"
+                       max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" @bind="firstUse" />
+                <p class="text-[11px] text-slate-400">A rough date is fine. Leave it empty to look through the whole history. Restoring may take a while.</p>
+            </div>
+        }
+
         <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-2 flex items-center justify-center gap-2"
                 @onclick="OnPinButtonClick"
                 disabled="@(isRecovering || (!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))">
@@ -283,7 +303,7 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                 </svg>
-                <span>Recovering...</span>
+                <span>@(restorePercent >= 0 ? $"Restoring... {restorePercent}%" : "Recovering...")</span>
             }
             else if (!isConfirmingPin)
             {
@@ -353,6 +373,9 @@
     private string pinConfirm = "";
     private string? pinError;
     private bool isRecovering;
+    private DateTime? firstUse;
+    private string? restoreNote;
+    private int restorePercent = -1;
     private bool isConfirmingPin;
     private PinInput? rPinInput1;
     private PinInput? rPinInput2;
@@ -646,10 +669,32 @@
                 await WalletService.CreateWalletAsync(name, mnemonicInput, pin, color, allowLegacyProtection: legacyAgreed);
             }
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
+            await RestoreThroughGatewayAsync();
             Nav.NavigateTo("/");
         }
         catch (LegacyProtectionConsentRequiredException ex) { legacyReason = ex.Reason; }
         catch (Exception ex) { pinError = $"Failed to recover wallet: {ex.Message}"; }
         finally { isRecovering = false; }
+    }
+    /// <summary>
+    /// With the light-client gateway on and a date given, restore through it first (specs/011-p2p-spv-gateway). It returns nothing when the
+    /// gateway is not used here, and the ordinary discovery then runs as it always did. When the gateway does not keep blocks that far
+    /// back, say so before carrying on with the explorers.
+    /// </summary>
+    private async Task RestoreThroughGatewayAsync()
+    {
+        if (!Gateway.Enabled || isPrivateKeyMode || firstUse is null)
+            return;
+        restorePercent = 0;
+        StateHasChanged();
+        var progress = new Progress<double>(p => { restorePercent = (int)Math.Round(p * 100); InvokeAsync(StateHasChanged); });
+        var result = await WalletService.RestoreViaGatewayAsync(new DateTimeOffset(DateTime.SpecifyKind(firstUse.Value, DateTimeKind.Utc)), deep: false, progress);
+        restorePercent = -1;
+        if (result?.Outcome == DigiByte.Wallet.Services.RestoreOutcome.UseExplorer)
+        {
+            restoreNote = result.Message;
+            StateHasChanged();
+            await Task.Delay(3500);
+        }
     }
 }

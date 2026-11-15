@@ -366,11 +366,15 @@ public class ChangeAddressTests
     {
         private readonly Dictionary<string, string> _store = new();
         public bool FailWalletInfoWrites { get; set; }
+        /// <summary>When set, writes to keys that start with this prefix fail (a test of what happens when storage refuses a write).</summary>
+        public string? FailWritesWithPrefix { get; set; }
 
         public Task<string?> GetAsync(string key) => Task.FromResult(_store.TryGetValue(key, out var v) ? v : null);
 
         public Task SetAsync(string key, string value)
         {
+            if (FailWritesWithPrefix is not null && key.StartsWith(FailWritesWithPrefix, StringComparison.Ordinal))
+                throw new IOException("storage refused the write");
             if (FailWalletInfoWrites && value.Contains("NextChangeIndex"))
                 throw new IOException("storage is full");
             _store[key] = value;

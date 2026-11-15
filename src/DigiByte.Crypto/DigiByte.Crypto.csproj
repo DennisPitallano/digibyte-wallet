@@ -10,4 +10,8 @@
     <PackageReference Include="NBitcoin" Version="9.0.5" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="DigiByte.Crypto.Tests" />
+  </ItemGroup>
+
 </Project>

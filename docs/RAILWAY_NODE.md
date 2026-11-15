@@ -153,3 +153,36 @@ Nothing in this file is secret: any visitor's browser can read it. Turn node use
 **Limit: the content-security policy.** The wallet page only lets the browser talk to servers listed in its content-security policy (`src/DigiByte.Web/wwwroot/index.html`). The node API's address must be listed there, as one exact origin (no wildcard). So the address can be changed by these settings alone only to an origin the policy already allows; moving to a new origin needs a reviewed edit of the policy first. Give the node API a stable custom domain so this never has to change. The node API's stable address is `https://node.dgbwallet.app` (a custom domain on the `node-api` service); use it for `WALLET_NODE_API_URL`. It is the one node origin listed in the policy (`index.html`); a different address needs a reviewed policy change first.
 
 **Switching on, in order:** deploy the web service with the new image; check the node API's `/api/health` shows `ok`; set `WALLET_NODE_ENABLED=true` and `WALLET_NODE_API_URL`, restart; open the wallet's data-source indicator (a small dot) and confirm it reports the node, or syncing if it is not ready yet. **Roll back** by turning `WALLET_NODE_ENABLED` off and restarting.
+
+## Light-client gateway (specs/011-p2p-spv-gateway)
+
+The gateway is a separate small service (`docker/spv-gateway/Dockerfile`, port 5290). It does not use the node above: it connects to public
+DigiByte peers, checks every block header including its proof of work, indexes the blocks of the scan window, and answers the wallet over HTTP.
+
+- **Volume**: mount a volume at `/data`. Estimated size for the default 90-day window is about 2 GB (about 520,000 blocks, a few small index rows
+  each, plus the headers). This is an estimate, not a measurement: note the real size after the first fill here and adjust.
+- **Scan window**: `SpvGateway__ScanWindowDays` (default 90). A wallet whose last refresh is older than the window refreshes through the
+  explorers first. A longer window costs disk and first-fill time.
+- **First fill**: blocks are fetched one at a time from full-history peers. The first fill of a 90-day window has not been timed; watch
+  `indexedFromHeight` in `/v1/health` fall toward the target and record how long it took.
+- **Built-in checkpoint**: the header chain starts at a checkpoint built into the release. Until a checkpoint about 90 days back is built in, the
+  gateway can only answer for blocks after the checkpoint. Refresh the checkpoint for each release (see the notes in
+  `specs/011-p2p-spv-gateway/research.md`).
+- **Resetting the index**: stop the service and delete `index-mainnet.db` (and its `-wal` and `-shm` files) from `/data`. Headers and the peer
+  book are kept; the index is rebuilt from the peers. To reset everything, delete the whole `/data` folder.
+- **Health**: `/v1/health` reports `starting`, `syncing`, `unhealthy` (fewer than 4 connected peers) or `ok`. It contains no wallet data.
+- **Privacy**: the service logs no address, transaction or transaction id. Request logging of URLs is off on purpose.
+
+### How the wallet reaches the gateway
+
+The wallet runs in the browser, so it cannot use Railway's private network itself. There are two routes, and both can be on at once:
+
+| Route | Setup on `digibyte-web` | Notes |
+|---|---|---|
+| Public | `WALLET_GATEWAY_API_URL=https://spv.example.org`, and add that origin to `connect-src` in `index.html` | The gateway has a public domain; its API and status page are reachable by anyone (rate limited). |
+| Private | `WALLET_SPV_INTERNAL_URL=http://<gateway service>.railway.internal:5290` and `WALLET_GATEWAY_API_URL=/spv` | nginx on the web service proxies `/spv/` to the gateway. Same origin, so no CORS and no CSP change, and the gateway needs no public domain. |
+
+To compare their speed, set one as `WALLET_GATEWAY_API_URL` and the other as `WALLET_GATEWAY_API_URL_ALT`, turn on `WALLET_DEV_VIEW`, open
+`/dev/node` and press **Measure** under "Gateway route speed". It asks each route for the health report ten times, taking turns, and shows the
+median, fastest, slowest 5% and failures. The wallet keeps using `WALLET_GATEWAY_API_URL`; the alternative is only timed. nginx looks the
+private host up when a request arrives, using the container's own resolver: check on the first deployment that `/spv/v1/health` answers.

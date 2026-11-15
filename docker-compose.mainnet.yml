@@ -55,6 +55,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # DigiByte SPV gateway (light client: talks the peer protocol, answers the wallet over HTTP; no node needed)
+  spv-gateway:
+    build:
+      context: .
+      dockerfile: docker/spv-gateway/Dockerfile
+    container_name: dgb-mainnet-spv-gateway
+    ports:
+      - "5290:5290"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SpvGateway__Network=mainnet
+      - SpvGateway__DataDirectory=/data
+    volumes:
+      - dgb-mainnet-spv-gateway-data:/data
+    restart: unless-stopped
+
 volumes:
   dgb-mainnet-data:
     name: dgb-mainnet-data
+  dgb-mainnet-spv-gateway-data:
+    name: dgb-mainnet-spv-gateway-data

@@ -8,7 +8,7 @@ using NBitcoin;
 
 namespace DigiByte.Wallet.Services;
 
-public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider
+public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider, IGatewayWalletScopeProvider
 {
     private readonly IKeyStore _keyStore;
     private readonly WalletKeyStore _walletStore;
@@ -268,8 +268,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// Where Digi-ID recovery sweeps are remembered. Optional so that code that builds a wallet without it keeps working; the
     /// Digi-ID recovery methods then refuse to run.
     /// </param>
+    private readonly WalletSyncStateStore? _syncStates;
+    private readonly GatewayBootstrapCoordinator? _gatewayBootstrap;
+    private readonly GatewayOwnSendRecorder? _ownSends;
+    private readonly GatewayRestoreServices? _gatewayRestore;
+
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
-        DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null)
+        DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null,
+        WalletSyncStateStore? syncStateStore = null, GatewayBootstrapCoordinator? gatewayBootstrap = null,
+        GatewayOwnSendRecorder? ownSendRecorder = null, GatewayRestoreServices? gatewayRestore = null)
     {
         _keyStore = walletStore;
         _walletStore = walletStore;
@@ -279,6 +286,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _digiIdSweeps = sweepStore;
         _vault = new ProtectedSecretStore(walletStore.Storage, crypto, time, migrationLock);
         _passwordList = passwordList;
+        _syncStates = syncStateStore;
+        _gatewayBootstrap = gatewayBootstrap;
+        _ownSends = ownSendRecorder;
+        _gatewayRestore = gatewayRestore;
     }
 
     public void SetNetwork(bool isTestnet)
@@ -634,6 +645,100 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         _cachedAddressKeyMap = null;
         _activeWalletId = null;
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// What the gateway source needs to know: the active wallet and every address it watches, with the change ones marked. Null when no
+    /// wallet is unlocked or when the wallet is not on mainnet (the gateway has a mainnet checkpoint only). Addresses are the only wallet
+    /// data that ever leaves the device, and only to the gateway the user configured.
+    /// </summary>
+    public Task<GatewayWalletScope?> GetScopeAsync()
+    {
+        if (!IsUnlocked || _activeWalletId is null)
+            return Task.FromResult<GatewayWalletScope?>(null);
+        if ((ActiveWallet?.WifNetwork ?? _networkMode) != "mainnet")
+            return Task.FromResult<GatewayWalletScope?>(null);
+        var addresses = GetAllAddresses();
+        var changeKeys = GetChangeAddressKeys();
+        var change = addresses.Where(a => changeKeys.Contains(AddressKey.Normalize(a))).ToHashSet();
+        return Task.FromResult<GatewayWalletScope?>(new GatewayWalletScope(_activeWalletId, addresses.ToList(), change));
+    }
+
+    /// <summary>
+    /// Puts a transaction this wallet just broadcast into the gateway record at once (FR-009a). Never throws: the send has already
+    /// happened and nothing here may change its result.
+    /// </summary>
+    /// <summary>Remembers the verified block height at which a new wallet started (spec FR-008a). Best effort: never affects creating the wallet.</summary>
+    public async Task RecordBirthHeightAsync()
+    {
+        if (_gatewayRestore is null || _activeWalletId is null || _gatewayBootstrap is not { IsEnabled: true })
+            return;
+        try
+        {
+            await _gatewayRestore.Birth.RecordAtCreationAsync(_activeWalletId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Gateway] Could not record the birth height: {ex.GetType().Name}");
+        }
+    }
+
+    /// <summary>
+    /// Restores the unlocked wallet through the light-client gateway (spec FR-008, T095), starting at the height worked out from the date
+    /// the user gave, or the recorded birth height. Returns null when the gateway is not used here (feature off, not mainnet, no start
+    /// height, any failure): the ordinary explorer discovery then does the restore, so funds are never skipped. A result that says
+    /// "use the explorer" carries the explanation to show.
+    /// </summary>
+    public async Task<RestoreResult?> RestoreViaGatewayAsync(DateTimeOffset? firstUse, bool deep = false, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    {
+        if (_gatewayRestore is null || _gatewayBootstrap is not { IsEnabled: true } || !IsUnlocked || _activeWalletId is null || _hd is null)
+            return null;
+        if ((ActiveWallet?.WifNetwork ?? _networkMode) != "mainnet")
+            return null;
+        try
+        {
+            var walletId = _activeWalletId;
+            var birth = firstUse is { } date
+                ? await _gatewayRestore.Birth.SetFromDateAsync(walletId, date)
+                : await _gatewayRestore.Birth.GetAsync(walletId);
+            if (birth.Height is not { } start)
+                return null;
+            var hd = _hd;
+            var source = new HdRestoreAddresses(hd);
+            return await _gatewayRestore.Scanner.RestoreAsync(walletId, source, start, deep ? DeepScanGapLimit : ReceiveGapLimit,
+                deep ? ScanMode.Deep : ScanMode.Normal, progress, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Gateway] Restore through the gateway did not finish ({ex.GetType().Name}); the explorer restore carries on.");
+            return null;
+        }
+    }
+
+    private sealed class HdRestoreAddresses(HdKeyDerivation hd) : IRestoreAddressSource
+    {
+        public string Receive(int index) => hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString();
+
+        public string Change(int index) => hd.DeriveChangeAddress(index, ScriptPubKeyType.Segwit).ToString();
+    }
+
+    private async Task RecordOwnSendAsync(byte[] rawTx)
+    {
+        if (_ownSends is null)
+            return;
+        try
+        {
+            if (await GetScopeAsync() is { } scope)
+                await _ownSends.RecordAsync(scope, rawTx);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Gateway] Could not record the send: {ex.GetType().Name}");
+        }
     }
 
     public async Task<WalletBalance> GetBalanceAsync()
@@ -1177,6 +1282,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         // Broadcast
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        await RecordOwnSendAsync(rawTx);
 
         // Track the transaction locally
         var feePaid = tx.GetFee(utxosToUse.Select(u => u.ToCoin()).ToArray());
@@ -1344,6 +1450,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         // Broadcast
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        await RecordOwnSendAsync(rawTx);
 
         // History is keyed by TxId, so the whole batch is one record: the full amount, and the
         // first recipient as counterparty (the same one an explorer-built record would show).
@@ -1377,6 +1484,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 var ourNormalized = new HashSet<string>(rawAddresses.Select(NormalizeAddress));
                 bool isOurs(string? addr) => addr != null && ourNormalized.Contains(NormalizeAddress(addr));
 
+                // For the gateway record (FR-009a): the explorer tip is read before the snapshot is taken. Only when the feature is on.
+                var tipBeforeSnapshot = _gatewayBootstrap is { IsEnabled: true } ? await _gatewayBootstrap.ReadTipAsync() : null;
+
                 var allTxs = new Dictionary<string, TransactionInfo>();
                 var semaphore = new SemaphoreSlim(10);
                 var txTasks = rawAddresses.Select(async addr =>
@@ -1389,6 +1499,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 foreach (var txInfos in txResults)
                     foreach (var tx in txInfos)
                         allTxs.TryAdd(tx.TxId, tx);
+
+                // Offer what the explorer returned to the gateway record. Runs in the background and never changes this result.
+                _gatewayBootstrap?.Offer(_activeWalletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),
+                    servedByGateway: _blockchain is FallbackBlockchainService { ActiveBackend: "spv-gateway" });
 
                 var ownByKey = new Dictionary<string, string>();
                 foreach (var a in rawAddresses) ownByKey.TryAdd(NormalizeAddress(a), a);
@@ -1440,6 +1554,20 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 await RepairUnderRecordedBatchesAsync(localToCheck, allTxs, isOurs);
             }
             catch (Exception ex) { Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}"); }
+        }
+
+        // Label rows the gateway record knows (checked, unchecked, pending). Nothing changes for rows it does not know, or when the feature is off.
+        if (_syncStates is not null && _gatewayBootstrap is { IsEnabled: true } && _activeWalletId is not null)
+        {
+            try
+            {
+                if (await _syncStates.GetAsync(_activeWalletId) is { } record)
+                    GatewayVerificationLabeler.Apply(localTxs, record, GatewayCapabilities.WalletPowVerified);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Gateway] Could not label history: {ex.GetType().Name}");
+            }
         }
 
         // Update confirmation counts in background
@@ -1528,6 +1656,14 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     {
         _sessions.Remove(walletId);
         await _walletStore.DeleteWalletAsync(walletId);
+        // The gateway sync record goes with the wallet (FR-009a); it is rebuilt by the bootstrap rule if the wallet is restored.
+        if (_syncStates is not null)
+            await _syncStates.DeleteAsync(walletId);
+        if (_gatewayRestore is not null)
+        {
+            await _gatewayRestore.Birth.DeleteAsync(walletId);
+            await _gatewayRestore.Progress.DeleteAsync(walletId);
+        }
 
         if (_activeWalletId == walletId)
         {
@@ -1563,6 +1699,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     public async Task WipeAllDataAsync()
     {
         await _walletStore.ClearAllAsync();
+        if (_syncStates is not null)
+            await _syncStates.DeleteAllAsync();
         _sessions.Clear();
         _activeWalletId = null;
     }
@@ -1717,6 +1855,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         var rawTx = tx.ToBytes();
         var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        await RecordOwnSendAsync(rawTx);
 
         var feePaid = tx.GetFee(availableUtxos.Select(u => u.ToCoin()).ToArray());
         var amountAfterFee = totalSatoshis - (feePaid?.Satoshi ?? 0);

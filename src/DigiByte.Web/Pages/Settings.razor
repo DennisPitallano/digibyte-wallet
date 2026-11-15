@@ -5,6 +5,7 @@
 @inject NavigationManager Nav
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
+@inject WalletSyncStateStore SyncStates
 @inject IWebAssemblyHostEnvironment HostEnv
 @inject IJSRuntime JS
 @inject IConfiguration Config
@@ -805,6 +806,7 @@
         Cache.Remove("lastFetchTime");
         await Storage.RemoveAsync("cache:dgbPrice");
         await Storage.RemoveAsync("cache:lastFetch");
+        await SyncStates.DeleteAllAsync();
         AppState.NotifyStateChanged();
     }
 

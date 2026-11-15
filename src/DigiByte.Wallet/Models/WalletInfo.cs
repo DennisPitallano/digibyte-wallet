@@ -120,6 +120,12 @@ public class TransactionRecord
     public string? Memo { get; set; }
 
     /// <summary>
+    /// What the wallet can say about this transaction when the P2P gateway record knows it (specs/011-p2p-spv-gateway). Null when the
+    /// record does not know it or the feature is off: nothing extra is shown then.
+    /// </summary>
+    public TransactionVerificationState? Verification { get; set; }
+
+    /// <summary>
     /// The user's own addresses this transaction ties to, in display order. Received: the addresses that were
     /// paid. Sent: the addresses that funded it. Empty when unknown. No duplicates (compared in normalized
     /// form). Never contains change-only addresses.

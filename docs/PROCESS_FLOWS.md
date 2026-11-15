@@ -58,6 +58,21 @@ Error — "Broadcast failed on all backends"
 ```
 Broadcast **never** falls back to mock, even in development.
 
+### Light-client gateway flows (optional)
+
+**Read (balance, history).** With the gateway ready and answering: sync headers from the checkpoint and check them (and, every two minutes, compare them with
+a public explorer) -> refresh the wallet record from the last synced height minus 6, sending the wallet's addresses and its unspent outpoints in requests of at
+most 100 -> match every returned transaction to the wallet's own header at its height -> rebuild the part of the record that changed -> answer from the
+record. Any step that cannot be completed correctly makes the gateway decline and the next source answer.
+
+**Send.** The explorers or node carry the send as before. When the gateway carries it, it relays to at least 4 peers and reports accepted, rejected (with
+the reason) or no response (sent, not yet confirmed by peers). In every case the wallet records the send at once: its inputs leave the available list and
+its change is spendable immediately while shown as pending.
+
+**Restore.** Optional date -> birth height estimate (a day early) -> scan the blocks since then in chunks, extending the set of addresses by the gap limit and
+re-reading earlier chunks for newly used addresses -> progress saved after each chunk -> one incremental refresh builds the wallet record. A history older
+than the gateway keeps is restored through the explorers, with a message.
+
 ### Regtest Mode
 ```
 Own Node (only backend available)
