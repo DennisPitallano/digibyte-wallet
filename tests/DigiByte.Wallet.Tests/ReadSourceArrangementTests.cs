@@ -125,4 +125,61 @@ public class ReadSourceArrangementTests
         Assert.Equal(2, order[0].Successes);
         Assert.Equal(0, order.Single(e => e.Kind == ReadSourceKind.Gateway).Successes);
     }
+
+    // ================= node use off: the gateway is asked before the unchecked node =================
+
+    [Fact]
+    public void With_node_use_off_and_the_gateway_active_the_gateway_comes_before_the_node()
+    {
+        var rig = new Rig(NodeSourceState.Active, NodeSourceState.Disabled, withNodeMonitor: false);
+
+        var order = rig.Sut.DescribeReadSources();
+
+        Assert.Equal([ReadSourceKind.Explorer, ReadSourceKind.Explorer, ReadSourceKind.Gateway, ReadSourceKind.OwnNode], order.Select(e => e.Kind));
+        Assert.Equal(["Primary", "Fallback 1", "Fallback 2", "Fallback 3"], order.Select(e => e.Role));
+        Assert.Equal("last resort", order[3].Status);
+    }
+
+    [Fact]
+    public async Task With_node_use_off_a_failed_explorer_round_is_answered_by_the_gateway_and_the_node_is_not_asked()
+    {
+        var rig = new Rig(NodeSourceState.Active, NodeSourceState.Disabled, withNodeMonitor: false);
+        rig.Explorer1.Fails = true;
+        rig.Explorer2.Fails = true;
+
+        var balance = await rig.Sut.GetBalanceAsync("DAbc");
+
+        Assert.Equal(777, balance);
+        Assert.Empty(rig.Node.Requests);
+        Assert.Equal("spv-gateway", rig.Sut.ActiveBackend);
+    }
+
+    [Fact]
+    public async Task With_node_use_off_the_node_is_still_the_last_resort_when_the_gateway_cannot_answer()
+    {
+        var rig = new Rig(NodeSourceState.Active, NodeSourceState.Disabled, withNodeMonitor: false);
+        rig.Explorer1.Fails = true;
+        rig.Explorer2.Fails = true;
+        rig.Gateway.Fails = true;
+
+        var balance = await rig.Sut.GetBalanceAsync("DAbc");
+
+        Assert.Equal(100, balance); // the node double answers 100
+        Assert.NotEmpty(rig.Node.Requests);
+        Assert.Equal("node-api", rig.Sut.ActiveBackend);
+    }
+
+    [Fact]
+    public async Task The_gateway_is_asked_once_not_twice_when_neither_it_nor_the_node_can_answer()
+    {
+        var rig = new Rig(NodeSourceState.Active, NodeSourceState.Disabled, withNodeMonitor: false);
+        rig.Explorer1.Fails = true;
+        rig.Explorer2.Fails = true;
+        rig.Gateway.Fails = true;
+        rig.Node.Fails = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => rig.Sut.GetBalanceAsync("DAbc"));
+
+        Assert.Equal(1, rig.GatewayState.Failures);
+    }
 }
