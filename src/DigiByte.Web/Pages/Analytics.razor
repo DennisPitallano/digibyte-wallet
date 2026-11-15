@@ -214,6 +214,9 @@
         if (!oracleSubscribed) { oracleSubscribed = true; OracleFeed.Changed += OnOracleChanged; }
         try { oracleHealth = await DdApi.GetHealthAsync(CancellationToken.None); }
         catch { oracleHealth = null; } // unreachable: the panel says "Unavailable", the rest of the page is unaffected
+        // The reading may have arrived while the health was being fetched: merge once more so "loading" does not stay.
+        if (oracleHealth is not null)
+            oracleHealth = DigiByte.Wallet.Services.OracleEnrichedDigiDollarApi.Merge(oracleHealth, OracleFeed, AppState.NetworkMode == "mainnet");
         oracleLoading = false;
         StateHasChanged();
     }

@@ -25,6 +25,8 @@
         NodeSourceDot.Green => "bg-green-500",
         NodeSourceDot.Amber => "bg-amber-500",
         NodeSourceDot.Red => "bg-red-500",
+        // Public explorers answering is the normal, healthy case, so it shows green too; amber and red are the degraded states.
+        NodeSourceDot.Neutral => "bg-green-500",
         _ => "bg-slate-400",
     };
 
@@ -33,7 +35,7 @@
         NodeSourceDot.Green => "own node in use",
         NodeSourceDot.Amber => "own node unavailable",
         NodeSourceDot.Red => "no source reachable",
-        _ => "public explorers in use",
+        _ => "public explorers in use, all working",
     };
 
     protected override void OnInitialized() => Status.Changed += OnChanged;

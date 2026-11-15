@@ -161,6 +161,10 @@ public sealed class DigiDollarViewModel : IDisposable
                 Scan = p;
                 Changed?.Invoke();
             }));
+            // The oracle fetch can finish while the dashboard is still being built, when there was nothing yet to merge into: merge again now,
+            // so the price does not stay on "loading" until someone refreshes by hand.
+            if (Dashboard is { } fresh)
+                Dashboard = fresh with { Health = OracleEnrichedDigiDollarApi.Merge(fresh.Health, _oracle, _app.NetworkMode == "mainnet") };
             _used = true;
             _usedFor = _sessions.GetDigiDollarSession()?.WalletId;
             await AnnounceFailedSendsAsync(Dashboard);
