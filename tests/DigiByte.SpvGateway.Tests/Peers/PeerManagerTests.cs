@@ -43,6 +43,22 @@ public class PeerManagerTests
     }
 
     [Fact]
+    public async Task Peers_that_advertise_bloom_filters_are_counted_but_never_asked_to_filter()
+    {
+        var (manager, _, net, _) = Rig();
+        const ulong fullHistory = 1, bloom = 1UL << 2;
+        net.Add("20.10.1.1", fullHistory | bloom);
+        net.Add("21.11.1.1", fullHistory | bloom);
+        net.Add("22.12.1.1", fullHistory);
+
+        await manager.MaintainAsync(default);
+
+        var snapshot = manager.Snapshot();
+        Assert.Equal(3, snapshot.PeerCount);
+        Assert.Equal(2, snapshot.BloomPeerCount);
+    }
+
+    [Fact]
     public async Task Keeps_no_more_than_two_peers_from_the_same_address_range()
     {
         var (manager, _, net, _) = Rig();

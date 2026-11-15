@@ -58,6 +58,8 @@
 #     SpvGateway__ScanWindowDays=90          how far back scans are answered directly
 #     SpvGateway__MaxConcurrentScans=4       scans that run at once; more wait their turn
 #     SpvGateway__RateLimitPerMinute=120     per client
+#     SpvGateway__ShowRequestLog=true        list the last requests (route, status, time only) on the status page; false hides it
+#     SpvGateway__AdminToken=<32+ random chars>   lets the operator clear that list from the status page; unset = no reset
 #     SpvGateway__TrustForwardedFor=true     ONLY behind Railway's proxy, so the limit sees real clients
 #   The wallet points at it with WALLET_GATEWAY_ENABLED=true and WALLET_GATEWAY_API_URL on digibyte-web.
 #   Two ways to reach it (both can be on at once, to compare their speed on the developer page, "Gateway route speed"):

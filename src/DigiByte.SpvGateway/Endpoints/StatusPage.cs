@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using DigiByte.SpvGateway.Index;
 
 namespace DigiByte.SpvGateway.Endpoints;
@@ -15,7 +17,43 @@ public static class StatusPage
     {
         app.MapGet("/", () => Results.Content(Html.Value, "text/html; charset=utf-8"));
         // Where the block index has got to: the part of the picture /v1/health does not carry. Heights only.
-        app.MapGet("/status.json", (BlockIndexStore index) => Results.Json(new { indexedFromHeight = index.IndexedFromHeight(), indexedToHeight = index.IndexedToHeight() }));
+        // The recent requests come with it (route, status and time only; see RequestLog), unless the operator turned that off.
+        app.MapGet("/status.json", (BlockIndexStore index, RequestLog log, SpvGatewayOptions options) =>
+        {
+            var (total, errors, byRoute, recent) = log.Snapshot();
+            return Results.Json(new
+            {
+                indexedFromHeight = index.IndexedFromHeight(),
+                indexedToHeight = index.IndexedToHeight(),
+                requests = options.ShowRequestLog ? new { total, errors, byRoute, recent, canReset = options.AdminToken is not null } : null,
+            });
+        });
+    }
+
+    /// <summary>
+    /// POST /status/reset: clears the request list. It exists only when the operator set <c>SpvGateway:AdminToken</c> (otherwise 404), needs that
+    /// token in the <c>X-Admin-Token</c> header (compared without leaking how much of it matched), and answers a wrong token slowly so guessing
+    /// gets nowhere. It never touches wallet data, because there is none.
+    /// </summary>
+    public static void MapStatusReset(this IEndpointRouteBuilder app)
+    {
+        app.MapPost("/status/reset", async (HttpContext context, RequestLog log, SpvGatewayOptions options, ILoggerFactory loggers) =>
+        {
+            if (options.AdminToken is not { } token)
+                return Results.NotFound();
+
+            var given = context.Request.Headers["X-Admin-Token"].ToString();
+            var ok = CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(given)), SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+            if (!ok)
+            {
+                await Task.Delay(750, context.RequestAborted);
+                return Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            log.Clear();
+            loggers.CreateLogger("StatusPage").LogWarning("The request list was reset from the status page.");
+            return Results.Ok(new { cleared = true });
+        });
     }
 
     private static string LoadHtml()

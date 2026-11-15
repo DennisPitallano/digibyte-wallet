@@ -245,6 +245,20 @@
 
 .dn-shimmer { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--acc) 18%, transparent), transparent); background-size: 200% 100%; animation: dn-sweep 1.8s linear infinite; padding: 8px; border-radius: 10px; }
 
+/* ---------- Source order ---------- */
+.dn-order { list-style: none; display: flex; flex-direction: column; gap: 0; }
+.dn-src { position: relative; display: grid; grid-template-columns: 30px 1fr; gap: 12px; padding: 10px 0; animation: dn-slide .45s ease both; animation-delay: var(--d); }
+.dn-src + .dn-src::before { content: ""; position: absolute; left: 14px; top: -10px; height: 20px; width: 2px; background: linear-gradient(var(--card-b), var(--acc)); opacity: .6; }
+.dn-src.standby::before { display: none; }
+.dn-rank { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--acc), var(--acc-2)); position: relative; z-index: 1; }
+.dn-src.standby .dn-rank { background: var(--tile); color: var(--ink-3); border: 1px solid var(--card-b); }
+.dn-src.last .dn-rank { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 35%, transparent); animation: dn-pulse 2.2s ease-in-out infinite; }
+.dn-src-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dn-src-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.dn-src-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.dn-role { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--card-b); border-radius: 999px; padding: 1px 8px; }
+.dn-src.standby .dn-src-name { color: var(--ink-2); }
+
 /* ---------- Route speed ---------- */
 .dn-route { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 14px; background: var(--tile); border: 1px solid transparent; }
 .dn-route.best { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }

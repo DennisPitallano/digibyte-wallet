@@ -25,6 +25,7 @@ The source health report. Never contains wallet or address data.
   "peerCount": 8,
   "fullHistoryPeerCount": 5,
   "filterPeerCount": 0,
+  "bloomPeerCount": 0,
   "matchingMode": "blocks",
   "indexedFromHeight": 24390000,
   "buildVersion": "1.0.0"

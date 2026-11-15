@@ -191,10 +191,14 @@ public sealed class PeerManager : IPeerStatusSource, IAsyncDisposable
             live.Count(s => (s.Services & PeerRecord.NodeNetwork) != 0),
             live.Count(s => (s.Services & NodeCompactFilters) != 0),
             live.Count == 0 ? null : live.Max(s => s.StartHeight),
-            ever);
+            ever,
+            live.Count(s => (s.Services & NodeBloom) != 0));
     }
 
     private const ulong NodeCompactFilters = 1UL << 6;
+
+    /// <summary>NODE_BLOOM (BIP 111): the peer answers bloom-filtered requests. The gateway only reports it; it never asks a peer to filter.</summary>
+    private const ulong NodeBloom = 1UL << 2;
 
     public async ValueTask DisposeAsync()
     {

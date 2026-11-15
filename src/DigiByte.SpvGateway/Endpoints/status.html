@@ -72,18 +72,18 @@
   .bigline .big { font-size: 26px; font-weight: 700; } .bigline small { font-size: 12px; }
 
   /* --- block chain --- */
-  .chain { display: flex; align-items: center; margin: 18px 2px 6px; }
+  .chain { --cube: 38px; display: flex; align-items: center; margin: 18px 2px 6px; }
   .node { position: relative; flex: none; text-align: center; }
-  .cube { position: relative; z-index: 2; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: #ffffff0d; border: 1px solid var(--line); color: var(--muted); transition: background .5s, border-color .5s, transform .5s; }
+  .cube { position: relative; z-index: 2; width: var(--cube); height: var(--cube); border-radius: 12px; display: grid; place-items: center; background: #ffffff0d; border: 1px solid var(--line); color: var(--muted); transition: background .5s, border-color .5s, transform .5s; }
   .cube svg { width: 18px; height: 18px; }
   .node.done .cube { background: linear-gradient(145deg, #22c55e, #16a34a); border-color: #22c55e; color: #fff; box-shadow: 0 6px 18px -6px #22c55e99; animation: pop .55s cubic-bezier(.2,1.4,.4,1) both; }
   .node.now .cube { background: linear-gradient(145deg, #3b8cff, #2f6fe0); border-color: #5aa2ff; color: #fff; animation: pulse 1.4s ease-in-out infinite; }
   .node.now .cube svg { animation: spin 2.4s linear infinite; }
-  .node.now::after { content: ''; position: absolute; left: 50%; top: 19px; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 12px; background: #5aa2ff; opacity: .35; z-index: 1; animation: ring 1.4s ease-out infinite; }
+  .node.now::after { content: ''; position: absolute; left: 50%; top: calc(var(--cube) / 2); width: var(--cube); height: var(--cube); margin: calc(var(--cube) / -2) 0 0 calc(var(--cube) / -2); border-radius: 12px; background: #5aa2ff; opacity: .35; z-index: 1; animation: ring 1.4s ease-out infinite; }
   @keyframes pulse { 50% { transform: scale(1.1); } } @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes ring { to { transform: scale(2); opacity: 0; } }
   .node .h { margin-top: 6px; font-size: 10px; color: var(--muted); }
-  .link { flex: 1; min-width: 6px; height: 3px; border-radius: 3px; background: #ffffff14; overflow: hidden; margin-bottom: 18px; }
+  .link { flex: 1; min-width: 2px; height: 3px; border-radius: 3px; background: #ffffff14; overflow: hidden; margin-bottom: 18px; }
   .link > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #22c55e, #2f80ed); transition: width .7s ease; }
   .link.full > i { width: 100%; }
   .chain.complete .node.done .cube { animation: wave 1.6s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms); }
@@ -107,8 +107,66 @@
   .tile .k { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); } .tile .k svg { width: 14px; height: 14px; }
   .tile .v { margin-top: 4px; font-size: 19px; font-weight: 700; word-break: break-all; }
   .tile .v.small { font-size: 14px; }
+  .tile .sub { margin-top: 3px; font-size: 11px; color: var(--muted); line-height: 1.35; }
+  .resetbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; } .resetbar[hidden], #resetForm[hidden] { display: none; }
+  #resetForm { display: flex; gap: 8px; flex: 1; min-width: 0; }
+  .link-btn { background: none; border: 0; color: var(--blue2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 2px; }
+  .tok { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: #ffffff0d; color: var(--text); font: inherit; font-size: 13px; }
+  .btn.small { padding: 8px 12px; font-size: 12px; border-radius: 10px; box-shadow: none; }
+  .resetmsg { font-size: 12px; color: var(--muted); } .resetmsg.ok { color: var(--green); } .resetmsg.bad { color: var(--red); }
+  .tester { display: grid; gap: 8px; margin-top: 12px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 14px; border: 0; border-radius: 12px; font: inherit; font-weight: 700; color: #fff; cursor: pointer; background: linear-gradient(135deg, var(--blue), #1fb6a6); box-shadow: 0 10px 22px -12px var(--blue); transition: transform .15s, opacity .2s; }
+  .btn svg { width: 15px; height: 15px; } .btn:active { transform: scale(.98); } .btn:disabled { opacity: .55; cursor: progress; }
+  .btn.busy svg { animation: spin 1s linear infinite; }
+  .testrow { display: flex; gap: 8px; } .testrow .btn { flex: 1; }
+  .sel { appearance: none; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: #ffffff0d; color: var(--text); font: inherit; font-size: 13px; }
+  .sel option { color: #0b2447; }
+  .resp { margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #00000022; animation: rise .35s ease both; }
+  .resp .rh { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 8px 10px; background: #ffffff0a; font-size: 12px; }
+  .resp pre { margin: 0; padding: 10px; max-height: 220px; overflow: auto; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 1.5; color: #cfe0ff; white-space: pre-wrap; word-break: break-word; scrollbar-width: thin; scrollbar-color: #ffffff33 transparent; }
+  .resp pre .k { color: #7fb4ff; } .resp pre .s { color: #8be9a8; } .resp pre .n { color: #ffcf7a; }
+  .testout { font-size: 12px; color: var(--muted); min-height: 1.4em; }
+  .testout .res { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; animation: rise .35s ease both; }
+  .testout .res b { font-weight: 700; } .testout .ok { color: var(--green); } .testout .bad { color: var(--red); }
+  .req .tt { font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 6px; margin-left: 6px; background: #5aa2ff33; color: var(--blue2); font-family: inherit; }
+  .reqs { display: grid; gap: 6px; margin-top: 12px; max-height: 330px; overflow: auto; scrollbar-width: thin; scrollbar-color: #ffffff33 transparent; }
+  .req { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: #ffffff0a; border: 1px solid var(--line); font-size: 12px; }
+  .req.fresh { animation: reqin .7s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes reqin { from { opacity: 0; transform: translateX(-14px); background: #5aa2ff55; } to { opacity: 1; transform: none; } }
+  .req .t { color: var(--muted); font-size: 11px; }
+  .req .m { font-size: 10px; font-weight: 700; letter-spacing: .05em; padding: 2px 7px; border-radius: 6px; background: #ffffff14; }
+  .req .r { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .req .s { font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .req .s.ok { color: var(--green); background: #22c55e22; } .req .s.warn { color: var(--amber); background: #f5a62322; } .req .s.bad { color: var(--red); background: #ef444422; }
+  .req .d { color: var(--muted); font-size: 11px; min-width: 44px; text-align: right; }
+  .noreq { margin-top: 12px; padding: 16px; text-align: center; color: var(--muted); font-size: 13px; border: 1px dashed var(--line); border-radius: 14px; }
+  .routes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .routes span { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #ffffff0a; border: 1px solid var(--line); color: var(--muted); } .routes b { color: var(--text); }
+  @media (max-width: 560px) { .req { grid-template-columns: auto 1fr auto; } .req .m, .req .d { display: none; } }
   footer { text-align: center; font-size: 12px; color: var(--muted); }
   @media (max-width: 560px) { .headers { grid-template-columns: 1fr; justify-items: center; } .rail { width: 100%; } .hero { flex-direction: column; text-align: center; } .bubble::before { display: none; } }
+  /* Phones: one column, smaller block cubes so all nine fit, two-up tiles, stacked card headings, and room for the notch. */
+  @media (max-width: 560px) {
+    main { padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(36px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); gap: 12px; }
+    .card { padding: 14px; border-radius: 18px; }
+    .baku { width: 92px; height: 92px; }
+    .headline { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .chain { --cube: 28px; margin-left: 0; margin-right: 0; }
+    .cube svg { width: 14px; height: 14px; }
+    .cube { border-radius: 9px; }
+    .node .h { font-size: 9px; }
+    .bigline { flex-wrap: wrap; }
+    .bigline .big { font-size: 24px; }
+    .tiles { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .tile { padding: 10px; min-width: 0; }
+    .tile .v { font-size: 16px; }
+    .tile .v.small { font-size: 13px; }
+    .row2 { gap: 4px 10px; }
+    .reqs { max-height: 280px; }
+    .req { padding: 8px; gap: 8px; }
+    .req .r { font-size: 12px; }
+  }
+  @media (max-width: 360px) { .chain { --cube: 24px; } .ring { width: 124px; height: 124px; } .headers { gap: 12px; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; } }
 </style>
 </head>
@@ -157,6 +215,34 @@
     </div>
   </section>
 
+  <section class="card" id="reqCard">
+    <div class="headline"><h2>Live requests</h2><small>What wallets and monitors asked for</small></div>
+    <div class="tiles">
+      <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h4l3-8 4 16 3-8h2"/></svg>Since start</div><div class="v num" id="rTotal">0</div></div>
+      <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Errors</div><div class="v num" id="rErr">0</div></div>
+    </div>
+    <div class="tester">
+      <div class="testrow">
+        <select id="testWhat" class="sel" aria-label="What to ask"><option value="both">Health and fee</option><option value="/v1/health">Health</option><option value="/v1/fee">Fee</option></select>
+        <button id="testBtn" class="btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 3 14 9-14 9V3z"/></svg><span id="testLbl">Send test request</span></button>
+      </div>
+      <div class="testout" id="testOut" aria-live="polite">Asks this gateway the way a wallet would, and shows the full response here.</div>
+    </div>
+    <div class="resetbar" id="resetBar" hidden>
+      <button id="resetOpen" class="link-btn" type="button">Reset log…</button>
+      <form id="resetForm" hidden autocomplete="off">
+        <input id="resetToken" class="tok" type="password" placeholder="Admin token" aria-label="Admin token" autocomplete="off">
+        <button class="btn small" type="submit">Reset</button>
+        <button id="resetCancel" class="link-btn" type="button">Cancel</button>
+      </form>
+      <span id="resetMsg" class="resetmsg" aria-live="polite"></span>
+    </div>
+    <div class="routes" id="rRoutes"></div>
+    <div class="reqs" id="reqs"></div>
+    <div class="noreq" id="noreq">No request yet. When a wallet asks the gateway something, it shows up here.</div>
+    <small style="display:block;margin-top:10px;color:var(--muted)">Only the kind of call, how it ended and how long it took are kept, in memory. Nothing that identifies a wallet.</small>
+  </section>
+
   <section class="card">
     <div class="headline"><h2>Network</h2><small>Peers the gateway is talking to</small></div>
     <div class="peers" id="peers"></div>
@@ -164,6 +250,7 @@
       <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Network</div><div class="v" id="tNet">–</div></div>
       <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>Peers</div><div class="v num" id="tPeers">–</div></div>
       <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Index starts at</div><div class="v num small" id="tFrom">–</div></div>
+      <div class="tile" id="bloomTile" title="Peers that advertise bloom filter support. The gateway does not use bloom filters: it checks whole blocks, so no peer learns what a wallet watches."><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c3 3 6 5 6 9a6 6 0 0 1-12 0c0-4 3-6 6-9z"/></svg>Bloom filter peers</div><div class="v num" id="tBloom">–</div><div class="sub" id="tBloomSub"></div></div>
       <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 9 5v10l-9 5-9-5V7z"/></svg>Matching</div><div class="v" id="tMode">–</div></div>
       <div class="tile"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Version</div><div class="v num small" id="tVer">–</div></div>
     </div>
@@ -243,10 +330,76 @@
     chain.innerHTML = nodes;
   }
 
+
+  // --- live requests: route, status and time only; new rows slide in ---
+  let seenReq = null;
+  function renderRequests(r) {
+    $('reqCard').style.display = r ? '' : 'none';
+    if (!r) return;
+    $('resetBar').hidden = !r.canReset;
+    count($('rTotal'), r.total); count($('rErr'), r.errors);
+    $('rRoutes').innerHTML = Object.entries(r.byRoute).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => '<span>' + esc(k) + ' <b class="num">' + fmt(n) + '</b></span>').join('');
+    $('noreq').style.display = r.recent.length ? 'none' : '';
+    const newest = r.recent.length ? r.recent[0].at : null;
+    const fresh = seenReq === null ? () => false : e => e.at > seenReq;
+    $('reqs').innerHTML = r.recent.slice(0, 25).map(e => {
+      const cls = e.status < 300 ? 'ok' : e.status < 500 ? 'warn' : 'bad';
+      const t = new Date(e.at).toLocaleTimeString('en-GB');
+      return '<div class="req' + (fresh(e) ? ' fresh' : '') + '"><span class="t num">' + t + '</span><span class="m">' + esc(e.method) + '</span><span class="r num">' + esc(e.route) + (e.test ? ' <i class="tt">test</i>' : '') + '</span><span class="s num ' + cls + '">' + e.status + '</span><span class="d num">' + e.ms + ' ms</span></div>';
+    }).join('');
+    if (newest) seenReq = newest;
+    else if (seenReq === null) seenReq = '';
+  }
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // --- reset the request list (only when the operator set an admin token) ---
+  $('resetOpen').addEventListener('click', () => { $('resetForm').hidden = false; $('resetOpen').hidden = true; $('resetToken').focus(); });
+  $('resetCancel').addEventListener('click', () => { $('resetForm').hidden = true; $('resetOpen').hidden = false; $('resetToken').value = ''; });
+  $('resetForm').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const msg = $('resetMsg'); msg.className = 'resetmsg'; msg.textContent = 'Resetting…';
+    try {
+      const r = await fetch('/status/reset', { method: 'POST', headers: { 'X-Admin-Token': $('resetToken').value } });
+      if (r.ok) { msg.className = 'resetmsg ok'; msg.textContent = 'Cleared.'; $('resetToken').value = ''; $('resetForm').hidden = true; $('resetOpen').hidden = false; seenReq = null; tick(); }
+      else { msg.className = 'resetmsg bad'; msg.textContent = r.status === 401 ? 'Wrong token.' : 'Not available.'; }
+    } catch (e) { msg.className = 'resetmsg bad'; msg.textContent = 'No answer from the gateway.'; }
+    setTimeout(() => { if (msg.textContent === 'Cleared.') msg.textContent = ''; }, 3000);
+  });
+
+  // --- test request: ask this gateway the way a wallet does, and show how it went ---
+  let testing = false;
+  const colorJson = t => esc(t).replace(/(&quot;[^&]*?&quot;)(\s*:)?|\b(-?\d+(?:\.\d+)?)\b|\b(true|false|null)\b/g,
+    (m, str, colon, num, lit) => str ? (colon ? '<span class="k">' + str + '</span>' + colon : '<span class="s">' + str + '</span>') : '<span class="n">' + (num || lit) + '</span>');
+  async function sendTest() {
+    if (testing) return;
+    testing = true; $('testBtn').disabled = true; $('testBtn').classList.add('busy'); $('testLbl').textContent = 'Sending…';
+    const what = $('testWhat').value;
+    const paths = what === 'both' ? ['/v1/health', '/v1/fee'] : [what];
+    const blocks = [];
+    for (const path of paths) {
+      const t0 = performance.now();
+      let status = 0, ok = false, body = '', type = '';
+      try {
+        const r = await fetch(path, { cache: 'no-store', headers: { 'X-Test-Request': '1' } });
+        status = r.status; ok = r.ok; type = r.headers.get('content-type') || '';
+        body = await r.text();
+      } catch (e) { body = 'No answer: the request did not reach the gateway.'; }
+      const ms = Math.round(performance.now() - t0);
+      let shown = body;
+      try { shown = JSON.stringify(JSON.parse(body), null, 2); } catch (e) { /* not JSON: show as is */ }
+      if (shown.length > 6000) shown = shown.slice(0, 6000) + '\n… (cut)';
+      blocks.push('<div class="resp"><div class="rh"><b class="' + (ok ? 'ok' : 'bad') + '">' + (ok ? '✓' : '✕') + '</b><span class="num">GET ' + path + '</span><span class="num ' + (ok ? 'ok' : 'bad') + '">' + (status || 'no answer') + '</span><span class="num">' + ms + ' ms</span><span class="num" style="color:var(--muted)">' + esc(type.split(';')[0]) + '</span></div><pre>' + colorJson(shown) + '</pre></div>');
+    }
+    $('testOut').innerHTML = blocks.join('');
+    testing = false; $('testBtn').disabled = false; $('testBtn').classList.remove('busy'); $('testLbl').textContent = 'Send test request';
+    tick();
+  }
+  $('testBtn').addEventListener('click', sendTest);
+
   async function tick() {
     let h, st;
     try {
-      [h, st] = await Promise.all([fetch('/v1/health', { cache: 'no-store' }).then(r => r.json()), fetch('/status.json', { cache: 'no-store' }).then(r => r.json())]);
+      [h, st] = await Promise.all([fetch('/v1/health', { cache: 'no-store', headers: { 'X-Status-Page': '1' } }).then(r => r.json()), fetch('/status.json', { cache: 'no-store', headers: { 'X-Status-Page': '1' } }).then(r => r.json())]);
     } catch (e) {
       $('statusText').textContent = 'unreachable'; $('status').style.background = 'var(--red)';
       baku('error', "I can't reach the gateway right now. I'll keep trying.", '#ef444466'); return;
@@ -288,7 +441,12 @@
     }
     $('tNet').textContent = h.network; $('tMode').textContent = h.matchingMode; $('tVer').textContent = h.buildVersion;
     $('tPeers').textContent = h.peerCount + ' (' + full + ' full)';
+    const bloom = h.bloomPeerCount == null ? null : h.bloomPeerCount;
+    $('tBloom').textContent = bloom == null ? '–' : bloom + ' of ' + h.peerCount;
+    $('tBloomSub').textContent = bloom == null ? '' : 'Advertised by peers. Not used: whole blocks are checked.';
     $('tFrom').textContent = from == null ? 'not started' : fmt(from);
+
+    renderRequests(st.requests);
 
     // --- Baku ---
     if (h.status === 'unhealthy') baku('guard', 'I only see ' + h.peerCount + ' peer' + (h.peerCount === 1 ? '' : 's') + '. I need a few more before I can vouch for the chain.', '#f5a62366');
