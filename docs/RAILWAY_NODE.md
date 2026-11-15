@@ -172,3 +172,17 @@ DigiByte peers, checks every block header including its proof of work, indexes t
   book are kept; the index is rebuilt from the peers. To reset everything, delete the whole `/data` folder.
 - **Health**: `/v1/health` reports `starting`, `syncing`, `unhealthy` (fewer than 4 connected peers) or `ok`. It contains no wallet data.
 - **Privacy**: the service logs no address, transaction or transaction id. Request logging of URLs is off on purpose.
+
+### How the wallet reaches the gateway
+
+The wallet runs in the browser, so it cannot use Railway's private network itself. There are two routes, and both can be on at once:
+
+| Route | Setup on `digibyte-web` | Notes |
+|---|---|---|
+| Public | `WALLET_GATEWAY_API_URL=https://spv.example.org`, and add that origin to `connect-src` in `index.html` | The gateway has a public domain; its API and status page are reachable by anyone (rate limited). |
+| Private | `WALLET_SPV_INTERNAL_URL=http://<gateway service>.railway.internal:5290` and `WALLET_GATEWAY_API_URL=/spv` | nginx on the web service proxies `/spv/` to the gateway. Same origin, so no CORS and no CSP change, and the gateway needs no public domain. |
+
+To compare their speed, set one as `WALLET_GATEWAY_API_URL` and the other as `WALLET_GATEWAY_API_URL_ALT`, turn on `WALLET_DEV_VIEW`, open
+`/dev/node` and press **Measure** under "Gateway route speed". It asks each route for the health report ten times, taking turns, and shows the
+median, fastest, slowest 5% and failures. The wallet keeps using `WALLET_GATEWAY_API_URL`; the alternative is only timed. nginx looks the
+private host up when a request arrives, using the container's own resolver: check on the first deployment that `/spv/v1/health` answers.

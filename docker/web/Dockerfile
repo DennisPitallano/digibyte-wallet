@@ -60,6 +60,7 @@ COPY --from=build /app/publish/security-headers.conf /etc/nginx/conf.d/security-
 
 # Writes config.json (own-node settings from environment variables) each time the container starts; nginx runs every
 # executable script in /docker-entrypoint.d/ before it starts, so the settings change with a restart, not a rebuild.
+RUN mkdir -p /etc/nginx/spv
 COPY docker/web/40-write-config.sh /docker-entrypoint.d/40-write-config.sh
 RUN chmod +x /docker-entrypoint.d/40-write-config.sh
 

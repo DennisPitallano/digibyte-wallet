@@ -245,6 +245,14 @@
 
 .dn-shimmer { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--acc) 18%, transparent), transparent); background-size: 200% 100%; animation: dn-sweep 1.8s linear infinite; padding: 8px; border-radius: 10px; }
 
+/* ---------- Route speed ---------- */
+.dn-route { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 14px; background: var(--tile); border: 1px solid transparent; }
+.dn-route.best { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.dn-route-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dn-bar { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink-3) 25%, transparent); overflow: hidden; }
+.dn-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--acc), var(--acc-2)); animation: dn-grow .8s cubic-bezier(.2, .8, .2, 1) both; transform-origin: left; }
+.dn-route.best .dn-bar i { background: linear-gradient(90deg, var(--ok), var(--acc-2)); }
+
 /* ---------- Entrance ---------- */
 .dn-rise { animation: dn-rise .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 90ms); }
 .dn-pop { animation: dn-pop .4s cubic-bezier(.3, 1.4, .5, 1) both; }
@@ -261,6 +269,7 @@
 @keyframes dn-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @keyframes dn-sweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes dn-beat { 0% { transform: scale(2.2); opacity: 1; } 100% { transform: scale(1); opacity: .6; } }
+@keyframes dn-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes dn-rot { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {

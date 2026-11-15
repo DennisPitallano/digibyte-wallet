@@ -19,6 +19,12 @@ public sealed class P2pGatewayOptions
 
     public bool HasApiUrl => ApiUrl is not null;
 
+    /// <summary>
+    /// A second address that reaches the same gateway by another route (for example the wallet's own server proxying over the private network),
+    /// used only by the developer page to compare how fast each route answers. The wallet itself keeps using <see cref="ApiUrl"/>.
+    /// </summary>
+    public string? AltApiUrl { get; init; }
+
     /// <summary>The position asked for. Use <see cref="Position"/> for the one that takes effect.</summary>
     public GatewayPosition RequestedPosition { get; init; } = GatewayPosition.Backup;
 
@@ -62,6 +68,7 @@ public sealed class P2pGatewayOptions
         {
             Enabled = IsTrue(get("SpvGateway:Enabled")),
             ApiUrl = NodeSourceOptions.NormalizeUrl(get("SpvGateway:ApiUrl")),
+            AltApiUrl = NodeSourceOptions.NormalizeUrl(get("SpvGateway:ApiUrlAlt")),
             RequestedPosition = string.Equals(get("SpvGateway:Position")?.Trim(), "first", StringComparison.OrdinalIgnoreCase)
                 ? GatewayPosition.First
                 : GatewayPosition.Backup,

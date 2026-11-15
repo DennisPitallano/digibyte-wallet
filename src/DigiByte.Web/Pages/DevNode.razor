@@ -3,6 +3,7 @@
 @inject IHttpClientFactory HttpFactory
 @inject ExplorerBackends Explorers
 @inject IConfiguration Config
+@inject GatewayRouteTimer RouteTimer
 @inject NavigationManager Nav
 
 <PageTitle>Node diagnostics — DigiByte Wallet</PageTitle>
@@ -15,8 +16,50 @@
     <div class="dn flex flex-col gap-4 pb-8">
         <SourceStatusCards Public="false" />
 
+        @* How fast each route to the gateway answers, so a deployment can choose with numbers. Reads /v1/health only. *@
+        @if (RouteTimer.Routes.Count > 0)
+        {
+            <section class="dn-card dn-rise" style="--i:4" aria-label="Gateway route speed">
+                <h2 class="dn-h2">Gateway route speed</h2>
+                <p class="dn-muted">Asks each route for the gateway health report @routeSamples times, taking turns, and times the answers. No wallet data is sent.@(RouteTimer.Routes.Count < 2 ? " Set SpvGateway:ApiUrlAlt to compare a second route." : "")</p>
+                <button type="button" class="dn-btn press-effect" disabled="@measuring" @onclick="MeasureAsync">
+                    @if (measuring) { <span class="dn-spin" aria-hidden="true"></span> }
+                    @(measuring ? "Measuring..." : "Measure")
+                </button>
+                @if (timings is not null)
+                {
+                    var best = timings.Where(t => t.MedianMs is not null).OrderBy(t => t.MedianMs).FirstOrDefault();
+                    var slowest = timings.Where(t => t.MedianMs is not null).Max(t => t.MedianMs) ?? 1;
+                    <div class="dn-report dn-pop" aria-live="polite">
+                        @foreach (var t in timings)
+                        {
+                            var isBest = best is not null && t.Url == best.Url && timings.Count > 1;
+                            <div class="dn-route @(isBest ? "best" : "")">
+                                <div class="dn-route-head">
+                                    <span class="dn-addr dn-num">@t.Url</span>
+                                    @if (isBest) { <span class="dn-chip ok">faster</span> }
+                                </div>
+                                <div class="dn-bar"><i style="width:@(t.MedianMs is null ? 0 : Math.Max(4, (int)(t.MedianMs.Value / slowest * 100)))%"></i></div>
+                                <div class="dn-tiles">
+                                    @Tile("Median", Ms(t.MedianMs), null)
+                                    @Tile("Fastest", Ms(t.MinMs), null)
+                                    @Tile("Slowest 5%", Ms(t.P95Ms), null)
+                                    @Tile("Failed", $"{t.Failures} of {t.Count + t.Failures}", t.Failures == 0)
+                                </div>
+                            </div>
+                        }
+                        @if (timings.Count > 1 && timings.All(t => t.MedianMs is not null))
+                        {
+                            var diff = Math.Abs(timings[0].MedianMs!.Value - timings[1].MedianMs!.Value);
+                            <p class="dn-muted">The faster route is quicker by <span class="dn-num">@diff.ToString("0.#") ms</span> at the median. Under about 20 ms either is fine; choose on security.</p>
+                        }
+                    </div>
+                }
+            </section>
+        }
+
         @* Compare the node with the explorers. *@
-        <section class="dn-card dn-rise" style="--i:4" aria-label="Compare">
+        <section class="dn-card dn-rise" style="--i:5" aria-label="Compare">
             <h2 class="dn-h2">Compare the node with the explorers</h2>
             <p class="dn-muted">One address per line. The node scans once for the whole list, which can take about 15 seconds.</p>
             <textarea class="dn-input" placeholder="D... or dgb1..." @bind="addressInput" @bind:event="oninput" aria-label="Addresses to compare"></textarea>
@@ -77,6 +120,26 @@
             Nav.NavigateTo("not-found", replace: true);
         }
     }
+
+    private const int routeSamples = 10;
+    private bool measuring;
+    private IReadOnlyList<GatewayRouteTiming>? timings;
+
+    private async Task MeasureAsync()
+    {
+        measuring = true;
+        timings = null;
+        try
+        {
+            timings = await RouteTimer.MeasureAsync(routeSamples);
+        }
+        finally
+        {
+            measuring = false;
+        }
+    }
+
+    private static string Ms(double? v) => v is null ? "-" : v.Value < 10 ? $"{v.Value:0.0} ms" : $"{v.Value:0} ms";
 
     private async Task RunAsync()
     {

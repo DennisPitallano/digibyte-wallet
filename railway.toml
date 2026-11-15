@@ -60,6 +60,12 @@
 #     SpvGateway__RateLimitPerMinute=120     per client
 #     SpvGateway__TrustForwardedFor=true     ONLY behind Railway's proxy, so the limit sees real clients
 #   The wallet points at it with WALLET_GATEWAY_ENABLED=true and WALLET_GATEWAY_API_URL on digibyte-web.
+#   Two ways to reach it (both can be on at once, to compare their speed on the developer page, "Gateway route speed"):
+#     public:   give it a domain; WALLET_GATEWAY_API_URL=https://spv.example.org and add that origin to connect-src in index.html.
+#     private:  no domain. On digibyte-web set WALLET_SPV_INTERNAL_URL=http://<gateway service>.railway.internal:<port> and
+#               WALLET_GATEWAY_API_URL=/spv. nginx there proxies /spv/ over Railway's private network (same origin: no CORS, no CSP change).
+#     both:     WALLET_GATEWAY_API_URL=/spv and WALLET_GATEWAY_API_URL_ALT=https://spv.example.org (or the other way round); the wallet
+#               keeps using WALLET_GATEWAY_API_URL, the alternative is only timed.
 #   The gateway sees the addresses a wallet asks about and nothing else; it never receives keys.
 #
 # ─── DigiPay stack ──────────────────────────────────────────────────────────

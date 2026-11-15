@@ -16,7 +16,7 @@ public static class RuntimeConfigLoader
     private static readonly string[] DdKeys = ["ViewEnabled", "SendEnabled", "OracleEnabled"];
     private const string GatewaySection = "SpvGateway";
     // Only what docker/web/40-write-config.sh writes. BackgroundProving is left out on purpose: it sends transaction ids, so it is a build-time choice.
-    private static readonly string[] GatewayKeys = ["Enabled", "ApiUrl", "Position", "CheckIntervalSeconds", "StablePeriodSeconds", "HeightTolerance"];
+    private static readonly string[] GatewayKeys = ["Enabled", "ApiUrl", "ApiUrlAlt", "Position", "CheckIntervalSeconds", "StablePeriodSeconds", "HeightTolerance"];
 
     /// <summary>Fetches and parses <c>config.json</c> from the app's own origin. Any failure means no overrides.</summary>
     public static async Task<IReadOnlyDictionary<string, string?>> FetchAsync(HttpClient http)

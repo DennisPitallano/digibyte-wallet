@@ -164,11 +164,20 @@ builder.Services.AddScoped<NodeSourceMonitorLoop>();
 // Off by default (SpvGateway:Enabled). When on, it is used only while its own monitor says it is ready, never above the explorers
 // until the wallet checks proof of work itself (see GatewayCapabilities), and every answer it gives is checked against headers the
 // wallet verified. Mainnet only: the gateway has a mainnet checkpoint and no testnet one yet.
-var spvGateway = P2pGatewayOptions.FromConfiguration(key => builder.Configuration[key]);
+// A gateway address that starts with "/" is a path on the wallet's own server (nginx proxies it to the gateway over the private network),
+// so it becomes an address on the wallet's own origin before it is read.
+var spvGateway = P2pGatewayOptions.FromConfiguration(key =>
+{
+    var value = builder.Configuration[key];
+    return key is "SpvGateway:ApiUrl" or "SpvGateway:ApiUrlAlt" && value is { } v && v.StartsWith('/') && !v.StartsWith("//")
+        ? builder.HostEnvironment.BaseAddress.TrimEnd('/') + v
+        : value;
+});
 var spvGatewayOn = spvGateway.Enabled && spvGateway.HasApiUrl;
 builder.Services.AddSingleton(spvGateway);
 builder.Services.AddHttpClient("SpvGateway");
 builder.Services.AddHttpClient("SpvGatewayHealth");
+builder.Services.AddScoped(sp => new GatewayRouteTimer(sp.GetRequiredService<IHttpClientFactory>().CreateClient("SpvGatewayHealth"), spvGateway));
 builder.Services.AddScoped(sp => new GatewayClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("SpvGateway"), spvGateway));
 builder.Services.AddScoped(sp => new GatewayHeaderStore(sp.GetRequiredService<ISecureStorage>(), DigiByte.Crypto.Headers.Checkpoints.Mainnet, "mainnet",
     // Proof of work is checked only when asked for (spec FR-013): the cost under WebAssembly is not measured yet, so the default is off.
