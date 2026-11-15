@@ -265,6 +265,8 @@ moved to a weaker format.
 - **Local data**: the wallet's sync record lists its transactions and is stored on the device unencrypted like the other caches; it is deleted with the wallet and
   never exported.
 
+The public Network status page (`/network`) shows only what the wallet already knows about its sources: state, readiness steps, heights, status, peers and lag. It leaves out service addresses, versions, settings and the compare tool (which makes the node scan and so stays on the developer page). A deployment can hide it with `OwnNode:PublicStatus=false`.
+
 ## Authentication & Access Control
 
 ### PIN and Passphrase Lockout with Exponential Backoff

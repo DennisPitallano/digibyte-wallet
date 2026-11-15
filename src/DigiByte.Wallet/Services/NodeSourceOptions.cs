@@ -35,6 +35,9 @@ public sealed class NodeSourceOptions
     /// <summary>Shows the developer diagnostics page when true.</summary>
     public bool DevView { get; init; }
 
+    /// <summary>Shows the read-only Network status page to everyone. On unless a deployment sets OwnNode:PublicStatus to false.</summary>
+    public bool PublicStatus { get; init; } = true;
+
     public static NodeSourceOptions FromConfiguration(Func<string, string?> get)
     {
         var checkSeconds = ReadInt(get, "OwnNode:CheckIntervalSeconds", 10, 300) ?? DefaultCheckIntervalSeconds;
@@ -51,6 +54,7 @@ public sealed class NodeSourceOptions
             HeightTolerance = ReadInt(get, "OwnNode:HeightTolerance", 1, 50) ?? DefaultHeightTolerance,
             HealthTimeout = TimeSpan.FromSeconds(ReadInt(get, "OwnNode:HealthTimeoutSeconds", 1, 10) ?? DefaultHealthTimeoutSeconds),
             DevView = string.Equals(get("OwnNode:DevView")?.Trim(), "true", StringComparison.OrdinalIgnoreCase),
+            PublicStatus = !string.Equals(get("OwnNode:PublicStatus")?.Trim(), "false", StringComparison.OrdinalIgnoreCase),
         };
     }
 

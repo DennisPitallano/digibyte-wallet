@@ -1,0 +1,22 @@
+@page "/network"
+@inject NodeSourceOptions Options
+@inject NavigationManager Nav
+
+<PageTitle>Network status — DigiByte Wallet</PageTitle>
+
+@* A read-only page anyone can open: where the wallet's own data sources stand, in plain words. It shows states and heights only;
+   addresses, versions, settings and the compare tool stay on the developer page. A deployment can hide it with OwnNode:PublicStatus=false. *@
+@if (Options.PublicStatus)
+{
+    <div class="flex flex-col gap-4 pb-8">
+        <SourceStatusCards Public="true" />
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!Options.PublicStatus)
+            Nav.NavigateTo("not-found", replace: true);
+    }
+}

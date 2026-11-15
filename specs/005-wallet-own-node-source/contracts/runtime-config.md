@@ -12,6 +12,7 @@ The wallet's web container writes `/config.json` when it starts. The app fetches
 | `WALLET_NODE_STABLE_SECONDS` | `OwnNode:StablePeriodSeconds` | `120` |
 | `WALLET_NODE_HEIGHT_TOLERANCE` | `OwnNode:HeightTolerance` | `5` |
 | `WALLET_DEV_VIEW` | `OwnNode:DevView` | `false` |
+| (none) | `OwnNode:PublicStatus` | `true` (the read-only Network status page; set `false` to hide it) |
 
 No secrets. Anything the browser reads from here is public.
 

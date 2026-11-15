@@ -35,6 +35,10 @@ A small dot in the layout, always present only when the feature is on. Opens the
 
 Both clear by themselves when the condition ends. The existing offline banner keeps its own behaviour.
 
+## Network status page (`/network`, on unless `OwnNode:PublicStatus` is false)
+
+A read-only page anyone can open, linked from the source detail sheet. It shows, for the own node and the light-client gateway: the state, the four readiness steps, the source height against the explorer height, status, peers and lag, and a list of recent state changes. It never shows addresses, versions, settings, raw reason codes or the compare tool. With the setting off the route shows the normal "not found" page.
+
 ## Developer view (only when `OwnNode:DevView` is true)
 
 A page with:
