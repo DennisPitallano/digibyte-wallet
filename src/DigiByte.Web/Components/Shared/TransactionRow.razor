@@ -2,7 +2,14 @@
    Shared by Home and the All transactions page. *@
 <div class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500/40"
      role="button" tabindex="0" aria-label="@AriaLabel" @onclick="Open" @onkeydown="OnKeyDown">
-    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @(sent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @(isDd ? "bg-dgb-50 dark:bg-dgb-900/40" : sent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
+        @if (isDd)
+        {
+            @* A DigiDollar transaction: the dollar sign instead of a direction arrow, because it moves no DGB. *@
+            <span class="text-sm font-bold text-dgb-500 dark:text-dgb-300" aria-hidden="true">$</span>
+        }
+        else
+        {
         <svg class="w-4 h-4 @(sent ? "text-red-500" : "text-green-500")" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
             @if (sent)
             {
@@ -13,6 +20,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
             }
         </svg>
+        }
     </div>
     <div class="flex-1 min-w-0">
         <p class="text-xs font-semibold text-slate-900 dark:text-white truncate">@Title</p>
@@ -38,6 +46,11 @@
         {
             <p class="text-xs font-bold text-slate-400 dark:text-slate-500 balance-mask" aria-label="Amount hidden">••••</p>
         }
+        else if (isDd)
+        {
+            @* The dollar amounts of the DD outputs; the only DGB involved is the fee, shown below. *@
+            <p class="text-xs font-bold tabular-nums text-slate-700 dark:text-slate-200">@Tx.DigiDollar!.OutputsText</p>
+        }
         else
         {
             <p class="text-xs font-bold tabular-nums @(sent ? "text-red-500" : "text-green-500")">
@@ -45,7 +58,11 @@
             </p>
         }
         <div class="flex items-center justify-end gap-1.5">
-            @if (!HideAmounts && FiatPrice > 0)
+            @if (isDd && !HideAmounts)
+            {
+                <span class="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">fee @FeeText DGB</span>
+            }
+            else if (!HideAmounts && FiatPrice > 0)
             {
                 <span class="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">≈ @FiatSymbol@FiatText</span>
             }
@@ -84,9 +101,15 @@
 
     private bool sent => Tx.Direction == TransactionDirection.Sent;
 
+    /// <summary>A DigiDollar transaction: it moves no DGB apart from its fee.</summary>
+    private bool isDd => Tx.DigiDollar is not null;
+
+    /// <summary>The network fee with enough decimals to read: a few thousand satoshis is 0.0000X DGB.</summary>
+    private string FeeText => (Tx.FeeSatoshis / 100_000_000m).ToString("0.########");
+
     private string DisplayName => !string.IsNullOrWhiteSpace(Name) ? Name! : Tx.CounterpartyName ?? "";
 
-    private string Title => DisplayName.Length > 0
+    private string Title => isDd ? Tx.DigiDollar!.Label : DisplayName.Length > 0
         ? (sent ? $"To {DisplayName}" : $"From {DisplayName}")
         : (sent ? "Sent" : "Received");
 
@@ -115,7 +138,9 @@
 
     private string AriaLabel => HideAmounts
         ? $"{Title}, {WhenText}, amount hidden"
-        : $"{Title}, {Tx.AmountDgb:N4} DGB, {WhenText}";
+        : isDd
+            ? $"{Title}, {Tx.DigiDollar!.OutputsText}, fee {FeeText} DGB, {WhenText}"
+            : $"{Title}, {Tx.AmountDgb:N4} DGB, {WhenText}";
 
     private Task Open() => OnOpen.InvokeAsync(Tx);
 
