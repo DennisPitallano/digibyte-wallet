@@ -228,7 +228,7 @@
   "dd.time.seconds": "{0} s",
   "dd.time.minutes": "{0} min",
   "dd.time.hours": "{0} h",
-  "dd.home.dgbValue": "Tu DGB a tasa del or\u00e1culo: {0}",
+  "dd.home.dgbValue": "Tu DGB vale {0} (or\u00e1culo)",
   "create.pin_limitation": "Tu PIN protege tu billetera en este dispositivo y es m\u00e1s fuerte que antes. Mant\u00e9n tu frase de recuperaci\u00f3n respaldada: es la \u00fanica forma de volver a entrar si olvidas tu PIN.",
   "upgrade.notice.title": "Tu billetera se ha actualizado",
   "upgrade.notice.body": "Actualizamos la protecci\u00f3n de esta billetera en este dispositivo. Para ti no cambia nada: sigue usando el mismo PIN. Durante 7 d\u00edas tambi\u00e9n conservamos una copia en el formato anterior, por si necesitas volver a una versi\u00f3n anterior de la app. Despu\u00e9s se elimina sola y solo queda la nueva protecci\u00f3n.",
