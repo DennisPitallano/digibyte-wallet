@@ -48,7 +48,7 @@ The amount (1 DGB), the confirmations (3) and the limits are settings (`Sponsors
 Sponsors page ──GET──▶ raw.githubusercontent.com/<repo>/sponsors/data/sponsors.json   (read live, last good copy kept offline)
 Sponsors form ──POST─▶ DigiByte.Api  /api/sponsors/submissions
                          ├─ validates the entry with the same rules as the wallet (DigiByte.P2P.Shared)
-                         ├─ checks the donation on digiexplorer.info and digibyteblockexplorer.com
+                         ├─ checks the donation on digiexplorer.info
                          └─ opens a pull request on a submission/* branch using the bot token (server-side only)
 maintainer merges ──▶ build-sponsors-index workflow regenerates data/sponsors.json
 ```

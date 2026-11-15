@@ -39,11 +39,10 @@ builder.Services.AddHttpClient("SponsorExplorers", client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet-Sponsors/1.0");
     client.Timeout = TimeSpan.FromSeconds(10);
 });
-// Explorers in the wallet's order: digiexplorer.info (Esplora) first, then digibyteblockexplorer.com (Blockbook).
+// Explorers for donation lookups: digiexplorer.info (Esplora). digibyteblockexplorer.com (Blockbook) was removed on 2026-11-16 because it
+// had answered every request with 502; BlockbookTxLookup is still in the code to add back if an instance returns.
 builder.Services.AddSingleton<IExplorerTxLookup>(sp => new EsploraTxLookup(
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("SponsorExplorers"), "https://digiexplorer.info/api"));
-builder.Services.AddSingleton<IExplorerTxLookup>(sp => new BlockbookTxLookup(
-    sp.GetRequiredService<IHttpClientFactory>().CreateClient("SponsorExplorers"), "https://digibyteblockexplorer.com"));
 builder.Services.AddScoped<IDonationVerifier, DonationVerifier>();
 builder.Services.AddScoped<SponsorSubmissionService>();
 builder.Services.AddRateLimiter(limiter =>

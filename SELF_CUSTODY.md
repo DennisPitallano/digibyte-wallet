@@ -53,10 +53,9 @@ server's point of view, you are downloading a `.wasm` file and a handful
 of `.js` / `.css` / `.png` assets. After that, all the wallet's
 runtime traffic goes to:
 
-- **`digiexplorer.info`** / **`digibyteblockexplorer.com`** — block
-  explorers. They see addresses you ask about (which are already public
-  on chain) and signed transactions you broadcast (also public). They
-  don't see your seed.
+- **`digiexplorer.info`** — block explorer. It sees addresses you ask
+  about (which are already public on chain) and signed transactions you
+  broadcast (also public). It doesn't see your seed.
 - **`api.coingecko.com`** — fiat price feed. Receives no wallet-specific
   data.
 - **`api.github.com`** — release/version checks. Receives no

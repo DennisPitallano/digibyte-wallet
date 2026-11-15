@@ -218,11 +218,14 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
-        // Our own node: a fallback (or first for quick lookups) while active; with node use off it is the last resort.
+        // Our own node: a fallback (or first for quick lookups) while active; with node use off it is the last resort, after the gateway.
+        var gatewayBeforeNode = LegacyOrder && gateway is { InUse: true } && _gatewayPosition == GatewayPosition.Backup;
+        if (gatewayBeforeNode)
+            inUse.Add(gateway!);
         if (LegacyOrder)
         {
             inUse.Add(Make("node", "Own node", ReadSourceKind.OwnNode, true, "last resort", ReadSourceTone.Waiting,
-                "Node use is off, so it is asked only when every explorer failed."));
+                "Node use is off, so nothing checks that it is ready. It is asked only when every other source failed."));
         }
         else if (_nodeState is { IsActive: true } active)
         {
@@ -237,7 +240,7 @@ public class FallbackBlockchainService : IBlockchainService
                 "Not used until it has stayed level with the chain for the steady period."));
         }
 
-        if (gateway is { InUse: true } && _gatewayPosition == GatewayPosition.Backup)
+        if (gateway is { InUse: true } && _gatewayPosition == GatewayPosition.Backup && !gatewayBeforeNode)
             inUse.Add(gateway);
         else if (gateway is { InUse: false })
             standby.Add(gateway);
@@ -337,6 +340,17 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
+        // With node use off nothing checks that the node is ready, while the gateway (when active) has a readiness check and its answers
+        // are checked against headers the wallet keeps, so the gateway is asked first and the node is the last resort.
+        var gatewayAsked = false;
+        if (LegacyOrder && GatewayActive && _gatewayPosition == GatewayPosition.Backup)
+        {
+            gatewayAsked = true;
+            var viaGatewayFirst = await TryGatewayAsync(call);
+            if (viaGatewayFirst.Answered)
+                return viaGatewayFirst.Value!;
+        }
+
         // 2. Fall back to own node (pruned — scantxoutset is slower but always works).
         // Only when node use is off: with the feature on, a node that is not active is never asked (see the class summary).
         if (LegacyOrder)
@@ -366,7 +380,7 @@ public class FallbackBlockchainService : IBlockchainService
         }
 
         // The SPV gateway as a backup: asked only after the explorers (and the node, where it applies) could not answer.
-        if (GatewayActive && _gatewayPosition == GatewayPosition.Backup)
+        if (GatewayActive && _gatewayPosition == GatewayPosition.Backup && !gatewayAsked)
         {
             var viaGateway = await TryGatewayAsync(call);
             if (viaGateway.Answered)
@@ -657,6 +671,24 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
+        var gatewayAsked = false;
+        if (LegacyOrder && GatewayActive && _gatewayPosition == GatewayPosition.Backup)
+        {
+            // Node use is off: the gateway has a readiness check and checked answers, the node has neither, so the gateway goes first.
+            gatewayAsked = true;
+            try
+            {
+                var viaGateway = await _gatewaySource!.GetVerifiedUtxosAsync(address).WaitAsync(GatewayReadBudget);
+                _gatewayFailureSink?.ReportNodeReadSuccess();
+                return viaGateway;
+            }
+            catch (Exception ex)
+            {
+                _gatewayFailureSink?.ReportNodeReadFailure();
+                lastError = ex;
+            }
+        }
+
         if (LegacyOrder || _nodeState!.IsActive)
         {
             try
@@ -669,7 +701,7 @@ public class FallbackBlockchainService : IBlockchainService
             }
         }
 
-        if (GatewayActive && _gatewayPosition == GatewayPosition.Backup)
+        if (GatewayActive && _gatewayPosition == GatewayPosition.Backup && !gatewayAsked)
         {
             try
             {

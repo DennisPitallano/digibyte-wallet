@@ -418,7 +418,6 @@ style-src      'self' 'unsafe-inline'
 img-src        'self' data: blob: https://avatars.githubusercontent.com
 font-src       'self'
 connect-src    'self' http://localhost:5007 https://digiexplorer.info
-               https://digibyteblockexplorer.com
                https://digibyte-api-production.up.railway.app
                https://api.coingecko.com https://api.github.com ws: wss:
 frame-src      'none'

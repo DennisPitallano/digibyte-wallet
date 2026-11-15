@@ -139,13 +139,12 @@ builder.Services.AddScoped(sp => new FiatRateProvider(
 builder.Services.AddScoped(sp =>
 {
     var esplora = sp.GetRequiredService<BlockchainApiService>();
-    var blockbookHttp = sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain");
-    var blockbook = new BlockbookApiService(blockbookHttp, "https://digibyteblockexplorer.com", "blockbook-main", priceApiUrl);
 
+    // digibyteblockexplorer.com (Blockbook) was removed on 2026-11-16: it had answered every request with 502 for a long time. The
+    // Blockbook client (BlockbookApiService) is still in the code; add it back to this list if an instance comes back.
     return new ExplorerBackends(
     [
-        esplora,   // Esplora (digiexplorer.info) — primary
-        blockbook, // Blockbook (digibyteblockexplorer.com) — fallback
+        esplora,   // Esplora (digiexplorer.info)
     ]);
 });
 
@@ -193,8 +192,7 @@ builder.Services.AddScoped<IGatewayWalletScopeProvider>(sp => new LazyGatewaySco
 builder.Services.AddHttpClient("BlockHash");
 builder.Services.AddScoped<IExplorerBlockHashSource>(sp => new ExplorerBlockHashSource(
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("BlockHash"),
-    [new ExplorerHashEndpoint("https://digiexplorer.info/api", ExplorerHashKind.Esplora),
-     new ExplorerHashEndpoint("https://digibyteblockexplorer.com", ExplorerHashKind.Blockbook)]));
+    [new ExplorerHashEndpoint("https://digiexplorer.info/api", ExplorerHashKind.Esplora)]));
 builder.Services.AddScoped(sp => new GatewayTipCrossCheck(sp.GetRequiredService<GatewayHeaderStore>(), sp.GetRequiredService<IExplorerBlockHashSource>()));
 // Proof requests reveal transaction ids, so this upgrader is only ever started by the gateway source itself (the gateway is then the
 // answering source). The background-proving switch for explorer-served wallets is not wired in the first release.
