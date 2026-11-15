@@ -1513,6 +1513,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 {
                     var isSent = tx.Inputs.Any(i => isOurs(i.Address));
                     var (walletAddresses, receivedTo) = TransactionAddressResolver.Resolve(tx, isSent, ownByKey, changeKeys, singleKey);
+                    var digiDollar = DigiDollarTxSummary.TryRead(tx.Outputs);
                     var matchingOutputs = tx.Outputs.Where(o => isOurs(o.Address)).ToList();
                     var amount = isSent
                         ? tx.Outputs.Where(o => !isOurs(o.Address)).Sum(o => o.AmountSatoshis)
@@ -1526,10 +1527,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                         FeeSatoshis = tx.FeeSatoshis,
                         Timestamp = tx.Timestamp,
                         Confirmations = tx.Confirmations,
-                        CounterpartyAddress = isSent
+                        CounterpartyAddress = digiDollar is not null ? null : isSent
                             ? tx.Outputs.FirstOrDefault(o => !isOurs(o.Address))?.Address
                             : tx.Inputs.FirstOrDefault(i => !isOurs(i.Address))?.Address,
-                        Memo = ExtractOpReturnMemo(tx.Outputs),
+                        // The "DD" marker inside a DigiDollar OP_RETURN is not a note the sender wrote.
+                        Memo = digiDollar is null ? ExtractOpReturnMemo(tx.Outputs) : null,
+                        DigiDollar = digiDollar,
                         WalletAddresses = walletAddresses,
                         WalletReceivedAddresses = receivedTo,
                     };
@@ -2944,8 +2947,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// <summary>
     /// Extract a UTF-8 memo from the first OP_RETURN output, if any.
     /// </summary>
-    private static string? ExtractOpReturnMemo(List<TxOutput> outputs)
+    internal static string? ExtractOpReturnMemo(List<TxOutput> outputs)
     {
+        // A DigiDollar OP_RETURN starts with the marker "DD"; it is data for the wallet, never a text note.
+        if (DigiDollarTxSummary.TryRead(outputs) is not null)
+            return null;
+
         var hex = outputs.FirstOrDefault(o =>
             o.ScriptHex != null && o.ScriptHex.StartsWith("6a", StringComparison.OrdinalIgnoreCase))?.ScriptHex;
         if (hex is not { Length: > 4 }) return null;

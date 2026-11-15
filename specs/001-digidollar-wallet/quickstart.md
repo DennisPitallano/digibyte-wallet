@@ -114,6 +114,8 @@ Deployment notes:
 
 `DigiDollar:OracleEnabled` (default `true`) shows or hides every oracle price and status display (the panel on the DigiDollar page and Analytics, the price line, the price banners and the "price unavailable" send warning). Production sets it to `false` while the explorer backend has no oracle data; turn it back on once a NodeApi supplies one.
 
+Update 2026-11-16: the built-in default is `esplora` again (and `OracleEnabled` false), because no DigiDollar-capable node is serving the oracle. Viewing is switched on per deployment with `WALLET_DD_VIEW=true` (a runtime setting); the backend itself stays a build-time choice, because the explorer backend sends the wallet DD addresses to a third party. Re-checked live against digiexplorer.info the same day: `EsploraDigiDollarLiveTests` (`DD_LIVE=1`) passes, and recent mainnet DD transactions are served with their P2TR outputs and DD `OP_RETURN`.
+
 Known limitation (noted 2026-10-19): the explorer exposes no oracle price or protection status (they come from the node's RPC; the coinbase of a recent block carries only the SegWit commitment, and no oracle record was seen in the DigiDollar transactions scanned). Oracle displays stay off with the explorer backend. Possible later step: show the DGB market price from the existing CoinGecko feed, labelled as a market price and not the oracle price.
 
 The explorer path was validated against real mainnet transactions (a mint and the transfer that spent it): amounts, address mapping, history, and the on-chain Schnorr signature (SIGHASH_DEFAULT). Mints carry extra pushes after the amount (lock height, tier, a 32-byte commitment); only the first amount is the DigiDollar value.

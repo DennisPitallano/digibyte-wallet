@@ -120,6 +120,12 @@ public class TransactionRecord
     public string? Memo { get; set; }
 
     /// <summary>
+    /// Set when this is a DigiDollar transaction (a transfer, mint or redeem): the DD amounts it moved. Such a transaction moves no DGB
+    /// except its fee, so the views show this and the fee instead of an amount in DGB. Null for an ordinary transaction.
+    /// </summary>
+    public DigiDollarTxSummary? DigiDollar { get; set; }
+
+    /// <summary>
     /// What the wallet can say about this transaction when the P2P gateway record knows it (specs/011-p2p-spv-gateway). Null when the
     /// record does not know it or the feature is off: nothing extra is shown then.
     /// </summary>
