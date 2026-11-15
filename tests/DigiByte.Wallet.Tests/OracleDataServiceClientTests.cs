@@ -398,8 +398,57 @@ public class OracleDataServiceClientTests
         await Task.Delay(50);
         Assert.Equal(1, rig.Upstream.Count);
 
-        rig.Clock.Advance(TimeSpan.FromSeconds(11));
-        Assert.True(await rig.RefreshAsync());
+        rig.Clock.Advance(TimeSpan.FromSeconds(11)); // 31 s: the feed's own retry (or a screen's ask) may now go out, once
+        for (var w = 0; w < 100 && rig.Upstream.Count < 2; w++) { rig.Feed.RequestRefresh(); await Task.Delay(10); }
+        await Task.Delay(50);
         Assert.Equal(2, rig.Upstream.Count);
+    }
+
+    // ---------- a failed first fetch is retried without a screen asking again ----------
+
+    [Fact]
+    public async Task A_failed_first_fetch_is_retried_on_its_own_after_thirty_seconds_and_the_price_then_appears()
+    {
+        var rig = new Rig();
+        rig.Upstream.Answer = (_, _) => Task.FromResult(Json("{}", HttpStatusCode.ServiceUnavailable));
+        await rig.RefreshAsync();
+        Assert.Null(rig.Feed.Current);
+
+        rig.Upstream.Answer = (_, _) => Task.FromResult(Json(Good(rig.Clock.GetUtcNow())));
+        var done = new TaskCompletionSource();
+        rig.Feed.Changed += () => done.TrySetResult();
+        rig.Clock.Advance(TimeSpan.FromSeconds(29));
+        await Task.Delay(50);
+        Assert.Equal(1, rig.Upstream.Count); // not before 30 seconds
+
+        rig.Clock.Advance(TimeSpan.FromSeconds(2));
+        await done.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(2, rig.Upstream.Count);
+        Assert.NotNull(rig.Feed.Current);
+    }
+
+    [Fact]
+    public async Task The_automatic_retries_stop_after_three_and_never_run_after_a_success()
+    {
+        var rig = new Rig();
+        rig.Upstream.Answer = (_, _) => Task.FromResult(Json("{}", HttpStatusCode.ServiceUnavailable));
+        await rig.RefreshAsync();
+
+        for (var i = 0; i < 6; i++)
+        {
+            var before = rig.Upstream.Count;
+            rig.Clock.Advance(TimeSpan.FromSeconds(31));
+            for (var w = 0; w < 100 && rig.Upstream.Count == before && i < 3; w++) await Task.Delay(10);
+        }
+        await Task.Delay(50);
+
+        Assert.Equal(4, rig.Upstream.Count); // the first attempt plus three retries
+
+        var ok = new Rig();
+        await ok.RefreshAsync();
+        ok.Clock.Advance(TimeSpan.FromMinutes(2));
+        await Task.Delay(50);
+        Assert.Equal(1, ok.Upstream.Count);
     }
 }

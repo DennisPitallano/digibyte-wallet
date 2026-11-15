@@ -27,6 +27,8 @@ public sealed class OracleDataServiceClient : IOracleFeed
     private bool _fetching;
     private bool _firstFetchDone;
     private DateTimeOffset? _lastAttempt;
+    private int _retries;
+    private ITimer? _retryTimer;
 
     public OracleDataServiceClient(HttpClient http, string? url, TimeProvider? time = null)
     {
@@ -67,12 +69,20 @@ public sealed class OracleDataServiceClient : IOracleFeed
         }
     }
 
-    public void RequestRefresh()
+    /// <summary>After a failed fetch with no reading held, the feed asks again by itself this many times (one per 30 seconds), so a service that was
+    /// briefly down does not leave a screen without a price until the next page load. Any caller's request starts the count again.</summary>
+    private const int MaxAutoRetries = 3;
+
+    public void RequestRefresh() => Refresh(fromRetry: false);
+
+    private void Refresh(bool fromRetry)
     {
         if (_url is null)
             return;
         lock (_gate)
         {
+            if (!fromRetry)
+                _retries = 0;
             if (_fetching)
                 return;
             var now = _time.GetUtcNow();
@@ -116,6 +126,14 @@ public sealed class OracleDataServiceClient : IOracleFeed
             }
             _firstFetchDone = true;
             _fetching = false;
+            if (reading is not null)
+                _retries = 0;
+            else if (_reading is null && _retries < MaxAutoRetries)
+            {
+                _retries++;
+                _retryTimer?.Dispose();
+                _retryTimer = _time.CreateTimer(_ => Refresh(fromRetry: true), null, Spacing, Timeout.InfiniteTimeSpan);
+            }
         }
 
         try
