@@ -252,14 +252,30 @@ builder.Services.AddSingleton(new DigiDollarFeatureFlag(ddView, ddSend, ddOracle
 // balances, history and broadcast only, no oracle price or status, addresses are sent to the explorer).
 var ddBackend = builder.Configuration["DigiDollar:Backend"] ?? "nodeapi";
 var ddUseExplorer = string.Equals(ddBackend, "esplora", StringComparison.OrdinalIgnoreCase);
-builder.Services.AddScoped<IDigiDollarNodeApi>(sp => ddUseExplorer
-    ? new EsploraDigiDollarApi(
+// ── Oracle price and protection status for the explorer backend (specs/014-digibyte-io-oracle) ──
+// A public explorer has no oracle data, so the wallet reads it from the project's own data service, which relays digibyte.io: the browser never
+// contacts digibyte.io itself, so the content policy is unchanged. One shared feed (it never makes a caller wait) is wrapped around the explorer
+// backend only when the oracle switch is on; the address must be https (or loopback in development) and is not overridable from config.json.
+// Display only: nothing here feeds a transaction.
+var ddOracleUrl = builder.Configuration["DigiDollar:OracleApiUrl"];
+var ddOracleOn = OracleDataServiceClient.IsEnabled(ddOracle, ddUseExplorer, ddOracleUrl);
+builder.Services.AddHttpClient("Oracle");
+builder.Services.AddScoped<IOracleFeed>(sp => new OracleDataServiceClient(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("Oracle"), ddOracleOn ? ddOracleUrl : null));
+builder.Services.AddScoped<IDigiDollarNodeApi>(sp =>
+{
+    if (!ddUseExplorer)
+        return new DigiDollarNodeApiClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), nodeApiUrl);
+
+    var explorer = new EsploraDigiDollarApi(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("Blockchain"),
         builder.Configuration["DigiDollar:EsploraMainnetUrl"] ?? "https://digiexplorer.info/api",
         builder.Configuration["DigiDollar:EsploraTestnetUrl"] ?? "https://digiexplorer.info/testnet/api",
-        () => sp.GetRequiredService<AppState>().NetworkMode != "mainnet")
-    : new DigiDollarNodeApiClient(
-        sp.GetRequiredService<IHttpClientFactory>().CreateClient("NodeApi"), nodeApiUrl));
+        () => sp.GetRequiredService<AppState>().NetworkMode != "mainnet");
+    return ddOracleOn
+        ? new OracleEnrichedDigiDollarApi(explorer, sp.GetRequiredService<IOracleFeed>(), () => sp.GetRequiredService<AppState>().NetworkMode == "mainnet")
+        : explorer;
+});
 builder.Services.AddScoped<DigiDollarStore>(sp => new DigiDollarStore(
     sp.GetRequiredService<ISecureStorage>(), sp.GetRequiredService<ICryptoService>()));
 // WalletService doubles as the narrow session provider DigiDollar uses (it shares the derivation, never the mnemonic).

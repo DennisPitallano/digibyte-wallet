@@ -104,6 +104,15 @@ A question it cannot answer correctly throws `GatewayDeclinedException`, so the 
 
 Explorers are registered in `DigiByte.Web/Program.cs`. To add or remove backends, edit the `explorers` list.
 
+### Oracle price and status (explorer backend)
+
+The explorer has no oracle data, so with `DigiDollar:Backend=esplora` two small pieces fill the gap (specs/014-digibyte-io-oracle):
+
+- **Relay** (`DigiByte.Api`: `OracleRelay`, `GET /api/oracle`): fetches `getoracleprice` and `getdigidollarstats` from digibyte.io, validates them, keeps one shared answer (one attempt per kind per 30 s, served until 5 minutes after it was fetched) and serves the merged result. 503 when there is nothing usable, 404 when `Oracle__Enabled` is false.
+- **Wrapper** (`OracleEnrichedDigiDollarApi` over `EsploraDigiDollarApi`, fed by `OracleDataServiceClient`): `GetHealthAsync` awaits only the explorer, merges the reading the feed already holds into `NetworkHealth` and asks the feed to refresh in the background. The screens re-merge when the feed reports a change. Mainnet only; an unavailable health stays unavailable.
+
+Display only: the oracle never feeds a transaction. The home balance keeps the market price. The wallet only talks to the relay (`DigiDollar:OracleApiUrl`, https or loopback), never to digibyte.io.
+
 ### Sponsors (list read from GitHub, submissions as pull requests)
 
 The Sponsors page reads `data/sponsors.json` live from the `sponsors` branch of the project's repository (`raw.githubusercontent.com`, one request per page open, last good copy kept in local storage). The form posts to one endpoint on `DigiByte.Api`, a public-contribution intake relay: it validates with the shared rules in `DigiByte.P2P.Shared`, checks the donation on the public explorers, and opens a pull request through a server-side bot token. A maintainer merges; a workflow on the branch regenerates the list. No database is used and `main` is never touched. See [SPONSORS.md](SPONSORS.md) and `specs/006-sponsors-page/`.

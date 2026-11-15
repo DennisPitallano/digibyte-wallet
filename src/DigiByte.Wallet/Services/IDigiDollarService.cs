@@ -69,6 +69,10 @@ public enum DdDegradedCondition
     Err,
     VolatilityFreeze,
     PriceUnavailable,
+    /// <summary>The source reports that minting is restricted. A warning only: sending is never blocked (spec 014).</summary>
+    MintingRestricted,
+    /// <summary>The source reports that all DigiDollar operations are restricted. A warning only: sending is never blocked (spec 014).</summary>
+    AllOperationsRestricted,
 }
 
 /// <summary>The outcome of validating a send and quoting its fee: everything the confirmation dialog shows (FR-014, FR-015).</summary>

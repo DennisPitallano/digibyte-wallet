@@ -5,6 +5,8 @@
 @inject AppState AppState
 @inject IConfiguration Config
 @inject IDigiDollarNodeApi DdApi
+@inject DigiByte.Wallet.Services.IOracleFeed OracleFeed
+@implements IDisposable
 @inject FiatRateProvider Fx
 @inject DigiDollarFeatureFlag DdFlag
 @inject LocalizationService L
@@ -195,8 +197,21 @@
         catch { chartLoaded = true; StateHasChanged(); }
     }
 
+    private bool oracleSubscribed;
+
+    // The oracle reading arrives in the background after the first load; fold it in as soon as it lands (spec 014 SC-001).
+    private void OnOracleChanged()
+    {
+        if (oracleHealth is null) return;
+        oracleHealth = DigiByte.Wallet.Services.OracleEnrichedDigiDollarApi.Merge(oracleHealth, OracleFeed, AppState.NetworkMode == "mainnet");
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => OracleFeed.Changed -= OnOracleChanged;
+
     private async Task LoadOracle()
     {
+        if (!oracleSubscribed) { oracleSubscribed = true; OracleFeed.Changed += OnOracleChanged; }
         try { oracleHealth = await DdApi.GetHealthAsync(CancellationToken.None); }
         catch { oracleHealth = null; } // unreachable: the panel says "Unavailable", the rest of the page is unaffected
         oracleLoading = false;

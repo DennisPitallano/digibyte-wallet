@@ -215,6 +215,21 @@ public sealed record NetworkHealth
 
     public int? OracleHeight { get; init; }
 
+    /// <summary>When the oracle last updated (specs/014-digibyte-io-oracle). Used for freshness only when the chain height is missing.</summary>
+    public DateTimeOffset? OracleUpdatedAt { get; init; }
+
+    /// <summary>The oracle source's own stale flag.</summary>
+    public bool OracleReportedStale { get; init; }
+
+    /// <summary>Minting is restricted (informational: a warning, never a block).</summary>
+    public bool MintingRestricted { get; init; }
+
+    /// <summary>Every DigiDollar operation is restricted (informational: a warning, never a block).</summary>
+    public bool AllOperationsRestricted { get; init; }
+
+    /// <summary>True only while the oracle's first answer is on its way and there is no reading yet: the screens show "loading", not "unavailable".</summary>
+    public bool OracleLoading { get; init; }
+
     public int NodeHeight { get; init; }
 
     /// <summary>Best-known height from peers.</summary>
@@ -227,12 +242,28 @@ public sealed record NetworkHealth
     /// <summary>False when there is no usable price; hides the DGB USD equivalent (FR-019).</summary>
     public bool OraclePriceAvailable => OraclePriceMicroUsd is > 0;
 
-    /// <summary><c>NodeHeight − OracleHeight &gt; 20</c> (research R6).</summary>
-    public bool IsOracleStale => OracleHeight is { } h && NodeHeight - h > OracleStaleBlocks;
+    /// <summary>The longest an update may be old, by the clock, when the chain height is missing.</summary>
+    public static readonly TimeSpan OracleStaleAge = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Whether the oracle price is stale (specs/014-digibyte-io-oracle, FR-004), in this order: the source reports it stale; the chain height is
+    /// known and <c>NodeHeight − OracleHeight &gt; 20</c> (research R6); the height is missing (<c>NodeHeight</c> 0) and the last update is more than
+    /// 5 minutes old by the clock. Uses the current time; <see cref="IsOracleStaleAt"/> takes it as a parameter.
+    /// </summary>
+    public bool IsOracleStale => IsOracleStaleAt(DateTimeOffset.UtcNow);
+
+    public bool IsOracleStaleAt(DateTimeOffset now)
+    {
+        if (OracleReportedStale)
+            return true;
+        if (NodeHeight > 0)
+            return OracleHeight is { } h && NodeHeight - h > OracleStaleBlocks;
+        return OracleUpdatedAt is { } updated && now - updated > OracleStaleAge;
+    }
 
     /// <summary><c>NetworkHeight − NodeHeight &gt; 6</c> (research R6).</summary>
     public bool IsNodeLagging => NetworkHeight is { } n && n - NodeHeight > NodeLagBlocks;
 
-    /// <summary>ERR active, volatility freeze, stale oracle, or no price at all (FR-027).</summary>
-    public bool IsDegraded => ErrActive || VolatilityFreeze || IsOracleStale || !OraclePriceAvailable;
+    /// <summary>ERR active, volatility freeze, minting or all operations restricted, stale oracle, or no price at all (FR-027).</summary>
+    public bool IsDegraded => ErrActive || VolatilityFreeze || MintingRestricted || AllOperationsRestricted || IsOracleStale || !OraclePriceAvailable;
 }

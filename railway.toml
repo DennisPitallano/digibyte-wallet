@@ -26,6 +26,8 @@
 #   Dockerfile: docker/api/Dockerfile
 #   Health check: /api/health
 #   Env vars: ClientOrigin (comma-separated CORS origins)
+#   Optional: Oracle__Enabled (default true), Oracle__BaseUrl (default https://digibyte.io/api)
+#   for the GET /api/oracle relay (specs/014-digibyte-io-oracle)
 #
 # Service 2: digibyte-web
 #   Dockerfile: docker/web/Dockerfile

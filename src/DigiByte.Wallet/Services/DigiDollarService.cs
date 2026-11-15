@@ -720,6 +720,8 @@ public sealed class DigiDollarService : IDigiDollarService
         if (h.VolatilityFreeze) list.Add(DdDegradedCondition.VolatilityFreeze);
         if (h.IsOracleStale) list.Add(DdDegradedCondition.OracleStale);
         if (!h.OraclePriceAvailable) list.Add(DdDegradedCondition.PriceUnavailable);
+        if (h.MintingRestricted) list.Add(DdDegradedCondition.MintingRestricted);
+        if (h.AllOperationsRestricted) list.Add(DdDegradedCondition.AllOperationsRestricted);
         return list;
     }
 

@@ -26,6 +26,7 @@ public sealed class DigiDollarViewModel : IDisposable
     private readonly IJSRuntime _js;
     private readonly IConfiguration _config;
     private readonly NotificationService _notifications;
+    private readonly IOracleFeed _oracle;
 
     private string? _loadedFor;
     private CancellationTokenSource? _pollCts;
@@ -36,8 +37,10 @@ public sealed class DigiDollarViewModel : IDisposable
 
     public DigiDollarViewModel(
         IDigiDollarService service, IDdSessionProvider sessions, DigiDollarStore store, DigiDollarFeatureFlag flag,
-        AppState app, LocalizationService loc, IJSRuntime js, IConfiguration config, NotificationService notifications)
+        AppState app, LocalizationService loc, IJSRuntime js, IConfiguration config, NotificationService notifications, IOracleFeed oracle)
     {
+        _oracle = oracle;
+        _oracle.Changed += OnOracleChanged;
         _config = config;
         _notifications = notifications;
         _service = service;
@@ -56,6 +59,19 @@ public sealed class DigiDollarViewModel : IDisposable
         if (_app.IsWalletUnlocked) return;
         if (Dashboard is null && _loadedFor is null) return;
         Reset();
+    }
+
+    /// <summary>
+    /// The oracle feed finished a fetch: put its reading into the current health at once, so the price shows as soon as it arrives and not
+    /// at the next poll (spec 014 SC-001). Display only; a test network or an unavailable health stays as it is.
+    /// </summary>
+    private void OnOracleChanged()
+    {
+        if (Dashboard is not { } d) return;
+        var merged = OracleEnrichedDigiDollarApi.Merge(d.Health, _oracle, _app.NetworkMode == "mainnet");
+        if (ReferenceEquals(merged, d.Health)) return;
+        Dashboard = d with { Health = merged };
+        Changed?.Invoke();
     }
 
     /// <summary>A different wallet is active than the one the dashboard belongs to: start over.</summary>
@@ -231,6 +247,7 @@ public sealed class DigiDollarViewModel : IDisposable
     public void Dispose()
     {
         _app.OnChange -= OnAppChanged;
+        _oracle.Changed -= OnOracleChanged;
         StopPollingCore();
     }
 }

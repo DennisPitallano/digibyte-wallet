@@ -143,7 +143,8 @@ public class DigiDollarFormatTests
     public void MicroUsdPerDgb_FormatsAsAFourDecimalPrice()
     {
         // The oracle reports USD per DGB times 10^6 (data-model NetworkHealth); show it as a price per DGB.
-        Assert.Equal("$0.0063", DigiDollarFormat.DgbPrice(6310, CultureInfo.InvariantCulture));
+        Assert.Equal("$0.00631", DigiDollarFormat.DgbPrice(6310, CultureInfo.InvariantCulture));
+        Assert.Equal("$0.002725", DigiDollarFormat.DgbPrice(2725, CultureInfo.InvariantCulture)); // sub-cent price keeps six decimals (spec 014 FR-002)
         Assert.Equal("$0.0100", DigiDollarFormat.DgbPrice(10_000, CultureInfo.InvariantCulture));
         Assert.Equal("$12.5000", DigiDollarFormat.DgbPrice(12_500_000, CultureInfo.InvariantCulture));
     }

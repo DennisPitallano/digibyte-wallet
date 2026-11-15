@@ -20,9 +20,17 @@
                 <span> &middot; @L.T("dd.price.updated", AgeText(age))</span>
             }
         }
+        else if (h.OracleLoading)
+        {
+            <span aria-live="polite">@L.T("dd.oracle.loadingPrice")</span>
+        }
         else
         {
             <span>@L.T("dd.price.unavailable")</span>
+        }
+        @if (h.OraclePriceAvailable || h.OracleLoading)
+        {
+            <span class="block">@L.T("dd.oracle.source")</span>
         }
     </p>
 }
