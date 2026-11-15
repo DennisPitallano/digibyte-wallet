@@ -9,7 +9,8 @@ namespace DigiByte.SpvGateway.Health;
 /// <param name="FilterPeerCount">Connected peers that advertise compact filters.</param>
 /// <param name="BestPeerHeight">The greatest chain height any connected peer reports, or null when unknown.</param>
 /// <param name="EverConnected">True once at least one peer has connected since the gateway started.</param>
-public sealed record PeerSnapshot(int PeerCount, int FullHistoryPeerCount, int FilterPeerCount, int? BestPeerHeight, bool EverConnected);
+/// <param name="BloomPeerCount">Connected peers that advertise bloom filter support. Informational: the gateway checks whole blocks and never uses bloom filters.</param>
+public sealed record PeerSnapshot(int PeerCount, int FullHistoryPeerCount, int FilterPeerCount, int? BestPeerHeight, bool EverConnected, int BloomPeerCount = 0);
 
 /// <summary>Source of the current <see cref="PeerSnapshot"/>. The peer layer provides the real one.</summary>
 public interface IPeerStatusSource
@@ -32,6 +33,7 @@ public sealed record HealthReport(
     int PeerCount,
     int FullHistoryPeerCount,
     int FilterPeerCount,
+    int BloomPeerCount,
     string MatchingMode,
     int? IndexedFromHeight,
     string BuildVersion);
@@ -64,6 +66,7 @@ public static class HealthReporter
             peers.PeerCount,
             peers.FullHistoryPeerCount,
             peers.FilterPeerCount,
+            peers.BloomPeerCount,
             "blocks",
             indexedFromHeight,
             Version);

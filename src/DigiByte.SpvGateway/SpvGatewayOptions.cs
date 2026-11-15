@@ -60,6 +60,18 @@ public sealed class SpvGatewayOptions
     /// </summary>
     public bool TrustForwardedFor { get; init; }
 
+    /// <summary>
+    /// List the last requests (route, status, time; never addresses, ids or who asked) on the status page. On by default; set
+    /// <c>SpvGateway:ShowRequestLog=false</c> to keep the status page free of any request activity.
+    /// </summary>
+    public bool ShowRequestLog { get; init; } = true;
+
+    /// <summary>
+    /// A secret that lets the operator clear the request list from the status page (<c>SpvGateway:AdminToken</c>). Not set means the reset
+    /// does not exist: the route answers 404 and the page shows no reset control. Use a long random value (at least 32 characters).
+    /// </summary>
+    public string? AdminToken { get; init; }
+
     public static SpvGatewayOptions FromConfiguration(Func<string, string?> get)
     {
         var peerTarget = ReadInt(get, "SpvGateway:PeerTarget", 1, 64) ?? 8;
@@ -85,6 +97,8 @@ public sealed class SpvGatewayOptions
             MinHealthyPeers = Math.Min(minHealthy, peerTarget),
             MaxPeersPerRange = ReadInt(get, "SpvGateway:MaxPeersPerRange", 1, 16) ?? 2,
             TrustForwardedFor = string.Equals(get("SpvGateway:TrustForwardedFor")?.Trim(), "true", StringComparison.OrdinalIgnoreCase),
+            ShowRequestLog = !string.Equals(get("SpvGateway:ShowRequestLog")?.Trim(), "false", StringComparison.OrdinalIgnoreCase),
+            AdminToken = string.IsNullOrWhiteSpace(get("SpvGateway:AdminToken")) ? null : get("SpvGateway:AdminToken")!.Trim(),
         };
     }
 

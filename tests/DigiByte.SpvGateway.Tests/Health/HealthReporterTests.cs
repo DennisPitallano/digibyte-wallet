@@ -52,8 +52,9 @@ public class HealthReporterTests
     {
         using var store = NewStore();
 
-        var report = HealthReporter.Build(new SpvGatewayOptions(), store, new PeerSnapshot(8, 5, 3, Cp + 40, true));
+        var report = HealthReporter.Build(new SpvGatewayOptions(), store, new PeerSnapshot(8, 5, 3, Cp + 40, true, BloomPeerCount: 2));
 
+        Assert.Equal(2, report.BloomPeerCount);
         Assert.Equal(8, report.PeerCount);
         Assert.Equal(5, report.FullHistoryPeerCount);
         Assert.Equal(3, report.FilterPeerCount);

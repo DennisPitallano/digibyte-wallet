@@ -34,6 +34,25 @@ public class FallbackBlockchainService : IBlockchainService
     private readonly GatewayPosition _gatewayPosition;
     private bool _isRegtest;
 
+    // How each source has answered reads in this session (for the status views). Keys: "explorer-0", "explorer-1", ..., "node", "gateway".
+    private readonly ConcurrentDictionary<string, SourceCounters> _counters = new();
+
+    private volatile string? _lastAnsweredKey;
+
+    private void Note(string key, bool success)
+    {
+        var c = _counters.GetOrAdd(key, _ => new SourceCounters());
+        if (success)
+        {
+            c.Success();
+            _lastAnsweredKey = key;
+        }
+        else
+        {
+            c.Failure();
+        }
+    }
+
     /// <summary>Time budget for one node read on a fast route (transaction lookup, fee, height) while the node is active.</summary>
     public TimeSpan FastNodeReadBudget { get; set; } = TimeSpan.FromSeconds(5);
 
@@ -155,6 +174,94 @@ public class FallbackBlockchainService : IBlockchainService
     }
 
     /// <summary>
+    /// The sources reads go to, in the order they are asked right now, with each one's state and how it has answered in this session.
+    /// A source that is configured but not ready is listed after them as "Standby". It reads state only and asks nothing.
+    /// </summary>
+    public IReadOnlyList<ReadSourceEntry> DescribeReadSources()
+    {
+        var inUse = new List<ReadSourceEntry>();
+        var standby = new List<ReadSourceEntry>();
+        var now = DateTime.UtcNow;
+        var lastKey = ActiveBackend == "demo" ? "demo" : _lastAnsweredKey;
+
+        ReadSourceEntry Make(string key, string name, ReadSourceKind kind, bool used, string status, ReadSourceTone tone, string? note, DateTime? cooldown = null)
+        {
+            _counters.TryGetValue(key, out var c);
+            return new ReadSourceEntry(key, name, kind, used ? "" : "Standby", used, status, tone, note, key == lastKey,
+                c?.Successes ?? 0, c?.Failures ?? 0, c?.LastSuccessUtc, c?.LastFailureUtc, cooldown);
+        }
+
+        ReadSourceEntry? gateway = null;
+        if (_gatewaySource is not null && _gatewayState is not null)
+        {
+            var active = GatewayActive;
+            var (status, tone) = StateWords(_gatewayState.State);
+            gateway = Make("gateway", "Light-client gateway", ReadSourceKind.Gateway, active, status, tone,
+                active
+                    ? (_gatewayPosition == GatewayPosition.First
+                        ? "Asked before the explorers. Every answer is checked against headers the wallet verified."
+                        : "Asked only after the explorers could not answer. Every answer is checked against headers the wallet keeps.")
+                    : "Not used until it has stayed level with the chain for the steady period.");
+        }
+        if (gateway is { InUse: true } && _gatewayPosition == GatewayPosition.First)
+            inUse.Add(gateway);
+
+        if (!_isRegtest)
+        {
+            for (var i = 0; i < _explorers.Count; i++)
+            {
+                var name = _explorers[i] is BlockbookApiService ? "Blockbook explorer" : _explorers[i] is BlockchainApiService ? "Esplora explorer" : $"Explorer {i + 1}";
+                var cooling = _explorerCooldowns.TryGetValue(i, out var until) && until > now;
+                inUse.Add(Make($"explorer-{i}", name, ReadSourceKind.Explorer, true,
+                    cooling ? "cooling down" : "ready", cooling ? ReadSourceTone.Bad : ReadSourceTone.Good,
+                    cooling ? "Failed recently, so it is skipped for a short while." : "A public block explorer.", cooling ? until : null));
+            }
+        }
+
+        // Our own node: a fallback (or first for quick lookups) while active; with node use off it is the last resort.
+        if (LegacyOrder)
+        {
+            inUse.Add(Make("node", "Own node", ReadSourceKind.OwnNode, true, "last resort", ReadSourceTone.Waiting,
+                "Node use is off, so it is asked only when every explorer failed."));
+        }
+        else if (_nodeState is { IsActive: true } active)
+        {
+            var (status, tone) = StateWords(active.State);
+            inUse.Add(Make("node", "Own node", ReadSourceKind.OwnNode, true, status, tone,
+                "Asked first for quick lookups (transactions, fees, height) and after the explorers for balances."));
+        }
+        else if (_nodeState is not null)
+        {
+            var (status, tone) = StateWords(_nodeState.State);
+            standby.Add(Make("node", "Own node", ReadSourceKind.OwnNode, false, status, tone,
+                "Not used until it has stayed level with the chain for the steady period."));
+        }
+
+        if (gateway is { InUse: true } && _gatewayPosition == GatewayPosition.Backup)
+            inUse.Add(gateway);
+        else if (gateway is { InUse: false })
+            standby.Add(gateway);
+
+        if (_isDevelopment && _mock is not null)
+            inUse.Add(Make("demo", "Demo data", ReadSourceKind.Demo, true, "development only", ReadSourceTone.Off, "Used only when nothing else answers, in development."));
+
+        var ordered = new List<ReadSourceEntry>();
+        for (var i = 0; i < inUse.Count; i++)
+            ordered.Add(inUse[i] with { Role = i == 0 ? "Primary" : $"Fallback {i}" });
+        ordered.AddRange(standby);
+        return ordered;
+    }
+
+    private static (string Status, ReadSourceTone Tone) StateWords(NodeSourceState state) => state switch
+    {
+        NodeSourceState.Active => ("active", ReadSourceTone.Good),
+        NodeSourceState.Stabilizing => ("stabilizing", ReadSourceTone.Waiting),
+        NodeSourceState.NotReady => ("not ready", ReadSourceTone.Waiting),
+        NodeSourceState.Unavailable => ("unreachable", ReadSourceTone.Bad),
+        _ => ("off", ReadSourceTone.Off),
+    };
+
+    /// <summary>
     /// For reads: Explorers first (address-indexed, fast) → NodeApi (pruned, slow scantxoutset) → mock.
     /// On regtest: NodeApi only → mock (no public explorer for regtest).
     /// With our own node active (<see cref="NodeRouteClass"/>): fast routes try the node first, address routes keep explorers first
@@ -216,6 +323,7 @@ public class FallbackBlockchainService : IBlockchainService
                     var result = await call(_explorers[i]);
                     IsDemoMode = false;
                     ActiveBackend = name;
+                    Note($"explorer-{i}", true);
                     Console.WriteLine($"[Read] ✓ {name} succeeded");
                     return result;
                 }
@@ -223,6 +331,7 @@ public class FallbackBlockchainService : IBlockchainService
                 {
                     Console.WriteLine($"[Read] ✗ {name} failed: {ex.Message}");
                     // Put this explorer on cooldown so we don't hammer it
+                    Note($"explorer-{i}", false);
                     _explorerCooldowns[i] = DateTime.UtcNow + CooldownDuration;
                 }
             }
@@ -238,11 +347,13 @@ public class FallbackBlockchainService : IBlockchainService
                 var result = await call(_nodeApi);
                 IsDemoMode = false;
                 ActiveBackend = "node-api";
+                Note("node", true);
                 Console.WriteLine("[Read] ✓ node-api succeeded");
                 return result;
             }
             catch (Exception ex)
             {
+                Note("node", false);
                 Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
             }
         }
@@ -296,11 +407,13 @@ public class FallbackBlockchainService : IBlockchainService
             }
             IsDemoMode = false;
             ActiveBackend = "node-api";
+            Note("node", true);
             Console.WriteLine("[Read] ✓ node-api succeeded");
             return (true, result);
         }
         catch (Exception ex)
         {
+            Note("node", false);
             Console.WriteLine($"[Read] ✗ node-api failed: {ex.Message}");
             _nodeFailureSink?.ReportNodeReadFailure();
             return (false, default);
@@ -325,6 +438,7 @@ public class FallbackBlockchainService : IBlockchainService
             }
             IsDemoMode = false;
             ActiveBackend = "spv-gateway";
+            Note("gateway", true);
             Console.WriteLine("[Read] ✓ spv-gateway succeeded");
             return (true, result);
         }
@@ -336,6 +450,7 @@ public class FallbackBlockchainService : IBlockchainService
         }
         catch (Exception ex)
         {
+            Note("gateway", false);
             Console.WriteLine($"[Read] ✗ spv-gateway failed: {ex.Message}");
             _gatewayFailureSink?.ReportNodeReadFailure();
             return (false, default);

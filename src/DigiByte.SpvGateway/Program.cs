@@ -65,6 +65,7 @@ builder.Services.AddSingleton(sp => new BlockIndexer(
     sp.GetRequiredService<SpvGatewayOptions>(), sp.GetRequiredService<HeaderStore>(), sp.GetRequiredService<BlockIndexStore>(), sp.GetRequiredService<BlockFetcher>()));
 builder.Services.AddSingleton<IBlockMatcher>(sp => new FullBlockMatcher(sp.GetRequiredService<BlockIndexStore>()));
 builder.Services.AddSingleton<ScanService>();
+builder.Services.AddSingleton<RequestLog>();
 builder.Services.AddSingleton<ProofService>();
 builder.Services.AddSingleton(sp => new BroadcastRelay(
     sp.GetRequiredService<PeerManager>(),
@@ -103,9 +104,11 @@ app.Services.GetRequiredService<HeaderSync>();
 
 app.UseCors();
 app.UseStaticFiles(); // the status page fonts and mascot images (wwwroot)
+app.UseMiddleware<RequestLogMiddleware>();
 app.UseMiddleware<GatewayMiddleware>();
 app.MapHealth();
 app.MapStatusPage();
+app.MapStatusReset();
 app.MapHeaders();
 app.MapScan();
 app.MapBroadcast();

@@ -8,7 +8,7 @@ public class HealthReportCompletenessTests
 {
     private static readonly string[] Expected =
     [
-        "status", "network", "headerHeight", "lagBlocks", "peerCount", "fullHistoryPeerCount", "filterPeerCount", "matchingMode", "indexedFromHeight", "buildVersion",
+        "status", "network", "headerHeight", "lagBlocks", "peerCount", "fullHistoryPeerCount", "filterPeerCount", "bloomPeerCount", "matchingMode", "indexedFromHeight", "buildVersion",
     ];
 
     [Fact]

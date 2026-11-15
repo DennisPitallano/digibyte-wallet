@@ -3,6 +3,7 @@
 @inject INodeSourceState NodeState
 @inject IServiceProvider Services
 @inject P2pGatewayOptions GatewayOptions
+@inject FallbackBlockchainService Blockchain
 
 @* The status of the wallet's own data sources (the own node and the light-client gateway): Baku's summary, a card per source
    with its readiness steps and heights, and a timeline of state changes. It reads only. With Public set (the Network status page
@@ -32,10 +33,48 @@
         </div>
     </header>
 
-    @SourceCard(nodeView, 1)
-    @SourceCard(gatewayView, 2)
+    @* The arrangement: which source the wallet asks first and which it falls back to, with each one's state right now. *@
+    <section class="dn-card dn-rise" style="--i:1" aria-label="Data sources">
+        <h2 class="dn-h2">Where the wallet gets its data</h2>
+        <p class="dn-muted">Balances and history are asked of the first source that is ready. If it cannot answer, the next one is asked.</p>
+        @{ var order = Blockchain.DescribeReadSources(); }
+        <ol class="dn-order">
+            @for (var i = 0; i < order.Count; i++)
+            {
+                var e = order[i];
+                var tone = e.Tone.ToString().ToLowerInvariant();
+                <li class="dn-src @(e.InUse ? "" : "standby") @(e.AnsweredLast ? "last" : "")" style="--d:@(i * 70)ms" @key="e.Key">
+                    <span class="dn-rank dn-num">@(e.InUse ? (i + 1).ToString() : "·")</span>
+                    <div class="dn-src-body">
+                        <div class="dn-src-head">
+                            <span class="dn-src-name">@e.Name</span>
+                            <span class="dn-role">@e.Role</span>
+                            <span class="dn-pill @(tone == "good" ? "ok" : tone == "waiting" ? "wait" : tone == "bad" ? "bad" : "off")" @key="e.Status"><i class="dn-dot"></i>@e.Status</span>
+                            @if (e.AnsweredLast) { <span class="dn-chip ok">answered last</span> }
+                        </div>
+                        @if (e.Note is not null) { <p class="dn-muted dn-tiny">@e.Note</p> }
+                        @if (e.CooldownUntilUtc is { } until && until > DateTime.UtcNow)
+                        {
+                            <p class="dn-muted dn-tiny">Back in <span class="dn-num">@((int)(until - DateTime.UtcNow).TotalSeconds) s</span></p>
+                        }
+                        @if (!Public && (e.Successes > 0 || e.Failures > 0))
+                        {
+                            <p class="dn-muted dn-tiny dn-num">
+                                answered @e.Successes · failed @e.Failures
+                                @if (e.LastSuccessUtc is { } ok) { <text> · last ok @Ago(ok)</text> }
+                                @if (e.LastFailureUtc is { } bad) { <text> · last failure @Ago(bad)</text> }
+                            </p>
+                        }
+                    </div>
+                </li>
+            }
+        </ol>
+    </section>
 
-    <section class="dn-card dn-rise" style="--i:3" aria-label="Recent changes">
+    @SourceCard(nodeView, 2)
+    @SourceCard(gatewayView, 3)
+
+    <section class="dn-card dn-rise" style="--i:4" aria-label="Recent changes">
         <h2 class="dn-h2">Recent changes</h2>
         @if (changes.Count == 0)
         {
