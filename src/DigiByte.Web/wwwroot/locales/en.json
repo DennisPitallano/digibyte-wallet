@@ -251,7 +251,7 @@
   "dd.time.seconds": "{0} s",
   "dd.time.minutes": "{0} min",
   "dd.time.hours": "{0} h",
-  "dd.home.dgbValue": "Your DGB: {0} (oracle price)",
+  "dd.home.dgbValue": "Your DGB at oracle rate: {0}",
   "upgrade.notice.title": "Your wallet has been upgraded",
   "upgrade.notice.body": "We've upgraded this wallet's protection on this device. Nothing changes for you: keep using the same PIN. For 7 days we also keep a copy in the previous format, in case you need to go back to an older version of the app. After that it is removed automatically, and only the new protection remains.",
   "upgrade.notice.ok": "Got it",

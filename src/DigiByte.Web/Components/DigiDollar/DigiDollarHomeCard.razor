@@ -50,6 +50,10 @@ else if (vis.Visible)
                             @L.T("dd.home.dgbValue", Dd.Usd(DigiDollarFormat.DgbValueCents(DgbSatoshis, health.OraclePriceMicroUsd!.Value)))
                         </p>
                     }
+                    else if (d.Health is { Available: true, OracleLoading: true, OraclePriceAvailable: false } && !d.Cached)
+                    {
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 animate-pulse" aria-live="polite">@L.T("dd.oracle.loadingPrice")</p>
+                    }
                 }
                 else if (d?.State == DdViewState.NotActive)
                 {
