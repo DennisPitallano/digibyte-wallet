@@ -150,7 +150,15 @@
             return;
         }
         NodeState.Changed += OnStateChanged;
+        // The gateway panel follows its own monitor, so it shows the first check as soon as it finishes.
+        gatewayMonitor = Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetKeyedService<NodeSourceMonitor>(Services, "gateway");
+        if (gatewayMonitor is not null)
+            gatewayMonitor.Changed += OnGatewayChanged;
     }
+
+    private NodeSourceMonitor? gatewayMonitor;
+
+    private void OnGatewayChanged() => InvokeAsync(StateHasChanged);
 
     private void OnStateChanged()
     {
@@ -188,5 +196,10 @@
         </div>
     };
 
-    public void Dispose() => NodeState.Changed -= OnStateChanged;
+    public void Dispose()
+    {
+        NodeState.Changed -= OnStateChanged;
+        if (gatewayMonitor is not null)
+            gatewayMonitor.Changed -= OnGatewayChanged;
+    }
 }

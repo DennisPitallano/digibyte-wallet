@@ -16,8 +16,9 @@ public sealed record DownloadResult(int Accepted, int PeersDropped, int TipHeigh
 /// best chain's recent hashes, so the peer answers from the point where the two chains part, which is how a reorganization is found.
 /// A peer whose headers fail the checks is dropped and the next peer is asked.
 /// </summary>
-public sealed class HeaderDownloader(HeaderStore store, HeaderSync sync, PeerManager peers)
+public sealed class HeaderDownloader(HeaderStore store, HeaderSync sync, PeerManager peers, TimeSpan? requestTimeout = null)
 {
+    private readonly TimeSpan _timeout = requestTimeout ?? TimeSpan.FromSeconds(15);
     private const int MaxRounds = 5000;
     private int _rotation;
 
@@ -37,9 +38,12 @@ public sealed class HeaderDownloader(HeaderStore store, HeaderSync sync, PeerMan
             IReadOnlyList<BlockHeader80> batch;
             try
             {
-                batch = await peer.GetHeadersAsync(Locator(), cancellationToken);
+                // A peer that never answers must not hold the whole round: each request has its own time limit.
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(_timeout);
+                batch = await peer.GetHeadersAsync(Locator(), timeout.Token);
             }
-            catch (Exception e) when (e is not OperationCanceledException)
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
             {
                 failedPeers.Add(peer.Endpoint);
                 continue;

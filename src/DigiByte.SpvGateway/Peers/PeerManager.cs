@@ -146,8 +146,9 @@ public sealed class PeerManager : IPeerStatusSource, IAsyncDisposable
                 _everConnected = true;
             }
         }
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
+            // Includes a connection that timed out (the connector cancels its own token for that): one slow peer is a failed peer, never a failed round.
             _book.RecordFailure(endpoint, _time.GetUtcNow());
         }
     }

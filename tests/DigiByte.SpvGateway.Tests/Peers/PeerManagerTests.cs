@@ -154,6 +154,39 @@ public class PeerManagerTests
         Assert.Single(net.ConnectAttempts);
     }
 
+    private sealed class TimingOutConnector(FakePeerNetwork inner, PeerEndpoint slow) : IPeerConnector
+    {
+        public Task<IPeerSession> ConnectAsync(PeerEndpoint endpoint, CancellationToken cancellationToken) =>
+            endpoint.Equals(slow) ? throw new OperationCanceledException("handshake timed out") : inner.ConnectAsync(endpoint, cancellationToken);
+    }
+
+    [Fact]
+    public async Task A_peer_whose_connection_times_out_is_a_failed_peer_and_does_not_fail_the_round()
+    {
+        var net = new FakePeerNetwork();
+        for (var i = 0; i < 5; i++)
+            net.Add($"{20 + i}.{10 + i}.1.1");
+        var book = PeerBook.Open(":memory:");
+        var manager = new PeerManager(Options(), book, new TimingOutConnector(net, new PeerEndpoint(IPAddress.Parse("20.10.1.1"), 12024)), net, new FakeTimeProvider());
+
+        await manager.MaintainAsync(default);
+
+        Assert.Equal(4, manager.Snapshot().PeerCount);
+        Assert.Equal(1, book.Get(new PeerEndpoint(IPAddress.Parse("20.10.1.1"), 12024))!.FailureCount);
+    }
+
+    [Fact]
+    public async Task A_cancelled_caller_still_cancels_the_round()
+    {
+        var net = new FakePeerNetwork();
+        net.Add("20.10.1.1");
+        var manager = new PeerManager(Options(), PeerBook.Open(":memory:"), new TimingOutConnector(net, new PeerEndpoint(IPAddress.Parse("20.10.1.1"), 12024)), net, new FakeTimeProvider());
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => manager.MaintainAsync(cts.Token));
+    }
+
     [Fact]
     public async Task A_good_connection_clears_the_failure_count()
     {

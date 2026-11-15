@@ -3,6 +3,7 @@ using DigiByte.SpvGateway.Peers;
 using DigiByte.SpvGateway.Sync;
 using DigiByte.SpvGateway.Tests.Support;
 using Microsoft.Extensions.Time.Testing;
+using DigiByte.SpvGateway.Peers;
 
 namespace DigiByte.SpvGateway.Tests.Sync;
 
@@ -101,6 +102,55 @@ public class HeaderDownloaderTests
 
         Assert.Equal(1, result.PeersDropped);
         Assert.DoesNotContain(bad.Endpoint, manager.Sessions.Select(s => s.Endpoint));
+        Assert.Equal(Cp + 60, store.BestTip()!.Height);
+    }
+
+    private sealed class HangingPeer(FakePeer inner) : IPeerSession
+    {
+        public PeerEndpoint Endpoint => inner.Endpoint;
+        public ulong Services => inner.Services;
+        public string UserAgent => inner.UserAgent;
+        public int ProtocolVersion => inner.ProtocolVersion;
+        public int StartHeight => inner.StartHeight;
+        public bool IsConnected => true;
+        public async Task<IReadOnlyList<BlockHeader80>> GetHeadersAsync(IReadOnlyList<NBitcoin.uint256> locator, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return [];
+        }
+        public Task<byte[]?> GetBlockAsync(NBitcoin.uint256 hash, CancellationToken cancellationToken) => inner.GetBlockAsync(hash, cancellationToken);
+        public Task<PeerRelayOutcome> RelayTransactionAsync(NBitcoin.uint256 txid, byte[] raw, CancellationToken cancellationToken) => inner.RelayTransactionAsync(txid, raw, cancellationToken);
+        public bool HasAnnounced(NBitcoin.uint256 txid) => false;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class HangingConnector(FakePeerNetwork inner, string hangingAddress) : IPeerConnector
+    {
+        public async Task<IPeerSession> ConnectAsync(PeerEndpoint endpoint, CancellationToken cancellationToken)
+        {
+            var session = (FakePeer)await inner.ConnectAsync(endpoint, cancellationToken);
+            return endpoint.Address.ToString() == hangingAddress ? new HangingPeer(session) : session;
+        }
+    }
+
+    [Fact]
+    public async Task A_peer_that_never_answers_is_skipped_after_its_time_limit_and_the_download_still_completes()
+    {
+        var net = new FakePeerNetwork();
+        for (var i = 0; i < 3; i++)
+        {
+            var peer = net.Add($"{20 + i}.{10 + i}.1.1");
+            peer.Anchor = Checkpoints.Mainnet.Hash;
+            peer.Chain = Real(1, 60);
+        }
+        var manager = new PeerManager(new SpvGatewayOptions { PeerTarget = 3 }, PeerBook.Open(":memory:"), new HangingConnector(net, "20.10.1.1"), net, new FakeTimeProvider());
+        await manager.MaintainAsync(default);
+        var store = HeaderStore.Open(":memory:", "mainnet");
+        var downloader = new HeaderDownloader(store, new HeaderSync(store, Checkpoints.Mainnet, hasher: null), manager, TimeSpan.FromMilliseconds(300));
+
+        var result = await downloader.DownloadAsync(default);
+
+        Assert.True(result.Reached);
         Assert.Equal(Cp + 60, store.BestTip()!.Height);
     }
 
