@@ -30,7 +30,19 @@
         {
             <div class="@Style" role="status">@L.T("dd.banner.volatility")</div>
         }
-        @if (ShowOracle && !h.OraclePriceAvailable)
+        @if (ShowOracle && h.MintingRestricted)
+        {
+            <div class="@Style" role="status">@L.T("dd.banner.mintingRestricted")</div>
+        }
+        @if (ShowOracle && h.AllOperationsRestricted)
+        {
+            <div class="@Style" role="status">@L.T("dd.banner.allOperationsRestricted")</div>
+        }
+        @if (ShowOracle && h.OracleLoading && !h.OraclePriceAvailable)
+        {
+            @* the first answer is still on its way: a normal load never shows the error *@
+        }
+        else if (ShowOracle && !h.OraclePriceAvailable)
         {
             <div class="@Style" role="status">@L.T("dd.banner.priceUnavailable")</div>
         }

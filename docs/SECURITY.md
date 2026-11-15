@@ -352,6 +352,16 @@ When the deployment turns on the own-node mode (`WALLET_NODE_ENABLED`, see [RAIL
 - **When it is used:** only while the node's own health report says it is ready and its height agrees with a public explorer. Otherwise the wallet uses public explorers exactly as before.
 - **What users are told:** the in-app data-source detail says so in one line whenever the own node is the active source, and the Help page explains it.
 
+### Oracle price and DigiDollar status (specs/014-digibyte-io-oracle)
+
+With the explorer backend the wallet shows the DigiDollar oracle price and protection status. The data comes from the public digibyte.io site, but **the browser never contacts digibyte.io**: the project's data service (`DigiByte.Api`) fetches it and serves it at `GET /api/oracle`.
+
+- **Nothing user-specific leaves the wallet.** The wallet's request is a plain GET with no query string, body or custom headers. The data service asks digibyte.io for two fixed paths and forwards nothing from the visitor, and it logs no visitor address or header for this route.
+- **Display only.** The price and status are never used to build, sign, approve or block a transaction. The data is labelled as coming from digibyte.io and not verified by the wallet.
+- **The data service checks what it fetches:** https only (no redirects), 3-second limit, 64 KB cap, strict field checks, one attempt per 30 seconds shared by all visitors, and an answer is served only until 5 minutes after it was fetched. The wallet repeats the shape checks and its own 5-second and 5-minute limits.
+- **Content policy unchanged.** `connect-src` lists the data service origin only; `digibyte.io` is not added.
+- **New public route.** `/api/oracle` is anonymous and rate limited (30 per minute per visitor, then 429 with `Retry-After`). The service switch `Oracle__Enabled=false` turns it off (404).
+
 ### CORS Configuration
 
 ```csharp

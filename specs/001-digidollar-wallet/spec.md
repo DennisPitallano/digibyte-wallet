@@ -141,9 +141,9 @@ A user understands, at a glance, whether DigiDollar is operating normally and wh
 **Network context and disclosures** (User Story 3)
 
 - **FR-018**: The wallet MUST display the current oracle-provided USD value of DGB alongside a freshness indicator on every DigiDollar page.
-- **FR-019**: The wallet MUST display a non-blocking banner when the oracle price is stale beyond an acceptable freshness threshold or when the DigiDollar network reports a degraded operating mode. When the oracle reports no usable price at all, the wallet MUST hide the DGB USD equivalent (FR-021), show "Price unavailable" in place of the price on DigiDollar pages with a non-blocking banner, and keep DigiDollar balance, receive, and send working.
+- **FR-019**: The wallet MUST display a non-blocking banner when the oracle price is stale beyond an acceptable freshness threshold or when the DigiDollar network reports a degraded operating mode. When the oracle reports no usable price at all, the wallet MUST hide the oracle-based DGB USD equivalent on the DigiDollar card, show "Price unavailable" in place of the price on DigiDollar pages with a non-blocking banner, and keep DigiDollar balance, receive, and send working.
 - **FR-020**: The wallet MUST display a non-blocking banner when the wallet's underlying node is significantly behind the network chain tip.
-- **FR-021**: When the DigiDollar feature is enabled, the wallet MUST display the USD equivalent of the user's DGB balance on the home screen, computed from the current oracle price.
+- **FR-021**: When the DigiDollar feature is enabled, the wallet MUST display the USD equivalent of the user's DGB balance on the home screen, computed from the market price used for the main balance (amended by spec 014 FR-018: it is no longer the oracle price). The DigiDollar home card may still show the DGB value at the oracle price, labelled as such.
 
 **Rollout, safety, and privacy**
 

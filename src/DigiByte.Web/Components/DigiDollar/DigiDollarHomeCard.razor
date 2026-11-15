@@ -48,6 +48,7 @@ else if (vis.Visible)
                     {
                         <p class="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
                             @L.T("dd.home.dgbValue", Dd.Usd(DigiDollarFormat.DgbValueCents(DgbSatoshis, health.OraclePriceMicroUsd!.Value)))
+                            <span class="block">@L.T("dd.oracle.source")</span>
                         </p>
                     }
                 }

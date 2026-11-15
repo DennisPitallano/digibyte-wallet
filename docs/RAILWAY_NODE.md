@@ -154,6 +154,17 @@ Nothing in this file is secret: any visitor's browser can read it. Turn node use
 
 **Switching on, in order:** deploy the web service with the new image; check the node API's `/api/health` shows `ok`; set `WALLET_NODE_ENABLED=true` and `WALLET_NODE_API_URL`, restart; open the wallet's data-source indicator (a small dot) and confirm it reports the node, or syncing if it is not ready yet. **Roll back** by turning `WALLET_NODE_ENABLED` off and restarting.
 
+## Oracle price relay (specs/014-digibyte-io-oracle)
+
+The data service (`digibyte-api`) serves `GET /api/oracle`, fetched from digibyte.io. Settings on that service:
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `Oracle__Enabled` | `false` turns the route off (it answers 404) | `true` |
+| `Oracle__BaseUrl` | The upstream address; must be https (http only on a loopback address) | `https://digibyte.io/api` |
+
+On the wallet web service, `WALLET_DD_ORACLE=false` hides the oracle displays and stops the wallet asking. The relay's address in the wallet is `DigiDollar:OracleApiUrl` in `appsettings.json` (https or loopback only); its origin is already allowed by the content policy, so nothing changes in `index.html`.
+
 ## Light-client gateway (specs/011-p2p-spv-gateway)
 
 The gateway is a separate small service (`docker/spv-gateway/Dockerfile`; it listens on 5290 by default, and on Railway on the port Railway assigns, 8080 in our deployment). It does not use the node above: it connects to public

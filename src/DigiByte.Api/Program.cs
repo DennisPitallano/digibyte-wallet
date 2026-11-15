@@ -4,6 +4,7 @@ using DigiByte.Api.Hubs;
 using DigiByte.Api.Services;
 using DigiByte.P2P.Shared.Sponsors;
 using DigiByte.Server.Shared;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,16 @@ if (port is not null)
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();
+// ── Oracle relay (specs/014-digibyte-io-oracle): the wallet reads the oracle price and DigiDollar protection status from here, never from
+// digibyte.io itself. Fixed requests, no cookies, no redirects; Oracle:Enabled switches the route off, Oracle:BaseUrl must be https. ──
+builder.Services.Configure<OracleOptions>(builder.Configuration.GetSection(OracleOptions.SectionName));
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddHttpClient(OracleRelay.ClientName, client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
+    client.Timeout = TimeSpan.FromSeconds(10); // a backstop only: the relay itself gives up after 3 seconds
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+builder.Services.AddSingleton<OracleRelay>();
 builder.Services.AddHttpClient("CoinGeckoProxy", client =>
 {
     client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
@@ -68,8 +79,24 @@ builder.Services.AddRateLimiter(limiter =>
             QueueLimit = 0,
             AutoReplenishment = true,
         }));
+    // Oracle relay: 30 requests per minute per visitor (a healthy wallet asks at most twice a minute).
+    limiter.AddPolicy(OracleEndpoints.RateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(SponsorEndpoints.ClientKey(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
     limiter.OnRejected = async (context, token) =>
     {
+        if (context.HttpContext.Request.Path.StartsWithSegments("/api/oracle"))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = "60";
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            await context.HttpContext.Response.WriteAsJsonAsync(new { reason = "rate limited" }, token);
+            return;
+        }
         if (context.HttpContext.Request.Path.StartsWithSegments("/api/digiid"))
         {
             context.HttpContext.Response.Headers.RetryAfter = "60";
@@ -134,6 +161,10 @@ app.MapGroup("/api/directory")
 // Price proxy (avoids CORS/rate-limit issues from browser → CoinGecko)
 app.MapGroup("/api/price")
     .MapPriceEndpoints();
+
+// Oracle price and DigiDollar protection status, relayed from digibyte.io (read-only, anonymous, no input)
+app.MapGroup("/api/oracle")
+    .MapOracleEndpoints();
 
 // Digi-ID callback proxy (avoids CORS when posting signed auth to third-party servers)
 app.MapGroup("/api/digiid")

@@ -88,7 +88,7 @@ public static class DigiDollarFormat
 
     /// <summary>The oracle price (USD per DGB times 10^6) as a four-decimal dollar price.</summary>
     public static string DgbPrice(long priceMicroUsd, CultureInfo culture) =>
-        "$" + (priceMicroUsd / 1_000_000m).ToString("N4", culture);
+        "$" + (priceMicroUsd / 1_000_000m).ToString("#,##0.0000##", culture);
 
     /// <summary>USD value in cents of a DGB amount in satoshis at an oracle price (USD per DGB times 10^6), rounded to the nearest cent.</summary>
     public static long DgbValueCents(long satoshis, long priceMicroUsd)

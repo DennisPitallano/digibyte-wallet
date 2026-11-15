@@ -286,6 +286,64 @@ public class DigiDollarSendTests
         Assert.Equal([DdDegradedCondition.OracleStale], check.Degraded);
     }
 
+    // ---------- the oracle's restriction flags and an unavailable oracle (spec 014) ----------
+
+    [Fact]
+    public async Task MintingRestricted_AndAllOperationsRestricted_AppearOnlyInTheirOwnStates()
+    {
+        var env = new Env();
+        env.Fund(0, 2500);
+        env.Fees.Add(1, 50_000_000);
+        await env.ReadyAsync();
+
+        env.Api.Health = env.Api.Health with { MintingRestricted = true };
+        var minting = await env.Service.CheckSendAsync(Env.Recipient(), 1000);
+        env.Api.Health = env.Api.Health with { MintingRestricted = false, AllOperationsRestricted = true };
+        var allOps = await env.Service.CheckSendAsync(Env.Recipient(), 1000);
+        env.Api.Health = env.Api.Health with { AllOperationsRestricted = false };
+        var normal = await env.Service.CheckSendAsync(Env.Recipient(), 1000);
+
+        Assert.Equal([DdDegradedCondition.MintingRestricted], minting.Degraded);
+        Assert.Equal([DdDegradedCondition.AllOperationsRestricted], allOps.Degraded);
+        Assert.Empty(normal.Degraded);
+    }
+
+    [Fact]
+    public async Task WithTheOracleUnavailable_TheSendIsStillAllowed_AndThePriceUnavailableWarningAppears()
+    {
+        var env = new Env();
+        env.Fund(0, 2500);
+        env.Fees.Add(1, 50_000_000);
+        env.Api.Health = env.Api.Health with { OraclePriceMicroUsd = null, OracleHeight = null };
+        await env.ReadyAsync();
+
+        var check = await env.Service.CheckSendAsync(Env.Recipient(), 1000);
+
+        Assert.True(check.IsOk);
+        Assert.Contains(DdDegradedCondition.PriceUnavailable, check.Degraded);
+    }
+
+    [Theory]
+    [InlineData(false, false, false, false)] // normal
+    [InlineData(true, false, false, false)]  // emergency redemption
+    [InlineData(false, true, false, false)]  // volatility freeze
+    [InlineData(false, false, true, false)]  // minting restricted
+    [InlineData(false, false, false, true)]  // all operations restricted
+    [InlineData(true, true, true, true)]     // everything at once
+    public async Task ASend_CanBeCompleted_InEveryStateTheSourceCanReport(bool err, bool freeze, bool minting, bool allOps)
+    {
+        var env = new Env();
+        env.Fund(0, 2500);
+        env.Fees.Add(1, 50_000_000);
+        env.Api.Health = env.Api.Health with { ErrActive = err, VolatilityFreeze = freeze, MintingRestricted = minting, AllOperationsRestricted = allOps };
+        await env.ReadyAsync();
+
+        var result = await env.Service.SendAsync(Env.Recipient(), 1000);
+
+        Assert.Equal(1000, result.AmountCents);
+        Assert.Single(env.Api.Broadcasts);
+    }
+
     // ---------- sending (FR-011, FR-017, FR-026) ----------
 
     [Fact]

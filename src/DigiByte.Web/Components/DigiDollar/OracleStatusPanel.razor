@@ -15,7 +15,7 @@
         OracleState.Live => ("bg-emerald-50 dark:bg-emerald-900/25", "text-emerald-700 dark:text-emerald-300", "bg-emerald-500", "border-emerald-200/70 dark:border-emerald-800/50", "bg-emerald-100 dark:bg-emerald-900/40", "text-emerald-600 dark:text-emerald-300", "dd.oracle.body.live", "check"),
         OracleState.Stale => ("bg-amber-50 dark:bg-amber-900/25", "text-amber-700 dark:text-amber-300", "bg-amber-500", "border-amber-200/70 dark:border-amber-800/50", "bg-amber-100 dark:bg-amber-900/40", "text-amber-600 dark:text-amber-300", "dd.oracle.body.stale", "clock"),
         OracleState.Protected => ("bg-amber-50 dark:bg-amber-900/25", "text-amber-700 dark:text-amber-300", "bg-amber-500", "border-amber-200/70 dark:border-amber-800/50", "bg-amber-100 dark:bg-amber-900/40", "text-amber-600 dark:text-amber-300", "dd.oracle.body.protected", "shield"),
-        OracleState.Loading => ("bg-slate-100 dark:bg-dgb-800", "text-slate-500 dark:text-slate-400", "bg-slate-400 animate-pulse", "border-slate-200/80 dark:border-dgb-800", "bg-slate-100 dark:bg-dgb-800", "text-slate-400", "dd.oracle.loading", "chart"),
+        OracleState.Loading => ("bg-slate-100 dark:bg-dgb-800", "text-slate-500 dark:text-slate-400", "bg-slate-400 animate-pulse", "border-slate-200/80 dark:border-dgb-800", "bg-slate-100 dark:bg-dgb-800", "text-slate-400", "dd.oracle.body.loading", "chart"),
         _ => ("bg-slate-100 dark:bg-dgb-800", "text-slate-600 dark:text-slate-300", "bg-slate-400", "border-slate-200/80 dark:border-dgb-800", "bg-slate-100 dark:bg-dgb-800", "text-slate-500 dark:text-slate-400", "dd.oracle.body.unavailable", "offline"),
     };
     var h = Health;
@@ -51,6 +51,10 @@
             <div class="rounded-xl bg-slate-50 dark:bg-dgb-950 border border-slate-100 dark:border-dgb-800 px-2.5 py-2">
                 <dt class="flex items-center gap-1 text-slate-400 dark:text-slate-500"><DdIcon Name="block" Class="w-3.5 h-3.5" />@L.T("dd.oracle.block")</dt>
                 <dd class="mt-0.5 font-semibold tabular-nums text-slate-800 dark:text-slate-200">@(h.OracleHeight is { } oh ? oh.ToString("N0", Culture) : "—")</dd>
+                @if (BlocksBehind is { } behind)
+                {
+                    <dd class="text-slate-500 dark:text-slate-400">@L.T("dd.oracle.blockAge", behind.ToString("N0", Culture))</dd>
+                }
             </div>
             <div class="rounded-xl bg-slate-50 dark:bg-dgb-950 border border-slate-100 dark:border-dgb-800 px-2.5 py-2">
                 <dt class="flex items-center gap-1 text-slate-400 dark:text-slate-500"><DdIcon Name="link" Class="w-3.5 h-3.5" />@L.T("dd.oracle.chain")</dt>
@@ -78,6 +82,16 @@
             }
         </div>
     }
+
+    @if (s == OracleState.Loading)
+    {
+        <p class="text-[11px] text-slate-500 dark:text-slate-400" aria-live="polite">@L.T("dd.oracle.loadingPrice")</p>
+    }
+
+    @if (s is OracleState.Loading or OracleState.Live or OracleState.Stale or OracleState.Protected)
+    {
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("dd.oracle.source")</p>
+    }
 </section>
 }
 
@@ -96,11 +110,15 @@
     {
         null => Loading ? OracleState.Loading : OracleState.Unavailable,
         { Available: false } => OracleState.Unavailable,
+        { OraclePriceAvailable: false, OracleLoading: true } => OracleState.Loading,
         { OraclePriceAvailable: false } => OracleState.Unavailable,
         { ErrActive: true } or { VolatilityFreeze: true } => OracleState.Protected,
         { IsOracleStale: true } => OracleState.Stale,
         _ => OracleState.Live,
     };
+
+    /// <summary>How many blocks the chain is ahead of the oracle's last update, when both heights are known.</summary>
+    private int? BlocksBehind => Health is { NodeHeight: > 0, OracleHeight: { } oh } h && h.NodeHeight >= oh ? h.NodeHeight - oh : null;
 
     private string StatusLabel => L.T(Status switch
     {

@@ -1,5 +1,8 @@
 # Quickstart: Validating DigiDollar in the DGB Wallet
 
+> Note (spec 014): with the explorer backend the oracle price and status come from the data service's `/api/oracle` relay (digibyte.io), see
+> [specs/014-digibyte-io-oracle/quickstart.md](../014-digibyte-io-oracle/quickstart.md). The main balance's dollar value uses the market price, not the oracle.
+
 Runnable validation for [spec.md](spec.md). Details: [contracts/](contracts/) ·
 [data-model.md](data-model.md).
 
