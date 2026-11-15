@@ -21,19 +21,20 @@
         {
             <section class="dn-card dn-rise" style="--i:4" aria-label="Gateway route speed">
                 <h2 class="dn-h2">Gateway route speed</h2>
-                <p class="dn-muted">Asks each route for the gateway health report @routeSamples times, taking turns, and times the answers. No wallet data is sent.@(RouteTimer.Routes.Count < 2 ? " Set SpvGateway:ApiUrlAlt to compare a second route." : "")</p>
+                <p class="dn-muted">Asks each route for the gateway health report @routeSamples times, taking turns, and times the answers. A route is called faster only when the gap is clearly bigger than the variation. No wallet data is sent.@(RouteTimer.Routes.Count < 2 ? " Set SpvGateway:ApiUrlAlt to compare a second route." : "")</p>
                 <button type="button" class="dn-btn press-effect" disabled="@measuring" @onclick="MeasureAsync">
                     @if (measuring) { <span class="dn-spin" aria-hidden="true"></span> }
                     @(measuring ? "Measuring..." : "Measure")
                 </button>
                 @if (timings is not null)
                 {
-                    var best = timings.Where(t => t.MedianMs is not null).OrderBy(t => t.MedianMs).FirstOrDefault();
+                    var (verdict, gap) = timings.Count > 1 ? GatewayRouteComparison.Compare(timings[0], timings[1]) : (RouteVerdict.NotEnoughData, 0d);
+                    GatewayRouteTiming? best = verdict switch { RouteVerdict.FirstFaster => timings[0], RouteVerdict.SecondFaster => timings[1], _ => null };
                     var slowest = timings.Where(t => t.MedianMs is not null).Max(t => t.MedianMs) ?? 1;
                     <div class="dn-report dn-pop" aria-live="polite">
                         @foreach (var t in timings)
                         {
-                            var isBest = best is not null && t.Url == best.Url && timings.Count > 1;
+                            var isBest = best is not null && t.Url == best.Url;
                             <div class="dn-route @(isBest ? "best" : "")">
                                 <div class="dn-route-head">
                                     <span class="dn-addr dn-num">@t.Url</span>
@@ -43,15 +44,28 @@
                                 <div class="dn-tiles">
                                     @Tile("Median", Ms(t.MedianMs), null)
                                     @Tile("Fastest", Ms(t.MinMs), null)
+                                    @Tile("Spread", Ms(t.SpreadMs), null)
                                     @Tile("Slowest 5%", Ms(t.P95Ms), null)
                                     @Tile("Failed", $"{t.Failures} of {t.Count + t.Failures}", t.Failures == 0)
                                 </div>
                             </div>
                         }
-                        @if (timings.Count > 1 && timings.All(t => t.MedianMs is not null))
+                        @if (timings.Count > 1)
                         {
-                            var diff = Math.Abs(timings[0].MedianMs!.Value - timings[1].MedianMs!.Value);
-                            <p class="dn-muted">The faster route is quicker by <span class="dn-num">@diff.ToString("0.#") ms</span> at the median. Under about 20 ms either is fine; choose on security.</p>
+                            <p class="dn-muted">
+                                @switch (verdict)
+                                {
+                                    case RouteVerdict.NotEnoughData:
+                                        <text>Not enough answers on both routes to compare. Run it again.</text>
+                                        break;
+                                    case RouteVerdict.AboutTheSame:
+                                        <text>The routes are about the same speed: the <span class="dn-num">@gap.ToString("0.#") ms</span> gap between the medians is within the run-to-run variation. Choose on security.</text>
+                                        break;
+                                    default:
+                                        <text>The faster route is quicker by <span class="dn-num">@gap.ToString("0.#") ms</span> at the median, more than the variation can explain. Run it again to be sure before relying on it.</text>
+                                        break;
+                                }
+                            </p>
                         }
                     </div>
                 }
@@ -121,7 +135,7 @@
         }
     }
 
-    private const int routeSamples = 10;
+    private const int routeSamples = 25;
     private bool measuring;
     private IReadOnlyList<GatewayRouteTiming>? timings;
 

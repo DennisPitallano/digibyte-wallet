@@ -156,7 +156,7 @@ Nothing in this file is secret: any visitor's browser can read it. Turn node use
 
 ## Light-client gateway (specs/011-p2p-spv-gateway)
 
-The gateway is a separate small service (`docker/spv-gateway/Dockerfile`, port 5290). It does not use the node above: it connects to public
+The gateway is a separate small service (`docker/spv-gateway/Dockerfile`; it listens on 5290 by default, and on Railway on the port Railway assigns, 8080 in our deployment). It does not use the node above: it connects to public
 DigiByte peers, checks every block header including its proof of work, indexes the blocks of the scan window, and answers the wallet over HTTP.
 
 - **Volume**: mount a volume at `/data`. Estimated size for the default 90-day window is about 2 GB (about 520,000 blocks, a few small index rows
@@ -180,7 +180,7 @@ The wallet runs in the browser, so it cannot use Railway's private network itsel
 | Route | Setup on `digibyte-web` | Notes |
 |---|---|---|
 | Public | `WALLET_GATEWAY_API_URL=https://spv.example.org`, and add that origin to `connect-src` in `index.html` | The gateway has a public domain; its API and status page are reachable by anyone (rate limited). |
-| Private | `WALLET_SPV_INTERNAL_URL=http://<gateway service>.railway.internal:5290` and `WALLET_GATEWAY_API_URL=/spv` | nginx on the web service proxies `/spv/` to the gateway. Same origin, so no CORS and no CSP change, and the gateway needs no public domain. |
+| Private | `WALLET_SPV_INTERNAL_URL=http://<gateway service>.railway.internal:<port>` (the port shown next to the gateway's public domain under Networking, 8080 on Railway; without a port nginx uses 80 and answers 502) and `WALLET_GATEWAY_API_URL=/spv` | nginx on the web service proxies `/spv/` to the gateway. Same origin, so no CORS and no CSP change, and the gateway needs no public domain. |
 
 To compare their speed, set one as `WALLET_GATEWAY_API_URL` and the other as `WALLET_GATEWAY_API_URL_ALT`, turn on `WALLET_DEV_VIEW`, open
 `/dev/node` and press **Measure** under "Gateway route speed". It asks each route for the health report ten times, taking turns, and shows the

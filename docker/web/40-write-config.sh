@@ -14,7 +14,7 @@
 #   WALLET_GATEWAY_POSITION        backup | first  (first is ignored until the wallet checks proof of work itself)
 #   WALLET_GATEWAY_CHECK_SECONDS / _STABLE_SECONDS / _HEIGHT_TOLERANCE   whole numbers
 #   WALLET_GATEWAY_API_URL_ALT     a second address for the same gateway, only for comparing speed on the developer page (SpvGateway:ApiUrlAlt)
-#   WALLET_SPV_INTERNAL_URL        http://spv-gateway.railway.internal:8080  Adds a /spv/ route on this server that proxies to the gateway
+#   WALLET_SPV_INTERNAL_URL        http://spv-gateway.railway.internal:8080  (the port the gateway listens on; without one nginx uses 80). Adds a /spv/ route on this server that proxies to the gateway
 #                                  over the private network, so the gateway needs no public domain. Then WALLET_GATEWAY_API_URL=/spv.
 #   WALLET_DEV_VIEW                true | false
 #   WALLET_DD_VIEW                 true | false   DigiDollar:ViewEnabled   (false hides every DigiDollar section)
@@ -98,6 +98,10 @@ if [ -n "${WALLET_SPV_INTERNAL_URL:-}" ]; then
     case "$WALLET_SPV_INTERNAL_URL" in
         http://*[!a-zA-Z0-9.:_-]*|http://) echo "40-write-config: WALLET_SPV_INTERNAL_URL ignored (use http://host:port)" ;;
         http://*)
+            case "${WALLET_SPV_INTERNAL_URL#http://}" in
+                *:[0-9]*) ;;
+                *) echo "40-write-config: WARNING WALLET_SPV_INTERNAL_URL has no port, so nginx will use 80 and /spv will answer 502. Add the gateway's port, for example :8080." ;;
+            esac
             ns="$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf 2>/dev/null || true)"
             case "$ns" in *:*) ns="[$ns]" ;; esac
             [ -n "$ns" ] || ns="127.0.0.11"

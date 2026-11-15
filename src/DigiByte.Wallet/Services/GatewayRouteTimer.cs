@@ -8,7 +8,17 @@ public sealed record GatewayRouteTiming(string Url, IReadOnlyList<double> Sample
     public int Count => SamplesMs.Count;
     public double? MinMs => Count == 0 ? null : SamplesMs.Min();
     public double? MedianMs => Percentile(0.5);
-    public double? P95Ms => Percentile(0.95);
+
+    /// <summary>The slowest 5%: shown only with enough samples (at least <see cref="MinSamplesForTail"/>); with fewer it is just the single slowest answer.</summary>
+    public double? P95Ms => Count >= MinSamplesForTail ? Percentile(0.95) : null;
+
+    public const int MinSamplesForTail = 20;
+
+    /// <summary>How much the answer times vary: the range of the middle half of the samples, so one slow answer does not distort it.</summary>
+    public double? SpreadMs => Count < 4 ? null : Percentile(0.75) - Percentile(0.25);
+
+    /// <summary>The uncertainty of the median (its standard error), estimated from the spread. Roughly 1.25 x sigma / sqrt(n), with sigma taken as spread / 1.35.</summary>
+    public double? MedianUncertaintyMs => SpreadMs is { } s ? 1.2533 * (s / 1.349) / Math.Sqrt(Count) : null;
 
     private double? Percentile(double p)
     {
@@ -17,6 +27,39 @@ public sealed record GatewayRouteTiming(string Url, IReadOnlyList<double> Sample
         var sorted = SamplesMs.OrderBy(x => x).ToList();
         var index = (int)Math.Ceiling(p * sorted.Count) - 1;
         return sorted[Math.Clamp(index, 0, sorted.Count - 1)];
+    }
+}
+
+public enum RouteVerdict
+{
+    /// <summary>Too few answers on a route to say anything.</summary>
+    NotEnoughData,
+    /// <summary>The gap is within what the run-to-run variation can explain, so neither route is faster.</summary>
+    AboutTheSame,
+    FirstFaster,
+    SecondFaster,
+}
+
+public static class GatewayRouteComparison
+{
+    /// <summary>A gap smaller than this does not matter to anyone, whatever the numbers say.</summary>
+    public const double NegligibleMs = 5;
+
+    public const int MinSamples = 8;
+
+    /// <summary>
+    /// Says a route is faster only when the gap between the two medians is clearly bigger than the variation in the measurements
+    /// (more than twice the combined uncertainty of the two medians) and bigger than <see cref="NegligibleMs"/>.
+    /// </summary>
+    public static (RouteVerdict Verdict, double GapMs) Compare(GatewayRouteTiming first, GatewayRouteTiming second)
+    {
+        if (first.Count < MinSamples || second.Count < MinSamples || first.MedianMs is not { } a || second.MedianMs is not { } b)
+            return (RouteVerdict.NotEnoughData, 0);
+        var gap = Math.Abs(a - b);
+        var noise = Math.Sqrt(Math.Pow(first.MedianUncertaintyMs ?? 0, 2) + Math.Pow(second.MedianUncertaintyMs ?? 0, 2));
+        if (gap <= NegligibleMs || gap <= 2 * noise)
+            return (RouteVerdict.AboutTheSame, gap);
+        return (a < b ? RouteVerdict.FirstFaster : RouteVerdict.SecondFaster, gap);
     }
 }
 
