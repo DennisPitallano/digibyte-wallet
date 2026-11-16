@@ -176,8 +176,20 @@ else
     private bool activityPartial;
     private List<ActivityEntry> recentActivity = [];
 
-    protected override async Task OnInitializedAsync()
+    private string? loadedFor;
+
+    // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
+    protected override async Task OnParametersSetAsync()
     {
+        if (loadedFor == WalletId) return;
+        loadedFor = WalletId;
+        isLoading = true;
+        config = null;
+        balanceSatoshis = null;
+        recentActivity = [];
+        pendingCount = 0;
+        needsMySignature = 0;
+        confirmRemove = false;
         try
         {
             var owner = ActiveWallet.WalletId;

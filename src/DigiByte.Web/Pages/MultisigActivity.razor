@@ -135,8 +135,15 @@ else
         ? "Receive funds or create a payment and it will show up here."
         : "Try another filter to see the rest of this multisig's activity.";
 
-    protected override async Task OnInitializedAsync()
+    private string? loadedFor;
+
+    // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
+    protected override async Task OnParametersSetAsync()
     {
+        if (loadedFor == WalletId) return;
+        loadedFor = WalletId;
+        isLoading = true;
+        config = null;
         try
         {
             var owner = ActiveWallet.WalletId;
