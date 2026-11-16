@@ -31,8 +31,9 @@ else
         {
             @* Recipient: type, paste, scan or pick a contact, like the Send page *@
             <div class="slide-up-delay-1">
-                <RecipientInput Address="@destination" AddressChanged="OnAddressChanged" Error="@destinationError"
-                                IsOwnAddress="@(destCheck?.IsOwnAddress ?? false)" OnPaymentLink="OnPaymentLink" />
+                <RecipientInput @ref="recipient" Address="@destination" AddressChanged="OnAddressChanged" Error="@destinationError"
+                                IsOwnAddress="@(destCheck?.IsOwnAddress ?? false)" OnPaymentLink="OnPaymentLink"
+                                OnScanRequested="() => showScanner = true" />
             </div>
 
             @* Amount *@
@@ -274,6 +275,8 @@ else
         </div>
     }
 }
+@* The scanner is a full-screen overlay: it lives at the page root, outside the animated form blocks. *@
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="@(() => showScanner = false)" />
 </AuthGuard>
 
 @code {
@@ -287,6 +290,8 @@ else
     private MultisigAccessState access = MultisigAccessState.NotFound;
     private bool isLoading = true;
     private string? loadedFor;
+    private RecipientInput? recipient;
+    private bool showScanner;
 
     private Step step = Step.Form;
     private List<UtxoInfo>? utxos;
@@ -361,6 +366,12 @@ else
         catch { utxosFailed = true; }
         Recalculate();
         StateHasChanged();
+    }
+
+    private async Task OnQrScanned(string data)
+    {
+        showScanner = false;
+        if (recipient is not null) await recipient.ApplyScannedAsync(data);
     }
 
     private Task OnAddressChanged(string value)
