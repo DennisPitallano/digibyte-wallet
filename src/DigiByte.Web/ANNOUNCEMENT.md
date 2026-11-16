@@ -1,12 +1,12 @@
-# DigiByte Wallet v0.5.0 - Stronger PIN protection
+# DigiByte Wallet v0.6.0 - Multisig that follows your wallet, and stronger PIN protection
 
 > Release date: November 2026
 > Live at: https://dgbwallet.app
-> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.5.0
+> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.6.0
 
 ## Short post (~280 chars)
 
-🟦 DigiByte Wallet now protects your PIN with Argon2id, a memory-hard method that makes every guess much more costly. Existing wallets upgrade automatically the next time you unlock. You can also choose a passphrase for a longer-lasting option.
+🟦 DigiByte Wallet v0.6.0: multisigs now stay with the wallet that made them, can be renamed, show every co-signer's full key and send like normal DGB, with a QR code for the redeem script. Your PIN is also protected with Argon2id. Updates happen on next unlock.
 
 → https://dgbwallet.app
 
@@ -14,17 +14,17 @@
 
 ## Medium post
 
-**Stronger protection for your PIN, with an optional passphrase**
+**Multisig, rebuilt around your wallet**
 
-Your seed has always been encrypted in your browser and never sent to our server. This release changes how the PIN or passphrase that protects it is turned into a key: it now uses **Argon2id**, which needs a lot of memory for each attempt, instead of PBKDF2.
+This release does three things.
 
-- **Automatic upgrade.** Unlock as usual and your wallet is upgraded. Nothing to do and no change to your PIN.
-- **Passphrase option.** Choose a passphrase instead of a 6-digit PIN when you create or reset a wallet. A PIN is stronger than before, and a passphrase goes further. A forgotten passphrase cannot be reset, so keep your recovery phrase safe.
-- **Older copy kept for 7 days.** After an upgrade the previous copy stays for 7 days so an older version of the app can still unlock. It is then removed.
-- **Biometric unlock** now uses the device's authenticator key where the browser supports it, with a one-time re-enrolment.
-- **Older browsers.** If a browser cannot run the new protection, the wallet tells you and asks for your agreement before using the previous method.
+- **Multisig that makes sense.** A multisig now shows only under the wallet that created it, can be renamed, and each co-signer's full public key can be checked, copied or shown as a QR code. Sending looks like Send DGB (paste, scan, Max, a fee preview and a review step), there is an Activity list for what came in and went out, and pending payments show who has signed. The redeem script can be saved or scanned as a QR code.
+- **Stronger PIN protection (first published in this release).** Your PIN or passphrase now becomes an encryption key with Argon2id, which needs a lot of memory for every guess. Existing wallets upgrade the next time you unlock, with the same PIN, and the older copy is kept for 7 days. You can also choose a passphrase instead of a 6-digit PIN.
+- **A clearer wallet.** Your addresses on Receive (used, unused, named), your own address on each activity row with an address filter, the oracle price on the DigiDollar card, and a public Network status page that says which data sources the wallet is using.
 
-Details: [`docs/SECURITY.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/docs/SECURITY.md)
+Note: version 0.5.0 was never published as a tag; everything in it ships here.
+
+Details: [`CHANGELOG.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/CHANGELOG.md)
 
 ---
 
