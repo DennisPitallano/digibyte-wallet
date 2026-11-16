@@ -186,4 +186,53 @@ public class MultisigModelsTests
 
         Assert.False(cs.IsLocal);
     }
+
+    // ─── Backward compatibility with data saved before spec 016 ───
+
+    [Fact]
+    public void OldConfigJson_WithoutNewFields_StillLoads_WithDefaults()
+    {
+        const string oldJson = """
+        {"WalletId":"w1","RequiredSignatures":2,"TotalSigners":3,
+         "CoSigners":[{"Name":"A","PublicKeyHex":"02aa","IsLocal":true}],
+         "RedeemScriptHex":"00","Address":"addr","AddressType":"p2sh-p2wsh","OwnKeyIndex":0,
+         "CreatedAt":"2026-01-01T00:00:00Z"}
+        """;
+
+        var config = System.Text.Json.JsonSerializer.Deserialize<MultisigWalletConfig>(oldJson)!;
+
+        Assert.Empty(config.OwnerWalletIds);
+        Assert.Null(config.Name);
+        Assert.Null(config.BackupAt);
+        Assert.Equal("2-of-3 Multisig", config.DisplayName);
+    }
+
+    [Fact]
+    public void OldPendingJson_WithoutNewFields_StillLoads_WithDefaults()
+    {
+        const string oldJson = """
+        {"Id":"p1","WalletId":"w1","PsbtBase64":"cHNidA==","DestinationAddress":"D1",
+         "AmountSatoshis":100,"FeeSatoshis":10,"RequiredSignatures":2,"SignedBy":[],
+         "CreatedAt":"2026-01-01T00:00:00Z","Status":0}
+        """;
+
+        var tx = System.Text.Json.JsonSerializer.Deserialize<PendingMultisigTransaction>(oldJson)!;
+
+        Assert.Equal("", tx.UnsignedTxId);
+        Assert.Null(tx.Memo);
+        Assert.Null(tx.FailureReason);
+        Assert.Null(tx.CancelledAt);
+        Assert.Equal(PendingTxStatus.AwaitingSignatures, tx.Status);
+    }
+
+    [Fact]
+    public void OldDraftJson_WithoutOwner_StillLoads_WithEmptyOwner()
+    {
+        const string oldJson = """{"Id":"d1","Name":"Draft","RequiredSignatures":2,"TotalSigners":3,"OwnPublicKeyHex":"02aa","CoSigners":[]}""";
+
+        var draft = System.Text.Json.JsonSerializer.Deserialize<MultisigDraft>(oldJson)!;
+
+        Assert.Equal("", draft.OwnerWalletId);
+        Assert.Equal("02aa", draft.OwnPublicKeyHex);
+    }
 }

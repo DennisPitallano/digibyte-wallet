@@ -633,6 +633,29 @@ Fee comparison:
 
 ### Multisig Wallets (`/multisig`)
 
+#### Ownership and scoping (spec 016)
+```
+Every multisig list entry carries OwnerWalletIds (the app wallets that own it); drafts carry one OwnerWalletId.
+  → Create/Import add the active wallet id as an owner
+  → ListWalletsAsync(ownerWalletId, ownPublicKeyHex) returns only entries the active wallet owns
+  → Entries saved before scoping (no owner) are attributed to a wallet whose public key is one of the
+    co-signer keys (two wallets that both hold keys each become owners); nothing is deleted
+  → Unmatched entries are hidden everywhere and shown under "Unassigned multisigs" with a Claim action
+  → GetAccessStateAsync → Owned | OtherWallet | Unassigned | NotFound (direct links never reveal other wallets' data)
+  → DeleteWalletAsync(id, ownerWalletId) removes only that wallet as owner; data is deleted with the last owner
+  → Names and co-signer labels are local, shared by all owner wallets, never part of the script
+```
+
+#### Dashboard, Activity (`/multisig/{id}`, `/multisig/{id}/activity`)
+```
+Dashboard: header (editable name, M-of-N) → balance (loading/unavailable states, never 0 when unknown)
+  → address (Copy, QR) → Send / Receive / Pending → "needs your signature" call to action
+  → backup card (until BackupAt is set by Download or Copy) → collapsible Co-signers (full keys) and Recent activity
+Activity: GetActivityAsync(config, skip, take = 25) = chain transactions (paged) + local proposals
+  → MultisigActivityBuilder: Received / Sent (change excluded) / proposal kinds; a broadcast proposal shows once
+  → chain unreachable → local proposals only, marked partial
+```
+
 #### Create Multisig Wallet (`/multisig/create`)
 ```
 Step 1 — Set Threshold:
@@ -662,21 +685,26 @@ User pastes redeem script (hex):
 
 #### Send from Multisig (`/multisig/{id}/send`)
 ```
-User enters destination address + amount:
-  → MultisigWalletService.CreateSpendingPSBTAsync(walletId, address, amount, feeRate)
-    1. Fetch UTXOs for multisig address
-    2. MultisigService.CreateMultisigPSBT(redeemScript, utxos, dest, amount, change, feeRate)
-    3. Create PendingMultisigTransaction → persist to IndexedDB
-    4. Return PSBT base64 for sharing with co-signers
+User types, pastes, scans (address or digibyte: link) or picks a contact; amount or MAX:
+  → MultisigSendHelper.ValidateDestination / ClassifyScan / EstimateSend (fee = vsize x sat/vB, change below the
+    0.001 DGB dust threshold is added to the fee) → review screen → Confirm
+  → MultisigWalletService.CreateSpendingPSBTAsync(config, address, amount, feeRate, memo, submissionToken)
+    1. Fetch UTXOs for multisig address, choose coins (largest first)
+    2. MultisigService.CreateMultisigPSBTWithFee(redeemScript, coins, dest, amount, change, fee, dust)
+    3. Create PendingMultisigTransaction (with UnsignedTxId) → persist to IndexedDB
+    4. Return PSBT base64 for sharing with co-signers; the same submissionToken never creates a second proposal
 
 Signing flow:
   → User signs: MultisigWalletService.SignPendingTransactionAsync(walletId, txId)
     1. WalletService.GetPrivateKeyForMultisig() → get signing key
     2. MultisigService.SignPSBT(psbt, privateKey, redeemScript)
     3. Update PendingMultisigTransaction.SignedBy list
-  → Co-signer signs: MultisigWalletService.ImportSignedPSBTAsync(walletId, txId, signedPsbtBase64)
-    1. MultisigService.CombinePSBTs(original, signed)
-    2. MultisigService.CountSignatures() → update status
+  → Co-signer signs: MultisigWalletService.ImportSignedPSBTAsync(pending, signedPsbtBase64)
+    1. Verify the copy is for the same unsigned transaction (UnsignedTxId) and signed only by keys of the redeem script
+       (otherwise PsbtImportException with a plain reason)
+    2. MultisigService.CombinePSBTs(original, signed)
+    3. Update SignedBy; at the threshold status becomes ReadyToFinalize
+  → Cancel: CancelPendingAsync marks Cancelled on this device only (co-signers with a copy could still broadcast)
 
 Finalize & broadcast:
   → MultisigWalletService.FinalizeAndBroadcastAsync(walletId, txId)

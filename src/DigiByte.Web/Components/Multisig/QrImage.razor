@@ -1,0 +1,25 @@
+@if (dataUrl is not null)
+{
+    <img src="@dataUrl" alt="@Alt" class="@Class" />
+}
+
+@code {
+    [Parameter, EditorRequired] public string Payload { get; set; } = "";
+    [Parameter] public string Alt { get; set; } = "QR code";
+    [Parameter] public string Class { get; set; } = "w-44 h-44 rounded-lg bg-white p-1";
+
+    private string? dataUrl;
+    private string? renderedFor;
+
+    protected override void OnParametersSet()
+    {
+        if (Payload == renderedFor) return;
+        renderedFor = Payload;
+        if (string.IsNullOrEmpty(Payload)) { dataUrl = null; return; }
+
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(Payload, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var png = new QRCoder.PngByteQRCode(data);
+        dataUrl = $"data:image/png;base64,{Convert.ToBase64String(png.GetGraphic(8, [0, 35, 82], [255, 255, 255]))}";
+    }
+}

@@ -1,6 +1,7 @@
 @page "/multisig/import"
 @inject MultisigWalletService MultisigService
 @inject WalletService WalletService
+@inject ActiveWalletContext ActiveWallet
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -187,7 +188,7 @@
 
         try
         {
-            await MultisigService.ImportMultisigWalletAsync(walletName, redeemScriptHex.Trim(), ownKeyIndex);
+            await MultisigService.ImportMultisigWalletAsync(walletName, redeemScriptHex.Trim(), ownKeyIndex, ownerWalletId: ActiveWallet.WalletId);
             Nav.NavigateTo("/multisig");
         }
         catch (Exception ex)

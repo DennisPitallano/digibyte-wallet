@@ -1,0 +1,30 @@
+@* Shown instead of a multisig's contents when it can't be opened by the active wallet. Never shows anything about the multisig itself. *@
+<div class="flex flex-col items-center justify-center gap-4 py-12 text-center" role="alert">
+    @switch (State)
+    {
+        case MultisigAccessState.OtherWallet:
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">This multisig belongs to another wallet</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">
+                Switch to the wallet that owns it to open it. Multisigs are kept separate for each wallet on this device.
+            </p>
+            break;
+        case MultisigAccessState.Unassigned:
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">This multisig isn't assigned to a wallet yet</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">
+                Go to Multisig Wallets to claim it for the wallet you're using.
+            </p>
+            break;
+        default:
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Multisig not found</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">It may have been deleted from this device.</p>
+            break;
+    }
+    <button class="min-h-[44px] py-2.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect"
+            @onclick='() => Nav.NavigateTo("/multisig")'>Back to Multisig Wallets</button>
+</div>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    [Parameter] public MultisigAccessState State { get; set; }
+}

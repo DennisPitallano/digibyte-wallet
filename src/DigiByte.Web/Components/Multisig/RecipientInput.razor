@@ -1,0 +1,134 @@
+@* Destination for a multisig payment: type, paste, scan, or pick a saved contact. Scanned text is classified first,
+   so a PSBT or an unrelated QR code gets an explanation instead of ending up in the address box. *@
+@inject ClipboardService Clipboard
+@inject ContactService Contacts
+
+<div class="flex flex-col gap-1.5">
+    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-recipient">Destination address</label>
+    <div class="flex items-stretch gap-2">
+        <input id="ms-recipient" type="text" value="@Address" @oninput="OnInput" placeholder="D... or dgb1..."
+               autocomplete="off" spellcheck="false" aria-invalid="@(!string.IsNullOrEmpty(Error))"
+               class="flex-1 min-w-0 px-4 py-3 bg-white dark:bg-dgb-900 border rounded-2xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-dgb-500/20 transition-all @(string.IsNullOrEmpty(Error) ? "border-slate-200 dark:border-dgb-800 focus:border-dgb-500" : "border-red-400 focus:border-red-500")" />
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800 rounded-xl press-effect" @onclick="Paste">Paste</button>
+        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800 rounded-xl press-effect" @onclick="() => showScanner = true">Scan QR</button>
+        @if (contacts.Count > 0)
+        {
+            <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-dgb-800 rounded-xl press-effect"
+                    aria-expanded="@showContacts" @onclick="() => showContacts = !showContacts">Contacts</button>
+        }
+    </div>
+
+    @if (showContacts)
+    {
+        <div class="flex flex-col rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 divide-y divide-slate-100 dark:divide-dgb-800 max-h-48 overflow-y-auto">
+            @foreach (var contact in contacts)
+            {
+                <button type="button" class="flex flex-col items-start p-3 min-h-[44px] text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50" @onclick="() => PickContact(contact)">
+                    <span class="text-sm font-medium text-slate-900 dark:text-white">@contact.Name</span>
+                    <span class="text-[11px] font-mono text-slate-400">@MultisigFormat.Short(contact.Address, 10, 6)</span>
+                </button>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(notice))
+    {
+        <p class="text-xs text-amber-600 dark:text-amber-400" role="status">@notice</p>
+    }
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <p class="text-xs text-red-500" role="alert">@Error</p>
+    }
+    @if (IsOwnAddress)
+    {
+        <p class="text-xs text-amber-600 dark:text-amber-400" role="status">This is this multisig's own address. Sending to yourself only spends the fee.</p>
+    }
+</div>
+
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnScanned" OnClosed="@(() => showScanner = false)" />
+
+@code {
+    [Parameter] public string Address { get; set; } = "";
+    [Parameter] public EventCallback<string> AddressChanged { get; set; }
+
+    /// <summary>Inline validation message for the current address, if any.</summary>
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool IsOwnAddress { get; set; }
+
+    /// <summary>Raised when a scanned or pasted payment link carries an amount or label to prefill.</summary>
+    [Parameter] public EventCallback<ScanResult> OnPaymentLink { get; set; }
+
+    private bool showScanner;
+    private bool showContacts;
+    private string? notice;
+    private List<Contact> contacts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { contacts = (await Contacts.GetAllAsync()).Where(c => !string.IsNullOrWhiteSpace(c.Address)).ToList(); }
+        catch { contacts = []; }   // the picker is optional: hide it when contacts can't be read
+    }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        notice = null;
+        await SetAddress(e.Value?.ToString() ?? "");
+    }
+
+    private async Task SetAddress(string value)
+    {
+        Address = value;
+        await AddressChanged.InvokeAsync(value);
+    }
+
+    private async Task Paste()
+    {
+        string? text = null;
+        try { text = await Clipboard.ReadAsync(); }
+        catch { /* blocked: fall through to the message below */ }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            notice = "Nothing to paste, or the browser blocked clipboard access. You can type or scan the address instead.";
+            return;
+        }
+        await Apply(text);
+    }
+
+    private async Task OnScanned(string data)
+    {
+        showScanner = false;
+        await Apply(data);
+    }
+
+    private async Task Apply(string text)
+    {
+        notice = null;
+        var result = MultisigSendHelper.ClassifyScan(text);
+        switch (result.Kind)
+        {
+            case ScanKind.Address:
+                await SetAddress(result.Address!);
+                break;
+            case ScanKind.PaymentUri:
+                await SetAddress(result.Address!);
+                await OnPaymentLink.InvokeAsync(result);
+                break;
+            case ScanKind.Psbt:
+                notice = "That is a signed transaction (PSBT), not an address. Import it from Pending transactions instead.";
+                break;
+            default:
+                notice = "That doesn't look like a DigiByte address or payment link.";
+                break;
+        }
+    }
+
+    private async Task PickContact(Contact contact)
+    {
+        showContacts = false;
+        notice = null;
+        await SetAddress(contact.Address);
+    }
+}

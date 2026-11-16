@@ -1,0 +1,38 @@
+@* The full public key of a co-signer: grouped so it can be compared by eye, never clipped, with Copy and a QR code. *@
+@inject ClipboardService Clipboard
+
+<div class="flex flex-col gap-2">
+    <p class="text-xs font-mono text-slate-700 dark:text-slate-200 break-words leading-relaxed select-all" data-testid="full-public-key">@MultisigKeyFormat.Group(PublicKeyHex)</p>
+    <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800 rounded-xl press-effect"
+                aria-label="Copy public key" @onclick="Copy">
+            @(copied ? "Copied!" : "Copy key")
+        </button>
+        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-dgb-800 rounded-xl press-effect"
+                aria-expanded="@showQr" @onclick="() => showQr = !showQr">
+            @(showQr ? "Hide QR" : "Show QR")
+        </button>
+    </div>
+    @if (showQr)
+    {
+        <div class="flex justify-center py-1">
+            <QrImage Payload="@MultisigKeyFormat.Normalize(PublicKeyHex)" Alt="Public key QR code" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string PublicKeyHex { get; set; } = "";
+
+    private bool showQr;
+    private bool copied;
+
+    private async Task Copy()
+    {
+        await Clipboard.CopyAsync(MultisigKeyFormat.Normalize(PublicKeyHex), toast: false);
+        copied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        copied = false;
+    }
+}

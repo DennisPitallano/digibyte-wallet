@@ -1,0 +1,80 @@
+@* A multisig's activity, grouped by day, with optional filter chips and a Load more button. *@
+@{
+    var visible = MultisigActivityBuilder.Filter(Entries, Filter);
+    var groups = MultisigActivityBuilder.GroupByDate(visible);
+}
+<div class="flex flex-col gap-2">
+    @if (ShowFilters)
+    {
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Filter activity">
+            @foreach (var f in Enum.GetValues<ActivityFilter>())
+            {
+                <button type="button" role="tab" aria-selected="@(f == Filter)"
+                        class="min-h-[36px] px-3 text-xs font-semibold rounded-full whitespace-nowrap transition-colors @(f == Filter ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300")"
+                        @onclick="() => OnFilterChanged.InvokeAsync(f)">@f</button>
+            }
+        </div>
+    }
+
+    @if (IsPartial)
+    {
+        <p class="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl px-3 py-2" role="status">
+            You're offline or the network is unreachable. Showing only what's saved on this device (proposals and your own sends).
+        </p>
+    }
+
+    @if (IsLoading && Entries.Count == 0)
+    {
+        @for (var i = 0; i < 3; i++)
+        {
+            <div class="h-14 skeleton rounded-xl"></div>
+        }
+    }
+    else if (visible.Count == 0)
+    {
+        <div class="py-6 text-center">
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">@EmptyTitle</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@EmptyHint</p>
+            @if (EmptyActions is not null)
+            {
+                <div class="flex items-center justify-center gap-2 mt-3">@EmptyActions</div>
+            }
+        </div>
+    }
+    else
+    {
+        @foreach (var (day, items) in groups)
+        {
+            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 pt-1">@MultisigFormat.DayLabel(day)</p>
+            <div class="flex flex-col rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 divide-y divide-slate-100 dark:divide-dgb-800">
+                @foreach (var entry in items)
+                {
+                    <ActivityItem Entry="entry" OnSelect="OnSelect" />
+                }
+            </div>
+        }
+    }
+
+    @if (HasMore)
+    {
+        <button type="button" class="min-h-[44px] w-full text-sm font-semibold text-dgb-500 hover:text-dgb-600 disabled:opacity-50"
+                disabled="@IsLoading" @onclick="() => OnLoadMore.InvokeAsync()">
+            @(IsLoading ? "Loading…" : "Load more")
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<ActivityEntry> Entries { get; set; } = [];
+    [Parameter] public ActivityFilter Filter { get; set; } = ActivityFilter.All;
+    [Parameter] public bool ShowFilters { get; set; } = true;
+    [Parameter] public bool IsPartial { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool HasMore { get; set; }
+    [Parameter] public string EmptyTitle { get; set; } = "No activity yet";
+    [Parameter] public string EmptyHint { get; set; } = "Receive funds or create a payment and it will show up here.";
+    [Parameter] public RenderFragment? EmptyActions { get; set; }
+    [Parameter] public EventCallback<ActivityFilter> OnFilterChanged { get; set; }
+    [Parameter] public EventCallback<ActivityEntry> OnSelect { get; set; }
+    [Parameter] public EventCallback OnLoadMore { get; set; }
+}

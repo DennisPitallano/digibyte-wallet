@@ -1,6 +1,7 @@
 @page "/multisig/room"
 @implements IAsyncDisposable
 @inject WalletService WalletService
+@inject ActiveWalletContext ActiveWallet
 @inject ClipboardService Clipboard
 @inject MultisigWalletService MultisigWalletService
 @inject NavigationManager Nav
@@ -614,7 +615,8 @@
                 var config = await MultisigWalletService.CreateMultisigWalletAsync(
                     finalRoom.WalletName,
                     finalRoom.RequiredSignatures,
-                    coSigners);
+                    coSigners,
+                    ownerWalletId: ActiveWallet.WalletId);
 
                 createdWalletId = config.WalletId;
                 finalRoom.Status = MultisigRoomStatus.Created;

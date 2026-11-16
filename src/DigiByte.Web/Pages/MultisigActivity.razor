@@ -1,0 +1,225 @@
+@page "/multisig/{WalletId}/activity"
+@inject MultisigWalletService MultisigService
+@inject ActiveWalletContext ActiveWallet
+@inject ClipboardService Clipboard
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Multisig Activity — DigiByte Wallet</PageTitle>
+
+<AuthGuard>
+@if (isLoading)
+{
+    <div class="flex flex-col gap-3">
+        <div class="h-6 w-48 skeleton rounded"></div>
+        <div class="h-14 skeleton rounded-xl"></div>
+        <div class="h-14 skeleton rounded-xl"></div>
+    </div>
+}
+else if (config == null)
+{
+    <MultisigAccessNotice State="access" />
+}
+else
+{
+    <div class="flex flex-col gap-3">
+        <PageHeader Title="Activity" Subtitle="@config.DisplayName" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
+
+        <ActivityList Entries="entries" Filter="filter" IsLoading="isLoadingMore" IsPartial="isPartial" HasMore="hasMore"
+                      OnFilterChanged="f => filter = f" OnSelect="entry => selected = entry" OnLoadMore="LoadMore"
+                      EmptyTitle="@EmptyTitle" EmptyHint="@EmptyHint">
+            <EmptyActions>
+                @if (filter == ActivityFilter.All)
+                {
+                    <button type="button" class="min-h-[44px] px-4 bg-dgb-500 text-white text-xs font-semibold rounded-xl press-effect" @onclick="() => receiveOpen = true">Receive</button>
+                    <button type="button" class="min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 press-effect"
+                            @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>Send</button>
+                }
+            </EmptyActions>
+        </ActivityList>
+    </div>
+
+    <ReceiveSheet IsOpen="receiveOpen" Address="@config.Address" OnClosed="() => receiveOpen = false" />
+
+    @if (selected is not null)
+    {
+        var e = selected;
+        <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Transaction details" @onclick="() => selected = null">
+            <div class="modal-card flex flex-col gap-3 max-h-[85vh] overflow-y-auto" @onclick:stopPropagation="true">
+                <div class="flex items-center justify-between gap-2">
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">@DetailTitle(e)</h3>
+                    <button type="button" class="min-w-[44px] min-h-[44px] text-slate-400" aria-label="Close details" @onclick="() => selected = null">✕</button>
+                </div>
+                <p class="text-2xl font-extrabold @(e.Direction == ActivityDirection.In ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white")">
+                    @(e.Direction == ActivityDirection.In ? "+" : e.Direction == ActivityDirection.Out ? "−" : "")@MultisigFormat.Dgb(e.AmountSatoshis) <span class="text-base text-slate-400">DGB</span>
+                </p>
+
+                <dl class="flex flex-col gap-2 text-xs">
+                    <div><dt class="text-slate-400">When</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.When(e.Timestamp)</dd></div>
+                    @if (e.FeeSatoshis is not null && e.FeeSatoshis > 0)
+                    {
+                        <div><dt class="text-slate-400">Network fee</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(e.FeeSatoshis.Value) DGB</dd></div>
+                    }
+                    @if (!string.IsNullOrEmpty(e.Counterparty))
+                    {
+                        <div>
+                            <dt class="text-slate-400">@(e.Direction == ActivityDirection.In ? "From" : "To")@(e.MoreCount > 0 ? $" (+{e.MoreCount} more)" : "")</dt>
+                            <dd class="font-mono break-all text-slate-800 dark:text-slate-100 select-all">@e.Counterparty</dd>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(e.Memo))
+                    {
+                        <div><dt class="text-slate-400">Memo</dt><dd class="text-slate-800 dark:text-slate-100">@e.Memo</dd></div>
+                    }
+                    @if (e.SignedCount is not null)
+                    {
+                        <div><dt class="text-slate-400">Signatures</dt><dd class="text-slate-800 dark:text-slate-100">@e.SignedCount of @e.RequiredCount</dd></div>
+                    }
+                    @if (e.Confirmations is not null)
+                    {
+                        <div><dt class="text-slate-400">Confirmations</dt><dd class="text-slate-800 dark:text-slate-100">@e.Confirmations</dd></div>
+                    }
+                    @if (!string.IsNullOrEmpty(e.TxId))
+                    {
+                        <div>
+                            <dt class="text-slate-400">Transaction ID</dt>
+                            <dd class="font-mono break-all text-slate-800 dark:text-slate-100 select-all">@e.TxId</dd>
+                        </div>
+                    }
+                </dl>
+
+                <ol class="flex flex-col gap-1 text-[11px] text-slate-500 dark:text-slate-400 border-l-2 border-slate-200 dark:border-dgb-800 pl-3" aria-label="Status timeline">
+                    @foreach (var step in Timeline(e))
+                    {
+                        <li>@step</li>
+                    }
+                </ol>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    @if (!string.IsNullOrEmpty(e.TxId))
+                    {
+                        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800 rounded-xl press-effect" @onclick="() => CopyTxId(e.TxId!)">@(copiedTx ? "Copied!" : "Copy TxID")</button>
+                        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-dgb-800 rounded-xl press-effect" @onclick="() => OpenExplorer(e.TxId!)">Open in explorer</button>
+                    }
+                    @if (e.IsPending || e.Kind == ActivityKind.Failed)
+                    {
+                        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-white bg-dgb-500 rounded-xl press-effect" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>Open in Pending</button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+</AuthGuard>
+
+@code {
+    private const int PageSize = 25;
+
+    [Parameter] public string WalletId { get; set; } = "";
+
+    private MultisigWalletConfig? config;
+    private MultisigAccessState access = MultisigAccessState.NotFound;
+    private bool isLoading = true;
+    private bool isLoadingMore;
+    private bool isPartial;
+    private bool hasMore;
+    private bool receiveOpen;
+    private bool copiedTx;
+    private int chainLoaded;
+    private ActivityFilter filter = ActivityFilter.All;
+    private List<ActivityEntry> entries = [];
+    private ActivityEntry? selected;
+
+    private string EmptyTitle => filter == ActivityFilter.All ? "No activity yet" : $"No {filter.ToString().ToLowerInvariant()} entries";
+    private string EmptyHint => filter == ActivityFilter.All
+        ? "Receive funds or create a payment and it will show up here."
+        : "Try another filter to see the rest of this multisig's activity.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var owner = ActiveWallet.WalletId;
+            var key = ActiveWallet.PublicKey;
+            access = await MultisigService.GetAccessStateAsync(WalletId, owner, key);
+            if (access != MultisigAccessState.Owned) return;
+            config = await MultisigService.GetConfigAsync(WalletId, owner, key);
+            if (config != null) await LoadPage(first: true);
+        }
+        finally { isLoading = false; }
+    }
+
+    private async Task LoadMore() => await LoadPage(first: false);
+
+    private async Task LoadPage(bool first)
+    {
+        isLoadingMore = true;
+        StateHasChanged();
+        try
+        {
+            var page = await MultisigService.GetActivityAsync(config!, first ? 0 : chainLoaded, PageSize);
+            isPartial = page.IsPartial;
+            hasMore = page.HasMore;
+            if (!page.IsPartial) chainLoaded += PageSize;
+
+            foreach (var entry in page.Entries)
+            {
+                // The chain version of a broadcast proposal replaces the local "sent" line, so it shows once.
+                if (!string.IsNullOrEmpty(entry.TxId))
+                    entries.RemoveAll(e => string.Equals(e.TxId, entry.TxId, StringComparison.OrdinalIgnoreCase));
+                entries.Add(entry);
+            }
+            entries = entries.OrderByDescending(e => e.Timestamp).ToList();
+        }
+        finally
+        {
+            isLoadingMore = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string DetailTitle(ActivityEntry e) => e.Kind switch
+    {
+        ActivityKind.Received => "Received",
+        ActivityKind.Sent => "Sent",
+        ActivityKind.ProposalAwaiting => "Waiting for signatures",
+        ActivityKind.ProposalReady => "Ready to broadcast",
+        ActivityKind.Failed => "Broadcast failed",
+        ActivityKind.Cancelled => "Cancelled",
+        _ => "Transaction",
+    };
+
+    private static List<string> Timeline(ActivityEntry e)
+    {
+        var steps = new List<string>();
+        if (e.ProposalId is not null)
+        {
+            steps.Add($"Proposed {MultisigFormat.When(e.Timestamp)}");
+            if (e.SignedCount is not null) steps.Add($"Signatures: {e.SignedCount} of {e.RequiredCount}");
+        }
+        switch (e.Kind)
+        {
+            case ActivityKind.ProposalReady: steps.Add("All required signatures collected, ready to broadcast"); break;
+            case ActivityKind.Failed: steps.Add("Broadcast failed. It can be retried from Pending"); break;
+            case ActivityKind.Cancelled: steps.Add("Cancelled on this device"); break;
+            case ActivityKind.Sent:
+            case ActivityKind.Received:
+                steps.Add(e.Kind == ActivityKind.Sent ? "Broadcast to the network" : "Seen on the network");
+                steps.Add((e.Confirmations ?? 0) switch { 0 => "Waiting for the first confirmation", < 6 => $"{e.Confirmations} confirmation(s)", _ => "Confirmed (6 or more)" });
+                break;
+        }
+        return steps;
+    }
+
+    private async Task CopyTxId(string txId)
+    {
+        await Clipboard.CopyAsync(txId, toast: false);
+        copiedTx = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        copiedTx = false;
+    }
+
+    private async Task OpenExplorer(string txId) =>
+        await JS.InvokeVoidAsync("open", $"https://digiexplorer.info/tx/{txId}", "_blank");
+}

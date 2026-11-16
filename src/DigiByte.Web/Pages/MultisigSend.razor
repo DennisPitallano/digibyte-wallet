@@ -1,101 +1,343 @@
 @page "/multisig/{WalletId}/send"
 @inject MultisigWalletService MultisigService
+@inject ActiveWalletContext ActiveWallet
+@inject WalletService WalletService
+@inject ClipboardService Clipboard
 @inject NavigationManager Nav
 
-<PageTitle>Multisig Send — DigiByte Wallet</PageTitle>
+<PageTitle>Send from Multisig — DigiByte Wallet</PageTitle>
 
 <AuthGuard>
-@if (config == null)
+@if (isLoading)
 {
     <div class="flex items-center justify-center py-12">
         <div class="w-6 h-6 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
 }
+else if (config == null)
+{
+    <MultisigAccessNotice State="access" />
+}
 else
 {
     <div class="flex flex-col gap-4">
-        <div class="flex items-center gap-3 slide-up">
-            <button class="p-2 rounded-xl bg-slate-100 dark:bg-dgb-800 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
-                    @onclick="GoBack">
-                <svg class="w-4 h-4 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                </svg>
-            </button>
-            <div>
-                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Send from Multisig</h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400">@config.Label</p>
-            </div>
-        </div>
+        <PageHeader Title="@(step == Step.Done ? "Proposal created" : "Send from multisig")" Subtitle="@config.DisplayName"
+                    BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
 
-        @* Destination *@
-        <div class="flex flex-col gap-1.5 slide-up-delay-1">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Destination Address</label>
-            <input type="text" @bind="destinationAddress" placeholder="D... or dgb1..."
-                   autocomplete="off" spellcheck="false"
-                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-        </div>
-
-        @* Amount *@
-        <div class="flex flex-col gap-1.5 slide-up-delay-1">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount (DGB)</label>
-            <input type="number" inputmode="decimal" @bind="amountDgb" step="0.00000001" min="0" placeholder="0.00000000"
-                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-        </div>
-
-        @* Memo (optional) *@
-        <div class="flex flex-col gap-1.5 slide-up-delay-1">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Memo (optional)</label>
-            <input type="text" @bind="memo" placeholder="What's this for?"
-                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-        </div>
-
-        <div class="slide-up-delay-1 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl">
-            <p class="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                This will create a PSBT (Partially Signed Transaction) that needs
-                <strong>@config.RequiredSignatures</strong> signatures before it can be broadcast.
-            </p>
-        </div>
-
-        @if (!string.IsNullOrEmpty(error))
+        @if (step == Step.Form)
         {
-            <InlineError Message="@error" />
-        }
+            @* Available balance *@
+            <div class="flex items-center justify-between px-1 slide-up-delay-1">
+                <span class="text-xs text-slate-500 dark:text-slate-400">Available</span>
+                @if (utxosFailed)
+                {
+                    <span class="text-xs text-amber-600 dark:text-amber-400">Couldn't load funds <button type="button" class="min-h-[44px] px-2 font-semibold text-dgb-500" @onclick="LoadUtxos">Retry</button></span>
+                }
+                else if (utxos is null)
+                {
+                    <span class="h-4 w-28 skeleton rounded"></span>
+                }
+                else
+                {
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">@MultisigFormat.Dgb(utxos.Sum(u => u.AmountSatoshis)) DGB</span>
+                }
+            </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2 disabled:opacity-50"
-                @onclick="CreatePSBT" disabled="@(isCreating || string.IsNullOrWhiteSpace(destinationAddress) || amountDgb <= 0)">
-            @if (isCreating)
+            <div class="slide-up-delay-1">
+                <RecipientInput Address="@destination" AddressChanged="OnAddressChanged" Error="@destinationError"
+                                IsOwnAddress="@(destCheck?.IsOwnAddress ?? false)" OnPaymentLink="OnPaymentLink" />
+            </div>
+
+            @* Amount *@
+            <div class="flex flex-col gap-1.5 slide-up-delay-1">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-amount">Amount (DGB)</label>
+                    <button type="button" class="min-h-[44px] px-2 text-xs font-bold @(useMax ? "text-white bg-dgb-500" : "text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800") rounded-lg press-effect"
+                            aria-pressed="@useMax" disabled="@(utxos is null)" @onclick="ToggleMax">MAX</button>
+                </div>
+                <input id="ms-amount" type="text" inputmode="decimal" value="@amountText" @oninput="OnAmountInput" placeholder="0.00000000" autocomplete="off"
+                       aria-invalid="@(!string.IsNullOrEmpty(amountError))"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border rounded-2xl text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-dgb-500/20 transition-all @(string.IsNullOrEmpty(amountError) ? "border-slate-200 dark:border-dgb-800 focus:border-dgb-500" : "border-red-400")" />
+                @if (!string.IsNullOrEmpty(amountError))
+                {
+                    <p class="text-xs text-red-500" role="alert">@amountError</p>
+                }
+            </div>
+
+            @* Memo *@
+            <div class="flex flex-col gap-1.5 slide-up-delay-1">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-memo">Memo (optional)</label>
+                <input id="ms-memo" type="text" value="@memo" @oninput="OnMemoInput" maxlength="80" placeholder="What's this for?"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            </div>
+
+            @* Fee and remaining *@
+            @if (estimate is { Ok: true })
             {
-                <div class="flex items-center justify-center gap-2">
-                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Creating PSBT...</span>
+                <div class="flex flex-col gap-1 p-3 bg-slate-50 dark:bg-dgb-800/50 rounded-2xl text-xs slide-up-delay-1" aria-live="polite">
+                    <div class="flex justify-between"><span class="text-slate-500">Network fee (@feeRate sat/vB)</span><span class="font-semibold text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(estimate.FeeSatoshis) DGB</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Left in multisig</span><span class="font-semibold text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(estimate.RemainingSatoshis) DGB</span></div>
+                    @if (estimate.ChangeSatoshis == 0 && !useMax)
+                    {
+                        <p class="text-[11px] text-slate-400 mt-0.5">The small leftover is too little to send back, so it goes to the network fee.</p>
+                    }
                 </div>
             }
-            else
+
+            <div class="slide-up-delay-1 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl">
+                <p class="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                    This creates a proposal that needs <strong>@config.RequiredSignatures</strong> signatures before it can be broadcast.
+                </p>
+            </div>
+
+            <button class="w-full min-h-[44px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2 disabled:opacity-50"
+                    disabled="@(!CanContinue)" @onclick="GoToReview">
+                Review payment
+            </button>
+        }
+        else if (step == Step.Review && estimate is { Ok: true })
+        {
+            <div class="flex flex-col gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200/80 dark:border-dgb-800 rounded-2xl slide-up-delay-1">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Check the details</h3>
+                <dl class="flex flex-col gap-2.5 text-xs">
+                    <div><dt class="text-slate-400">Send to</dt><dd class="font-mono break-all text-slate-900 dark:text-white select-all">@destination.Trim()</dd></div>
+                    <div><dt class="text-slate-400">Amount</dt><dd class="text-lg font-extrabold text-slate-900 dark:text-white">@MultisigFormat.Dgb(estimate.AmountSatoshis) DGB</dd></div>
+                    <div><dt class="text-slate-400">Network fee</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(estimate.FeeSatoshis) DGB</dd></div>
+                    <div><dt class="text-slate-400">Total leaving the multisig</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(estimate.AmountSatoshis + estimate.FeeSatoshis) DGB</dd></div>
+                    <div><dt class="text-slate-400">Signatures required</dt><dd class="text-slate-800 dark:text-slate-100">@config.RequiredSignatures of @config.TotalSigners</dd></div>
+                    @if (!string.IsNullOrWhiteSpace(memo))
+                    {
+                        <div><dt class="text-slate-400">Memo</dt><dd class="text-slate-800 dark:text-slate-100">@memo</dd></div>
+                    }
+                </dl>
+                @if (destCheck?.IsOwnAddress == true)
+                {
+                    <p class="text-xs text-amber-600 dark:text-amber-400">You're sending to this multisig's own address.</p>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(error))
             {
-                <span>Create Transaction</span>
+                <InlineError Message="@error" />
             }
-        </button>
+
+            <div class="flex items-center gap-2">
+                <button class="flex-1 min-h-[44px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                        disabled="@isCreating" @onclick="Confirm">
+                    @if (isCreating)
+                    {
+                        <span class="flex items-center justify-center gap-2">
+                            <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            <span>Creating…</span>
+                        </span>
+                    }
+                    else
+                    {
+                        <span>Create proposal</span>
+                    }
+                </button>
+                <button class="min-h-[44px] px-4 text-sm font-medium text-slate-500 dark:text-slate-400" disabled="@isCreating" @onclick="() => step = Step.Form">Edit</button>
+            </div>
+        }
+        else if (step == Step.Done && created is not null)
+        {
+            <div class="flex flex-col gap-3 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-2xl slide-up-delay-1">
+                <p class="text-sm font-bold text-green-700 dark:text-green-300">Proposal created</p>
+                <p class="text-xs text-green-700 dark:text-green-400 leading-relaxed">
+                    @MultisigFormat.Dgb(created.AmountSatoshis) DGB to <span class="font-mono">@MultisigFormat.Short(created.DestinationAddress, 10, 6)</span>.
+                    It needs @created.RequiredSignatures signature(s) before it can be broadcast.
+                </p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <p class="text-xs text-green-700 dark:text-green-400 px-1" role="status">@message</p>
+            }
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <InlineError Message="@error" />
+            }
+
+            <div class="flex flex-col gap-2">
+                @if (config.CoSigners.Any(c => c.IsLocal) && !created.SignedBy.Any())
+                {
+                    <button class="w-full min-h-[44px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50" disabled="@isSigning" @onclick="SignNow">
+                        @(isSigning ? "Signing…" : "Sign now")
+                    </button>
+                }
+                <button class="w-full min-h-[44px] py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-2xl press-effect" @onclick="SharePsbt">
+                    Copy proposal to share with co-signers
+                </button>
+                <button class="w-full min-h-[44px] py-3 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>
+                    Go to pending transactions
+                </button>
+            </div>
+        }
     </div>
 }
 </AuthGuard>
 
 @code {
+    private enum Step { Form, Review, Done }
+
     [Parameter] public string WalletId { get; set; } = "";
 
     private MultisigWalletConfig? config;
-    private string destinationAddress = "";
-    private decimal amountDgb;
+    private MultisigAccessState access = MultisigAccessState.NotFound;
+    private bool isLoading = true;
+
+    private Step step = Step.Form;
+    private List<UtxoInfo>? utxos;
+    private bool utxosFailed;
+
+    private string destination = "";
+    private string amountText = "";
     private string? memo;
-    private string? error;
+    private bool useMax;
+    private int feeRate = MultisigWalletService.DefaultFeeRateSatPerVByte;
+
+    private DestinationCheck? destCheck;
+    private string? destinationError;
+    private string? amountError;
+    private SendEstimate? estimate;
+
     private bool isCreating;
+    private bool isSigning;
+    private string? error;
+    private string? message;
+    private PendingMultisigTransaction? created;
+    private string submissionToken = Guid.NewGuid().ToString("N");
+
+    private bool CanContinue => destCheck?.Ok == true && estimate is { Ok: true } && utxos is not null;
 
     protected override async Task OnInitializedAsync()
     {
-        config = await MultisigService.GetConfigAsync(WalletId);
+        try
+        {
+            var owner = ActiveWallet.WalletId;
+            var key = ActiveWallet.PublicKey;
+            access = await MultisigService.GetAccessStateAsync(WalletId, owner, key);
+            if (access != MultisigAccessState.Owned) return;
+            config = await MultisigService.GetConfigAsync(WalletId, owner, key);
+        }
+        finally { isLoading = false; }
+
+        if (config != null) await LoadUtxos();
     }
 
-    private async Task CreatePSBT()
+    private async Task LoadUtxos()
     {
+        utxosFailed = false;
+        utxos = null;
+        StateHasChanged();
+        try
+        {
+            utxos = await MultisigService.GetSpendableUtxosAsync(config!);
+        }
+        catch { utxosFailed = true; }
+        Recalculate();
+        StateHasChanged();
+    }
+
+    private async Task OnAddressChanged(string value)
+    {
+        destination = value;
+        Recalculate();
+        await Task.CompletedTask;
+    }
+
+    private Task OnPaymentLink(ScanResult link)
+    {
+        if (link.AmountDgb is { } amount && amount > 0)
+        {
+            useMax = false;
+            amountText = amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        if (!string.IsNullOrWhiteSpace(link.Label) && string.IsNullOrWhiteSpace(memo))
+            memo = link.Label;
+        Recalculate();
+        return Task.CompletedTask;
+    }
+
+    private void OnAmountInput(ChangeEventArgs e)
+    {
+        useMax = false;
+        amountText = e.Value?.ToString() ?? "";
+        Recalculate();
+    }
+
+    private void OnMemoInput(ChangeEventArgs e)
+    {
+        memo = e.Value?.ToString();
+        Recalculate();
+    }
+
+    private void ToggleMax()
+    {
+        useMax = !useMax;
+        if (!useMax) amountText = "";
+        Recalculate();
+    }
+
+    private void Recalculate()
+    {
+        // Destination: only complain once something has been entered.
+        destCheck = string.IsNullOrWhiteSpace(destination) ? null : MultisigSendHelper.ValidateDestination(destination, MultisigService.ActiveNetwork, config?.Address);
+        destinationError = destCheck is { Ok: false } ? destCheck.Error : null;
+
+        amountError = null;
+        estimate = null;
+        if (config is null || utxos is null) return;
+
+        var memoBytes = string.IsNullOrWhiteSpace(memo) ? 0 : System.Text.Encoding.UTF8.GetByteCount(memo);
+        long amountSat = 0;
+        if (!useMax)
+        {
+            if (string.IsNullOrWhiteSpace(amountText)) return;
+            if (!TryParseAmount(amountText, out amountSat, out var parseError))
+            {
+                amountError = parseError;
+                return;
+            }
+        }
+
+        estimate = MultisigSendHelper.EstimateSend(utxos, feeRate, amountSat, config.RequiredSignatures, config.TotalSigners, config.AddressType, memoBytes, useMax);
+        if (!estimate.Ok)
+            amountError = estimate.Error;
+        else if (useMax)
+            amountText = (estimate.AmountSatoshis / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static bool TryParseAmount(string text, out long satoshis, out string? error)
+    {
+        satoshis = 0;
+        error = null;
+        if (!decimal.TryParse(text.Trim(), System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var dgb) || dgb < 0)
+        {
+            error = "Enter a valid amount, for example 1.5.";
+            return false;
+        }
+        if (decimal.Round(dgb, 8) != dgb)
+        {
+            error = "An amount can have at most 8 decimal places.";
+            return false;
+        }
+        satoshis = (long)(dgb * 100_000_000m);
+        return true;
+    }
+
+    private void GoToReview()
+    {
+        Recalculate();
+        if (!CanContinue) return;
+        error = null;
+        submissionToken = Guid.NewGuid().ToString("N");
+        step = Step.Review;
+    }
+
+    private async Task Confirm()
+    {
+        if (isCreating || estimate is not { Ok: true }) return;   // a double tap acts once
         isCreating = true;
         error = null;
         StateHasChanged();
@@ -103,8 +345,10 @@ else
 
         try
         {
-            await MultisigService.CreateSpendingPSBTAsync(config!, destinationAddress.Trim(), amountDgb, memo: memo);
-            Nav.NavigateTo($"/multisig/{WalletId}/pending");
+            var amountDgb = estimate.AmountSatoshis / 100_000_000m;
+            created = await MultisigService.CreateSpendingPSBTAsync(
+                config!, destination.Trim(), amountDgb, feeRate, memo, submissionToken);
+            step = Step.Done;
         }
         catch (Exception ex)
         {
@@ -116,5 +360,38 @@ else
         }
     }
 
-    private void GoBack() => Nav.NavigateTo($"/multisig/{WalletId}");
+    private async Task SignNow()
+    {
+        if (isSigning || created is null) return;
+        isSigning = true;
+        error = null;
+        message = null;
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            var privateKey = WalletService.GetPrivateKeyForMultisig()
+                ?? throw new InvalidOperationException("Wallet is locked or private key unavailable.");
+            var key = new NBitcoin.Key(Convert.FromHexString(privateKey));
+            created = await MultisigService.SignPendingTransactionAsync(created, key);
+            message = created.HasEnoughSignatures
+                ? "Signed. It has enough signatures and is ready to broadcast from Pending."
+                : $"Signed ({created.SignatureCount} of {created.RequiredSignatures}). Share it with your co-signers.";
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isSigning = false;
+        }
+    }
+
+    private async Task SharePsbt()
+    {
+        if (created is null) return;
+        await Clipboard.CopyAsync(created.PsbtBase64, toast: false);
+        message = "Proposal copied. Send it to your co-signers to sign.";
+    }
 }

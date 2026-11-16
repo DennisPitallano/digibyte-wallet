@@ -1,0 +1,88 @@
+@* One co-signer: a compact row that expands in place to the full public key and a label editor. *@
+<div class="rounded-xl bg-slate-50 dark:bg-dgb-800/50 overflow-hidden">
+    <button type="button" class="w-full flex items-center gap-2 p-2 min-h-[44px] text-left" aria-expanded="@expanded"
+            aria-label="@(Signer.Name): show full public key" @onclick="() => expanded = !expanded">
+        <div class="w-7 h-7 rounded-lg @(IsOwn ? "bg-dgb-100 dark:bg-dgb-700" : "bg-slate-100 dark:bg-dgb-800") flex items-center justify-center shrink-0">
+            <span class="text-[11px] font-bold @(IsOwn ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500")">@Initial</span>
+        </div>
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-900 dark:text-white truncate">@Signer.Name</p>
+            <p class="text-[11px] font-mono text-slate-400 truncate">@MultisigFormat.Short(Signer.PublicKeyHex, 10, 6)</p>
+        </div>
+        @if (IsOwn)
+        {
+            <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">YOU</span>
+        }
+        @if (HasSigned)
+        {
+            <span class="text-[11px] font-bold text-green-600 dark:text-green-400" title="Signed">✓</span>
+        }
+        <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform @(expanded ? "rotate-180" : "")" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+        </svg>
+    </button>
+
+    @if (expanded)
+    {
+        <div class="px-3 pb-3 flex flex-col gap-3">
+            <KeyView PublicKeyHex="@Signer.PublicKeyHex" />
+
+            @if (editing)
+            {
+                <div class="flex flex-col gap-1.5">
+                    <input type="text" @bind="labelDraft" @bind:event="oninput" maxlength="@MultisigWalletService.MaxNameLength" aria-label="Co-signer label"
+                           class="w-full px-3 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500" />
+                    @if (!string.IsNullOrEmpty(error))
+                    {
+                        <p class="text-xs text-red-500" role="alert">@error</p>
+                    }
+                    <div class="flex items-center gap-2">
+                        <button type="button" class="min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect" @onclick="SaveLabel">Save label</button>
+                        <button type="button" class="min-h-[44px] px-3 text-xs text-slate-500" @onclick="() => editing = false">Cancel</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <button type="button" class="self-start min-h-[44px] text-xs font-semibold text-dgb-500 hover:text-dgb-600"
+                        @onclick="StartEdit">Edit label</button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CoSigner Signer { get; set; } = default!;
+    [Parameter] public bool IsOwn { get; set; }
+    [Parameter] public bool HasSigned { get; set; }
+
+    /// <summary>Saves a new label for this co-signer's key.</summary>
+    [Parameter] public Func<string, string, Task<RenameResult>>? OnRename { get; set; }
+
+    private bool expanded;
+    private bool editing;
+    private string labelDraft = "";
+    private string? error;
+
+    private string Initial => string.IsNullOrWhiteSpace(Signer.Name) ? "?" : Signer.Name[..1].ToUpperInvariant();
+
+    private void StartEdit()
+    {
+        labelDraft = Signer.Name;
+        error = null;
+        editing = true;
+    }
+
+    private async Task SaveLabel()
+    {
+        if (OnRename is null) { editing = false; return; }
+        var result = await OnRename(Signer.PublicKeyHex, labelDraft);
+        if (!result.Ok)
+        {
+            error = result.Error;
+            return;
+        }
+        Signer.Name = result.Name ?? labelDraft.Trim();
+        editing = false;
+    }
+}

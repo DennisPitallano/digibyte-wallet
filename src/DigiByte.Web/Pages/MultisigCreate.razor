@@ -1,6 +1,7 @@
 @page "/multisig/create"
 @inject MultisigWalletService MultisigService
 @inject WalletService WalletService
+@inject ActiveWalletContext ActiveWallet
 @inject AppState AppState
 @inject ClipboardService Clipboard
 @inject NavigationManager Nav
@@ -429,7 +430,7 @@
     protected override async Task OnInitializedAsync()
     {
         if (string.IsNullOrWhiteSpace(DraftId)) return;
-        var draft = await MultisigService.GetDraftAsync(DraftId);
+        var draft = await MultisigService.GetDraftAsync(DraftId, ActiveWallet.WalletId, ActiveWallet.PublicKey);
         if (draft == null) return; // deleted or never existed: start a fresh setup
 
         draftId = draft.Id;
@@ -464,6 +465,7 @@
                 // Keep the original owner's key when resuming under a different wallet, so the warning stays accurate.
                 OwnPublicKeyHex = draftWalletMismatch ? "" : ownPubKeyHex,
                 OwnWalletName = WalletService.ActiveWallet?.Name ?? "",
+                OwnerWalletId = ActiveWallet.WalletId,
                 CoSigners = coSignerEntries.Select(e => new DigiByte.Wallet.Models.DraftCoSigner
                 {
                     Name = e.Name.Trim(),
@@ -472,7 +474,7 @@
             };
             if (draftWalletMismatch)
             {
-                var existing = await MultisigService.GetDraftAsync(draftId!);
+                var existing = await MultisigService.GetDraftAsync(draftId!, ActiveWallet.WalletId, ActiveWallet.PublicKey);
                 if (existing != null)
                 {
                     draft.OwnPublicKeyHex = existing.OwnPublicKeyHex;
@@ -559,7 +561,7 @@
                 });
             }
 
-            createdConfig = await MultisigService.CreateMultisigWalletAsync(walletName, requiredSigs, coSigners);
+            createdConfig = await MultisigService.CreateMultisigWalletAsync(walletName, requiredSigs, coSigners, ownerWalletId: ActiveWallet.WalletId);
             if (draftId != null)
             {
                 try { await MultisigService.DeleteDraftAsync(draftId); } catch { } // the wallet exists; a leftover draft is harmless

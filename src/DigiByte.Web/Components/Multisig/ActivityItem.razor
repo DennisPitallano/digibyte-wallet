@@ -1,0 +1,92 @@
+@* One line of multisig activity: direction, amount, who, when, and status. *@
+<button type="button" class="w-full flex items-center gap-3 p-3 min-h-[56px] text-left rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
+        aria-label="@AriaLabel" @onclick="() => OnSelect.InvokeAsync(Entry)">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 @IconClass">
+        @switch (Entry.Direction)
+        {
+            case ActivityDirection.In:
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 4.5 15 15m0 0V8.25m0 11.25H8.25" /></svg>
+                break;
+            case ActivityDirection.Out:
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25" /></svg>
+                break;
+            default:
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                break;
+        }
+    </div>
+    <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+            <p class="text-sm font-semibold text-slate-900 dark:text-white">@Title</p>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full @StatusClass">@StatusText</span>
+        </div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+            @if (!string.IsNullOrEmpty(Entry.Counterparty))
+            {
+                <span class="font-mono">@MultisigFormat.Short(Entry.Counterparty, 8, 5)</span>
+                @if (Entry.MoreCount > 0)
+                {
+                    <span> +@Entry.MoreCount more</span>
+                }
+                <span> · </span>
+            }
+            @MultisigFormat.When(Entry.Timestamp)
+        </p>
+        @if (!string.IsNullOrWhiteSpace(Entry.Memo))
+        {
+            <p class="text-[11px] text-slate-400 truncate">“@Entry.Memo”</p>
+        }
+    </div>
+    <p class="text-sm font-bold shrink-0 @AmountClass">@Sign@MultisigFormat.Dgb(Entry.AmountSatoshis)</p>
+</button>
+
+@code {
+    [Parameter, EditorRequired] public ActivityEntry Entry { get; set; } = default!;
+    [Parameter] public EventCallback<ActivityEntry> OnSelect { get; set; }
+
+    private string Title => Entry.Kind switch
+    {
+        ActivityKind.Received => "Received",
+        ActivityKind.Sent => "Sent",
+        ActivityKind.ProposalAwaiting => "Waiting for signatures",
+        ActivityKind.ProposalReady => "Ready to broadcast",
+        ActivityKind.Failed => "Broadcast failed",
+        ActivityKind.Cancelled => "Cancelled",
+        _ => "Activity",
+    };
+
+    private string StatusText => Entry.Kind switch
+    {
+        ActivityKind.Received or ActivityKind.Sent => Entry.Confirmations switch
+        {
+            null or 0 => "Unconfirmed",
+            < 6 => $"{Entry.Confirmations} conf.",
+            _ => "Confirmed",
+        },
+        ActivityKind.ProposalAwaiting => $"{Entry.SignedCount ?? 0}/{Entry.RequiredCount ?? 0}",
+        ActivityKind.ProposalReady => "Ready",
+        ActivityKind.Failed => "Failed",
+        ActivityKind.Cancelled => "Cancelled",
+        _ => "",
+    };
+
+    private string StatusClass => Entry.Kind switch
+    {
+        ActivityKind.Received or ActivityKind.Sent when (Entry.Confirmations ?? 0) >= 6 => "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30",
+        ActivityKind.Received or ActivityKind.Sent => "text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30",
+        ActivityKind.ProposalReady => "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30",
+        ActivityKind.Failed => "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30",
+        _ => "text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-dgb-800",
+    };
+
+    private string IconClass => Entry.Direction switch
+    {
+        ActivityDirection.In => "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+        ActivityDirection.Out => "bg-dgb-100 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-400",
+        _ => "bg-slate-100 dark:bg-dgb-800 text-slate-500",
+    };
+
+    private string AmountClass => Entry.Direction == ActivityDirection.In ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white";
+    private string Sign => Entry.Direction switch { ActivityDirection.In => "+", ActivityDirection.Out => "−", _ => "" };
+    private string AriaLabel => $"{Title}, {MultisigFormat.Dgb(Entry.AmountSatoshis)} DGB, {StatusText}";
+}
