@@ -23,7 +23,9 @@ else if (config == null)
 else
 {
     <div class="flex flex-col gap-3">
-        <PageHeader Title="Activity" Subtitle="@config.DisplayName" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
+        <PageHeader Title="Activity" Subtitle="@config.DisplayName" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")">
+            <WalletChip />
+        </PageHeader>
 
         <ActivityList Entries="entries" Filter="filter" IsLoading="isLoadingMore" IsPartial="isPartial" HasMore="hasMore"
                       OnFilterChanged="f => filter = f" OnSelect="entry => selected = entry" OnLoadMore="LoadMore"
@@ -31,7 +33,7 @@ else
             <EmptyActions>
                 @if (filter == ActivityFilter.All)
                 {
-                    <button type="button" class="min-h-[44px] px-4 bg-dgb-500 text-white text-xs font-semibold rounded-xl press-effect" @onclick="() => receiveOpen = true">Receive</button>
+                    <button type="button" class="min-h-[44px] px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect" @onclick="() => receiveOpen = true">Receive</button>
                     <button type="button" class="min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 press-effect"
                             @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>Send</button>
                 }
@@ -39,7 +41,7 @@ else
         </ActivityList>
     </div>
 
-    <ReceiveSheet IsOpen="receiveOpen" Address="@config.Address" OnClosed="() => receiveOpen = false" />
+    <ReceiveSheet IsOpen="receiveOpen" Address="@config.Address" Name="@config.DisplayName" OnClosed="() => receiveOpen = false" />
 
     @if (selected is not null)
     {
@@ -98,12 +100,12 @@ else
                 <div class="flex items-center gap-2 flex-wrap">
                     @if (!string.IsNullOrEmpty(e.TxId))
                     {
-                        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800 rounded-xl press-effect" @onclick="() => CopyTxId(e.TxId!)">@(copiedTx ? "Copied!" : "Copy TxID")</button>
-                        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-dgb-800 rounded-xl press-effect" @onclick="() => OpenExplorer(e.TxId!)">Open in explorer</button>
+                        <button type="button" class="min-h-[44px] px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => CopyTxId(e.TxId!)">@(copiedTx ? "Copied!" : "Copy TxID")</button>
+                        <button type="button" class="min-h-[44px] px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => OpenExplorer(e.TxId!)">Open in explorer</button>
                     }
                     @if (e.IsPending || e.Kind == ActivityKind.Failed)
                     {
-                        <button type="button" class="min-h-[44px] px-3 text-xs font-semibold text-white bg-dgb-500 rounded-xl press-effect" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>Open in Pending</button>
+                        <button type="button" class="min-h-[44px] px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>Open in Pending</button>
                     }
                 </div>
             </div>

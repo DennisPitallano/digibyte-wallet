@@ -16,6 +16,13 @@ public static class MultisigFormat
         return value.Length <= head + tail + 1 ? value : $"{value[..head]}…{value[^tail..]}";
     }
 
+    /// <summary>An address in groups of four, so the first and last groups are easy to check by eye (as on the Send page).</summary>
+    public static string Chunk(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        return string.Join(" ", Enumerable.Range(0, (value.Length + 3) / 4).Select(i => value.Substring(i * 4, Math.Min(4, value.Length - i * 4))));
+    }
+
     /// <summary>"Today", "Yesterday", or a date, for grouping activity.</summary>
     public static string DayLabel(DateOnly day)
     {

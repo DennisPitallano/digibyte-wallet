@@ -15,6 +15,9 @@ public sealed class ActiveWalletContext(WalletService wallets)
     /// <summary>Display name of the active wallet.</summary>
     public string WalletName => wallets.ActiveWallet?.Name ?? "Wallet";
 
+    /// <summary>Accent colour of the active wallet (the dot and the card edge on the wallet dashboard).</summary>
+    public string WalletColor => wallets.ActiveWallet?.Color ?? "#0066FF";
+
     /// <summary>The active wallet's multisig public key, or null while locked or watch-only.</summary>
     public string? PublicKey
     {

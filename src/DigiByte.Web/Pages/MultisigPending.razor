@@ -10,7 +10,9 @@
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Pending transactions" Subtitle="@config?.DisplayName" BackLabel="@(config?.DisplayName ?? "Multisig")" BackHref="@($"/multisig/{WalletId}")" />
+    <PageHeader Title="Pending Transactions" Subtitle="@config?.DisplayName" BackLabel="@(config?.DisplayName ?? "Multisig")" BackHref="@($"/multisig/{WalletId}")">
+        <WalletChip />
+    </PageHeader>
 
     @if (isLoading)
     {
@@ -116,10 +118,10 @@
                                         @(isSigning && busyId == tx.Id ? "Signing…" : "Sign")
                                     </button>
                                 }
-                                <button class="min-h-[44px] px-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect" @onclick="() => ToggleShare(tx)" aria-expanded="@(shareFor == tx.Id)">Share</button>
+                                <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleShare(tx)" aria-expanded="@(shareFor == tx.Id)">Share</button>
                                 @if (tx.Status != PendingTxStatus.Failed)
                                 {
-                                    <button class="min-h-[44px] px-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect" @onclick="() => ToggleImport(tx)" aria-expanded="@(importFor == tx.Id)">Import signature</button>
+                                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleImport(tx)" aria-expanded="@(importFor == tx.Id)">Import signature</button>
                                 }
                                 <button class="min-h-[44px] px-3 text-sm font-medium text-slate-400 hover:text-red-500" @onclick="() => cancelFor = tx.Id">Cancel</button>
                             </div>
@@ -136,7 +138,7 @@
                                 </div>
                                 @if (tx.PsbtBase64.Length <= 2200)
                                 {
-                                    <div class="flex justify-center pt-1"><QrImage Payload="@tx.PsbtBase64" Alt="Proposal QR code" Class="w-52 h-52 rounded-lg bg-white p-1.5" /></div>
+                                    <div class="flex justify-center pt-1"><QrImage Payload="@tx.PsbtBase64" Alt="Proposal QR code" /></div>
                                 }
                                 else
                                 {
