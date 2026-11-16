@@ -4,7 +4,28 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-17
+
+This is the first release since 0.4.0 that is published as a tag: version 0.5.0 below (stronger PIN protection) was never tagged, so everything in 0.5.0 ships here too. Existing wallets upgrade their PIN protection the first time they are unlocked.
+
 ### Added
+- **Multisigs belong to the wallet that made them** — A multisig and its drafts now show only under the wallet that created or imported it (or holds one of its keys), so switching wallets no longer shows another wallet's multisigs. Multisigs saved before this change are matched to a wallet by their co-signer keys; any that no wallet can claim appear under **Unassigned multisigs** with a **Claim** button. Removing a multisig removes it only from the active wallet; if another wallet also owns it, it stays there. Nothing is deleted by the upgrade. Security-relevant: changes how multisigs are stored and shown.
+- **Rename a multisig, a draft or a co-signer** — Tap the name at the top of a multisig (or the pencil in the list) to rename it, and tap a co-signer to edit their label. Names are 1 to 40 characters, local to your device, and never change the address, the redeem script or any key.
+- **See and check the full co-signer keys** — Tap a co-signer to see their whole public key in readable groups, with **Copy** and a QR code, so you can compare it with what they sent you.
+- **Compact multisig dashboard** — A balance card like the wallet's own (hide, refresh, fiat value, address with copy and QR), **Send / Receive / Pending / Activity** buttons, a "needs your signature" banner, and folded sections for the redeem script and backup, co-signers and recent activity. The backup warning stays until you download the backup or copy the script, then shows the date.
+- **Send from a multisig like Send DGB** — Paste, scan or pick a contact, **Available** with 25 / 50 / 75 / Max, a fee and "left in multisig" preview, a review card with the full address in groups of four, and a duplicate-tap guard. The fee now comes from the real size of the transaction, and change too small to send back (under 0.001 DGB) goes to the fee. After creating a proposal you can **Sign Now** or copy it to share.
+- **Multisig Activity** — Payments received, payments sent and proposals in one list, newest first, with All / Received / Sent / Pending / Failed filters, the first 25 entries then **Load more**, and a detail view with the full transaction ID, copy and an explorer link. When the network is unreachable it still shows your proposals and says so.
+- **Better pending multisig payments** — A signer checklist ("1 of 2: You ✓, Treasury —"), Sign, Share (copy, QR or file), Import signature (paste, scan or file), Broadcast, Retry after a failed broadcast, and Cancel. Cancel only affects this device: co-signers who already have a copy could still broadcast it, and the confirmation says so. Imported signatures are checked to belong to that proposal and to come only from the multisig's own keys. Security-relevant: new signature-import checks.
+- **Redeem script QR code** — The multisig's redeem script and backup panel can show the script as a QR code (and save it as a PNG), and **Import** has a **Scan QR** button that fills in the script. The code holds every co-signer's key, so treat it like the backup file.
+- **Your addresses on the Receive page** — HD wallets get a folded **Your addresses** list under the QR code: the newest 10 receiving addresses (10 more at a time), each marked Used (with a transaction count), Unused or Status unknown. Pick one to show its QR code, copy, share and download; name an address with the pencil; open **View activity** for a used one. A note says when the address on show has been used before, because a new address is better for privacy.
+- **Your own address on each activity row, and an address filter** — Activity rows show which of your addresses a transaction paid or came from (with its label), and the Activity page has an address picker that narrows the list to one address. The chosen address is remembered per wallet and addresses can be named from the picker. Search also matches your addresses and labels.
+- **Oracle price and DigiDollar status** — The DigiDollar home card and Analytics show the oracle price, how fresh it is and the protection state again, read through the project's data service from digibyte.io. Display only: it is never used for a transaction, the browser never contacts digibyte.io, and a failed fetch is retried on its own up to three times.
+- **Public Network status page** (`/network`) — A read-only page that explains, in plain words, which data sources the wallet is using, whether each is ready and how it has answered this session. Deployments can hide it with `OwnNode:PublicStatus=false`.
+- **Light-client gateway tools** — The gateway has an operator status page (block-index progress, peers, a live request list with no addresses or callers, a test request, a phone layout and a token-protected reset), indexes blocks much faster, and the web server can reach it over a private `/spv` route with a built-in speed comparison of the two routes.
+- **Wallet card finishes** — Choose smooth, leather, cotton, plastic or metal for each wallet's balance card when you pick its colour in Manage Wallets.
+- **Home and Settings polish** — Hide-balance toggle, 24-hour price change with a 7-day chart, a **Request a specific amount** panel on Receive (the QR code and link carry the amount), a getting-started checklist, a shared page header with a Back link, an Activity tab with a monthly summary, JetBrains Mono numbers, grouped Settings and an Appearance setting (System / Light / Dark).
+- **DigiDollar switches without a rebuild** — `WALLET_DD_VIEW`, `WALLET_DD_SEND` and `WALLET_DD_ORACLE` change the DigiDollar switches at the next restart.
+
 - **Copy your multisig public key** — Settings has a new **Copy my public key** card, and the multisig create screen has a **Copy** button next to your key. Both name the wallet the key belongs to, since each wallet has its own key.
 - **Backup prompt after creating a multisig** — Creating a multisig now ends on a "Wallet created" screen with **Download backup file** and **Copy redeem script**, instead of jumping to the wallet list. The backup file also explains how to restore without it (restore each seed, then create again with the same threshold and public keys).
 
@@ -17,11 +38,28 @@ All notable changes to the DigiByte Wallet project.
 - **Source status** — The data-source panel names the light-client gateway, says it sees the addresses the wallet asks about, and the Deployment page shows its state.
 
 ### Changed
+- **DigiDollar transactions look right** — A DigiDollar transaction moves no DGB except its fee, so the list and details now show its kind, the DigiDollar amounts and the fee instead of "-0.0000 DGB" and a fake "DD" note, and offer no recipient actions. The DigiDollar section reads from the explorer again by default, because the node API it used no longer exists.
+- **Data source order** — The offline Blockbook explorer (it answered every request with an error) is removed from the explorer list, the cross-check, the content policy and the docs. With node use off, reads and the spendable-output check now ask the light-client gateway, which has a readiness check and verified answers, before the unchecked node. The status cards follow the same order.
 - **Easier co-signer entry** — Each co-signer key field has a **Paste** button and checks the key as you type: a green check when valid, a clear message when it is malformed, not compressed (66 characters starting with 02 or 03), or a duplicate of your key or another co-signer's. The create screen shows the step name and "N of M added".
 - **Import finds your key for you** — Importing a multisig no longer asks for a "key position" number. The wallet looks for your key in the redeem script and says whether you can sign or the wallet will be watch-only.
 - **Multisig guide and Help corrected** — They no longer say the public key is in settings or the receive page, and now explain how to create a wallet without everyone online.
+- **Multisig screens match the wallet** — The multisig dashboard, Send, Receive, Pending, Activity, Create and Import now use the same cards, buttons, inputs and QR style as the rest of the wallet.
+- **Bottom navigation** — Activity replaces the P2P placeholder; P2P moves to **More**.
+
+### Fixed
+- **Multisig co-signer names** update as you type, and a link from one multisig to another (or to a missing one) no longer shows the previous multisig's data.
+- **Received-funds toast** appears once per incoming transaction, not on every refresh when an explorer drops some address lookups.
+- **Oracle reading on the dashboard** is merged after the DigiDollar card is built, so it no longer sits on "Loading price..." until a manual refresh; the data-source dot is green when public explorers answer normally.
+- **Light-client gateway** answers peer pings (peers used to drop it as inactive and the peer count drained away), keeps topping up peers during long block fills, and a slow or silent peer no longer stalls the sync.
+
+### Security
+- Multisig signature import now checks that a copy belongs to the proposal and is signed only by keys of that multisig; a cancelled proposal is never broadcast from the device that cancelled it, and concurrent broadcasts of one proposal broadcast once.
+- Scanned and pasted text (addresses, payment links, signed transactions, redeem scripts) is classified and checked for the active network before it is used.
+- No key, seed or password handling changed in this release apart from the PIN protection described under 0.5.0.
 
 ## [0.5.0] - 2026-11-09
+
+> Not tagged on its own: these changes were published as part of 0.6.0.
 
 ### Added
 - **Stronger PIN and passphrase protection** — The wallet now turns your PIN or passphrase into an encryption key with Argon2id, a method that needs a lot of memory for every guess, instead of PBKDF2 alone. The result is stored in a versioned `dgb2` envelope whose header is authenticated. Three cost profiles (standard 64 MiB, low-memory 32 MiB, floor 19 MiB) are tried in order so the wallet still unlocks on small devices. The cost values are provisional: they have not yet been measured on a low-end phone (T001), and each stored value carries its own parameters so they can be raised later without breaking existing wallets. Security-relevant: this changes how every stored secret is encrypted. Finding DGB-04 of the external review.
