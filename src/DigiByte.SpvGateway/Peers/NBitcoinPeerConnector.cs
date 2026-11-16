@@ -2,6 +2,7 @@ using System.Net;
 using DigiByte.Crypto.Headers;
 using NBitcoin;
 using NBitcoin.Protocol;
+using NBitcoin.Protocol.Behaviors;
 
 namespace DigiByte.SpvGateway.Peers;
 
@@ -26,6 +27,8 @@ public sealed class NBitcoinPeerConnector(Network network, TimeSpan? connectTime
             ConnectCancellation = timeout.Token,
         };
         parameters.TemplateBehaviors.Clear();
+        // Without this the gateway never answers a ping, and peers drop it as inactive after a while (then the peer count drains away).
+        parameters.TemplateBehaviors.Add(new PingPongBehavior());
         Node? node = null;
         try
         {

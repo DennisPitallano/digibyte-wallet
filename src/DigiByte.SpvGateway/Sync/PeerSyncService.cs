@@ -27,6 +27,8 @@ public sealed class PeerSyncService(SpvGatewayOptions options, PeerManager peers
                 int indexed;
                 do
                 {
+                    // A long first fill must not starve peer upkeep: top the peers up between batches too.
+                    await peers.MaintainAsync(stoppingToken);
                     indexed = await indexer.IndexAsync(stoppingToken);
                     if (indexed > 0)
                     {
