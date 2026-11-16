@@ -79,6 +79,7 @@ builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();
 builder.Services.AddScoped<MultisigWalletService>();
+builder.Services.AddScoped<DigiByte.Web.Services.ActiveWalletContext>();
 builder.Services.AddScoped<BiometricService>();
 builder.Services.AddScoped<SpendingLimitService>();
 builder.Services.AddScoped<AddressLabelService>();

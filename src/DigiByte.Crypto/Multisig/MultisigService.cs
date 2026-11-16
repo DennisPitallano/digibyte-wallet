@@ -91,6 +91,51 @@ public class MultisigService
     }
 
     /// <summary>
+    /// Creates a PSBT that spends exactly <paramref name="coins"/> and pays exactly <paramref name="feeSatoshis"/>.
+    /// Unlike <see cref="CreateMultisigPSBT"/>, the caller chooses the coins and the fee, so what the user was shown is
+    /// what is built. Change below <paramref name="dustThresholdSatoshis"/> is not sent back; it is left in the fee.
+    /// </summary>
+    public PSBT CreateMultisigPSBTWithFee(
+        Script redeemScript,
+        IReadOnlyList<Coin> coins,
+        BitcoinAddress destination,
+        Money amount,
+        BitcoinAddress changeAddress,
+        long feeSatoshis,
+        long dustThresholdSatoshis,
+        string? memo = null)
+    {
+        if (coins.Count == 0)
+            throw new ArgumentException("At least one coin is required.", nameof(coins));
+
+        var totalIn = coins.Sum(c => c.Amount.Satoshi);
+        var change = totalIn - amount.Satoshi - feeSatoshis;
+        if (change < 0)
+            throw new InvalidOperationException("The selected coins do not cover the amount and fee.");
+
+        var tx = _network.CreateTransaction();
+        foreach (var coin in coins)
+            tx.Inputs.Add(new TxIn(coin.Outpoint));
+
+        tx.Outputs.Add(amount, destination.ScriptPubKey);
+
+        if (!string.IsNullOrWhiteSpace(memo))
+        {
+            var memoBytes = System.Text.Encoding.UTF8.GetBytes(memo);
+            if (memoBytes.Length > 80)
+                memoBytes = memoBytes[..80];
+            tx.Outputs.Add(Money.Zero, TxNullDataTemplate.Instance.GenerateScriptPubKey(memoBytes));
+        }
+
+        if (change >= dustThresholdSatoshis && change > 0)
+            tx.Outputs.Add(Money.Satoshis(change), changeAddress.ScriptPubKey);
+
+        var psbt = PSBT.FromTransaction(tx, _network);
+        psbt.AddCoins(coins.Select(c => c.ToScriptCoin(redeemScript)).ToArray());
+        return psbt;
+    }
+
+    /// <summary>
     /// Signs a PSBT with a single key. Call this for each co-signer.
     /// </summary>
     public PSBT SignPSBT(PSBT psbt, Key privateKey)

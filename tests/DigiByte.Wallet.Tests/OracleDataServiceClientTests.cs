@@ -77,6 +77,14 @@ public class OracleDataServiceClientTests
                 Feed.RequestRefresh();
                 await Task.Delay(30); // let a started fetch register
                 if (Upstream.Count == before)
+                {
+                    // A busy CI runner can take longer than 30 ms to start the fetch; only conclude that nothing started
+                    // after waiting a little longer, or this reports "not started" for a fetch that is about to begin.
+                    var deadline = DateTime.UtcNow.AddSeconds(1);
+                    while (Upstream.Count == before && DateTime.UtcNow < deadline)
+                        await Task.Delay(10);
+                }
+                if (Upstream.Count == before)
                     return false; // nothing was started
                 await done.Task.WaitAsync(TimeSpan.FromSeconds(5));
                 return true;

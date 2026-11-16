@@ -1,0 +1,71 @@
+@* Receive into a multisig, laid out like the Receive page: QR card with the logo, the address in a box, Copy Address,
+   Share, and Download QR. *@
+@inject ClipboardService Clipboard
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Receive to multisig" @onclick="Close">
+        <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 shadow-2xl p-6 mx-4 max-w-sm w-full flex flex-col items-center gap-4 max-h-[90vh] overflow-y-auto"
+             @onclick:stopPropagation="true">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Receive DigiByte</h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-2 text-center">Send DGB to this address to add funds to <b>@Name</b>.</p>
+
+            <QrImage Payload="@Address" Alt="Multisig address QR code" ShowLogo="true" />
+
+            <p class="font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800 select-all">@Address</p>
+
+            <div class="flex gap-2 w-full">
+                <button class="flex-1 min-h-[44px] py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect"
+                        @onclick="Copy">
+                    @(copied ? "Copied!" : "Copy Address")
+                </button>
+                <button class="min-h-[44px] py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all press-effect"
+                        @onclick="Share">
+                    Share
+                </button>
+            </div>
+            <button class="flex items-center justify-center gap-1.5 w-full min-h-[44px] py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors" @onclick="DownloadQr">
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                Download QR
+            </button>
+            <button class="min-h-[44px] w-full text-xs font-semibold rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors" @onclick="Close">Close</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter, EditorRequired] public string Address { get; set; } = "";
+    [Parameter] public string Name { get; set; } = "this multisig";
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private bool copied;
+
+    private async Task Copy()
+    {
+        await Clipboard.CopyAsync(Address, toast: false);
+        copied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        copied = false;
+    }
+
+    private async Task Share()
+    {
+        try { await JS.InvokeVoidAsync("navigator.share", new { title = "Multisig address", text = Address }); }
+        catch { await Copy(); }
+    }
+
+    private async Task DownloadQr()
+    {
+        var url = QrImage.ToDataUrl(Address, highCorrection: true);
+        await JS.InvokeVoidAsync("downloadDataUrl", url, $"digibyte-multisig-{Address[..Math.Min(8, Address.Length)]}.png");
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await OnClosed.InvokeAsync();
+    }
+}

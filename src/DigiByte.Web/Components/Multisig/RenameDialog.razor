@@ -1,0 +1,110 @@
+@* A small dialog to rename a multisig, a draft, or a co-signer label. The caller does the saving: OnSave returns the
+   result, and the dialog shows its error, or its "name already used" warning, instead of closing. *@
+@if (IsOpen)
+{
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="@Title" @onclick="Close">
+        <div class="modal-card flex flex-col gap-3" @onclick:stopPropagation="true">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">@Title</h3>
+            <label class="flex flex-col gap-1.5">
+                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@Label</span>
+                <input type="text" @bind="draftName" @bind:event="oninput" maxlength="@MaxLength" autocomplete="off"
+                       disabled="@saved" aria-label="@Label"
+                       @onkeydown="OnKeyDown"
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                <span class="text-[11px] text-slate-400 text-right">@(draftName?.Length ?? 0)/@MaxLength</span>
+            </label>
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <p class="text-xs text-red-500" role="alert">@error</p>
+            }
+            @if (duplicateWarning)
+            {
+                <p class="text-xs text-amber-600 dark:text-amber-400" role="status">Saved. Another multisig of yours already uses this name.</p>
+            }
+
+            <div class="flex items-center gap-2">
+                @if (saved)
+                {
+                    <button type="button" class="flex-1 min-h-[44px] bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect" @onclick="Close">Done</button>
+                }
+                else
+                {
+                    <button type="button" class="flex-1 min-h-[44px] bg-dgb-500 hover:bg-dgb-600 disabled:opacity-50 text-white font-semibold rounded-2xl press-effect"
+                            disabled="@(isSaving || string.IsNullOrWhiteSpace(draftName))" @onclick="Save">
+                        @(isSaving ? "Saving…" : "Save")
+                    </button>
+                    <button type="button" class="min-h-[44px] px-4 text-sm font-medium text-slate-500 dark:text-slate-400" @onclick="Close">Cancel</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Rename";
+    [Parameter] public string Label { get; set; } = "Name";
+    [Parameter] public string Initial { get; set; } = "";
+    [Parameter] public int MaxLength { get; set; } = MultisigWalletService.MaxNameLength;
+
+    /// <summary>Saves the new name and says how it went.</summary>
+    [Parameter, EditorRequired] public Func<string, Task<RenameResult>> OnSave { get; set; } = _ => Task.FromResult(new RenameResult(false, null, false, null));
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private string draftName = "";
+    private string? error;
+    private bool duplicateWarning;
+    private bool saved;
+    private bool isSaving;
+    private bool wasOpen;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && !wasOpen)
+        {
+            draftName = Initial;
+            error = null;
+            duplicateWarning = false;
+            saved = false;
+        }
+        wasOpen = IsOpen;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !saved) await Save();
+        else if (e.Key == "Escape") await Close();
+    }
+
+    private async Task Save()
+    {
+        if (isSaving) return;
+        isSaving = true;
+        error = null;
+        try
+        {
+            var result = await OnSave(draftName);
+            if (!result.Ok)
+            {
+                error = result.Error ?? "That name could not be saved.";
+                return;
+            }
+            if (result.DuplicateWarning)
+            {
+                duplicateWarning = true;
+                saved = true;
+                return;
+            }
+            await Close();
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        wasOpen = false;
+        await OnClosed.InvokeAsync();
+    }
+}

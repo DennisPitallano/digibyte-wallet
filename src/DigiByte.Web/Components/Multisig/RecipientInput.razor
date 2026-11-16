@@ -1,0 +1,190 @@
+@* Recipient field, built like the Send page's: label with a Paste link, the address box with a Scan button and a
+   Contacts button beside it, a contact list, and a recipient chip once a contact is picked. Scanned or pasted text is
+   classified first, so a PSBT or an unrelated QR code gets an explanation instead of ending up in the address box. *@
+@inject ClipboardService Clipboard
+@inject ContactService Contacts
+
+<div class="flex flex-col gap-1.5">
+    <div class="flex items-center justify-between">
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-recipient">Recipient</label>
+        @if (string.IsNullOrEmpty(contactName))
+        {
+            <button type="button" class="flex items-center gap-1 min-h-[32px] text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors" @onclick="Paste">
+                <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                </svg>
+                Paste
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(contactName))
+    {
+        <div class="flex items-center gap-2 bg-dgb-50 dark:bg-dgb-900 border border-dgb-200 dark:border-dgb-700 rounded-xl px-3 py-2.5">
+            <div class="w-7 h-7 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center">
+                <span class="text-xs font-bold text-dgb-600 dark:text-dgb-400">@contactName[..1].ToUpper()</span>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-dgb-700 dark:text-dgb-300">@contactName</p>
+                <p class="text-xs font-mono text-dgb-500/70 truncate">@Address</p>
+            </div>
+            <button type="button" class="text-dgb-400 hover:text-dgb-600 p-1 min-w-[32px] min-h-[32px]" aria-label="Clear recipient" @onclick="ClearContact">
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="flex gap-1.5">
+            <input id="ms-recipient" type="text" value="@Address" @oninput="OnInput"
+                   placeholder="D... or dgb1... or search contact"
+                   autocomplete="off" spellcheck="false" aria-invalid="@(!string.IsNullOrEmpty(Error))"
+                   class="flex-1 min-w-0 px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+            <button type="button" class="w-11 h-11 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0 press-effect"
+                    @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR">
+                <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 14.625v2.625m3.375-2.625v2.625" />
+                </svg>
+            </button>
+            @if (contacts.Count > 0)
+            {
+                <button type="button" class="w-11 h-11 rounded-xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center hover:border-dgb-300 dark:hover:border-dgb-600 transition-all flex-shrink-0"
+                        @onclick="() => showContacts = !showContacts" title="Contacts" aria-label="Contacts" aria-expanded="@showContacts">
+                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                    </svg>
+                </button>
+            }
+        </div>
+
+        @if (showContacts && contacts.Count > 0)
+        {
+            <div class="scale-in bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl max-h-40 overflow-y-auto">
+                @foreach (var c in contacts)
+                {
+                    var contact = c;
+                    <button type="button" class="w-full flex items-center gap-2 px-3 py-2 min-h-[44px] hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors text-left" @onclick="() => PickContact(contact)">
+                        <div class="w-7 h-7 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                            <span class="text-xs font-bold text-dgb-600 dark:text-dgb-400">@contact.Name[..1].ToUpper()</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-slate-900 dark:text-white truncate">@contact.Name</p>
+                            <p class="text-xs font-mono text-slate-400 truncate">@contact.Address</p>
+                        </div>
+                    </button>
+                }
+            </div>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(notice))
+    {
+        <p class="text-xs text-amber-500 font-medium" role="status">@notice</p>
+    }
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <InlineError Message="@Error" />
+    }
+    @if (IsOwnAddress)
+    {
+        <p class="text-xs text-amber-500 font-medium" role="status">This is this multisig's own address. Sending to yourself only spends the fee.</p>
+    }
+</div>
+
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnScanned" OnClosed="@(() => showScanner = false)" />
+
+@code {
+    [Parameter] public string Address { get; set; } = "";
+    [Parameter] public EventCallback<string> AddressChanged { get; set; }
+
+    /// <summary>Inline validation message for the current address, if any.</summary>
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool IsOwnAddress { get; set; }
+
+    /// <summary>Raised when a scanned or pasted payment link carries an amount or label to prefill.</summary>
+    [Parameter] public EventCallback<ScanResult> OnPaymentLink { get; set; }
+
+    private bool showScanner;
+    private bool showContacts;
+    private string? notice;
+    private string contactName = "";
+    private List<Contact> contacts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { contacts = (await Contacts.GetAllAsync()).Where(c => !string.IsNullOrWhiteSpace(c.Address)).ToList(); }
+        catch { contacts = []; }   // the picker is optional: hide it when contacts can't be read
+    }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        notice = null;
+        await SetAddress(e.Value?.ToString() ?? "");
+    }
+
+    private async Task SetAddress(string value)
+    {
+        Address = value;
+        await AddressChanged.InvokeAsync(value);
+    }
+
+    private async Task Paste()
+    {
+        string? text = null;
+        try { text = await Clipboard.ReadAsync(); }
+        catch { /* blocked: fall through to the message below */ }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            notice = "Nothing to paste, or the browser blocked clipboard access. You can type or scan the address instead.";
+            return;
+        }
+        await Apply(text);
+    }
+
+    private async Task OnScanned(string data)
+    {
+        showScanner = false;
+        await Apply(data);
+    }
+
+    private async Task Apply(string text)
+    {
+        notice = null;
+        contactName = "";
+        var result = MultisigSendHelper.ClassifyScan(text);
+        switch (result.Kind)
+        {
+            case ScanKind.Address:
+                await SetAddress(result.Address!);
+                break;
+            case ScanKind.PaymentUri:
+                await SetAddress(result.Address!);
+                await OnPaymentLink.InvokeAsync(result);
+                break;
+            case ScanKind.Psbt:
+                notice = "That is a signed transaction (PSBT), not an address. Import it from Pending transactions instead.";
+                break;
+            default:
+                notice = "That doesn't look like a DigiByte address or payment link.";
+                break;
+        }
+    }
+
+    private async Task PickContact(Contact contact)
+    {
+        showContacts = false;
+        notice = null;
+        contactName = contact.Name;
+        await SetAddress(contact.Address);
+    }
+
+    private async Task ClearContact()
+    {
+        contactName = "";
+        await SetAddress("");
+    }
+}

@@ -1,6 +1,7 @@
 @page "/multisig/import"
 @inject MultisigWalletService MultisigService
 @inject WalletService WalletService
+@inject ActiveWalletContext ActiveWallet
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -20,13 +21,18 @@
             <div class="flex-1">
                 <p class="text-xs font-bold text-indigo-800 dark:text-indigo-300">Have a backup file?</p>
                 <p class="text-[11px] text-indigo-700 dark:text-indigo-400 leading-relaxed mt-0.5">
-                    Upload the <code class="text-[11px]">.txt</code> backup file exported from the multisig wallet detail page.
+                    Upload the <code class="text-[11px]">.txt</code> backup file exported from the multisig wallet detail page, or scan its redeem script QR code.
                 </p>
-                <label class="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-xl cursor-pointer transition-colors press-effect">
+                <label class="inline-flex items-center gap-1.5 mt-2 min-h-[44px] px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl cursor-pointer transition-colors press-effect">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13" /></svg>
                     Choose File
                     <InputFile OnChange="OnFileSelected" accept=".txt" class="hidden" />
                 </label>
+                <button type="button" class="inline-flex items-center gap-1.5 mt-2 ml-2 min-h-[44px] px-4 py-2.5 bg-white dark:bg-indigo-900/30 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 text-sm font-semibold rounded-xl transition-colors press-effect"
+                        @onclick="() => showScanner = true">
+                    <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" /></svg>
+                    Scan QR
+                </button>
                 @if (!string.IsNullOrEmpty(fileName))
                 {
                     <p class="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1">@fileName loaded</p>
@@ -46,7 +52,7 @@
         <div class="flex flex-col gap-1.5 slide-up-delay-1">
             <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
             <input type="text" @bind="walletName" placeholder="e.g. Shared Fund"
-                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
         </div>
 
         @* Redeem Script *@
@@ -54,13 +60,13 @@
             <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Redeem Script (Hex)</label>
             <textarea @bind="redeemScriptHex" @bind:event="oninput" rows="4"
                       placeholder="Paste the multisig redeem script hex..."
-                      class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none"></textarea>
+                      class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none"></textarea>
         </div>
 
         @* Own key — detected automatically from the script *@
         @if (!string.IsNullOrWhiteSpace(redeemScriptHex))
         {
-            <div class="slide-up-delay-1 rounded-2xl p-3 border text-[11px] leading-relaxed @(ownKeyIndex >= 0 ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30 text-green-700 dark:text-green-400" : "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30 text-amber-700 dark:text-amber-400")">
+            <div class="slide-up-delay-1 rounded-xl px-3 py-2.5 border text-xs font-medium leading-relaxed @(ownKeyIndex >= 0 ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30 text-green-700 dark:text-green-400" : "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30 text-amber-700 dark:text-amber-400")">
                 @if (ownKeyIndex >= 0)
                 {
                     <span>Your key is in this wallet (signer @(ownKeyIndex + 1)). You'll be able to sign transactions.</span>
@@ -97,6 +103,7 @@
                 @onclick='() => Nav.NavigateTo("/multisig")'>Cancel</button>
     </div>
 </div>
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="@(() => showScanner = false)" />
 </AuthGuard>
 
 @code {
@@ -178,6 +185,27 @@
         }
     }
 
+    private bool showScanner;
+
+    /// <summary>Takes the redeem script from a scanned QR code (the one shown on the multisig's backup panel).</summary>
+    private void OnQrScanned(string data)
+    {
+        showScanner = false;
+        error = null;
+        if (MultisigSendHelper.TryParseRedeemScriptQr(data, out var hex))
+        {
+            redeemScriptHex = hex;
+            fileName = null;
+        }
+        else
+        {
+            error = MultisigSendHelper.ClassifyScan(data).Kind == ScanKind.Unknown
+                ? "That QR code isn't a multisig redeem script. Scan the QR code from the multisig's Redeem script & backup panel."
+                : "That QR code is an address or a transaction, not a redeem script.";
+        }
+        StateHasChanged();
+    }
+
     private async Task ImportWallet()
     {
         isImporting = true;
@@ -187,7 +215,7 @@
 
         try
         {
-            await MultisigService.ImportMultisigWalletAsync(walletName, redeemScriptHex.Trim(), ownKeyIndex);
+            await MultisigService.ImportMultisigWalletAsync(walletName, redeemScriptHex.Trim(), ownKeyIndex, ownerWalletId: ActiveWallet.WalletId);
             Nav.NavigateTo("/multisig");
         }
         catch (Exception ex)

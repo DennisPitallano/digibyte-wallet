@@ -9,6 +9,8 @@ namespace DigiByte.Wallet.Tests;
 
 public class MultisigWalletServiceTests
 {
+    private const string Owner = "wallet-a";
+
     private static Key[] GenerateKeys(int count)
     {
         var keys = new Key[count];
@@ -18,13 +20,13 @@ public class MultisigWalletServiceTests
     }
 
     private static MultisigWalletService CreateService(
-        FakeSecureStorage? storage = null,
-        FakeBlockchain? blockchain = null)
+        MultisigFakeStorage? storage = null,
+        MultisigFakeChain? blockchain = null)
     {
         return new MultisigWalletService(
-            storage ?? new FakeSecureStorage(),
-            blockchain ?? new FakeBlockchain(),
-            new FakeCryptoService());
+            storage ?? new MultisigFakeStorage(),
+            blockchain ?? new MultisigFakeChain(),
+            new MultisigFakeCrypto());
     }
 
     // ─── Drafts ───
@@ -32,11 +34,12 @@ public class MultisigWalletServiceTests
     [Fact]
     public async Task Drafts_SaveListUpdateDelete_RoundTrip()
     {
-        var storage = new FakeSecureStorage();
+        var storage = new MultisigFakeStorage();
         var sut = CreateService(storage);
 
         var saved = await sut.SaveDraftAsync(new MultisigDraft
         {
+            OwnerWalletId = Owner,
             Name = "Family",
             RequiredSignatures = 2,
             TotalSigners = 3,
@@ -46,7 +49,7 @@ public class MultisigWalletServiceTests
         Assert.False(string.IsNullOrEmpty(saved.Id));
 
         // A fresh service on the same storage sees it (it survives a reload).
-        var reloaded = await CreateService(storage).GetDraftAsync(saved.Id);
+        var reloaded = await CreateService(storage).GetDraftAsync(saved.Id, Owner);
         Assert.NotNull(reloaded);
         Assert.Equal("Family", reloaded!.Name);
         Assert.Equal("Alice", reloaded.CoSigners[0].Name);
@@ -54,13 +57,13 @@ public class MultisigWalletServiceTests
         // Saving again with the same id replaces it rather than adding a second one.
         reloaded.CoSigners[0].PublicKeyHex = "03bb";
         await sut.SaveDraftAsync(reloaded);
-        var all = await sut.ListDraftsAsync();
+        var all = await sut.ListDraftsAsync(Owner);
         Assert.Single(all);
         Assert.Equal("03bb", all[0].CoSigners[0].PublicKeyHex);
 
         await sut.DeleteDraftAsync(saved.Id);
-        Assert.Empty(await sut.ListDraftsAsync());
-        Assert.Null(await sut.GetDraftAsync(saved.Id));
+        Assert.Empty(await sut.ListDraftsAsync(Owner));
+        Assert.Null(await sut.GetDraftAsync(saved.Id, Owner));
     }
 
     [Fact]
@@ -69,10 +72,10 @@ public class MultisigWalletServiceTests
         var sut = CreateService();
         await Assert.ThrowsAsync<ArgumentException>(() => sut.SaveDraftAsync(new MultisigDraft { Name = "  " }));
 
-        var first = await sut.SaveDraftAsync(new MultisigDraft { Name = "First" });
+        var first = await sut.SaveDraftAsync(new MultisigDraft { Name = "First", OwnerWalletId = Owner });
         await Task.Delay(5);
-        var second = await sut.SaveDraftAsync(new MultisigDraft { Name = "Second" });
-        var all = await sut.ListDraftsAsync();
+        var second = await sut.SaveDraftAsync(new MultisigDraft { Name = "Second", OwnerWalletId = Owner });
+        var all = await sut.ListDraftsAsync(Owner);
         Assert.Equal([second.Id, first.Id], all.Select(d => d.Id).ToArray());
     }
 
@@ -83,7 +86,7 @@ public class MultisigWalletServiceTests
     {
         var keys = GenerateKeys(3);
         var coSigners = keys.Select((k, i) => new CoSigner { Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex() }).ToList();
-        var config = await CreateService().CreateMultisigWalletAsync("Idx", 2, coSigners);
+        var config = await CreateService().CreateMultisigWalletAsync("Idx", 2, coSigners, ownerWalletId: Owner);
 
         // Keys are BIP67-sorted inside the script, so the index must come from the script itself.
         var sorted = PayToMultiSigTemplate.Instance
@@ -114,7 +117,7 @@ public class MultisigWalletServiceTests
         }).ToList();
 
         var sut = CreateService();
-        var config = await sut.CreateMultisigWalletAsync("Test Wallet", 2, coSigners);
+        var config = await sut.CreateMultisigWalletAsync("Test Wallet", 2, coSigners, ownerWalletId: Owner);
 
         Assert.Equal(2, config.RequiredSignatures);
         Assert.Equal(3, config.TotalSigners);
@@ -128,7 +131,7 @@ public class MultisigWalletServiceTests
     [Fact]
     public async Task CreateMultisigWallet_PersistsToStorage()
     {
-        var storage = new FakeSecureStorage();
+        var storage = new MultisigFakeStorage();
         var keys = GenerateKeys(2);
         var coSigners = keys.Select((k, i) => new CoSigner
         {
@@ -138,7 +141,7 @@ public class MultisigWalletServiceTests
         }).ToList();
 
         var sut = CreateService(storage);
-        var config = await sut.CreateMultisigWalletAsync("Persisted", 2, coSigners);
+        var config = await sut.CreateMultisigWalletAsync("Persisted", 2, coSigners, ownerWalletId: Owner);
 
         // Verify it was stored
         Assert.True(await storage.ContainsKeyAsync($"multisig_config_{config.WalletId}"));
@@ -156,7 +159,7 @@ public class MultisigWalletServiceTests
         }).ToList();
 
         var sut = CreateService();
-        var config = await sut.CreateMultisigWalletAsync("Native", 2, coSigners, addressType: "p2wsh");
+        var config = await sut.CreateMultisigWalletAsync("Native", 2, coSigners, addressType: "p2wsh", ownerWalletId: Owner);
 
         Assert.Equal("p2wsh", config.AddressType);
         Assert.StartsWith("dgb1", config.Address);
@@ -174,7 +177,7 @@ public class MultisigWalletServiceTests
         }).ToList();
 
         var sut = CreateService();
-        var config = await sut.CreateMultisigWalletAsync("WatchOnly", 2, coSigners);
+        var config = await sut.CreateMultisigWalletAsync("WatchOnly", 2, coSigners, ownerWalletId: Owner);
 
         Assert.Equal(-1, config.OwnKeyIndex);
     }
@@ -189,7 +192,7 @@ public class MultisigWalletServiceTests
         var script = msService.CreateRedeemScript(2, keys.Select(k => k.PubKey));
 
         var sut = CreateService();
-        var config = await sut.ImportMultisigWalletAsync("Imported", script.ToHex(), ownKeyIndex: 1);
+        var config = await sut.ImportMultisigWalletAsync("Imported", script.ToHex(), ownKeyIndex: 1, ownerWalletId: Owner);
 
         Assert.Equal(2, config.RequiredSignatures);
         Assert.Equal(3, config.TotalSigners);
@@ -215,7 +218,7 @@ public class MultisigWalletServiceTests
         var script = msService.CreateRedeemScript(2, keys.Select(k => k.PubKey));
 
         var sut = CreateService();
-        var config = await sut.ImportMultisigWalletAsync("Watch", script.ToHex());
+        var config = await sut.ImportMultisigWalletAsync("Watch", script.ToHex(), ownerWalletId: Owner);
 
         Assert.Equal(-1, config.OwnKeyIndex);
         Assert.True(config.CoSigners.All(cs => !cs.IsLocal));
@@ -227,14 +230,14 @@ public class MultisigWalletServiceTests
     public async Task ListWallets_EmptyInitially()
     {
         var sut = CreateService();
-        var list = await sut.ListWalletsAsync();
+        var list = await sut.ListWalletsAsync(Owner);
         Assert.Empty(list);
     }
 
     [Fact]
     public async Task ListWallets_AfterCreate_ContainsWallet()
     {
-        var storage = new FakeSecureStorage();
+        var storage = new MultisigFakeStorage();
         var sut = CreateService(storage);
         var keys = GenerateKeys(2);
         var coSigners = keys.Select((k, i) => new CoSigner
@@ -242,8 +245,8 @@ public class MultisigWalletServiceTests
             Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex(), IsLocal = false,
         }).ToList();
 
-        await sut.CreateMultisigWalletAsync("MyMultisig", 2, coSigners);
-        var list = await sut.ListWalletsAsync();
+        await sut.CreateMultisigWalletAsync("MyMultisig", 2, coSigners, ownerWalletId: Owner);
+        var list = await sut.ListWalletsAsync(Owner);
 
         Assert.Single(list);
         Assert.Equal("MyMultisig", list[0].Name);
@@ -252,7 +255,7 @@ public class MultisigWalletServiceTests
     [Fact]
     public async Task GetConfig_ReturnsStoredConfig()
     {
-        var storage = new FakeSecureStorage();
+        var storage = new MultisigFakeStorage();
         var sut = CreateService(storage);
         var keys = GenerateKeys(2);
         var coSigners = keys.Select((k, i) => new CoSigner
@@ -260,8 +263,8 @@ public class MultisigWalletServiceTests
             Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex(), IsLocal = false,
         }).ToList();
 
-        var created = await sut.CreateMultisigWalletAsync("Test", 2, coSigners);
-        var loaded = await sut.GetConfigAsync(created.WalletId);
+        var created = await sut.CreateMultisigWalletAsync("Test", 2, coSigners, ownerWalletId: Owner);
+        var loaded = await sut.GetConfigAsync(created.WalletId, Owner);
 
         Assert.NotNull(loaded);
         Assert.Equal(created.WalletId, loaded.WalletId);
@@ -273,14 +276,14 @@ public class MultisigWalletServiceTests
     public async Task GetConfig_NonExistent_ReturnsNull()
     {
         var sut = CreateService();
-        var result = await sut.GetConfigAsync("nonexistent");
+        var result = await sut.GetConfigAsync("nonexistent", Owner);
         Assert.Null(result);
     }
 
     [Fact]
     public async Task DeleteWallet_RemovesFromList()
     {
-        var storage = new FakeSecureStorage();
+        var storage = new MultisigFakeStorage();
         var sut = CreateService(storage);
         var keys = GenerateKeys(2);
         var coSigners = keys.Select((k, i) => new CoSigner
@@ -288,13 +291,13 @@ public class MultisigWalletServiceTests
             Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex(), IsLocal = false,
         }).ToList();
 
-        var config = await sut.CreateMultisigWalletAsync("ToDelete", 2, coSigners);
-        await sut.DeleteWalletAsync(config.WalletId);
+        var config = await sut.CreateMultisigWalletAsync("ToDelete", 2, coSigners, ownerWalletId: Owner);
+        await sut.DeleteWalletAsync(config.WalletId, Owner);
 
-        var list = await sut.ListWalletsAsync();
+        var list = await sut.ListWalletsAsync(Owner);
         Assert.Empty(list);
 
-        var loaded = await sut.GetConfigAsync(config.WalletId);
+        var loaded = await sut.GetConfigAsync(config.WalletId, Owner);
         Assert.Null(loaded);
     }
 
@@ -303,7 +306,7 @@ public class MultisigWalletServiceTests
     [Fact]
     public async Task GetBalance_DelegatesToBlockchain()
     {
-        var blockchain = new FakeBlockchain(balance: 500_000_000);
+        var blockchain = new MultisigFakeChain(balance: 500_000_000);
         var sut = CreateService(blockchain: blockchain);
         var keys = GenerateKeys(2);
         var coSigners = keys.Select((k, i) => new CoSigner
@@ -311,7 +314,7 @@ public class MultisigWalletServiceTests
             Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex(), IsLocal = false,
         }).ToList();
 
-        var config = await sut.CreateMultisigWalletAsync("Bal", 2, coSigners);
+        var config = await sut.CreateMultisigWalletAsync("Bal", 2, coSigners, ownerWalletId: Owner);
         var balance = await sut.GetBalanceAsync(config);
 
         Assert.Equal(500_000_000, balance);
@@ -341,73 +344,8 @@ public class MultisigWalletServiceTests
             Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex(), IsLocal = false,
         }).ToList();
 
-        var config = await sut.CreateMultisigWalletAsync("Testnet", 2, coSigners, addressType: "p2wsh");
+        var config = await sut.CreateMultisigWalletAsync("Testnet", 2, coSigners, addressType: "p2wsh", ownerWalletId: Owner);
 
         Assert.StartsWith("dgbt1", config.Address);
-    }
-
-    // ─── Test helpers ───
-
-    private class FakeSecureStorage : ISecureStorage
-    {
-        private readonly Dictionary<string, string> _store = [];
-
-        public Task<string?> GetAsync(string key)
-            => Task.FromResult(_store.TryGetValue(key, out var val) ? val : null);
-
-        public Task SetAsync(string key, string value)
-        {
-            _store[key] = value;
-            return Task.CompletedTask;
-        }
-
-        public Task RemoveAsync(string key)
-        {
-            _store.Remove(key);
-            return Task.CompletedTask;
-        }
-
-        public Task<bool> ContainsKeyAsync(string key)
-            => Task.FromResult(_store.ContainsKey(key));
-
-        public Task ClearAsync()
-        {
-            _store.Clear();
-            return Task.CompletedTask;
-        }
-
-        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) =>
-            Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
-    }
-
-    private class FakeBlockchain : IBlockchainService
-    {
-        private readonly long _balance;
-        private readonly List<UtxoInfo> _utxos;
-        private readonly string _broadcastResult;
-
-        public FakeBlockchain(long balance = 0, List<UtxoInfo>? utxos = null, string broadcastResult = "fake-txid")
-        {
-            _balance = balance;
-            _utxos = utxos ?? [];
-            _broadcastResult = broadcastResult;
-        }
-
-        public Task<long> GetBalanceAsync(string address) => Task.FromResult(_balance);
-        public Task<long> GetBalanceAsync(IEnumerable<string> addresses) => Task.FromResult(_balance);
-        public Task<List<UtxoInfo>> GetUtxosAsync(string address) => Task.FromResult(_utxos);
-        public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => Task.FromResult(_utxos);
-        public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => Task.FromResult(_broadcastResult);
-        public Task<TransactionInfo?> GetTransactionAsync(string txId) => Task.FromResult<TransactionInfo?>(null);
-        public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) => Task.FromResult(new List<TransactionInfo>());
-        public Task<decimal> GetFeeRateAsync() => Task.FromResult(0.001m);
-        public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => Task.FromResult(0.01m);
-        public Task<int> GetBlockHeightAsync() => Task.FromResult(1000);
-    }
-
-    private class FakeCryptoService : LegacyCryptoBase
-    {
-        public override Task<byte[]> EncryptAsync(byte[] plaintext, string pin) => Task.FromResult(plaintext);
-        public override Task<byte[]?> DecryptAsync(byte[] ciphertext, string pin) => Task.FromResult<byte[]?>(ciphertext);
     }
 }

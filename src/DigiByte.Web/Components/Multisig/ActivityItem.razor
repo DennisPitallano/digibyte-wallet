@@ -1,0 +1,97 @@
+@* One line of multisig activity, in the same row style as the wallet's transaction list. *@
+<div class="flex items-center gap-3 px-3 py-2.5 min-h-[56px] bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-dgb-500"
+     role="button" tabindex="0" aria-label="@AriaLabel" @onclick="() => OnSelect.InvokeAsync(Entry)" @onkeydown="OnKeyDown">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @IconBg">
+        @switch (Entry.Direction)
+        {
+            case ActivityDirection.In:
+                <svg class="w-4 h-4 text-green-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" /></svg>
+                break;
+            case ActivityDirection.Out:
+                <svg class="w-4 h-4 text-red-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" /></svg>
+                break;
+            default:
+                <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                break;
+        }
+    </div>
+    <div class="min-w-0 flex-1">
+        <p class="text-xs font-semibold text-slate-900 dark:text-white truncate">@Title</p>
+        <p class="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+            @MultisigFormat.When(Entry.Timestamp)
+            @if (!string.IsNullOrWhiteSpace(Entry.Memo))
+            {
+                <span> · @Entry.Memo</span>
+            }
+        </p>
+        @if (!string.IsNullOrEmpty(Entry.Counterparty))
+        {
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 truncate" title="@Entry.Counterparty">
+                <span class="font-mono">@MultisigFormat.Short(Entry.Counterparty, 8, 5)</span>@if (Entry.MoreCount > 0)
+                {
+                    <span> +@Entry.MoreCount more</span>
+                }
+            </p>
+        }
+    </div>
+    <div class="text-right shrink-0">
+        <p class="text-xs font-bold tabular-nums @AmountClass">@Sign@MultisigFormat.Dgb(Entry.AmountSatoshis)</p>
+        <p class="text-[10px] font-semibold mt-0.5 @StatusClass">@StatusText</p>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ActivityEntry Entry { get; set; } = default!;
+    [Parameter] public EventCallback<ActivityEntry> OnSelect { get; set; }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ") await OnSelect.InvokeAsync(Entry);
+    }
+
+    private string Title => Entry.Kind switch
+    {
+        ActivityKind.Received => "Received",
+        ActivityKind.Sent => "Sent",
+        ActivityKind.ProposalAwaiting => "Waiting for signatures",
+        ActivityKind.ProposalReady => "Ready to broadcast",
+        ActivityKind.Failed => "Broadcast failed",
+        ActivityKind.Cancelled => "Cancelled",
+        _ => "Activity",
+    };
+
+    private string StatusText => Entry.Kind switch
+    {
+        ActivityKind.Received or ActivityKind.Sent => Entry.Confirmations switch
+        {
+            null or 0 => "Unconfirmed",
+            < 6 => $"{Entry.Confirmations} conf.",
+            _ => "Confirmed",
+        },
+        ActivityKind.ProposalAwaiting => $"{Entry.SignedCount ?? 0}/{Entry.RequiredCount ?? 0} signed",
+        ActivityKind.ProposalReady => "Ready",
+        ActivityKind.Failed => "Failed",
+        ActivityKind.Cancelled => "Cancelled",
+        _ => "",
+    };
+
+    private string StatusClass => Entry.Kind switch
+    {
+        ActivityKind.Received or ActivityKind.Sent when (Entry.Confirmations ?? 0) >= 6 => "text-green-600 dark:text-green-400",
+        ActivityKind.Received or ActivityKind.Sent => "text-amber-600 dark:text-amber-400",
+        ActivityKind.ProposalReady => "text-green-600 dark:text-green-400",
+        ActivityKind.Failed => "text-red-500",
+        _ => "text-slate-400 dark:text-slate-500",
+    };
+
+    private string IconBg => Entry.Direction switch
+    {
+        ActivityDirection.In => "bg-green-50 dark:bg-green-900/20",
+        ActivityDirection.Out => "bg-red-50 dark:bg-red-900/20",
+        _ => "bg-slate-100 dark:bg-dgb-800",
+    };
+
+    private string AmountClass => Entry.Direction == ActivityDirection.In ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white";
+    private string Sign => Entry.Direction switch { ActivityDirection.In => "+", ActivityDirection.Out => "−", _ => "" };
+    private string AriaLabel => $"{Title}, {MultisigFormat.Dgb(Entry.AmountSatoshis)} DGB, {StatusText}";
+}

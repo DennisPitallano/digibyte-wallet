@@ -438,4 +438,95 @@ public class MultisigServiceTests
         var signers = _sut.GetSigners(psbt, -1);
         Assert.Empty(signers);
     }
+
+    // ─── CreateMultisigPSBTWithFee: the caller picks the coins and the fee ───
+
+    private (Script Redeem, BitcoinAddress Address, Coin[] Coins, Key[] Keys) FundedMultisig(params long[] amounts)
+    {
+        var keys = GenerateKeys(3);
+        var redeem = _sut.CreateRedeemScript(2, keys.Select(k => k.PubKey));
+        var address = _sut.GetP2SH_P2WSH_Address(redeem);
+        var coins = amounts
+            .Select((a, i) => new Coin(new OutPoint(RandomUtils.GetUInt256(), (uint)i), new TxOut(Money.Satoshis(a), address.ScriptPubKey)))
+            .ToArray();
+        return (redeem, address, coins, keys);
+    }
+
+    private BitcoinAddress Destination() => new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, DigiByteNetwork.Mainnet);
+
+    [Fact]
+    public void WithFee_PaysExactlyTheRequestedFee_AndSendsChangeBackToTheMultisig()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(1_000_000_000);
+
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins, Destination(), Money.Satoshis(100_000_000), address, 5_000, 100_000);
+
+        var tx = psbt.GetGlobalTransaction();
+        Assert.Equal(2, tx.Outputs.Count);
+        Assert.Equal(1_000_000_000 - 100_000_000 - 5_000, tx.Outputs.Single(o => o.ScriptPubKey == address.ScriptPubKey).Value.Satoshi);
+        Assert.Equal(5_000, psbt.GetFee().Satoshi);
+    }
+
+    [Fact]
+    public void WithFee_ChangeBelowTheDustThreshold_IsLeftInTheFee()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(200_000_000);
+
+        // 0.00045 DGB would be left over: below the 0.001 DGB threshold, so no change output is made.
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins, Destination(), Money.Satoshis(199_950_000), address, 5_000, 100_000);
+
+        Assert.Single(psbt.GetGlobalTransaction().Outputs);
+        Assert.Equal(50_000, psbt.GetFee().Satoshi);   // the 5,000 fee plus the 45,000 that was too small to send back
+    }
+
+    [Fact]
+    public void WithFee_UsesExactlyTheCoinsGiven()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(500_000_000, 700_000_000);
+
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, [coins[1]], Destination(), Money.Satoshis(100_000_000), address, 5_000, 100_000);
+
+        var input = Assert.Single(psbt.GetGlobalTransaction().Inputs);
+        Assert.Equal(coins[1].Outpoint, input.PrevOut);
+    }
+
+    [Fact]
+    public void WithFee_AddsAMemoOutput_TruncatedTo80Bytes()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(1_000_000_000);
+
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins, Destination(), Money.Satoshis(100_000_000), address, 5_000, 100_000, new string('m', 200));
+
+        var memoOutput = psbt.GetGlobalTransaction().Outputs.Single(o => o.Value == Money.Zero);
+        var data = TxNullDataTemplate.Instance.ExtractScriptPubKeyParameters(memoOutput.ScriptPubKey);
+        Assert.Equal(80, data![0].Length);
+    }
+
+    [Fact]
+    public void WithFee_CoinsThatDoNotCoverAmountAndFee_Throw()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(100_000_000);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            _sut.CreateMultisigPSBTWithFee(redeem, coins, Destination(), Money.Satoshis(100_000_000), address, 5_000, 100_000));
+        Assert.Throws<ArgumentException>(() =>
+            _sut.CreateMultisigPSBTWithFee(redeem, [], Destination(), Money.Satoshis(1), address, 5_000, 100_000));
+    }
+
+    [Fact]
+    public void WithFee_ResultCanBeSignedByTwoCoSigners_AndFinalized()
+    {
+        var (redeem, address, coins, keys) = FundedMultisig(1_000_000_000);
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins, Destination(), Money.Satoshis(100_000_000), address, 5_000, 100_000);
+
+        var a = _sut.DeserializePSBT(MultisigService.SerializePSBT(psbt));
+        var b = _sut.DeserializePSBT(MultisigService.SerializePSBT(psbt));
+        _sut.SignPSBT(a, keys[0]);
+        _sut.SignPSBT(b, keys[1]);
+        var combined = _sut.CombinePSBTs([a, b]);
+
+        Assert.True(_sut.CanFinalize(combined, 2));
+        var tx = _sut.FinalizePSBT(combined);
+        Assert.NotEmpty(tx.ToBytes());
+    }
 }

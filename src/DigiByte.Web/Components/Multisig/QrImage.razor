@@ -1,0 +1,47 @@
+@* A QR code in the same frame the Receive page uses: white rounded tile, inner shadow, and the DigiByte logo in the middle. *@
+@if (dataUrl is not null)
+{
+    <div class="bg-white rounded-2xl p-3 shadow-inner relative @Class">
+        <img src="@dataUrl" alt="@Alt" class="@(Small ? "w-36 h-36" : "w-48 h-48") rounded-lg" />
+        @if (ShowLogo)
+        {
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="bg-white rounded-full p-1.5 shadow-md">
+                    <DigiLogo Size="@(Small ? 24 : 32)" />
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Payload { get; set; } = "";
+    [Parameter] public string Alt { get; set; } = "QR code";
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>The DigiByte logo over the middle (only for short payloads such as an address; long ones need every module).</summary>
+    [Parameter] public bool ShowLogo { get; set; }
+
+    /// <summary>A smaller tile for places that sit inside another card.</summary>
+    [Parameter] public bool Small { get; set; }
+
+    private string? dataUrl;
+    private string? renderedFor;
+
+    /// <summary>The QR code as a PNG data URL, for saving it as a file.</summary>
+    public static string ToDataUrl(string payload, bool highCorrection = false)
+    {
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(payload, highCorrection ? QRCoder.QRCodeGenerator.ECCLevel.H : QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var png = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(png.GetGraphic(10, [0, 35, 82], [255, 255, 255]))}";
+    }
+
+    protected override void OnParametersSet()
+    {
+        var key = Payload + "|" + ShowLogo;
+        if (key == renderedFor) return;
+        renderedFor = key;
+        dataUrl = string.IsNullOrEmpty(Payload) ? null : ToDataUrl(Payload, ShowLogo);
+    }
+}

@@ -47,7 +47,21 @@ public class MultisigWalletConfig
 
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// Wallets on this device that own this multisig (creator/importer, or holders of a co-signer key).
+    /// Empty means a legacy multisig no wallet has claimed yet. The multisig list entry is the source of truth.
+    /// </summary>
+    public List<string> OwnerWalletIds { get; set; } = [];
+
+    /// <summary>User-chosen display name (local only, never part of the script). Null falls back to <see cref="Label"/>.</summary>
+    public string? Name { get; set; }
+
+    /// <summary>When the redeem script was last downloaded or copied as a backup. Null until the user backs it up.</summary>
+    public DateTime? BackupAt { get; set; }
+
     public string Label => $"{RequiredSignatures}-of-{TotalSigners} Multisig";
+
+    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? Label : Name!;
 }
 
 /// <summary>
@@ -64,6 +78,9 @@ public class MultisigDraft
     /// <summary>Public key of the wallet that started the draft. Used to warn if it's resumed from a different wallet.</summary>
     public string OwnPublicKeyHex { get; set; } = "";
     public string OwnWalletName { get; set; } = "";
+
+    /// <summary>The app wallet that started this draft. Empty for drafts saved before wallet scoping existed.</summary>
+    public string OwnerWalletId { get; set; } = "";
 
     /// <summary>The other co-signers entered so far. Name and key may be blank or unchecked.</summary>
     public List<DraftCoSigner> CoSigners { get; set; } = [];
@@ -134,6 +151,22 @@ public class PendingMultisigTransaction
 
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public PendingTxStatus Status { get; set; } = PendingTxStatus.AwaitingSignatures;
+
+    /// <summary>
+    /// Id of the unsigned transaction inside the PSBT. Used to check that an imported signature copy belongs to this
+    /// proposal. Empty for proposals saved before this field existed; it is filled in when they are loaded.
+    /// </summary>
+    public string UnsignedTxId { get; set; } = "";
+
+    /// <summary>Optional note the proposer attached.</summary>
+    public string? Memo { get; set; }
+
+    /// <summary>Human-readable reason of the last failed broadcast.</summary>
+    public string? FailureReason { get; set; }
+
+    public DateTime? CancelledAt { get; set; }
+
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
     /// TxId after broadcast, null until finalized and sent.

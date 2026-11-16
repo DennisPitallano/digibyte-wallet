@@ -1,6 +1,7 @@
 @page "/multisig/create"
 @inject MultisigWalletService MultisigService
 @inject WalletService WalletService
+@inject ActiveWalletContext ActiveWallet
 @inject AppState AppState
 @inject ClipboardService Clipboard
 @inject NavigationManager Nav
@@ -39,7 +40,7 @@
             <div class="flex flex-col gap-1.5 slide-up-delay-1">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
                 <input type="text" @bind="walletName" placeholder="e.g. Family Savings"
-                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
             </div>
 
             @* M-of-N Configuration *@
@@ -182,7 +183,7 @@
 
         @if (draftWalletMismatch)
         {
-            <div class="rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-3">
+            <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
                 <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
                     This draft was started with the wallet <b>@draftOwnWalletName</b>, which has a different public key from the wallet that's open now.
                     Switch to <b>@draftOwnWalletName</b> to finish it, or the other signers will have the wrong key for you.
@@ -249,7 +250,7 @@
             </div>
         </div>
 
-        <div class="slide-up-delay-1 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-3">
+        <div class="slide-up-delay-1 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
             <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
                 <b>Check the keys with each person</b> before you fund this wallet. After creating it, share the <b>redeem script</b> or backup file
                 so every co-signer can import the same wallet. Without it they can't open it.
@@ -289,7 +290,7 @@
             <p class="text-sm text-slate-500 dark:text-slate-400">@createdConfig.Label · @createdConfig.Address.Substring(0, Math.Min(12, createdConfig.Address.Length))…</p>
         </div>
 
-        <div class="slide-up-delay-1 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-4">
+        <div class="slide-up-delay-1 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
             <p class="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">Save a backup now</p>
             <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
                 Your seed phrase alone <b>can't</b> bring this wallet back. The backup file holds the redeem script and everyone's public keys.
@@ -429,7 +430,7 @@
     protected override async Task OnInitializedAsync()
     {
         if (string.IsNullOrWhiteSpace(DraftId)) return;
-        var draft = await MultisigService.GetDraftAsync(DraftId);
+        var draft = await MultisigService.GetDraftAsync(DraftId, ActiveWallet.WalletId, ActiveWallet.PublicKey);
         if (draft == null) return; // deleted or never existed: start a fresh setup
 
         draftId = draft.Id;
@@ -464,6 +465,7 @@
                 // Keep the original owner's key when resuming under a different wallet, so the warning stays accurate.
                 OwnPublicKeyHex = draftWalletMismatch ? "" : ownPubKeyHex,
                 OwnWalletName = WalletService.ActiveWallet?.Name ?? "",
+                OwnerWalletId = ActiveWallet.WalletId,
                 CoSigners = coSignerEntries.Select(e => new DigiByte.Wallet.Models.DraftCoSigner
                 {
                     Name = e.Name.Trim(),
@@ -472,7 +474,7 @@
             };
             if (draftWalletMismatch)
             {
-                var existing = await MultisigService.GetDraftAsync(draftId!);
+                var existing = await MultisigService.GetDraftAsync(draftId!, ActiveWallet.WalletId, ActiveWallet.PublicKey);
                 if (existing != null)
                 {
                     draft.OwnPublicKeyHex = existing.OwnPublicKeyHex;
@@ -559,7 +561,7 @@
                 });
             }
 
-            createdConfig = await MultisigService.CreateMultisigWalletAsync(walletName, requiredSigs, coSigners);
+            createdConfig = await MultisigService.CreateMultisigWalletAsync(walletName, requiredSigs, coSigners, ownerWalletId: ActiveWallet.WalletId);
             if (draftId != null)
             {
                 try { await MultisigService.DeleteDraftAsync(draftId); } catch { } // the wallet exists; a leftover draft is harmless
