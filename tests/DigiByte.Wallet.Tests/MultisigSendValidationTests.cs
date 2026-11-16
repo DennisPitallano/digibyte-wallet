@@ -94,6 +94,46 @@ public class MultisigSendValidationTests
         Assert.Equal(ScanKind.Unknown, MultisigSendHelper.ClassifyScan(null).Kind);
     }
 
+    // ─── Redeem script QR ───
+
+    [Fact]
+    public void RedeemScriptQr_AcceptsTheScriptHex_IgnoringWhitespaceAndCase()
+    {
+        var script = new DigiByte.Crypto.Multisig.MultisigService().CreateRedeemScript(2, new[] { new Key(), new Key(), new Key() }.Select(k => k.PubKey));
+        var hex = script.ToHex();
+
+        Assert.True(MultisigSendHelper.TryParseRedeemScriptQr("  " + hex.ToUpperInvariant().Insert(20, "\n") + " ", out var parsed));
+        Assert.Equal(hex, parsed);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("abc")]
+    [InlineData("dgb1qxyz")]
+    [InlineData("cHNidP8BAHECAAAAA")]
+    [InlineData("zz52210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")]
+    public void RedeemScriptQr_RejectsAnythingThatIsNotAScript(string? payload)
+    {
+        Assert.False(MultisigSendHelper.TryParseRedeemScriptQr(payload, out var parsed));
+        Assert.Equal("", parsed);
+    }
+
+    [Fact]
+    public void RedeemScriptQr_RejectsOddLengthAndOversizedHex()
+    {
+        Assert.False(MultisigSendHelper.TryParseRedeemScriptQr(new string('a', 41), out _));
+        Assert.False(MultisigSendHelper.TryParseRedeemScriptQr(new string('a', 2_202), out _));
+    }
+
+    [Fact]
+    public void AFifteenOfFifteenScript_StillFitsInAQrCode()
+    {
+        var script = new DigiByte.Crypto.Multisig.MultisigService().CreateRedeemScript(15, Enumerable.Range(0, 15).Select(_ => new Key().PubKey));
+
+        Assert.True(MultisigSendHelper.TryParseRedeemScriptQr(script.ToHex(), out _));
+    }
+
     // ─── Fee, Max, change ───
 
     [Fact]

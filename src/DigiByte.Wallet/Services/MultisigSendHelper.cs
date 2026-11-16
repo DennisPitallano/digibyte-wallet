@@ -95,6 +95,20 @@ public static class MultisigSendHelper
         return new ScanResult(ScanKind.Unknown);
     }
 
+    /// <summary>
+    /// Reads a redeem script from scanned or pasted text (the QR code on a multisig's backup panel carries the script
+    /// as hex). Whitespace is ignored; anything that is not an even-length hex string of plausible size is refused.
+    /// </summary>
+    public static bool TryParseRedeemScriptQr(string? payload, out string redeemScriptHex)
+    {
+        redeemScriptHex = "";
+        var text = new string((payload ?? "").Where(c => !char.IsWhiteSpace(c)).ToArray());
+        if (text.Length < 40 || text.Length > 2_200 || text.Length % 2 != 0 || !text.All(Uri.IsHexDigit))
+            return false;
+        redeemScriptHex = text.ToLowerInvariant();
+        return true;
+    }
+
     // ─── Size, fee, Max ───
 
     /// <summary>Virtual size of a spend with the given inputs, one payment output, an optional change output and an optional memo.</summary>
