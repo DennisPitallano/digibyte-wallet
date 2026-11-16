@@ -43,7 +43,7 @@ public class MultisigWalletConfig
     /// Index of this wallet's own key in the CoSigners list.
     /// -1 if this device is watch-only (no private key).
     /// </summary>
-    public int OwnKeyIndex { get; init; } = -1;
+    public int OwnKeyIndex { get; set; } = -1;
 
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 
@@ -114,7 +114,7 @@ public class CoSigner
     /// <summary>
     /// Whether this co-signer's private key is held on this device.
     /// </summary>
-    public bool IsLocal { get; init; }
+    public bool IsLocal { get; set; }
 }
 
 /// <summary>

@@ -548,7 +548,7 @@
         {
             var coSigners = new List<DigiByte.Wallet.Models.CoSigner>
             {
-                new() { Name = "You (This Wallet)", PublicKeyHex = ownPubKeyHex, IsLocal = true }
+                new() { Name = WalletService.ActiveWallet?.Name ?? "My Wallet", PublicKeyHex = ownPubKeyHex, IsLocal = true }
             };
 
             foreach (var entry in coSignerEntries)

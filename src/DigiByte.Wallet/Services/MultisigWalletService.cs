@@ -586,7 +586,32 @@ public class MultisigWalletService
             config.Name = entry.Name;
             config.OwnerWalletIds = [.. entry.OwnerWalletIds];
         }
+        ApplyViewerIdentity(config, ownPublicKeyHex);
         return config;
+    }
+
+    /// <summary>The label older versions gave the creator's own key. It means "me" only to the wallet that made it.</summary>
+    private const string LegacyOwnKeyLabel = "You (This Wallet)";
+
+    /// <summary>
+    /// Marks which co-signer is the viewing wallet's own key. "You" is a property of who is looking, not of the wallet
+    /// that created the multisig, so two wallets on one device that both hold a key each see their own key as theirs.
+    /// This changes only the copy being returned, never what is stored. With no public key (locked or watch-only) no
+    /// co-signer is shown as local.
+    /// </summary>
+    private static void ApplyViewerIdentity(MultisigWalletConfig config, string? ownPublicKeyHex)
+    {
+        var own = string.IsNullOrWhiteSpace(ownPublicKeyHex) ? null : ownPublicKeyHex.Trim();
+        for (var i = 0; i < config.CoSigners.Count; i++)
+        {
+            var signer = config.CoSigners[i];
+            signer.IsLocal = own is not null && string.Equals(signer.PublicKeyHex, own, StringComparison.OrdinalIgnoreCase);
+
+            // The creator's placeholder would read as "you" to somebody else; show a neutral name instead.
+            if (!signer.IsLocal && signer.Name == LegacyOwnKeyLabel)
+                signer.Name = $"Signer {i + 1}";
+        }
+        config.OwnKeyIndex = config.CoSigners.FindIndex(c => c.IsLocal);
     }
 
     private async Task<MultisigWalletConfig?> LoadConfigAsync(string walletId)
