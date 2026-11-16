@@ -65,4 +65,31 @@ public class NBitcoinPeerConnectorTests
 
         await Assert.ThrowsAnyAsync<Exception>(() => connector.ConnectAsync(new PeerEndpoint(IPAddress.Loopback, 1), default));
     }
+
+    [Fact]
+    public async Task The_gateway_answers_a_ping_so_peers_do_not_drop_it_as_inactive()
+    {
+        var pong = new TaskCompletionSource<ulong>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var port = 20000 + Random.Shared.Next(20000);
+        using var server = new NodeServer(Net, null, 8)
+        {
+            AllowLocalPeers = true,
+            LocalEndpoint = new IPEndPoint(IPAddress.Loopback, port),
+        };
+        server.InboundNodeConnectionParameters = new NodeConnectionParameters { Services = NodeServices.Network, UserAgent = "/test-peer/" };
+        server.MessageReceived += (_, message) =>
+        {
+            if (message.Message.Payload is PongPayload p)
+                pong.TrySetResult(p.Nonce);
+        };
+        server.Listen(8);
+        var connector = new NBitcoinPeerConnector(Net, TimeSpan.FromSeconds(10));
+
+        await using var session = await connector.ConnectAsync(new PeerEndpoint(IPAddress.Loopback, port), default);
+        var node = server.ConnectedNodes.Single();
+        await node.SendMessageAsync(new PingPayload { Nonce = 4242 });
+
+        // Either our ping or the test server's own ping may be the one answered; any pong shows the gateway replies.
+        await pong.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    }
 }
