@@ -77,6 +77,7 @@
 - [x] Onboarding walkthrough (5-step carousel)
 - [x] Offline banner
 - [x] PWA install banner (native beforeinstallprompt, session-scoped)
+- [x] Settings → "Install app" entry for Android (native prompt), iOS (Add to Home Screen steps) and desktop
 - [x] Donation balance display on Deployment page with USD conversion
 - [x] Donation address copy-to-clipboard button
 - [x] Cached donation data (5-min TTL) + refresh buttons
