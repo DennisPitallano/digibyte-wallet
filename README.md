@@ -41,7 +41,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **NFC tap-to-pay** — Web NFC API (experimental)
 - **Remittance** — Fee comparison with traditional services
 - **Analytics** — Market data, network stats, 7-day price chart from CoinGecko
-- **PWA** — Installable with native install banner, offline-capable with service worker (network-first API, cache-first assets)
+- **PWA** — Installable with a native install banner and an "Install app" entry in Settings (Android, iOS and desktop), offline-capable with service worker (network-first API, cache-first assets)
 - **Railway deployment** — Dockerized API + Blazor WASM with Nginx, ForwardedHeaders, config-driven CORS
 
 ## Architecture

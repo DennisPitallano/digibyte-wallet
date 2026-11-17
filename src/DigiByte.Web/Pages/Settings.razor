@@ -1,4 +1,5 @@
 @page "/settings"
+@implements IAsyncDisposable
 @inject LocalizationService L
 @inject ThemeService Theme
 @using DigiByte.Wallet.Storage
@@ -27,6 +28,49 @@
             <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Multi-language support is coming in a future update.</p>
             <button class="mt-1 px-5 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect"
                     @onclick="() => showLanguageToast = false">Got it</button>
+        </div>
+    </div>
+}
+
+@if (showInstallSteps)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm scale-in" role="dialog" aria-modal="true" aria-labelledby="install-steps-title"
+         tabindex="-1" @ref="installDialogRef" @onkeydown="OnInstallDialogKey" @onclick="CloseInstallSteps">
+        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl flex flex-col gap-3" @onclick:stopPropagation="true">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                </div>
+                <h3 id="install-steps-title" class="text-base font-bold text-slate-900 dark:text-white">@(installMode == InstallMode.IosSteps ? "Install on iPhone / iPad" : "Install this app")</h3>
+            </div>
+            @if (installMode == InstallMode.IosSteps)
+            {
+                <ol class="flex flex-col gap-2 text-sm text-slate-600 dark:text-slate-300 list-decimal pl-5 leading-relaxed">
+                    <li>
+                        Tap the Share icon
+                        <svg class="inline w-4 h-4 -mt-0.5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-label="Share"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg>
+                        in the browser toolbar.
+                    </li>
+                    <li>Scroll and tap <strong>Add to Home Screen</strong>.</li>
+                    <li>Tap <strong>Add</strong>.</li>
+                </ol>
+                @if (installState.NonSafariIos)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Don't see Add to Home Screen? Open this page in Safari.</p>
+                }
+            }
+            else
+            {
+                <ol class="flex flex-col gap-2 text-sm text-slate-600 dark:text-slate-300 list-decimal pl-5 leading-relaxed">
+                    <li>Open the browser menu (three dots).</li>
+                    <li>Choose <strong>Install app</strong>, <strong>Add to Home screen</strong> or <strong>Install DGB Wallet</strong>.</li>
+                    <li>Confirm.</li>
+                </ol>
+            }
+            <button type="button" class="mt-1 px-5 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect"
+                    @onclick="CloseInstallSteps">Close</button>
         </div>
     </div>
 }
@@ -403,6 +447,24 @@
             }
         </div>
 
+        @if (installMode != InstallMode.Hidden)
+        {
+            <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-4">App</h3>
+            @* Install: shown only while the wallet is not installed (spec 019) *@
+            <button type="button" @onclick="OnInstallTapped"
+                    class="slide-up flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left">
+                <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Install app</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@(installMode == InstallMode.IosSteps ? "Add to your home screen" : "Install for quick access")</p>
+                </div>
+            </button>
+        }
+
         <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-4">Network & advanced</h3>
         @* Network *@
         <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
@@ -695,6 +757,81 @@
     private bool cacheCleared;
     private bool showLanguageToast;
 
+    // Install-app state (spec 019). The mode follows the table in specs/019-settings-install-app/data-model.md.
+    private enum InstallMode { Hidden, Native, IosSteps, MenuSteps }
+    private sealed record InstallState(bool Standalone, bool Ios, bool Android, bool CanPrompt, bool NonSafariIos, bool PromptSeen);
+    private InstallState installState = new(false, false, false, false, false, false);
+    private InstallMode installMode = InstallMode.Hidden;
+    private bool installed;            // the browser reported a completed install
+    private bool showInstallSteps;
+    private bool focusInstallDialog;
+    private ElementReference installDialogRef;
+    private DotNetObjectReference<Settings>? installRef;
+
+    private static InstallMode ComputeInstallMode(InstallState s) =>
+        s.Standalone ? InstallMode.Hidden
+        : s.CanPrompt ? InstallMode.Native
+        : s.Ios ? InstallMode.IosSteps
+        : (s.Android || s.PromptSeen) ? InstallMode.MenuSteps
+        : InstallMode.Hidden;
+
+    private async Task RefreshInstallStateAsync()
+    {
+        try { installState = await JS.InvokeAsync<InstallState>("pwaInstall.getState"); }
+        catch { return; } // interop unavailable (prerender / blocked): leave the row hidden
+        installMode = installed ? InstallMode.Hidden : ComputeInstallMode(installState);
+        if (installMode == InstallMode.Hidden) showInstallSteps = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable] public Task OnInstallAvailable() => InvokeAsync(RefreshInstallStateAsync);
+    [JSInvokable] public Task OnPromptUsed() => InvokeAsync(RefreshInstallStateAsync);
+    [JSInvokable] public Task OnIosDetected() => InvokeAsync(RefreshInstallStateAsync);
+    [JSInvokable]
+    public Task OnAppInstalled() => InvokeAsync(() =>
+    {
+        installed = true;
+        installMode = InstallMode.Hidden;
+        showInstallSteps = false;
+        StateHasChanged();
+    });
+
+    private async Task OnInstallTapped()
+    {
+        if (installMode == InstallMode.Native)
+        {
+            try
+            {
+                if (await JS.InvokeAsync<bool>("pwaInstall.prompt"))
+                {
+                    installed = true;
+                    installMode = InstallMode.Hidden;
+                    return;
+                }
+            }
+            catch { }
+            // Cancelled or unavailable: re-read so the row falls back to menu steps instead of a dead button.
+            await RefreshInstallStateAsync();
+            return;
+        }
+
+        showInstallSteps = true;
+        focusInstallDialog = true;
+    }
+
+    private void CloseInstallSteps() => showInstallSteps = false;
+
+    private void OnInstallDialogKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") showInstallSteps = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { if (installRef is not null) await JS.InvokeVoidAsync("pwaInstall.unsubscribe", installRef); } catch { }
+        installRef?.Dispose();
+    }
+
     // Update check state
     private bool _updateChecking;
     private bool _updateFound;
@@ -719,8 +856,22 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (focusInstallDialog)
+        {
+            focusInstallDialog = false;
+            try { await installDialogRef.FocusAsync(); } catch { }
+        }
+
         if (firstRender)
         {
+            try
+            {
+                installRef = DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("pwaInstall.registerCallback", installRef, new { promptUsed = true });
+                await RefreshInstallStateAsync();
+            }
+            catch { }
+
             // JS interop must run after first render in Blazor WASM
             biometricSupported = await Biometric.IsSupportedAsync();
             if (biometricSupported)
