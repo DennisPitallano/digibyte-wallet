@@ -64,7 +64,13 @@ public class MultisigWalletService
 
     public void SetNetworkMode(string mode) => _networkMode = mode;
 
-    private Network CurrentNetwork => _networkMode switch
+    /// <summary>
+    /// When set, the network mode is read from here on every use (the app's current setting), so a switch to testnet
+    /// or regtest in Settings applies to multisig addresses and PSBTs too. Otherwise <see cref="SetNetworkMode"/> decides.
+    /// </summary>
+    public Func<string?>? NetworkModeSource { get; set; }
+
+    private Network CurrentNetwork => (NetworkModeSource?.Invoke() ?? _networkMode) switch
     {
         "regtest" => DigiByteNetwork.Regtest,
         "testnet" => DigiByteNetwork.Testnet,

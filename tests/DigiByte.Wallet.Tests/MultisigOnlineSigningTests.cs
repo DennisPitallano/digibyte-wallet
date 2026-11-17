@@ -362,3 +362,36 @@ public class MultisigOnlineSigningTests
         Assert.Equal(PendingTxStatus.Failed, proposal.Status);
     }
 }
+
+/// <summary>Multisig follows the app's network setting (needed to use multisig and signing rooms on testnet/regtest).</summary>
+public class MultisigNetworkSourceTests
+{
+    [Fact]
+    public void NetworkModeSource_wins_over_SetNetworkMode_and_is_read_on_every_use()
+    {
+        var sut = new MultisigWalletService(new MultisigFakeStorage(), new MultisigFakeChain(), new MultisigFakeCrypto());
+        var mode = "regtest";
+        sut.SetNetworkMode("mainnet");
+        sut.NetworkModeSource = () => mode;
+
+        Assert.Equal(DigiByteNetwork.Regtest, sut.ActiveNetwork);
+        mode = "testnet";
+        Assert.Equal(DigiByteNetwork.Testnet, sut.ActiveNetwork);
+    }
+
+    [Fact]
+    public async Task A_multisig_created_in_regtest_gets_a_regtest_address()
+    {
+        var sut = new MultisigWalletService(new MultisigFakeStorage(), new MultisigFakeChain(), new MultisigFakeCrypto())
+        {
+            NetworkModeSource = () => "regtest",
+        };
+        var keys = new[] { new Key(), new Key() };
+        var config = await sut.CreateMultisigWalletAsync("R", 2,
+            keys.Select((k, i) => new CoSigner { Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex(), IsLocal = i == 0 }).ToList(),
+            ownerWalletId: "w");
+
+        Assert.Equal(DigiByteNetwork.Regtest, BitcoinAddress.Create(config.Address, DigiByteNetwork.Regtest).Network);
+        Assert.ThrowsAny<FormatException>(() => BitcoinAddress.Create(config.Address, DigiByteNetwork.Mainnet));
+    }
+}
