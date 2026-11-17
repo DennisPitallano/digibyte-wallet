@@ -705,6 +705,8 @@ Signing flow:
     2. MultisigService.CombinePSBTs(original, signed)
     3. Update SignedBy; at the threshold status becomes ReadyToFinalize
   → Cancel: CancelPendingAsync marks Cancelled on this device only (co-signers with a copy could still broadcast)
+  → Remove: RemoveCancelledAsync(walletId, pendingId?) deletes Cancelled proposals from this device (one, or all when no id);
+    only Cancelled can be removed; local only; they also leave Activity; "Clear all cancelled" asks for confirmation first
 
 Finalize & broadcast:
   → MultisigWalletService.FinalizeAndBroadcastAsync(walletId, txId)

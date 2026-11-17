@@ -65,6 +65,22 @@
         else
         {
             <div class="flex flex-col gap-3">
+                @{ var cancelledCount = queue.Count(q => q.Status == PendingTxStatus.Cancelled); }
+                @if (cancelledCount > 1 && !confirmClearCancelled)
+                {
+                    <button class="self-end min-h-[44px] px-3 text-sm font-medium text-slate-500 hover:text-red-500" @onclick="() => confirmClearCancelled = true">Clear all cancelled</button>
+                }
+                @if (cancelledCount > 1 && confirmClearCancelled)
+                {
+                    <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl" role="alertdialog" aria-label="Confirm clear cancelled">
+                        <p class="text-sm font-bold text-red-700 dark:text-red-300">Remove @cancelledCount cancelled proposals?</p>
+                        <p class="text-xs text-red-700 dark:text-red-400 leading-relaxed mt-1">They are deleted from this device, including Activity. This can't be undone.</p>
+                        <div class="flex gap-2 mt-2">
+                            <button class="min-h-[44px] px-4 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl press-effect" @onclick="() => RemoveCancelled(null)">Remove @cancelledCount</button>
+                            <button class="min-h-[44px] px-3 text-xs font-medium text-slate-500" @onclick="() => confirmClearCancelled = false">Keep them</button>
+                        </div>
+                    </div>
+                }
                 @foreach (var tx in queue)
                 {
                     var mine = MultisigWalletService.NeedsMySignature(tx, config);
@@ -125,6 +141,13 @@
                                     <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleImport(tx)" aria-expanded="@(importFor == tx.Id)">Import signature</button>
                                 }
                                 <button class="min-h-[44px] px-3 text-sm font-medium text-slate-400 hover:text-red-500" @onclick="() => cancelFor = tx.Id">Cancel</button>
+                            </div>
+                        }
+
+                        @if (tx.Status == PendingTxStatus.Cancelled)
+                        {
+                            <div class="flex justify-end mt-3">
+                                <button class="min-h-[44px] px-3 text-sm font-medium text-slate-500 hover:text-red-500" @onclick="() => RemoveCancelled(tx.Id)">Remove from list</button>
                             </div>
                         }
 
@@ -267,6 +290,7 @@
     private string? shareFor;
     private string? importFor;
     private string? cancelFor;
+    private bool confirmClearCancelled;
     private bool showScanner;
     private string importPsbtBase64 = "";
     private string? importNotice;
@@ -595,6 +619,22 @@
         {
             isBroadcasting = false;
             busyId = null;
+        }
+    }
+
+    private async Task RemoveCancelled(string? id)
+    {
+        error = null;
+        confirmClearCancelled = false;
+        try
+        {
+            var n = await MultisigService.RemoveCancelledAsync(WalletId, id);
+            await Reload();
+            message = n == 1 ? "Removed from this device's list." : $"Removed {n} cancelled proposals from this device's list.";
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
         }
     }
 
