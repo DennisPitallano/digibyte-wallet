@@ -14,7 +14,8 @@ hash     = SHA256(SHA256(UTF8(message)))
 proof    = Base64(Key.SignCompact(hash))       // 65 bytes, recoverable
 ```
 
-Helper: `DigiByte.Crypto.Multisig.SigningRoomProof.Build/Sign/Verify`. The hub recovers the public key from the
+Helper: `DigiByte.Crypto.Multisig.CoSignerProof.BuildMessage/Sign/TryVerify` with `domain = CoSignerProof.SigningRoomDomain`
+(the same helper the creation-room hub uses with `CreationRoomDomain`; the domain keeps the two from being swapped). The hub recovers the public key from the
 proof and requires it to equal `publicKeyHex`.
 
 ## Client → server (`IMultisigSigningHub`)

@@ -29,6 +29,9 @@ and the alternatives considered.
 - **Alternatives**: (a) A shared room secret in the link. Rejected: it doesn't work for typed 6-character codes,
   and it proves knowing the code, not holding a key. (b) Proof by knowing the redeem script. Rejected: watch-only
   holders and anyone given the backup know it too.
+- **Helper**: implemented by the shared `DigiByte.Crypto.Multisig.CoSignerProof` (added with the creation-room
+  key-proof change), using `CoSignerProof.SigningRoomDomain` as the message prefix so creation-room and
+  signing-room proofs can't be swapped.
 - **Unknown-code behaviour**: A wrong code and a valid code with a non-member key both return the same
   `Error("Invalid or expired code.")`, and both count as a failed join attempt (FR-004, FR-027).
 - **Opening when a room already exists**: `OpenRoom` for a payment that already has a live room returns that

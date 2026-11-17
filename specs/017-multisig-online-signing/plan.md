@@ -82,7 +82,7 @@ specs/017-multisig-online-signing/
 ```text
 src/
 ├── DigiByte.Crypto/
-│   └── Multisig/SigningRoomProof.cs            # NEW: build proof message, sign (given Key), verify (pubkey + compact sig)
+│   └── Multisig/CoSignerProof.cs               # REUSED from the creation-room key-proof change; signing rooms use SigningRoomDomain
 ├── DigiByte.Wallet/
 │   └── Services/
 │       ├── MultisigWalletService.cs            # + FindByRedeemScriptAsync, AdoptProposalAsync, MergeRoomSignaturesAsync,
@@ -104,7 +104,7 @@ src/
     └── Pages/MultisigGuide.razor, Help.razor   # + online signing help
 
 tests/
-├── DigiByte.Crypto.Tests/SigningRoomProofTests.cs
+├── DigiByte.Crypto.Tests/CoSignerProofTests.cs   # extended: signing-room domain + domain separation
 ├── DigiByte.Wallet.Tests/MultisigOnlineSigningTests.cs
 └── DigiByte.Api.Tests/SigningRoomRegistryTests.cs, SigningRoomRateLimiterTests.cs
 ```

@@ -12,7 +12,7 @@
 ## Automated checks
 
 ```bash
-dotnet test tests/DigiByte.Crypto.Tests --filter SigningRoomProof
+dotnet test tests/DigiByte.Crypto.Tests --filter CoSignerProof
 ```
 
 ```bash
