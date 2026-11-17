@@ -11,21 +11,10 @@
 
 <AuthGuard>
 <div class="flex flex-col gap-5">
-    @* Step Indicator *@
+    @* Same step language as the online creation room (spec 018, FR-008) *@
     @if (step != Step.Done)
     {
-    <div class="flex flex-col items-center gap-1.5 mb-2 fade-in" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="@((int)step + 1)">
-        <div class="flex items-center justify-center gap-2">
-            @for (int i = 0; i < 3; i++)
-            {
-                var idx = i;
-                <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(idx <= (int)step ? "bg-dgb-500 w-10" : "bg-slate-200 dark:bg-dgb-800 w-6")"></div>
-            }
-        </div>
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            Step @((int)step + 1) of 3 · @(step switch { Step.Configure => "Setup", Step.AddSigners => "Co-signers", _ => "Review" })
-        </p>
-    </div>
+        <StepIndicator Steps="manualSteps" Current="(int)step" />
     }
 
     @if (step == Step.Configure)
@@ -69,9 +58,7 @@
                         </select>
                     </div>
                 </div>
-                <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                    @requiredSigs of @totalSigners signers must approve each transaction.
-                </p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2" aria-live="polite">@SchemeExplainer.Describe(requiredSigs, totalSigners)</p>
             </div>
         </div>
 
@@ -322,6 +309,8 @@
 </AuthGuard>
 
 @code {
+    private static readonly string[] manualSteps = ["Set up", "Co-signers", "Confirm"];
+
     private enum Step { Configure, AddSigners, Review, Done }
     private Step step = Step.Configure;
     private DigiByte.Wallet.Models.MultisigWalletConfig? createdConfig;

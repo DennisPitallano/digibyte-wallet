@@ -56,7 +56,7 @@
         ActivityKind.ProposalAwaiting => "Waiting for signatures",
         ActivityKind.ProposalReady => "Ready to broadcast",
         ActivityKind.Failed => "Broadcast failed",
-        ActivityKind.Cancelled => "Cancelled",
+        ActivityKind.Cancelled => MultisigStateVocabulary.For(MultisigState.CancelledOrExpired).Label,
         _ => "Activity",
     };
 
@@ -69,8 +69,8 @@
             _ => "Confirmed",
         },
         ActivityKind.ProposalAwaiting => $"{Entry.SignedCount ?? 0}/{Entry.RequiredCount ?? 0} signed",
-        ActivityKind.ProposalReady => "Ready",
-        ActivityKind.Failed => "Failed",
+        ActivityKind.ProposalReady => MultisigStateVocabulary.For(MultisigState.ReadyToBroadcast).Label,
+        ActivityKind.Failed => MultisigStateVocabulary.For(MultisigState.Failed).Label,
         ActivityKind.Cancelled => "Cancelled",
         _ => "",
     };

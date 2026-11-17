@@ -1,0 +1,14 @@
+@* An empty list: one sentence and, when there is something to do, one action. *@
+<div class="p-6 text-center bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col items-center gap-3">
+    <p class="text-sm text-slate-500 dark:text-slate-400">@Message</p>
+    @if (!string.IsNullOrEmpty(ActionLabel))
+    {
+        <button class="min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="OnAction">@ActionLabel</button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Message { get; set; } = "";
+    [Parameter] public string? ActionLabel { get; set; }
+    [Parameter] public EventCallback OnAction { get; set; }
+}
