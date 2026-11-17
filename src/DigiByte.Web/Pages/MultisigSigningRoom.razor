@@ -398,6 +398,11 @@
     private async Task JoinAsync()
     {
         if (busy) return;
+        if (code.Trim().Length != 6)
+        {
+            error = "Enter the 6-character room code first.";
+            return;
+        }
         busy = true;
         error = null;
         try
@@ -439,7 +444,8 @@
             await WalletService.SwitchWalletAsync(walletId);
             displayName = ActiveWallet.WalletName;
             await LoadOtherWalletsAsync();
-            await JoinAsync();
+            // With no code typed yet, only switch; the person enters the code and joins as this wallet.
+            if (code.Trim().Length == 6) await JoinAsync();
         }
         catch (Exception ex)
         {
