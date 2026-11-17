@@ -161,3 +161,56 @@ public class CoSignerProofTests
         Assert.Throws<ArgumentException>(() => CoSignerProof.BuildMessage(Domain, "join", "X", "", Conn));
     }
 }
+
+/// <summary>Signing-room proofs (specs/017-multisig-online-signing, T004): same helper, separate domain.</summary>
+public class SigningRoomCoSignerProofTests
+{
+    private const string Domain = CoSignerProof.SigningRoomDomain;
+    private const string Nonce = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
+    private const string Conn = "conn-sign-1";
+
+    [Fact]
+    public void Message_uses_the_signing_room_domain()
+    {
+        Assert.Equal(
+            "DigiByte multisig signing room\nopen\nabc\n" + Nonce + "\n" + Conn,
+            CoSignerProof.BuildMessage(Domain, "open", "abc", Nonce, Conn));
+    }
+
+    [Theory]
+    [InlineData("open", "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0")]
+    [InlineData("join", "X7K9M2")]
+    [InlineData("rejoin", "a1b2c3d4e5f6")]
+    public void Roundtrip_verifies_for_each_purpose(string purpose, string target)
+    {
+        var key = new Key();
+        var proof = CoSignerProof.Sign(key, Domain, purpose, target, Nonce, Conn);
+        Assert.True(CoSignerProof.TryVerify(key.PubKey.ToHex(), proof, Domain, purpose, target, Nonce, Conn));
+    }
+
+    [Fact]
+    public void Creation_room_proof_never_verifies_as_signing_room_proof_and_vice_versa()
+    {
+        var key = new Key();
+        var pub = key.PubKey.ToHex();
+        var creation = CoSignerProof.Sign(key, CoSignerProof.CreationRoomDomain, "join", "X7K9M2", Nonce, Conn);
+        var signing = CoSignerProof.Sign(key, CoSignerProof.SigningRoomDomain, "join", "X7K9M2", Nonce, Conn);
+
+        Assert.False(CoSignerProof.TryVerify(pub, creation, CoSignerProof.SigningRoomDomain, "join", "X7K9M2", Nonce, Conn));
+        Assert.False(CoSignerProof.TryVerify(pub, signing, CoSignerProof.CreationRoomDomain, "join", "X7K9M2", Nonce, Conn));
+    }
+
+    [Fact]
+    public void Changed_fields_or_wrong_key_fail()
+    {
+        var key = new Key();
+        var pub = key.PubKey.ToHex();
+        var proof = CoSignerProof.Sign(key, Domain, "join", "X7K9M2", Nonce, Conn);
+
+        Assert.False(CoSignerProof.TryVerify(new Key().PubKey.ToHex(), proof, Domain, "join", "X7K9M2", Nonce, Conn));
+        Assert.False(CoSignerProof.TryVerify(pub, proof, Domain, "join", "X7K9M2", Nonce.Replace('f', 'e'), Conn));
+        Assert.False(CoSignerProof.TryVerify(pub, proof, Domain, "join", "X7K9M2", Nonce, "conn-other"));
+        Assert.False(CoSignerProof.TryVerify(pub, proof, Domain, "rejoin", "X7K9M2", Nonce, Conn));
+        Assert.False(CoSignerProof.TryVerify(pub, proof, Domain, "join", "AAAAAA", Nonce, Conn));
+    }
+}
