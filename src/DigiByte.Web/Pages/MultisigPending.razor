@@ -5,6 +5,8 @@
 @inject WalletService WalletService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject SigningRoomClient Room
+@implements IDisposable
 
 <PageTitle>Pending Transactions — DigiByte Wallet</PageTitle>
 
@@ -118,12 +120,58 @@
                                         @(isSigning && busyId == tx.Id ? "Signing…" : "Sign")
                                     </button>
                                 }
+                                @if (open)
+                                {
+                                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 text-sm font-semibold rounded-xl hover:bg-dgb-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleOnline(tx)" aria-expanded="@(onlineFor == tx.Id)">
+                                        @(Room.Current?.UnsignedTxId == tx.UnsignedTxId ? "Return to room" : "Sign together online")
+                                    </button>
+                                }
                                 <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleShare(tx)" aria-expanded="@(shareFor == tx.Id)">Share</button>
                                 @if (tx.Status != PendingTxStatus.Failed)
                                 {
                                     <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleImport(tx)" aria-expanded="@(importFor == tx.Id)">Import signature</button>
                                 }
                                 <button class="min-h-[44px] px-3 text-sm font-medium text-slate-400 hover:text-red-500" @onclick="() => cancelFor = tx.Id">Cancel</button>
+                            </div>
+                        }
+
+                        @* Sign together online (specs/017-multisig-online-signing) *@
+                        @if (onlineFor == tx.Id)
+                        {
+                            <div class="mt-3 p-3 bg-slate-50 dark:bg-dgb-800/50 rounded-xl border border-slate-200 dark:border-dgb-700 flex flex-col gap-2">
+                                @if (config.OwnKeyIndex < 0)
+                                {
+                                    <p class="text-xs text-slate-500 dark:text-slate-400" role="status">Watch-only copies can't join signing rooms. Use Share and Import signature instead.</p>
+                                }
+                                else if (onlineState == OnlineState.Checking)
+                                {
+                                    <p class="text-xs text-slate-500 dark:text-slate-400" role="status">Checking the signing service…</p>
+                                }
+                                else if (onlineState == OnlineState.Unavailable)
+                                {
+                                    <p class="text-xs text-amber-700 dark:text-amber-300" role="status">Online signing is unavailable right now. You can still share and import signatures.</p>
+                                }
+                                else
+                                {
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">Open a room and share its code. Co-signers sign on their own devices and everyone sees signatures arrive live.</p>
+                                    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-length">Room stays open for</label>
+                                    <select id="room-length" @bind="lifetime" class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white">
+                                        @foreach (var minutes in lifetimes)
+                                        {
+                                            <option value="@minutes">@(minutes >= 60 ? $"{minutes / 60} hour{(minutes >= 120 ? "s" : "")}" : $"{minutes} minutes")</option>
+                                        }
+                                    </select>
+                                    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-name">Your name in the room</label>
+                                    <input id="room-name" @bind="roomName" @bind:event="oninput" maxlength="40"
+                                           class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500" />
+                                    <div class="flex gap-2">
+                                        <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                                disabled="@(isOpening || string.IsNullOrWhiteSpace(roomName))" @onclick="() => OpenRoomAsync(tx)">
+                                            @(isOpening ? "Opening…" : "Open room")
+                                        </button>
+                                        <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="() => onlineFor = null">Close</button>
+                                    </div>
+                                }
                             </div>
                         }
 
@@ -248,6 +296,109 @@
         if (config is null) return;
         var all = await MultisigService.GetPendingTransactionsAsync(WalletId);
         queue = MultisigWalletService.SortPending(all.Where(p => p.Status != PendingTxStatus.Broadcast), config);
+    }
+
+    // ─── Sign together online (specs/017-multisig-online-signing) ───
+
+    private enum OnlineState { Checking, Available, Unavailable }
+
+    private string? onlineFor;
+    private OnlineState onlineState = OnlineState.Checking;
+    private List<int> lifetimes = [30];
+    private int lifetime = 30;
+    private string roomName = "";
+    private bool isOpening;
+    private bool roomEventsWired;
+
+    private async Task ToggleOnline(PendingMultisigTransaction tx)
+    {
+        if (Room.Current?.UnsignedTxId == tx.UnsignedTxId)
+        {
+            Nav.NavigateTo("/multisig/sign-room");
+            return;
+        }
+        onlineFor = onlineFor == tx.Id ? null : tx.Id;
+        if (onlineFor is null || config is null || config.OwnKeyIndex < 0) return;
+
+        // Only now is the signing service contacted; nothing else on this page depends on it (FR-021).
+        onlineState = OnlineState.Checking;
+        roomName = string.IsNullOrWhiteSpace(roomName) ? ActiveWallet.WalletName : roomName;
+        StateHasChanged();
+        if (!await Room.CheckAvailabilityAsync())
+        {
+            onlineState = OnlineState.Unavailable;
+            return;
+        }
+        try
+        {
+            var options = await Room.GetOptionsAsync();
+            lifetimes = options.AllowedLifetimesMinutes.Count > 0 ? options.AllowedLifetimesMinutes : [options.DefaultLifetimeMinutes];
+            lifetime = options.DefaultLifetimeMinutes;
+            onlineState = OnlineState.Available;
+        }
+        catch
+        {
+            onlineState = OnlineState.Unavailable;
+        }
+    }
+
+    private async Task OpenRoomAsync(PendingMultisigTransaction tx)
+    {
+        if (isOpening || config is null) return;   // a double tap opens one room (FR-026)
+        isOpening = true;
+        error = null;
+        WireRoomEvents();
+        try
+        {
+            var network = MultisigService.ActiveNetwork == DigiByte.Crypto.Networks.DigiByteNetwork.Testnet ? "test"
+                : MultisigService.ActiveNetwork == DigiByte.Crypto.Networks.DigiByteNetwork.Regtest ? "regtest" : "main";
+            await Room.OpenAsync(network, config.CoSigners.Select(c => c.PublicKeyHex).ToList(), config.RequiredSignatures,
+                tx.PsbtBase64, tx.Memo, lifetime, roomName.Trim(), tx.UnsignedTxId);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            isOpening = false;
+        }
+    }
+
+    private void WireRoomEvents()
+    {
+        if (roomEventsWired) return;
+        roomEventsWired = true;
+        Room.RoomStateReceived += OnRoomOpenedAsync;
+        Room.ExistingRoomReceived += OnExistingRoomAsync;
+        Room.ErrorReceived += OnRoomErrorAsync;
+    }
+
+    private Task OnRoomOpenedAsync(SigningRoomView _) => InvokeAsync(() =>
+    {
+        if (!isOpening) return;
+        isOpening = false;
+        Nav.NavigateTo("/multisig/sign-room");
+    });
+
+    // FR-019a: a room for this payment already exists; join it instead of opening a second one.
+    private Task OnExistingRoomAsync(string code) => InvokeAsync(() =>
+    {
+        isOpening = false;
+        Nav.NavigateTo($"/multisig/sign-room?code={Uri.EscapeDataString(code)}");
+    });
+
+    private Task OnRoomErrorAsync(string code, string message) => InvokeAsync(() =>
+    {
+        if (!isOpening) return;
+        isOpening = false;
+        error = message;
+        StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        if (!roomEventsWired) return;
+        Room.RoomStateReceived -= OnRoomOpenedAsync;
+        Room.ExistingRoomReceived -= OnExistingRoomAsync;
+        Room.ErrorReceived -= OnRoomErrorAsync;
     }
 
     private void ToggleShare(PendingMultisigTransaction tx) => shareFor = shareFor == tx.Id ? null : tx.Id;

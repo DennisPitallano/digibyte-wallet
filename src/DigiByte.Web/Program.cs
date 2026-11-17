@@ -78,8 +78,17 @@ builder.Services.AddScoped<ICommonPasswordList>(sp => sp.GetRequiredService<Comm
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();
-builder.Services.AddScoped<MultisigWalletService>();
+// Multisig follows the network chosen in Settings (mainnet / testnet / regtest), like the rest of the wallet.
+builder.Services.AddScoped<MultisigWalletService>(sp =>
+{
+    var service = ActivatorUtilities.CreateInstance<MultisigWalletService>(sp);
+    var app = sp.GetRequiredService<AppState>();
+    service.NetworkModeSource = () => app.NetworkMode;
+    return service;
+});
 builder.Services.AddScoped<DigiByte.Web.Services.ActiveWalletContext>();
+// Online multisig signing rooms (specs/017-multisig-online-signing): connects only when a room is opened or joined.
+builder.Services.AddScoped<DigiByte.Web.Services.SigningRoomClient>();
 builder.Services.AddScoped<BiometricService>();
 builder.Services.AddScoped<SpendingLimitService>();
 builder.Services.AddScoped<AddressLabelService>();

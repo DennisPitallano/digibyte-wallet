@@ -714,6 +714,35 @@ Finalize & broadcast:
     4. Update status → Broadcast, store txid
 ```
 
+#### Sign Together Online (`/multisig/sign-room`, specs/017-multisig-online-signing)
+```
+Optional, next to the offline Share/Import flow. Hub: DigiByte.Api /hubs/multisig-signing (co-signer coordination
+relay, constitution 1.2.0): public data only, in memory, anonymous counts in logs, never needed for signing.
+
+Open (Pending → Sign together online, co-signers only, never watch-only):
+  → SigningRoomClient.CheckAvailabilityAsync (5 s; only now is the hub contacted) → GetOptions (15/30/60/120 min, operator cap)
+  → RequestChallenge → CoSignerProof.Sign(key, SigningRoomDomain, "open", UnsignedTxId, nonce, connectionId)
+  → OpenRoom: hub checks proof, key ∈ co-signers, every input spends the multisig (P2WSH or P2SH-P2WSH)
+    → room exists for this payment? ExistingRoom(code) only to a key of that room, else "Invalid or expired code"
+    → else new room (6-char code), RoomState with the PSBT
+
+Join (/multisig/sign-room?code=…; locked wallet → /unlock?returnUrl=… → back):
+  → RequestChallenge → proof ("join", code) → JoinRoom; unknown code, bad proof and non-member key all look the same
+    (5 failures/min per connection → "Too many attempts, try again shortly")
+  → Wallet: same network? → FindByRedeemScriptAsync(keys, M) (own key required) → CheckProposalMatches
+    → AdoptProposalAsync: recipient/amount/fee/memo read from the PSBT (MultisigProposalReader), never from the room
+    → MergeRoomSignaturesAsync for each room copy (each signature checked against its input's sighash)
+    → signatures held only here (e.g. imported offline) → SubmitSignature
+
+Sign: SignPendingTransactionAsync (saved locally first) → SubmitSignature → hub verifies every signature, stores,
+  relays SignatureAdded + RoomState → every wallet merges (verified) into its own proposal
+Broadcast (local copy has M signatures): ClaimBroadcast (one holder; released on failure, after 60 s or on
+  disconnect) → FinalizeAndBroadcastAsync ("already known" = success) → ReportBroadcast → Broadcasted(txid) →
+  every wallet MarkBroadcastAsync → shows once in Activity as Sent
+Reconnect: automatic, then Rejoin with a fresh proof; offline participants keep their place and signature
+End: lifetime over / creator closes / broadcast + 60 s → RoomEnded; proposals and signatures stay on every device
+```
+
 ### About, Roadmap, DeploymentInfo, NotFound
 ```
 /about        → Static: version, license, tech stack, GitHub contributors (fetched from API)

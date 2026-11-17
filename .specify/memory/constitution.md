@@ -1,25 +1,22 @@
 <!--
-Sync Impact Report — 2026-10-30
-- Version change: 1.0.0 → 1.1.0 (MINOR: scope of existing rules materially expanded)
+Sync Impact Report — 2026-11-17
+- Version change: 1.1.0 → 1.2.0 (MINOR: new permitted server role and auth exception)
 - Modified principles:
   * II. In-Browser Cryptography — permitted server roles now include a
-    "public-contribution intake relay", with mandatory limits
+    "co-signer coordination relay", with mandatory limits
 - Modified sections:
-  * Security & Custody Requirements → Content Security Policy: adds a narrow,
-    path-scoped exception for the project's own GitHub raw content
-  * Security & Custody Requirements → Auth boundary: adds a narrow exception for
-    anonymous intake endpoints that can only create reviewable items
+  * Security & Custody Requirements → Auth boundary: adds an exception for co-signer
+    coordination relays; a connection is authorised for one session by a single-use,
+    connection-bound proof of co-signer key possession, until it disconnects
 - Added sections: none
 - Removed sections: none
-- Motivation: specs/006-sponsors-page (donor-facing sponsors list read live from the
-  project's own repository, and an in-wallet submission form for donors without a
-  GitHub account). No key, seed, or signing flow is touched by this amendment.
+- Motivation: specs/017-multisig-online-signing (real-time multisig signing rooms). Also
+  brings the existing multisig creation-room hub (/hubs/multisig-room) into compliance.
 - Templates requiring updates: none (plan-template.md Constitution Check reads this
   file directly)
-- Deferred / TODOs: none
-- Previous report (2026-09-27): initial ratification, version 1.0.0
-- Note: this scratch report is intended for human review of the amendment; remove
-  before committing the amended constitution if the reviewer prefers a clean file.
+- Deferred / TODOs: the creation-room hub should adopt key-possession proof (separate change)
+- Previous reports: 2026-10-30 (1.0.0 → 1.1.0, public-contribution intake relay and
+  raw.githubusercontent.com CSP exception); 2026-09-27 initial ratification, 1.0.0
 -->
 
 # DigiByte Wallet Constitution
@@ -46,9 +43,9 @@ All cryptographic operations that touch a user's secret material (mnemonic gener
 key derivation, encryption/decryption of the seed store, transaction signing, Digi-ID
 signing) MUST run inside the browser, in the WebAssembly sandbox and WebCrypto APIs
 already used by `DigiByte.Web` / `DigiByte.Crypto`. Servers operated by this project
-MUST behave as static asset hosts, price/data proxies, public-chain relays, or
-public-contribution intake relays only; they MUST NEVER be a required participant in a
-signing flow.
+MUST behave as static asset hosts, price/data proxies, public-chain relays,
+public-contribution intake relays, or co-signer coordination relays only; they MUST NEVER
+be a required participant in a signing flow.
 
 A **public-contribution intake relay** accepts non-secret, public submissions (for
 example a sponsor-listing request) and forwards them as reviewable items to a
@@ -59,11 +56,21 @@ publish); MUST validate, rate-limit, and size-limit every submission; MUST NOT p
 anything without maintainer review; and MUST NOT be a dependency of any core wallet flow
 (balance, receive, send, history).
 
+A **co-signer coordination relay** passes public data (public keys, unsigned or partially
+signed transactions, signatures, display names, participant status) between the co-signers
+of a multisig in real time. It MUST NOT handle private keys, seeds, or passwords; MUST NOT be
+able to sign, alter, or broadcast a transaction by itself; MUST keep session data in memory
+only and discard it when the session ends; MUST NOT log keys, addresses, amounts,
+transaction data, invite codes, or names; MUST be rate-limited; and MUST NOT be a dependency
+of any core wallet flow. Every participant's wallet MUST independently check everything it
+receives, and an equivalent offline path (share/import) MUST always exist.
+
 **Rationale**: This is what makes Principle I enforceable rather than a promise.
 A server that never sees keys cannot leak keys. The intake-relay role is allowed because
 it carries only public text and can only create review items, so it adds no custody or
-signing risk. The WebAssembly / WebCrypto pipeline
-is documented in [SELF_CUSTODY.md](../../SELF_CUSTODY.md) and the `docs/walletscrutiny-*`
+signing risk. The coordination-relay role is allowed because it only carries public data
+that every wallet re-checks, and the offline path means it is never required for signing.
+The WebAssembly / WebCrypto pipeline is documented in [SELF_CUSTODY.md](../../SELF_CUSTODY.md) and the `docs/walletscrutiny-*`
 audits; any change to it is a security-relevant change.
 
 ### III. Test-First for Crypto & Wallet Logic (NON-NEGOTIABLE)
@@ -146,6 +153,13 @@ works" from a nice-to-have into a review criterion.
   only create a review item that cannot publish, move funds, or touch keys or merchant
   data, and provided it is rate-limited, size-limited, deduplicated, validated against
   the same rules as the client, and its forwarding credential cannot merge or publish.
+  Exception: a co-signer coordination relay (Principle II) MAY accept anonymous connections,
+  provided a connection can neither see nor change session data until it presents a fresh,
+  single-use proof that it holds one of the session's co-signer keys (a signature over a
+  server nonce bound to that connection and to the purpose). That proof authorises only that
+  connection, only for that session, and only until the connection closes; reconnecting
+  requires a new proof. Failed attempts MUST be rate-limited without revealing whether a
+  session exists.
 
 ## Development Workflow & Quality Gates
 
@@ -196,4 +210,4 @@ in the same PR that surfaces the conflict.
   `CONTRIBUTING.md` — that document is the runtime guide; this constitution is the
   set of rules a reviewer can block a PR on.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-27 | **Last Amended**: 2026-10-30
+**Version**: 1.2.0 | **Ratified**: 2026-09-27 | **Last Amended**: 2026-11-17

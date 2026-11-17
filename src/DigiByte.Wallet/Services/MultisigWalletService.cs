@@ -64,7 +64,13 @@ public class MultisigWalletService
 
     public void SetNetworkMode(string mode) => _networkMode = mode;
 
-    private Network CurrentNetwork => _networkMode switch
+    /// <summary>
+    /// When set, the network mode is read from here on every use (the app's current setting), so a switch to testnet
+    /// or regtest in Settings applies to multisig addresses and PSBTs too. Otherwise <see cref="SetNetworkMode"/> decides.
+    /// </summary>
+    public Func<string?>? NetworkModeSource { get; set; }
+
+    private Network CurrentNetwork => (NetworkModeSource?.Invoke() ?? _networkMode) switch
     {
         "regtest" => DigiByteNetwork.Regtest,
         "testnet" => DigiByteNetwork.Testnet,
@@ -430,6 +436,11 @@ public class MultisigWalletService
             {
                 txId = await _blockchain.BroadcastTransactionAsync(tx.ToBytes());
             }
+            catch (Exception ex) when (IsAlreadyKnown(ex))
+            {
+                // Another co-signer broadcast the same signed transaction first (online signing rooms, research R7).
+                txId = tx.GetHash().ToString();
+            }
             catch (Exception ex)
             {
                 pending.Status = PendingTxStatus.Failed;
@@ -449,6 +460,212 @@ public class MultisigWalletService
         {
             lock (_broadcastsInFlight) _broadcastsInFlight.Remove(pending.Id);
         }
+    }
+
+    /// <summary>True when the node refused the transaction only because it already has it (mempool or chain).</summary>
+    private static bool IsAlreadyKnown(Exception ex)
+    {
+        var message = ex.Message ?? "";
+        return message.Contains("already-in-mempool", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("already in block chain", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("already-known", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("already known", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("txn-already", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ─── Online signing rooms (specs/017-multisig-online-signing) ───
+
+    /// <summary>Signatures a room copy brought: keys whose signatures were merged, and keys whose signatures were discarded.</summary>
+    public sealed record RoomMergeResult(IReadOnlyList<string> Accepted, IReadOnlyList<string> Rejected);
+
+    /// <summary>
+    /// The multisig <paramref name="ownerWalletId"/> owns whose redeem script is the M-of-N made from
+    /// <paramref name="coSignerKeysHex"/> (any order). Null when none matches. <c>OwnKeyIndex</c> is -1 when
+    /// <paramref name="ownPublicKeyHex"/> is not one of its keys (watch-only for this wallet).
+    /// </summary>
+    public async Task<MultisigWalletConfig?> FindByRedeemScriptAsync(
+        IReadOnlyList<string> coSignerKeysHex, int requiredSignatures, string ownerWalletId, string? ownPublicKeyHex)
+    {
+        var script = TryBuildRedeemScriptHex(coSignerKeysHex, requiredSignatures);
+        if (script is null) return null;
+
+        foreach (var (id, _) in await ListWalletsAsync(ownerWalletId, ownPublicKeyHex))
+        {
+            var config = await GetConfigAsync(id, ownerWalletId, ownPublicKeyHex);
+            if (config is not null && string.Equals(config.RedeemScriptHex, script, StringComparison.OrdinalIgnoreCase))
+                return config;
+        }
+        return null;
+    }
+
+    /// <summary>Wallets on this device that own a multisig matching these keys and threshold (for the "switch wallet" offer).</summary>
+    public async Task<List<string>> FindOwnerWalletIdsByRedeemScriptAsync(IReadOnlyList<string> coSignerKeysHex, int requiredSignatures)
+    {
+        var script = TryBuildRedeemScriptHex(coSignerKeysHex, requiredSignatures);
+        if (script is null) return [];
+
+        var owners = new List<string>();
+        foreach (var entry in await ListWalletsRawAsync())
+        {
+            var config = await LoadConfigAsync(entry.Id);
+            if (config is not null && string.Equals(config.RedeemScriptHex, script, StringComparison.OrdinalIgnoreCase))
+                owners.AddRange(entry.OwnerWalletIds);
+        }
+        return owners.Distinct().ToList();
+    }
+
+    private string? TryBuildRedeemScriptHex(IReadOnlyList<string> coSignerKeysHex, int requiredSignatures)
+    {
+        try
+        {
+            var keys = coSignerKeysHex.Select(h => new PubKey(h.Trim())).ToArray();
+            return new MultisigService(CurrentNetwork).CreateRedeemScript(requiredSignatures, keys).ToHex();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Saves a signing room's payment as a local pending proposal (FR-006). Destination, amount, fee and memo come from
+    /// the PSBT (<see cref="MultisigProposalReader"/>), never from the room. If this device already holds the proposal, that
+    /// copy is returned (and the room copy's signatures are merged into it). Signatures in the room copy are each verified.
+    /// </summary>
+    public async Task<PendingMultisigTransaction> AdoptProposalAsync(MultisigWalletConfig config, string psbtBase64)
+    {
+        var facts = MultisigProposalReader.Read(psbtBase64, config, CurrentNetwork);
+        if (facts.Problems.Count > 0)
+            throw new PsbtImportException(facts.Problems[0]);
+
+        var existing = (await GetPendingTransactionsAsync(config.WalletId))
+            .FirstOrDefault(p => string.Equals(p.UnsignedTxId, facts.UnsignedTxId, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            if (existing.Status == PendingTxStatus.Cancelled)
+                throw new PsbtImportException("You cancelled this payment on this device, so it can't be signed here.");
+            if (existing.Status != PendingTxStatus.Broadcast)
+                await MergeRoomSignaturesAsync(existing, psbtBase64);
+            return existing;
+        }
+
+        var service = new MultisigService(CurrentNetwork);
+        var unsigned = service.DeserializePSBT(psbtBase64.Trim());
+        foreach (var input in unsigned.Inputs) input.PartialSigs.Clear();
+
+        var pending = new PendingMultisigTransaction
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            WalletId = config.WalletId,
+            PsbtBase64 = MultisigService.SerializePSBT(unsigned),
+            Description = $"Send {facts.AmountSat / 100_000_000m:F8} DGB to {Shorten(facts.DestinationAddress)}",
+            DestinationAddress = facts.DestinationAddress,
+            AmountSatoshis = facts.AmountSat,
+            FeeSatoshis = facts.FeeSat,
+            RequiredSignatures = config.RequiredSignatures,
+            UnsignedTxId = facts.UnsignedTxId,
+            Memo = facts.Memo,
+        };
+        await SavePendingTransactionAsync(pending);
+        await MergeRoomSignaturesAsync(pending, psbtBase64);
+        return pending;
+    }
+
+    /// <summary>
+    /// Null when <paramref name="psbtBase64"/> is the same payment as <paramref name="pending"/> and the local copy's saved
+    /// recipient, amount and fee match what its transaction really does; otherwise a plain-language reason (FR-005).
+    /// </summary>
+    public string? CheckProposalMatches(PendingMultisigTransaction pending, MultisigWalletConfig config, string psbtBase64)
+    {
+        var room = MultisigProposalReader.Read(psbtBase64, config, CurrentNetwork);
+        if (room.Problems.Count > 0) return room.Problems[0];
+
+        var expected = pending.UnsignedTxId;
+        if (string.IsNullOrEmpty(expected))
+        {
+            try { expected = new MultisigService(CurrentNetwork).DeserializePSBT(pending.PsbtBase64).GetGlobalTransaction().GetHash().ToString(); }
+            catch { return "This device's copy of the payment could not be read."; }
+        }
+        if (!string.Equals(room.UnsignedTxId, expected, StringComparison.OrdinalIgnoreCase))
+            return "The room's payment is a different transaction from the one on this device.";
+
+        if (!string.Equals(room.DestinationAddress, pending.DestinationAddress, StringComparison.Ordinal)
+            || room.AmountSat != pending.AmountSatoshis
+            || room.FeeSat != pending.FeeSatoshis)
+            return "This device's saved recipient, amount or fee does not match the payment itself.";
+        return null;
+    }
+
+    /// <summary>
+    /// Merges the verified signatures in a room copy into <paramref name="pending"/> (FR-010, FR-011). The copy must be for
+    /// this very transaction. Each partial signature must come from a co-signer key and verify against its input; others
+    /// are discarded and reported in <see cref="RoomMergeResult.Rejected"/>. A key counts as signed once it has a valid
+    /// signature on every input.
+    /// </summary>
+    public async Task<RoomMergeResult> MergeRoomSignaturesAsync(PendingMultisigTransaction pending, string psbtBase64)
+    {
+        if (pending.Status is PendingTxStatus.Cancelled or PendingTxStatus.Broadcast)
+            throw new PsbtImportException("This proposal is closed, so it can't take more signatures.");
+
+        var service = new MultisigService(CurrentNetwork);
+        PSBT incoming, existing;
+        try { incoming = service.DeserializePSBT((psbtBase64 ?? "").Trim()); }
+        catch { throw new PsbtImportException("That is not a valid signed transaction (PSBT)."); }
+        try { existing = service.DeserializePSBT(pending.PsbtBase64); }
+        catch { throw new PsbtImportException("This proposal's stored transaction could not be read."); }
+
+        var expected = string.IsNullOrEmpty(pending.UnsignedTxId)
+            ? existing.GetGlobalTransaction().GetHash().ToString()
+            : pending.UnsignedTxId;
+        if (!string.Equals(incoming.GetGlobalTransaction().GetHash().ToString(), expected, StringComparison.OrdinalIgnoreCase))
+            throw new PsbtImportException("This signature copy is for a different transaction, not this proposal.");
+
+        var config = await LoadConfigAsync(pending.WalletId)
+            ?? throw new PsbtImportException("The multisig for this proposal could not be found.");
+        var allowed = GetRedeemKeys(config);
+
+        // Keep only signatures that are from co-signer keys and verify; strip the rest before combining.
+        var checks = PsbtSignatureCheck.Check(incoming);
+        var rejected = checks.Where(c => !c.IsValid || !allowed.Contains(c.PublicKeyHex))
+            .Select(c => c.PublicKeyHex.ToLowerInvariant()).Distinct().ToList();
+        foreach (var bad in checks.Where(c => !c.IsValid || !allowed.Contains(c.PublicKeyHex)))
+        {
+            var input = incoming.Inputs[bad.InputIndex];
+            var key = input.PartialSigs.Keys.FirstOrDefault(k => string.Equals(k.ToHex(), bad.PublicKeyHex, StringComparison.OrdinalIgnoreCase));
+            if (key is not null) input.PartialSigs.Remove(key);
+        }
+
+        var combined = service.CombinePSBTs([existing, incoming]);
+        var signed = PsbtSignatureCheck.KeysValidOnEveryInput(combined)
+            .Where(allowed.Contains)
+            .ToList();
+        var before = pending.SignedBy.Select(s => s.ToLowerInvariant()).ToHashSet();
+        var accepted = signed.Where(k => !before.Contains(k)).ToList();
+
+        pending.PsbtBase64 = MultisigService.SerializePSBT(combined);
+        pending.UnsignedTxId = expected;
+        foreach (var key in signed)
+            if (!pending.SignedBy.Contains(key, StringComparer.OrdinalIgnoreCase))
+                pending.SignedBy.Add(key);
+
+        if (pending.HasEnoughSignatures && pending.Status == PendingTxStatus.AwaitingSignatures)
+            pending.Status = PendingTxStatus.ReadyToFinalize;
+
+        await SavePendingTransactionAsync(pending);
+        return new RoomMergeResult(accepted, rejected.Where(r => !signed.Contains(r)).ToList());
+    }
+
+    /// <summary>Records that another participant broadcast this proposal (FR-015). Repeating it with the same id is a no-op.</summary>
+    public async Task MarkBroadcastAsync(PendingMultisigTransaction pending, string txId)
+    {
+        if (string.IsNullOrWhiteSpace(txId))
+            throw new ArgumentException("A transaction id is required.", nameof(txId));
+        if (pending.Status == PendingTxStatus.Cancelled)
+            throw new InvalidOperationException("This proposal was cancelled on this device.");
+        if (pending.Status == PendingTxStatus.Broadcast && pending.BroadcastTxId == txId)
+            return;
+
+        pending.Status = PendingTxStatus.Broadcast;
+        pending.BroadcastTxId = txId.Trim();
+        pending.FailureReason = null;
+        await SavePendingTransactionAsync(pending);
     }
 
     /// <summary>Tries again after a failed broadcast. The signed transaction is untouched, so nothing is lost.</summary>

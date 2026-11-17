@@ -17,6 +17,14 @@ if (port is not null)
 
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
+// Key-possession gate for the multisig creation-room hub (constitution 1.2.0, co-signer coordination relay).
+builder.Services.AddSingleton<DigiByte.Api.Hubs.CreationRoomGate>();
+// Online multisig signing rooms (specs/017-multisig-online-signing): in-memory rooms, per-connection limits, anonymous telemetry.
+builder.Services.Configure<DigiByte.Api.Multisig.SigningRoomOptions>(builder.Configuration.GetSection(DigiByte.Api.Multisig.SigningRoomOptions.SectionName));
+builder.Services.AddSingleton<DigiByte.Api.Multisig.SigningRoomRegistry>();
+builder.Services.AddSingleton<DigiByte.Api.Multisig.SigningRoomRateLimiter>();
+builder.Services.AddSingleton<DigiByte.Api.Multisig.SigningRoomTelemetry>();
+builder.Services.AddHostedService<DigiByte.Api.Multisig.SigningRoomSweeper>();
 builder.Services.AddMemoryCache();
 // ── Oracle relay (specs/014-digibyte-io-oracle): the wallet reads the oracle price and DigiDollar protection status from here, never from
 // digibyte.io itself. Fixed requests, no cookies, no redirects; Oracle:Enabled switches the route off, Oracle:BaseUrl must be https. ──
@@ -88,6 +96,19 @@ builder.Services.AddRateLimiter(limiter =>
             QueueLimit = 0,
             AutoReplenishment = true,
         }));
+    // Signing-room hub connections: 30 per minute per client address, so reconnecting can't reset the hub's own
+    // per-connection limits cheaply (specs/017-multisig-online-signing, research R10).
+    // Only new connections (negotiate) count: long-polling transports make a request per poll and must not be throttled.
+    limiter.AddPolicy(SigningHubRateLimitPolicy, context =>
+        context.Request.Path.Value?.EndsWith("/negotiate", StringComparison.OrdinalIgnoreCase) == true
+            ? RateLimitPartition.GetFixedWindowLimiter(SponsorEndpoints.ClientKey(context), _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            })
+            : RateLimitPartition.GetNoLimiter("signing-hub-transport"));
     limiter.OnRejected = async (context, token) =>
     {
         if (context.HttpContext.Request.Path.StartsWithSegments("/api/oracle"))
@@ -180,8 +201,13 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp =
 // SignalR hubs
 app.MapHub<TradeChatHub>("/hubs/trade");
 app.MapHub<MultisigRoomHub>("/hubs/multisig-room");
+app.MapHub<DigiByte.Api.Hubs.MultisigSigningHub>("/hubs/multisig-signing").RequireRateLimiting(SigningHubRateLimitPolicy);
 
 app.Run();
 
 // Exposed so the API test project can host the app in-process (tests/DigiByte.Api.Tests).
-public partial class Program { }
+public partial class Program
+{
+    /// <summary>Rate-limit policy for connections to the signing-room hub.</summary>
+    public const string SigningHubRateLimitPolicy = "signing-hub-connect";
+}
