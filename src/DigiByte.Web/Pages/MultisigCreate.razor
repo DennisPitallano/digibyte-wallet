@@ -11,21 +11,10 @@
 
 <AuthGuard>
 <div class="flex flex-col gap-5">
-    @* Step Indicator *@
+    @* Same step language as the online creation room (spec 018, FR-008) *@
     @if (step != Step.Done)
     {
-    <div class="flex flex-col items-center gap-1.5 mb-2 fade-in" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="@((int)step + 1)">
-        <div class="flex items-center justify-center gap-2">
-            @for (int i = 0; i < 3; i++)
-            {
-                var idx = i;
-                <div class="h-1.5 rounded-full transition-all duration-500 ease-out @(idx <= (int)step ? "bg-dgb-500 w-10" : "bg-slate-200 dark:bg-dgb-800 w-6")"></div>
-            }
-        </div>
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            Step @((int)step + 1) of 3 · @(step switch { Step.Configure => "Setup", Step.AddSigners => "Co-signers", _ => "Review" })
-        </p>
-    </div>
+        <StepIndicator Steps="manualSteps" Current="(int)step" />
     }
 
     @if (step == Step.Configure)
@@ -69,9 +58,7 @@
                         </select>
                     </div>
                 </div>
-                <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                    @requiredSigs of @totalSigners signers must approve each transaction.
-                </p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2" aria-live="polite">@SchemeExplainer.Describe(requiredSigs, totalSigners)</p>
             </div>
         </div>
 
@@ -124,16 +111,23 @@
                 <button type="button" class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-2.5 py-1 rounded-full press-effect disabled:opacity-50"
                         @onclick="CopyOwnKey" disabled="@string.IsNullOrWhiteSpace(ownPubKeyHex)">Copy</button>
             </div>
-            <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 leading-relaxed mt-2">
-                This is the public key of your wallet <b>@(WalletService.ActiveWallet?.Name ?? "Wallet")</b>. It's safe to share. Copy it and send it to your co-signers.
-                Using a different wallet to sign? Switch to it first, because each wallet has its own key.
-            </p>
+            <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 leading-relaxed mt-2">Your public key is safe to share. Copy it and send it to your co-signers.</p>
         </div>
 
-        <p class="slide-up-delay-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed px-1">
-            Ask each co-signer to open <b>Multisig → Create</b> on their device, get to this same screen and tap <b>Copy</b> on their own key,
-            then send it to you. Paste theirs below. A public key is a long code starting with <b>02</b> or <b>03</b>.
-        </p>
+        @* Longer help stays folded so the step shows one short instruction (spec 018, FR-013) *@
+        <CollapsePanel Title="How this works" @bind-IsOpen="showHow">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Ask each co-signer to open <b>Multisig → Create</b> on their device, get to this same screen and tap <b>Copy</b> on their own key, then send it to you.
+                Paste theirs below. A public key is a long code starting with <b>02</b> or <b>03</b>.
+            </p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Using a different wallet to sign? Switch to it first, because each wallet has its own key.</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                <b>Restoring a lost wallet?</b> Each signer first restores their own seed phrase, then use the same threshold and everyone's original public keys here. You'll get the same address back.
+            </p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Don't have everyone's key yet? Tap <b>Save draft</b> and finish later. Nobody else needs to be online while you create the wallet.
+            </p>
+        </CollapsePanel>
 
         @* Co-signer entries *@
         <div class="flex items-center justify-between px-1">
@@ -177,11 +171,7 @@
             }
         </div>
 
-        <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed px-1">
-            <b>Restoring a lost wallet?</b> Each signer first restores their own seed phrase, then use the same threshold and everyone's original public keys here. You'll get the same address back.
-        </p>
-
-        @if (draftWalletMismatch)
+@if (draftWalletMismatch)
         {
             <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
                 <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
@@ -191,11 +181,7 @@
             </div>
         }
 
-        <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed px-1">
-            Don't have everyone's key yet? Tap <b>Save draft</b> and finish later. Nobody else needs to be online while you create the wallet.
-        </p>
-
-        @if (!string.IsNullOrEmpty(error))
+@if (!string.IsNullOrEmpty(error))
         {
             <InlineError Message="@error" />
         }
@@ -322,6 +308,9 @@
 </AuthGuard>
 
 @code {
+    private bool showHow;
+    private static readonly string[] manualSteps = ["Set up", "Co-signers", "Confirm"];
+
     private enum Step { Configure, AddSigners, Review, Done }
     private Step step = Step.Configure;
     private DigiByte.Wallet.Models.MultisigWalletConfig? createdConfig;

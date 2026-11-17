@@ -1,0 +1,71 @@
+@inject ClipboardService Clipboard
+
+@* The payment as one calm summary: same fields in the same order on every screen. Technical details stay folded. *@
+<div class="@(Embedded ? "flex flex-col gap-3" : "p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-3")">
+    <div>
+        <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Amount</p>
+        <p class="text-2xl font-extrabold text-slate-900 dark:text-white">@MultisigFormat.Dgb(Summary.AmountSat) <span class="text-sm text-slate-400">DGB</span></p>
+    </div>
+
+    <div>
+        <div class="flex items-center justify-between gap-2">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Recipient</p>
+            <button type="button" class="inline-flex items-center gap-1 min-h-[44px] px-2 -my-2 text-[11px] font-semibold text-dgb-600 dark:text-dgb-300"
+                    aria-label="Copy recipient address" @onclick="() => Clipboard.CopyAsync(Summary.RecipientAddress)">
+                <UxIcon Name="copy" Class="w-3.5 h-3.5 shrink-0" /> Copy
+            </button>
+        </div>
+        <p class="font-mono text-sm break-words text-slate-800 dark:text-slate-100" aria-label="@Summary.RecipientAddress">@Summary.RecipientGrouped</p>
+    </div>
+
+    <div class="flex flex-wrap gap-x-8 gap-y-2">
+        <div>
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Network fee</p>
+            <p class="text-sm text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(Summary.FeeSat) DGB</p>
+        </div>
+        <div>
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total leaving the wallet</p>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(Summary.TotalOutSat) DGB</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Summary.Memo))
+    {
+        <div>
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Note</p>
+            <p class="text-sm text-slate-700 dark:text-slate-200 break-words">“@Summary.Memo”</p>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Summary.ChangeNote))
+    {
+        <p class="text-xs text-slate-500 dark:text-slate-400">@Summary.ChangeNote</p>
+    }
+
+    @if (ShowCheckCue)
+    {
+        <p class="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
+            <UxIcon Name="alert" Class="w-4 h-4 shrink-0 text-amber-500" />
+            <span>Check the recipient and amount with whoever asked for this payment before you sign.</span>
+        </p>
+    }
+
+    @if (Details is not null)
+    {
+        <CollapsePanel Title="Details" @bind-IsOpen="detailsOpen">
+            @Details
+        </CollapsePanel>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PaymentSummaryModel Summary { get; set; } = default!;
+    /// <summary>Advisory one-line cue; it never blocks signing.</summary>
+    [Parameter] public bool ShowCheckCue { get; set; }
+    /// <summary>Technical details (inputs, transaction ids); folded by default.</summary>
+    [Parameter] public RenderFragment? Details { get; set; }
+
+    /// <summary>True when shown inside another card (no border or padding of its own).</summary>
+    [Parameter] public bool Embedded { get; set; }
+
+    private bool detailsOpen;
+}

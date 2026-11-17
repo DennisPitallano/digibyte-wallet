@@ -1,0 +1,57 @@
+@* One headline for the viewer and at most one primary button. *@
+<div class="p-4 rounded-2xl border flex flex-col gap-3 @ToneClasses" role="status">
+    <div class="flex items-start gap-3">
+        <UxIcon Name="@IconName" Class="w-6 h-6 shrink-0 mt-0.5" />
+        <div class="min-w-0">
+            <p class="text-base font-bold break-words">@Headline.Title</p>
+            @if (!string.IsNullOrEmpty(Headline.Detail))
+            {
+                <p class="text-xs opacity-80 mt-0.5 break-words">@Headline.Detail</p>
+            }
+        </div>
+    </div>
+    @if (Headline.Action != PrimaryAction.None && !string.IsNullOrEmpty(Headline.ActionLabel))
+    {
+        <button class="w-full min-h-[48px] px-4 text-sm font-semibold rounded-xl press-effect disabled:opacity-50 @ButtonClasses"
+                disabled="@Busy" @onclick="() => OnAction.InvokeAsync(Headline.Action)">
+            @(Busy && !string.IsNullOrEmpty(BusyLabel) ? BusyLabel : Headline.ActionLabel)
+        </button>
+    }
+    @if (!string.IsNullOrEmpty(DisabledReason))
+    {
+        <p class="text-[11px] opacity-80">@DisabledReason</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RoomHeadline Headline { get; set; } = default!;
+    [Parameter] public EventCallback<PrimaryAction> OnAction { get; set; }
+    /// <summary>Disables the button while an action is running; <see cref="BusyLabel"/> replaces its text.</summary>
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? BusyLabel { get; set; }
+    /// <summary>Why the action cannot be used right now (for example while reconnecting); shown instead of hiding the button.</summary>
+    [Parameter] public string? DisabledReason { get; set; }
+
+    private string IconName => Headline.Tone switch
+    {
+        UxTone.Positive => "check-circle",
+        UxTone.Warning => "alert",
+        UxTone.Action => "pen",
+        _ => "clock",
+    };
+
+    private string ToneClasses => Headline.Tone switch
+    {
+        UxTone.Positive => "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/30 text-green-800 dark:text-green-200",
+        UxTone.Warning => "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/30 text-amber-800 dark:text-amber-200",
+        UxTone.Action => "bg-dgb-50 dark:bg-dgb-800/40 border-dgb-200 dark:border-dgb-700 text-slate-900 dark:text-white",
+        _ => "bg-white dark:bg-dgb-900 border-slate-200/80 dark:border-dgb-800 text-slate-800 dark:text-slate-100",
+    };
+
+    private string ButtonClasses => Headline.Tone switch
+    {
+        UxTone.Positive => "bg-green-500 hover:bg-green-600 text-white",
+        UxTone.Warning => "bg-amber-500 hover:bg-amber-600 text-white",
+        _ => "bg-dgb-500 hover:bg-dgb-600 text-white",
+    };
+}

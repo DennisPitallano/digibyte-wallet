@@ -1,0 +1,42 @@
+@* One status pill: icon + text, never color alone. Shows a shared state (Pending, Activity, wallet cards, rooms) or a signer status. *@
+<span class="@Classes" title="@Text">
+    <UxIcon Name="@Icon" Class="w-3.5 h-3.5 shrink-0" />
+    <span>@Text</span>
+</span>
+
+@code {
+    [Parameter] public MultisigState? State { get; set; }
+    [Parameter] public SignerStatus? Signer { get; set; }
+
+    private (string Text, string Icon, UxTone Tone) Resolved
+    {
+        get
+        {
+            if (State is { } s)
+            {
+                var info = MultisigStateVocabulary.For(s);
+                return (info.Label, info.Icon, info.Tone);
+            }
+            return Signer switch
+            {
+                SignerStatus.Signed => ("Signed", "check", UxTone.Positive),
+                SignerStatus.Declined => ("Declined", "x", UxTone.Warning),
+                SignerStatus.Ready => ("Ready", "check", UxTone.Positive),
+                SignerStatus.Joined => ("Joined", "user", UxTone.Neutral),
+                SignerStatus.NotJoined => ("Not joined yet", "clock", UxTone.Neutral),
+                _ => ("Waiting", "clock", UxTone.Neutral),
+            };
+        }
+    }
+
+    private string Text => Resolved.Text;
+    private string Icon => Resolved.Icon;
+
+    private string Classes => "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap " + Resolved.Tone switch
+    {
+        UxTone.Positive => "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300",
+        UxTone.Warning => "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+        UxTone.Action => "bg-dgb-100 text-dgb-700 dark:bg-dgb-800 dark:text-dgb-200",
+        _ => "bg-slate-100 text-slate-600 dark:bg-dgb-800 dark:text-slate-300",
+    };
+}

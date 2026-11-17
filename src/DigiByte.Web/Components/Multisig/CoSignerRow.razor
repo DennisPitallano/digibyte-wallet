@@ -15,7 +15,7 @@
         }
         @if (HasSigned)
         {
-            <span class="text-[11px] font-bold text-green-600 dark:text-green-400" title="Signed">✓</span>
+            <StatusBadge Signer="SignerStatus.Signed" />
         }
         <svg class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 @(expanded ? "rotate-180" : "")" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />

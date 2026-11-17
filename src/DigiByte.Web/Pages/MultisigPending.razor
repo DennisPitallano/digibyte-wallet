@@ -49,14 +49,8 @@
 
         @if (queue.Count == 0)
         {
-            <div class="flex flex-col items-center justify-center gap-3 py-12 text-center slide-up-delay-1">
-                <div class="w-14 h-14 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
-                    <svg class="w-7 h-7 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                </div>
-                <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nothing waiting</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Payments that need signatures will appear here.</p>
-                <button class="min-h-[44px] px-5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>Create a payment</button>
-            </div>
+            <EmptyState Message="Nothing is waiting. Payments that need signatures will appear here." ActionLabel="Create a payment"
+                        OnAction='() => Nav.NavigateTo($"/multisig/{WalletId}/send")' />
         }
         else
         {
@@ -65,27 +59,16 @@
                 {
                     var mine = MultisigWalletService.NeedsMySignature(tx, config);
                     var open = tx.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
-                    <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border @(mine ? "border-amber-300 dark:border-amber-700/50" : "border-slate-200/80 dark:border-dgb-800") @(tx.Status == PendingTxStatus.Cancelled ? "opacity-60" : "")">
-                        <div class="flex items-center justify-between gap-2 mb-2">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="text-[11px] font-bold uppercase tracking-wider @StatusColor(tx.Status)">@StatusText(tx.Status)</span>
-                                @if (mine)
-                                {
-                                    <span class="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">Needs your signature</span>
-                                }
-                            </div>
+                    var liveRoom = Room.Current?.UnsignedTxId == tx.UnsignedTxId && !string.IsNullOrEmpty(tx.UnsignedTxId);
+                    var state = PendingStateClassifier.Classify(tx, LocalKey, liveRoom);
+                    <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border @(mine ? "border-dgb-300 dark:border-dgb-600" : "border-slate-200/80 dark:border-dgb-800") @(tx.Status == PendingTxStatus.Cancelled ? "opacity-60" : "")">
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                            <StatusBadge State="state" />
                             <span class="text-[11px] text-slate-400 shrink-0">@MultisigFormat.Age(tx.CreatedAt)</span>
                         </div>
 
-                        <p class="text-lg font-extrabold text-slate-900 dark:text-white">@MultisigFormat.Dgb(tx.AmountSatoshis) <span class="text-sm text-slate-400">DGB</span></p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            to <span class="font-mono break-all">@tx.DestinationAddress</span>
-                        </p>
-                        <p class="text-[11px] text-slate-400 mt-0.5">Fee @MultisigFormat.Dgb(tx.FeeSatoshis) DGB</p>
-                        @if (!string.IsNullOrWhiteSpace(tx.Memo))
-                        {
-                            <p class="text-xs text-slate-600 dark:text-slate-300 mt-1">“@tx.Memo”</p>
-                        }
+                        <PaymentSummary Embedded="true" ShowCheckCue="mine"
+                                        Summary="PaymentSummaryBuilder.Build(tx.AmountSatoshis, tx.FeeSatoshis, tx.DestinationAddress, tx.Memo, null)" />
 
                         @if (open)
                         {
@@ -116,14 +99,14 @@
                                 @if (mine)
                                 {
                                     <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect disabled:opacity-50"
-                                            @onclick="() => SignTransaction(tx)" disabled="@isSigning">
+                                            @onclick="() => signConfirmFor = tx.Id" disabled="@isSigning">
                                         @(isSigning && busyId == tx.Id ? "Signing…" : "Sign")
                                     </button>
                                 }
                                 @if (open)
                                 {
-                                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 text-sm font-semibold rounded-xl hover:bg-dgb-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleOnline(tx)" aria-expanded="@(onlineFor == tx.Id)">
-                                        @(Room.Current?.UnsignedTxId == tx.UnsignedTxId ? "Return to room" : "Sign together online")
+                                    <button class="min-h-[44px] px-3 text-sm font-semibold rounded-xl transition-all press-effect @(liveRoom ? "flex-1 bg-dgb-500 hover:bg-dgb-600 text-white" : "bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 hover:bg-dgb-50 dark:hover:bg-dgb-800")" @onclick="() => ToggleOnline(tx)" aria-expanded="@(onlineFor == tx.Id)">
+                                        @(liveRoom ? "Open room" : "Sign together online")
                                     </button>
                                 }
                                 <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleShare(tx)" aria-expanded="@(shareFor == tx.Id)">Share</button>
@@ -132,6 +115,19 @@
                                     <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => ToggleImport(tx)" aria-expanded="@(importFor == tx.Id)">Import signature</button>
                                 }
                                 <button class="min-h-[44px] px-3 text-sm font-medium text-slate-400 hover:text-red-500" @onclick="() => cancelFor = tx.Id">Cancel</button>
+                            </div>
+                        }
+
+                        @* Confirm signing: restate amount and recipient (spec 018, FR-007) *@
+                        @if (signConfirmFor == tx.Id && mine)
+                        {
+                            <div class="mt-3 p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="Confirm signing">
+                                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Sign @MultisigFormat.Dgb(tx.AmountSatoshis) DGB to @MultisigFormat.Short(tx.DestinationAddress)?</p>
+                                <div class="flex gap-2">
+                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                            disabled="@isSigning" @onclick="() => ConfirmSign(tx)">Confirm and sign</button>
+                                    <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="() => signConfirmFor = null">Back</button>
+                                </div>
                             </div>
                         }
 
@@ -268,6 +264,8 @@
     private string? error;
 
     private string? loadedFor;
+    private string? signConfirmFor;
+    private string? LocalKey => config?.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex;
 
     // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
     protected override async Task OnParametersSetAsync()
@@ -309,6 +307,12 @@
     private string roomName = "";
     private bool isOpening;
     private bool roomEventsWired;
+
+    private async Task ConfirmSign(PendingMultisigTransaction tx)
+    {
+        signConfirmFor = null;
+        await SignTransaction(tx);
+    }
 
     private async Task ToggleOnline(PendingMultisigTransaction tx)
     {
@@ -599,24 +603,4 @@
             error = ex.Message;
         }
     }
-
-    private static string StatusText(PendingTxStatus status) => status switch
-    {
-        PendingTxStatus.AwaitingSignatures => "Awaiting signatures",
-        PendingTxStatus.ReadyToFinalize => "Ready to broadcast",
-        PendingTxStatus.Broadcast => "Broadcast",
-        PendingTxStatus.Failed => "Failed",
-        PendingTxStatus.Cancelled => "Cancelled",
-        _ => status.ToString(),
-    };
-
-    private static string StatusColor(PendingTxStatus status) => status switch
-    {
-        PendingTxStatus.AwaitingSignatures => "text-amber-500",
-        PendingTxStatus.ReadyToFinalize => "text-green-500",
-        PendingTxStatus.Broadcast => "text-dgb-500",
-        PendingTxStatus.Failed => "text-red-500",
-        PendingTxStatus.Cancelled => "text-slate-400",
-        _ => "text-slate-500",
-    };
 }

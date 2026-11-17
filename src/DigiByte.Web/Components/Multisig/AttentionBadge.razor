@@ -1,0 +1,12 @@
+@if (Count > 0)
+{
+    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-dgb-500 text-white"
+          aria-label="@(Count == 1 ? "1 payment needs your signature" : $"{Count} payments need your signature")">
+        <UxIcon Name="pen" Class="w-3 h-3 shrink-0" />
+        <span aria-hidden="true">@Count</span>
+    </span>
+}
+
+@code {
+    [Parameter] public int Count { get; set; }
+}

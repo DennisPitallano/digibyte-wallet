@@ -1,0 +1,42 @@
+@* The signer cards plus a hidden live region that announces who changed (for screen readers). *@
+<div>
+    <ul class="flex flex-col gap-1.5">
+        @foreach (var card in Cards)
+        {
+            <SignerCard Card="card" />
+        }
+    </ul>
+    <p class="sr-only" role="status" aria-live="polite">@announcement</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SignerCardModel> Cards { get; set; } = [];
+
+    private Dictionary<string, (SignerStatus Status, SignerPresence? Presence)> previous = new(StringComparer.OrdinalIgnoreCase);
+    private string announcement = "";
+
+    protected override void OnParametersSet()
+    {
+        var changes = new List<string>();
+        foreach (var c in Cards.Where(c => c.PublicKeyHex.Length > 0))
+        {
+            var name = c.IsYou ? "You" : c.DisplayName;
+            if (previous.TryGetValue(c.PublicKeyHex, out var old))
+            {
+                if (old.Status != c.Status) changes.Add($"{name}: {StatusText(c.Status)}");
+                if (old.Presence != c.Presence && c.Presence is { } p) changes.Add($"{name} is {(p == SignerPresence.Online ? "online" : "offline")}");
+            }
+        }
+        if (changes.Count > 0) announcement = string.Join(". ", changes);
+        previous = Cards.Where(c => c.PublicKeyHex.Length > 0).ToDictionary(c => c.PublicKeyHex, c => (c.Status, c.Presence), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string StatusText(SignerStatus s) => s switch
+    {
+        SignerStatus.Signed => "signed",
+        SignerStatus.Declined => "declined",
+        SignerStatus.Ready => "ready",
+        SignerStatus.Joined => "joined",
+        _ => "waiting",
+    };
+}

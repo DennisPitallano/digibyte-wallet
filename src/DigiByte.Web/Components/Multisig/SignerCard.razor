@@ -1,0 +1,63 @@
+@* One co-signer: initials avatar, name ("You" marked), presence and a status pill. Presence and status are separate facts. *@
+@if (Card.Status == SignerStatus.NotJoined)
+{
+    <li class="flex items-center gap-3 p-2.5 rounded-xl border border-dashed border-slate-300 dark:border-dgb-700 text-slate-400">
+        <span class="w-9 h-9 rounded-full border border-dashed border-slate-300 dark:border-dgb-700 flex items-center justify-center text-sm" aria-hidden="true">?</span>
+        <span class="text-sm flex-1">Not joined yet</span>
+    </li>
+}
+else
+{
+    <li class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-dgb-800/40">
+        <span class="relative shrink-0">
+            <span class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold @AvatarColor" aria-hidden="true">@Card.Initials</span>
+            @if (Card.Presence is { } presence)
+            {
+                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-dgb-900 @(presence == SignerPresence.Online ? "bg-green-500" : "bg-slate-400")" aria-hidden="true"></span>
+            }
+        </span>
+        <span class="min-w-0 flex-1">
+            <span class="flex items-center gap-1.5 min-w-0">
+                <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">@(Card.IsYou ? $"{Card.DisplayName} (You)" : Card.DisplayName)</span>
+                @if (Card.Fingerprint is not null)
+                {
+                    <span class="text-[10px] font-mono text-slate-400 shrink-0" title="Key ending @Card.Fingerprint">…@Card.Fingerprint</span>
+                }
+                @if (Card.IsCreator)
+                {
+                    <span class="text-[10px] font-semibold text-slate-400 shrink-0">Host</span>
+                }
+            </span>
+            @if (Card.Presence is { } p)
+            {
+                <span class="text-[11px] @(p == SignerPresence.Online ? "text-green-600 dark:text-green-400" : "text-slate-400")">@(p == SignerPresence.Online ? "Online" : "Offline")</span>
+            }
+        </span>
+        <StatusBadge Signer="Card.Status" />
+    </li>
+}
+
+@code {
+    [Parameter, EditorRequired] public SignerCardModel Card { get; set; } = default!;
+
+    private static readonly string[] Palette =
+    [
+        "bg-dgb-100 text-dgb-700 dark:bg-dgb-800 dark:text-dgb-200",
+        "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+        "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+        "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+    ];
+
+    // Decoration only: the colour comes from the key so a person keeps the same one, but it never carries meaning.
+    private string AvatarColor
+    {
+        get
+        {
+            var sum = 0;
+            foreach (var c in Card.PublicKeyHex) sum = (sum * 31 + c) & 0x7fffffff;
+            return Palette[sum % Palette.Length];
+        }
+    }
+}

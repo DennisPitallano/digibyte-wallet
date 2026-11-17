@@ -96,6 +96,7 @@
                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@EndedTitle</p>
                 @if (pending is not null)
                 {
+                    <div><StatusBadge State="PendingStateClassifier.Classify(pending, Room.MyKey, false)" /></div>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
                         Every signature collected is saved on this device (@pending.SignatureCount of @pending.RequiredSignatures).
                         @(pending.Status == PendingTxStatus.Broadcast ? "" : "You can finish with Share, Import and Broadcast on the Pending list.")
@@ -124,19 +125,11 @@
                 {
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">to @MultisigFormat.Short(facts.DestinationAddress)</p>
                 }
-                <p class="text-[11px] text-slate-400 mt-1" aria-live="polite">Room closes in @RemainingText</p>
-                @if (Room.IsReconnecting)
-                {
-                    <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-1" role="status">Reconnecting…</p>
-                }
+                <p class="text-[11px] text-slate-400 mt-1" aria-live="off">Room closes in @RemainingText</p>
             </div>
 
-            @if (view.Status == SigningRoomStatus.Open && view.Unreachable)
-            {
-                <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl" role="alert">
-                    <p class="text-sm text-amber-700 dark:text-amber-300">Too many co-signers declined, so this payment can't reach @view.RequiredSignatures signatures. You can cancel it on the Pending list.</p>
-                </div>
-            }
+            <ConnectionBanner IsReconnecting="Room.IsReconnecting" />
+
             @if (coinsSpent)
             {
                 <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl" role="alert">
@@ -144,79 +137,33 @@
                 </div>
             }
 
-            @* Payment details, read from the transaction itself *@
-            @if (facts is not null)
+            @* One headline and at most one primary button, from this viewer's point of view *@
+            @if (pending is not null)
             {
-                <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-2 text-sm">
-                    <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Recipient</p><p class="font-mono text-xs break-all text-slate-800 dark:text-slate-100">@facts.DestinationAddress</p></div>
-                    <div class="flex flex-wrap gap-x-6 gap-y-2">
-                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Amount</p><p class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(facts.AmountSat) DGB</p></div>
-                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Fee</p><p class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(facts.FeeSat) DGB</p></div>
-                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Change back</p><p class="text-slate-800 dark:text-slate-100">@(facts.ChangeSat > 0 ? $"{MultisigFormat.Dgb(facts.ChangeSat)} DGB" : "None")</p></div>
+                <RoomHeadlineCard Headline="Headline" OnAction="OnHeadlineAction"
+                              Busy="HeadlineBusy" BusyLabel="@HeadlineBusyLabel"
+                              DisabledReason="@(Room.IsReconnecting ? "Waiting for the connection to come back." : null)" />
+
+                @if (CanSign && !confirmSign)
+                {
+                    <button class="self-center min-h-[44px] px-3 text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @onclick="() => confirmDecline = true">Decline to sign</button>
+                }
+            }
+            else
+            {
+                <div class="p-3 text-center text-sm text-slate-500 dark:text-slate-400" role="status">Checking the payment against your multisig…</div>
+            }
+
+            @if (confirmSign && facts is not null && CanSign)
+            {
+                <div class="p-4 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-2xl flex flex-col gap-3" role="alertdialog" aria-label="Confirm signing">
+                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Sign @MultisigFormat.Dgb(facts.AmountSat) DGB to @MultisigFormat.Short(facts.DestinationAddress)?</p>
+                    <div class="flex gap-2">
+                        <button class="flex-1 min-h-[48px] bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                disabled="@(busy || Room.IsReconnecting)" @onclick="ConfirmSignAsync">@(busy ? "Signing…" : "Confirm and sign")</button>
+                        <button class="min-h-[48px] px-4 text-sm font-medium text-slate-500" @onclick="() => confirmSign = false">Back</button>
                     </div>
-                    @if (!string.IsNullOrWhiteSpace(facts.Memo))
-                    {
-                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Note in the transaction</p><p class="text-slate-700 dark:text-slate-200">“@facts.Memo”</p></div>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(view.Memo) && view.Memo != facts.Memo)
-                    {
-                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Note from co-signer (not verified)</p><p class="text-slate-700 dark:text-slate-200">“@view.Memo”</p></div>
-                    }
                 </div>
-            }
-
-            @* Signer checklist *@
-            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
-                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
-                    Signatures: @(pending?.SignatureCount ?? 0) of @view.RequiredSignatures
-                </p>
-                <ul class="flex flex-col gap-2">
-                    @foreach (var key in view.CoSignerKeys)
-                    {
-                        var (label, status, color) = SignerRow(key);
-                        <li class="flex items-center justify-between gap-2 text-sm">
-                            <span class="text-slate-800 dark:text-slate-100 truncate">@label</span>
-                            <span class="text-[11px] font-bold uppercase @color">@status</span>
-                        </li>
-                    }
-                </ul>
-            </div>
-
-            @* Actions *@
-            @if (pending is not null && view.Status != SigningRoomStatus.Broadcast)
-            {
-                <div class="flex flex-wrap gap-2">
-                    @if (CanSign)
-                    {
-                        <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
-                                disabled="@busy" @onclick="SignAsync">@(busy ? "Signing…" : "Sign")</button>
-                        <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
-                                @onclick="() => confirmDecline = true">Decline</button>
-                    }
-                    else if (IMSigned)
-                    {
-                        <span class="flex-1 min-h-[44px] inline-flex items-center justify-center text-sm font-semibold text-green-600 dark:text-green-400">You signed</span>
-                    }
-                    @if (pending.HasEnoughSignatures)
-                    {
-                        <button class="flex-1 min-h-[44px] py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
-                                disabled="@(broadcasting || claimHolder is not null && claimHolder != Room.MyKey)" @onclick="BroadcastAsync">
-                            @(broadcasting ? "Broadcasting…" : claimHolder is not null && claimHolder != Room.MyKey ? $"Broadcasting by {NameOf(claimHolder)}…" : broadcastFailure is not null ? "Retry broadcast" : "Broadcast")
-                        </button>
-                    }
-                </div>
-            }
-            @if (view.Status == SigningRoomStatus.Broadcast && view.BroadcastTxId is not null)
-            {
-                <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-xl flex flex-col gap-2" role="status">
-                    <p class="text-sm font-semibold text-green-700 dark:text-green-300">Sent. It now shows in Activity.</p>
-                    <p class="text-xs font-mono break-all text-green-700 dark:text-green-300">@view.BroadcastTxId</p>
-                    <button class="self-start min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-green-200 dark:border-green-800 text-xs font-semibold rounded-xl" @onclick="() => Clipboard.CopyAsync(view.BroadcastTxId)">Copy transaction ID</button>
-                </div>
-            }
-            @if (broadcastFailure is not null)
-            {
-                <p class="text-xs text-red-600 dark:text-red-400 break-words" role="alert">Broadcast failed: @broadcastFailure</p>
             }
 
             @if (confirmDecline)
@@ -229,6 +176,42 @@
                         <button class="min-h-[44px] px-3 text-xs font-medium text-slate-500" @onclick="() => confirmDecline = false">Back</button>
                     </div>
                 </div>
+            }
+
+            @* Payment details, read from the transaction itself *@
+            @if (facts is not null)
+            {
+                <PaymentSummary Summary="Summary" ShowCheckCue="CanSign">
+                    <Details>
+                        @if (!string.IsNullOrWhiteSpace(view.Memo) && view.Memo != facts.Memo)
+                        {
+                            <p class="text-xs text-slate-500 dark:text-slate-400 break-words">Note from co-signer (not verified): “@view.Memo”</p>
+                        }
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Inputs spent: @facts.Inputs.Count</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 break-all">Unsigned transaction id: <span class="font-mono">@view.UnsignedTxId</span></p>
+                    </Details>
+                </PaymentSummary>
+            }
+
+            @* Who is here and who has signed *@
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-3">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Signatures: @SignedCount of @view.RequiredSignatures
+                </p>
+                <SignerList Cards="Cards" />
+            </div>
+
+            @if (view.Status == SigningRoomStatus.Broadcast && view.BroadcastTxId is not null)
+            {
+                <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-xl flex flex-col gap-2" role="status">
+                    <p class="text-sm font-semibold text-green-700 dark:text-green-300">It now shows in Activity.</p>
+                    <p class="text-xs font-mono break-all text-green-700 dark:text-green-300">@view.BroadcastTxId</p>
+                    <button class="self-start min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-green-200 dark:border-green-800 text-xs font-semibold rounded-xl" @onclick="() => Clipboard.CopyAsync(view.BroadcastTxId)">Copy transaction ID</button>
+                </div>
+            }
+            @if (broadcastFailure is not null)
+            {
+                <p class="text-xs text-red-600 dark:text-red-400 break-words" role="alert">Broadcast failed: @broadcastFailure</p>
             }
 
             @* Share the room *@
@@ -286,6 +269,8 @@
     private string? broadcastFailure;
     private string? claimHolder;
     private bool confirmDecline;
+    private bool confirmSign;
+    private readonly PresenceDebouncer presence = new();
     private bool confirmClose;
     private bool coinsSpent;
     private string? endReason;
@@ -300,6 +285,39 @@
     private bool IMSigned => pending is not null && Room.MyKey is not null && pending.SignedBy.Any(k => Same(k, Room.MyKey));
     private bool IDeclined => view?.Participants.Any(p => Same(p.PublicKeyHex, Room.MyKey) && p.Action == SigningParticipantAction.Declined) == true;
     private bool CanSign => pending is not null && !IMSigned && !IDeclined && pending.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
+
+    private int SignedCount => Math.Min(pending?.SignatureCount ?? view?.SignedKeys.Count ?? 0, view?.RequiredSignatures ?? 0);
+    private bool ClaimedByOther => claimHolder is not null && !Same(claimHolder, Room.MyKey);
+
+    private RoomHeadline Headline
+    {
+        get
+        {
+            var phaseOfRoom = view!.Status switch
+            {
+                SigningRoomStatus.Broadcast => RoomPhase.Broadcast,
+                SigningRoomStatus.Complete => RoomPhase.Complete,
+                _ => RoomPhase.Open,
+            };
+            var headline = SigningRoomHeadline.For(phaseOfRoom, IMSigned, IDeclined, SignedCount, view.RequiredSignatures,
+                view.Status == SigningRoomStatus.Open && view.Unreachable, isWatchOnly: false);
+            // A failed broadcast keeps the same button, worded as a retry.
+            return headline.Action == PrimaryAction.Broadcast && broadcastFailure is not null
+                ? headline with { ActionLabel = "Retry broadcast" }
+                : headline;
+        }
+    }
+
+    private bool HeadlineBusy => busy || broadcasting || Room.IsReconnecting || (Headline.Action == PrimaryAction.Broadcast && ClaimedByOther);
+    private string? HeadlineBusyLabel => broadcasting ? "Broadcasting…"
+        : Headline.Action == PrimaryAction.Broadcast && ClaimedByOther ? $"Broadcasting by {NameOf(claimHolder!)}…"
+        : busy ? "Signing…" : null;
+
+    private PaymentSummaryModel Summary => PaymentSummaryBuilder.Build(
+        facts!.AmountSat, facts.FeeSat, facts.DestinationAddress, facts.Memo, facts.ChangeSat > 0 ? facts.ChangeSat : null);
+
+    private IReadOnlyList<SignerCardModel> Cards => SignerCards.Build(
+        view!.CoSignerKeys.Select(SignerInputFor).ToList(), Room.MyKey, presence.IsOnline);
 
     private string RemainingText
     {
@@ -436,6 +454,8 @@
         await InvokeAsync(async () =>
         {
             view = state;
+            foreach (var key in state.CoSignerKeys)
+                presence.Observe(key, state.Participants.Any(p => Same(p.PublicKeyHex, key) && p.Online));
             claimHolder = state.BroadcastClaimHolder;
             if (phase is Phase.Join or Phase.Connecting) phase = Phase.InRoom;
             if (pending is null && state.IncludesPayload && !resolving)
@@ -633,6 +653,31 @@
 
     // ─── Actions ───
 
+    private async Task OnHeadlineAction(PrimaryAction action)
+    {
+        switch (action)
+        {
+            case PrimaryAction.ReviewAndSign:
+                confirmSign = true;
+                break;
+            case PrimaryAction.Broadcast:
+                await BroadcastAsync();
+                break;
+            case PrimaryAction.GoToPending:
+                Nav.NavigateTo(BackHref);
+                break;
+            case PrimaryAction.View:
+                Nav.NavigateTo(config is null ? "/multisig" : $"/multisig/{config.WalletId}/activity");
+                break;
+        }
+    }
+
+    private async Task ConfirmSignAsync()
+    {
+        await SignAsync();
+        if (IMSigned) { confirmSign = false; notice = "Your signature was added."; }
+    }
+
     private async Task SignAsync()
     {
         if (busy || pending is null) return;   // a double tap signs once
@@ -742,19 +787,20 @@
 
     // ─── Display helpers ───
 
-    private (string Label, string Status, string Color) SignerRow(string key)
+    private SignerInput SignerInputFor(string key)
     {
         var local = config?.CoSigners.FirstOrDefault(c => Same(c.PublicKeyHex, key));
         var participant = view?.Participants.FirstOrDefault(p => Same(p.PublicKeyHex, key));
         var mine = Same(key, Room.MyKey);
-        var label = mine ? "You" : local?.Name ?? MultisigFormat.Short(key);
-        if (!mine && participant is not null && participant.DisplayName != label)
-            label += $" ({participant.DisplayName})";
+        var name = local?.Name ?? participant?.DisplayName ?? MultisigFormat.Short(key);
+        if (!mine && participant is not null && participant.DisplayName != name)
+            name += $" ({participant.DisplayName})";
 
-        if (pending?.SignedBy.Any(k => Same(k, key)) == true) return (label, "Signed", "text-green-500");
-        if (participant?.Action == SigningParticipantAction.Declined) return (label, "Declined", "text-red-500");
-        if (participant is null) return (label, "Not joined", "text-slate-400");
-        return participant.Online ? (label, "Joined", "text-dgb-500") : (label, "Offline", "text-amber-500");
+        var status = pending?.SignedBy.Any(k => Same(k, key)) == true || view?.SignedKeys.Any(k => Same(k, key)) == true ? SignerStatus.Signed
+            : participant?.Action == SigningParticipantAction.Declined ? SignerStatus.Declined
+            : SignerStatus.Waiting;
+
+        return new SignerInput(key, name, participant?.Online == true, status, participant?.IsCreator == true);
     }
 
     private string NameOf(string key)

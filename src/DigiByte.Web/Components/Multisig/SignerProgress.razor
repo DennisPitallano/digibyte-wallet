@@ -8,7 +8,7 @@
         <span class="font-semibold text-slate-600 dark:text-slate-300">@signed of @Pending.RequiredSignatures signatures</span>
         @if (Pending.HasEnoughSignatures)
         {
-            <span class="font-bold text-green-600 dark:text-green-400">Complete</span>
+            <span class="inline-flex items-center gap-1 font-bold text-green-600 dark:text-green-400"><UxIcon Name="check-circle" Class="w-3.5 h-3.5 shrink-0" />Ready to broadcast</span>
         }
     </div>
     <div class="h-1.5 rounded-full bg-slate-200 dark:bg-dgb-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="@Pending.RequiredSignatures" aria-valuenow="@signed">
@@ -18,8 +18,9 @@
         @foreach (var signer in Config.CoSigners)
         {
             var has = Pending.SignedBy.Contains(signer.PublicKeyHex, StringComparer.OrdinalIgnoreCase);
-            <li class="text-[11px] @(has ? "text-green-600 dark:text-green-400" : "text-slate-400")">
-                @(signer.IsLocal ? "You" : signer.Name) @(has ? "✓" : "—")<span class="sr-only">@(has ? " signed" : " not signed")</span>
+            <li class="inline-flex items-center gap-1 text-[11px] @(has ? "text-green-600 dark:text-green-400 font-semibold" : "text-slate-400")">
+                <UxIcon Name="@(has ? "check" : "clock")" Class="w-3 h-3 shrink-0" />
+                <span>@(signer.IsLocal ? "You" : signer.Name)</span><span class="sr-only">@(has ? " signed" : " not signed yet")</span>
             </li>
         }
     </ul>
