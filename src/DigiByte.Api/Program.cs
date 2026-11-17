@@ -17,6 +17,8 @@ if (port is not null)
 
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
+// Key-possession gate for the multisig creation-room hub (constitution 1.2.0, co-signer coordination relay).
+builder.Services.AddSingleton<DigiByte.Api.Hubs.CreationRoomGate>();
 builder.Services.AddMemoryCache();
 // ── Oracle relay (specs/014-digibyte-io-oracle): the wallet reads the oracle price and DigiDollar protection status from here, never from
 // digibyte.io itself. Fixed requests, no cookies, no redirects; Oracle:Enabled switches the route off, Oracle:BaseUrl must be https. ──

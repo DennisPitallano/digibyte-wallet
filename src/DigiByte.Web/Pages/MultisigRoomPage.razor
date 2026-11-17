@@ -11,6 +11,7 @@
 
 @using Microsoft.AspNetCore.SignalR.Client
 @using DigiByte.P2P.Shared.Models
+@using DigiByte.Crypto.Multisig
 
 <PageTitle>Multisig Room — DigiByte Wallet</PageTitle>
 
@@ -441,7 +442,9 @@
         {
             await EnsureHubConnected();
             isInitiator = true;
-            await hub!.InvokeAsync("CreateRoom", walletName.Trim(), requiredSigs, totalSigners, displayName.Trim(), myPublicKey);
+            var name = walletName.Trim();
+            var proof = await ProveKeyAsync("create", name);
+            await hub!.InvokeAsync("CreateRoom", name, requiredSigs, totalSigners, displayName.Trim(), myPublicKey, proof);
         }
         catch (Exception ex)
         {
@@ -466,13 +469,29 @@
         {
             await EnsureHubConnected();
             isInitiator = false;
-            await hub!.InvokeAsync("JoinRoom", inviteCode.Trim().ToUpperInvariant(), displayName.Trim(), myPublicKey);
+            var code = inviteCode.Trim().ToUpperInvariant();
+            var proof = await ProveKeyAsync("join", code);
+            await hub!.InvokeAsync("JoinRoom", code, displayName.Trim(), myPublicKey, proof);
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to join room: {ex.Message}";
             isConnecting = false;
         }
+    }
+
+    /// <summary>
+    /// Asks the hub for a single-use nonce and signs it with this wallet's multisig key, proving we hold the public key we
+    /// submit (constitution 1.2.0, co-signer coordination relay). The private key lives only in this method's locals.
+    /// </summary>
+    private async Task<string> ProveKeyAsync(string purpose, string target)
+    {
+        var nonceHex = await hub!.InvokeAsync<string>("RequestChallenge");
+        var connectionId = hub.ConnectionId ?? throw new InvalidOperationException("Not connected to the room server.");
+        var keyHex = WalletService.GetPrivateKeyForMultisig()
+            ?? throw new InvalidOperationException("Wallet is locked or private key unavailable.");
+        using var key = new NBitcoin.Key(Convert.FromHexString(keyHex));
+        return CoSignerProof.Sign(key, CoSignerProof.CreationRoomDomain, purpose, target, nonceHex, connectionId);
     }
 
     private async Task SetReady()
