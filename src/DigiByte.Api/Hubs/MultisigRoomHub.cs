@@ -7,13 +7,30 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace DigiByte.Api.Hubs;
 
+/// <summary>
+/// Creation-room relay. A co-signer coordination relay under constitution 1.2.0 (Auth boundary): connections are anonymous,
+/// but CreateRoom and JoinRoom each need a fresh, single-use proof that the caller holds the public key it submits (see
+/// <see cref="CreationRoomGate"/>). That proof admits only this connection, only to that room, until it disconnects.
+/// Nothing here logs keys, invite codes or names.
+/// </summary>
 public class MultisigRoomHub : Hub<IMultisigRoomClient>, IMultisigRoomHub
 {
+    public const string InvalidInviteMessage = "Invalid or expired invite code.";
+    public const string RateLimitedMessage = "Too many attempts. Please wait a minute and try again.";
+    public const string CreateProofFailedMessage = "Could not verify that you hold this key. Please try again.";
+    public const string AlreadyInRoomMessage = "Leave your current room first.";
+
     private static readonly ConcurrentDictionary<string, MultisigRoom> _rooms = new();
     private static readonly ConcurrentDictionary<string, string> _inviteCodes = new(); // inviteCode → roomId
     private static readonly ConcurrentDictionary<string, string> _connectionRooms = new(); // connectionId → roomId
 
-    public async Task CreateRoom(string walletName, int requiredSignatures, int totalSigners, string initiatorName, string publicKeyHex)
+    private readonly CreationRoomGate _gate;
+
+    public MultisigRoomHub(CreationRoomGate gate) => _gate = gate;
+
+    public Task<string> RequestChallenge() => Task.FromResult(_gate.IssueChallenge(Context.ConnectionId));
+
+    public async Task CreateRoom(string walletName, int requiredSignatures, int totalSigners, string initiatorName, string publicKeyHex, string proof)
     {
         if (string.IsNullOrWhiteSpace(walletName) || string.IsNullOrWhiteSpace(initiatorName) || string.IsNullOrWhiteSpace(publicKeyHex))
         {
@@ -30,6 +47,18 @@ public class MultisigRoomHub : Hub<IMultisigRoomClient>, IMultisigRoomHub
         if (!IsValidPublicKeyHex(publicKeyHex))
         {
             await Clients.Caller.Error("Invalid public key format.");
+            return;
+        }
+
+        if (_connectionRooms.ContainsKey(Context.ConnectionId))
+        {
+            await Clients.Caller.Error(AlreadyInRoomMessage);
+            return;
+        }
+
+        if (!_gate.TryConsumeProof(Context.ConnectionId, CreationRoomGate.PurposeCreate, walletName, publicKeyHex, proof))
+        {
+            await Clients.Caller.Error(CreateProofFailedMessage);
             return;
         }
 
@@ -60,7 +89,7 @@ public class MultisigRoomHub : Hub<IMultisigRoomClient>, IMultisigRoomHub
         _ = Task.Delay(TimeSpan.FromMinutes(15)).ContinueWith(_ => CleanupRoom(room.RoomId, "Room expired."));
     }
 
-    public async Task JoinRoom(string inviteCode, string name, string publicKeyHex)
+    public async Task JoinRoom(string inviteCode, string name, string publicKeyHex, string proof)
     {
         if (string.IsNullOrWhiteSpace(inviteCode) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(publicKeyHex))
         {
@@ -68,10 +97,32 @@ public class MultisigRoomHub : Hub<IMultisigRoomClient>, IMultisigRoomHub
             return;
         }
 
-        var code = inviteCode.Trim().ToUpperInvariant();
-        if (!_inviteCodes.TryGetValue(code, out var roomId) || !_rooms.TryGetValue(roomId, out var room))
+        if (_gate.IsJoinRateLimited(Context.ConnectionId))
         {
-            await Clients.Caller.Error("Invalid or expired invite code.");
+            await Clients.Caller.Error(RateLimitedMessage);
+            return;
+        }
+
+        if (!IsValidPublicKeyHex(publicKeyHex))
+        {
+            await Clients.Caller.Error("Invalid public key format.");
+            return;
+        }
+
+        if (_connectionRooms.ContainsKey(Context.ConnectionId))
+        {
+            await Clients.Caller.Error(AlreadyInRoomMessage);
+            return;
+        }
+
+        // The proof is checked (using up its nonce) before the code is looked up, and a bad proof gets the same answer as
+        // an unknown code, so failed attempts reveal nothing about which codes exist.
+        var code = inviteCode.Trim().ToUpperInvariant();
+        var proofOk = _gate.TryConsumeProof(Context.ConnectionId, CreationRoomGate.PurposeJoin, code, publicKeyHex, proof);
+        if (!proofOk || !_inviteCodes.TryGetValue(code, out var roomId) || !_rooms.TryGetValue(roomId, out var room))
+        {
+            _gate.RecordJoinFailure(Context.ConnectionId);
+            await Clients.Caller.Error(InvalidInviteMessage);
             return;
         }
 
@@ -84,12 +135,6 @@ public class MultisigRoomHub : Hub<IMultisigRoomClient>, IMultisigRoomHub
         if (room.IsFull)
         {
             await Clients.Caller.Error($"Room is full ({room.TotalSigners}/{room.TotalSigners}).");
-            return;
-        }
-
-        if (!IsValidPublicKeyHex(publicKeyHex))
-        {
-            await Clients.Caller.Error("Invalid public key format.");
             return;
         }
 
@@ -181,6 +226,8 @@ public class MultisigRoomHub : Hub<IMultisigRoomClient>, IMultisigRoomHub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        _gate.Forget(Context.ConnectionId);
+
         if (_connectionRooms.TryRemove(Context.ConnectionId, out var roomId))
         {
             if (_rooms.TryGetValue(roomId, out var room))
