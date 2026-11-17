@@ -111,16 +111,23 @@
                 <button type="button" class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-2.5 py-1 rounded-full press-effect disabled:opacity-50"
                         @onclick="CopyOwnKey" disabled="@string.IsNullOrWhiteSpace(ownPubKeyHex)">Copy</button>
             </div>
-            <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 leading-relaxed mt-2">
-                This is the public key of your wallet <b>@(WalletService.ActiveWallet?.Name ?? "Wallet")</b>. It's safe to share. Copy it and send it to your co-signers.
-                Using a different wallet to sign? Switch to it first, because each wallet has its own key.
-            </p>
+            <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 leading-relaxed mt-2">Your public key is safe to share. Copy it and send it to your co-signers.</p>
         </div>
 
-        <p class="slide-up-delay-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed px-1">
-            Ask each co-signer to open <b>Multisig → Create</b> on their device, get to this same screen and tap <b>Copy</b> on their own key,
-            then send it to you. Paste theirs below. A public key is a long code starting with <b>02</b> or <b>03</b>.
-        </p>
+        @* Longer help stays folded so the step shows one short instruction (spec 018, FR-013) *@
+        <CollapsePanel Title="How this works" @bind-IsOpen="showHow">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Ask each co-signer to open <b>Multisig → Create</b> on their device, get to this same screen and tap <b>Copy</b> on their own key, then send it to you.
+                Paste theirs below. A public key is a long code starting with <b>02</b> or <b>03</b>.
+            </p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Using a different wallet to sign? Switch to it first, because each wallet has its own key.</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                <b>Restoring a lost wallet?</b> Each signer first restores their own seed phrase, then use the same threshold and everyone's original public keys here. You'll get the same address back.
+            </p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Don't have everyone's key yet? Tap <b>Save draft</b> and finish later. Nobody else needs to be online while you create the wallet.
+            </p>
+        </CollapsePanel>
 
         @* Co-signer entries *@
         <div class="flex items-center justify-between px-1">
@@ -164,11 +171,7 @@
             }
         </div>
 
-        <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed px-1">
-            <b>Restoring a lost wallet?</b> Each signer first restores their own seed phrase, then use the same threshold and everyone's original public keys here. You'll get the same address back.
-        </p>
-
-        @if (draftWalletMismatch)
+@if (draftWalletMismatch)
         {
             <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
                 <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
@@ -178,11 +181,7 @@
             </div>
         }
 
-        <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed px-1">
-            Don't have everyone's key yet? Tap <b>Save draft</b> and finish later. Nobody else needs to be online while you create the wallet.
-        </p>
-
-        @if (!string.IsNullOrEmpty(error))
+@if (!string.IsNullOrEmpty(error))
         {
             <InlineError Message="@error" />
         }
@@ -309,6 +308,7 @@
 </AuthGuard>
 
 @code {
+    private bool showHow;
     private static readonly string[] manualSteps = ["Set up", "Co-signers", "Confirm"];
 
     private enum Step { Configure, AddSigners, Review, Done }
