@@ -8,30 +8,67 @@
     <div class="modal-overlay" role="dialog" aria-modal="true" @onclick="Close">
         <div class="modal-card flex flex-col gap-4 max-h-[85vh] overflow-y-auto" tabindex="-1" role="dialog" aria-modal="true"
              aria-label="Data source" @ref="card" @onclick:stopPropagation="true" @onkeydown="OnKeyDown">
-            <div class="flex items-start justify-between gap-3">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Data source</h3>
-                <span class="mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 @DotClass" aria-hidden="true"></span>
+            @* Header: state icon, title, live status chip, close. *@
+            <div class="flex items-start gap-3">
+                <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 @IconTileClass" aria-hidden="true">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 12a7 7 0 0 1 14 0M8.5 15a3.5 3.5 0 0 1 7 0M12 18.5h.01M2.5 9a11 11 0 0 1 19 0" />
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-lg font-bold leading-tight text-slate-900 dark:text-white">Data source</h3>
+                    <span class="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full @ChipClass" role="status">
+                        <span class="relative flex w-1.5 h-1.5" aria-hidden="true">
+                            <span class="absolute inset-0 rounded-full @DotClass animate-ping opacity-60 motion-reduce:hidden"></span>
+                            <span class="relative w-1.5 h-1.5 rounded-full @DotClass"></span>
+                        </span>
+                        @Headline
+                    </span>
+                </div>
+                <button type="button" aria-label="Close"
+                        class="-mt-1 -mr-1 w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
+                        @onclick="Close">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+                </button>
             </div>
 
-            <p class="text-sm text-slate-700 dark:text-slate-200">@View.Detail</p>
+            @* The detail text is one string of short sentences; show each as its own row so it scans instead of reading as a wall. *@
+            <ul class="flex flex-col gap-2.5">
+                @foreach (var line in Sentences)
+                {
+                    <li class="flex gap-2.5 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                        <span class="mt-2 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-slate-300 dark:bg-dgb-600" aria-hidden="true"></span>
+                        <span>@line</span>
+                    </li>
+                }
+            </ul>
 
             @if (View.PrivacyLine is { } privacy)
             {
-                <p class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-dgb-950 rounded-xl p-3">@privacy</p>
+                <div class="flex gap-2.5 items-start rounded-xl p-3 bg-slate-50 dark:bg-dgb-950 border border-slate-200/70 dark:border-white/5">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-dgb-600 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+                    </svg>
+                    <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">@privacy</p>
+                </div>
             }
 
             @if (Options.PublicStatus)
             {
-                <a href="network" class="text-xs font-semibold text-dgb-600 dark:text-dgb-300 underline text-center" @onclick="Close">Network status</a>
+                <a href="network" @onclick="Close"
+                   class="flex items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-dgb-600 dark:text-dgb-300 bg-dgb-500/10 hover:bg-dgb-500/20 transition-colors">
+                    <span>View network status</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" /></svg>
+                </a>
             }
 
             @if (Options.DevView)
             {
-                <a href="dev/node" class="text-xs font-semibold text-dgb-600 dark:text-dgb-300 underline text-center" @onclick="Close">Developer view</a>
+                <a href="dev/node" class="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:underline text-center" @onclick="Close">Developer view</a>
             }
 
-            <button class="w-full py-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
-                    @onclick="Close">Close</button>
+            <button class="w-full py-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl press-effect hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                    @onclick="Close">Done</button>
         </div>
     </div>
 }
@@ -50,8 +87,39 @@
         NodeSourceDot.Green => "bg-green-500",
         NodeSourceDot.Amber => "bg-amber-500",
         NodeSourceDot.Red => "bg-red-500",
-        _ => "bg-slate-400",
+        NodeSourceDot.None => "bg-slate-400",
+        _ => "bg-green-500",
     };
+
+    // Neutral (public explorers answering) is the healthy default, so it reads green like the indicator dot.
+    private string Headline => View.Dot switch
+    {
+        NodeSourceDot.Green => "Own node in use",
+        NodeSourceDot.Amber => "Own node unavailable",
+        NodeSourceDot.Red => "No source reachable",
+        _ => "Public explorers · all working",
+    };
+
+    private string ChipClass => View.Dot switch
+    {
+        NodeSourceDot.Amber => "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+        NodeSourceDot.Red => "bg-red-500/15 text-red-700 dark:text-red-300",
+        NodeSourceDot.None => "bg-slate-500/15 text-slate-600 dark:text-slate-300",
+        _ => "bg-green-500/15 text-green-700 dark:text-green-300",
+    };
+
+    private string IconTileClass => View.Dot switch
+    {
+        NodeSourceDot.Amber => "bg-amber-500/15 text-amber-600 dark:text-amber-300",
+        NodeSourceDot.Red => "bg-red-500/15 text-red-600 dark:text-red-300",
+        NodeSourceDot.None => "bg-slate-500/15 text-slate-500",
+        _ => "bg-dgb-500/15 text-dgb-600 dark:text-dgb-300",
+    };
+
+    // Split the controlled, period-terminated copy into one row per sentence.
+    private IEnumerable<string> Sentences => System.Text.RegularExpressions.Regex
+        .Split(View.Detail.Trim(), @"(?<=\.)\s+")
+        .Where(s => s.Length > 0);
 
     protected override void OnParametersSet()
     {
