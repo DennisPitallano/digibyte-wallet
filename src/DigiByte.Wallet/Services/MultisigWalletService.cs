@@ -700,6 +700,19 @@ public class MultisigWalletService
     }
 
     /// <summary>
+    /// Removes cancelled proposals from this device's list (all of them, or just <paramref name="pendingId"/>).
+    /// Local only: nothing on-chain or on co-signers' devices changes. Returns how many were removed.
+    /// </summary>
+    public async Task<int> RemoveCancelledAsync(string walletId, string? pendingId = null)
+    {
+        var all = await GetPendingTransactionsAsync(walletId);
+        var removed = all.RemoveAll(p => p.Status == PendingTxStatus.Cancelled && (pendingId is null || p.Id == pendingId));
+        if (removed > 0)
+            await _storage.SetAsync(MultisigPendingPrefix + walletId, JsonSerializer.Serialize(all));
+        return removed;
+    }
+
+    /// <summary>
     /// Orders proposals as a to-do queue: needs this device's signature, ready to broadcast, waiting on others,
     /// failed, cancelled, then already broadcast. Newest first within each group.
     /// </summary>
