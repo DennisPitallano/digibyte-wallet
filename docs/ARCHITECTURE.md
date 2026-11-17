@@ -184,6 +184,7 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 | `ContactService` | Scoped | Contact CRUD, search |
 | `PaymentRequestService` | Scoped | BIP21 payment request management |
 | `MultisigWalletService` | Scoped | Multisig wallet CRUD, PSBT signing workflow, co-signer management |
+| `SigningRoomClient` | Scoped | Connection to the online signing-room hub (`/hubs/multisig-signing`); connects only when a room is opened or joined |
 | `PsbtSigningService` | Scoped | Loads, reviews, signs and broadcasts PSBTs made elsewhere (`/settings/psbt-sign`). Gathers chain facts and runs the pure `PsbtAnalyzer`; holds no PSBT between calls |
 | `IPsbtKeyProvider` | Scoped | Implemented by `WalletService`: the PSBT feature's only route to keys. Gives owned scripts (no key material) and signs chosen inputs on a copy |
 | `PsbtConfirmationFlow` | Per sign | Fixed order before signing or broadcasting: acknowledgment, spending limit, warnings, then biometrics or PIN. Stops at the first failure |
@@ -217,3 +218,15 @@ Baku is a static, client-side character; there is no backend and no AI. Spec: `s
 - **Poses**: transparent WebP files in `wwwroot/images/mascot/poses/`, cut from the source sheets by `tools/mascot-slice/slice.py`. The full-size source sheets stay in the repo but are excluded from publish output.
 - **Privacy and CSP**: only a presence mode and tip ids are stored on the device; assets are self-hosted, so the CSP is unchanged.
 
+## Online multisig signing rooms (specs/017-multisig-online-signing)
+
+`DigiByte.Api` hosts `/hubs/multisig-signing` (`MultisigSigningHub`, rules in `Multisig/SigningRoomRegistry`), a
+co-signer coordination relay under constitution 1.2.0. Connections are anonymous; a connection sees or changes a room
+only after a single-use `CoSignerProof` (signing-room domain) shows it holds one of that room's co-signer keys. Rooms
+carry public data only (keys, PSBT, signatures, display names, status), live in memory, end after 15–120 minutes
+(`MultisigSigning:MaxLifetimeMinutes`, default 120), and are swept every 15 s. Per-connection limits: 5 failed joins per
+minute, 10 rooms per hour; negotiate requests are limited to 30 per minute per client address. Logs and metrics
+(`DigiByte.Api.SigningRooms`) hold anonymous counts only.
+
+**Deployment constraint:** rooms live in one API instance's memory. Run a single instance, or route
+`/hubs/multisig-signing` with sticky sessions so every participant of a room reaches the same instance.

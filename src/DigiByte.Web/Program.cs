@@ -80,6 +80,8 @@ builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();
 builder.Services.AddScoped<MultisigWalletService>();
 builder.Services.AddScoped<DigiByte.Web.Services.ActiveWalletContext>();
+// Online multisig signing rooms (specs/017-multisig-online-signing): connects only when a room is opened or joined.
+builder.Services.AddScoped<DigiByte.Web.Services.SigningRoomClient>();
 builder.Services.AddScoped<BiometricService>();
 builder.Services.AddScoped<SpendingLimitService>();
 builder.Services.AddScoped<AddressLabelService>();

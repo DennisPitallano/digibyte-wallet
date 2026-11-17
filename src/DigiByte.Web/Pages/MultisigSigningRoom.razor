@@ -1,0 +1,797 @@
+@page "/multisig/sign-room"
+@implements IAsyncDisposable
+@inject SigningRoomClient Room
+@inject MultisigWalletService MultisigService
+@inject ActiveWalletContext ActiveWallet
+@inject WalletService WalletService
+@inject ClipboardService Clipboard
+@inject NavigationManager Nav
+
+@using DigiByte.Crypto.Networks
+
+@*
+    Online multisig signing room (specs/017-multisig-online-signing). Everything shown about the payment comes from the
+    transaction itself, checked against this device's multisig; the room only relays public data. Signing happens here,
+    on this device. Room display names are shown only here and never change local co-signer labels (FR-025).
+*@
+
+<PageTitle>Sign together — DigiByte Wallet</PageTitle>
+
+@* While redirecting to unlock (with the code kept), AuthGuard must not render: it would redirect again and drop the code. *@
+@if (!redirectingToUnlock)
+{
+<AuthGuard>
+<div class="flex flex-col gap-4">
+    <PageHeader Title="Sign together online" Subtitle="@HeaderSubtitle" BackLabel="Pending" BackHref="@BackHref">
+        <WalletChip />
+    </PageHeader>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl" role="alert">
+            <p class="text-sm text-red-600 dark:text-red-400 break-words">@error</p>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(notice))
+    {
+        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-xl" role="status">
+            <p class="text-sm text-green-700 dark:text-green-300 break-words">@notice</p>
+        </div>
+    }
+    @foreach (var warning in warnings)
+    {
+        <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl" role="alert">
+            <p class="text-sm text-amber-700 dark:text-amber-300 break-words">@warning</p>
+        </div>
+    }
+
+    @switch (phase)
+    {
+        case Phase.Connecting:
+            <div class="p-6 text-center text-sm text-slate-500 dark:text-slate-400" role="status">Connecting to the signing service…</div>
+            break;
+
+        case Phase.Unavailable:
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Online signing is unavailable right now.</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">You can still sign, share and import signatures from the Pending list.</p>
+                <button class="mt-3 min-h-[44px] px-4 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect" @onclick='() => Nav.NavigateTo("/multisig")'>Back to multisig</button>
+            </div>
+            break;
+
+        case Phase.Join:
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-3">
+                <p class="text-sm text-slate-600 dark:text-slate-300">Enter the code a co-signer shared with you. Only co-signers of the multisig can join.</p>
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-code">Room code</label>
+                <input id="room-code" @bind="code" @bind:event="oninput" maxlength="6" autocomplete="off"
+                       class="w-full min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl font-mono text-lg tracking-widest uppercase text-slate-900 dark:text-white outline-none focus:border-dgb-500" />
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-name">Your name in the room</label>
+                <input id="room-name" @bind="displayName" @bind:event="oninput" maxlength="40"
+                       class="w-full min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500" />
+                <button class="min-h-[44px] px-4 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                        disabled="@(busy || code.Trim().Length != 6 || string.IsNullOrWhiteSpace(displayName))" @onclick="JoinAsync">
+                    @(busy ? "Joining…" : "Join room")
+                </button>
+
+                @if (otherWallets.Count > 0)
+                {
+                    <div class="pt-2 border-t border-slate-100 dark:border-dgb-800">
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">If this payment belongs to another of your wallets, try with that wallet:</p>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var w in otherWallets)
+                            {
+                                <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect"
+                                        @onclick="() => SwitchWalletAndRetryAsync(w.Id)">
+                                    @(WalletService.IsWalletUnlocked(w.Id) ? $"Switch to {w.Name}" : $"Unlock {w.Name}")
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            break;
+
+        case Phase.Ended:
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-2" role="status">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@EndedTitle</p>
+                @if (pending is not null)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Every signature collected is saved on this device (@pending.SignatureCount of @pending.RequiredSignatures).
+                        @(pending.Status == PendingTxStatus.Broadcast ? "" : "You can finish with Share, Import and Broadcast on the Pending list.")
+                    </p>
+                    @if (!string.IsNullOrEmpty(pending.BroadcastTxId))
+                    {
+                        <p class="text-xs text-slate-500 dark:text-slate-400 break-all">Transaction ID: <span class="font-mono">@pending.BroadcastTxId</span></p>
+                    }
+                }
+                <button class="mt-2 min-h-[44px] px-4 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect" @onclick="() => Nav.NavigateTo(BackHref)">
+                    @(pending is null ? "Back to multisig" : "Go to Pending")
+                </button>
+            </div>
+            break;
+
+        case Phase.InRoom when view is not null:
+            @* Header: amount, recipient, code (several rooms stay easy to tell apart) *@
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-lg font-extrabold text-slate-900 dark:text-white">
+                        @(facts is null ? "…" : MultisigFormat.Dgb(facts.AmountSat)) <span class="text-sm text-slate-400">DGB</span>
+                    </p>
+                    <span class="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-dgb-800 px-2 py-0.5 rounded-full">@view.InviteCode</span>
+                </div>
+                @if (facts is not null)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">to @MultisigFormat.Short(facts.DestinationAddress)</p>
+                }
+                <p class="text-[11px] text-slate-400 mt-1" aria-live="polite">Room closes in @RemainingText</p>
+                @if (Room.IsReconnecting)
+                {
+                    <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-1" role="status">Reconnecting…</p>
+                }
+            </div>
+
+            @if (view.Status == SigningRoomStatus.Open && view.Unreachable)
+            {
+                <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl" role="alert">
+                    <p class="text-sm text-amber-700 dark:text-amber-300">Too many co-signers declined, so this payment can't reach @view.RequiredSignatures signatures. You can cancel it on the Pending list.</p>
+                </div>
+            }
+            @if (coinsSpent)
+            {
+                <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl" role="alert">
+                    <p class="text-sm text-amber-700 dark:text-amber-300">The coins this payment spends have already been spent, so it can no longer be completed. You can cancel it on the Pending list.</p>
+                </div>
+            }
+
+            @* Payment details, read from the transaction itself *@
+            @if (facts is not null)
+            {
+                <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-2 text-sm">
+                    <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Recipient</p><p class="font-mono text-xs break-all text-slate-800 dark:text-slate-100">@facts.DestinationAddress</p></div>
+                    <div class="flex flex-wrap gap-x-6 gap-y-2">
+                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Amount</p><p class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(facts.AmountSat) DGB</p></div>
+                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Fee</p><p class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(facts.FeeSat) DGB</p></div>
+                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Change back</p><p class="text-slate-800 dark:text-slate-100">@(facts.ChangeSat > 0 ? $"{MultisigFormat.Dgb(facts.ChangeSat)} DGB" : "None")</p></div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(facts.Memo))
+                    {
+                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Note in the transaction</p><p class="text-slate-700 dark:text-slate-200">“@facts.Memo”</p></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(view.Memo) && view.Memo != facts.Memo)
+                    {
+                        <div><p class="text-[11px] font-semibold text-slate-400 uppercase">Note from co-signer (not verified)</p><p class="text-slate-700 dark:text-slate-200">“@view.Memo”</p></div>
+                    }
+                </div>
+            }
+
+            @* Signer checklist *@
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+                    Signatures: @(pending?.SignatureCount ?? 0) of @view.RequiredSignatures
+                </p>
+                <ul class="flex flex-col gap-2">
+                    @foreach (var key in view.CoSignerKeys)
+                    {
+                        var (label, status, color) = SignerRow(key);
+                        <li class="flex items-center justify-between gap-2 text-sm">
+                            <span class="text-slate-800 dark:text-slate-100 truncate">@label</span>
+                            <span class="text-[11px] font-bold uppercase @color">@status</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            @* Actions *@
+            @if (pending is not null && view.Status != SigningRoomStatus.Broadcast)
+            {
+                <div class="flex flex-wrap gap-2">
+                    @if (CanSign)
+                    {
+                        <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                disabled="@busy" @onclick="SignAsync">@(busy ? "Signing…" : "Sign")</button>
+                        <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                                @onclick="() => confirmDecline = true">Decline</button>
+                    }
+                    else if (IMSigned)
+                    {
+                        <span class="flex-1 min-h-[44px] inline-flex items-center justify-center text-sm font-semibold text-green-600 dark:text-green-400">You signed</span>
+                    }
+                    @if (pending.HasEnoughSignatures)
+                    {
+                        <button class="flex-1 min-h-[44px] py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                disabled="@(broadcasting || claimHolder is not null && claimHolder != Room.MyKey)" @onclick="BroadcastAsync">
+                            @(broadcasting ? "Broadcasting…" : claimHolder is not null && claimHolder != Room.MyKey ? $"Broadcasting by {NameOf(claimHolder)}…" : broadcastFailure is not null ? "Retry broadcast" : "Broadcast")
+                        </button>
+                    }
+                </div>
+            }
+            @if (view.Status == SigningRoomStatus.Broadcast && view.BroadcastTxId is not null)
+            {
+                <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-xl flex flex-col gap-2" role="status">
+                    <p class="text-sm font-semibold text-green-700 dark:text-green-300">Sent. It now shows in Activity.</p>
+                    <p class="text-xs font-mono break-all text-green-700 dark:text-green-300">@view.BroadcastTxId</p>
+                    <button class="self-start min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-green-200 dark:border-green-800 text-xs font-semibold rounded-xl" @onclick="() => Clipboard.CopyAsync(view.BroadcastTxId)">Copy transaction ID</button>
+                </div>
+            }
+            @if (broadcastFailure is not null)
+            {
+                <p class="text-xs text-red-600 dark:text-red-400 break-words" role="alert">Broadcast failed: @broadcastFailure</p>
+            }
+
+            @if (confirmDecline)
+            {
+                <div class="p-3 bg-slate-50 dark:bg-dgb-800/50 border border-slate-200 dark:border-dgb-700 rounded-xl" role="alertdialog" aria-label="Confirm decline">
+                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Decline to sign this payment?</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Everyone in the room will see that you declined. Others can still sign.</p>
+                    <div class="flex gap-2 mt-2">
+                        <button class="min-h-[44px] px-4 bg-slate-700 text-white text-xs font-semibold rounded-xl" @onclick="DeclineAsync">Decline</button>
+                        <button class="min-h-[44px] px-3 text-xs font-medium text-slate-500" @onclick="() => confirmDecline = false">Back</button>
+                    </div>
+                </div>
+            }
+
+            @* Share the room *@
+            <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-2">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Invite your co-signers</p>
+                <p class="font-mono text-2xl font-extrabold tracking-[0.3em] text-slate-900 dark:text-white">@view.InviteCode</p>
+                <div class="flex flex-wrap gap-2">
+                    <button class="min-h-[44px] px-3 bg-dgb-500 text-white text-xs font-semibold rounded-xl press-effect" @onclick="CopyLinkAsync">Copy link</button>
+                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="() => Clipboard.CopyAsync(view.InviteCode)">Copy code</button>
+                </div>
+                <div class="flex justify-center pt-1"><QrImage Payload="@InviteLink" Alt="Signing room invite QR code" /></div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                @if (IsCreator)
+                {
+                    <button class="min-h-[44px] px-3 text-sm font-medium text-slate-500 hover:text-red-500" @onclick="() => confirmClose = true">Close room</button>
+                }
+                <button class="min-h-[44px] px-3 text-sm font-medium text-slate-500" @onclick="LeaveAsync">Leave</button>
+            </div>
+            @if (confirmClose)
+            {
+                <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl" role="alertdialog" aria-label="Confirm close room">
+                    <p class="text-sm font-bold text-red-700 dark:text-red-300">Close this room for everyone?</p>
+                    <p class="text-xs text-red-700 dark:text-red-400 mt-1">Closing the room does not cancel the payment. Everyone keeps the signatures collected so far.</p>
+                    <div class="flex gap-2 mt-2">
+                        <button class="min-h-[44px] px-4 bg-red-500 text-white text-xs font-semibold rounded-xl" @onclick="CloseAsync">Close room</button>
+                        <button class="min-h-[44px] px-3 text-xs font-medium text-slate-500" @onclick="() => confirmClose = false">Keep it open</button>
+                    </div>
+                </div>
+            }
+            break;
+    }
+</div>
+</AuthGuard>
+}
+
+@code {
+    private enum Phase { Connecting, Unavailable, Join, InRoom, Ended }
+
+    private bool redirectingToUnlock;
+
+    private Phase phase = Phase.Connecting;
+    private string code = "";
+    private string displayName = "";
+    private SigningRoomView? view;
+    private MultisigWalletConfig? config;
+    private PendingMultisigTransaction? pending;
+    private ProposalFacts? facts;
+    private string? error;
+    private string? notice;
+    private readonly List<string> warnings = [];
+    private bool busy;
+    private bool broadcasting;
+    private string? broadcastFailure;
+    private string? claimHolder;
+    private bool confirmDecline;
+    private bool confirmClose;
+    private bool coinsSpent;
+    private string? endReason;
+    private List<WalletInfo> otherWallets = [];
+    private CancellationTokenSource? ticker;
+    private bool resolving;
+
+    private string HeaderSubtitle => config?.DisplayName ?? "Multisig";
+    private string BackHref => config is null ? "/multisig" : $"/multisig/{config.WalletId}/pending";
+    private string InviteLink => view is null ? "" : $"{Nav.BaseUri}multisig/sign-room?code={view.InviteCode}";
+    private bool IsCreator => view?.Participants.Any(p => p.IsCreator && Same(p.PublicKeyHex, Room.MyKey)) == true;
+    private bool IMSigned => pending is not null && Room.MyKey is not null && pending.SignedBy.Any(k => Same(k, Room.MyKey));
+    private bool IDeclined => view?.Participants.Any(p => Same(p.PublicKeyHex, Room.MyKey) && p.Action == SigningParticipantAction.Declined) == true;
+    private bool CanSign => pending is not null && !IMSigned && !IDeclined && pending.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
+
+    private string RemainingText
+    {
+        get
+        {
+            if (view is null) return "";
+            var left = view.ExpiresAt - DateTimeOffset.UtcNow;
+            if (left < TimeSpan.Zero) left = TimeSpan.Zero;
+            return left.TotalHours >= 1 ? $"{(int)left.TotalHours}h {left.Minutes:D2}m" : $"{left.Minutes}:{left.Seconds:D2}";
+        }
+    }
+
+    private string EndedTitle => endReason switch
+    {
+        SigningRoomEndReasons.Expired => "The room's time ran out.",
+        SigningRoomEndReasons.Closed => "The room was closed.",
+        SigningRoomEndReasons.Broadcast => "The payment was sent and the room has closed.",
+        "superseded" => "You opened this room somewhere else, so it closed here.",
+        "connection_lost" => "The connection to the signing service was lost.",
+        "left" => "You left the room.",
+        "refused" => "You can't sign this payment here.",
+        _ => "The room has ended.",
+    };
+
+    protected override void OnInitialized()
+    {
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
+        code = (query["code"] ?? "").Trim().ToUpperInvariant();
+
+        // A locked wallet unlocks first, then comes back here with the code still in the link (FR-003). The return
+        // address is built from the code, never from the current address, so it can't nest.
+        if (!WalletService.IsUnlocked)
+        {
+            redirectingToUnlock = true;
+            // This page can start a second time while the address already shows /unlock; only the first start redirects.
+            if (!new Uri(Nav.Uri).AbsolutePath.EndsWith("/multisig/sign-room", StringComparison.OrdinalIgnoreCase)) return;
+            var back = "/multisig/sign-room" + (code.Length > 0 ? $"?code={Uri.EscapeDataString(code)}" : "");
+            redirectingToUnlock = true;
+            Nav.NavigateTo($"/unlock?returnUrl={Uri.EscapeDataString(back)}");
+            return;
+        }
+        displayName = ActiveWallet.WalletName;
+
+        Room.RoomStateReceived += OnRoomStateAsync;
+        Room.SignatureAdded += OnSignatureAddedAsync;
+        Room.BroadcastGranted += OnBroadcastGrantedAsync;
+        Room.BroadcastClaimed += OnBroadcastClaimedAsync;
+        Room.Broadcasted += OnBroadcastedAsync;
+        Room.BroadcastFailed += OnBroadcastFailedAsync;
+        Room.RoomEnded += OnRoomEndedAsync;
+        Room.ErrorReceived += OnErrorAsync;
+        Room.ConnectionChanged += OnConnectionChangedAsync;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!WalletService.IsUnlocked) return;
+
+        // Opened from the Pending list: the room is already there.
+        if (Room.Current is { } current && (code.Length == 0 || current.InviteCode == code))
+        {
+            await OnRoomStateAsync(current);
+            StartTicker();
+            return;
+        }
+
+        if (!await Room.CheckAvailabilityAsync())
+        {
+            phase = Phase.Unavailable;
+            return;
+        }
+        phase = Phase.Join;
+        await LoadOtherWalletsAsync();
+    }
+
+    // ─── Joining ───
+
+    private async Task JoinAsync()
+    {
+        if (busy) return;
+        busy = true;
+        error = null;
+        try
+        {
+            await Room.JoinAsync(code, displayName.Trim());
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task LoadOtherWalletsAsync()
+    {
+        try
+        {
+            var all = await WalletService.GetAllWalletsAsync();
+            otherWallets = all.Where(w => w.Id != ActiveWallet.WalletId).ToList();
+        }
+        catch { otherWallets = []; }
+    }
+
+    /// <summary>The payment may belong to another wallet on this device (US3 scenario 2): switch to it and try again.</summary>
+    private async Task SwitchWalletAndRetryAsync(string walletId)
+    {
+        error = null;
+        if (!WalletService.IsWalletUnlocked(walletId))
+        {
+            var back = $"/multisig/sign-room?code={Uri.EscapeDataString(code)}";
+            Nav.NavigateTo($"/unlock?returnUrl={Uri.EscapeDataString(back)}");
+            return;
+        }
+        try
+        {
+            await WalletService.SwitchWalletAsync(walletId);
+            displayName = ActiveWallet.WalletName;
+            await LoadOtherWalletsAsync();
+            await JoinAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    // ─── Room events ───
+
+    private async Task OnRoomStateAsync(SigningRoomView state)
+    {
+        await InvokeAsync(async () =>
+        {
+            view = state;
+            claimHolder = state.BroadcastClaimHolder;
+            if (phase is Phase.Join or Phase.Connecting) phase = Phase.InRoom;
+            if (pending is null && state.IncludesPayload && !resolving)
+                await ResolveLocalAsync(state);
+            if (pending is not null && state.Status == SigningRoomStatus.Broadcast && state.BroadcastTxId is { } txId)
+                await MarkSentAsync(txId);
+            StartTicker();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>
+    /// Finds this device's multisig and proposal for the room and checks them (FR-005), saves the payment if new (FR-006),
+    /// merges the room's verified signatures (FR-011) and hands over signatures held here (FR-012).
+    /// </summary>
+    private async Task ResolveLocalAsync(SigningRoomView state)
+    {
+        resolving = true;
+        try
+        {
+            if (!SameNetwork(state.Network))
+            {
+                await RefuseAsync("This room is for a different network.");
+                return;
+            }
+
+            config = await MultisigService.FindByRedeemScriptAsync(state.CoSignerKeys, state.RequiredSignatures, ActiveWallet.WalletId, ActiveWallet.PublicKey);
+            if (config is null)
+            {
+                var owners = await MultisigService.FindOwnerWalletIdsByRedeemScriptAsync(state.CoSignerKeys, state.RequiredSignatures);
+                await RefuseAsync(owners.Count > 0
+                    ? "This multisig is saved under another of your wallets. Switch to that wallet and join again."
+                    : "This multisig isn't on this device yet. Import it from Multisig → Import, then join again.");
+                return;
+            }
+            if (config.OwnKeyIndex < 0)
+            {
+                await RefuseAsync("Watch-only copies can't join signing rooms. Use Share and Import on the Pending list.");
+                return;
+            }
+
+            var existing = (await MultisigService.GetPendingTransactionsAsync(config.WalletId))
+                .FirstOrDefault(p => string.Equals(p.UnsignedTxId, state.UnsignedTxId, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                if (existing.Status == PendingTxStatus.Cancelled)
+                {
+                    await RefuseAsync("You cancelled this payment on this device, so it can't be signed here.");
+                    return;
+                }
+                if (MultisigService.CheckProposalMatches(existing, config, state.PsbtBase64!) is { } mismatch)
+                {
+                    await RefuseAsync(mismatch);
+                    return;
+                }
+            }
+
+            pending = await MultisigService.AdoptProposalAsync(config, state.PsbtBase64!);
+            foreach (var copy in state.SignedPsbts)
+                await MergeAsync(copy.PublicKeyHex, copy.PsbtBase64);
+
+            facts = MultisigProposalReader.Read(pending.PsbtBase64, config, MultisigService.ActiveNetwork);
+
+            // Signatures held here that the room doesn't have yet (e.g. imported offline) go to the room.
+            var roomHas = state.SignedKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (pending.SignedBy.Any(k => !roomHas.Contains(k)))
+                await Room.SubmitSignatureAsync(pending.PsbtBase64);
+
+            await CheckCoinsAsync();
+        }
+        catch (PsbtImportException ex)
+        {
+            await RefuseAsync(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            resolving = false;
+        }
+    }
+
+    private async Task RefuseAsync(string reason)
+    {
+        error = reason;
+        endReason = "refused";
+        phase = Phase.Ended;
+        await Room.LeaveAsync();
+    }
+
+    private async Task OnSignatureAddedAsync(string publicKeyHex, string psbtBase64)
+    {
+        await InvokeAsync(async () =>
+        {
+            if (pending is null) return;
+            await MergeAsync(publicKeyHex, psbtBase64);
+            StateHasChanged();
+        });
+    }
+
+    private async Task MergeAsync(string fromKey, string psbtBase64)
+    {
+        if (pending is null || pending.Status is PendingTxStatus.Broadcast or PendingTxStatus.Cancelled) return;
+        try
+        {
+            var result = await MultisigService.MergeRoomSignaturesAsync(pending, psbtBase64);
+            if (result.Rejected.Count > 0)
+                warnings.Add($"A signature from {NameOf(fromKey)} did not verify and was ignored.");
+        }
+        catch (PsbtImportException ex)
+        {
+            warnings.Add($"A copy from {NameOf(fromKey)} was ignored: {ex.Message}");
+        }
+    }
+
+    private async Task OnBroadcastGrantedAsync()
+    {
+        await InvokeAsync(async () =>
+        {
+            if (pending is null) return;
+            broadcasting = true;
+            broadcastFailure = null;
+            StateHasChanged();
+            try
+            {
+                var txId = pending.Status == PendingTxStatus.Failed
+                    ? await MultisigService.RetryBroadcastAsync(pending)
+                    : await MultisigService.FinalizeAndBroadcastAsync(pending);
+                await Room.ReportBroadcastAsync(true, txId);
+            }
+            catch (Exception ex)
+            {
+                broadcastFailure = ex.Message;
+                await Room.ReportBroadcastAsync(false, ex.Message);
+            }
+            finally
+            {
+                broadcasting = false;
+                StateHasChanged();
+            }
+        });
+    }
+
+    private Task OnBroadcastClaimedAsync(string holderKey) => InvokeAsync(() =>
+    {
+        claimHolder = holderKey;
+        StateHasChanged();
+    });
+
+    private async Task OnBroadcastedAsync(string txId)
+    {
+        await InvokeAsync(async () =>
+        {
+            await MarkSentAsync(txId);
+            broadcastFailure = null;
+            notice = "Payment sent.";
+            StateHasChanged();
+        });
+    }
+
+    private async Task MarkSentAsync(string txId)
+    {
+        if (pending is null || pending.Status == PendingTxStatus.Broadcast) return;
+        try { await MultisigService.MarkBroadcastAsync(pending, txId); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private Task OnBroadcastFailedAsync(string reason) => InvokeAsync(() =>
+    {
+        broadcastFailure = reason;
+        claimHolder = null;
+        StateHasChanged();
+    });
+
+    private Task OnRoomEndedAsync(string reason) => InvokeAsync(() =>
+    {
+        endReason = reason;
+        phase = Phase.Ended;
+        StopTicker();
+        StateHasChanged();
+    });
+
+    private Task OnErrorAsync(string errorCode, string message) => InvokeAsync(async () =>
+    {
+        error = errorCode == SigningRoomErrors.InvalidCode
+            ? "Invalid or expired code. Only co-signers of this multisig can join, and watch-only copies can't."
+            : message;
+        if (errorCode == SigningRoomErrors.InvalidCode && phase == Phase.Join) await LoadOtherWalletsAsync();
+        StateHasChanged();
+    });
+
+    private Task OnConnectionChangedAsync() => InvokeAsync(StateHasChanged);
+
+    // ─── Actions ───
+
+    private async Task SignAsync()
+    {
+        if (busy || pending is null) return;   // a double tap signs once
+        busy = true;
+        error = null;
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            var privateKey = WalletService.GetPrivateKeyForMultisig()
+                ?? throw new InvalidOperationException("Wallet is locked or private key unavailable.");
+            using var key = new NBitcoin.Key(Convert.FromHexString(privateKey));
+            await MultisigService.SignPendingTransactionAsync(pending, key);   // saved here first, so nothing is lost
+            await Room.SubmitSignatureAsync(pending.PsbtBase64);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task DeclineAsync()
+    {
+        confirmDecline = false;
+        try { await Room.DeclineAsync(); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task BroadcastAsync()
+    {
+        if (broadcasting || pending is null) return;   // a double tap broadcasts once
+        broadcastFailure = null;
+        try { await Room.ClaimBroadcastAsync(); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task CloseAsync()
+    {
+        confirmClose = false;
+        try { await Room.CloseAsync(); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task LeaveAsync()
+    {
+        await Room.LeaveAsync();
+        endReason = "left";
+        phase = Phase.Ended;
+        StopTicker();
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        await Clipboard.CopyAsync(InviteLink, toast: false);
+        notice = "Link copied. Send it to your co-signers.";
+    }
+
+    // ─── Checks and timers ───
+
+    /// <summary>FR-022: the payment can't complete once its coins are spent elsewhere.</summary>
+    private async Task CheckCoinsAsync()
+    {
+        if (config is null || facts is null || pending is null || pending.Status == PendingTxStatus.Broadcast) return;
+        try
+        {
+            var utxos = await MultisigService.GetSpendableUtxosAsync(config);
+            var unspent = utxos.Select(u => $"{u.TxId}:{u.OutputIndex}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+            coinsSpent = facts.Inputs.Any(i => !unspent.Contains($"{i.OutPoint.Hash}:{i.OutPoint.N}"));
+        }
+        catch { /* chain data unavailable: say nothing rather than guess */ }
+    }
+
+    private void StartTicker()
+    {
+        if (ticker is not null) return;
+        ticker = new CancellationTokenSource();
+        var token = ticker.Token;
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            var seconds = 0;
+            var checking = false;
+            while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
+            {
+                seconds++;
+                if (seconds % 60 == 0 && !checking)
+                {
+                    checking = true;
+                    await InvokeAsync(CheckCoinsAsync);
+                    checking = false;
+                }
+                await InvokeAsync(StateHasChanged);
+            }
+        }, token);
+    }
+
+    private void StopTicker()
+    {
+        ticker?.Cancel();
+        ticker?.Dispose();
+        ticker = null;
+    }
+
+    // ─── Display helpers ───
+
+    private (string Label, string Status, string Color) SignerRow(string key)
+    {
+        var local = config?.CoSigners.FirstOrDefault(c => Same(c.PublicKeyHex, key));
+        var participant = view?.Participants.FirstOrDefault(p => Same(p.PublicKeyHex, key));
+        var mine = Same(key, Room.MyKey);
+        var label = mine ? "You" : local?.Name ?? MultisigFormat.Short(key);
+        if (!mine && participant is not null && participant.DisplayName != label)
+            label += $" ({participant.DisplayName})";
+
+        if (pending?.SignedBy.Any(k => Same(k, key)) == true) return (label, "Signed", "text-green-500");
+        if (participant?.Action == SigningParticipantAction.Declined) return (label, "Declined", "text-red-500");
+        if (participant is null) return (label, "Not joined", "text-slate-400");
+        return participant.Online ? (label, "Joined", "text-dgb-500") : (label, "Offline", "text-amber-500");
+    }
+
+    private string NameOf(string key)
+    {
+        if (Same(key, Room.MyKey)) return "you";
+        var participant = view?.Participants.FirstOrDefault(p => Same(p.PublicKeyHex, key));
+        var local = config?.CoSigners.FirstOrDefault(c => Same(c.PublicKeyHex, key));
+        return local?.Name ?? participant?.DisplayName ?? MultisigFormat.Short(key);
+    }
+
+    private bool SameNetwork(string roomNetwork)
+    {
+        var mine = MultisigService.ActiveNetwork == DigiByteNetwork.Testnet ? "test"
+            : MultisigService.ActiveNetwork == DigiByteNetwork.Regtest ? "regtest" : "main";
+        var theirs = (roomNetwork ?? "").Trim().ToLowerInvariant() switch
+        {
+            "mainnet" => "main",
+            "testnet" => "test",
+            var n => n,
+        };
+        return mine == theirs;
+    }
+
+    private static bool Same(string? a, string? b) => a is not null && b is not null && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    public ValueTask DisposeAsync()
+    {
+        StopTicker();
+        Room.RoomStateReceived -= OnRoomStateAsync;
+        Room.SignatureAdded -= OnSignatureAddedAsync;
+        Room.BroadcastGranted -= OnBroadcastGrantedAsync;
+        Room.BroadcastClaimed -= OnBroadcastClaimedAsync;
+        Room.Broadcasted -= OnBroadcastedAsync;
+        Room.BroadcastFailed -= OnBroadcastFailedAsync;
+        Room.RoomEnded -= OnRoomEndedAsync;
+        Room.ErrorReceived -= OnErrorAsync;
+        Room.ConnectionChanged -= OnConnectionChangedAsync;
+        return ValueTask.CompletedTask;
+    }
+}
