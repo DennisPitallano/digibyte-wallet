@@ -47,9 +47,19 @@
             </div>
         }
 
+        @* A co-signer who was sent a room code (or does not have the payment yet) joins here (spec 018 follow-up) *@
+        @if (config.OwnKeyIndex >= 0)
+        {
+            <button type="button" class="self-start inline-flex items-center gap-2 min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 text-sm font-semibold rounded-xl hover:bg-dgb-50 dark:hover:bg-dgb-800 transition-all press-effect"
+                    @onclick='() => Nav.NavigateTo("/multisig/sign-room")'>
+                <UxIcon Name="live" Class="w-4 h-4 shrink-0" />
+                Join a room with a code
+            </button>
+        }
+
         @if (queue.Count == 0)
         {
-            <EmptyState Message="Nothing is waiting. Payments that need signatures will appear here." ActionLabel="Create a payment"
+            <EmptyState Message="Nothing is waiting. Payments that need signatures will appear here, or join a room with a code." ActionLabel="Create a payment"
                         OnAction='() => Nav.NavigateTo($"/multisig/{WalletId}/send")' />
         }
         else
