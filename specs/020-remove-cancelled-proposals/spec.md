@@ -4,9 +4,16 @@
 
 **Created**: 2026-11-18
 
-**Status**: Implemented (spec written after the build)
+**Status**: In progress (feature built; tests, docs and browser check open, see tasks.md)
 
 **Input**: User description: "Remove cancelled multisig proposals from the Pending Transactions list. Per-proposal 'Remove from list' action and a 'Clear all cancelled' action (shown when more than one cancelled). Local-device only: nothing on-chain or on co-signers' devices changes; only Cancelled status is removable (never open, failed or broadcast). No 'reopen' capability (create a new proposal instead). The 'Cancelled or expired' label covers Cancelled status only."
+
+## Clarifications
+
+### Session 2026-11-18
+
+- Q: When someone removes a cancelled proposal from Pending, should it also disappear from the wallet's Activity history? → A: Yes, it is removed everywhere on this device (Pending and Activity).
+- Q: Should "Clear all cancelled" ask the person to confirm before deleting, while single-item "Remove from list" stays instant? → A: Yes, confirm before "Clear all cancelled" only; single removal stays instant.
 
 ## Context
 
@@ -41,8 +48,9 @@ A person with many cancelled items clears them all in one action instead of remo
 **Acceptance Scenarios**:
 
 1. **Given** two or more cancelled proposals, **When** the person chooses "Clear all cancelled", **Then** all cancelled proposals disappear and the confirmation states how many were removed.
-2. **Given** only one cancelled proposal, **When** the list is shown, **Then** no "Clear all cancelled" action appears (the per-item action is enough).
-3. **Given** open, ready, failed or broadcast proposals alongside cancelled ones, **When** the person clears all cancelled, **Then** those other proposals are untouched.
+2. **Given** the person chooses "Clear all cancelled", **When** the confirmation appears, **Then** it states how many will be removed and that it can't be undone, and nothing is deleted until they confirm; choosing to keep them leaves the list unchanged.
+3. **Given** only one cancelled proposal, **When** the list is shown, **Then** no "Clear all cancelled" action appears (the per-item action is enough).
+4. **Given** open, ready, failed or broadcast proposals alongside cancelled ones, **When** the person clears all cancelled, **Then** those other proposals are untouched.
 
 ---
 
@@ -52,6 +60,7 @@ A person with many cancelled items clears them all in one action instead of remo
 - Removing an item that was already removed (for example from a second tab) removes nothing and does not raise an error.
 - A co-signer may still hold a copy of the removed proposal and could share it again; it then appears as a new proposal on this device, as any shared proposal would.
 - Removal does not affect any other wallet's list.
+- A removed proposal no longer appears in the wallet's Activity history either; any real on-chain transactions in Activity are unaffected.
 
 ## Requirements *(mandatory)*
 
@@ -59,12 +68,14 @@ A person with many cancelled items clears them all in one action instead of remo
 
 - **FR-001**: The Pending list MUST offer a "Remove from list" action on each cancelled proposal.
 - **FR-002**: When two or more cancelled proposals are listed, the list MUST offer a "Clear all cancelled" action.
-- **FR-003**: Only proposals in the cancelled state MUST be removable; all other states MUST be left untouched by both actions.
-- **FR-004**: Removal MUST be local to this device: no network transaction is created and co-signers' devices are not changed.
-- **FR-005**: Removal MUST persist across reloads and sessions.
-- **FR-006**: After removal, the person MUST see a confirmation that states how many items were removed and that it applies to this device's list.
-- **FR-007**: The feature MUST NOT provide a way to reopen or reset a cancelled proposal.
-- **FR-008**: Removing proposals MUST NOT change the cancelled label or behavior of proposals that remain.
+- **FR-003**: "Clear all cancelled" MUST ask the person to confirm before deleting, stating how many items will be removed and that this cannot be undone; "Remove from list" on a single proposal MUST act immediately without a prompt.
+- **FR-004**: Only proposals in the cancelled state MUST be removable; all other states MUST be left untouched by both actions.
+- **FR-005**: Removal MUST be local to this device: no network transaction is created and co-signers' devices are not changed.
+- **FR-006**: Removal MUST persist across reloads and sessions.
+- **FR-007**: After removal, the person MUST see a notice that it applies to this device's list; the notice after "Clear all cancelled" also states how many items were removed.
+- **FR-008**: The feature MUST NOT provide a way to reopen or reset a cancelled proposal.
+- **FR-009**: A removed proposal MUST also disappear from the wallet's Activity history on this device; chain transactions in Activity MUST be unaffected.
+- **FR-010**: Removing proposals MUST NOT change the cancelled label or behavior of proposals that remain.
 
 ### Key Entities
 
@@ -77,11 +88,11 @@ A person with many cancelled items clears them all in one action instead of remo
 - **SC-001**: A person can remove a cancelled proposal in one action (a single tap or click).
 - **SC-002**: A person can clear any number of cancelled proposals in one action.
 - **SC-003**: After clearing, 100% of non-cancelled proposals remain in the list unchanged.
-- **SC-004**: A removed proposal does not reappear after a reload.
+- **SC-004**: A removed proposal does not reappear after a reload, in Pending or in Activity.
 
 ## Assumptions
 
-- No confirmation prompt is shown before removing, because removal is local, low-risk and the dead item has no remaining function.
-- Removed proposals are deleted from the device list and no longer appear in that wallet's pending view; wider activity history is out of scope.
+- Single-item removal has no confirmation, because it is local, low-risk and the dead item has no remaining function. The bulk action asks first because it deletes several records at once.
+- Removed proposals are deleted from this device entirely, so they leave both Pending and Activity.
 - The "Cancelled or expired" label corresponds to the cancelled state only; nothing in the app currently expires proposals into a separate state.
 - Reopening a cancelled proposal is out of scope; creating a new payment is the supported path.
