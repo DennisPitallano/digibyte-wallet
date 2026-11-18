@@ -46,6 +46,17 @@ public class FiatCurrencyTests
     public void AsiaAndAfrica_AreCovered(string region, string code) =>
         Assert.Contains(FiatCurrencies.InRegion(region), c => c.Code == code);
 
+    [Theory]
+    [InlineData("DOP")]
+    [InlineData("COP")]
+    [InlineData("ARS")]
+    [InlineData("CLP")]
+    [InlineData("PEN")]
+    [InlineData("VES")]
+    [InlineData("CRC")]
+    public void SpanishSpeakingAmericas_AreCovered(string code) =>
+        Assert.Contains(FiatCurrencies.InRegion(FiatCurrencies.Americas), c => c.Code == code);
+
     [Fact]
     public void Africa_HasBroadCoverage() => Assert.True(FiatCurrencies.InRegion(FiatCurrencies.Africa).Count() >= 15);
 
@@ -62,6 +73,9 @@ public class FiatCurrencyTests
     [InlineData("JPY", 0)]
     [InlineData("IDR", 0)]
     [InlineData("UGX", 0)]
+    [InlineData("CLP", 0)]
+    [InlineData("PYG", 0)]
+    [InlineData("DOP", 2)]
     [InlineData("USD", 2)]
     [InlineData("KES", 2)]
     [InlineData("KWD", 3)]
@@ -124,6 +138,9 @@ public class FiatCurrencyTests
     [InlineData("nigeria", "NGN")]
     [InlineData("Senegal", "XOF")]
     [InlineData("Germany", "EUR")]
+    [InlineData("Dominican Republic", "DOP")]
+    [InlineData("Columbia", "COP")]
+    [InlineData("Colombia", "COP")]
     public void CountryNames_MakeCurrenciesSearchable(string country, string code) =>
         Assert.Contains(FiatCurrencies.CountryNames(code), n => n.Equals(country, StringComparison.OrdinalIgnoreCase));
 
