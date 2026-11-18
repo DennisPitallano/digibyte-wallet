@@ -33,7 +33,11 @@ navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }
 });
 
 let refreshing = false;
+// A first-time visitor has no controller yet: the new worker claiming the page is not an
+// update, and reloading would cut the boot short mid-download. Only reload for real updates.
+const hadController = !!navigator.serviceWorker.controller;
 navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
     if (!refreshing) { refreshing = true; location.reload(); }
 });
 
