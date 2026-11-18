@@ -158,6 +158,12 @@ public class PendingMultisigTransaction
     /// </summary>
     public string UnsignedTxId { get; set; } = "";
 
+    /// <summary>
+    /// True when this proposal was added by receiving a co-signer's copy (scan, paste or file) rather than created on this
+    /// device. Drives the "Received from a co-signer" label. Defaults to false, so records saved before this field read as false.
+    /// </summary>
+    public bool ReceivedFromCoSigner { get; set; }
+
     /// <summary>Optional note the proposer attached.</summary>
     public string? Memo { get; set; }
 

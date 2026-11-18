@@ -6,6 +6,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject SigningRoomClient Room
+@inject ProposalHandoff Handoff
 @implements IDisposable
 
 <PageTitle>Pending Transactions — DigiByte Wallet</PageTitle>
@@ -47,14 +48,69 @@
             </div>
         }
 
-        @* A co-signer who was sent a room code (or does not have the payment yet) joins here (spec 018 follow-up) *@
-        @if (config.OwnKeyIndex >= 0)
-        {
-            <button type="button" class="self-start inline-flex items-center gap-2 min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 text-sm font-semibold rounded-xl hover:bg-dgb-50 dark:hover:bg-dgb-800 transition-all press-effect"
-                    @onclick='() => Nav.NavigateTo("/multisig/sign-room")'>
-                <UxIcon Name="live" Class="w-4 h-4 shrink-0" />
-                Join a room with a code
+        <div class="flex flex-wrap gap-2">
+            @* Receive a co-signer's proposal by scan, paste or file (specs/022-multisig-proposal-scan-import) *@
+            <button type="button" class="inline-flex items-center gap-2 min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-all press-effect"
+                    aria-expanded="@receiveOpen" @onclick="OpenReceive">
+                <UxIcon Name="scan" Class="w-4 h-4 shrink-0" />
+                Scan proposal
             </button>
+
+            @* A co-signer who was sent a room code (or does not have the payment yet) joins here (spec 018 follow-up) *@
+            @if (config.OwnKeyIndex >= 0)
+            {
+                <button type="button" class="inline-flex items-center gap-2 min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 text-sm font-semibold rounded-xl hover:bg-dgb-50 dark:hover:bg-dgb-800 transition-all press-effect"
+                        @onclick='() => Nav.NavigateTo("/multisig/sign-room")'>
+                    <UxIcon Name="live" Class="w-4 h-4 shrink-0" />
+                    Join a room with a code
+                </button>
+            }
+        </div>
+
+        @if (receiveOpen)
+        {
+            <div class="p-3 bg-slate-50 dark:bg-dgb-800/50 rounded-2xl border border-slate-200 dark:border-dgb-700 flex flex-col gap-2" role="region" aria-label="Receive proposal">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Receive a payment a co-signer proposed (scan its QR code, paste it, or choose a file):</p>
+                <div class="flex flex-wrap gap-2">
+                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="StartScanProposal">Scan QR</button>
+                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="PasteProposal">Paste</button>
+                    <label class="min-h-[44px] px-3 inline-flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl cursor-pointer">
+                        Choose file
+                        <InputFile OnChange="OnProposalFileChosen" class="hidden" accept=".txt,.psbt,text/plain" />
+                    </label>
+                    <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="CloseReceive">Close</button>
+                </div>
+                @if (!string.IsNullOrEmpty(receiveNotice))
+                {
+                    <p class="text-xs text-amber-600 dark:text-amber-400 break-words" role="status">@receiveNotice</p>
+                }
+
+                @* You cancelled this proposal here: nothing is re-added unless you confirm (FR-010) *@
+                @if (cancelledPrompt is not null)
+                {
+                    <div class="p-3 bg-white dark:bg-dgb-900 border border-amber-300 dark:border-amber-700/50 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="Restore cancelled proposal">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">You cancelled this proposal.</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@MultisigFormat.Dgb(cancelledPrompt.AmountSatoshis) DGB to @MultisigFormat.Short(cancelledPrompt.DestinationAddress). Restoring puts it back in your list so it can be signed again.</p>
+                        <div class="flex gap-2">
+                            <button class="min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect" @onclick="RestoreCancelledProposal">Restore this proposal</button>
+                            <button class="min-h-[44px] px-3 text-xs font-medium text-slate-500" @onclick="() => cancelledPrompt = null">Leave it cancelled</button>
+                        </div>
+                    </div>
+                }
+
+                @* The proposal belongs to another multisig of yours: offer to open it there (FR-006) *@
+                @if (otherWallet is not null)
+                {
+                    <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="Proposal is for another multisig">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">This proposal is for <span class="break-words">@otherWallet.Name</span>.</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">It is not added here. Open that multisig to add it there.</p>
+                        <div class="flex gap-2">
+                            <button class="min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect" @onclick="OpenOtherWallet">Open @otherWallet.Name</button>
+                            <button class="min-h-[44px] px-3 text-xs font-medium text-slate-500" @onclick="() => otherWallet = null">Not now</button>
+                        </div>
+                    </div>
+                }
+            </div>
         }
 
         @if (queue.Count == 0)
@@ -87,11 +143,22 @@
                     var open = tx.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
                     var liveRoom = Room.Current?.UnsignedTxId == tx.UnsignedTxId && !string.IsNullOrEmpty(tx.UnsignedTxId);
                     var state = PendingStateClassifier.Classify(tx, LocalKey, liveRoom);
-                    <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border @(mine ? "border-dgb-300 dark:border-dgb-600" : "border-slate-200/80 dark:border-dgb-800") @(tx.Status == PendingTxStatus.Cancelled ? "opacity-60" : "")">
+                    var spent = open && spentIds.Contains(tx.Id);
+                    <div id="proposal-@tx.Id" class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border transition-shadow @(mine ? "border-dgb-300 dark:border-dgb-600" : "border-slate-200/80 dark:border-dgb-800") @(tx.Status == PendingTxStatus.Cancelled ? "opacity-60" : "") @(highlightId == tx.Id ? "ring-2 ring-dgb-400" : "")">
                         <div class="flex items-center justify-between gap-2 mb-3">
-                            <StatusBadge State="state" />
+                            <div class="flex flex-wrap items-center gap-2 min-w-0">
+                                <StatusBadge State="state" />
+                                @if (tx.ReceivedFromCoSigner)
+                                {
+                                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">Received from a co-signer</span>
+                                }
+                            </div>
                             <span class="text-[11px] text-slate-400 shrink-0">@MultisigFormat.Age(tx.CreatedAt)</span>
                         </div>
+                        @if (spent)
+                        {
+                            <p class="text-xs text-amber-700 dark:text-amber-300 mb-2" role="status">Can't be signed – coins already spent. Some of the coins this payment uses are no longer available, so it can't go through. You can cancel it.</p>
+                        }
 
                         <PaymentSummary Embedded="true" ShowCheckCue="mine"
                                         Summary="PaymentSummaryBuilder.Build(tx.AmountSatoshis, tx.FeeSatoshis, tx.DestinationAddress, tx.Memo, null)" />
@@ -113,7 +180,7 @@
                                 @if (tx.Status == PendingTxStatus.ReadyToFinalize)
                                 {
                                     <button class="flex-1 min-h-[44px] py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect disabled:opacity-50"
-                                            @onclick="() => BroadcastTransaction(tx)" disabled="@isBroadcasting">
+                                            @onclick="() => BroadcastTransaction(tx)" disabled="@(isBroadcasting || spent)">
                                         @(isBroadcasting && busyId == tx.Id ? "Broadcasting…" : "Broadcast")
                                     </button>
                                 }
@@ -125,13 +192,13 @@
                                 @if (mine)
                                 {
                                     <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect disabled:opacity-50"
-                                            @onclick="() => signConfirmFor = tx.Id" disabled="@isSigning">
+                                            @onclick="() => signConfirmFor = tx.Id" disabled="@(isSigning || spent)">
                                         @(isSigning && busyId == tx.Id ? "Signing…" : "Sign")
                                     </button>
                                 }
                                 @if (open)
                                 {
-                                    <button class="min-h-[44px] px-3 text-sm font-semibold rounded-xl transition-all press-effect @(liveRoom ? "flex-1 bg-dgb-500 hover:bg-dgb-600 text-white" : "bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 hover:bg-dgb-50 dark:hover:bg-dgb-800")" @onclick="() => ToggleOnline(tx)" aria-expanded="@(onlineFor == tx.Id)">
+                                    <button class="min-h-[44px] px-3 text-sm font-semibold rounded-xl transition-all press-effect disabled:opacity-50 @(liveRoom ? "flex-1 bg-dgb-500 hover:bg-dgb-600 text-white" : "bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 hover:bg-dgb-50 dark:hover:bg-dgb-800")" @onclick="() => ToggleOnline(tx)" aria-expanded="@(onlineFor == tx.Id)" disabled="@(spent && !liveRoom)">
                                         @(liveRoom ? "Open room" : "Sign together online")
                                     </button>
                                 }
@@ -234,7 +301,7 @@
                                           class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all resize-none"></textarea>
                                 <div class="flex flex-wrap gap-2">
                                     <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="PasteImport">Paste</button>
-                                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="() => showScanner = true">Scan QR</button>
+                                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="StartScanSignature">Scan QR</button>
                                     <label class="min-h-[44px] px-3 inline-flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl cursor-pointer">
                                         Choose file
                                         <InputFile OnChange="OnFileChosen" class="hidden" accept=".txt,.psbt,text/plain" />
@@ -274,7 +341,7 @@
     }
 </div>
 
-<QrScannerModal IsOpen="@showScanner" OnScanned="OnScannedImport" OnClosed="@(() => showScanner = false)" />
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnScannedAny" OnClosed="@(() => showScanner = false)" />
 </AuthGuard>
 
 @code {
@@ -292,6 +359,8 @@
     private string? cancelFor;
     private bool confirmClearCancelled;
     private bool showScanner;
+    private enum ScanMode { Signature, Proposal }
+    private ScanMode scanMode = ScanMode.Signature;
     private string importPsbtBase64 = "";
     private string? importNotice;
     private string? message;
@@ -299,6 +368,19 @@
 
     private string? loadedFor;
     private string? signConfirmFor;
+
+    // Receiving a co-signer's proposal (specs/022-multisig-proposal-scan-import)
+    [SupplyParameterFromQuery(Name = "scan")] public string? ScanQuery { get; set; }
+    private bool receiveOpen;
+    private string? receiveNotice;
+    private string? highlightId;
+    private string? scrollToId;
+    private PendingMultisigTransaction? cancelledPrompt;
+    private string cancelledPsbt = "";
+    private ProposalWalletMatch? otherWallet;
+    private string otherWalletPsbt = "";
+    private HashSet<string> spentIds = [];
+    private int highlightVersion;
     private string? LocalKey => config?.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex;
 
     // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
@@ -321,6 +403,19 @@
         {
             isLoading = false;
         }
+
+        if (config is null) return;
+
+        // A proposal the user chose to open in this multisig from another one's page (FR-006), then ?scan=1 from the wallet page.
+        if (Handoff.Take(WalletId) is { } handedOver)
+        {
+            receiveOpen = true;
+            await ReceiveProposalText(handedOver);
+        }
+        else if (ScanQuery == "1" && !receiveOpen)
+        {
+            OpenReceive();
+        }
     }
 
     private async Task Reload()
@@ -328,6 +423,234 @@
         if (config is null) return;
         var all = await MultisigService.GetPendingTransactionsAsync(WalletId);
         queue = MultisigWalletService.SortPending(all.Where(p => p.Status != PendingTxStatus.Broadcast), config);
+        _ = RefreshSpentAsync();
+    }
+
+    /// <summary>Marks open proposals whose coins are already spent (FR-007). Marks nothing when chain data is unavailable.</summary>
+    private async Task RefreshSpentAsync()
+    {
+        var current = config;
+        if (current is null) return;
+
+        var inputsByProposal = new Dictionary<string, List<NBitcoin.OutPoint>>();
+        foreach (var tx in queue.Where(q => q.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize))
+        {
+            var facts = MultisigProposalReader.Read(tx.PsbtBase64, current, MultisigService.ActiveNetwork);
+            if (facts.Problems.Count == 0)
+                inputsByProposal[tx.Id] = facts.Inputs.Select(i => i.OutPoint).ToList();
+        }
+
+        var spent = inputsByProposal.Count == 0
+            ? new HashSet<string>()
+            : await MultisigService.GetSpentInputIdsAsync(current, inputsByProposal.Values.SelectMany(v => v).Distinct());
+
+        var marked = inputsByProposal
+            .Where(kv => kv.Value.Any(o => spent.Contains($"{o.Hash}:{o.N}")))
+            .Select(kv => kv.Key)
+            .ToHashSet();
+        if (marked.SetEquals(spentIds)) return;
+
+        spentIds = marked;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ─── Receive a co-signer's proposal (specs/022-multisig-proposal-scan-import) ───
+
+    private void OpenReceive()
+    {
+        receiveOpen = true;
+        StartScanProposal();
+    }
+
+    private void CloseReceive()
+    {
+        receiveOpen = false;
+        receiveNotice = null;
+        cancelledPrompt = null;
+        otherWallet = null;
+    }
+
+    private void StartScanProposal()
+    {
+        scanMode = ScanMode.Proposal;
+        showScanner = true;
+    }
+
+    private void StartScanSignature()
+    {
+        scanMode = ScanMode.Signature;
+        showScanner = true;
+    }
+
+    private async Task OnScannedAny(string data)
+    {
+        showScanner = false;
+        if (scanMode == ScanMode.Proposal)
+            await ReceiveProposalText(data);
+        else
+            AcceptImportText(data);
+        StateHasChanged();
+    }
+
+    private async Task PasteProposal()
+    {
+        string? text = null;
+        try { text = await Clipboard.ReadAsync(); } catch { /* blocked */ }
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            receiveNotice = "Nothing to paste, or the browser blocked clipboard access.";
+            return;
+        }
+        await ReceiveProposalText(text);
+    }
+
+    private async Task OnProposalFileChosen(InputFileChangeEventArgs e)
+    {
+        string text;
+        try
+        {
+            using var stream = e.File.OpenReadStream(maxAllowedSize: 512 * 1024);
+            using var reader = new StreamReader(stream);
+            text = await reader.ReadToEndAsync();
+        }
+        catch
+        {
+            receiveNotice = "That file couldn't be read. Use a small text file containing the proposal (PSBT).";
+            return;
+        }
+        await ReceiveProposalText(text);
+    }
+
+    /// <summary>One path for scan, paste and file, so all three behave the same (FR-002).</summary>
+    private async Task ReceiveProposalText(string text)
+    {
+        if (config is null) return;
+        error = null;
+        message = null;
+        receiveNotice = null;
+        cancelledPrompt = null;
+        otherWallet = null;
+
+        var kind = MultisigSendHelper.ClassifyScan(text).Kind;
+        if (kind != ScanKind.Psbt)
+        {
+            receiveNotice = kind is ScanKind.Address or ScanKind.PaymentUri
+                ? "That is an address, not a proposal. A co-signer shares a proposal (PSBT) for you to add here."
+                : "That doesn't look like a proposal (PSBT).";
+            return;
+        }
+
+        var psbt = text.Trim();
+        try
+        {
+            var result = await MultisigService.ReceiveProposalAsync(config, psbt);
+            await Reload();
+            switch (result.Outcome)
+            {
+                case ProposalReceiveOutcome.Added:
+                    message = "Proposal added";
+                    Highlight(result.Pending.Id);
+                    break;
+                case ProposalReceiveOutcome.Merged:
+                    message = result.NewSignatures == 1 ? "1 new signature added." : $"{result.NewSignatures} new signatures added.";
+                    Highlight(result.Pending.Id);
+                    break;
+                case ProposalReceiveOutcome.AlreadyUpToDate:
+                    message = "Already up to date.";
+                    Highlight(result.Pending.Id);
+                    break;
+                case ProposalReceiveOutcome.Cancelled:
+                    cancelledPrompt = result.Pending;
+                    cancelledPsbt = psbt;
+                    break;
+                case ProposalReceiveOutcome.Closed:
+                    message = "This payment was already sent.";
+                    break;
+            }
+            if (result.RejectedSigners.Count > 0)
+                receiveNotice = "A signature on that copy didn't check out and was ignored.";
+        }
+        catch (PsbtImportException ex)
+        {
+            // A proposal that spends another of this owner's multisigs is offered there instead (FR-006).
+            var match = await MultisigService.FindWalletForProposalAsync(psbt, ActiveWallet.WalletId, ActiveWallet.PublicKey, WalletId);
+            if (match is not null)
+            {
+                otherWallet = match;
+                otherWalletPsbt = psbt;
+            }
+            else
+            {
+                receiveNotice = ex.Message.Contains("not this multisig", StringComparison.OrdinalIgnoreCase)
+                    ? ex.Message + " It may be for a multisig that isn't on this device."
+                    : ex.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private async Task RestoreCancelledProposal()
+    {
+        if (cancelledPrompt is null) return;
+        error = null;
+        try
+        {
+            var restored = await MultisigService.RestoreCancelledAsync(cancelledPrompt, cancelledPsbt);
+            cancelledPrompt = null;
+            cancelledPsbt = "";
+            await Reload();
+            message = "Proposal restored";
+            Highlight(restored.Id);
+        }
+        catch (PsbtImportException ex)
+        {
+            receiveNotice = ex.Message;
+            cancelledPrompt = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private void OpenOtherWallet()
+    {
+        if (otherWallet is null) return;
+        Handoff.Set(otherWallet.WalletId, otherWalletPsbt);
+        var target = otherWallet.WalletId;
+        otherWallet = null;
+        otherWalletPsbt = "";
+        Nav.NavigateTo($"/multisig/{target}/pending");
+    }
+
+    /// <summary>Scrolls to the card and rings it for a few seconds (research R8).</summary>
+    private void Highlight(string id)
+    {
+        highlightId = id;
+        scrollToId = id;
+        var version = ++highlightVersion;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(4000);
+            if (version != highlightVersion) return;
+            await InvokeAsync(() =>
+            {
+                highlightId = null;
+                StateHasChanged();
+            });
+        });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (scrollToId is null) return;
+        var id = scrollToId;
+        scrollToId = null;
+        try { await JS.InvokeVoidAsync("domHelpers.scrollToElement", $"proposal-{id}"); }
+        catch { /* scrolling is a nicety */ }
     }
 
     // ─── Sign together online (specs/017-multisig-online-signing) ───

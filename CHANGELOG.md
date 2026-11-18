@@ -4,6 +4,9 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **Receive a co-signer's payment proposal by QR scan** — On a multisig's Pending page (or the new **Scan** button on its dashboard), tap **Scan proposal** and scan the QR code another co-signer is showing, or paste it, or choose a file. The payment is added to your pending list, labelled "Received from a co-signer", with the recipient, amount and fee read from the transaction itself. Scanning the same proposal again never makes a duplicate and merges any new signatures. A proposal for another multisig of yours offers to open that multisig; one you cancelled can be restored after you confirm. A proposal whose coins were already spent elsewhere shows "Can't be signed – coins already spent". Nothing is sent to a server. Security-relevant: a new way to bring signed-transaction data into the wallet; copies signed by a key that is not a co-signer are refused whole.
+
 ## [0.6.0] - 2026-11-17
 
 This is the first release since 0.4.0 that is published as a tag: version 0.5.0 below (stronger PIN protection) was never tagged, so everything in 0.5.0 ships here too. Existing wallets upgrade their PIN protection the first time they are unlocked.

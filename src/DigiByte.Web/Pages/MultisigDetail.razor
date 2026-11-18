@@ -65,6 +65,13 @@ else
                 </div>
                 <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
             </button>
+            @* Scan a co-signer's proposal QR into this multisig's pending list (specs/022-multisig-proposal-scan-import) *@
+            <button type="button" class="flex flex-col items-center gap-1 group" @onclick="ScanProposal">
+                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
+                    <UxIcon Name="scan" Class="w-5 h-5 text-dgb-500" />
+                </div>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Scan</span>
+            </button>
             <button type="button" class="flex flex-col items-center gap-1 group" @onclick="ViewPendingTxs">
                 <div class="relative w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                     <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -345,5 +352,7 @@ else
 
     private void CreateTransaction() => Nav.NavigateTo($"/multisig/{WalletId}/send");
     private void ViewPendingTxs() => Nav.NavigateTo($"/multisig/{WalletId}/pending");
+
+    private void ScanProposal() => Nav.NavigateTo($"/multisig/{WalletId}/pending?scan=1");
     private void ViewActivity() => Nav.NavigateTo($"/multisig/{WalletId}/activity");
 }
