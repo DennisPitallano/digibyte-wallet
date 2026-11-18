@@ -704,7 +704,7 @@ Signing flow:
        (otherwise PsbtImportException with a plain reason)
     2. MultisigService.CombinePSBTs(original, signed)
     3. Update SignedBy; at the threshold status becomes ReadyToFinalize
-  → Receive a co-signer's proposal (Pending → Scan proposal, or Scan on the dashboard; specs/022-multisig-proposal-scan-import):
+  → Receive a co-signer's proposal (Pending → Receive proposal panel, or Scan on the dashboard; specs/022-multisig-proposal-scan-import):
     scan its QR, paste it, or choose a file; all three go through one handler. No server involved.
     1. MultisigSendHelper.ClassifyScan must say Psbt (an address or payment link is refused with a plain reason)
     2. MultisigWalletService.ReceiveProposalAsync(config, psbt): recipient/amount/fee come from the PSBT itself

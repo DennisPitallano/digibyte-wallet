@@ -48,37 +48,29 @@
             </div>
         }
 
-        <div class="flex flex-wrap gap-2">
-            @* Receive a co-signer's proposal by scan, paste or file (specs/022-multisig-proposal-scan-import) *@
-            <button type="button" class="inline-flex items-center gap-2 min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-all press-effect"
-                    aria-expanded="@receiveOpen" @onclick="OpenReceive">
-                <UxIcon Name="scan" Class="w-4 h-4 shrink-0" />
-                Scan proposal
-            </button>
-
-            @* A co-signer who was sent a room code (or does not have the payment yet) joins here (spec 018 follow-up) *@
-            @if (config.OwnKeyIndex >= 0)
-            {
-                <button type="button" class="inline-flex items-center gap-2 min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 text-sm font-semibold rounded-xl hover:bg-dgb-50 dark:hover:bg-dgb-800 transition-all press-effect"
-                        @onclick='() => Nav.NavigateTo("/multisig/sign-room")'>
-                    <UxIcon Name="live" Class="w-4 h-4 shrink-0" />
-                    Join a room with a code
-                </button>
-            }
-        </div>
-
-        @if (receiveOpen)
+        @* A co-signer who was sent a room code (or does not have the payment yet) joins here (spec 018 follow-up) *@
+        @if (config.OwnKeyIndex >= 0)
         {
-            <div class="p-3 bg-slate-50 dark:bg-dgb-800/50 rounded-2xl border border-slate-200 dark:border-dgb-700 flex flex-col gap-2" role="region" aria-label="Receive proposal">
-                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Receive a payment a co-signer proposed (scan its QR code, paste it, or choose a file):</p>
+            <button type="button" class="self-start inline-flex items-center gap-2 min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 text-dgb-600 dark:text-dgb-300 text-sm font-semibold rounded-xl hover:bg-dgb-50 dark:hover:bg-dgb-800 transition-all press-effect"
+                    @onclick='() => Nav.NavigateTo("/multisig/sign-room")'>
+                <UxIcon Name="live" Class="w-4 h-4 shrink-0" />
+                Join a room with a code
+            </button>
+        }
+
+        @* Receive a co-signer's proposal by scan, paste or file. Always visible, so no option is hidden behind another tap (specs/022-multisig-proposal-scan-import) *@
+        <div class="p-3 bg-slate-50 dark:bg-dgb-800/50 rounded-2xl border border-slate-200 dark:border-dgb-700 flex flex-col gap-2" role="region" aria-label="Receive proposal">
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Got a payment proposal from a co-signer? Add it here:</p>
                 <div class="flex flex-wrap gap-2">
-                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="StartScanProposal">Scan QR</button>
-                    <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="PasteProposal">Paste</button>
-                    <label class="min-h-[44px] px-3 inline-flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl cursor-pointer">
+                    <button type="button" class="inline-flex items-center gap-2 min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-all press-effect" @onclick="StartScanProposal">
+                        <UxIcon Name="scan" Class="w-4 h-4 shrink-0" />
+                        Scan QR
+                    </button>
+                    <button type="button" class="min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-sm font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="PasteProposal">Paste</button>
+                    <label class="min-h-[44px] px-4 inline-flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-sm font-semibold text-slate-700 dark:text-slate-200 rounded-xl cursor-pointer">
                         Choose file
                         <InputFile OnChange="OnProposalFileChosen" class="hidden" accept=".txt,.psbt,text/plain" />
                     </label>
-                    <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="CloseReceive">Close</button>
                 </div>
                 @if (!string.IsNullOrEmpty(receiveNotice))
                 {
@@ -110,8 +102,7 @@
                         </div>
                     </div>
                 }
-            </div>
-        }
+        </div>
 
         @if (queue.Count == 0)
         {
@@ -371,7 +362,6 @@
 
     // Receiving a co-signer's proposal (specs/022-multisig-proposal-scan-import)
     [SupplyParameterFromQuery(Name = "scan")] public string? ScanQuery { get; set; }
-    private bool receiveOpen;
     private string? receiveNotice;
     private string? highlightId;
     private string? scrollToId;
@@ -408,14 +398,9 @@
 
         // A proposal the user chose to open in this multisig from another one's page (FR-006), then ?scan=1 from the wallet page.
         if (Handoff.Take(WalletId) is { } handedOver)
-        {
-            receiveOpen = true;
             await ReceiveProposalText(handedOver);
-        }
-        else if (ScanQuery == "1" && !receiveOpen)
-        {
-            OpenReceive();
-        }
+        else if (ScanQuery == "1")
+            StartScanProposal();
     }
 
     private async Task Reload()
@@ -455,20 +440,6 @@
     }
 
     // ─── Receive a co-signer's proposal (specs/022-multisig-proposal-scan-import) ───
-
-    private void OpenReceive()
-    {
-        receiveOpen = true;
-        StartScanProposal();
-    }
-
-    private void CloseReceive()
-    {
-        receiveOpen = false;
-        receiveNotice = null;
-        cancelledPrompt = null;
-        otherWallet = null;
-    }
 
     private void StartScanProposal()
     {

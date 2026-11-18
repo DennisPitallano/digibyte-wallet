@@ -26,7 +26,7 @@ When a co-signer creates a payment proposal on a multi-sig wallet, the pending-t
 
 ### User Story 1 - Scan a proposal QR to add it to my pending list (Priority: P1)
 
-Signer A creates a proposal and shows its QR code. Signer B, on another device with the same multi-sig wallet, opens the wallet's pending transactions, taps "Scan proposal", and points the camera at A's QR code. The proposal appears in B's pending list with recipient, amount, fee and signature progress, so B can review it and sign.
+Signer A creates a proposal and shows its QR code. Signer B, on another device with the same multi-sig wallet, opens the wallet's pending transactions, taps "Scan QR" in the always-visible Receive proposal panel, and points the camera at A's QR code. The proposal appears in B's pending list with recipient, amount, fee and signature progress, so B can review it and sign.
 
 **Why this priority**: This is the missing half of the existing QR feature; without it the QR code is unusable by the people it is meant for.
 
@@ -101,7 +101,7 @@ B scans something unusable: a proposal for a different wallet, an address or unr
 
 ### Functional Requirements
 
-*Terms*: the button that starts the flow is "Scan proposal"; the panel it opens (scan, paste, file) is "Receive proposal".
+*Terms*: the always-visible "Receive proposal" panel on the Pending page offers Scan QR, Paste and Choose file; the dashboard "Scan" tile opens the Pending page straight into the scanner.
 
 - **FR-001**: A co-signer MUST be able to start "receive proposal" from the wallet's pending-transactions screen, in addition to the existing per-proposal "Import signature".
 - **FR-002**: The receive flow MUST accept a proposal by camera QR scan, pasted text, or a loaded file, with the same outcome for each.
