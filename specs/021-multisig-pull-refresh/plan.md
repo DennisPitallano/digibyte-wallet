@@ -1,6 +1,6 @@
 # Implementation Plan: Pull-Down Refresh on Multi-Sig Wallet Dashboard
 
-**Branch**: `020-multisig-pull-refresh` | **Date**: 2026-11-18 | **Spec**: [spec.md](spec.md)
+**Branch**: `021-multisig-pull-refresh` | **Date**: 2026-11-18 | **Spec**: [spec.md](spec.md)
 
 ## Summary
 
@@ -45,7 +45,7 @@ No violations, so Complexity Tracking is not needed. Re-checked after design: st
 ### Documentation (this feature)
 
 ```text
-specs/020-multisig-pull-refresh/
+specs/021-multisig-pull-refresh/
 ├── plan.md
 ├── research.md
 ├── data-model.md

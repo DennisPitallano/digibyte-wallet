@@ -1,6 +1,6 @@
 # Tasks: Pull-Down Refresh on Multi-Sig Wallet Dashboard
 
-**Input**: Design documents from `/specs/020-multisig-pull-refresh/`
+**Input**: Design documents from `/specs/021-multisig-pull-refresh/`
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, quickstart.md
 
@@ -15,7 +15,7 @@
 ## Phase 2: Foundational
 
 - [X] T002 In `src/DigiByte.Web/Pages/MultisigDetail.razor`, inject `NotificationService` (`@inject NotificationService Notifications`) and add a page-level `private bool isRefreshing;` flag (research R4, data-model `isRefreshing`)
-- [X] T003 Check what `GetActivityAsync` in `src/DigiByte.Wallet/Services/MultisigWalletService.cs` (around line 914) returns when the network is unavailable: a thrown exception, or a result with `IsPartial = true` and no entries. Record the finding in `specs/020-multisig-pull-refresh/research.md` under R2 (FR-007)
+- [X] T003 Check what `GetActivityAsync` in `src/DigiByte.Wallet/Services/MultisigWalletService.cs` (around line 914) returns when the network is unavailable: a thrown exception, or a result with `IsPartial = true` and no entries. Record the finding in `specs/021-multisig-pull-refresh/research.md` under R2 (FR-007)
 - [X] T003a (not needed: offline, the service returns a partial page instead of throwing, so no change) Only if T003 shows the service gives no failure signal offline: in `src/DigiByte.Wallet/Services/MultisigWalletService.cs`, make the activity result say when it failed, and add a unit test for that case in `tests/DigiByte.Wallet.Tests/MultisigActivityBuilderTests.cs`, written before the change (constitution Principle III)
 - [X] T004 In `src/DigiByte.Web/Pages/MultisigDetail.razor`, refactor `LoadBalance()` and `LoadActivity()` so each takes an optional `keepPreviousOnFailure` argument (default false) and returns `Task<bool>` (true on success; false when the call threw or, for activity, failed or came back partial with no entries, per T003). With the default, behaviour for the first page load and the refresh button is exactly as today: on failure `LoadBalance` sets `balanceSatoshis = null` and `LoadActivity` sets `activityPartial = true`. With `keepPreviousOnFailure = true`, a failure leaves `balanceSatoshis`, `recentActivity` and `activityPartial` untouched, so the old balance is never replaced by "unknown", not even briefly (research R2; FR-007, FR-009)
 - [X] T005 In `src/DigiByte.Web/Pages/MultisigDetail.razor`, make the first-load path (`OnParametersSetAsync`, which starts `LoadBalance`, `LoadPrice` and `LoadActivity` without waiting for them) set `isRefreshing = true` until the balance and activity loads finish, so a pull or button tap right after the page appears does not start an overlapping load (spec Edge Cases). Clear the flag in a `finally` block, and reset it when `WalletId` changes so a stuck flag can never block later pulls

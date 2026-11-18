@@ -1,6 +1,6 @@
 # Feature Specification: Pull-Down Refresh on Multi-Sig Wallet Dashboard
 
-**Feature Branch**: `020-multisig-pull-refresh`
+**Feature Branch**: `021-multisig-pull-refresh`
 
 **Created**: 2026-11-18
 
