@@ -751,13 +751,10 @@
     private async Task CheckCoinsAsync()
     {
         if (config is null || facts is null || pending is null || pending.Status == PendingTxStatus.Broadcast) return;
-        try
-        {
-            var utxos = await MultisigService.GetSpendableUtxosAsync(config);
-            var unspent = utxos.Select(u => $"{u.TxId}:{u.OutputIndex}").ToHashSet(StringComparer.OrdinalIgnoreCase);
-            coinsSpent = facts.Inputs.Any(i => !unspent.Contains($"{i.OutPoint.Hash}:{i.OutPoint.N}"));
-        }
-        catch { /* chain data unavailable: say nothing rather than guess */ }
+        // Shared with the pending list (specs/022): empty when chain data is unavailable, so nothing is guessed. Spent coins
+        // never become unspent again, so once flagged it stays flagged.
+        var spent = await MultisigService.GetSpentInputIdsAsync(config, facts.Inputs.Select(i => i.OutPoint));
+        coinsSpent = coinsSpent || spent.Count > 0;
     }
 
     private void StartTicker()

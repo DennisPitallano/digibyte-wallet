@@ -704,6 +704,20 @@ Signing flow:
        (otherwise PsbtImportException with a plain reason)
     2. MultisigService.CombinePSBTs(original, signed)
     3. Update SignedBy; at the threshold status becomes ReadyToFinalize
+  → Receive a co-signer's proposal (Pending → Scan proposal, or Scan on the dashboard; specs/022-multisig-proposal-scan-import):
+    scan its QR, paste it, or choose a file; all three go through one handler. No server involved.
+    1. MultisigSendHelper.ClassifyScan must say Psbt (an address or payment link is refused with a plain reason)
+    2. MultisigWalletService.ReceiveProposalAsync(config, psbt): recipient/amount/fee come from the PSBT itself
+       (MultisigProposalReader); a PSBT spending coins of another multisig, or carrying a signature from a key that is not
+       a co-signer, is refused in full (PsbtImportException) and nothing is saved
+    3. Outcome: Added (new item, ReceivedFromCoSigner = true, labelled "Received from a co-signer"), Merged (verified
+       signatures added), AlreadyUpToDate (one entry per UnsignedTxId, never a duplicate), Cancelled, Closed (already sent)
+    4. Cancelled here → "Restore this proposal" asks first; RestoreCancelledAsync re-checks and merges, nothing silent
+    5. Spends another multisig of the same owner → FindWalletForProposalAsync offers "Open <name>"; the PSBT travels
+       in memory only (ProposalHandoff), never in a URL, and is not added automatically
+    6. Open proposals whose coins are already spent elsewhere (GetSpentInputIdsAsync; marks nothing when the chain is
+       unreachable) show "Can't be signed – coins already spent": Sign, Sign together online and Broadcast are disabled,
+       Cancel and Share stay
   → Cancel: CancelPendingAsync marks Cancelled on this device only (co-signers with a copy could still broadcast)
   → Remove: RemoveCancelledAsync(walletId, pendingId?) deletes Cancelled proposals from this device (one, or all when no id);
     only Cancelled can be removed; local only; they also leave Activity; "Clear all cancelled" asks for confirmation first

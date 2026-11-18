@@ -546,11 +546,124 @@ public class MultisigWalletService
             return existing;
         }
 
-        var service = new MultisigService(CurrentNetwork);
-        var unsigned = service.DeserializePSBT(psbtBase64.Trim());
+        var pending = NewPendingFromFacts(config, facts, psbtBase64, receivedFromCoSigner: false);
+        await SavePendingTransactionAsync(pending);
+        await MergeRoomSignaturesAsync(pending, psbtBase64);
+        return pending;
+    }
+
+    /// <summary>
+    /// Receives a co-signer's copy of a proposal (scan, paste or file; specs/022-multisig-proposal-scan-import). Adds it when
+    /// this device does not hold it, merges verified signatures when it does, and reports a cancelled or already-sent proposal
+    /// without changing it. Recipient, amount and fee come from the PSBT itself. Anything unusable (not this multisig's coins,
+    /// unreadable, a signature from a key that is not a co-signer) is refused with a plain-language reason and nothing is saved.
+    /// </summary>
+    public async Task<ProposalReceiveResult> ReceiveProposalAsync(MultisigWalletConfig config, string psbtBase64)
+    {
+        var text = (psbtBase64 ?? "").Trim();
+        var facts = MultisigProposalReader.Read(text, config, CurrentNetwork);
+        if (facts.Problems.Count > 0)
+            throw new PsbtImportException(facts.Problems[0]);
+        RejectForeignSigners(text, config);
+
+        var existing = (await GetPendingTransactionsAsync(config.WalletId))
+            .FirstOrDefault(p => string.Equals(p.UnsignedTxId, facts.UnsignedTxId, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            if (existing.Status == PendingTxStatus.Cancelled)
+                return new ProposalReceiveResult(ProposalReceiveOutcome.Cancelled, existing, 0, []);
+            if (existing.Status == PendingTxStatus.Broadcast)
+                return new ProposalReceiveResult(ProposalReceiveOutcome.Closed, existing, 0, []);
+            if (CheckProposalMatches(existing, config, text) is { } mismatch)
+                throw new PsbtImportException(mismatch);
+
+            var merged = await MergeRoomSignaturesAsync(existing, text);
+            return new ProposalReceiveResult(
+                merged.Accepted.Count > 0 ? ProposalReceiveOutcome.Merged : ProposalReceiveOutcome.AlreadyUpToDate,
+                existing, merged.Accepted.Count, merged.Rejected);
+        }
+
+        var pending = NewPendingFromFacts(config, facts, text, receivedFromCoSigner: true);
+        await SavePendingTransactionAsync(pending);
+        var added = await MergeRoomSignaturesAsync(pending, text);
+        return new ProposalReceiveResult(ProposalReceiveOutcome.Added, pending, added.Accepted.Count, added.Rejected);
+    }
+
+    /// <summary>
+    /// Brings a proposal cancelled on this device back, after the user confirmed it, merging the verified signatures of
+    /// <paramref name="psbtBase64"/>. The copy must be for this very transaction. Nothing changes if any check fails.
+    /// </summary>
+    public async Task<PendingMultisigTransaction> RestoreCancelledAsync(PendingMultisigTransaction pending, string psbtBase64)
+    {
+        if (pending.Status != PendingTxStatus.Cancelled)
+            throw new PsbtImportException("This proposal was not cancelled, so there is nothing to restore.");
+
+        var text = (psbtBase64 ?? "").Trim();
+        var config = await LoadConfigAsync(pending.WalletId)
+            ?? throw new PsbtImportException("The multisig for this proposal could not be found.");
+        if (CheckProposalMatches(pending, config, text) is { } mismatch)
+            throw new PsbtImportException(mismatch);
+        RejectForeignSigners(text, config);
+
+        pending.Status = PendingTxStatus.AwaitingSignatures;
+        pending.CancelledAt = null;
+        await MergeRoomSignaturesAsync(pending, text); // saves, and moves to ReadyToFinalize at the threshold
+        return pending;
+    }
+
+    /// <summary>
+    /// Another multisig of <paramref name="ownerWalletId"/> that the payment in <paramref name="psbtBase64"/> spends from
+    /// (matched on the script of its first coin), for the "open that wallet" offer. Null when none matches or the text is not a PSBT.
+    /// </summary>
+    public async Task<ProposalWalletMatch?> FindWalletForProposalAsync(
+        string psbtBase64, string ownerWalletId, string? ownPublicKeyHex, string excludeWalletId)
+    {
+        Script? spent;
+        try { spent = PSBT.Parse((psbtBase64 ?? "").Trim(), CurrentNetwork).Inputs.FirstOrDefault()?.WitnessUtxo?.ScriptPubKey; }
+        catch { return null; }
+        if (spent is null) return null;
+
+        foreach (var (id, name) in await ListWalletsAsync(ownerWalletId, ownPublicKeyHex))
+        {
+            if (id == excludeWalletId) continue;
+            var config = await GetConfigAsync(id, ownerWalletId, ownPublicKeyHex);
+            if (config is null) continue;
+            try
+            {
+                if (BitcoinAddress.Create(config.Address, CurrentNetwork).ScriptPubKey == spent)
+                    return new ProposalWalletMatch(id, name);
+            }
+            catch { /* an address that does not parse on this network can't match */ }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The ids (<c>txid:index</c>) of <paramref name="inputs"/> that are no longer among the multisig's unspent coins, i.e.
+    /// a payment spending them can't complete. Empty when chain data is unavailable: nothing is guessed.
+    /// </summary>
+    public async Task<IReadOnlySet<string>> GetSpentInputIdsAsync(MultisigWalletConfig config, IEnumerable<OutPoint> inputs)
+    {
+        try
+        {
+            var unspent = (await GetSpendableUtxosAsync(config))
+                .Select(u => $"{u.TxId}:{u.OutputIndex}")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return inputs.Select(i => $"{i.Hash}:{i.N}").Where(id => !unspent.Contains(id)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return new HashSet<string>();
+        }
+    }
+
+    /// <summary>A new local proposal for <paramref name="psbtBase64"/>: facts from the PSBT itself, every signature stripped (verified ones are merged afterwards).</summary>
+    private PendingMultisigTransaction NewPendingFromFacts(MultisigWalletConfig config, ProposalFacts facts, string psbtBase64, bool receivedFromCoSigner)
+    {
+        var unsigned = new MultisigService(CurrentNetwork).DeserializePSBT(psbtBase64.Trim());
         foreach (var input in unsigned.Inputs) input.PartialSigs.Clear();
 
-        var pending = new PendingMultisigTransaction
+        return new PendingMultisigTransaction
         {
             Id = Guid.NewGuid().ToString("N"),
             WalletId = config.WalletId,
@@ -562,10 +675,22 @@ public class MultisigWalletService
             RequiredSignatures = config.RequiredSignatures,
             UnsignedTxId = facts.UnsignedTxId,
             Memo = facts.Memo,
+            ReceivedFromCoSigner = receivedFromCoSigner,
         };
-        await SavePendingTransactionAsync(pending);
-        await MergeRoomSignaturesAsync(pending, psbtBase64);
-        return pending;
+    }
+
+    /// <summary>Refuses a copy carrying a signature from a key that is not a co-signer of this multisig (specs/022 R1a).</summary>
+    private void RejectForeignSigners(string psbtBase64, MultisigWalletConfig config)
+    {
+        PSBT psbt;
+        try { psbt = new MultisigService(CurrentNetwork).DeserializePSBT(psbtBase64.Trim()); }
+        catch { throw new PsbtImportException("That is not a valid signed transaction (PSBT)."); }
+
+        var allowed = GetRedeemKeys(config);
+        foreach (var input in psbt.Inputs)
+            foreach (var signer in input.PartialSigs.Keys)
+                if (!allowed.Contains(signer.ToHex()))
+                    throw new PsbtImportException("This copy is signed by a key that is not a co-signer of this multisig.");
     }
 
     /// <summary>

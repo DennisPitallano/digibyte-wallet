@@ -87,6 +87,8 @@ builder.Services.AddScoped<MultisigWalletService>(sp =>
     return service;
 });
 builder.Services.AddScoped<DigiByte.Web.Services.ActiveWalletContext>();
+// One-shot, in-memory hand-off of a scanned proposal to the multisig it belongs to (specs/022-multisig-proposal-scan-import).
+builder.Services.AddScoped<DigiByte.Web.Services.ProposalHandoff>();
 // Online multisig signing rooms (specs/017-multisig-online-signing): connects only when a room is opened or joined.
 builder.Services.AddScoped<DigiByte.Web.Services.SigningRoomClient>();
 builder.Services.AddScoped<BiometricService>();
