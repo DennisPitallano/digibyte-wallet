@@ -30,7 +30,7 @@
 
 - [X] T006 [US1] In `src/DigiByte.Web/Pages/MultisigDetail.razor`, wrap the loaded-wallet page body (the `<div class="flex flex-col gap-3">` block in the final `else` branch) in `<PullToRefresh OnRefresh="PullRefresh">…</PullToRefresh>`, keeping `<ReceiveSheet>` and `<RenameDialog>` as siblings after `</PullToRefresh>` (research R1, R3; FR-001, FR-008)
 - [X] T007 [US1] In `src/DigiByte.Web/Pages/MultisigDetail.razor`, add `private async Task PullRefresh()` that returns immediately if `isRefreshing`, otherwise sets `isRefreshing = true`, awaits `LoadBalance(keepPreviousOnFailure: true)` and `LoadActivity(keepPreviousOnFailure: true)` (same data as the button: balance and activity only; FR-002), and clears the flag in a `finally` block
-- [ ] T008 [US1] Run quickstart steps 1 and 2 and confirm the balance and activity update on a pull, and a short pull does nothing
+- [X] T008 [US1] Run quickstart steps 1 and 2 and confirm the balance and activity update on a pull, and a short pull does nothing
 
 **Checkpoint**: MVP complete: pull-to-refresh works on the happy path.
 
@@ -40,7 +40,7 @@
 
 **Independent Test**: Quickstart steps 3 and 4.
 
-- [ ] T009 [US2] Verify quickstart step 3 (scroll down, then swipe down: no refresh) and step 4 (swipe inside the Receive sheet, the Rename dialog, the expanded co-signers panel and the "Remove this multisig" confirmation: no refresh) on `/multisig/<id>`
+- [X] T009 [US2] Verify quickstart step 3 (scroll down, then swipe down: no refresh) and step 4 (swipe inside the Receive sheet, the Rename dialog, the expanded co-signers panel and the "Remove this multisig" confirmation: no refresh) on `/multisig/<id>`
 - [ ] T010 [US2] Only if T009 step 4 fails: in `src/DigiByte.Web/Components/Shared/PullToRefresh.razor`, make `OnTouchStart` skip arming when the touch starts inside an open overlay, dialog or confirmation, then re-run the `/transactions` check from T001 to confirm no regression (research R3; FR-004)
 
 **Checkpoint**: gesture only arms at the top of the page with nothing open over it.
