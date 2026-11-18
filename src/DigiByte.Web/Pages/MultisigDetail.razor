@@ -5,6 +5,7 @@
 @inject IJSRuntime JS
 @inject IBlockchainService Blockchain
 @inject AppState AppState
+@inject NotificationService Notifications
 
 <PageTitle>@(config?.DisplayName ?? "Multisig") — DigiByte Wallet</PageTitle>
 
@@ -24,6 +25,7 @@ else if (config == null)
 else
 {
     var myWatchOnly = !config.CoSigners.Any(c => c.IsLocal);
+    <PullToRefresh OnRefresh="PullRefresh">
     <div class="flex flex-col gap-3">
         <PageHeader BackLabel="Multisig" BackHref="/multisig">
             <TitleContent>
@@ -148,6 +150,7 @@ else
             }
         </div>
     </div>
+    </PullToRefresh>
 
     <ReceiveSheet IsOpen="receiveOpen" Address="@config.Address" Name="@config.DisplayName" OnClosed="() => receiveOpen = false" />
     <RenameDialog IsOpen="renameOpen" Title="Rename multisig" Initial="@config.DisplayName" OnSave="RenameWallet" OnClosed="() => renameOpen = false" />
@@ -171,6 +174,8 @@ else
     private bool confirmRemove;
     private bool isRemoving;
     private bool isLoadingActivity;
+    private bool isRefreshing;      // a refresh (first load, pull or button) is running; others are ignored
+    private int loadGeneration;
     private bool activityPartial;
     private List<ActivityEntry> recentActivity = [];
 
@@ -202,9 +207,8 @@ else
                 var pending = await MultisigService.GetPendingTransactionsAsync(WalletId);
                 pendingCount = pending.Count(p => p.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize);
                 needsMySignature = MultisigWalletService.CountNeedingMySignature(pending, config);
-                _ = LoadBalance();
                 _ = LoadPrice();
-                _ = LoadActivity();
+                _ = FirstLoadAsync();
             }
         }
         finally
@@ -213,10 +217,43 @@ else
         }
     }
 
+    // The first balance/activity load. Pulls and button taps are ignored until it finishes, so they never overlap it.
+    private async Task FirstLoadAsync()
+    {
+        var generation = ++loadGeneration;
+        isRefreshing = true;
+        try { await Task.WhenAll(LoadBalance(), LoadActivity()); }
+        finally
+        {
+            if (generation == loadGeneration) isRefreshing = false;   // a newer wallet's load owns the flag now
+        }
+    }
+
+    // The balance card's refresh button: same as always, except it is ignored while another refresh is running.
     private async Task Refresh()
     {
-        await LoadBalance();
-        await LoadActivity();
+        if (isRefreshing) return;
+        isRefreshing = true;
+        try
+        {
+            await LoadBalance();
+            await LoadActivity();
+        }
+        finally { isRefreshing = false; }
+    }
+
+    // Pull down to refresh: reloads balance and activity; if either can't be reached, keeps what is on screen and says so.
+    private async Task PullRefresh()
+    {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        try
+        {
+            var balanceOk = await LoadBalance(keepPreviousOnFailure: true);
+            var activityOk = await LoadActivity(keepPreviousOnFailure: true);
+            if (!balanceOk || !activityOk) Notifications.Error("Couldn't refresh");
+        }
+        finally { isRefreshing = false; }
     }
 
     private async Task LoadPrice()
@@ -226,15 +263,22 @@ else
         StateHasChanged();
     }
 
-    private async Task LoadBalance()
+    // Returns false when the balance could not be fetched. By default that shows "unknown"; with keepPreviousOnFailure
+    // the last known balance stays on screen instead.
+    private async Task<bool> LoadBalance(bool keepPreviousOnFailure = false)
     {
         isLoadingBalance = true;
         StateHasChanged();
         try
         {
             balanceSatoshis = await MultisigService.GetBalanceAsync(config!);
+            return true;
         }
-        catch { balanceSatoshis = null; }   // unknown stays unknown: never shown as 0
+        catch
+        {
+            if (!keepPreviousOnFailure) balanceSatoshis = null;   // unknown stays unknown: never shown as 0
+            return false;
+        }
         finally
         {
             isLoadingBalance = false;
@@ -242,17 +286,25 @@ else
         }
     }
 
-    private async Task LoadActivity()
+    // Returns false when the chain could not be reached (the service then returns only local proposals, marked partial).
+    // By default the partial page is shown; with keepPreviousOnFailure the activity already on screen stays as it is.
+    private async Task<bool> LoadActivity(bool keepPreviousOnFailure = false)
     {
         isLoadingActivity = true;
         StateHasChanged();
         try
         {
             var page = await MultisigService.GetActivityAsync(config!, 0, 25);
+            if (page.IsPartial && keepPreviousOnFailure) return false;
             recentActivity = page.Entries.Take(4).ToList();
             activityPartial = page.IsPartial;
+            return !page.IsPartial;
         }
-        catch { activityPartial = true; }
+        catch
+        {
+            if (!keepPreviousOnFailure) activityPartial = true;
+            return false;
+        }
         finally
         {
             isLoadingActivity = false;
