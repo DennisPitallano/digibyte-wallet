@@ -5,6 +5,11 @@
 @inject IConfiguration Config
 @inject GatewayRouteTimer RouteTimer
 @inject NavigationManager Nav
+@inject GatewayClient Gateway
+@inject P2pGatewayOptions GatewayOptions
+@using System.Diagnostics
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.WebAssembly.Http
 
 <PageTitle>Node diagnostics — DigiByte Wallet</PageTitle>
 
@@ -65,6 +70,55 @@
                                         <text>The faster route is quicker by <span class="dn-num">@gap.ToString("0.#") ms</span> at the median, more than the variation can explain. Run it again to be sure before relying on it.</text>
                                         break;
                                 }
+                            </p>
+                        }
+                    </div>
+                }
+            </section>
+        }
+
+        @* Balance speed: the explorer (one request per address) against the SPV gateway (one request per 100 addresses). Reads only. *@
+        @if (GatewayOptions.HasApiUrl)
+        {
+            <section class="dn-card dn-rise" style="--i:5" aria-label="Balance speed">
+                <h2 class="dn-h2">Balance speed: explorer vs gateway</h2>
+                <p class="dn-muted">One address per line. Reads the balance of the whole list @benchRounds times from each source, taking turns, and times every read. The explorer asks once per address; the gateway asks once per 100 addresses and only knows blocks from its index start, so older funds can make the balances differ. Nothing is sent but the addresses.</p>
+                <textarea class="dn-input" placeholder="D... or dgb1... (paste a wallet's addresses to see the real difference)" @bind="benchInput" @bind:event="oninput" aria-label="Addresses to time"></textarea>
+                <button type="button" class="dn-btn press-effect" disabled="@(benchRunning || string.IsNullOrWhiteSpace(benchInput))" @onclick="BenchAsync">
+                    @if (benchRunning) { <span class="dn-spin" aria-hidden="true"></span> }
+                    @(benchRunning ? $"Timing... round {benchRound} of {benchRounds}" : "Run benchmark")
+                </button>
+
+                @if (bench is not null)
+                {
+                    var slowestBench = bench.Max(b => b.MedianMs) ?? 1;
+                    <div class="dn-report dn-pop" aria-live="polite">
+                        @foreach (var b in bench)
+                        {
+                            <div class="dn-route @(b == bench.OrderBy(x => x.MedianMs ?? double.MaxValue).First() && bench.All(x => x.MedianMs is not null) ? "best" : "")">
+                                <div class="dn-route-head">
+                                    <span class="dn-addr dn-num">@b.Name</span>
+                                    <span class="dn-chip @(b.Error is null ? "ok" : "warn")">@(b.Error is null ? "ok" : "failed")</span>
+                                </div>
+                                <div class="dn-bar"><i style="width:@(b.MedianMs is null ? 0 : Math.Max(4, (int)(b.MedianMs.Value / slowestBench * 100)))%"></i></div>
+                                <div class="dn-tiles">
+                                    @Tile("Median", Ms(b.MedianMs), null)
+                                    @Tile("Fastest", Ms(b.SamplesMs.Count == 0 ? null : b.SamplesMs.Min()), null)
+                                    @Tile("Slowest", Ms(b.SamplesMs.Count == 0 ? null : b.SamplesMs.Max()), null)
+                                    @Tile("Balance", b.BalanceSatoshis is null ? "-" : $"{b.BalanceSatoshis.Value / 1e8:N8} DGB", null)
+                                    @Tile("Requests per read", b.Requests.ToString(), null)
+                                </div>
+                                @if (b.Error is not null) { <p class="dn-err">@b.Error</p> }
+                            </div>
+                        }
+                        @{
+                            var exp = bench[0]; var gw = bench[1];
+                        }
+                        @if (exp.MedianMs is not null && gw.MedianMs is not null)
+                        {
+                            <p class="dn-muted">The gateway is <span class="dn-num">@((Math.Max(exp.MedianMs.Value, gw.MedianMs.Value) / Math.Min(exp.MedianMs.Value, gw.MedianMs.Value)).ToString("0.0"))x</span> @(gw.MedianMs <= exp.MedianMs ? "faster" : "slower") at the median (@Ms(gw.MedianMs) against @Ms(exp.MedianMs)).
+                            @if (exp.BalanceSatoshis == gw.BalanceSatoshis) { <text>The balances match.</text> }
+                            else { <text>The balances differ by <span class="dn-num">@(Math.Abs((exp.BalanceSatoshis ?? 0) - (gw.BalanceSatoshis ?? 0)) / 1e8) DGB</span>: the gateway only sees blocks from height @benchIndexedFrom, and the explorer ignores unconfirmed funds.</text> }
                             </p>
                         }
                     </div>
@@ -150,6 +204,91 @@
         finally
         {
             measuring = false;
+        }
+    }
+
+    private const int benchRounds = 5;
+    private string benchInput = "";
+    private bool benchRunning;
+    private int benchRound;
+    private int benchIndexedFrom;
+    private List<BenchResult>? bench;
+
+    private sealed class NoStoreHandler : DelegatingHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            request.SetBrowserRequestCache(BrowserRequestCache.NoStore);
+            return base.SendAsync(request, cancellationToken);
+        }
+    }
+
+    private sealed class BenchResult(string name, int requests)
+    {
+        public string Name { get; } = name;
+        public int Requests { get; set; } = requests;
+        public List<double> SamplesMs { get; } = [];
+        public long? BalanceSatoshis { get; set; }
+        public string? Error { get; set; }
+        public double? MedianMs => SamplesMs.Count == 0 ? null : SamplesMs.OrderBy(x => x).ElementAt(SamplesMs.Count / 2);
+    }
+
+    private async Task BenchAsync()
+    {
+        benchRunning = true;
+        bench = null;
+        var addresses = benchInput.Split(['\n', '\r', ',', ' ', ';'], StringSplitOptions.RemoveEmptyEntries).Distinct().ToList();
+        var explorer = new BenchResult("Explorer (digiexplorer.info), one request per address", addresses.Count);
+        var gateway = new BenchResult($"Gateway ({GatewayOptions.ApiUrl}), one request per 100 addresses", (addresses.Count + 99) / 100);
+        // A mainnet explorer client of its own: the gateway is mainnet only, and a dev build's default network is testnet.
+        // digiexplorer.info answers with max-age=10, so without NoStore the repeat rounds would be served from the browser cache.
+        var mainnetExplorer = new BlockchainApiService(new HttpClient(new NoStoreHandler { InnerHandler = new HttpClientHandler() }), isTestnet: false);
+        try
+        {
+            // The gateway keeps blocks from this height; ask for everything it has.
+            try
+            {
+                using var health = await HttpFactory.CreateClient("SpvGatewayHealth").GetAsync($"{GatewayOptions.ApiUrl}/v1/health");
+                using var doc = JsonDocument.Parse(await health.Content.ReadAsStringAsync());
+                benchIndexedFrom = doc.RootElement.GetProperty("indexedFromHeight").GetInt32();
+            }
+            catch (Exception e) { gateway.Error = $"Could not read the gateway health report: {e.Message}"; }
+
+            for (benchRound = 1; benchRound <= benchRounds; benchRound++)
+            {
+                StateHasChanged();
+                await TimeAsync(explorer, async () => await mainnetExplorer.GetBalanceAsync(addresses));
+                if (gateway.Error is null || benchIndexedFrom > 0)
+                {
+                    await TimeAsync(gateway, async () =>
+                    {
+                        long total = 0;
+                        foreach (var chunk in addresses.Chunk(GatewayClient.MaxPerRequest))
+                            total += (await Gateway.GetUtxosAsync(chunk, benchIndexedFrom)).Utxos.Sum(u => u.Amount);
+                        return total;
+                    });
+                }
+            }
+        }
+        finally
+        {
+            bench = [explorer, gateway];
+            benchRunning = false;
+        }
+    }
+
+    private static async Task TimeAsync(BenchResult result, Func<Task<long>> read)
+    {
+        var clock = Stopwatch.StartNew();
+        try
+        {
+            result.BalanceSatoshis = await read();
+            result.SamplesMs.Add(clock.Elapsed.TotalMilliseconds);
+            result.Error = null;
+        }
+        catch (Exception e)
+        {
+            result.Error = e.Message;
         }
     }
 
