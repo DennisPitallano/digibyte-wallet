@@ -65,6 +65,32 @@ public class AddressDiscoveryReliabilityTests
         _ = mode;
     }
 
+    // ─── Esplora balance ───
+
+    [Fact]
+    public async Task Esplora_SumsTheBalanceOfEveryAddress()
+    {
+        var esplora = new BlockchainApiService(new HttpClient(new Handler(r =>
+            Json(HttpStatusCode.OK, r.RequestUri!.AbsolutePath.EndsWith("/a1")
+                ? "{\"chain_stats\":{\"funded_txo_sum\":500,\"spent_txo_sum\":200}}"
+                : "{\"chain_stats\":{\"funded_txo_sum\":50,\"spent_txo_sum\":0}}"))));
+
+        Assert.Equal(350, await esplora.GetBalanceAsync(["a1", "a2"]));
+    }
+
+    [Theory, MemberData(nameof(ExplorerFailures))]
+    public async Task Esplora_BalanceOfSeveralAddresses_WhenOneCannotBeRead_Throws(string mode, Func<HttpRequestMessage, HttpResponseMessage> respond)
+    {
+        // The first address answers; the second is the one that fails. The total must not come back as the first one alone.
+        var esplora = new BlockchainApiService(new HttpClient(new Handler(r =>
+            r.RequestUri!.AbsolutePath.EndsWith("/a1")
+                ? Json(HttpStatusCode.OK, "{\"chain_stats\":{\"funded_txo_sum\":500,\"spent_txo_sum\":0}}")
+                : respond(r))));
+
+        await Assert.ThrowsAnyAsync<Exception>(() => esplora.GetBalanceAsync(["a1", "a2"]));
+        _ = mode;
+    }
+
     // ─── Blockbook ───
 
     [Theory]

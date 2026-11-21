@@ -61,17 +61,28 @@ public class BlockchainApiService : IBlockchainService
         var addressList = addresses.ToList();
         if (addressList.Count == 0) return 0;
 
-        // Query up to 10 addresses in parallel to avoid hammering the API
+        // Query up to 10 addresses in parallel to avoid hammering the API.
+        // Strict: an address the explorer could not answer for must fail the whole read, never count as an empty one. Otherwise a
+        // rate limit or a timeout on a few addresses shows a balance that is too low, and the caller cannot tell. The fallback
+        // service then tries the next source, and the screens show "unable to load" instead of a wrong total.
         var semaphore = new SemaphoreSlim(10);
         var tasks = addressList.Select(async addr =>
         {
             await semaphore.WaitAsync();
-            try { return await GetBalanceAsync(addr); }
+            try { return await GetBalanceStrictAsync(addr); }
             finally { semaphore.Release(); }
         });
 
         var results = await Task.WhenAll(tasks);
         return results.Sum();
+    }
+
+    private async Task<long> GetBalanceStrictAsync(string address)
+    {
+        var reply = await _http.GetFromJsonAsync<EsploraAddressCounts>($"{_baseUrl}/address/{address}");
+        if (reply?.ChainStats is null)
+            throw new InvalidOperationException("The explorer's reply had no chain statistics.");
+        return reply.ChainStats.FundedTxoSum - reply.ChainStats.SpentTxoSum;
     }
 
     public async Task<List<UtxoInfo>> GetUtxosAsync(string address)
