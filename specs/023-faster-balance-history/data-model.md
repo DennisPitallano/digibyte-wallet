@@ -60,6 +60,7 @@ Rules:
 - Merge (FR-008): a txid already saved is replaced by the newer answer, never duplicated.
 - A pending txid that is no longer reported and has not confirmed is removed (dropped or replaced edge case).
 - The full re-read (FR-009) replaces `Transactions` for all watched addresses in one write.
+- Confirmations are recomputed on every refresh from `BlockHeight` and one tip read; the stored confirmation count is never used. If the tip read fails, the stored counts are kept.
 - `TransactionRecord`s are still built from these on each read, with today's resolver. `TransactionTracker` (`tx_history_{walletId}`) still wins on duplicates.
 
 ## WalletBalance (existing, changed meaning of one field)
@@ -82,7 +83,7 @@ The summaries read during the current refresh cycle: an address → `AddressSumm
 NotStarted ──all cursors completed this session─────────────────▶ Done
 NotStarted ──first change-only result returned──▶ Running ──success──▶ Done
     ▲                                               │
-    └──── failure (retry after 1 min) ◀─────────────┘
+    └── failure (retried on first refresh ≥ 1 min later) ◀┘
 Lock / switch wallet: Running → cancelled → NotStarted (next unlock starts again)
 ```
 

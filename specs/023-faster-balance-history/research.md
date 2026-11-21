@@ -88,7 +88,7 @@ The legacy (change-only off) path and multisig use the same pager, so complete h
 
 ## R8. The full re-read once per unlock
 
-**Decision**: `UnlockedWalletSession` gets a `FullResyncState` (NotStarted, Running, Done, Failed). After the first change-only history result has been returned, `WalletHistorySync` starts a background full re-read: every watched address, full paging, two requests at a time. Before each address it waits while any foreground refresh is running, which gives way to the user's reads (FR-009). When it finishes, it replaces the saved chain history in one write. If it fails, the state goes back to NotStarted with a 1-minute retry delay, and nothing on screen changes. Locking the wallet cancels it.
+**Decision**: `UnlockedWalletSession` gets a `FullResyncState` (NotStarted, Running, Done). After the first change-only history result has been returned, `WalletHistorySync` starts a background full re-read: every watched address, full paging, two requests at a time. Before each address it waits while any foreground refresh is running, which gives way to the user's reads (FR-009). When it finishes, it replaces the saved chain history in one write. If it fails, the state goes back to NotStarted and it is retried on the first refresh at least 1 minute after the failure; nothing on screen changes. Locking the wallet cancels it.
 
 **Rationale**: This follows clarification 1, and the same retry delay is already used by discovery (`AddressDiscoveryRetryDelay`).
 
@@ -120,7 +120,7 @@ The legacy (change-only off) path and multisig use the same pager, so complete h
 
 **Decision**: Move Home's saved-snapshot read and write (`cache:balance:{id}`, `cache:transactions:{id}`, `cache:lastFetch:{id}`, plus the shared `cache:dgbPrice`) into a `WalletSnapshotCache` service in `DigiByte.Web`. Home, Transactions, Receive and Send all use it: show the snapshot at once, then refresh. A failed refresh keeps the snapshot and shows "Last updated …" (FR-018). Send keeps reading the coins fresh at confirm time (FR-022). The snapshot is invalidated by wallet id after a send (fixing the key bug from R1), and removed when the wallet is deleted.
 
-`FallbackBlockchainService` gets an opt-in stale read for balance and history only: return the expired value and refresh in the background (FR-019). Coin reads are never cached, and the generation number from R5 stops anything from before a send being served afterwards.
+The page snapshot is what meets FR-019; `FallbackBlockchainService` gets no stale read. Coin reads are never cached, and the generation number from R5 stops anything from before a send being cached afterwards.
 
 ## R13. Pending figure on Home
 

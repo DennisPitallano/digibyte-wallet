@@ -38,7 +38,7 @@ The existing guarantees stay:
 
 **Storage**: `ISecureStorage` (IndexedDB), the same store and protection as today's Home cache (clarification 2). New keys: `addr_summary_{walletId}_{network}`, `chain_history_{walletId}_{network}`, `dev:history-change-only`. Existing `tx_history_{walletId}` and `cache:*:{walletId}` are reused and now removed on wallet delete.
 
-**Testing**: xUnit in `tests/DigiByte.Wallet.Tests` with counting explorer doubles (extending `ScriptedExplorer` / `CountingFakeExplorer` from `NodeSourceTestDoubles.cs` and `ParallelQueryTests.cs`) and a fake `ISecureStorage`; the existing gateway test doubles for one-pass history. Manual checks in the browser preview and on `/dev/node`.
+**Testing**: xUnit in `tests/DigiByte.Wallet.Tests` with a new counting explorer double, `SummaryExplorer` in `HistorySyncTestDoubles.cs`, reusing `TestMemoryStorage` as the fake `ISecureStorage`; the existing gateway test doubles for one-pass history. Manual checks in the browser preview and on `/dev/node`.
 
 **Target Platform**: Installed PWA and mobile/desktop browsers
 
@@ -94,14 +94,14 @@ specs/023-faster-balance-history/
 ```text
 src/DigiByte.Wallet/
 ├── Models/
-│   ├── WalletInfo.cs                      # WalletBalance.UnconfirmedSatoshis now set (no shape change)
+│   ├── WalletInfo.cs                      # WalletBalance.UnconfirmedSatoshis now set; adds derived AvailableSatoshis/AvailableDgb
 │   └── AddressSummary.cs                  # NEW: AddressSummary, AddressHistoryCursor, AddressHistoryPage
 ├── Services/
 │   ├── IAddressSummarySource.cs           # NEW: optional summary + paging interface
 │   ├── IWalletHistorySource.cs            # NEW: optional one-pass wallet history
 │   ├── BlockchainApiService.cs            # summary + paging; 10 s tip-height memo; complete paging in GetAddressTransactionsAsync
 │   ├── FallbackBlockchainService.cs       # in-flight sharing, generation-safe invalidation, txs:{address} key,
-│   │                                      #   opt-in stale read, IAddressSummarySource routing, TryGetWalletHistorySource
+│   │                                      #   IAddressSummarySource routing, TryGetWalletHistorySource
 │   ├── P2pGatewayBlockchainService.cs     # GetWalletTransactionsAsync (one pass)
 │   ├── AddressSummaryStore.cs             # NEW: addr_summary_* and chain_history_* records (versioned)
 │   ├── WalletHistorySync.cs               # NEW: refresh cycle, snapshot, merge, background full re-read
@@ -120,10 +120,13 @@ src/DigiByte.Web/
 │   ├── PsbtSign.razor, Settings.razor     # fix cache:balance invalidation key
 │   └── DevNode.razor                      # change-only toggle; wallet refresh benchmark with counts
 tests/DigiByte.Wallet.Tests/
-├── AddressSummaryTests.cs                 # NEW: parsing, strictness, DiffersFrom
-├── EsploraPagingTests.cs                  # NEW: paging, stop-at-known, cap, tip memo
-├── FallbackCacheTests.cs                  # NEW: in-flight sharing, key per address, generation after send, stale read
-├── HistorySyncTests.cs                    # NEW: delta cycle, failures, pending, full re-read, switch, isolation, versions
+├── AddressSummaryTests.cs                 # NEW: derived values, DiffersFrom
+├── AddressSummaryStoreTests.cs            # NEW: saved records, versions, isolation, delete cleanup
+├── EsploraPagingTests.cs                  # NEW: summary parsing and strictness, paging, stop-at-known, cap, tip memo
+├── FallbackCacheTests.cs                  # NEW: in-flight sharing, key per address, generation after send, summary routing
+├── HistorySyncTests.cs                    # NEW: delta cycle, failures, pending, full re-read, switch, discovery, confirmations
+├── HistorySyncTestDoubles.cs              # NEW: SummaryExplorer (counting, scripted) and WalletService builder
+├── MultisigHistoryTests.cs                # NEW: multisig complete history over the real Esplora pager
 ├── GatewayWalletHistoryTests.cs           # NEW: one-pass equals per-address; parse count
 └── (existing) ParallelQueryTests.cs, TransactionHistoryAddressTests.cs, GatewayWiringTests.cs  # updated where the key or counts change
 docs/ARCHITECTURE.md                       # read path: summaries, change-only sync, saved history
@@ -139,7 +142,7 @@ Each slice can ship on its own and keeps every test green:
 2. **Send invalidation and cleanup** (FR-023, FR-025): fix the `cache:balance` key, delete the new and old saved keys with the wallet.
 3. **Change-only sync** (US1 + US2, FR-004–011, FR-010a): summary source, store, `WalletHistorySync`, discovery seeding, background full re-read, dev switch.
 4. **Pending balance** (US4, FR-014–016): `UnconfirmedSatoshis`, Home main figure and pending line, `TotalDgb` audit.
-5. **Instant display** (US5, FR-017–019): `WalletSnapshotCache` on the four pages, opt-in stale read.
+5. **Instant display** (US5, FR-017–019): `WalletSnapshotCache` on the four pages.
 6. **Gateway one-pass** (US6, FR-020/021).
 7. **Benchmark with counts** (FR-010b, SC-001/002) and docs.
 

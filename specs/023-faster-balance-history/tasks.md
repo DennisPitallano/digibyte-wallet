@@ -30,7 +30,8 @@ description: "Task list for Faster Balance and History"
 
 **Purpose**: New types and test doubles that every later phase uses
 
-- [ ] T001 [P] Create `AddressSummary`, `AddressHistoryCursor` and `AddressHistoryPage` in src/DigiByte.Wallet/Models/AddressSummary.cs per data-model.md. `AddressSummary` fields: `Address` (key, "exactly as derived (not normalised)"), `ConfirmedTxCount` and `PendingTxCount` ("≥ 0"), `ConfirmedFunded` ("≥ 0"), `ConfirmedSpent` ("0 ≤ value ≤ `ConfirmedFunded`"), `PendingFunded` and `PendingSpent` ("≥ 0"), `ReadAtUtc`. Derived: `Confirmed`, `PendingNet` ("may be negative"), `IsUsed` ("`ConfirmedTxCount + PendingTxCount > 0`") and `DiffersFrom(other)` (true if any count or amount differs). Cursor fields: `Complete`, `Truncated`, `NewestConfirmedTxId`, `PendingTxIds`. `AddressHistoryPage(IReadOnlyList<TransactionInfo> Transactions, string? LastConfirmedTxId)`.
+- [ ] T000a [P] Failing tests in tests/DigiByte.Wallet.Tests/AddressSummaryTests.cs: `Confirmed` and `PendingNet` (including negative), `IsUsed` (0/0 false, pending-only true), and `DiffersFrom` true for each single changed field and false for equal values.
+- [ ] T001 [P] Create `AddressSummary`, `AddressHistoryCursor` and `AddressHistoryPage` in src/DigiByte.Wallet/Models/AddressSummary.cs per data-model.md. `AddressSummary` fields: `Address` (key, "exactly as derived (not normalised)"), `ConfirmedTxCount` and `PendingTxCount` ("≥ 0"), `ConfirmedFunded` ("≥ 0"), `ConfirmedSpent` ("0 ≤ value ≤ `ConfirmedFunded`"), `PendingFunded` and `PendingSpent` ("≥ 0"), `ReadAtUtc`. Derived: `Confirmed`, `PendingNet` ("may be negative"), `IsUsed` ("`ConfirmedTxCount + PendingTxCount > 0`") and `DiffersFrom(other)` (true if any count or amount differs). Cursor fields: `Complete`, `Truncated`, `NewestConfirmedTxId`, `PendingTxIds`. `AddressHistoryPage(IReadOnlyList<TransactionInfo> Transactions, string? LastConfirmedTxId)`. Makes T000a pass.
 - [ ] T002 [P] Create the optional interface `IAddressSummarySource` (`GetAddressSummaryAsync(string)`, `GetAddressHistoryPageAsync(string, string? afterTxId)`) and `SummaryUnavailableException` in src/DigiByte.Wallet/Services/IAddressSummarySource.cs, exactly as in contracts/history-sources.md §2.
 - [ ] T003 [P] Create the optional interface `IWalletHistorySource` (`GetWalletTransactionsAsync(IReadOnlyList<string>)`) in src/DigiByte.Wallet/Services/IWalletHistorySource.cs per contracts/history-sources.md §3.
 - [ ] T004 [P] Create `HistorySyncOptions { bool ChangeOnly = true }` in src/DigiByte.Wallet/Services/HistorySyncOptions.cs.
@@ -77,7 +78,8 @@ description: "Task list for Faster Balance and History"
 - [ ] T013 Route `IAddressSummarySource` in src/DigiByte.Wallet/Services/FallbackBlockchainService.cs:
   - Use the first explorer that implements it and is not on cooldown, with the same `Note`/cooldown accounting as address reads.
   - Throw `SummaryUnavailableException` on regtest, when no explorer implements it, when all fail, or while the gateway is active in First position (add a test for the gateway-first case).
-  - Summary lookups are not cached here; `WalletHistorySync` keeps the snapshot.
+  - Summary lookups are not cached here; `WalletHistorySync` keeps the summary snapshot.
+  - An overload or flag that skips cooldown and outage recording, for discovery (T021).
   - Add tests for routing, cooldown and unavailable to tests/DigiByte.Wallet.Tests/FallbackCacheTests.cs.
 - [ ] T014 [P] Fix the post-send invalidation key, which today removes `"cache:balance"` while Home writes `cache:balance:{walletId}`. Remove the active wallet's `cache:balance:{id}`, `cache:transactions:{id}` and `cache:lastFetch:{id}` instead (leave `cache:dgbPrice`; it isn't per wallet), in src/DigiByte.Web/Pages/Send.razor (~line 1208), src/DigiByte.Web/Pages/PsbtSign.razor (~line 537) and src/DigiByte.Web/Pages/Settings.razor (~line 1162).
 - [ ] T015 Extend `WalletService.DeleteWalletAsync` in src/DigiByte.Wallet/Services/WalletService.cs to also delete `tx_history_{walletId}`, both `AddressSummaryStore` records, and the `cache:balance:`, `cache:transactions:` and `cache:lastFetch:` keys for that wallet id (FR-025). Add a test in tests/DigiByte.Wallet.Tests/AddressSummaryStoreTests.cs that deleting a wallet leaves none of its keys and keeps another wallet's.
@@ -101,6 +103,7 @@ description: "Task list for Faster Balance and History"
   - Discovery-read summaries younger than 30 s are reused by the first refresh, with no second summary request (FR-011).
   - With `HistorySyncOptions.ChangeOnly = false`, every address's history is fetched and FR-001–004 still hold (FR-010a).
   - A refresh on regtest or with `SummaryUnavailableException` falls back to today's path with the same results.
+  - Saved confirmed transactions gain confirmations when the tip advances between two warm refreshes, and each refresh sends at most one tip request (FR-001, FR-008).
 
 ### Implementation for User Story 1
 
@@ -110,6 +113,7 @@ description: "Task list for Faster Balance and History"
   - It keeps an in-memory `SummarySnapshot` (entries younger than 30 s count as current) and reads missing summaries 10 at a time, strict: any failure throws (FR-006).
   - It loads the saved summaries and chain history, picks addresses where `DiffersFrom` is true or no summary or cursor exists, and fetches the newest page for those. Multi-page fetching comes in US2/US3.
   - It merges by txid into `SavedChainHistory` and persists each address's summary only after its merge succeeds (FR-010).
+  - Once per refresh, it reads the tip with `IBlockchainService.GetBlockHeightAsync()` (the Fallback cache, 15 s) and recomputes every saved transaction's confirmations from its `BlockHeight` (pending = 0). It never uses the stored confirmation count. If the tip read fails, it keeps the stored counts. The balance does not depend on the tip.
   - It returns `SyncResult(ConfirmedSatoshis, PendingSatoshis, Transactions, AddressesFetched)`.
   - Also implement `Offer(...)`.
 - [ ] T020 [US1] Wire `WalletHistorySync` into src/DigiByte.Wallet/Services/WalletService.cs. When `HistorySyncOptions.ChangeOnly` is on and the source is an `IAddressSummarySource` (the `FallbackBlockchainService`):
@@ -117,7 +121,7 @@ description: "Task list for Faster Balance and History"
   - `GetTransactionHistoryAsync(skip, take)` uses `RefreshAsync(...).Transactions` in place of the per-address `GetAddressTransactionsAsync` loop (~line 1492), keeping all record-building, merging with `TransactionTracker`, `RepairUnderRecordedBatchesAsync`, the gateway `Offer` and labelling unchanged.
   - On `SummaryUnavailableException`, or when the switch is off, it uses today's path.
   - Check `TryGetWalletHistorySource()` and gateway-first before the change-only path, in the order given in contracts/history-sources.md §5.
-- [ ] T021 [US1] Seed summaries from discovery in src/DigiByte.Wallet/Services/WalletService.cs `FindUsedCountAsync` (~line 1083). When the source implements `IAddressSummarySource`, call `GetAddressSummaryAsync`, use `IsUsed` for the used check, and call `WalletHistorySync.Offer`. Otherwise keep `HasAddressHistoryAsync`, keeping its no-cooldown and no-outage semantics (FR-011, research R9).
+- [ ] T021 [US1] Seed summaries from discovery in src/DigiByte.Wallet/Services/WalletService.cs `FindUsedCountAsync` (~line 1083). When the source implements `IAddressSummarySource`, call `GetAddressSummaryAsync`, use `IsUsed`, and call `WalletHistorySync.Offer`. On `SummaryUnavailableException`, use `HasAddressHistoryAsync` for that address. Discovery summary lookups use the T013 route that skips failure recording, so a failed discovery lookup never puts an explorer on cooldown or counts toward an outage (same as `HasAddressHistoryAsync` today). Otherwise keep `HasAddressHistoryAsync` (FR-011, research R9). Add tests in tests/DigiByte.Wallet.Tests/HistorySyncTests.cs: discovery with the gateway first falls back to `HasAddressHistoryAsync`; a failed discovery summary leaves no cooldown.
 - [ ] T022 [US1] Register `HistorySyncOptions` (singleton), `AddressSummaryStore` and `WalletHistorySync` (scoped) in src/DigiByte.Web/Program.cs and pass them into `WalletService`. At startup, load `ChangeOnly` from `ISecureStorage` key `dev:history-change-only` (missing → true).
 - [ ] T023 [US1] Add a "Change-only history sync" toggle to src/DigiByte.Web/Pages/DevNode.razor that writes `dev:history-change-only` and updates `HistorySyncOptions.ChangeOnly`, taking effect on the next refresh (FR-010a).
 
@@ -148,7 +152,7 @@ description: "Task list for Faster Balance and History"
   - It waits while a `RefreshAsync` is running.
   - It uses at most two concurrent requests.
   - On success it replaces saved chain history in one write, which corrects a transaction whose block changed with no count change.
-  - On failure it changes nothing returned and retries after 1 minute.
+  - On failure it changes nothing returned and is retried on the first refresh at least 1 minute after the failure.
   - It runs once per unlock, and locking the wallet cancels it.
   - When the refresh that triggers it already read every watched address in full (complete cursors, nothing left to page), the state goes straight to Done and no extra requests are sent.
 
@@ -159,13 +163,13 @@ description: "Task list for Faster Balance and History"
   - Replace the address's pending set from the newest page and remove saved pending txids that are neither listed nor confirmed.
   - Update the cursor.
   - Partial page failure keeps that address's old summary and cursor while still returning the summary-based balance. Makes T024–T025 pass.
-- [ ] T028 [US2] Add `FullResyncState` to the session in src/DigiByte.Wallet/Services/WalletService.cs (`UnlockedWalletSession`) and implement `WalletHistorySync.EnsureFullResync(...)` in src/DigiByte.Wallet/Services/WalletHistorySync.cs per data-model.md. The state machine is NotStarted → Running → Done, with Failed going back to NotStarted after 1 min.
+- [ ] T028 [US2] Add `FullResyncState` to the session in src/DigiByte.Wallet/Services/WalletService.cs (`UnlockedWalletSession`) and implement `WalletHistorySync.EnsureFullResync(...)` in src/DigiByte.Wallet/Services/WalletHistorySync.cs per data-model.md. The state machine is NotStarted → Running → Done; a failure goes back to NotStarted and is retried on the first refresh at least 1 minute after the failure.
   - Two requests at a time, waiting while a foreground refresh runs.
   - Full paging per address, then one write.
   - Cancelled on lock or wallet switch.
   - Skip straight to Done when every cursor is `Complete` and was set in this session.
   - Call it from `GetTransactionHistoryAsync` after the change-only result is built. Makes T026 pass.
-- [ ] T029 [US2] Make sure every send path in src/DigiByte.Wallet/Services/WalletService.cs (single send, batch send, consolidate, PSBT broadcast) calls `InvalidateCache()` on the `FallbackBlockchainService` and drops the `WalletHistorySync` snapshot for the wallet after broadcasting (FR-023). Add `WalletHistorySync.ForgetSnapshot(walletId)` if needed.
+- [ ] T029 [US2] Make sure every send path in src/DigiByte.Wallet/Services/WalletService.cs (single send, batch send, consolidate, PSBT broadcast) calls `InvalidateCache()` on the `FallbackBlockchainService` and drops the `WalletHistorySync` summary snapshot for the wallet after broadcasting (FR-023). Add `WalletHistorySync.ForgetSnapshot(walletId)` if needed.
 
 **Checkpoint**: New activity, confirmations, drops, failures and sends all behave correctly. US1 and US2 together are the change-only sync.
 
@@ -187,7 +191,7 @@ description: "Task list for Faster Balance and History"
   - The first refresh of a 60-transaction address returns the newest page without waiting for older ones; after the background re-read, all 60 are saved and the cursor is `Complete`.
   - One new transaction later fetches exactly one page (SC-004, FR-012/013).
   - Hitting the 2,000 cap sets `Truncated` and logs once.
-- [ ] T032 [P] [US3] Failing test in tests/DigiByte.Wallet.Tests/MultisigHistoryTests.cs (new), using the `MultisigFakeChain` double from tests/DigiByte.Wallet.Tests/MultisigTestDoubles.cs: a multisig address with 60 transactions shows all 60 (clarification 4).
+- [ ] T032 [P] [US3] Failing test in tests/DigiByte.Wallet.Tests/MultisigHistoryTests.cs (new): a `MultisigWalletService` over a real `BlockchainApiService` with the stub `HttpMessageHandler` from EsploraPagingTests.cs. A multisig address with 60 confirmed transactions shows all 60 (clarification 4).
 
 ### Implementation for User Story 3
 
@@ -231,18 +235,15 @@ description: "Task list for Faster Balance and History"
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T039 [P] [US5] Failing tests in tests/DigiByte.Wallet.Tests/FallbackCacheTests.cs for the opt-in stale read:
-  - An expired balance or history entry is returned at once while one background refresh runs.
-  - A stale read never applies to `GetUtxosAsync`/`GetVerifiedUtxosAsync`.
-  - After `InvalidateCache()`, no value from the previous generation is returned stale (FR-019, FR-022/023).
+- ~~T039~~ Removed: FR-019 is met by WalletSnapshotCache (T041–T044). FR-022/023 stay covered by T006, T025 and T044.
 
 ### Implementation for User Story 5
 
-- [ ] T040 [US5] Add the opt-in stale read for balance and history keys in src/DigiByte.Wallet/Services/FallbackBlockchainService.cs: serve the expired value and refresh in the background, respecting the generation. Makes T039 pass.
+- ~~T040~~ Removed: no stale read is added to `FallbackBlockchainService` (see T039).
 - [ ] T041 [US5] Create `WalletSnapshotCache` in src/DigiByte.Web/Services/WalletSnapshotCache.cs. It reads, writes and invalidates `cache:balance:{walletId}`, `cache:transactions:{walletId}`, `cache:dgbPrice` and `cache:lastFetch:{walletId}` exactly as Home does today (src/DigiByte.Web/Pages/Home.razor ~lines 616, 830–946), and exposes the last-updated time. Register it in src/DigiByte.Web/Program.cs, then move Home's snapshot code to it, with no change in Home's behaviour. Use it in T014's invalidation spots too.
 - [ ] T042 [P] [US5] In src/DigiByte.Web/Pages/Transactions.razor, show the snapshot at once (balance and history for the active wallet only), refresh in the background, and on failure keep the snapshot with "Last updated …" (FR-017/018/024).
 - [ ] T043 [P] [US5] In src/DigiByte.Web/Pages/Receive.razor, show the snapshot history at once in place of waiting on `GetTransactionHistoryAsync(0, 1000)` (~line 413), refreshing in the background; same failure rule.
-- [ ] T044 [P] [US5] In src/DigiByte.Web/Pages/Send.razor, show the snapshot balance at once as the displayed available amount, refreshing in the background. The coins for the send are still read fresh at confirm time with no change to the signing path (FR-022), and the snapshot is invalidated after a send.
+- [ ] T044 [P] [US5] In src/DigiByte.Web/Pages/Send.razor, show the page snapshot (`WalletSnapshotCache`) balance at once as the displayed available amount, refreshing in the background. The coins for the send are still read fresh at confirm time with no change to the signing path (FR-022), and the page snapshot is invalidated after a send.
 - [ ] T045 [US5] Check src/DigiByte.Web/Pages/Transactions.razor, Receive.razor and Send.razor in the browser preview with DevTools throttling: each page shows saved data within 1 s; offline shows "Last updated …"; switching wallets never shows another wallet's figures (SC-005, US5 #3).
 
 **Checkpoint**: Every wallet page feels instant.
@@ -276,7 +277,7 @@ description: "Task list for Faster Balance and History"
 ## Phase 9: Polish & Cross-Cutting Concerns
 
 - [ ] T049 Create `RequestCountingHandler` in src/DigiByte.Web/Services/RequestCountingHandler.cs: a `DelegatingHandler` that counts only while a session is open. It groups requests as `/address/{a}` = Summary, `/address/{a}/txs…` = HistoryPage, `/blocks/tip/height` = TipHeight, and anything else = Other. Counts are in memory only, never logged, saved or sent (FR-010b). Register it on the explorer `HttpClient` in src/DigiByte.Web/Program.cs.
-- [ ] T050 Add a "Wallet refresh benchmark" to src/DigiByte.Web/Pages/DevNode.razor (needs an unlocked wallet). It runs balance plus history four times: on/cold, on/warm, off/cold, off/warm, clearing the Fallback cache, snapshot and saved summaries for the cold runs. For each run it shows the time and the Summary, HistoryPage, TipHeight and Other counts, then puts the switch back to its previous value.
+- [ ] T050 Add a "Wallet refresh benchmark" to src/DigiByte.Web/Pages/DevNode.razor (needs an unlocked wallet). It runs balance plus history four times: on/cold, on/warm, off/cold, off/warm, clearing the Fallback cache, the summary snapshot, the page snapshot (`WalletSnapshotCache`) and saved summaries for the cold runs. Before each run, cancel any running full re-read and set `FullResyncState` to Done for the session, so it can't add requests to a later run; counting starts only after the cancel has finished. After the last run, set it back to NotStarted. For each run it shows the time and the Summary, HistoryPage, TipHeight and Other counts, then puts the switch back to its previous value.
 - [ ] T051 [P] Update docs/ARCHITECTURE.md (read path: address summaries, change-only sync, saved chain history, background full re-read, `/dev/node` switch) and docs/PROCESS_FLOWS.md if it describes balance or history refresh.
 - [ ] T052 Run `dotnet build` and `dotnet test` for the whole solution; fix anything this feature broke in existing tests (e.g. tests/DigiByte.Wallet.Tests/TransactionHistoryAddressTests.cs, GatewayWiringTests.cs, ParallelQueryTests.cs).
 - [ ] T053 Run quickstart.md sections 2 and 3 against the live explorer in the browser preview. Record the `/dev/node` on/off warm times and counts in the PR description as proof of SC-001 and SC-002.
@@ -287,7 +288,7 @@ description: "Task list for Faster Balance and History"
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: none. T001–T005 can all run in parallel.
+- **Setup (Phase 1)**: none. T000a and T002–T005 can run in parallel; T001 follows T000a.
 - **Foundational (Phase 2)**: needs Phase 1. Blocks every story.
 - **US1 (Phase 3)**: needs Phase 2. This is the MVP.
 - **US2 (Phase 4)**: needs US1 (it extends `WalletHistorySync.RefreshAsync`).
@@ -303,9 +304,9 @@ Tests first, and they must fail. Then the model/store, then the service, then th
 
 ### Parallel Opportunities
 
-- Phase 1: T001–T005.
+- Phase 1: T000a, T002–T005 (then T001).
 - Phase 2: T006, T007 and T011 (tests in different files), and T014 (Web pages) next to any wallet task.
-- After Phase 2: US5 (T039–T045) and US6 (T046–T048) can run alongside US1, because they touch different files. The exception is that T040 and T048 also touch `FallbackBlockchainService.cs`, so run them after T018.
+- After Phase 2: US5 (T041–T045) and US6 (T046–T048) can run alongside US1, because they touch different files. The exception is that T048 also touches `FallbackBlockchainService.cs`, so run it after T018.
 - Within US5: T042, T043 and T044 (three different pages).
 
 ## Parallel Example: after Phase 2
