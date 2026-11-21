@@ -26,6 +26,7 @@ The request also proposed a block-driven refresh (read the block height first an
 - Q: Where should the wallet say when every address was last fully checked? → A: In the balance details (the info panel opened from the balance card) only, not on Home's main card.
 - Q: Should tiering have its own developer switch or reuse the change-only sync switch? → A: Its own switch, "Tiered refresh", independent of "Change-only history sync".
 - Q: With change-only sync off and tiered refresh on, does tiering still apply? → A: No. Tiering works only on top of change-only sync; with change-only off, every refresh and send reads every address as in 0.6.0.
+- Q: Is the background refresh when the user opens Activity, Receive or Send tiered or a full check? → A: Tiered, like Home's timer. Only pull-to-refresh and the refresh button count as user-started full checks.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -117,7 +118,7 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 - **FR-003**: An address MUST join the hot set as soon as a lookup, a discovery read or a send shows activity on it.
 - **FR-004**: Every watched address outside the hot set MUST be looked up at least once every 5 minutes (the cold-check interval). The cold addresses due in a refresh are looked up in that refresh.
 - **FR-005**: A summary for an address not looked up in a refresh MAY be reused only if it was read live from the source in this session and no longer ago than the cold-check interval. Otherwise the address MUST be looked up in that refresh. A summary loaded from storage MUST NOT be reused.
-- **FR-006**: The first refresh after unlock, a refresh the user starts (pull to refresh or the refresh button), and the first refresh after a send MUST look up every watched address.
+- **FR-006**: The first refresh after unlock, a refresh the user starts (pull to refresh or the refresh button), and the first refresh after a send MUST look up every watched address. All other refreshes are automatic and tiered, including Home's timer and the background refresh when Activity, Receive or Send is opened.
 - **FR-007**: A refresh MUST NOT show a balance that is lower than the sum of the latest summaries because some address was skipped. Any lookup that fails MUST fail the balance read, as today.
 - **FR-008**: The wallet MUST be able to say when every watched address was last confirmed from the chain ("Fully checked N min ago"), shown only in the balance details (the info panel opened from Home's balance card), never on the main card. With tiering off it shows the time of the last refresh.
 
