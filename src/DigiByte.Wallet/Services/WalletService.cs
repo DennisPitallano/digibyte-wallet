@@ -762,7 +762,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         {
             try
             {
-                var result = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, addresses);
+                var result = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, addresses, BuildHotHints());
                 return new WalletBalance
                 {
                     ConfirmedSatoshis = result.ConfirmedSatoshis,
@@ -812,6 +812,102 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             }
         }
         return await _blockchain.HasAddressHistoryAsync(address);
+    }
+
+    private static readonly HistorySyncOptions DefaultSyncOptions = new();
+
+    /// <summary>Tiered refresh applies (spec 024): change-only sync applies and the tiered switch is on.</summary>
+    private bool TieringActive => ChangeOnlySync && (_historyOptions ?? DefaultSyncOptions).TieringActive;
+
+    /// <summary>
+    /// The wallet's hints for the hot set (spec 024, FR-002): the receive address on show and the 3 handed out before it, and the
+    /// next change address, each with its legacy-format copy when that is watched. Null when tiering doesn't apply or the wallet
+    /// has no HD keys; the sync then reads every address as in 0.7.0.
+    /// </summary>
+    private HotAddressHints? BuildHotHints()
+    {
+        if (!TieringActive || ActiveSession is not { Hd: { } hd, Info: { } info }) return null;
+
+        void AddReceive(List<string> list, int index)
+        {
+            if (index < 0) return;
+            list.Add(hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString());
+            if (index < MinScannedReceive) list.Add(hd.DeriveReceivingAddress(index, ScriptPubKeyType.Legacy).ToString());
+        }
+
+        var onShow = new List<string>();
+        AddReceive(onShow, info.NextReceivingIndex);
+        var handedOut = new List<string>();
+        for (var k = 1; k <= HotAddressSelector.HandedOutKept; k++)
+            AddReceive(handedOut, info.NextReceivingIndex - k);
+        var nextChange = new List<string> { hd.DeriveChangeAddress(info.NextChangeIndex, ScriptPubKeyType.Segwit).ToString() };
+        if (info.NextChangeIndex < MinScannedChange)
+            nextChange.Add(hd.DeriveChangeAddress(info.NextChangeIndex, ScriptPubKeyType.Legacy).ToString());
+
+        // Pending sends are found by the sync from its saved history.
+        return new HotAddressHints(onShow, handedOut, nextChange, []);
+    }
+
+    /// <summary>
+    /// The next refresh reads every address (spec 024, FR-006): for the refresh button and pull to refresh. Unlock and sends already
+    /// start from an empty set of summaries.
+    /// </summary>
+    public void RequestFullCheck()
+    {
+        if (_activeWalletId is { } id)
+            _historySync?.ForgetSnapshot(id);
+    }
+
+    /// <summary>When every watched address was last read from the chain (FR-008); null when unknown or change-only sync is off.</summary>
+    public DateTimeOffset? GetFullyCheckedAt()
+    {
+        if (!IsUnlocked || !ChangeOnlySync) return null;
+        return _historySync!.GetFullyCheckedAt(_activeWalletId!, HistoryNetwork, GetAllAddresses());
+    }
+
+    /// <summary>The send coin plan for these addresses, and the summaries' confirmed total (spec 024, FR-010, FR-011).</summary>
+    private (SendCoinPlan Plan, long SummariesConfirmed) PlanCoins(IReadOnlyList<string> addresses)
+    {
+        var summaries = TieringActive ? _historySync!.TryGetSendSummaries(_activeWalletId!, HistoryNetwork, addresses) : null;
+        var plan = SendCoinPlanner.Plan(addresses, summaries);
+        return (plan, summaries?.Values.Sum(s => s.Confirmed) ?? 0);
+    }
+
+    /// <summary>How many addresses a send would read coins from right now, without reading (the /dev/node benchmark).</summary>
+    public int PlanSendCoinReads()
+    {
+        EnsureUnlocked();
+        if (_singleKey != null) return 2;
+        return PlanCoins(GetAddressKeyMap().Keys.ToList()).Plan.Funded.Count;
+    }
+
+    /// <summary>
+    /// Reads coins fresh, funded addresses first (spec 024, FR-010): the rest are read only when <paramref name="needsRest"/> says the
+    /// coins found aren't enough, so "insufficient funds" is only ever reported after every address was read.
+    /// </summary>
+    private async Task<List<(string Address, ExtKey Key, List<UtxoInfo> Utxos)>> ReadCoinsAsync(
+        Dictionary<string, ExtKey> keyMap, Func<SendCoinPlan, long, long, bool> needsRest)
+    {
+        var (plan, summariesConfirmed) = PlanCoins(keyMap.Keys.ToList());
+        var results = await ReadCoinsOfAsync(plan.Funded, keyMap);
+        var found = results.Sum(r => r.Utxos.Sum(u => u.AmountSatoshis));
+        if (needsRest(plan, found, summariesConfirmed))
+            results.AddRange(await ReadCoinsOfAsync(plan.Rest, keyMap));
+        return results;
+    }
+
+    private async Task<List<(string Address, ExtKey Key, List<UtxoInfo> Utxos)>> ReadCoinsOfAsync(
+        IReadOnlyList<string> addresses, Dictionary<string, ExtKey> keyMap)
+    {
+        // In parallel, 10 at a time: each coin must keep its address, because Esplora doesn't return its script.
+        using var semaphore = new SemaphoreSlim(10);
+        var reads = addresses.Select(async address =>
+        {
+            await semaphore.WaitAsync();
+            try { return (Address: address, Key: keyMap[address], Utxos: await _blockchain.GetUtxosAsync(address)); }
+            finally { semaphore.Release(); }
+        });
+        return (await Task.WhenAll(reads)).ToList();
     }
 
     /// <summary>Broadcasts, then drops the wallet's in-memory summaries so the next refresh reflects the send (FR-023).</summary>
@@ -1288,18 +1384,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             // Query addresses in parallel — we need to know which address each UTXO
             // belongs to for correct scriptPubKey assignment (Esplora doesn't return it).
             availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
-            var semaphore = new SemaphoreSlim(10);
-            var utxoTasks = addressKeyMap.Select(async kvp =>
-            {
-                await semaphore.WaitAsync();
-                try
-                {
-                    var utxos = await _blockchain.GetUtxosAsync(kvp.Key);
-                    return (Address: kvp.Key, Key: kvp.Value, Utxos: utxos);
-                }
-                finally { semaphore.Release(); }
-            });
-            var utxoResults = await Task.WhenAll(utxoTasks);
+            var utxoResults = await ReadCoinsAsync(addressKeyMap, (plan, found, _) => SendCoinPlanner.NeedsRest(plan, found, amountSatoshis));
             foreach (var (addr, key, utxos) in utxoResults)
             {
                 var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
@@ -1457,18 +1542,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             var addressKeyMap = GetAddressKeyMap();
 
             availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
-            var batchSemaphore = new SemaphoreSlim(10);
-            var batchUtxoTasks = addressKeyMap.Select(async kvp =>
-            {
-                await batchSemaphore.WaitAsync();
-                try
-                {
-                    var utxos = await _blockchain.GetUtxosAsync(kvp.Key);
-                    return (Address: kvp.Key, Key: kvp.Value, Utxos: utxos);
-                }
-                finally { batchSemaphore.Release(); }
-            });
-            var batchUtxoResults = await Task.WhenAll(batchUtxoTasks);
+            var batchUtxoResults = await ReadCoinsAsync(addressKeyMap, (plan, found, _) => SendCoinPlanner.NeedsRest(plan, found, totalSatoshis));
             foreach (var (addr, key, utxos) in batchUtxoResults)
             {
                 var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;
@@ -1586,7 +1660,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                     try
                     {
                         // Change-only sync (spec 023): one summary per address, history pages only where something changed.
-                        var synced = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, rawAddresses);
+                        var synced = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, rawAddresses, BuildHotHints());
                         foreach (var tx in synced.Transactions)
                             allTxs.TryAdd(tx.TxId, tx);
                         changeOnly = true;
@@ -1948,18 +2022,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         {
             var addressKeyMap = GetAddressKeyMap();
             availableUtxos = new List<DigiByte.Crypto.Transactions.Utxo>();
-            var semaphore = new SemaphoreSlim(10);
-            var utxoTasks = addressKeyMap.Select(async kvp =>
-            {
-                await semaphore.WaitAsync();
-                try
-                {
-                    var utxos = await _blockchain.GetUtxosAsync(kvp.Key);
-                    return (Address: kvp.Key, Key: kvp.Value, Utxos: utxos);
-                }
-                finally { semaphore.Release(); }
-            });
-            var utxoResults = await Task.WhenAll(utxoTasks);
+            var utxoResults = await ReadCoinsAsync(addressKeyMap, (plan, found, summariesConfirmed) => SendCoinPlanner.NeedsRestForConsolidate(plan, found, summariesConfirmed));
             foreach (var (addr, key, utxos) in utxoResults)
             {
                 var addrScript = BitcoinAddress.Create(addr, network).ScriptPubKey;

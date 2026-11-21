@@ -231,8 +231,27 @@ internal sealed class SummaryExplorer : IBlockchainService, IAddressSummarySourc
         return SummaryOf(address).IsUsed;
     }
 
-    public Task<List<UtxoInfo>> GetUtxosAsync(string address) => Task.FromResult(new List<UtxoInfo>());
-    public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => Task.FromResult(new List<UtxoInfo>());
+    /// <summary>Spendable coins per address, for building real sends (spec 024).</summary>
+    public Dictionary<string, List<UtxoInfo>> Coins { get; } = new();
+    private int _coinReads;
+    public int CoinReads => _coinReads;
+    public List<string> CoinReadAddresses { get; } = [];
+
+    public Task<List<UtxoInfo>> GetUtxosAsync(string address)
+    {
+        Interlocked.Increment(ref _coinReads);
+        lock (_gate) CoinReadAddresses.Add(address);
+        return Task.FromResult(Coins.TryGetValue(address, out var coins) ? coins.ToList() : new List<UtxoInfo>());
+    }
+
+    public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) =>
+        Task.FromResult(addresses.SelectMany(a => Coins.TryGetValue(a, out var c) ? c : []).ToList());
+
+    public void ResetCoinReads()
+    {
+        lock (_gate) CoinReadAddresses.Clear();
+        _coinReads = 0;
+    }
     public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => Task.FromResult(new string('f', 64));
     public Task<TransactionInfo?> GetTransactionAsync(string txId) => Task.FromResult<TransactionInfo?>(null);
     public Task<decimal> GetFeeRateAsync() => Task.FromResult(100m);
@@ -245,7 +264,9 @@ internal sealed class HistorySyncEnv
     public ChangeAddressTests.InMemoryStorage Storage { get; } = new();
     public SummaryExplorer Explorer { get; } = new();
     public FakeTimeProvider Clock { get; } = new(new DateTimeOffset(2026, 11, 21, 12, 0, 0, TimeSpan.Zero));
-    public HistorySyncOptions Options { get; } = new();
+
+    /// <summary>Tiering off by default, so spec 023 tests keep checking 0.7.0 behaviour; spec 024 tests turn it on.</summary>
+    public HistorySyncOptions Options { get; } = new() { Tiered = false };
     public string Words { get; } = string.Join(' ', new Mnemonic(Wordlist.English, WordCount.Twelve).Words);
     public HdKeyDerivation Hd => new(MnemonicGenerator.FromWords(Words), network: ChangeAddressTests.Network);
     public string Receive(int i) => Hd.DeriveReceivingAddress(i, ScriptPubKeyType.Segwit).ToString();
@@ -273,6 +294,17 @@ internal sealed class HistorySyncEnv
         service.AddressDiscoveryWait = TimeSpan.FromMinutes(1);
         service.AddressDiscoverySendWait = TimeSpan.FromMinutes(1);
         return service;
+    }
+
+    /// <summary>A confirmed payment to the address that is also a real spendable coin, so a send can be built and signed.</summary>
+    public SummaryExplorer.ScriptedTx Fund(string address, long sats, int height = 900)
+    {
+        var tx = Explorer.Pay(address, sats, height: height);
+        var script = BitcoinAddress.Create(address, ChangeAddressTests.Network).ScriptPubKey.ToHex();
+        if (!Explorer.Coins.TryGetValue(address, out var coins))
+            Explorer.Coins[address] = coins = [];
+        coins.Add(new UtxoInfo { TxId = tx.TxId, OutputIndex = 0, AmountSatoshis = sats, ScriptPubKey = script, Confirmations = 6 });
+        return tx;
     }
 
     public async Task<WalletService> CreateAsync()

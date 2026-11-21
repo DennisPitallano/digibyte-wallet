@@ -39,6 +39,13 @@
             </label>
             <p id="dn-change-only-note" class="dn-muted">On: each refresh reads one summary per address and fetches history only for addresses that changed, with a full re-read once per unlock in the background. Off: every refresh reads every address's history, as before. Takes effect on the next refresh.</p>
 
+            <label class="dn-switch">
+                <input type="checkbox" checked="@SyncOptions.Tiered" @onchange="OnTieredChanged" aria-describedby="dn-tiered-note" />
+                <span class="dn-switch-label">Tiered refresh</span>
+                <span class="dn-chip @(SyncOptions.TieringActive ? "ok" : "warn")">@(SyncOptions.TieringActive ? "on" : SyncOptions.Tiered ? "needs change-only" : "off")</span>
+            </label>
+            <p id="dn-tiered-note" class="dn-muted">On: each automatic refresh reads only the addresses that can change (with funds or pending, on show, recently handed out, next change, recent activity) and the rest at least every 5 minutes; a send reads coins only where there is money. Off: every address every time, as in 0.7.0. Needs change-only sync. These switches only count on devices with the developer view on.</p>
+
             <h3 class="dn-h2" style="font-size:0.95rem">Wallet refresh benchmark</h3>
             <p class="dn-muted">Runs the unlocked wallet's balance and history refresh four times: change-only on and off, each cold (saved summaries and caches cleared) and then warm (saved summaries kept, in-memory caches cleared). Shows the time and the explorer requests by kind. The background full re-read is held back while it runs. Counts stay on this page.</p>
             <button type="button" class="dn-btn press-effect" disabled="@(refreshBenchRunning || !Wallet.IsUnlocked)" @onclick="RefreshBenchAsync">
@@ -74,6 +81,18 @@
                     @if (onWarm?.Ms is { } on && offWarm?.Ms is { } off && off > 0)
                     {
                         <p class="dn-muted">A warm refresh with change-only sync on took <span class="dn-num">@Ms(on)</span> against <span class="dn-num">@Ms(off)</span> off: <span class="dn-num">@((1 - on / off).ToString("P0"))</span> faster, with <span class="dn-num">@onWarm.Counts?.Total</span> requests against <span class="dn-num">@offWarm.Counts?.Total</span>.</p>
+                    }
+                    @{
+                        var tieredOn = refreshBench.FirstOrDefault(r => r.Name == "Tiered on, quiet");
+                        var tieredOff = refreshBench.FirstOrDefault(r => r.Name == "Tiered off, quiet");
+                    }
+                    @if (tieredOn?.Counts is { } tOn && tieredOff?.Counts is { } tOff)
+                    {
+                        <p class="dn-muted">A quiet refresh 31 s after the last one sent <span class="dn-num">@tOn.Total</span> requests with tiered refresh on against <span class="dn-num">@tOff.Total</span> off.</p>
+                    }
+                    @if (sendCoinReads is { } coins)
+                    {
+                        <div class="dn-tiles">@Tile("Coins read by a send", $"{coins} of {Wallet.GetAllAddresses().Count} addresses", null)</div>
                     }
                 </div>
             }
@@ -254,6 +273,13 @@
         catch { /* the switch still applies for this session */ }
     }
 
+    private async Task OnTieredChanged(ChangeEventArgs e)
+    {
+        SyncOptions.Tiered = e.Value is true;
+        try { await Storage.SetAsync(HistorySyncOptions.TieredStorageKey, SyncOptions.Tiered ? "true" : "false"); }
+        catch { /* the switch still applies for this session */ }
+    }
+
     // ── Wallet refresh benchmark (spec 023, FR-010b) ──
 
     private sealed record RefreshRun(string Name, double? Ms, DigiByte.Web.Services.RequestCounts? Counts, string? Error);
@@ -270,6 +296,8 @@
         var id = wallet.Id;
         var network = Wallet.HistoryNetwork;
         var switchWas = SyncOptions.ChangeOnly;
+        var tieredWas = SyncOptions.Tiered;
+        sendCoinReads = null;
         try
         {
             foreach (var (changeOnly, cold, name) in new[] { (true, true, "On, cold"), (true, false, "On, warm"), (false, true, "Off, cold"), (false, false, "Off, warm") })
@@ -307,15 +335,46 @@
                     refreshBench.Add(new RefreshRun(name, null, Requests.Stop(), e.Message));
                 }
             }
+
+            // Quiet refreshes (spec 024): a full check, then every read made 31 s older, as if the next automatic refresh came
+            // 31 s later with nothing new, counted with tiering on and off.
+            SyncOptions.ChangeOnly = true;
+            foreach (var (tiered, name) in new[] { (true, "Tiered on, quiet"), (false, "Tiered off, quiet") })
+            {
+                refreshBenchStep = name.ToLowerInvariant();
+                StateHasChanged();
+                SyncOptions.Tiered = tiered;
+                Fallback.InvalidateCache();
+                Wallet.RequestFullCheck();
+                await Task.WhenAll(Wallet.GetBalanceAsync(), Wallet.GetTransactionHistoryAsync());
+                if (tiered) sendCoinReads = Wallet.PlanSendCoinReads();
+
+                HistorySync.AgeSnapshot(id, TimeSpan.FromSeconds(31));
+                Fallback.InvalidateCache();
+                Requests.Start();
+                var clock = Stopwatch.StartNew();
+                try
+                {
+                    await Task.WhenAll(Wallet.GetBalanceAsync(), Wallet.GetTransactionHistoryAsync());
+                    refreshBench.Add(new RefreshRun(name, clock.Elapsed.TotalMilliseconds, Requests.Stop(), null));
+                }
+                catch (Exception e)
+                {
+                    refreshBench.Add(new RefreshRun(name, null, Requests.Stop(), e.Message));
+                }
+            }
         }
         finally
         {
             if (Requests.IsOpen) Requests.Stop();
             SyncOptions.ChangeOnly = switchWas;
+            SyncOptions.Tiered = tieredWas;
             HistorySync.AllowFullResync(id, network);
             refreshBenchRunning = false;
         }
     }
+
+    private int? sendCoinReads;
 
     private const int routeSamples = 25;
     private bool measuring;

@@ -155,7 +155,7 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 
 ### Measurable Outcomes
 
-- **SC-001**: For a seed wallet of about 60 watched addresses with funds on 2 of them, activity in the last 7 days on at most 3 others, and no new activity, a quiet automatic refresh in which no cold address is due sends at most 12 requests (the hot addresses plus at most one block-height read), down from about 60, as shown by the `/dev/node` benchmark and the automated tests.
+- **SC-001**: For a seed wallet of about 60 watched addresses with funds on 2 of them, activity in the last 7 days on at most 3 others, and no new activity, a quiet automatic refresh 30 seconds after the previous one sends at most 15 requests (the hot addresses, that refresh's share of the cold ones under FR-009, and at most one block-height read), down from about 60, as shown by the `/dev/node` benchmark and the automated tests.
 - **SC-002**: Over 10 minutes with the wallet open on Home and no activity, the number of explorer requests drops by at least 60% with tiering on compared with off, at both the fastest (15 s) and the slowest (60 s) automatic refresh pace.
 - **SC-003**: A payment to a hot address shows within one refresh; a payment to any other watched address shows within 5 minutes, and at once after a manual refresh.
 - **SC-004**: Confirming a send from a wallet with funds on 2 of about 60 addresses makes at most 4 coin lookups, down from about 60.

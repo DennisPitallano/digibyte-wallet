@@ -10,7 +10,7 @@ dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName~HotAddressS
 
 | Scenario | Expected |
 |----------|----------|
-| Quiet refresh, 60 addresses, 2 funded, after a full check, 31 s later | summaries read = hot count (≤ 11), no history pages |
+| Quiet refresh, 60 addresses, 2 funded, after a full check, 31 s later | hot addresses + the cold share for 31 s + at most 1 tip (≤ 15), no history pages |
 | 10 simulated minutes at 15 s and at 60 s polls | requests ≥ 60% fewer than with tiering off |
 | Payment to the address on show | shown on the next refresh |
 | Payment to a cold address | shown within 5 simulated minutes |
@@ -23,7 +23,7 @@ dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName~HotAddressS
 ## 2. Live check on `/dev/node` (mainnet, unlocked seed wallet)
 
 1. Leave **Change-only history sync** and **Tiered refresh** on.
-2. Run the wallet refresh benchmark. Expect "Tiered on, quiet" ≈ hot count + at most 1 tip read, and "Tiered off, quiet" ≈ the watched address count.
+2. Run the wallet refresh benchmark. Expect "Tiered on, quiet" ≈ hot count + about 6 cold + at most 1 tip read (≤ 15), and "Tiered off, quiet" ≈ the watched address count.
 3. Read "Coins read by a send": expect the number of funded addresses.
 4. Record the numbers in the PR as proof of SC-001 and SC-004.
 
