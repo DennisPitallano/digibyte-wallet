@@ -239,6 +239,11 @@
 .dn-row.warn { border-left-color: var(--warn); }
 .dn-addr { font-size: 11px; color: var(--ink); overflow-wrap: anywhere; }
 .dn-row-nums { font-size: 10.5px; color: var(--ink-3); }
+/* A switch row: checkbox, label and state chip on one line (History sync, spec 023). */
+.dn-switch { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--tile); cursor: pointer; }
+.dn-switch input { width: 16px; height: 16px; margin: 0; flex: none; accent-color: var(--acc); cursor: pointer; }
+.dn-switch-label { flex: 1; font-size: 13px; font-weight: 600; color: var(--ink); }
+.dn-switch .dn-chip { align-self: center; }
 .dn-chip { align-self: flex-start; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .05em; }
 .dn-chip.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
 .dn-chip.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }

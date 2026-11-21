@@ -32,9 +32,9 @@
         @* Change-only history sync (specs/023-faster-balance-history, FR-010a): the switch, kept per device. *@
         <section class="dn-card dn-rise" style="--i:3" aria-label="History sync">
             <h2 class="dn-h2">History sync</h2>
-            <label class="dn-row" style="cursor:pointer">
+            <label class="dn-switch">
                 <input type="checkbox" checked="@SyncOptions.ChangeOnly" @onchange="OnChangeOnlyChanged" aria-describedby="dn-change-only-note" />
-                <span>Change-only history sync</span>
+                <span class="dn-switch-label">Change-only history sync</span>
                 <span class="dn-chip @(SyncOptions.ChangeOnly ? "ok" : "warn")">@(SyncOptions.ChangeOnly ? "on" : "off")</span>
             </label>
             <p id="dn-change-only-note" class="dn-muted">On: each refresh reads one summary per address and fetches history only for addresses that changed, with a full re-read once per unlock in the background. Off: every refresh reads every address's history, as before. Takes effect on the next refresh.</p>
