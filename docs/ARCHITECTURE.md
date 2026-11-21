@@ -236,8 +236,8 @@ Baku is a static, client-side character; there is no backend and no AI. Spec: `s
 `DigiByte.Api` hosts `/hubs/multisig-signing` (`MultisigSigningHub`, rules in `Multisig/SigningRoomRegistry`), a
 co-signer coordination relay under constitution 1.2.0. Connections are anonymous; a connection sees or changes a room
 only after a single-use `CoSignerProof` (signing-room domain) shows it holds one of that room's co-signer keys. Rooms
-carry public data only (keys, PSBT, signatures, display names, status), live in memory, end after 15–120 minutes
-(`MultisigSigning:MaxLifetimeMinutes`, default 120), and are swept every 15 s. Per-connection limits: 5 failed joins per
+carry public data only (keys, PSBT, signatures, display names, status), live in memory, end after 15 minutes to 24 hours
+(`MultisigSigning:MaxLifetimeMinutes`, default 1440), and are swept every 15 s. Per-connection limits: 5 failed joins per
 minute, 10 rooms per hour; negotiate requests are limited to 30 per minute per client address. Logs and metrics
 (`DigiByte.Api.SigningRooms`) hold anonymous counts only.
 

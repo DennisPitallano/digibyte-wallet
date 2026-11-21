@@ -166,6 +166,7 @@ public class SigningRoomRegistryTests
     [Theory]
     [InlineData(10)]
     [InlineData(240)]
+    [InlineData(2880)]
     public void Lifetimes_outside_the_allowed_choices_are_refused(int minutes)
     {
         var ms = TwoOfThree();
