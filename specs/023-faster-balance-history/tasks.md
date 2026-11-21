@@ -245,7 +245,7 @@ description: "Task list for Faster Balance and History"
 - [X] T042 [P] [US5] In src/DigiByte.Web/Pages/Transactions.razor, show the snapshot at once (balance and history for the active wallet only), refresh in the background, and on failure keep the snapshot with "Last updated …" (FR-017/018/024).
 - [X] T043 [P] [US5] In src/DigiByte.Web/Pages/Receive.razor, show the snapshot history at once in place of waiting on `GetTransactionHistoryAsync(0, 1000)` (~line 413), refreshing in the background; same failure rule.
 - [X] T044 [P] [US5] In src/DigiByte.Web/Pages/Send.razor, show the page snapshot (`WalletSnapshotCache`) balance at once as the displayed available amount, refreshing in the background. The coins for the send are still read fresh at confirm time with no change to the signing path (FR-022), and the page snapshot is invalidated after a send.
-- [ ] T045 [US5] Check src/DigiByte.Web/Pages/Transactions.razor, Receive.razor and Send.razor in the browser preview with DevTools throttling: each page shows saved data within 1 s; offline shows "Last updated …"; switching wallets never shows another wallet's figures (SC-005, US5 #3).
+- [X] T045 [US5] Check src/DigiByte.Web/Pages/Transactions.razor, Receive.razor and Send.razor in the browser preview with DevTools throttling: each page shows saved data within 1 s; offline shows "Last updated …"; switching wallets never shows another wallet's figures (SC-005, US5 #3).
 
 **Checkpoint**: Every wallet page feels instant.
 
@@ -281,7 +281,7 @@ description: "Task list for Faster Balance and History"
 - [X] T050 Add a "Wallet refresh benchmark" to src/DigiByte.Web/Pages/DevNode.razor (needs an unlocked wallet). It runs balance plus history four times: on/cold, on/warm, off/cold, off/warm, clearing the Fallback cache, the summary snapshot, the page snapshot (`WalletSnapshotCache`) and saved summaries for the cold runs. Before each run, cancel any running full re-read and set `FullResyncState` to Done for the session, so it can't add requests to a later run; counting starts only after the cancel has finished. After the last run, set it back to NotStarted. For each run it shows the time and the Summary, HistoryPage, TipHeight and Other counts, then puts the switch back to its previous value.
 - [X] T051 [P] Update docs/ARCHITECTURE.md (read path: address summaries, change-only sync, saved chain history, background full re-read, `/dev/node` switch) and docs/PROCESS_FLOWS.md if it describes balance or history refresh.
 - [X] T052 Run `dotnet build` and `dotnet test` for the whole solution; fix anything this feature broke in existing tests (e.g. tests/DigiByte.Wallet.Tests/TransactionHistoryAddressTests.cs, GatewayWiringTests.cs, ParallelQueryTests.cs).
-- [ ] T053 Run quickstart.md sections 2 and 3 against the live explorer in the browser preview. Record the `/dev/node` on/off warm times and counts in the PR description as proof of SC-001 and SC-002.
+- [X] T053 Run quickstart.md sections 2 and 3 against the live explorer in the browser preview. Record the `/dev/node` on/off warm times and counts in the PR description as proof of SC-001 and SC-002.
 
 ---
 
