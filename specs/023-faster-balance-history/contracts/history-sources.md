@@ -19,7 +19,8 @@ If `chain_stats` or `mempool_stats` is missing, or the reply is not 2xx, the loo
 public interface IAddressSummarySource
 {
     /// One lookup. Throws on any failure or incomplete reply (never returns an empty summary).
-    Task<AddressSummary> GetAddressSummaryAsync(string address);
+    /// recordFailure false = a failure records no cooldown or outage (discovery); sources without cooldowns ignore it.
+    Task<AddressSummary> GetAddressSummaryAsync(string address, bool recordFailure = true);
 
     /// Newest-first page of an address's history. afterTxId null = newest page (includes pending);
     /// otherwise the next 25 confirmed after that txid. Empty list = end of history. Throws on failure.
@@ -31,7 +32,7 @@ public sealed record AddressHistoryPage(IReadOnlyList<TransactionInfo> Transacti
 
 Implemented by:
 - `BlockchainApiService`: the endpoints above. Its tip height is kept in memory for 10 s with in-flight sharing (R6).
-- `FallbackBlockchainService`: routes to the first explorer that implements it and is not on cooldown, with the same cooldown and counter rules as other address reads. Throws `SummaryUnavailableException` when none can answer: it isn't regtest, no explorer implements it, or all failed. The caller then uses the full-read path. Also throws `SummaryUnavailableException` while the gateway is active in First position, so a gateway-first wallet never has its addresses looked up through the explorer for balance or history. Discovery uses a route that records no cooldown or outage on failure, matching `HasAddressHistoryAsync`; on `SummaryUnavailableException` discovery uses `HasAddressHistoryAsync`.
+- `FallbackBlockchainService`: routes to the first explorer that implements it and is not on cooldown, with the same cooldown and counter rules as other address reads. Throws `SummaryUnavailableException` when none can answer: it isn't regtest, no explorer implements it, or all failed. The caller then uses the full-read path. Also throws `SummaryUnavailableException` while the gateway is active in First position, so a gateway-first wallet never has its addresses looked up through the explorer for balance or history. Discovery calls it with `recordFailure: false`, so a failure records no cooldown or outage, matching `HasAddressHistoryAsync`; on `SummaryUnavailableException` discovery uses `HasAddressHistoryAsync`.
 
 Not implemented by `NodeApiBlockchainService`, `P2pGatewayBlockchainService` or `MockBlockchainService`. Test doubles may implement it.
 

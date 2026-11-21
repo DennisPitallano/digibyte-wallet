@@ -65,7 +65,7 @@ The legacy (change-only off) path and multisig use the same pager, so complete h
 
 ## R6. One tip height per load
 
-**Decision**: `BlockchainApiService` keeps its own height in memory for 10 seconds, sharing the in-flight request, and uses it inside `GetAddressTransactionsAsync` and `GetTransactionAsync`. The Fallback `blockheight` cache stays as it is.
+**Decision**: `BlockchainApiService` keeps its own height in memory for 10 seconds, sharing the in-flight request, behind its public `GetBlockHeightAsync()`, so `GetAddressTransactionsAsync`, `GetTransactionAsync`, the history pager and the Fallback `blockheight` read all share one request. The Fallback `blockheight` cache stays as it is.
 
 **Rationale**: The inner service is also constructed directly (DevNode benchmark, `InvoiceMonitor` in Pay.Api), so the fix has to live where the request is made. Ten seconds is shorter than the Fallback's 15, so the confirmation counts never lag what the Fallback reports.
 

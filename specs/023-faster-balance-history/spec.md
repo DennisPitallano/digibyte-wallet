@@ -176,7 +176,7 @@ A user who has turned on the SPV gateway opens their history. The wallet builds 
 
 - **FR-017**: Transactions, Receive and Send MUST show the active wallet's last saved balance and history at once, when saved data exists, and refresh in the background.
 - **FR-018**: When figures shown come from saved data and the latest refresh failed, the page MUST say when they were last updated.
-- **FR-019**: Pages MAY show a saved value at once while a fresh value is fetched in the background. They MUST NOT do so for the coins chosen for a send, and after a send MUST NOT return a value from before that send.
+- **FR-019**: Saved values shown under FR-017 MUST NOT be used for the coins chosen for a send, and after a send a value from before that send MUST NOT be shown as current.
 
 **Gateway**
 
