@@ -26,6 +26,7 @@ The request also proposed a block-driven refresh (read the block height first an
 - Q: Where should the wallet say when every address was last fully checked? → A: In the balance details (the info panel opened from the balance card) only, not on Home's main card.
 - Q: Should tiering have its own developer switch or reuse the change-only sync switch? → A: Its own switch, "Tiered refresh", independent of "Change-only history sync".
 - Q: With change-only sync off and tiered refresh on, does tiering still apply? → A: No. Tiering works only on top of change-only sync; with change-only off, every refresh and send reads every address as in 0.6.0.
+- Q: Can the developer page or its switches ever change a regular user's wallet? → A: No. `/dev/node` is for developers, testing and benchmarks only; saved switch values apply only while the developer view is on, and otherwise the defaults are used (FR-013a).
 - Q: Is the background refresh when the user opens Activity, Receive or Send tiered or a full check? → A: Tiered, like Home's timer. Only pull-to-refresh and the refresh button count as user-started full checks.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -104,6 +105,7 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 - **A pending outgoing send**: the addresses it spends from and its change address stay hot until it confirms.
 - **The user changes wallet**: each wallet keeps its own hot set and check times; switching never reuses another wallet's.
 - **Lock and unlock**: the first refresh after unlock is a full one (FR-006).
+- **A switch was turned off on a device that later lost the developer view**: the saved value is ignored and both features are on (FR-013a).
 - **Watch-only, single-key and multisig wallets**: single-key wallets have 2 addresses and multisig 1, so tiering makes no difference; they are not tiered. Watch-only seed wallets are tiered like seed wallets.
 - **Discovery finds a newly used address**: it joins the hot set.
 
@@ -135,6 +137,7 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 **Switch and measurement**
 
 - **FR-013**: A separate "Tiered refresh" switch on `/dev/node`, independent of the "Change-only history sync" switch, MUST be able to turn tiering off. When off, every refresh looks up every watched address and every send reads every address's coins, as in 0.7.0. The switch is kept per device, on by default, and takes effect on the next refresh. Tiering applies only while change-only history sync is also on; with change-only off, every refresh and send reads every address, whatever this switch says.
+- **FR-013a**: The developer switches ("Change-only history sync" and "Tiered refresh") are for developers, testing and benchmarks only. A saved switch value MUST be applied only while the developer view is turned on for the deployment. With the developer view off, the wallet MUST always use the defaults (both on), whatever a device saved earlier, so a value left behind on a device can never change a regular user's wallet.
 - **FR-014**: The `/dev/node` wallet refresh benchmark MUST show a quiet refresh with tiering on and off, with time and requests by kind, and the number of coin lookups a send would make, all kept in memory on that page only.
 
 **Unchanged guarantees**

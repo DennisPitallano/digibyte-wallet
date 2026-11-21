@@ -71,7 +71,7 @@ src/DigiByte.Wallet/
 ├── Services/
 │   ├── HotAddressSelector.cs      # NEW: pure hot-set rule (FR-002, FR-003, FR-016)
 │   ├── SendCoinPlanner.cs         # NEW: funded vs rest split for sends (FR-010, FR-011)
-│   ├── HistorySyncOptions.cs      # + Tiered switch (dev:tiered-refresh)
+│   ├── HistorySyncOptions.cs      # + Tiered switch (dev:tiered-refresh); FromStorage applies saved switches only with DevView on
 │   ├── WalletHistorySync.cs       # tiered reuse rule, spread cold reads, GetFullyCheckedAt, AgeSnapshot
 │   └── WalletService.cs           # hot hints, RequestFullCheck, coin reads via planner, PlanSendCoinReads
 src/DigiByte.Web/

@@ -88,7 +88,8 @@ description: "Task list for Fewer Requests per Refresh and per Send"
   - Keep a per-wallet `LastRefreshAt` (`RefreshCursor`).
   - Otherwise keep the 0.7.0 rule. Makes T008 pass.
 - [ ] T010 [US1] In src/DigiByte.Wallet/Services/WalletService.cs, build `HotAddressHints` for HD wallets (receive SegWit at `NextReceivingIndex`; up to 3 handed-out receive addresses below it; the legacy address of each of those indexes when it is watched (index < 20); change SegWit at `NextChangeIndex`; wallet addresses spent by pending transactions in the tracked history) and pass them from `GetBalanceAsync()` and `GetTransactionHistoryAsync()`.
-- [ ] T011 [P] [US1] In src/DigiByte.Web/Program.cs, load `dev:tiered-refresh` at startup into `HistorySyncOptions.Tiered` (missing → true). In src/DigiByte.Web/Pages/DevNode.razor, add a "Tiered refresh" switch row (same `.dn-switch` style) that writes the key, with a note that it needs change-only sync.
+- [ ] T010a [P] [US1] Failing tests then implementation of `HistorySyncOptions.FromStorage(devView, changeOnlyStored, tieredStored)` in tests/DigiByte.Wallet.Tests/HistorySyncOptionsTests.cs and src/DigiByte.Wallet/Services/HistorySyncOptions.cs (contracts §5): developer view off → both on whatever is stored, including a stored "false"; developer view on → a stored "false" turns that switch off, while missing, "true" or unreadable values leave it on (FR-013a).
+- [ ] T011 [P] [US1] In src/DigiByte.Web/Program.cs, build the options at startup with `HistorySyncOptions.FromStorage(nodeSource.DevView, …)` for both `dev:history-change-only` and `dev:tiered-refresh`, replacing today's change-only read, so a saved switch only counts while the developer view is on. In src/DigiByte.Web/Pages/DevNode.razor, add a "Tiered refresh" switch row (same `.dn-switch` style) that writes the key, with a note that it needs change-only sync.
 
 **Checkpoint**: Quiet refreshes are cheap; the switch returns to 0.7.0 behaviour.
 

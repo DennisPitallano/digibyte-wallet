@@ -75,7 +75,15 @@ public static class SendCoinPlanner
 | `SendAsync`, `SendBatchAsync`, `ConsolidateUtxosAsync` | read coins for `plan.Funded`, then `plan.Rest` when `NeedsRest`, then continue as today |
 | `PlanSendCoinReads()` (new, diagnostic) | the number of coin reads a send would make now, without reading |
 
-## 5. Web
+## 5. `HistorySyncOptions.FromStorage` (new, pure)
+
+```csharp
+/// Builds the options at startup. devView false → defaults (ChangeOnly = true, Tiered = true), stored values ignored (FR-013a).
+/// devView true → a stored "false" turns that switch off; anything else (missing, "true", unreadable) leaves it on.
+public static HistorySyncOptions FromStorage(bool devView, string? changeOnlyStored, string? tieredStored);
+```
+
+## 6. Web
 
 - Home `ManualRefreshAsync` and Activity's pull to refresh call `WalletService.RequestFullCheck()` first.
 - Home's wallet info panel shows "Fully checked N min ago" from `GetFullyCheckedAt()`.
