@@ -886,11 +886,19 @@ else
         }
         RecalcFee();
 
+        // The saved balance shows at once as the available amount (spec 023, FR-017); the fresh read below replaces it. It is
+        // display only: balanceLoadedAt stays unset, so the send step reads the balance again, and the coins are always read fresh.
+        if ((await Snapshots.LoadAsync(WalletService.ActiveWallet?.Id ?? "")).Balance is { } savedBalance)
+        {
+            availableBalance = savedBalance.AvailableDgb;
+            isLoadingBalance = false;
+        }
+
         // Run balance + contacts in parallel, then price only if we have a balance
         var contactsTask = ContactService.GetAllWithWalletsAsync(WalletService);
         var balanceTask = Task.Run(async () =>
         {
-            try { var b = await WalletService.GetBalanceAsync(); availableBalance = b.ConfirmedDgb; balanceLoadedAt = DateTime.UtcNow; }
+            try { var b = await WalletService.GetBalanceAsync(); availableBalance = b.AvailableDgb; balanceLoadedAt = DateTime.UtcNow; }
             catch { }
             finally { isLoadingBalance = false; await InvokeAsync(StateHasChanged); }
         });
@@ -1022,7 +1030,7 @@ else
             try
             {
                 var b = await WalletService.GetBalanceAsync();
-                availableBalance = b.ConfirmedDgb;
+                availableBalance = b.AvailableDgb;
                 balanceLoadedAt = DateTime.UtcNow;
             }
             catch { /* keep cached value; node will reject if truly insufficient */ }

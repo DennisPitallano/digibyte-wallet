@@ -4,6 +4,7 @@
 @inject IBlockchainService Blockchain
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
+@inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
 @inject AddressLabelService LabelService
 @inject AppState AppState
 @inject NavigationManager Nav
@@ -19,6 +20,13 @@
         {
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 @(shown.Count == all.Count ? $"{all.Count} in total" : $"{shown.Count} of {all.Count}")
+            </p>
+        }
+        @if (refreshFailed)
+        {
+            <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5" role="status">
+                Couldn't refresh. @(savedAt is { } at ? $"Last updated {at.ToLocalTime():g}." : "Showing what was saved earlier.")
+                <button type="button" class="font-semibold underline" @onclick="LoadAsync">Try again</button>
             </p>
         }
     </div>
@@ -215,6 +223,11 @@
     private int visibleCount = PageSize;
     private bool loading = true;
     private bool failed;
+
+    // Saved history shown before the refresh answers (spec 023).
+    private bool showingSaved;
+    private bool refreshFailed;
+    private DateTime? savedAt;
     private TransactionRecord? selected;
 
     // Display extras; each is optional and the list works without them.
@@ -353,17 +366,45 @@
     {
         try { hideAmounts = await Storage.GetAsync("pref:hideBalance") == "1"; } catch { }
         _ = LoadExtrasAsync();
+
+        // The last saved history shows at once and a refresh runs in the background (spec 023, FR-017).
+        var snapshot = await Snapshots.LoadAsync(WalletService.ActiveWallet?.Id ?? "");
+        if (snapshot.Transactions is { Count: > 0 } saved)
+        {
+            all = saved;
+            savedAt = snapshot.LastFetchUtc;
+            showingSaved = true;
+            loading = false;
+            RefreshUsedAddresses();
+            await RestoreAddressPrefAsync();
+            ApplyFilter();
+            _ = InvokeAsync(LoadAsync);
+            return;
+        }
         await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
-        loading = true;
+        // With saved figures on screen they stay while the refresh runs; with nothing yet, show placeholders.
+        loading = !showingSaved;
         failed = false;
         StateHasChanged();
         try
         {
-            all = await WalletService.GetTransactionHistoryAsync(0, MaxLoaded);
+            var walletId = WalletService.ActiveWallet?.Id;
+            var fresh = await WalletService.GetTransactionHistoryAsync(0, MaxLoaded);
+            if (WalletService.LastHistoryIncomplete && showingSaved)
+            {
+                // The chain couldn't be read: keep the saved list (never a partial one) and say when it was last updated (FR-018).
+                refreshFailed = true;
+                return;
+            }
+            all = fresh;
+            showingSaved = false;
+            refreshFailed = WalletService.LastHistoryIncomplete;
+            if (!refreshFailed && walletId is not null)
+                _ = Snapshots.SaveTransactionsAsync(walletId, fresh.Take(50).ToList());
             RefreshUsedAddresses();
             await RestoreAddressPrefAsync();
             // A chosen address that no longer appears (for example after a refresh) would leave an empty list with no way out.
@@ -377,11 +418,14 @@
         catch (Exception)
         {
             // A locked wallet or a network problem: the same message either way; Try again re-runs the load.
-            failed = true;
+            // Saved figures on screen stay, with when they were last updated.
+            if (showingSaved) refreshFailed = true;
+            else failed = true;
         }
         finally
         {
             loading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 

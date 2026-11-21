@@ -192,7 +192,7 @@ description: "Task list for Faster Balance and History"
   - The first refresh of a 60-transaction address returns the newest page without waiting for older ones; after the background re-read, all 60 are saved and the cursor is `Complete`.
   - One new transaction later fetches exactly one page (SC-004, FR-012/013).
   - Hitting the 2,000 cap sets `Truncated` and logs once.
-- [ ] T032 [P] [US3] Failing test in tests/DigiByte.Wallet.Tests/MultisigHistoryTests.cs (new): a `MultisigWalletService` over a real `BlockchainApiService` with the stub `HttpMessageHandler` from EsploraPagingTests.cs. A multisig address with 60 confirmed transactions shows all 60 (clarification 4).
+- [X] T032 [P] [US3] Failing test in tests/DigiByte.Wallet.Tests/MultisigHistoryTests.cs (new): a `MultisigWalletService` over a real `BlockchainApiService` with the stub `HttpMessageHandler` from EsploraPagingTests.cs. A multisig address with 60 confirmed transactions shows all 60 (clarification 4).
 
 ### Implementation for User Story 3
 
@@ -221,8 +221,8 @@ description: "Task list for Faster Balance and History"
 ### Implementation for User Story 4
 
 - [X] T036 [US4] Set `WalletBalance.UnconfirmedSatoshis` from `SyncResult.PendingSatoshis` (sum of `PendingNet`, "may be negative") in `WalletService.GetBalanceAsync()` in src/DigiByte.Wallet/Services/WalletService.cs, and add `AvailableSatoshis`/`AvailableDgb` (`ConfirmedSatoshis + Math.Min(0, UnconfirmedSatoshis)`) to `WalletBalance` in src/DigiByte.Wallet/Models/WalletInfo.cs. Makes T035 pass.
-- [ ] T037 [US4] Audit every `TotalDgb` use in src/DigiByte.Web (Home, Send, PsbtSign, Receive, components). Where it means spendable, switch to `AvailableDgb` (including the `ConfirmedDgb` reads at src/DigiByte.Web/Pages/Send.razor:892 and :1024 and src/DigiByte.Web/Pages/PsbtSign.razor:567); where it means the balance shown, use `ConfirmedDgb`. Keep `TotalDgb` meaning confirmed + pending in src/DigiByte.Wallet/Models/WalletInfo.cs.
-- [ ] T038 [US4] In src/DigiByte.Web/Pages/Home.razor, show `ConfirmedDgb` as the main figure and base the fiat value on it. When `UnconfirmedDgb` ≠ 0, add a separate line "Pending +X DGB" / "Pending −X DGB" that respects `hideBalance`. The balance animation keys on the confirmed figure, so a dropped pending payment doesn't move it (FR-016). Check in the browser preview.
+- [X] T037 [US4] Audit every `TotalDgb` use in src/DigiByte.Web (Home, Send, PsbtSign, Receive, components). Where it means spendable, switch to `AvailableDgb` (including the `ConfirmedDgb` reads at src/DigiByte.Web/Pages/Send.razor:892 and :1024 and src/DigiByte.Web/Pages/PsbtSign.razor:567); where it means the balance shown, use `ConfirmedDgb`. Keep `TotalDgb` meaning confirmed + pending in src/DigiByte.Wallet/Models/WalletInfo.cs.
+- [X] T038 [US4] In src/DigiByte.Web/Pages/Home.razor, show `ConfirmedDgb` as the main figure and base the fiat value on it. When `UnconfirmedDgb` ≠ 0, add a separate line "Pending +X DGB" / "Pending −X DGB" that respects `hideBalance`. The balance animation keys on the confirmed figure, so a dropped pending payment doesn't move it (FR-016). Check in the browser preview.
 
 **Checkpoint**: Pending is visible and never spendable.
 
@@ -241,10 +241,10 @@ description: "Task list for Faster Balance and History"
 ### Implementation for User Story 5
 
 - ~~T040~~ Removed: no stale read is added to `FallbackBlockchainService` (see T039).
-- [ ] T041 [US5] Create `WalletSnapshotCache` in src/DigiByte.Web/Services/WalletSnapshotCache.cs. It reads, writes and invalidates `cache:balance:{walletId}`, `cache:transactions:{walletId}`, `cache:dgbPrice` and `cache:lastFetch:{walletId}` exactly as Home does today (src/DigiByte.Web/Pages/Home.razor ~lines 616, 830–946), and exposes the last-updated time. Register it in src/DigiByte.Web/Program.cs, then move Home's snapshot code to it, with no change in Home's behaviour. Use it in T014's invalidation spots too.
-- [ ] T042 [P] [US5] In src/DigiByte.Web/Pages/Transactions.razor, show the snapshot at once (balance and history for the active wallet only), refresh in the background, and on failure keep the snapshot with "Last updated …" (FR-017/018/024).
-- [ ] T043 [P] [US5] In src/DigiByte.Web/Pages/Receive.razor, show the snapshot history at once in place of waiting on `GetTransactionHistoryAsync(0, 1000)` (~line 413), refreshing in the background; same failure rule.
-- [ ] T044 [P] [US5] In src/DigiByte.Web/Pages/Send.razor, show the page snapshot (`WalletSnapshotCache`) balance at once as the displayed available amount, refreshing in the background. The coins for the send are still read fresh at confirm time with no change to the signing path (FR-022), and the page snapshot is invalidated after a send.
+- [X] T041 [US5] Create `WalletSnapshotCache` in src/DigiByte.Web/Services/WalletSnapshotCache.cs. It reads, writes and invalidates `cache:balance:{walletId}`, `cache:transactions:{walletId}`, `cache:dgbPrice` and `cache:lastFetch:{walletId}` exactly as Home does today (src/DigiByte.Web/Pages/Home.razor ~lines 616, 830–946), and exposes the last-updated time. Register it in src/DigiByte.Web/Program.cs, then move Home's snapshot code to it, with no change in Home's behaviour. Use it in T014's invalidation spots too.
+- [X] T042 [P] [US5] In src/DigiByte.Web/Pages/Transactions.razor, show the snapshot at once (balance and history for the active wallet only), refresh in the background, and on failure keep the snapshot with "Last updated …" (FR-017/018/024).
+- [X] T043 [P] [US5] In src/DigiByte.Web/Pages/Receive.razor, show the snapshot history at once in place of waiting on `GetTransactionHistoryAsync(0, 1000)` (~line 413), refreshing in the background; same failure rule.
+- [X] T044 [P] [US5] In src/DigiByte.Web/Pages/Send.razor, show the page snapshot (`WalletSnapshotCache`) balance at once as the displayed available amount, refreshing in the background. The coins for the send are still read fresh at confirm time with no change to the signing path (FR-022), and the page snapshot is invalidated after a send.
 - [ ] T045 [US5] Check src/DigiByte.Web/Pages/Transactions.razor, Receive.razor and Send.razor in the browser preview with DevTools throttling: each page shows saved data within 1 s; offline shows "Last updated …"; switching wallets never shows another wallet's figures (SC-005, US5 #3).
 
 **Checkpoint**: Every wallet page feels instant.
@@ -259,7 +259,7 @@ description: "Task list for Faster Balance and History"
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T046 [P] [US6] Failing tests in tests/DigiByte.Wallet.Tests/GatewayWalletHistoryTests.cs, using the gateway doubles from tests/DigiByte.Wallet.Tests/P2pGatewayBlockchainServiceTests.cs:
+- [X] T046 [P] [US6] Failing tests in tests/DigiByte.Wallet.Tests/GatewayWalletHistoryTests.cs, using the gateway doubles from tests/DigiByte.Wallet.Tests/P2pGatewayBlockchainServiceTests.cs:
   - `GetWalletTransactionsAsync(80 addresses)` over 200 transactions equals the union of per-address `GetAddressTransactionsAsync` results (txids, inputs, outputs, confirmations) (FR-021).
   - Each raw transaction is parsed once (SC-007).
   - `CannotAnswer` still throws as the per-address method does.
@@ -268,8 +268,8 @@ description: "Task list for Faster Balance and History"
 
 ### Implementation for User Story 6
 
-- [ ] T047 [US6] Implement `IWalletHistorySource.GetWalletTransactionsAsync` on src/DigiByte.Wallet/Services/P2pGatewayBlockchainService.cs: work out each address's script once, parse each `SyncTransaction.Raw` once, keep the ones that pay or spend any script, and order them as `GetAddressTransactionsAsync` does.
-- [ ] T048 [US6] Add `TryGetWalletHistorySource()` to src/DigiByte.Wallet/Services/FallbackBlockchainService.cs (gateway active and in First position, or Backup with every explorer failed) and use it in `WalletService.GetTransactionHistoryAsync` in src/DigiByte.Wallet/Services/WalletService.cs before the per-address loop. Verification labelling stays unchanged. Makes T046 pass.
+- [X] T047 [US6] Implement `IWalletHistorySource.GetWalletTransactionsAsync` on src/DigiByte.Wallet/Services/P2pGatewayBlockchainService.cs: work out each address's script once, parse each `SyncTransaction.Raw` once, keep the ones that pay or spend any script, and order them as `GetAddressTransactionsAsync` does.
+- [X] T048 [US6] Add `TryGetWalletHistorySource()` to src/DigiByte.Wallet/Services/FallbackBlockchainService.cs (gateway active and in First position, or Backup with every explorer failed) and use it in `WalletService.GetTransactionHistoryAsync` in src/DigiByte.Wallet/Services/WalletService.cs before the per-address loop. Verification labelling stays unchanged. Makes T046 pass.
 
 **Checkpoint**: All six stories work.
 

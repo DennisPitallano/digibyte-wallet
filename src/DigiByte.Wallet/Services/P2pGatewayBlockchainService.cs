@@ -27,8 +27,19 @@ public interface IGatewayBroadcaster
 /// fails the wallet checks it throws <see cref="GatewayFaultException"/>; any other failure is an ordinary read failure. It never
 /// returns an empty list for a failure.
 /// </summary>
-public sealed class P2pGatewayBlockchainService : IBlockchainService, IBroadcastReporter
+public sealed class P2pGatewayBlockchainService : IBlockchainService, IBroadcastReporter, IWalletHistorySource
 {
+    private int _rawParses;
+
+    /// <summary>How many raw transactions have been parsed (a diagnostic for the one-pass history, spec 023, SC-007).</summary>
+    public int RawParseCount => _rawParses;
+
+    private Transaction ParseRaw(string raw)
+    {
+        Interlocked.Increment(ref _rawParses);
+        return Transaction.Parse(raw, _network);
+    }
+
     /// <summary>What the gateway said about the most recent send, for the screen that shows the outcome.</summary>
     public BroadcastReport? LastBroadcast { get; private set; }
 
@@ -128,7 +139,7 @@ public sealed class P2pGatewayBlockchainService : IBlockchainService, IBroadcast
         {
             if (string.IsNullOrEmpty(tx.Raw))
                 throw new GatewaySyncUnavailableException(SyncUnavailableReason.CannotAnswer);
-            var parsed = Transaction.Parse(tx.Raw, _network);
+            var parsed = ParseRaw(tx.Raw);
             var pays = parsed.Outputs.Any(o => o.ScriptPubKey == script);
             var info = Describe(tx, state); // throws CannotAnswer when an input cannot be named
             var spends = info.Inputs.Any(i => i.Address == address);
@@ -139,6 +150,56 @@ public sealed class P2pGatewayBlockchainService : IBlockchainService, IBroadcast
             .OrderBy(r => r.Tx.Height == 0 ? int.MinValue : -r.Tx.Height)
             .Select(r => r.Info)
             .Skip(skip).Take(take).ToList();
+    }
+
+    /// <summary>
+    /// The history of every given address in one pass over the record (spec 023, FR-020): each address's script is worked out once,
+    /// each raw transaction is parsed once, and the spent outputs are looked up from those parses. The result equals the union of
+    /// <see cref="GetAddressTransactionsAsync"/> for each address (FR-021), in the same order, and it throws the same way when the
+    /// record can't answer.
+    /// </summary>
+    public async Task<List<TransactionInfo>> GetWalletTransactionsAsync(IReadOnlyList<string> addresses)
+    {
+        var (scope, state) = await FreshAsync();
+        RequireInScope(scope, addresses);
+        var wanted = addresses.ToHashSet();
+        var scripts = addresses.Select(a => BitcoinAddress.Create(a, _network).ScriptPubKey).ToHashSet();
+
+        var parsedById = new Dictionary<string, Transaction>();
+        foreach (var tx in state.Transactions)
+        {
+            if (string.IsNullOrEmpty(tx.Raw))
+                throw new GatewaySyncUnavailableException(SyncUnavailableReason.CannotAnswer);
+            parsedById.TryAdd(tx.Txid, ParseRaw(tx.Raw));
+        }
+        var remembered = new Dictionary<string, SyncOutpoint>();
+        foreach (var o in state.UnspentOutpoints.Concat(state.SpentOutpoints ?? []))
+            remembered.TryAdd(o.Key, o);
+
+        var related = new List<(SyncTransaction Tx, TransactionInfo Info)>();
+        foreach (var tx in state.Transactions)
+        {
+            var parsed = parsedById[tx.Txid];
+            var info = Describe(tx, parsed, point => ResolveFrom(point, parsedById, remembered));
+            var pays = parsed.Outputs.Any(o => scripts.Contains(o.ScriptPubKey));
+            var spends = info.Inputs.Any(i => wanted.Contains(i.Address));
+            if (pays || spends)
+                related.Add((tx, info));
+        }
+        return related
+            .OrderBy(r => r.Tx.Height == 0 ? int.MinValue : -r.Tx.Height)
+            .Select(r => r.Info)
+            .ToList();
+    }
+
+    private static TxOut? ResolveFrom(OutPoint point, Dictionary<string, Transaction> parsedById, Dictionary<string, SyncOutpoint> remembered)
+    {
+        var id = point.Hash.ToString();
+        if (parsedById.TryGetValue(id, out var previous))
+            return point.N < previous.Outputs.Count ? previous.Outputs[(int)point.N] : null;
+        return remembered.TryGetValue($"{id}:{point.N}", out var o)
+            ? new TxOut(Money.Satoshis(o.Amount), Script.FromHex(o.ScriptPubKey))
+            : null;
     }
 
     // ---- writes and things the gateway does not own ----
@@ -246,15 +307,18 @@ public sealed class P2pGatewayBlockchainService : IBlockchainService, IBroadcast
     {
         if (string.IsNullOrEmpty(tx.Raw))
             throw new GatewaySyncUnavailableException(SyncUnavailableReason.CannotAnswer);
-        var parsed = Transaction.Parse(tx.Raw, _network);
+        return Describe(tx, ParseRaw(tx.Raw), point => Resolve(point, state));
+    }
 
+    private TransactionInfo Describe(SyncTransaction tx, Transaction parsed, Func<OutPoint, TxOut?> resolve)
+    {
         var inputs = new List<TxInput>();
         long totalIn = 0;
         if (!parsed.IsCoinBase)
         {
             foreach (var input in parsed.Inputs)
             {
-                var previous = Resolve(input.PrevOut, state) ?? throw new GatewaySyncUnavailableException(SyncUnavailableReason.CannotAnswer);
+                var previous = resolve(input.PrevOut) ?? throw new GatewaySyncUnavailableException(SyncUnavailableReason.CannotAnswer);
                 totalIn += previous.Value.Satoshi;
                 inputs.Add(new TxInput { Address = previous.ScriptPubKey.GetDestinationAddress(_network)?.ToString() ?? string.Empty, AmountSatoshis = previous.Value.Satoshi });
             }
@@ -290,7 +354,7 @@ public sealed class P2pGatewayBlockchainService : IBlockchainService, IBroadcast
         var holder = state.Transactions.FirstOrDefault(t => t.Txid == id && !string.IsNullOrEmpty(t.Raw));
         if (holder is not null)
         {
-            var previous = Transaction.Parse(holder.Raw!, _network);
+            var previous = ParseRaw(holder.Raw!);
             return point.N < previous.Outputs.Count ? previous.Outputs[(int)point.N] : null;
         }
         var key = $"{id}:{point.N}";

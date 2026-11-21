@@ -4,6 +4,7 @@
 @inject AddressLabelService LabelService
 @inject AppState AppState
 @inject ISecureStorage Storage
+@inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -396,24 +397,20 @@
         historyLoading = true;
         try
         {
-            // 1. The history Home already cached: no request at all.
-            try
-            {
-                var json = await Storage.GetAsync($"cache:transactions:{wallet.Id}");
-                var cached = json is null ? null : System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(json);
-                if (HasWalletAddressData(cached)) { ApplyHistory(cached); return; }
-            }
-            catch { /* an unreadable cache is the same as no cache */ }
+            // 1. The saved history shows at once (spec 023, FR-017); unreadable saved data is the same as none.
+            var saved = (await Snapshots.LoadAsync(wallet.Id)).Transactions;
+            if (HasWalletAddressData(saved)) ApplyHistory(saved);
 
-            // 2. No usable cache: the same history call Home and Activity use (it has its own 30 second cache). That call
-            //    returns whatever it could read, so an empty answer cannot be told apart from an unreachable explorer. Only a
-            //    history that carries wallet addresses is used; otherwise every status stays unknown, never "unused".
+            // 2. Then the same history call Home and Activity use, in the background of what is on screen. That call returns
+            //    whatever it could read, so an answer that couldn't reach the chain replaces nothing, and only a history that
+            //    carries wallet addresses is used; otherwise every status stays as it was (unknown, never "unused").
             try
             {
                 var loaded = await WalletService.GetTransactionHistoryAsync(0, 1000);
-                if (HasWalletAddressData(loaded)) ApplyHistory(loaded);
+                if (WalletService.ActiveWallet?.Id == wallet.Id && !WalletService.LastHistoryIncomplete && HasWalletAddressData(loaded))
+                    ApplyHistory(loaded);
             }
-            catch { /* offline or locked: statuses stay unknown */ }
+            catch { /* offline or locked: the saved statuses stay */ }
         }
         finally { historyLoading = false; }
     }

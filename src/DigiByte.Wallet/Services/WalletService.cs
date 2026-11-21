@@ -1529,10 +1529,17 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         return txId;
     }
 
+    /// <summary>
+    /// True when the last <see cref="GetTransactionHistoryAsync"/> could not read the chain and returned only the locally tracked
+    /// transactions. A page showing saved history keeps it in that case instead of replacing it with a partial list (spec 023, FR-024).
+    /// </summary>
+    public bool LastHistoryIncomplete { get; private set; }
+
     public async Task<List<TransactionRecord>> GetTransactionHistoryAsync(int skip = 0, int take = 50)
     {
         EnsureUnlocked();
         await WaitForAddressDiscoveryAsync(AddressDiscoveryWait);
+        LastHistoryIncomplete = false;
 
         // Always return locally tracked transactions (works on all networks)
         var localTxs = await _txTracker.GetAllAsync();
@@ -1556,7 +1563,25 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
                 var allTxs = new Dictionary<string, TransactionInfo>();
                 var changeOnly = false;
-                if (ChangeOnlySync)
+                var onePass = false;
+
+                // 1. The SPV gateway's own record, in one pass for all addresses, while it answers history (spec 023, FR-020).
+                if (_blockchain is FallbackBlockchainService fallback && fallback.TryGetWalletHistorySource() is { } walletHistory)
+                {
+                    try
+                    {
+                        foreach (var tx in await walletHistory.GetWalletTransactionsAsync(rawAddresses))
+                            allTxs.TryAdd(tx.TxId, tx);
+                        onePass = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[TxHistory] Gateway history unavailable: {ex.GetType().Name}");
+                    }
+                }
+
+                // 2. Change-only sync, then 3. every address in full.
+                if (!onePass && ChangeOnlySync)
                 {
                     try
                     {
@@ -1571,7 +1596,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                     }
                 }
 
-                if (!changeOnly)
+                if (!onePass && !changeOnly)
                 {
                     var semaphore = new SemaphoreSlim(10);
                     var txTasks = rawAddresses.Select(async addr =>
@@ -1588,7 +1613,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
                 // Offer what the explorer returned to the gateway record. Runs in the background and never changes this result.
                 _gatewayBootstrap?.Offer(_activeWalletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),
-                    servedByGateway: _blockchain is FallbackBlockchainService { ActiveBackend: "spv-gateway" });
+                    servedByGateway: onePass || _blockchain is FallbackBlockchainService { ActiveBackend: "spv-gateway" });
 
                 var ownByKey = new Dictionary<string, string>();
                 foreach (var a in rawAddresses) ownByKey.TryAdd(NormalizeAddress(a), a);
@@ -1646,7 +1671,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 if (changeOnly)
                     _historySync!.EnsureFullResync(_activeWalletId!, HistoryNetwork, rawAddresses);
             }
-            catch (Exception ex) { Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                LastHistoryIncomplete = true;
+                Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}");
+            }
         }
 
         // Label rows the gateway record knows (checked, unchecked, pending). Nothing changes for rows it does not know, or when the feature is off.

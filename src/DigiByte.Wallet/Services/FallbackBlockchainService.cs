@@ -619,6 +619,46 @@ public class FallbackBlockchainService : IBlockchainService, IAddressSummarySour
         return all.Skip(skip).Take(take).ToList();
     }
 
+    /// <summary>
+    /// The gateway's one-pass wallet history (spec 023, FR-020), only while the gateway would answer history reads: active and first,
+    /// or active as the backup with every explorer cooling down. Null otherwise, and the per-address path runs as before. The call
+    /// keeps the gateway's time budget and reports to its monitor like any other gateway read.
+    /// </summary>
+    public IWalletHistorySource? TryGetWalletHistorySource()
+    {
+        if (ForceDemoMode || _gatewaySource is not IWalletHistorySource source || !GatewayActive)
+            return null;
+        var answersHistory = _gatewayPosition == GatewayPosition.First
+            || (_explorers.Count > 0 && Enumerable.Range(0, _explorers.Count).All(IsOnCooldown));
+        return answersHistory ? new GatewayWalletHistory(this, source) : null;
+    }
+
+    private sealed class GatewayWalletHistory(FallbackBlockchainService owner, IWalletHistorySource source) : IWalletHistorySource
+    {
+        public async Task<List<TransactionInfo>> GetWalletTransactionsAsync(IReadOnlyList<string> addresses)
+        {
+            try
+            {
+                var result = await source.GetWalletTransactionsAsync(addresses).WaitAsync(owner.GatewayReadBudget);
+                owner._gatewayFailureSink?.ReportNodeReadSuccess();
+                owner.IsDemoMode = false;
+                owner.ActiveBackend = "spv-gateway";
+                owner.Note("gateway", true);
+                return result;
+            }
+            catch (GatewayDeclinedException)
+            {
+                throw; // not a failure: the gateway can't answer this one correctly
+            }
+            catch (Exception)
+            {
+                owner.Note("gateway", false);
+                owner._gatewayFailureSink?.ReportNodeReadFailure();
+                throw;
+            }
+        }
+    }
+
     // ── Address summaries and history pages (spec 023) ──
 
     /// <summary>
