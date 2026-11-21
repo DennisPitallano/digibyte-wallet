@@ -8,13 +8,13 @@ public sealed class SigningRoomOptions
     public const string SectionName = "MultisigSigning";
 
     /// <summary>Operator cap on a room's lifetime. Choices above it are not offered and are refused.</summary>
-    public int MaxLifetimeMinutes { get; set; } = 120;
+    public int MaxLifetimeMinutes { get; set; } = 1440;
 
     /// <summary>Lifetime used when the opener picks none.</summary>
     public int DefaultLifetimeMinutes { get; set; } = 30;
 
     /// <summary>Choices the wallet offers, before the cap is applied.</summary>
-    public int[] AllowedLifetimesMinutes { get; set; } = [15, 30, 60, 120];
+    public int[] AllowedLifetimesMinutes { get; set; } = [15, 30, 60, 120, 360, 720, 1440];
 
     /// <summary>Failed join attempts allowed per connection per minute.</summary>
     public int FailedJoinsPerMinute { get; set; } = 5;
