@@ -6,6 +6,18 @@ All notable changes to the DigiByte Wallet project.
 
 ### Added
 - **Receive a co-signer's payment proposal by QR scan** — On a multisig's Pending page (or the new **Scan** button on its dashboard), use the **Receive proposal** options (**Scan QR**, **Paste**, **Choose file**) and scan the QR code another co-signer is showing, or paste it, or choose a file. The payment is added to your pending list, labelled "Received from a co-signer", with the recipient, amount and fee read from the transaction itself. Scanning the same proposal again never makes a duplicate and merges any new signatures. A proposal for another multisig of yours offers to open that multisig; one you cancelled can be restored after you confirm. A proposal whose coins were already spent elsewhere shows "Can't be signed – coins already spent". Nothing is sent to a server. Security-relevant: a new way to bring signed-transaction data into the wallet; copies signed by a key that is not a co-signer are refused whole.
+- **Pending payments on Home** — A payment on its way to you, or a send of yours that hasn't confirmed yet, now shows on its own line under the balance ("Pending +X DGB" or "Pending −X DGB"). The main figure and its fiat value are your confirmed balance only, so a pending amount that is dropped never moves it. Send's **Available** amount no longer offers coins that a pending send already spent.
+- **Wallet pages open with your figures** — Activity, Receive and Send now show the last known balance and history at once and update in the background, as Home already did. If the network can't be reached they keep what was shown with "Last updated", instead of a partial list.
+- **Change-only history switch and refresh benchmark** (developer view, `/dev/node`) — A switch for the new change-only sync (on by default, kept per device), and a benchmark that times a wallet refresh with it on and off and counts the explorer requests by kind. Counts stay on the page.
+
+### Changed
+- **Faster balance and history** — A refresh with no new activity now reads one summary per address and nothing else, instead of a balance read, a history read and a block-height read per address. In a live test on a 60-address wallet, a refresh took 316 ms and 60 requests against 1,163 ms and 120 with the old way, so the explorer's rate limits (and "Unable to load") are hit less often. History is fetched only for addresses that changed and saved on the device like Home's cached figures; once per unlock the wallet re-reads everything in the background to catch rare chain changes. Pages asking for different amounts of history share one fetch, and identical reads made at the same moment share one request. A failed lookup still fails the balance, so it is never shown too low, and the coins for a send are always read fresh.
+- **Light-client gateway history in one pass** — With the gateway answering, a wallet's history is built in one pass over its record, reading each transaction once instead of once per address.
+
+### Fixed
+- **Busy addresses show their whole history** — An address with more than 25 transactions (for example a reused donation address) showed only the newest 25. It now shows all of them, multisig addresses included.
+- **The balance refreshes right after a send** — Send, PSBT signing and Settings cleared a cache key Home never used, so the balance saved before a send could stay on screen. They now clear the wallet's own saved figures.
+- **Deleting a wallet removes all its data** — Its tracked transactions, saved chain history and the figures pages show at once are now removed with it.
 
 ## [0.6.0] - 2026-11-17
 
