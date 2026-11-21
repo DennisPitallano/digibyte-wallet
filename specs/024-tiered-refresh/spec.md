@@ -18,6 +18,15 @@ This feature makes a refresh ask only about the addresses that can plausibly cha
 
 The request also proposed a block-driven refresh (read the block height first and do a full pass only when a new block arrives). It is left out: DigiByte produces a block about every 15 seconds, the same as Home's fastest poll, so nearly every refresh would see a new block and do the full pass, cancelling the gain from tiering. Cold addresses are checked on a timer instead (FR-004). Correctness rules from earlier features stay in force: a lookup that fails is never counted as empty, coins for a send are always read fresh, and a send refreshes the balance at once.
 
+## Clarifications
+
+### Session 2026-11-22
+
+- Q: How long may a payment to an old, unused address take to show up before a manual refresh? → A: 5 minutes (the cold-check interval); unused addresses are checked in groups spread over it.
+- Q: Where should the wallet say when every address was last fully checked? → A: In the balance details (the info panel opened from the balance card) only, not on Home's main card.
+- Q: Should tiering have its own developer switch or reuse the change-only sync switch? → A: Its own switch, "Tiered refresh", independent of "Change-only history sync".
+- Q: With change-only sync off and tiered refresh on, does tiering still apply? → A: No. Tiering works only on top of change-only sync; with change-only off, every refresh and send reads every address as in 0.6.0.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A wallet left open costs little (Priority: P1)
@@ -66,7 +75,7 @@ A user confirms a send. The wallet reads the unspent coins of the addresses that
 
 1. **Given** current summaries show which addresses hold confirmed funds or pending activity, **When** a send is confirmed, **Then** coins are read only for those addresses, and read fresh.
 2. **Given** the coins found that way are not enough for the amount and fee, **When** the send is built, **Then** the wallet reads the coins of every remaining watched address before reporting insufficient funds.
-3. **Given** summaries are not available (regtest, the gateway first, the switch off, or no current summary), **When** a send is confirmed, **Then** coins are read for every watched address, as today.
+3. **Given** summaries are not available (regtest, the gateway first, either switch off, or no current summary), **When** a send is confirmed, **Then** coins are read for every watched address, as today.
 
 ---
 
@@ -110,7 +119,7 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 - **FR-005**: A summary for an address not looked up in a refresh MAY be reused only if it was read live from the source in this session and no longer ago than the cold-check interval. Otherwise the address MUST be looked up in that refresh. A summary loaded from storage MUST NOT be reused.
 - **FR-006**: The first refresh after unlock, a refresh the user starts (pull to refresh or the refresh button), and the first refresh after a send MUST look up every watched address.
 - **FR-007**: A refresh MUST NOT show a balance that is lower than the sum of the latest summaries because some address was skipped. Any lookup that fails MUST fail the balance read, as today.
-- **FR-008**: The wallet MUST be able to say when every watched address was last confirmed from the chain ("Fully checked N min ago"), shown in the balance details, not on the main balance figure.
+- **FR-008**: The wallet MUST be able to say when every watched address was last confirmed from the chain ("Fully checked N min ago"), shown only in the balance details (the info panel opened from Home's balance card), never on the main card. With tiering off it shows the time of the last refresh.
 
 **Spreading the cold checks**
 
@@ -119,12 +128,12 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 **Sending**
 
 - **FR-010**: When a send is built and current summaries exist, the wallet MUST read coins only for the addresses whose summary shows a confirmed balance or pending activity. The coins MUST be read fresh at that moment. If they are not enough for the amount and fee, the wallet MUST read the coins of every remaining watched address before reporting insufficient funds.
-- **FR-011**: When current summaries are not available (regtest, the gateway first, the switch off), a send MUST read coins for every watched address, as today.
+- **FR-011**: When current summaries are not available (regtest, the gateway first, either switch off), a send MUST read coins for every watched address, as today.
 - **FR-012**: A send MUST still refresh the balance at once afterwards, with every watched address looked up (FR-006).
 
 **Switch and measurement**
 
-- **FR-013**: The developer switch on `/dev/node` MUST be able to turn tiering off. When off, every refresh looks up every watched address and every send reads every address's coins, as in 0.7.0. The switch is kept per device, on by default, and takes effect on the next refresh.
+- **FR-013**: A separate "Tiered refresh" switch on `/dev/node`, independent of the "Change-only history sync" switch, MUST be able to turn tiering off. When off, every refresh looks up every watched address and every send reads every address's coins, as in 0.7.0. The switch is kept per device, on by default, and takes effect on the next refresh. Tiering applies only while change-only history sync is also on; with change-only off, every refresh and send reads every address, whatever this switch says.
 - **FR-014**: The `/dev/node` wallet refresh benchmark MUST show a quiet refresh with tiering on and off, with time and requests by kind, and the number of coin lookups a send would make, all kept in memory on that page only.
 
 **Unchanged guarantees**
@@ -153,5 +162,5 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 - Spec 023 is in place: address summaries, the in-session summary snapshot, change-only history sync, the shared tip lookup, and the `/dev/node` switch and benchmark. This feature builds on them and keeps their rules unless stated here.
 - 5 minutes is an acceptable delay for a payment to an old, unused address, given that the address on show and recently handed-out addresses are always hot, and a manual refresh checks everything.
 - 7 days of recent activity is a reasonable window for keeping a used address hot; used addresses with no balance and no recent activity rarely receive again.
-- The cold-check interval and the recent-activity window are fixed in this feature; they can become settings later if needed.
+- The cold-check interval (5 minutes, confirmed in clarification) and the recent-activity window are fixed in this feature; they can become settings later if needed.
 - Out of scope: a server-side batch endpoint, push or subscription updates, changes to the light-client gateway, changes to address discovery, and changes to the 0.7.0 history sync beyond deciding which addresses' summaries are read in a refresh.
