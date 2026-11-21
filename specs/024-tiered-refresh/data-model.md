@@ -10,8 +10,8 @@ Everything here is in memory, per unlocked session, in `DigiByte.Wallet` unless 
 |-------|------|--------|
 | `Watched` | address list | `WalletService.GetAllAddresses()` |
 | `Summaries` | address → `AddressSummary` | session snapshot (spec 023) |
-| `OnShow` | address? | receive address at `NextReceivingIndex` (SegWit) |
-| `HandedOut` | address list, newest first, at most 3 | receive addresses below `NextReceivingIndex` with no activity |
+| `OnShow` | address list | receive address at `NextReceivingIndex`: SegWit, plus the legacy address of the same index when it is watched |
+| `HandedOut` | address list, newest 3 indexes | receive addresses below `NextReceivingIndex` with no activity: SegWit, plus the legacy address of each index when it is watched |
 | `NextChange` | address? | change address at `NextChangeIndex` (SegWit) |
 | `PendingSendInputs` | address set | wallet addresses spent by pending transactions in saved history |
 | `RecentActivity` | address set | addresses in saved transactions with timestamp ≥ now − 7 days |
@@ -46,7 +46,7 @@ Spread share per automatic refresh: `ceil(ColdCount × min(elapsed, 5 min) / 5 m
 
 ## FullyChecked (derived)
 
-`min(At)` over the watched addresses' snapshot entries, or null if any address has none. Shown in **Web** as "Fully checked N min ago" in Home's wallet info panel.
+`min(At)` over the watched addresses' snapshot entries, or null if any address has none (always null while change-only sync is off, so the note is hidden). Shown in **Web** as "Fully checked N min ago" in Home's wallet info panel.
 
 ## SendCoinPlan (new, planner output)
 
@@ -54,7 +54,7 @@ Spread share per automatic refresh: `ceil(ColdCount × min(elapsed, 5 min) / 5 m
 |-------|------|------|
 | `Funded` | address list | addresses whose current summary shows `Confirmed > 0` or any pending activity |
 | `Rest` | address list | the other addresses in the key map |
-| `Planned` | bool | false when any address lacks a current summary, tiering is off, or change-only is off: then `Funded` = every address and `Rest` is empty |
+| `Planned` | bool | false when any address lacks a summary read live this session within 5 minutes, tiering is off, or change-only is off: then `Funded` = every address and `Rest` is empty |
 
 Fallback rule: when the coins read from `Funded` total less than amount + 0.01 DGB fee allowance, the coins of `Rest` are read before the send continues.
 

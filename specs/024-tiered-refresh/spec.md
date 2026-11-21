@@ -114,21 +114,21 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 **Tiered refresh**
 
 - **FR-001**: A refresh MUST look up only the hot addresses (FR-002) plus any addresses that are due (FR-004 to FR-006). Addresses not looked up keep the summary read for them earlier in this session.
-- **FR-002**: The hot set MUST include: addresses with a confirmed balance or pending activity in their latest summary; the receive address on show and the 3 newest handed-out receive addresses not yet used; the next change address; the addresses spent from by a pending send of the wallet; and addresses with any activity in the last 7 days.
+- **FR-002**: The hot set MUST include: addresses with a confirmed balance or pending activity in their latest summary; the receive address on show and the 3 newest handed-out receive addresses not yet used, and, for each of those indexes, its watched legacy-format address (Receive can show either format); the next change address; the addresses spent from by a pending send of the wallet; and addresses with any activity in the last 7 days.
 - **FR-003**: An address MUST join the hot set as soon as a lookup, a discovery read or a send shows activity on it.
 - **FR-004**: Every watched address outside the hot set MUST be looked up at least once every 5 minutes (the cold-check interval). The cold addresses due in a refresh are looked up in that refresh.
 - **FR-005**: A summary for an address not looked up in a refresh MAY be reused only if it was read live from the source in this session and no longer ago than the cold-check interval. Otherwise the address MUST be looked up in that refresh. A summary loaded from storage MUST NOT be reused.
 - **FR-006**: The first refresh after unlock, a refresh the user starts (pull to refresh or the refresh button), and the first refresh after a send MUST look up every watched address. All other refreshes are automatic and tiered, including Home's timer and the background refresh when Activity, Receive or Send is opened.
 - **FR-007**: A refresh MUST NOT show a balance that is lower than the sum of the latest summaries because some address was skipped. Any lookup that fails MUST fail the balance read, as today.
-- **FR-008**: The wallet MUST be able to say when every watched address was last confirmed from the chain ("Fully checked N min ago"), shown only in the balance details (the info panel opened from Home's balance card), never on the main card. With tiering off it shows the time of the last refresh.
+- **FR-008**: The wallet MUST be able to say when every watched address was last confirmed from the chain ("Fully checked N min ago"), shown only in the balance details (the info panel opened from Home's balance card), never on the main card. With tiering off it shows the time of the last full refresh; with change-only sync off it is hidden.
 
 **Spreading the cold checks**
 
-- **FR-009**: The cold addresses MUST be checked in small groups spread over the 5-minute interval rather than all in one refresh, so that no single automatic refresh looks up much more than the hot set plus about a fifth of the cold addresses.
+- **FR-009**: The cold addresses MUST be checked in small groups spread over the 5-minute interval rather than all in one refresh, so that no single automatic refresh looks up much more than the hot set plus about a fifth of the cold addresses. This limit applies to automatic refreshes that follow each other; after a pause of 5 minutes or more (for example, the page was hidden), one refresh may read every due address.
 
 **Sending**
 
-- **FR-010**: When a send is built and current summaries exist, the wallet MUST read coins only for the addresses whose summary shows a confirmed balance or pending activity. The coins MUST be read fresh at that moment. If they are not enough for the amount and fee, the wallet MUST read the coins of every remaining watched address before reporting insufficient funds.
+- **FR-010**: When a send is built and every watched address has a summary read live in this session within the cold-check interval (5 minutes), the wallet MUST read coins only for the addresses whose summary shows a confirmed balance or pending activity. A summary that turns out to under-report is covered by the fallback below. The coins MUST be read fresh at that moment. If they are not enough for the amount and fee, the wallet MUST read the coins of every remaining watched address before reporting insufficient funds.
 - **FR-011**: When current summaries are not available (regtest, the gateway first, either switch off), a send MUST read coins for every watched address, as today.
 - **FR-012**: A send MUST still refresh the balance at once afterwards, with every watched address looked up (FR-006).
 
@@ -152,7 +152,7 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 
 ### Measurable Outcomes
 
-- **SC-001**: For a seed wallet of about 60 watched addresses with funds on 2 of them and no new activity, a quiet automatic refresh in which no cold address is due sends at most 12 requests (the hot addresses plus at most one block-height read), down from about 60, as shown by the `/dev/node` benchmark and the automated tests.
+- **SC-001**: For a seed wallet of about 60 watched addresses with funds on 2 of them, activity in the last 7 days on at most 3 others, and no new activity, a quiet automatic refresh in which no cold address is due sends at most 12 requests (the hot addresses plus at most one block-height read), down from about 60, as shown by the `/dev/node` benchmark and the automated tests.
 - **SC-002**: Over 10 minutes with the wallet open on Home and no activity, the number of explorer requests drops by at least 60% with tiering on compared with off, at both the fastest (15 s) and the slowest (60 s) automatic refresh pace.
 - **SC-003**: A payment to a hot address shows within one refresh; a payment to any other watched address shows within 5 minutes, and at once after a manual refresh.
 - **SC-004**: Confirming a send from a wallet with funds on 2 of about 60 addresses makes at most 4 coin lookups, down from about 60.

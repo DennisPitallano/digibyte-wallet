@@ -16,7 +16,7 @@
 **Decision**: A pure, unit-tested `HotAddressSelector` in `DigiByte.Wallet` decides the hot set from inputs that are all already in memory:
 
 - latest summaries in the session snapshot: `Confirmed > 0`, or any pending count or amount;
-- hints from `WalletService`: the receive address on show (`NextReceivingIndex`, SegWit), the 3 newest handed-out receive addresses below it that have no activity, the next change address (`NextChangeIndex`, SegWit), and the wallet's own addresses spent from by a pending send (inputs of pending transactions in the saved history that belong to the wallet);
+- hints from `WalletService`: the receive address on show (`NextReceivingIndex`), the 3 newest handed-out receive addresses below it that have no activity (each in SegWit and, when watched, legacy format, since Receive can show either), the next change address (`NextChangeIndex`, SegWit), and the wallet's own addresses spent from by a pending send (inputs of pending transactions in the saved history that belong to the wallet);
 - recent activity: addresses appearing in a saved transaction whose timestamp is within 7 days (from `SavedChainHistory`, which the sync already keeps in memory).
 
 **Rationale**: Every input is local, so choosing the hot set costs no request. Keeping the rule in a pure function makes FR-002 directly testable.
@@ -51,7 +51,7 @@
 
 ## R6. Coins only where there is money
 
-**Decision**: A `SendCoinPlanner` (pure, in `DigiByte.Wallet`) splits the address-key map into `Funded` (latest summary shows `Confirmed > 0` or any pending activity) and `Rest`, when every watched address has a snapshot summary within its reuse window; otherwise everything is `Funded` (today's behaviour). `SendAsync`, `SendBatchAsync` and `ConsolidateUtxosAsync` read coins for `Funded` first (fresh, as today). If the coins found are fewer than the amount plus a fee allowance (0.01 DGB, well above any realistic DGB fee), they read `Rest` too and continue as today, so "Insufficient funds" is reported only after every address was read (FR-010). Consolidate always needs every coin, so it reads `Funded` only when the summaries are current and the rest only if a summary disagrees with what was found.
+**Decision**: A `SendCoinPlanner` (pure, in `DigiByte.Wallet`) splits the address-key map into `Funded` (latest summary shows `Confirmed > 0` or any pending activity) and `Rest`, when every watched address has a snapshot summary read live this session within 5 minutes (hot or cold: send planning accepts any summary under 5 minutes old, because coins are read fresh and the fallback covers a stale summary); otherwise everything is `Funded` (today's behaviour). `SendAsync`, `SendBatchAsync` and `ConsolidateUtxosAsync` read coins for `Funded` first (fresh, as today). If the coins found are fewer than the amount plus a fee allowance (0.01 DGB, well above any realistic DGB fee), they read `Rest` too and continue as today, so "Insufficient funds" is reported only after every address was read (FR-010). Consolidate always needs every coin, so it reads `Funded` only when the summaries are current and the rest only if a summary disagrees with what was found.
 
 **Rationale**: The decision uses only data already in memory, and the fallback keeps today's exact behaviour whenever summaries are missing or wrong. Coins are still never cached (FR-015).
 

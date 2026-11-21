@@ -31,8 +31,9 @@ public static readonly TimeSpan ColdCheckInterval = TimeSpan.FromMinutes(5);
 /// Oldest snapshot stamp across the addresses, or null if any is missing (FR-008).
 DateTimeOffset? GetFullyCheckedAt(string walletId, string network, IReadOnlyList<string> addresses);
 
-/// Latest summaries for the addresses if every one is current under the tiered reuse rule; otherwise null.
-IReadOnlyDictionary<string, AddressSummary>? TryGetCurrentSummaries(string walletId, string network, IReadOnlyList<string> addresses);
+/// Summaries for the addresses if every one was read live this session within ColdCheckInterval (5 min), whether hot or cold;
+/// otherwise null. For send planning only: coins are still read fresh, and an under-reporting summary is caught by the fallback.
+IReadOnlyDictionary<string, AddressSummary>? TryGetSendSummaries(string walletId, string network, IReadOnlyList<string> addresses);
 
 /// Diagnostic for the /dev/node benchmark: moves every snapshot stamp of the wallet back by `by`.
 void AgeSnapshot(string walletId, TimeSpan by);
@@ -58,6 +59,9 @@ public static class SendCoinPlanner
 
     /// True when the coins found are not enough and Rest must be read before continuing.
     public static bool NeedsRest(SendCoinPlan plan, long foundSatoshis, long amountSatoshis);
+
+    /// Consolidate spends every coin: true when the coins found total less than the summaries' confirmed sum, so Rest must be read.
+    public static bool NeedsRestForConsolidate(SendCoinPlan plan, long foundSatoshis, long summariesConfirmedSatoshis);
 }
 ```
 

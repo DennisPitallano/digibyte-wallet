@@ -35,6 +35,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 - [ ] T003 [P] Extend the test doubles in tests/DigiByte.Wallet.Tests/HistorySyncTestDoubles.cs:
   - `SummaryExplorer` gets scripted spendable coins per address (`Coins[address]`, with the address's script) and counts `GetUtxosAsync` calls per address (`CoinReads`, `CoinReadAddresses`).
   - `HistorySyncEnv` exposes `Options.Tiered`, and a helper that funds receive addresses with real coins so sends can be built and signed.
+  - `HistorySyncEnv` defaults to `Options.Tiered = false`, so spec 023 tests keep checking 0.7.0 behaviour; spec 024 tests set it to `true`.
 
 ---
 
@@ -71,7 +72,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 
 - [ ] T008 [P] [US1] Failing tests in tests/DigiByte.Wallet.Tests/TieredRefreshTests.cs (using `HistorySyncEnv` and `FakeTimeProvider`):
   - Quiet refresh 31 s after a full check reads only the hot addresses (SC-001), and no history pages.
-  - Cold addresses are read in a spread: over 5 simulated minutes of 15 s refreshes, each refresh reads about a twentieth of them, none waits 5 minutes or more, and no single refresh reads more than hot + a fifth of cold (FR-004, FR-009).
+  - Cold addresses are read in a spread: over 5 simulated minutes of steady 15 s refreshes, each refresh reads about a twentieth of them, none waits 5 minutes or more, and no refresh reads more than hot + a fifth of cold (FR-004, FR-009).
   - At the 60 s pace the 5-minute bound still holds.
   - 10 simulated minutes at 15 s and at 60 s: total requests ≥ 60% fewer than with `Tiered = false` (SC-002).
   - A failed hot summary read fails the refresh and leaves saved summaries unchanged (FR-007).
@@ -86,7 +87,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
   - Hot: reuse snapshot entries younger than 30 s. Cold: reuse younger than `ColdCheckInterval` (5 min), except the spread share `ceil(coldCount × min(elapsed, 5 min) / 5 min)` oldest, which are read.
   - Keep a per-wallet `LastRefreshAt` (`RefreshCursor`).
   - Otherwise keep the 0.7.0 rule. Makes T008 pass.
-- [ ] T010 [US1] In src/DigiByte.Wallet/Services/WalletService.cs, build `HotAddressHints` for HD wallets (receive SegWit at `NextReceivingIndex`; up to 3 handed-out receive addresses below it; change SegWit at `NextChangeIndex`; wallet addresses spent by pending transactions in the tracked history) and pass them from `GetBalanceAsync()` and `GetTransactionHistoryAsync()`.
+- [ ] T010 [US1] In src/DigiByte.Wallet/Services/WalletService.cs, build `HotAddressHints` for HD wallets (receive SegWit at `NextReceivingIndex`; up to 3 handed-out receive addresses below it; the legacy address of each of those indexes when it is watched (index < 20); change SegWit at `NextChangeIndex`; wallet addresses spent by pending transactions in the tracked history) and pass them from `GetBalanceAsync()` and `GetTransactionHistoryAsync()`.
 - [ ] T011 [P] [US1] In src/DigiByte.Web/Program.cs, load `dev:tiered-refresh` at startup into `HistorySyncOptions.Tiered` (missing → true). In src/DigiByte.Web/Pages/DevNode.razor, add a "Tiered refresh" switch row (same `.dn-switch` style) that writes the key, with a note that it needs change-only sync.
 
 **Checkpoint**: Quiet refreshes are cheap; the switch returns to 0.7.0 behaviour.
@@ -103,6 +104,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 
 - [ ] T012 [P] [US2] Failing tests in tests/DigiByte.Wallet.Tests/TieredRefreshTests.cs:
   - A payment to the address on show, or to a handed-out address, shows on the next refresh.
+  - A payment to the legacy address on show shows on the next refresh.
   - A payment to a cold address shows within 5 simulated minutes, and on the next refresh after `RequestFullCheck()` (FR-006).
   - The first refresh after unlock and the first after a send read every address (FR-006, FR-012).
   - After a cold address is paid, it is hot on the following refreshes (FR-003).
@@ -112,7 +114,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 
 - [ ] T013 [US2] Add `WalletHistorySync.GetFullyCheckedAt(walletId, network, addresses)` and `WalletService.RequestFullCheck()` / `GetFullyCheckedAt()` in src/DigiByte.Wallet/Services/WalletHistorySync.cs and src/DigiByte.Wallet/Services/WalletService.cs (`RequestFullCheck` drops the active wallet's snapshot via `ForgetSnapshot`). Makes T012 pass.
 - [ ] T014 [P] [US2] Call `WalletService.RequestFullCheck()` at the start of `ManualRefreshAsync` in src/DigiByte.Web/Pages/Home.razor (button and pull gesture) and of the pull-to-refresh handler in src/DigiByte.Web/Pages/Transactions.razor (not of its first load). Page opens stay automatic (clarification 5).
-- [ ] T015 [US2] In the wallet info panel of src/DigiByte.Web/Pages/Home.razor (`showWalletInfo`), show "Fully checked N min ago" (or "just now") from `GetFullyCheckedAt()`; hidden when unknown. Never on the main balance card (FR-008). Check in the browser preview.
+- [ ] T015 [US2] In the wallet info panel of src/DigiByte.Web/Pages/Home.razor (`showWalletInfo`), show "Fully checked N min ago" (or "just now") from `GetFullyCheckedAt()`; hidden when unknown, including while change-only sync is off. Never on the main balance card (FR-008). Check in the browser preview.
 
 **Checkpoint**: Tiering never hides a payment for more than 5 minutes, and a manual refresh always shows everything.
 
@@ -128,6 +130,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 
 - [ ] T016 [P] [US3] Failing tests in tests/DigiByte.Wallet.Tests/TieredRefreshTests.cs:
   - `SendAsync` with 2 funded of 60 and current summaries reads coins only for those 2 (SC-004); its inputs and outputs equal the tiering-off result.
+  - A send started 2 minutes after the last refresh, with hot summaries older than 30 s, still reads coins only for the funded addresses.
   - A summary that under-reports (an address shows 0 but holds coins) and a send needing them: the rest are read and the send succeeds; "Insufficient funds" only when every address was read and the total is short (FR-010, SC-005).
   - No current summaries (fresh session, regtest-style `Unavailable`, either switch off): every address's coins are read (FR-011).
   - `SendBatchAsync` and `ConsolidateUtxosAsync` follow the same plan.
@@ -135,8 +138,8 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Add `WalletHistorySync.TryGetCurrentSummaries(walletId, network, addresses)` in src/DigiByte.Wallet/Services/WalletHistorySync.cs (null unless every address has a snapshot entry current under the tiered reuse rule).
-- [ ] T018 [US3] In src/DigiByte.Wallet/Services/WalletService.cs, replace the all-addresses coin loops of `SendAsync` (~line 1286), `SendBatchAsync` (~1457) and `ConsolidateUtxosAsync` (~1949) with one helper: plan with `SendCoinPlanner`, read `Funded` (fresh, 10 at a time), read `Rest` when `NeedsRest` (consolidate: when the coins found total less than the summaries' confirmed sum), then continue unchanged. Add `PlanSendCoinReads()`. Makes T016 pass.
+- [ ] T017 [US3] Add `WalletHistorySync.TryGetSendSummaries(walletId, network, addresses)` in src/DigiByte.Wallet/Services/WalletHistorySync.cs (null unless every address has a snapshot entry read live this session within 5 minutes, hot or cold).
+- [ ] T018 [US3] In src/DigiByte.Wallet/Services/WalletService.cs, replace the all-addresses coin loops of `SendAsync` (~line 1286), `SendBatchAsync` (~1457) and `ConsolidateUtxosAsync` (~1949) with one helper: plan with `SendCoinPlanner`, read `Funded` (fresh, 10 at a time), read `Rest` when `NeedsRest` (consolidate: when `NeedsRestForConsolidate`), then continue unchanged. Add `PlanSendCoinReads()`. Makes T016 pass.
 
 **Checkpoint**: Sends are quicker and never fail for want of reading an address.
 
@@ -157,7 +160,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 
 - [ ] T021 [P] Update docs/ARCHITECTURE.md (read path: hot set, cold cycle, full checks, send coin planning) and docs/PROCESS_FLOWS.md (refresh and send flows).
 - [ ] T022 [P] Add the user-facing changes to `[Unreleased]` in CHANGELOG.md.
-- [ ] T023 Run `dotnet build` and `dotnet test`; fix anything this feature broke in existing tests (e.g. tests/DigiByte.Wallet.Tests/HistorySyncTests.cs request-count assertions now under tiering).
+- [ ] T023 Run `dotnet build` and `dotnet test`; fix anything this feature broke in existing tests (for example, gateway and node tests that build `WalletService` with real options).
 - [ ] T024 Run quickstart.md sections 2 and 3 against mainnet in the browser preview; record the quiet-refresh counts and send coin reads in the PR as proof of SC-001 and SC-004.
 
 ---
