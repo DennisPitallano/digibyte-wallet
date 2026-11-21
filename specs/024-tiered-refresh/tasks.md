@@ -173,7 +173,7 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 - **Foundational (Phase 2)**: needs Phase 1. T004/T005 and T006/T007 are independent pairs.
 - **US1 (Phase 3)**: needs T005. MVP.
 - **US2 (Phase 4)**: needs US1 (T009) for the tiered rule it checks around.
-- **US3 (Phase 5)**: needs T007 and T009 (current summaries come from the tiered rule).
+- **US3 (Phase 5)**: needs T007 and T009 (the send plan uses the session's summaries, which the tiered refresh keeps within 5 minutes; "current summaries" in US3 means read within 5 minutes, as defined in FR-010).
 - **US4 (Phase 6)**: needs US1 and US3 (T018 for `PlanSendCoinReads`).
 - **Polish (Phase 7)**: last.
 

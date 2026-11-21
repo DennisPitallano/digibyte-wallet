@@ -128,7 +128,7 @@ A developer opens `/dev/node`, runs the wallet refresh benchmark, and sees the r
 
 **Sending**
 
-- **FR-010**: When a send is built and every watched address has a summary read live in this session within the cold-check interval (5 minutes), the wallet MUST read coins only for the addresses whose summary shows a confirmed balance or pending activity. A summary that turns out to under-report is covered by the fallback below. The coins MUST be read fresh at that moment. If they are not enough for the amount and fee, the wallet MUST read the coins of every remaining watched address before reporting insufficient funds.
+- **FR-010**: When a send is built and every watched address has a summary read live in this session within the cold-check interval (5 minutes), the wallet MUST read coins only for the addresses whose summary shows a confirmed balance or pending activity. A summary that turns out to under-report is covered by the fallback below. In the sending requirements and scenarios, "current summaries" means exactly this: every watched address read live in this session within 5 minutes (not the 30-second rule for hot addresses in a refresh). The coins MUST be read fresh at that moment. If they are not enough for the amount and fee, the wallet MUST read the coins of every remaining watched address before reporting insufficient funds.
 - **FR-011**: When current summaries are not available (regtest, the gateway first, either switch off), a send MUST read coins for every watched address, as today.
 - **FR-012**: A send MUST still refresh the balance at once afterwards, with every watched address looked up (FR-006).
 
