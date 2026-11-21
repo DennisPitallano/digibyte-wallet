@@ -70,6 +70,7 @@ Rules:
 | `UnconfirmedSatoshis` | **Now set**: sum of `PendingNet`, may be negative. 0 on sources without summaries |
 | `ConfirmedDgb` | The main figure on Home and the base of its fiat value (FR-016) |
 | `TotalDgb` | Unchanged formula (confirmed + pending); no longer used as Home's main figure |
+| `AvailableSatoshis` / `AvailableDgb` | **New, derived**: `ConfirmedSatoshis + Math.Min(0, UnconfirmedSatoshis)`, what Send offers (FR-015). Equals confirmed when there are no summaries |
 
 ## SummarySnapshot (new, in memory per unlocked session)
 
@@ -78,6 +79,7 @@ The summaries read during the current refresh cycle: an address → `AddressSumm
 ## FullResyncState (new, in memory per unlocked session)
 
 ```text
+NotStarted ──all cursors completed this session─────────────────▶ Done
 NotStarted ──first change-only result returned──▶ Running ──success──▶ Done
     ▲                                               │
     └──── failure (retry after 1 min) ◀─────────────┘
@@ -102,7 +104,7 @@ History key becomes `txs:{address}` (full list); `skip`/`take` are applied after
 
 ## WalletSnapshot (Web, existing keys, new shared service)
 
-Keys `cache:balance:{walletId}`, `cache:transactions:{walletId}`, `cache:price` and `cache:timestamp:{walletId}`, as Home writes them today. They are now read and written through `WalletSnapshotCache` by Home, Transactions, Receive and Send. They are removed after a send (by wallet id) and when the wallet is deleted.
+Keys `cache:balance:{walletId}`, `cache:transactions:{walletId}`, `cache:lastFetch:{walletId}` and `cache:dgbPrice` (shared by all wallets), exactly as Home writes them today (`Home.razor:613–618`). They are now read and written through `WalletSnapshotCache` by Home, Transactions, Receive and Send. They are removed after a send (by wallet id) and when the wallet is deleted.
 
 ## RequestCounts (Web, in memory only)
 

@@ -152,7 +152,7 @@ A user who has turned on the SPV gateway opens their history. The wallet builds 
 **Change-only history (delta sync)**
 
 - **FR-005**: The wallet MUST keep, per wallet and per network, a saved summary for each watched address: confirmed transaction count, pending transaction count, confirmed amount received, confirmed amount spent, pending amount received and pending amount spent.
-- **FR-006**: The wallet MUST compute the balance from current summaries. A summary counts as current only if it was read during this refresh; a lookup that failed MUST fail the balance read as it does today, never fall back to the saved figure for that address in a new total.
+- **FR-006**: The wallet MUST compute the balance from current summaries. A summary counts as current only if it was read live from the source within the last 30 seconds in this session (including reads made by address discovery), never one loaded from storage; a lookup that failed MUST fail the balance read as it does today, never fall back to the saved figure for that address in a new total.
 - **FR-007**: On a refresh the wallet MUST fetch an address's transaction list only when its confirmed or pending count differs from the saved summary, when the address has no saved summary, or when the saved history for it is missing.
 - **FR-008**: Fetched transactions MUST be merged into the saved history for that wallet. A transaction already saved MUST be updated (confirmations, block, status), not duplicated.
 - **FR-009**: The wallet MUST re-read the full history of every watched address once per unlock, so a change the summaries cannot show (such as a reorganisation) is corrected within one session. This re-read MUST run in the background after the change-only result is on screen, MUST NOT delay any balance or history the user is waiting for, and MUST yield to the user's own reads when both need the source at the same time. If it fails, it is retried on a later refresh in the same session; a failure MUST NOT change what is on screen.
@@ -169,7 +169,7 @@ A user who has turned on the SPV gateway opens their history. The wallet builds 
 **Pending balance**
 
 - **FR-014**: The balance MUST report a pending amount, the net of pending incoming and pending outgoing amounts, separately from the confirmed balance.
-- **FR-015**: The amount offered as available to send MUST stay based on confirmed coins, as it is today. Pending incoming amounts MUST NOT be offered for spending.
+- **FR-015**: The amount offered as available to send MUST be the confirmed balance plus any negative net pending amount (confirmed + min(0, net pending)). Pending incoming amounts MUST NOT be offered for spending, and coins already spent by a pending send MUST NOT be offered again. The coins actually chosen for a send are still read fresh (FR-022).
 - **FR-016**: Home's main balance figure and its fiat value MUST be the confirmed balance only. When the net pending amount is not zero, Home MUST show it on a separate line labelled as pending, with its sign ("Pending +X DGB" or "Pending −X DGB"). A pending amount that is dropped MUST disappear from that line without the main figure changing.
 
 **Instant display**

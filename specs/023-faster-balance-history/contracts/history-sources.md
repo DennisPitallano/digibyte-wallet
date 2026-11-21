@@ -31,7 +31,7 @@ public sealed record AddressHistoryPage(IReadOnlyList<TransactionInfo> Transacti
 
 Implemented by:
 - `BlockchainApiService`: the endpoints above. Its tip height is kept in memory for 10 s with in-flight sharing (R6).
-- `FallbackBlockchainService`: routes to the first explorer that implements it and is not on cooldown, with the same cooldown and counter rules as other address reads. Throws `SummaryUnavailableException` when none can answer: it isn't regtest, no explorer implements it, or all failed. The caller then uses the full-read path.
+- `FallbackBlockchainService`: routes to the first explorer that implements it and is not on cooldown, with the same cooldown and counter rules as other address reads. Throws `SummaryUnavailableException` when none can answer: it isn't regtest, no explorer implements it, or all failed. The caller then uses the full-read path. Also throws `SummaryUnavailableException` while the gateway is active in First position, so a gateway-first wallet never has its addresses looked up through the explorer for balance or history.
 
 Not implemented by `NodeApiBlockchainService`, `P2pGatewayBlockchainService` or `MockBlockchainService`. Test doubles may implement it.
 
@@ -83,10 +83,10 @@ Rules:
 
 ## 5. `WalletService` behaviour (changed)
 
-| Method | Change-only on and summaries available | Otherwise |
-|--------|----------------------------------------|-----------|
-| `GetBalanceAsync()` | `RefreshAsync` → `ConfirmedSatoshis`, `UnconfirmedSatoshis` | Today's `GetBalanceAsync(addresses)`; `UnconfirmedSatoshis` = 0 |
-| `GetTransactionHistoryAsync(skip, take)` | `RefreshAsync` (shared with the balance call) → build records from `Transactions`, then `EnsureFullResync` | Gateway `IWalletHistorySource` if offered; else per-address reads as today (shared cache, one height, complete paging) |
+| Method | Change-only on and summaries available (or source order) | Otherwise |
+|--------|----------------------------------------------------------|-----------|
+| `GetBalanceAsync()` | Order: (1) gateway active and First → today's path (gateway coins); (2) change-only on and summaries available → `RefreshAsync` → `ConfirmedSatoshis`, `UnconfirmedSatoshis`; (3) otherwise today's `GetBalanceAsync(addresses)`. `UnconfirmedSatoshis` = 0 outside (2) | — |
+| `GetTransactionHistoryAsync(skip, take)` | Order: (1) `TryGetWalletHistorySource()` not null → one-pass gateway history; (2) change-only on and summaries available → `RefreshAsync` (shared with the balance call) → build records from `Transactions`, then `EnsureFullResync`; (3) otherwise per-address reads as today (shared cache, one height, complete paging) | — |
 | `FindUsedCountAsync` (discovery) | Summary lookup → `IsUsed`, and `Offer` | `HasAddressHistoryAsync` as today |
 | After a send | `InvalidateCache()` (bumps generation) + snapshot dropped | same |
 | `DeleteWalletAsync` | + `ForgetAsync`, + remove `tx_history_{id}` | same |

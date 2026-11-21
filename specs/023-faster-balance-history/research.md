@@ -45,7 +45,7 @@ Other findings that shape the design:
 
 ## R4. Fetching only new transactions and complete history
 
-**Decision**: For a changed address, page newest first: `GET /address/{a}/txs`, then `GET /address/{a}/txs/chain/{last}` while every confirmed transaction on the page is unknown. Stop at the first page that contains an already-saved confirmed txid, or at the end of the history. On first load, page to the end. There's a safety cap of 2,000 transactions per address, logged when hit, after which the address is marked `Truncated`.
+**Decision**: For a changed address, page newest first: `GET /address/{a}/txs`, then `GET /address/{a}/txs/chain/{last}` while every confirmed transaction on the page is unknown. Stop at the first page that contains an already-saved confirmed txid, or at the end of the history. On first load the refresh takes the newest page only; the background full re-read (R8) pages to the end, so a busy address never delays the balance or history. There's a safety cap of 2,000 transactions per address, logged when hit, after which the address is marked `Truncated`.
 
 Pending transactions on the first page replace the saved pending set for that address. A saved pending transaction no longer listed and not confirmed is marked dropped and removed from the saved history.
 
@@ -104,7 +104,7 @@ The legacy (change-only off) path and multisig use the same pager, so complete h
 
 ## R10. Gateway one-pass history
 
-**Decision**: An optional interface `IWalletHistorySource.GetWalletTransactionsAsync(IReadOnlyList<string> addresses)` on `P2pGatewayBlockchainService`. It works out every address's script once, parses each saved transaction once, and keeps the ones that pay or spend any of those scripts. `FallbackBlockchainService` exposes it only while the gateway would answer history: gateway active, either in First position or in Backup position after every explorer has failed. Otherwise the per-address path runs as today. `WalletService` uses it when available.
+**Decision**: An optional interface `IWalletHistorySource.GetWalletTransactionsAsync(IReadOnlyList<string> addresses)` on `P2pGatewayBlockchainService`. It works out every address's script once, parses each saved transaction once, and keeps the ones that pay or spend any of those scripts. `FallbackBlockchainService` exposes it only while the gateway would answer history: gateway active, either in First position or in Backup position after every explorer has failed. Otherwise the per-address path runs as today. `WalletService` checks it first, before change-only sync, and summary routing refuses while the gateway is First, so a gateway-first wallet's balance and history never go to the explorer (contracts §5).
 
 **Rationale**: This covers FR-020. FR-021 (same output) is tested by comparing it with the per-address result on the same record.
 
@@ -118,12 +118,12 @@ The legacy (change-only off) path and multisig use the same pager, so complete h
 
 ## R12. Instant display on other pages
 
-**Decision**: Move Home's saved-snapshot read and write (`cache:balance:{id}`, `cache:transactions:{id}`, `cache:timestamp:{id}`) into a `WalletSnapshotCache` service in `DigiByte.Web`. Home, Transactions, Receive and Send all use it: show the snapshot at once, then refresh. A failed refresh keeps the snapshot and shows "Last updated …" (FR-018). Send keeps reading the coins fresh at confirm time (FR-022). The snapshot is invalidated by wallet id after a send (fixing the key bug from R1), and removed when the wallet is deleted.
+**Decision**: Move Home's saved-snapshot read and write (`cache:balance:{id}`, `cache:transactions:{id}`, `cache:lastFetch:{id}`, plus the shared `cache:dgbPrice`) into a `WalletSnapshotCache` service in `DigiByte.Web`. Home, Transactions, Receive and Send all use it: show the snapshot at once, then refresh. A failed refresh keeps the snapshot and shows "Last updated …" (FR-018). Send keeps reading the coins fresh at confirm time (FR-022). The snapshot is invalidated by wallet id after a send (fixing the key bug from R1), and removed when the wallet is deleted.
 
 `FallbackBlockchainService` gets an opt-in stale read for balance and history only: return the expired value and refresh in the background (FR-019). Coin reads are never cached, and the generation number from R5 stops anything from before a send being served afterwards.
 
 ## R13. Pending figure on Home
 
-**Decision**: `WalletBalance.UnconfirmedSatoshis` = the sum over current summaries of (pending funded − pending spent). It can be negative. Home's main figure and fiat value switch from `TotalDgb` to `ConfirmedDgb`, and a "Pending ±X DGB" line shows when the value isn't zero (FR-016). Every `TotalDgb` use gets audited: places that mean "spendable" move to `ConfirmedDgb`, and `TotalDgb` keeps meaning confirmed + pending. Send and PsbtSign already use `ConfirmedDgb`.
+**Decision**: `WalletBalance.UnconfirmedSatoshis` = the sum over current summaries of (pending funded − pending spent). It can be negative. Home's main figure and fiat value switch from `TotalDgb` to `ConfirmedDgb`, and a "Pending ±X DGB" line shows when the value isn't zero (FR-016). Every `TotalDgb` use gets audited: places that mean the shown balance move to `ConfirmedDgb`, and `TotalDgb` keeps meaning confirmed + pending. Send and PsbtSign use `ConfirmedDgb` today; they move to a new derived `AvailableDgb` = confirmed + min(0, pending). Confirmed figures only count a spend once it confirms, so without this a pending send's coins would still be offered (FR-015). The coins actually picked are still read fresh at send time.
 
 **Rationale**: This follows clarification 5 and keeps the meaning of the existing property.
