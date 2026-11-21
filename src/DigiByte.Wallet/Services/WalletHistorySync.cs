@@ -64,6 +64,21 @@ public sealed class WalletHistorySync
         public CancellationTokenSource? ResyncCts;
         public Task? ResyncTask;
         public bool TruncationLogged;
+
+        // The saved records, read once per session and kept here, so a quiet refresh neither reads nor writes storage.
+        public AddressSummaryRecord? Record;
+        public SavedChainHistory? History;
+    }
+
+    private async Task<(AddressSummaryRecord Record, SavedChainHistory History)> LoadSavedAsync(string walletId, string network, WalletState state)
+    {
+        if (state.Record is { } record && state.History is { } history)
+            return (record, history);
+        record = await _store.LoadSummariesAsync(walletId, network);
+        history = await _store.LoadHistoryAsync(walletId, network);
+        state.Record = record;
+        state.History = history;
+        return (record, history);
     }
 
     private WalletState State(string walletId, string network)
@@ -124,6 +139,8 @@ public sealed class WalletHistorySync
         state.ResyncRetryAfter = default;
         state.Snapshot.Clear();
         state.CompletedThisSession.Clear();
+        state.Record = null;
+        state.History = null;
     }
 
     /// <summary>Drops the snapshot, saved summaries and saved chain history of a deleted wallet (FR-025).</summary>
@@ -256,8 +273,7 @@ public sealed class WalletHistorySync
         await state.WriteLock.WaitAsync(ct);
         try
         {
-            var record = await _store.LoadSummariesAsync(walletId, network);
-            var history = await _store.LoadHistoryAsync(walletId, network);
+            var (record, history) = await LoadSavedAsync(walletId, network, state);
             var tip = await ReadTipAsync();
 
             var changed = addresses.Where(a => NeedsFetch(current[a], record.Entries.GetValueOrDefault(a), history)).ToList();
@@ -299,7 +315,10 @@ public sealed class WalletHistorySync
                 }
             }
 
+            // Confirmations are worked out again on every read, so a new block alone doesn't need a write.
             Reconfirm(history, tip);
+            if (ok.Count == 0)
+                return new SyncResult(confirmed, pending, history.Transactions.Values.Select(s => s.Tx).ToList(), fetched.Length);
 
             try
             {
@@ -323,8 +342,11 @@ public sealed class WalletHistorySync
             }
             catch (Exception ex)
             {
-                // The balance and history are still right for this cycle; the next one reads the changed addresses again.
+                // The balance and history are still right for this cycle. Drop the in-memory copy so the next cycle starts from what
+                // storage really holds and reads the changed addresses again.
                 Console.WriteLine($"[HistorySync] Could not save the history: {ex.GetType().Name}");
+                state.Record = null;
+                state.History = null;
             }
 
             return new SyncResult(confirmed, pending, history.Transactions.Values.Select(s => s.Tx).ToList(), fetched.Count(f => f.Requested));
@@ -500,8 +522,19 @@ public sealed class WalletHistorySync
         var ct = cts.Token;
         try
         {
-            var startRecord = await _store.LoadSummariesAsync(walletId, network);
-            var startIds = (await _store.LoadHistoryAsync(walletId, network)).Transactions.Keys.ToHashSet();
+            await state.WriteLock.WaitAsync(ct);
+            AddressSummaryRecord startRecord;
+            HashSet<string> startIds;
+            try
+            {
+                var (savedRecord, savedHistory) = await LoadSavedAsync(walletId, network, state);
+                startRecord = savedRecord;
+                startIds = savedHistory.Transactions.Keys.ToHashSet();
+            }
+            finally
+            {
+                state.WriteLock.Release();
+            }
 
             // An address the saved summary shows as never used has nothing to read.
             var toRead = addresses
@@ -527,8 +560,7 @@ public sealed class WalletHistorySync
             await state.WriteLock.WaitAsync(ct);
             try
             {
-                var record = await _store.LoadSummariesAsync(walletId, network);
-                var history = await _store.LoadHistoryAsync(walletId, network);
+                var (record, history) = await LoadSavedAsync(walletId, network, state);
                 var tip = await ReadTipAsync();
 
                 var found = new Dictionary<string, (TransactionInfo Tx, int? Height)>();
@@ -594,6 +626,9 @@ public sealed class WalletHistorySync
             Console.WriteLine($"[HistorySync] Full re-read failed: {ex.GetType().Name}");
             lock (_gate)
             {
+                // A failed write may have left the in-memory copy ahead of storage; read storage again next time.
+                state.Record = null;
+                state.History = null;
                 if (ReferenceEquals(state.ResyncCts, cts))
                 {
                     state.Resync = FullResyncState.NotStarted;

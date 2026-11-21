@@ -789,8 +789,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     private bool ChangeOnlySync =>
         _historySync is { CanSync: true } && (_historyOptions?.ChangeOnly ?? true) && _activeWalletId is not null;
 
-    /// <summary>The network the saved summaries and history are kept under.</summary>
-    private string HistoryNetwork => ActiveWallet?.WifNetwork ?? _networkMode;
+    /// <summary>The network the saved summaries and history are kept under (used by the /dev/node benchmark too).</summary>
+    public string HistoryNetwork => ActiveWallet?.WifNetwork ?? _networkMode;
 
     /// <summary>
     /// Whether the address has been used, for address discovery. With change-only sync it reads the address's summary (seeding the

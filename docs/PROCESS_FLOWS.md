@@ -58,6 +58,20 @@ Error — "Broadcast failed on all backends"
 ```
 Broadcast **never** falls back to mock, even in development.
 
+### Balance and history refresh (spec 023)
+```
+GetBalanceAsync / GetTransactionHistoryAsync (they share one refresh cycle)
+  → gateway answering history? → one pass over the gateway record (history only)
+  → change-only sync on and summaries available?
+      1. one summary per watched address (reused if read in the last 30 s, e.g. by discovery); any failure fails the balance
+      2. balance = Σ confirmed, pending = Σ (pending received − pending spent)
+      3. history pages only for addresses whose summary changed (newest page, then older until a saved one); merge by txid
+      4. confirmations from each block height and one tip read; save history, then the summaries of addresses that merged
+      5. first history result of the unlock → background full re-read (2 at a time, waits for foreground refreshes)
+  → otherwise: every address's balance and full history, as before
+After a send: Fallback cache invalidated (in-flight reads included) + summary snapshot dropped + page snapshot cleared by wallet id
+```
+
 ### Light-client gateway flows (optional)
 
 **Read (balance, history).** With the gateway ready and answering: sync headers from the checkpoint and check them (and, every two minutes, compare them with
@@ -278,7 +292,9 @@ Forgot PIN:
 ```
 OnInitializedAsync():
   → AuthGuard check (redirect if locked)
-  → WalletService.GetBalanceAsync() → FallbackBlockchainService (explorer chain)
+  → WalletSnapshotCache.LoadAsync(walletId) → saved balance + history shown at once
+  → WalletService.GetBalanceAsync() → change-only sync or FallbackBlockchainService (see "Balance and history refresh")
+    → main figure = confirmed DGB (and its fiat value); "Pending ±X DGB" line when the net pending amount is not zero
   → WalletService.GetTransactionsAsync() → recent tx list
   → ContactService.GetContactsAsync() → quick-send list
   → CoinGecko API → fiat price conversion
@@ -365,9 +381,10 @@ Your addresses (HD only, folded on every visit, spec 012):
     "Show more" adds 10 at a time; ReceiveAddressList builds the entries (pure, in DigiByte.Wallet)
   → Choosing an entry changes only what the page shows (QR, copy, share, download); the amount and note stay, nothing is
     saved and NextReceivingIndex is not touched. Receive always opens on the newest address
-  → Status per entry: Used · N / Unused / Status unknown, from Home's cached history (cache:transactions:<walletId>) or one
-    background GetTransactionHistoryAsync; a history without wallet-address data, or an empty one, leaves every status
-    unknown (the call cannot tell an unreachable explorer from an empty wallet)
+  → Status per entry: Used · N / Unused / Status unknown, from the saved history (WalletSnapshotCache,
+    cache:transactions:<walletId>) at once, then one background GetTransactionHistoryAsync; an answer that couldn't reach
+    the chain (WalletService.LastHistoryIncomplete) or carries no wallet-address data replaces nothing, so a status is never
+    turned into "unused" by an outage
   → A used address on show shows a short privacy notice under the QR code (never blocks copy or share)
   → Names: AddressLabelService (the same labels as the Activity page); the pencil per entry and the "Label this address"
     box edit the same name

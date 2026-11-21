@@ -7,6 +7,7 @@
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
 @inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
+@inject WalletHistorySync HistorySync
 @inject WalletSyncStateStore SyncStates
 @inject IWebAssemblyHostEnvironment HostEnv
 @inject IJSRuntime JS
@@ -1159,6 +1160,7 @@
         StateHasChanged();
 
         await Snapshots.ClearAllAsync();
+        HistorySync.ResetAll(); // its in-memory copy of the saved summaries and history goes too
 
         isCacheClearing = false;
         cacheCleared = true;

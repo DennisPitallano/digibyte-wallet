@@ -35,15 +35,19 @@ builder.Services.AddHttpClient("Default", client =>
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("Default"));
 
-// Blockchain explorer HttpClient (Esplora — digiexplorer.info)
-builder.Services.AddHttpClient("Blockchain")
-    .AddStandardResilienceHandler(o =>
+// Blockchain explorer HttpClient (Esplora — digiexplorer.info). The counting handler sits inside the retries, so the /dev/node
+// benchmark sees every request that goes out; it counts nothing unless a benchmark run is open (spec 023, FR-010b).
+builder.Services.AddSingleton<DigiByte.Web.Services.RequestCounter>();
+builder.Services.AddTransient<DigiByte.Web.Services.RequestCountingHandler>();
+var blockchainClient = builder.Services.AddHttpClient("Blockchain");
+blockchainClient.AddStandardResilienceHandler(o =>
     {
         o.Retry.MaxRetryAttempts = 3;
         o.Retry.Delay = TimeSpan.FromSeconds(1);
         o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(15);
         o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(45);
     });
+blockchainClient.AddHttpMessageHandler<DigiByte.Web.Services.RequestCountingHandler>();
 
 // CoinGecko price HttpClient — no retries to avoid 429 storms
 builder.Services.AddHttpClient("CoinGecko");

@@ -153,6 +153,37 @@ public class HistorySyncTests
         Assert.Equal(0, env.Explorer.PageRequests);
     }
 
+    private sealed class CountingStorage : DigiByte.Wallet.Storage.ISecureStorage
+    {
+        private readonly TestMemoryStorage _inner = new();
+        public int Reads, Writes;
+        public Task<string?> GetAsync(string key) { Reads++; return _inner.GetAsync(key); }
+        public Task SetAsync(string key, string value) { Writes++; return _inner.SetAsync(key, value); }
+        public Task RemoveAsync(string key) => _inner.RemoveAsync(key);
+        public Task<bool> ContainsKeyAsync(string key) => _inner.ContainsKeyAsync(key);
+        public Task ClearAsync() => _inner.ClearAsync();
+        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) => _inner.GetKeysWithPrefixAsync(prefix);
+    }
+
+    [Fact]
+    public async Task QuietRefresh_NeitherReadsNorWritesStorage()
+    {
+        var env = new HistorySyncEnv();
+        var storage = new CountingStorage();
+        var sync = new WalletHistorySync(env.Explorer, new AddressSummaryStore(storage), env.Clock);
+        env.Explorer.Pay(A(0), 1000);
+        await sync.RefreshAsync(W, N, Addresses(10));
+
+        env.Clock.Advance(PastSnapshot);
+        env.Explorer.Tip = 1001;                        // a new block: confirmations change, nothing to save
+        storage.Reads = storage.Writes = 0;
+        var result = await sync.RefreshAsync(W, N, Addresses(10));
+
+        Assert.Equal(0, storage.Reads);
+        Assert.Equal(0, storage.Writes);
+        Assert.Equal(102, result.Transactions.Single().Confirmations);
+    }
+
     // ═══ US2: new activity (T024) ═══
 
     [Fact]
