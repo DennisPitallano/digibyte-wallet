@@ -69,7 +69,11 @@ GetBalanceAsync / GetTransactionHistoryAsync (they share one refresh cycle)
       4. confirmations from each block height and one tip read; save history, then the summaries of addresses that merged
       5. first history result of the unlock → background full re-read (2 at a time, waits for foreground refreshes)
   → otherwise: every address's balance and full history, as before
+      tiered refresh (spec 024): step 1 reads only the hot addresses (30 s reuse) and a time-proportional share of the oldest cold
+      ones (5 min reuse); unlock, a send and a user-started refresh (Home button or pull, Activity pull) read every address
 After a send: Fallback cache invalidated (in-flight reads included) + summary snapshot dropped + page snapshot cleared by wallet id
+Send, batch send, consolidate (spec 024): coins read fresh from addresses whose summary (< 5 min old) shows funds or pending,
+  then the rest if those can't cover the amount + 0.01 DGB; no such summaries → every address, as before
 ```
 
 ### Light-client gateway flows (optional)

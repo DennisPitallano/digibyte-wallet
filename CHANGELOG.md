@@ -4,6 +4,11 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Changed
+- **Even fewer requests while the wallet is open** — An automatic refresh now checks only the addresses that can change: ones with funds or pending payments, the address on show and the last few handed out, the next change address and anything used in the last week. The others are checked at least every 5 minutes, a few at a time. A quiet refresh drops from about 60 requests to about 10, so the explorer's rate limits are hit even less often. A payment to an old, unused address shows within 5 minutes; pulling down or tapping refresh checks every address at once. Home's wallet info panel shows when every address was last checked.
+- **Quicker sends** — Confirming a send now reads the coins of the addresses that hold money (2 or 3 for most wallets) instead of every address, still fresh at that moment. If they aren't enough, the wallet reads the rest before saying funds are insufficient.
+- **Developer switches stay on developer devices** — The `/dev/node` switches now count only while the developer view is on, so a switch left off on a device can never change a regular user's wallet.
+
 ## [0.7.0] - 2026-11-21
 
 Multisig co-signers can now sign together online, balances and history load much faster, and Home shows pending payments. No stored wallet data needs upgrading: the wallet starts saving address summaries on the device the first time it refreshes.

@@ -159,9 +159,9 @@ description: "Task list for Fewer Requests per Refresh and per Send"
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T021 [P] Update docs/ARCHITECTURE.md (read path: hot set, cold cycle, full checks, send coin planning) and docs/PROCESS_FLOWS.md (refresh and send flows).
-- [ ] T022 [P] Add the user-facing changes to `[Unreleased]` in CHANGELOG.md.
-- [ ] T023 Run `dotnet build` and `dotnet test`; fix anything this feature broke in existing tests (for example, gateway and node tests that build `WalletService` with real options).
+- [X] T021 [P] Update docs/ARCHITECTURE.md (read path: hot set, cold cycle, full checks, send coin planning) and docs/PROCESS_FLOWS.md (refresh and send flows).
+- [X] T022 [P] Add the user-facing changes to `[Unreleased]` in CHANGELOG.md.
+- [X] T023 Run `dotnet build` and `dotnet test`; fix anything this feature broke in existing tests (for example, gateway and node tests that build `WalletService` with real options).
 - [ ] T024 Run quickstart.md sections 2 and 3 against mainnet in the browser preview; record the quiet-refresh counts and send coin reads in the PR as proof of SC-001 and SC-004.
 
 ---
