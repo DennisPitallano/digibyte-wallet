@@ -1,3 +1,33 @@
+# DigiByte Wallet v0.7.0 - Faster balances, pending payments, and multisig signing online
+
+> Release date: November 2026
+> Live at: https://dgbwallet.app
+> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.7.0
+
+## Short post (~280 chars)
+
+🟦 DigiByte Wallet v0.7.0: balance and history load faster with about half the network requests, pending payments show under your balance, and wallet pages open with your figures at once. Multisig co-signers can now sign together online.
+
+→ https://dgbwallet.app
+
+---
+
+## Medium post
+
+**Faster, clearer, and multisig together**
+
+This release does three things.
+
+- **Faster balance and history.** When nothing new has happened, a refresh now asks the explorer one question per address instead of three. In a live test a refresh took 0.3 seconds instead of 1.2, so "Unable to load" from rate limits is rarer, especially on mobile. Activity, Receive and Send now open with your last known figures and update quietly, and an address with more than 25 transactions finally shows its whole history.
+- **Pending payments.** A payment on its way to you, or a send that hasn't confirmed, shows on its own line under your balance. The main figure is your confirmed money, and Send won't offer coins a pending send already spent.
+- **Multisig, together.** Co-signers can sign a payment together online in a short-lived room, or pass a proposal by QR code, paste or file. Every wallet checks the payment itself and signs on its own device; the room never sees a key.
+
+Also new: an Install app entry in Settings, 14 more Latin American currencies, and fixes for a stuck splash screen on Android and for balances that could read too low when some lookups failed.
+
+Details: [`CHANGELOG.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/CHANGELOG.md)
+
+---
+
 # DigiByte Wallet v0.6.0 - Multisig that follows your wallet, and stronger PIN protection
 
 > Release date: November 2026
