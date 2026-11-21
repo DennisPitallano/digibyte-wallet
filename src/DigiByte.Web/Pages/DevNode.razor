@@ -313,6 +313,7 @@
                     try { await resync; } catch { }
                 }
 
+                await HistorySync.WaitForRefreshAsync(id, network);   // never join a refresh whose reads were made before counting
                 Fallback.InvalidateCache();
                 HistorySync.ForgetSnapshot(id);
                 if (cold)
@@ -349,6 +350,7 @@
                 await Task.WhenAll(Wallet.GetBalanceAsync(), Wallet.GetTransactionHistoryAsync());
                 if (tiered) sendCoinReads = Wallet.PlanSendCoinReads();
 
+                await HistorySync.WaitForRefreshAsync(id, network);
                 HistorySync.AgeSnapshot(id, TimeSpan.FromSeconds(31));
                 Fallback.InvalidateCache();
                 Requests.Start();

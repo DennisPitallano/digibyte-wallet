@@ -175,6 +175,18 @@ public sealed class WalletHistorySync
         }
     }
 
+    /// <summary>
+    /// Waits for a refresh of the wallet already running (its failure is ignored), so the /dev/node benchmark never counts a run it
+    /// joined after that run's reads were made.
+    /// </summary>
+    public async Task WaitForRefreshAsync(string walletId, string network)
+    {
+        Task? running;
+        lock (_gate) running = State(walletId, network).Running is { IsCompleted: false } r ? r : null;
+        if (running is null) return;
+        try { await running; } catch { /* the caller only needs it finished */ }
+    }
+
     /// <summary>Diagnostic for the /dev/node benchmark: moves every read time of the wallet back, to imitate a later refresh.</summary>
     public void AgeSnapshot(string walletId, TimeSpan by)
     {
