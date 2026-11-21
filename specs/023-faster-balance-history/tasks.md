@@ -62,11 +62,11 @@ description: "Task list for Faster Balance and History"
   - A faulted task is removed.
   - `InvalidateCache()` bumps the generation, and a completion from an older generation is not stored.
   - Keep the price entry working through the same structure. Makes T006 pass.
-- [ ] T009 Add a 10-second in-flight-shared tip-height memo in src/DigiByte.Wallet/Services/BlockchainApiService.cs behind the public `GetBlockHeightAsync()` (line ~280), so every caller shares it: `GetAddressTransactionsAsync` (line ~217), `GetTransactionAsync` (line ~173), `GetAddressHistoryPageAsync`, and the Fallback `blockheight` read that `WalletHistorySync` uses (T019). Makes the first two T007 cases pass.
+- [ ] T009 Add a 10-second in-flight-shared tip-height memo in src/DigiByte.Wallet/Services/BlockchainApiService.cs behind the public `GetBlockHeightAsync()` (line ~280), so every caller shares it: `GetAddressTransactionsAsync` (line ~217), `GetTransactionAsync` (line ~173), `GetAddressHistoryPageAsync`, and the Fallback `blockheight` read that `WalletHistorySync` uses (T019). Makes the first three T007 cases pass.
 - [ ] T010 Implement `IAddressSummarySource` on `BlockchainApiService` in src/DigiByte.Wallet/Services/BlockchainApiService.cs:
   - Extend the `EsploraAddressCounts` DTO with funded/spent sums for both stats.
   - `GetAddressHistoryPageAsync` maps transactions with the shared tip height and returns the last confirmed txid of the page.
-  - Strict: no catch-and-empty. Makes the remaining T007 cases pass.
+  - Strict: no catch-and-empty. Makes the last two T007 cases pass.
 - [ ] T011 [P] Write failing tests in tests/DigiByte.Wallet.Tests/AddressSummaryStoreTests.cs:
   - Round-trips `addr_summary_{walletId}_{network}` and `chain_history_{walletId}_{network}`.
   - A record whose `Version` is not 1 is discarded (returns empty).
