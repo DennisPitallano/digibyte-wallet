@@ -65,6 +65,9 @@ public sealed class WalletHistorySync
         public Task? ResyncTask;
         public bool TruncationLogged;
 
+        /// <summary>When the previous tiered refresh ran; sets how many cold addresses the next one reads (spec 024).</summary>
+        public DateTimeOffset? LastRefreshAt;
+
         // The saved records, read once per session and kept here, so a quiet refresh neither reads nor writes storage.
         public AddressSummaryRecord? Record;
         public SavedChainHistory? History;
@@ -131,8 +134,99 @@ public sealed class WalletHistorySync
                 }
     }
 
+    // ── Tiered refresh helpers (spec 024) ──
+
+    /// <summary>A cold address's summary is reused for at most this long; payments to it show within this time (FR-004).</summary>
+    public static readonly TimeSpan ColdCheckInterval = TimeSpan.FromMinutes(5);
+
+    /// <summary>The oldest read time across the addresses, or null if any has never been read in this session (FR-008).</summary>
+    public DateTimeOffset? GetFullyCheckedAt(string walletId, string network, IReadOnlyList<string> addresses)
+    {
+        lock (_gate)
+        {
+            var state = State(walletId, network);
+            DateTimeOffset? oldest = null;
+            foreach (var address in addresses)
+            {
+                if (!state.Snapshot.TryGetValue(address, out var seen)) return null;
+                if (oldest is null || seen.At < oldest) oldest = seen.At;
+            }
+            return oldest;
+        }
+    }
+
+    /// <summary>
+    /// Summaries for a send plan: every address read live in this session within <see cref="ColdCheckInterval"/>, hot or cold;
+    /// otherwise null. Coins are still read fresh, and an under-reporting summary is caught by the send's fallback (FR-010).
+    /// </summary>
+    public IReadOnlyDictionary<string, AddressSummary>? TryGetSendSummaries(string walletId, string network, IReadOnlyList<string> addresses)
+    {
+        lock (_gate)
+        {
+            var state = State(walletId, network);
+            var now = _time.GetUtcNow();
+            var result = new Dictionary<string, AddressSummary>();
+            foreach (var address in addresses)
+            {
+                if (!state.Snapshot.TryGetValue(address, out var seen) || now - seen.At >= ColdCheckInterval) return null;
+                result[address] = seen.Summary;
+            }
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Waits for a refresh of the wallet already running (its failure is ignored), so the /dev/node benchmark never counts a run it
+    /// joined after that run's reads were made.
+    /// </summary>
+    public async Task WaitForRefreshAsync(string walletId, string network)
+    {
+        Task? running;
+        lock (_gate) running = State(walletId, network).Running is { IsCompleted: false } r ? r : null;
+        if (running is null) return;
+        try { await running; } catch { /* the caller only needs it finished */ }
+    }
+
+    /// <summary>Diagnostic for the /dev/node benchmark: moves every read time of the wallet back, to imitate a later refresh.</summary>
+    public void AgeSnapshot(string walletId, TimeSpan by)
+    {
+        lock (_gate)
+            foreach (var (key, state) in _states)
+                if (key.Wallet == walletId)
+                {
+                    foreach (var address in state.Snapshot.Keys.ToList())
+                    {
+                        var (summary, at) = state.Snapshot[address];
+                        state.Snapshot[address] = (summary, at - by);
+                    }
+                    if (state.LastRefreshAt is { } last) state.LastRefreshAt = last - by;
+                }
+    }
+
+    /// <summary>Addresses in saved transactions from the last 7 days, and the wallet's addresses a pending transaction spends.</summary>
+    private static (HashSet<string> Recent, HashSet<string> PendingInputs) ActivityFrom(SavedChainHistory? history, HashSet<string> watched, DateTime since)
+    {
+        var recent = new HashSet<string>();
+        var pendingInputs = new HashSet<string>();
+        if (history is null) return (recent, pendingInputs);
+        foreach (var saved in history.Transactions.Values)
+        {
+            var tx = saved.Tx;
+            if (saved.BlockHeight is null)
+                foreach (var input in tx.Inputs)
+                    if (watched.Contains(input.Address)) pendingInputs.Add(input.Address);
+            if (tx.Timestamp < since) continue;
+            foreach (var input in tx.Inputs)
+                if (watched.Contains(input.Address)) recent.Add(input.Address);
+            foreach (var output in tx.Outputs)
+                if (watched.Contains(output.Address)) recent.Add(output.Address);
+        }
+        return (recent, pendingInputs);
+    }
+
     private static void Reset(WalletState state)
     {
+        state.LastRefreshAt = null;
         state.ResyncCts?.Cancel();
         state.ResyncCts = null;
         state.Resync = FullResyncState.NotStarted;
@@ -198,7 +292,11 @@ public sealed class WalletHistorySync
     /// A history page failing for some addresses still returns the balance; those addresses keep their old summary and are
     /// fetched again next cycle (FR-010).
     /// </summary>
-    public Task<SyncResult> RefreshAsync(string walletId, string network, IReadOnlyList<string> addresses, CancellationToken ct = default)
+    /// <param name="hints">
+    /// When given, the refresh is tiered (spec 024): hot addresses reuse a summary read in the last 30 s, cold ones one read in the
+    /// last 5 minutes, and a share of the oldest cold ones is read each refresh so none waits longer. Null keeps the 0.7.0 rule.
+    /// </param>
+    public Task<SyncResult> RefreshAsync(string walletId, string network, IReadOnlyList<string> addresses, HotAddressHints? hints = null, CancellationToken ct = default)
     {
         if (_source is null)
             throw new SummaryUnavailableException("This chain source can't give address summaries.");
@@ -208,7 +306,7 @@ public sealed class WalletHistorySync
             var state = State(walletId, network);
             if (state.Running is { IsCompleted: false } running)
                 return running;
-            var task = RunRefreshAsync(walletId, network, state, addresses.Distinct().ToList(), ct);
+            var task = RunRefreshAsync(walletId, network, state, addresses.Distinct().ToList(), hints, ct);
             state.Running = task;
             return task;
         }
@@ -227,7 +325,8 @@ public sealed class WalletHistorySync
 
     private static Fetched Failed(string address) => new(address, false, true, [], new(), null, [], false, false);
 
-    private async Task<SyncResult> RunRefreshAsync(string walletId, string network, WalletState state, List<string> addresses, CancellationToken ct)
+    private async Task<SyncResult> RunRefreshAsync(string walletId, string network, WalletState state, List<string> addresses,
+        HotAddressHints? hints, CancellationToken ct)
     {
         await Task.Yield();
 
@@ -237,12 +336,49 @@ public sealed class WalletHistorySync
         var now = _time.GetUtcNow();
         lock (_gate)
         {
+            IReadOnlySet<string> cold = new HashSet<string>();
+            if (hints is not null)
+            {
+                var watched = addresses.ToHashSet();
+                var (recent, pendingInputs) = ActivityFrom(state.History, watched, (now - HotAddressSelector.RecentActivityWindow).UtcDateTime);
+                var summaries = state.Snapshot.ToDictionary(kv => kv.Key, kv => kv.Value.Summary);
+                var tiers = HotAddressSelector.Select(new HotAddressInputs(addresses, summaries,
+                    hints with { PendingSendInputs = hints.PendingSendInputs.Concat(pendingInputs).ToHashSet() }, recent));
+                if (tiers.Tiered) cold = tiers.Cold;
+            }
+
+            var reusableCold = new List<(string Address, DateTimeOffset At)>();
             foreach (var address in addresses)
             {
-                if (state.Snapshot.TryGetValue(address, out var seen) && now - seen.At < SnapshotLifetime)
+                var isCold = cold.Contains(address);
+                if (state.Snapshot.TryGetValue(address, out var seen) && now - seen.At < (isCold ? ColdCheckInterval : SnapshotLifetime))
+                {
                     current[address] = seen.Summary;
+                    if (isCold) reusableCold.Add((address, seen.At));
+                }
                 else
+                {
                     toRead.Add(address);
+                }
+            }
+
+            // Spread the cold reads over the 5-minute cycle (FR-009): each refresh reads the oldest share in proportion to the time
+            // since the last one, so they never all fall due together.
+            if (cold.Count > 0)
+            {
+                // The first refresh of a session reads every cold address not already read live (discovery's reads count), so it
+                // adds no extra share of its own.
+                var elapsed = state.LastRefreshAt is { } last ? now - last : TimeSpan.Zero;
+                if (elapsed > ColdCheckInterval) elapsed = ColdCheckInterval;
+                if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+                var share = (int)Math.Ceiling(cold.Count * elapsed.TotalSeconds / ColdCheckInterval.TotalSeconds);
+                var dueCold = cold.Count - reusableCold.Count;
+                foreach (var (address, _) in reusableCold.OrderBy(c => c.At).Take(Math.Max(0, share - dueCold)))
+                {
+                    current.Remove(address);
+                    toRead.Add(address);
+                }
+                state.LastRefreshAt = now;
             }
         }
 

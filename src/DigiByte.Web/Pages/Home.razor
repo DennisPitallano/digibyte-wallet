@@ -452,6 +452,14 @@
                             Hint="Mainnet is the real DigiByte network where DGB has actual value. Testnet is for developers to test without real money."
                             Highlight="true" />
 
+                        @if (WalletService.GetFullyCheckedAt() is { } fullyChecked)
+                        {
+                            var ago = DateTimeOffset.UtcNow - fullyChecked;
+                            <WalletInfoRow Label="Fully checked"
+                                Value="@(ago < TimeSpan.FromMinutes(1) ? "just now" : $"{(int)ago.TotalMinutes} min ago")"
+                                Hint="When every one of this wallet's addresses was last read from the chain. Addresses that can change (with funds, on show, recently handed out) are checked on every refresh; the others at least every 5 minutes. Pull down or tap refresh to check everything now." />
+                        }
+
                         <WalletInfoRow Label="Security"
                             Value="Self-Custodial"
                             Hint="Your keys never leave this device. No company or server holds your funds — only you control your wallet. If you lose your seed phrase or private key, nobody can recover it for you." />
@@ -1205,6 +1213,9 @@
         // background poller resumes at full 15s cadence afterwards.
         _idleStreak = 0;
         _ticksUntilNextFetch = 1;
+
+        // A refresh the user starts reads every address, not just the hot ones (spec 024, FR-006).
+        WalletService.RequestFullCheck();
 
         try
         {

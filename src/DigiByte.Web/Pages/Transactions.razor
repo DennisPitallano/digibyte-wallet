@@ -12,7 +12,7 @@
 
 <PageTitle>Activity — DigiByte Wallet</PageTitle>
 
-<PullToRefresh OnRefresh="LoadAsync">
+<PullToRefresh OnRefresh="PullRefreshAsync">
 <div class="flex flex-col gap-3">
     <div class="slide-up">
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Activity</h2>
@@ -382,6 +382,13 @@
             return;
         }
         await LoadAsync();
+    }
+
+    /// <summary>Pull to refresh is user-started, so it reads every address, not just the hot ones (spec 024, FR-006).</summary>
+    private Task PullRefreshAsync()
+    {
+        WalletService.RequestFullCheck();
+        return LoadAsync();
     }
 
     private async Task LoadAsync()

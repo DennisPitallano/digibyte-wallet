@@ -329,15 +329,21 @@ await appState.InitializeAsync();
 // Baku mascot preferences (presence mode, dismissed tips) from localStorage
 await host.Services.GetRequiredService<BakuService>().InitializeAsync();
 
-// The change-only history sync switch (per device, toggled on /dev/node; missing means on).
+// The /dev/node switches (change-only history sync, tiered refresh). They are for developers, testing and benchmarks only: a saved
+// value counts only while the developer view is on, so a value left on a device never changes a regular user's wallet (FR-013a).
 try
 {
-    var changeOnly = await host.Services.GetRequiredService<ISecureStorage>().GetAsync(HistorySyncOptions.StorageKey);
-    host.Services.GetRequiredService<HistorySyncOptions>().ChangeOnly = changeOnly != "false";
+    var storage = host.Services.GetRequiredService<ISecureStorage>();
+    var saved = nodeSource.DevView
+        ? HistorySyncOptions.FromStorage(true, await storage.GetAsync(HistorySyncOptions.StorageKey), await storage.GetAsync(HistorySyncOptions.TieredStorageKey))
+        : HistorySyncOptions.FromStorage(false, null, null);
+    var options = host.Services.GetRequiredService<HistorySyncOptions>();
+    options.ChangeOnly = saved.ChangeOnly;
+    options.Tiered = saved.Tiered;
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"[HistorySync] Could not read the switch, keeping it on: {ex.GetType().Name}");
+    Console.WriteLine($"[HistorySync] Could not read the switches, keeping them on: {ex.GetType().Name}");
 }
 
 // Start network monitoring
