@@ -89,7 +89,17 @@ public class WalletBalance
 
     public decimal ConfirmedDgb => ConfirmedSatoshis / 100_000_000m;
     public decimal UnconfirmedDgb => UnconfirmedSatoshis / 100_000_000m;
+
+    /// <summary>Confirmed plus pending (pending may be negative). Not the figure shown as the balance: that is <see cref="ConfirmedDgb"/>.</summary>
     public decimal TotalDgb => ConfirmedDgb + UnconfirmedDgb;
+
+    /// <summary>
+    /// What can be offered for sending (spec 023, FR-015): confirmed plus any negative net pending amount. A pending incoming payment
+    /// is never offered, and coins a pending send already spent are not offered again. Equals confirmed when nothing is pending.
+    /// </summary>
+    public long AvailableSatoshis => ConfirmedSatoshis + Math.Min(0, UnconfirmedSatoshis);
+
+    public decimal AvailableDgb => AvailableSatoshis / 100_000_000m;
 }
 
 public class Contact

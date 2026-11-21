@@ -10,6 +10,7 @@
 @inject MemoryCacheService Cache
 @inject IBlockchainService Blockchain
 @inject ISecureStorage Storage
+@inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
 @inject TransactionTracker TxTracker
 @inject MarketSnapshotService Market
 @inject NotificationService Notifications
@@ -142,7 +143,7 @@
                     }
                     else
                     {
-                        <h1 class="@BalanceSize(balance.TotalDgb.ToString("N8")) font-extrabold mt-0.5 tracking-tight whitespace-nowrap tabular-nums">@ShownDgb.ToString("N8") <span class="text-base font-bold opacity-80">DGB</span></h1>
+                        <h1 class="@BalanceSize(balance.ConfirmedDgb.ToString("N8")) font-extrabold mt-0.5 tracking-tight whitespace-nowrap tabular-nums">@ShownDgb.ToString("N8") <span class="text-base font-bold opacity-80">DGB</span></h1>
                         @if (isLoadingPrice)
                         {
                             <div class="h-4 w-28 skeleton mt-1 rounded" style="background:rgba(0,102,204,0.08)"></div>
@@ -151,6 +152,14 @@
                         {
                             <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5 tabular-nums">@AppState.FiatSymbol@FormatFiat(ShownFiat) @AppState.FiatCurrency</p>
                         }
+                    }
+
+                    @* Pending amount (spec 023, FR-016): net of unconfirmed incoming and outgoing, never added to the figure above. *@
+                    @if (!hideBalance && balance.UnconfirmedSatoshis != 0)
+                    {
+                        <p class="text-xs font-semibold mt-0.5 tabular-nums text-amber-700 dark:text-amber-300" aria-live="polite">
+                            Pending @(balance.UnconfirmedSatoshis > 0 ? "+" : "−")@Math.Abs(balance.UnconfirmedDgb).ToString("N8") DGB
+                        </p>
                     }
 
                     @* DGB price move: 24h change and a 7-day sparkline; opens Analytics. Left out when the data is unavailable. *@
@@ -258,7 +267,7 @@
         </div>
 
         @* ===== DigiDollar (view/send switches, seed wallets only; loads independently of DGB) ===== *@
-        <DigiDollarHomeCard DgbSatoshis="@(balance.ConfirmedSatoshis + balance.UnconfirmedSatoshis)" />
+        <DigiDollarHomeCard DgbSatoshis="@balance.AvailableSatoshis" />
         <DigiDollarUnavailableLine />
 
         @* ===== TX AREA ===== *@
@@ -298,7 +307,7 @@
 
             @* First-run checklist: one row, opens a sheet. Hides itself when done or dismissed. *@
             <GettingStarted Ready="checklistReady" WalletType="@WalletService.ActiveWallet?.WalletType" Class="mt-3"
-                            HasFunds="@(transactions.Count > 0 || balance.TotalDgb > 0)" HasContact="hasUserContact" />
+                            HasFunds="@(transactions.Count > 0 || balance.ConfirmedSatoshis > 0 || balance.UnconfirmedSatoshis > 0)" HasContact="hasUserContact" />
 
             @* Transaction Header *@
             <div class="flex items-center justify-between mt-2 mb-2">
@@ -539,7 +548,8 @@
     private List<Contact> quickContacts = [];
     private WalletBalance balance = new();
     private decimal dgbPrice;
-    private decimal fiatValue => balance.TotalDgb * dgbPrice;
+    // The main figure and its fiat value are the confirmed balance only (spec 023, FR-016); pending shows on its own line.
+    private decimal fiatValue => balance.ConfirmedDgb * dgbPrice;
     private List<TransactionRecord> transactions = [];
     private bool isLoadingBalance;
     private bool isLoadingTx;
@@ -563,7 +573,7 @@
     // Count-up when the balance changes: holds the in-between value while animating, null otherwise.
     private decimal? animatedDgb;
     private int _animToken;
-    private decimal ShownDgb => animatedDgb ?? balance.TotalDgb;
+    private decimal ShownDgb => animatedDgb ?? balance.ConfirmedDgb;
     private decimal ShownFiat => ShownDgb * dgbPrice;
 
     // 24h change + sparkline for the balance card
@@ -609,13 +619,9 @@
     private bool isCardAnimating;
     private const double SwipeThreshold = 60;
 
-    // IndexedDB cache keys
-    private const string CacheKeyPrice = "cache:dgbPrice";
-
+    // The saved figures (cache:balance:{id}, cache:transactions:{id}, cache:lastFetch:{id}, cache:dgbPrice) go through
+    // WalletSnapshotCache, which Transactions, Receive and Send read too (spec 023).
     private string ActiveWalletId => WalletService.ActiveWallet?.Id ?? "";
-    private string CacheKeyBalance => $"cache:balance:{ActiveWalletId}";
-    private string CacheKeyTx => $"cache:transactions:{ActiveWalletId}";
-    private string CacheKeyTimestamp => $"cache:lastFetch:{ActiveWalletId}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -840,39 +846,24 @@
     {
         try
         {
-            var balJson = await Storage.GetAsync(CacheKeyBalance);
-            if (balJson != null)
+            // Also loads the fetch time into the in-memory cache, so IsCacheStale() works on a fresh app start.
+            var snapshot = await Snapshots.LoadAsync(ActiveWalletId);
+            if (snapshot.Balance is { } cachedBalance)
             {
-                var cached = System.Text.Json.JsonSerializer.Deserialize<WalletBalance>(balJson);
-                if (cached != null)
-                {
-                    balance = cached;
-                    hasCachedData = true;
-                }
+                balance = cachedBalance;
+                hasCachedData = true;
             }
 
-            var priceJson = await Storage.GetAsync(CacheKeyPrice);
-            if (priceJson != null && decimal.TryParse(priceJson, System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out var p) && p > 0)
+            if (snapshot.Price is { } p)
                 dgbPrice = p;
 
-            var txJson = await Storage.GetAsync(CacheKeyTx);
-            if (txJson != null)
+            if (snapshot.Transactions is { Count: > 0 } cachedTxs)
             {
-                var cached = System.Text.Json.JsonSerializer.Deserialize<List<TransactionRecord>>(txJson);
-                if (cached != null && cached.Count > 0)
-                {
-                    transactions = cached;
-                    knownTxIds ??= cached.Select(t => t.TxId).ToHashSet();
-                }
+                transactions = cachedTxs;
+                knownTxIds ??= cachedTxs.Select(t => t.TxId).ToHashSet();
             }
 
             if (hasCachedData) StateHasChanged();
-
-            // Load timestamp so IsCacheStale() works on fresh app start
-            var tsJson = await Storage.GetAsync(CacheKeyTimestamp);
-            if (tsJson != null && long.TryParse(tsJson, out var ticks))
-                Cache.Set($"lastFetchTime:{ActiveWalletId}", new DateTime(ticks, DateTimeKind.Utc), TimeSpan.FromMinutes(10));
         }
         catch { }
     }
@@ -908,7 +899,7 @@
         if (ActiveWalletId != walletIdAtStart) return;
 
         // Only fetch price if we have a balance to convert
-        if (!balanceFetchFailed && balance.TotalDgb > 0)
+        if (!balanceFetchFailed && balance.ConfirmedDgb > 0)
             await LoadPriceAsync();
 
         // Abort if user switched wallets while we were fetching
@@ -932,17 +923,7 @@
     /// <summary>Persist balance, txs, and price to IndexedDB + update timestamp.</summary>
     private async Task SaveToCacheAsync()
     {
-        try
-        {
-            var now = DateTime.UtcNow;
-            await Storage.SetAsync(CacheKeyBalance, System.Text.Json.JsonSerializer.Serialize(balance));
-            await Storage.SetAsync(CacheKeyTx, System.Text.Json.JsonSerializer.Serialize(transactions));
-            if (dgbPrice > 0)
-                await Storage.SetAsync(CacheKeyPrice, dgbPrice.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            await Storage.SetAsync(CacheKeyTimestamp, now.Ticks.ToString());
-            Cache.Set($"lastFetchTime:{ActiveWalletId}", now, TimeSpan.FromMinutes(10));
-        }
-        catch { }
+        await Snapshots.SaveAsync(ActiveWalletId, balance, transactions, dgbPrice);
     }
 
     private async Task LoadBalanceAsync()
@@ -950,11 +931,12 @@
         isLoadingBalance = true;
         try
         {
-            var before = balance.TotalDgb;
+            // Keyed on the confirmed figure, so a pending payment that is dropped never moves the main balance (FR-016).
+            var before = balance.ConfirmedDgb;
             var hadData = hasCachedData || before > 0;
             balance = await WithTimeout(WalletService.GetBalanceAsync());
-            if (hadData && !hideBalance && balance.TotalDgb != before)
-                _ = AnimateBalanceAsync(before, balance.TotalDgb);
+            if (hadData && !hideBalance && balance.ConfirmedDgb != before)
+                _ = AnimateBalanceAsync(before, balance.ConfirmedDgb);
         }
         catch { balanceFetchFailed = true; }
         finally { isLoadingBalance = false; StateHasChanged(); }
@@ -1228,7 +1210,7 @@
         {
             Cache.RemoveByPrefix("price");
             await Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync());
-            if (balance.TotalDgb > 0) await LoadPriceAsync();
+            if (balance.ConfirmedDgb > 0) await LoadPriceAsync();
             await SaveToCacheAsync();
             ApplyContacts(await ContactService.GetAllWithWalletsAsync(WalletService));
         }
@@ -1298,7 +1280,7 @@
             {
                 Cache.RemoveByPrefix("price");
                 await Task.WhenAll(LoadBalanceAsync(), LoadTransactionsAsync());
-                if (balance.TotalDgb > 0) await LoadPriceAsync();
+                if (balance.ConfirmedDgb > 0) await LoadPriceAsync();
                 await SaveToCacheAsync();
                 ApplyContacts(await ContactService.GetAllWithWalletsAsync(WalletService));
             }

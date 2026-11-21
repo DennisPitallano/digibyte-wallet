@@ -16,6 +16,7 @@
 @inject IJSRuntime JS
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
+@inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
 
 <PageTitle>Sign a PSBT — DigiByte Wallet</PageTitle>
 
@@ -528,20 +529,8 @@
     /// <summary>The same cache clearing as a send from the Send page, so balance and history refresh.</summary>
     private async Task ClearCachesAsync()
     {
-        Cache.RemoveByPrefix("balance");
-        Cache.RemoveByPrefix("transactions");
         Cache.RemoveByPrefix("price");
-        Cache.Remove("lastFetchTime");
-        try
-        {
-            await Storage.RemoveAsync("cache:balance");
-            await Storage.RemoveAsync("cache:transactions");
-            await Storage.RemoveAsync("cache:lastFetch");
-        }
-        catch (Exception)
-        {
-            // A stale cache only delays the refresh.
-        }
+        await Snapshots.InvalidateAsync(WalletService.ActiveWallet?.Id);
     }
 
     private async Task<string?> CheckSpendingLimitAsync(decimal amountDgb)
@@ -564,7 +553,7 @@
         var contacts = (await ContactService.GetAllAsync()).Select(c => c.Address);
         var history = await WalletService.GetTransactionHistoryAsync(0, 500);
         var known = KnownAddressProvider.Build(contacts, KnownAddressProvider.SentAddresses(history));
-        var balance = (await WalletService.GetBalanceAsync()).ConfirmedDgb;
+        var balance = (await WalletService.GetBalanceAsync()).AvailableDgb;
         var risk = SendRiskEvaluator.EvaluateBatch(destinations, leaving.Sum(o => o.Amount) / SatoshisPerDgb, balance, known);
         return await Baku.ConfirmSendRiskAsync(risk);
     }

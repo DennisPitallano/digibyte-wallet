@@ -13,7 +13,7 @@ namespace DigiByte.Wallet.Tests;
 /// height come from the wallet record, failures throw instead of returning empty answers, and a question it cannot answer correctly is
 /// declined so the next source is used.
 /// </summary>
-public class P2pGatewayBlockchainServiceTests
+public partial class P2pGatewayBlockchainServiceTests
 {
     private const int Cp = 24563100;
     private const string WalletId = "w1";

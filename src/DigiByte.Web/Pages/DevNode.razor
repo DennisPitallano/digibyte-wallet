@@ -7,6 +7,14 @@
 @inject NavigationManager Nav
 @inject GatewayClient Gateway
 @inject P2pGatewayOptions GatewayOptions
+@inject HistorySyncOptions SyncOptions
+@inject ISecureStorage Storage
+@inject WalletService Wallet
+@inject FallbackBlockchainService Fallback
+@inject WalletHistorySync HistorySync
+@inject AddressSummaryStore SummaryStore
+@inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
+@inject DigiByte.Web.Services.RequestCounter Requests
 @using System.Diagnostics
 @using System.Text.Json
 @using Microsoft.AspNetCore.Components.WebAssembly.Http
@@ -20,6 +28,56 @@
 {
     <div class="dn flex flex-col gap-4 pb-8">
         <SourceStatusCards Public="false" />
+
+        @* Change-only history sync (specs/023-faster-balance-history, FR-010a): the switch, kept per device. *@
+        <section class="dn-card dn-rise" style="--i:3" aria-label="History sync">
+            <h2 class="dn-h2">History sync</h2>
+            <label class="dn-switch">
+                <input type="checkbox" checked="@SyncOptions.ChangeOnly" @onchange="OnChangeOnlyChanged" aria-describedby="dn-change-only-note" />
+                <span class="dn-switch-label">Change-only history sync</span>
+                <span class="dn-chip @(SyncOptions.ChangeOnly ? "ok" : "warn")">@(SyncOptions.ChangeOnly ? "on" : "off")</span>
+            </label>
+            <p id="dn-change-only-note" class="dn-muted">On: each refresh reads one summary per address and fetches history only for addresses that changed, with a full re-read once per unlock in the background. Off: every refresh reads every address's history, as before. Takes effect on the next refresh.</p>
+
+            <h3 class="dn-h2" style="font-size:0.95rem">Wallet refresh benchmark</h3>
+            <p class="dn-muted">Runs the unlocked wallet's balance and history refresh four times: change-only on and off, each cold (saved summaries and caches cleared) and then warm (saved summaries kept, in-memory caches cleared). Shows the time and the explorer requests by kind. The background full re-read is held back while it runs. Counts stay on this page.</p>
+            <button type="button" class="dn-btn press-effect" disabled="@(refreshBenchRunning || !Wallet.IsUnlocked)" @onclick="RefreshBenchAsync">
+                @if (refreshBenchRunning) { <span class="dn-spin" aria-hidden="true"></span> }
+                @(refreshBenchRunning ? $"Running {refreshBenchStep}..." : Wallet.IsUnlocked ? "Run wallet refresh benchmark" : "Unlock a wallet first")
+            </button>
+            @if (refreshBench.Count > 0)
+            {
+                var slowestRun = refreshBench.Max(r => r.Ms ?? 0);
+                <div class="dn-report dn-pop" aria-live="polite">
+                    @foreach (var r in refreshBench)
+                    {
+                        <div class="dn-route">
+                            <div class="dn-route-head">
+                                <span class="dn-addr dn-num">@r.Name</span>
+                                <span class="dn-chip @(r.Error is null ? "ok" : "warn")">@(r.Error is null ? Ms(r.Ms) : "failed")</span>
+                            </div>
+                            <div class="dn-bar"><i style="width:@(r.Ms is null || slowestRun <= 0 ? 0 : Math.Max(4, (int)(r.Ms.Value / slowestRun * 100)))%"></i></div>
+                            <div class="dn-tiles">
+                                @Tile("Summaries", r.Counts?.Summary.ToString() ?? "-", null)
+                                @Tile("History pages", r.Counts?.HistoryPage.ToString() ?? "-", null)
+                                @Tile("Tip height", r.Counts?.TipHeight.ToString() ?? "-", null)
+                                @Tile("Other", r.Counts?.Other.ToString() ?? "-", null)
+                                @Tile("Total", r.Counts?.Total.ToString() ?? "-", null)
+                            </div>
+                            @if (r.Error is not null) { <p class="dn-err">@r.Error</p> }
+                        </div>
+                    }
+                    @{
+                        var onWarm = refreshBench.FirstOrDefault(r => r.Name == "On, warm");
+                        var offWarm = refreshBench.FirstOrDefault(r => r.Name == "Off, warm");
+                    }
+                    @if (onWarm?.Ms is { } on && offWarm?.Ms is { } off && off > 0)
+                    {
+                        <p class="dn-muted">A warm refresh with change-only sync on took <span class="dn-num">@Ms(on)</span> against <span class="dn-num">@Ms(off)</span> off: <span class="dn-num">@((1 - on / off).ToString("P0"))</span> faster, with <span class="dn-num">@onWarm.Counts?.Total</span> requests against <span class="dn-num">@offWarm.Counts?.Total</span>.</p>
+                    }
+                </div>
+            }
+        </section>
 
         @* How fast each route to the gateway answers, so a deployment can choose with numbers. Reads /v1/health only. *@
         @if (RouteTimer.Routes.Count > 0)
@@ -186,6 +244,76 @@
         {
             // With the developer view off the page does not exist for anyone.
             Nav.NavigateTo("not-found", replace: true);
+        }
+    }
+
+    private async Task OnChangeOnlyChanged(ChangeEventArgs e)
+    {
+        SyncOptions.ChangeOnly = e.Value is true;
+        try { await Storage.SetAsync(HistorySyncOptions.StorageKey, SyncOptions.ChangeOnly ? "true" : "false"); }
+        catch { /* the switch still applies for this session */ }
+    }
+
+    // ── Wallet refresh benchmark (spec 023, FR-010b) ──
+
+    private sealed record RefreshRun(string Name, double? Ms, DigiByte.Web.Services.RequestCounts? Counts, string? Error);
+
+    private bool refreshBenchRunning;
+    private string refreshBenchStep = "";
+    private List<RefreshRun> refreshBench = [];
+
+    private async Task RefreshBenchAsync()
+    {
+        if (Wallet.ActiveWallet is not { } wallet) return;
+        refreshBenchRunning = true;
+        refreshBench = [];
+        var id = wallet.Id;
+        var network = Wallet.HistoryNetwork;
+        var switchWas = SyncOptions.ChangeOnly;
+        try
+        {
+            foreach (var (changeOnly, cold, name) in new[] { (true, true, "On, cold"), (true, false, "On, warm"), (false, true, "Off, cold"), (false, false, "Off, warm") })
+            {
+                refreshBenchStep = name.ToLowerInvariant();
+                StateHasChanged();
+                SyncOptions.ChangeOnly = changeOnly;
+
+                // The background full re-read must not add requests to a later run: cancel it and hold it back.
+                if (HistorySync.GetFullResyncTask(id, network) is { IsCompleted: false } resync)
+                {
+                    HistorySync.SuppressFullResync(id, network);
+                    try { await resync; } catch { }
+                }
+
+                Fallback.InvalidateCache();
+                HistorySync.ForgetSnapshot(id);
+                if (cold)
+                {
+                    HistorySync.ResetSession(id);
+                    await SummaryStore.DeleteAsync(id);
+                    await Snapshots.InvalidateAsync(id);
+                }
+                HistorySync.SuppressFullResync(id, network);
+
+                Requests.Start();
+                var clock = Stopwatch.StartNew();
+                try
+                {
+                    await Task.WhenAll(Wallet.GetBalanceAsync(), Wallet.GetTransactionHistoryAsync());
+                    refreshBench.Add(new RefreshRun(name, clock.Elapsed.TotalMilliseconds, Requests.Stop(), null));
+                }
+                catch (Exception e)
+                {
+                    refreshBench.Add(new RefreshRun(name, null, Requests.Stop(), e.Message));
+                }
+            }
+        }
+        finally
+        {
+            if (Requests.IsOpen) Requests.Stop();
+            SyncOptions.ChangeOnly = switchWas;
+            HistorySync.AllowFullResync(id, network);
+            refreshBenchRunning = false;
         }
     }
 
