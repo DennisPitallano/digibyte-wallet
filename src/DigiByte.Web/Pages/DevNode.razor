@@ -7,6 +7,8 @@
 @inject NavigationManager Nav
 @inject GatewayClient Gateway
 @inject P2pGatewayOptions GatewayOptions
+@inject HistorySyncOptions SyncOptions
+@inject ISecureStorage Storage
 @using System.Diagnostics
 @using System.Text.Json
 @using Microsoft.AspNetCore.Components.WebAssembly.Http
@@ -20,6 +22,17 @@
 {
     <div class="dn flex flex-col gap-4 pb-8">
         <SourceStatusCards Public="false" />
+
+        @* Change-only history sync (specs/023-faster-balance-history, FR-010a): the switch, kept per device. *@
+        <section class="dn-card dn-rise" style="--i:3" aria-label="History sync">
+            <h2 class="dn-h2">History sync</h2>
+            <label class="dn-row" style="cursor:pointer">
+                <input type="checkbox" checked="@SyncOptions.ChangeOnly" @onchange="OnChangeOnlyChanged" aria-describedby="dn-change-only-note" />
+                <span>Change-only history sync</span>
+                <span class="dn-chip @(SyncOptions.ChangeOnly ? "ok" : "warn")">@(SyncOptions.ChangeOnly ? "on" : "off")</span>
+            </label>
+            <p id="dn-change-only-note" class="dn-muted">On: each refresh reads one summary per address and fetches history only for addresses that changed, with a full re-read once per unlock in the background. Off: every refresh reads every address's history, as before. Takes effect on the next refresh.</p>
+        </section>
 
         @* How fast each route to the gateway answers, so a deployment can choose with numbers. Reads /v1/health only. *@
         @if (RouteTimer.Routes.Count > 0)
@@ -187,6 +200,13 @@
             // With the developer view off the page does not exist for anyone.
             Nav.NavigateTo("not-found", replace: true);
         }
+    }
+
+    private async Task OnChangeOnlyChanged(ChangeEventArgs e)
+    {
+        SyncOptions.ChangeOnly = e.Value is true;
+        try { await Storage.SetAsync(HistorySyncOptions.StorageKey, SyncOptions.ChangeOnly ? "true" : "false"); }
+        catch { /* the switch still applies for this session */ }
     }
 
     private const int routeSamples = 25;

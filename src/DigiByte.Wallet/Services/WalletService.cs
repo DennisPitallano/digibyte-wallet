@@ -272,12 +272,17 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     private readonly GatewayBootstrapCoordinator? _gatewayBootstrap;
     private readonly GatewayOwnSendRecorder? _ownSends;
     private readonly GatewayRestoreServices? _gatewayRestore;
+    private readonly WalletHistorySync? _historySync;
+    private readonly HistorySyncOptions? _historyOptions;
 
     public WalletService(WalletKeyStore walletStore, ICryptoService crypto, IBlockchainService blockchain, TransactionTracker txTracker,
         DigiIdSweepStore? sweepStore = null, TimeProvider? time = null, IMigrationLock? migrationLock = null, ICommonPasswordList? passwordList = null,
         WalletSyncStateStore? syncStateStore = null, GatewayBootstrapCoordinator? gatewayBootstrap = null,
-        GatewayOwnSendRecorder? ownSendRecorder = null, GatewayRestoreServices? gatewayRestore = null)
+        GatewayOwnSendRecorder? ownSendRecorder = null, GatewayRestoreServices? gatewayRestore = null,
+        WalletHistorySync? historySync = null, HistorySyncOptions? historyOptions = null)
     {
+        _historySync = historySync;
+        _historyOptions = historyOptions;
         _keyStore = walletStore;
         _walletStore = walletStore;
         _crypto = crypto;
@@ -370,6 +375,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             Hd = new HdKeyDerivation(parsedMnemonic, network: CurrentNetwork),
         };
         _sessions[walletId] = session;
+        _historySync?.ResetSession(walletId);
         _activeWalletId = walletId;
         _txTracker.SetActiveWallet(walletId);
 
@@ -420,6 +426,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             SingleKey = PrivateKeyImporter.ParseWif(wif, detectedNetwork),
         };
         _sessions[walletId] = session;
+        _historySync?.ResetSession(walletId);
         _activeWalletId = walletId;
         _txTracker.SetActiveWallet(walletId);
 
@@ -470,6 +477,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             Hd = new HdKeyDerivation(extPubKey, detectedNetwork ?? CurrentNetwork),
         };
         _sessions[walletId] = session;
+        _historySync?.ResetSession(walletId);
         _activeWalletId = walletId;
         _txTracker.SetActiveWallet(walletId);
 
@@ -526,6 +534,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         }
 
         _sessions[walletId] = session;
+        _historySync?.ResetSession(walletId);
         _activeWalletId = walletId;
         _txTracker.SetActiveWallet(walletId);
         await _walletStore.SetActiveWalletIdAsync(walletId);
@@ -633,6 +642,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         }
 
         _sessions[walletId] = session;
+        _historySync?.ResetSession(walletId);
         _activeWalletId = walletId;
         _txTracker.SetActiveWallet(walletId);
         await _walletStore.SetActiveWalletIdAsync(walletId);
@@ -642,6 +652,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     public Task LockWalletAsync()
     {
         _sessions.Clear();
+        _historySync?.ResetAll();
         _cachedAddressKeyMap = null;
         _activeWalletId = null;
         return Task.CompletedTask;
@@ -747,6 +758,24 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         await WaitForAddressDiscoveryAsync(AddressDiscoveryWait);
 
         var addresses = GetAllAddresses();
+        if (ChangeOnlySync)
+        {
+            try
+            {
+                var result = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, addresses);
+                return new WalletBalance
+                {
+                    ConfirmedSatoshis = result.ConfirmedSatoshis,
+                    UnconfirmedSatoshis = result.PendingSatoshis,
+                    FiatCurrency = ActiveWallet!.FiatCurrency,
+                };
+            }
+            catch (SummaryUnavailableException)
+            {
+                // No source can give summaries right now (regtest, gateway first, every explorer down): read in full, as before.
+            }
+        }
+
         var totalSatoshis = await _blockchain.GetBalanceAsync(addresses);
 
         return new WalletBalance
@@ -754,6 +783,44 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             ConfirmedSatoshis = totalSatoshis,
             FiatCurrency = ActiveWallet!.FiatCurrency,
         };
+    }
+
+    /// <summary>Change-only sync applies: wired in, switched on, and the source can give summaries (spec 023).</summary>
+    private bool ChangeOnlySync =>
+        _historySync is { CanSync: true } && (_historyOptions?.ChangeOnly ?? true) && _activeWalletId is not null;
+
+    /// <summary>The network the saved summaries and history are kept under.</summary>
+    private string HistoryNetwork => ActiveWallet?.WifNetwork ?? _networkMode;
+
+    /// <summary>
+    /// Whether the address has been used, for address discovery. With change-only sync it reads the address's summary (seeding the
+    /// refresh that follows, FR-011) without recording a failure as a cooldown; otherwise, or when no source can give summaries,
+    /// <see cref="IBlockchainService.HasAddressHistoryAsync"/> as before.
+    /// </summary>
+    private async Task<bool> IsAddressUsedAsync(string address)
+    {
+        if (ChangeOnlySync && _blockchain is IAddressSummarySource source)
+        {
+            try
+            {
+                var summary = await source.GetAddressSummaryAsync(address, recordFailure: false);
+                _historySync!.Offer(_activeWalletId!, HistoryNetwork, summary);
+                return summary.IsUsed;
+            }
+            catch (SummaryUnavailableException)
+            {
+            }
+        }
+        return await _blockchain.HasAddressHistoryAsync(address);
+    }
+
+    /// <summary>Broadcasts, then drops the wallet's in-memory summaries so the next refresh reflects the send (FR-023).</summary>
+    private async Task<string> BroadcastAsync(byte[] rawTx)
+    {
+        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        if (_activeWalletId is { } id)
+            _historySync?.ForgetSnapshot(id);
+        return txId;
     }
 
     public Task<string> GetReceivingAddressAsync(string format = "default")
@@ -1099,7 +1166,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 await semaphore.WaitAsync();
                 try
                 {
-                    return (Index: index, Used: await _blockchain.HasAddressHistoryAsync(addressAt(index)));
+                    return (Index: index, Used: await IsAddressUsedAsync(addressAt(index)));
                 }
                 finally { semaphore.Release(); }
             }).ToList();
@@ -1281,7 +1348,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         // Broadcast
         var rawTx = tx.ToBytes();
-        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        var txId = await BroadcastAsync(rawTx);
         await RecordOwnSendAsync(rawTx);
 
         // Track the transaction locally
@@ -1449,7 +1516,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         // Broadcast
         var rawTx = tx.ToBytes();
-        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        var txId = await BroadcastAsync(rawTx);
         await RecordOwnSendAsync(rawTx);
 
         // History is keyed by TxId, so the whole batch is one record: the full amount, and the
@@ -1488,17 +1555,36 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 var tipBeforeSnapshot = _gatewayBootstrap is { IsEnabled: true } ? await _gatewayBootstrap.ReadTipAsync() : null;
 
                 var allTxs = new Dictionary<string, TransactionInfo>();
-                var semaphore = new SemaphoreSlim(10);
-                var txTasks = rawAddresses.Select(async addr =>
+                var changeOnly = false;
+                if (ChangeOnlySync)
                 {
-                    await semaphore.WaitAsync();
-                    try { return await _blockchain.GetAddressTransactionsAsync(addr, 0, take); }
-                    finally { semaphore.Release(); }
-                });
-                var txResults = await Task.WhenAll(txTasks);
-                foreach (var txInfos in txResults)
-                    foreach (var tx in txInfos)
-                        allTxs.TryAdd(tx.TxId, tx);
+                    try
+                    {
+                        // Change-only sync (spec 023): one summary per address, history pages only where something changed.
+                        var synced = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, rawAddresses);
+                        foreach (var tx in synced.Transactions)
+                            allTxs.TryAdd(tx.TxId, tx);
+                        changeOnly = true;
+                    }
+                    catch (SummaryUnavailableException)
+                    {
+                    }
+                }
+
+                if (!changeOnly)
+                {
+                    var semaphore = new SemaphoreSlim(10);
+                    var txTasks = rawAddresses.Select(async addr =>
+                    {
+                        await semaphore.WaitAsync();
+                        try { return await _blockchain.GetAddressTransactionsAsync(addr, 0, take); }
+                        finally { semaphore.Release(); }
+                    });
+                    var txResults = await Task.WhenAll(txTasks);
+                    foreach (var txInfos in txResults)
+                        foreach (var tx in txInfos)
+                            allTxs.TryAdd(tx.TxId, tx);
+                }
 
                 // Offer what the explorer returned to the gateway record. Runs in the background and never changes this result.
                 _gatewayBootstrap?.Offer(_activeWalletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),
@@ -1555,6 +1641,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 localTxs = merged.Values.ToList();
 
                 await RepairUnderRecordedBatchesAsync(localToCheck, allTxs, isOurs);
+
+                // Once per unlock, after the change-only result is built: re-read every address in full in the background (FR-009).
+                if (changeOnly)
+                    _historySync!.EnsureFullResync(_activeWalletId!, HistoryNetwork, rawAddresses);
             }
             catch (Exception ex) { Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}"); }
         }
@@ -1668,6 +1758,16 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             await _gatewayRestore.Progress.DeleteAsync(walletId);
         }
 
+        // Saved chain data goes with the wallet too (spec 023, FR-025): summaries and chain history on every network, the tracked
+        // sends and receives, and the figures the pages show at once.
+        if (_historySync is not null)
+            await _historySync.ForgetAsync(walletId);
+        else
+            await new AddressSummaryStore(_walletStore.Storage).DeleteAsync(walletId);
+        await _walletStore.Storage.RemoveAsync(TransactionTracker.StorageKey(walletId));
+        foreach (var key in WalletSnapshotKeys(walletId))
+            await _walletStore.Storage.RemoveAsync(key);
+
         if (_activeWalletId == walletId)
         {
             // Switch to another unlocked wallet, or the first available
@@ -1685,6 +1785,13 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             }
         }
     }
+
+    /// <summary>
+    /// The page-snapshot keys the web app keeps per wallet (balance, history and when they were read). The shared price key
+    /// (<c>cache:dgbPrice</c>) belongs to no wallet, so it is not listed.
+    /// </summary>
+    public static IReadOnlyList<string> WalletSnapshotKeys(string walletId) =>
+        [$"cache:balance:{walletId}", $"cache:transactions:{walletId}", $"cache:lastFetch:{walletId}"];
 
     /// <summary>
     /// Delete the active wallet (legacy overload for backward compat).
@@ -1857,7 +1964,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var tx = txBuilder.BuildSendAllTransaction(availableUtxos, destination, feeRate);
 
         var rawTx = tx.ToBytes();
-        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        var txId = await BroadcastAsync(rawTx);
         await RecordOwnSendAsync(rawTx);
 
         var feePaid = tx.GetFee(availableUtxos.Select(u => u.ToCoin()).ToArray());
@@ -1918,7 +2025,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var tx = txBuilder.BuildSendAllTransaction(utxos, destination, feeRate);
 
         var rawTx = tx.ToBytes();
-        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        var txId = await BroadcastAsync(rawTx);
 
         // Track the sweep transaction
         var feePaid = tx.GetFee(utxos.Select(u => u.ToCoin()).ToArray());
@@ -2085,7 +2192,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var tx = txBuilder.BuildSendAllTransaction(utxos, destination, feeRate);
 
         var rawTx = tx.ToBytes();
-        var txId = await _blockchain.BroadcastTransactionAsync(rawTx);
+        var txId = await BroadcastAsync(rawTx);
 
         var feePaid = tx.GetFee(utxos.Select(u => u.ToCoin()).ToArray());
         var amountAfterFee = totalSatoshis - (feePaid?.Satoshi ?? 0);
@@ -2697,7 +2804,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             if (net < DigiIdSweepPlanner.MinNetSatoshis) return await Fail("Too small to sweep: after the network fee almost nothing would arrive." + DigiIdFundsStayMessage);
 
             broadcastTried = true;
-            var txId = await _blockchain.BroadcastTransactionAsync(tx.ToBytes());
+            var txId = await BroadcastAsync(tx.ToBytes());
 
             DigiIdSweepRecord pending;
             try
@@ -2856,6 +2963,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         if (!_sessions.ContainsKey(walletId))
             throw new InvalidOperationException("Wallet is not unlocked. Enter PIN to unlock.");
 
+        if (_activeWalletId is { } previous && previous != walletId)
+            _historySync?.CancelFullResync(previous);
         _activeWalletId = walletId;
         _txTracker.SetActiveWallet(walletId);
         await _walletStore.SetActiveWalletIdAsync(walletId);

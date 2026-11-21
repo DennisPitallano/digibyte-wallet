@@ -6,6 +6,7 @@
 @inject NavigationManager Nav
 @inject MemoryCacheService Cache
 @inject ISecureStorage Storage
+@inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
 @inject BiometricService Biometric
 @inject SpendingLimitService SpendingLimit
 @inject BakuService Baku
@@ -1198,18 +1199,9 @@ else
             {
                 txId = await WalletService.SendAsync(destinationAddress, amountDgb, memo, customFeeRate);
             }
-            // Invalidate in-memory + IndexedDB caches after successful send
-            Cache.RemoveByPrefix("balance");
-            Cache.RemoveByPrefix("transactions");
+            // Invalidate in-memory + IndexedDB caches after successful send (by wallet id: these were never removed before spec 023)
             Cache.RemoveByPrefix("price");
-            Cache.Remove("lastFetchTime");
-            try
-            {
-                await Storage.RemoveAsync("cache:balance");
-                await Storage.RemoveAsync("cache:transactions");
-                await Storage.RemoveAsync("cache:lastFetch");
-            }
-            catch { }
+            await Snapshots.InvalidateAsync(WalletService.ActiveWallet?.Id);
             isSending = false;
             sentTxId = txId;
             // When the light-client gateway carried the send and no peer has confirmed it yet, say so; the wallet keeps watching.

@@ -11,13 +11,26 @@ namespace DigiByte.Wallet.Services;
 /// For testnet: uses digiexplorer.info/testnet or a configured endpoint.
 /// For mainnet: uses digiexplorer.info or chainz.cryptoid.info.
 /// </summary>
-public class BlockchainApiService : IBlockchainService
+public class BlockchainApiService : IBlockchainService, IAddressSummarySource
 {
     private readonly HttpClient _http;
     private readonly HttpClient _priceHttp;
     private readonly string? _priceApiBaseUrl;
     private string _baseUrl;
     private bool _isTestnet;
+
+    /// <summary>How many transactions one address's history is paged up to (a safety cap against a source that never ends).</summary>
+    public const int MaxTransactionsPerAddress = 2000;
+
+    /// <summary>Confirmed transactions per Esplora history page.</summary>
+    private const int EsploraPageSize = 25;
+
+    /// <summary>How long one tip height is shared by every caller (spec 023, research R6). Shorter than the Fallback's 15 s.</summary>
+    public static readonly TimeSpan TipHeightLifetime = TimeSpan.FromSeconds(10);
+
+    private readonly object _tipGate = new();
+    private Task<int>? _tipTask;
+    private DateTime _tipReadAt;
 
     // Public DigiByte explorer APIs
     private const string MainnetApi = "https://digiexplorer.info/api";
@@ -39,6 +52,7 @@ public class BlockchainApiService : IBlockchainService
     {
         _isTestnet = isTestnet;
         _baseUrl = isTestnet ? TestnetApi : MainnetApi;
+        lock (_tipGate) _tipTask = null;
     }
 
     public async Task<long> GetBalanceAsync(string address)
@@ -204,47 +218,108 @@ public class BlockchainApiService : IBlockchainService
         }
     }
 
+    /// <summary>
+    /// The address's history, newest first, paged past the explorer's 25-transaction page up to
+    /// <see cref="MaxTransactionsPerAddress"/>, then <paramref name="skip"/>/<paramref name="take"/> applied. A failure on the first
+    /// page reads as no history (as before); a failure on a later page keeps the pages already read.
+    /// </summary>
     public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
+        var all = new List<TransactionInfo>();
         try
         {
-            // Esplora API: GET /address/{address}/txs
-            var txs = await _http.GetFromJsonAsync<List<EsploraTx>>($"{_baseUrl}/address/{address}/txs");
-            if (txs == null) return [];
-
-            // Get current height once for confirmation calculation
-            int currentHeight = 0;
-            try { currentHeight = await GetBlockHeightAsync(); } catch { }
-
-            return txs.Skip(skip).Take(take).Select(tx => new TransactionInfo
+            var page = await GetAddressHistoryPageAsync(address, null);
+            all.AddRange(page.Transactions);
+            var confirmedOnPage = page.Transactions.Count(t => t.Confirmations > 0);
+            while (confirmedOnPage >= EsploraPageSize && page.LastConfirmedTxId is not null && all.Count < MaxTransactionsPerAddress)
             {
-                TxId = tx.TxId,
-                Confirmations = tx.Status?.Confirmed == true && tx.Status.BlockHeight > 0 && currentHeight > 0
-                    ? currentHeight - tx.Status.BlockHeight + 1
-                    : tx.Status?.Confirmed == true ? 1 : 0,
-                Timestamp = tx.Status?.BlockTime != null
-                    ? DateTimeOffset.FromUnixTimeSeconds(tx.Status.BlockTime.Value).UtcDateTime
-                    : DateTime.UtcNow,
-                FeeSatoshis = tx.Fee,
-                Inputs = tx.Vin?.Select(v => new TxInput
+                try
                 {
-                    Address = v.Prevout?.ScriptPubKeyAddress ?? "unknown",
-                    AmountSatoshis = v.Prevout?.Value ?? 0,
-                }).ToList() ?? [],
-                Outputs = tx.Vout?.Select((v, i) => new TxOutput
+                    page = await GetAddressHistoryPageAsync(address, page.LastConfirmedTxId);
+                }
+                catch
                 {
-                    Address = v.ScriptPubKeyAddress ?? "unknown",
-                    AmountSatoshis = v.Value,
-                    Index = (uint)i,
-                    ScriptHex = v.ScriptPubKey,
-                }).ToList() ?? [],
-            }).ToList();
+                    break;
+                }
+                all.AddRange(page.Transactions);
+                confirmedOnPage = page.Transactions.Count;
+            }
         }
         catch
         {
             return [];
         }
+
+        if (all.Count > MaxTransactionsPerAddress)
+            all.RemoveRange(MaxTransactionsPerAddress, all.Count - MaxTransactionsPerAddress);
+        return all.Skip(skip).Take(take).ToList();
     }
+
+    /// <summary>One lookup of the address's confirmed and pending counts and amounts. Strict: an incomplete reply throws.</summary>
+    public async Task<Models.AddressSummary> GetAddressSummaryAsync(string address, bool recordFailure = true)
+    {
+        var reply = await _http.GetFromJsonAsync<EsploraAddressCounts>($"{_baseUrl}/address/{address}");
+        if (reply?.ChainStats is null || reply.MempoolStats is null)
+            throw new InvalidOperationException("The explorer's reply had no chain or mempool statistics.");
+        return new Models.AddressSummary
+        {
+            Address = address,
+            ConfirmedTxCount = reply.ChainStats.TxCount,
+            PendingTxCount = reply.MempoolStats.TxCount,
+            ConfirmedFunded = reply.ChainStats.FundedTxoSum,
+            ConfirmedSpent = reply.ChainStats.SpentTxoSum,
+            PendingFunded = reply.MempoolStats.FundedTxoSum,
+            PendingSpent = reply.MempoolStats.SpentTxoSum,
+            ReadAtUtc = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>
+    /// <c>GET /address/{a}/txs</c> (pending plus the newest 25 confirmed) or <c>GET /address/{a}/txs/chain/{after}</c> (the next 25
+    /// confirmed). Strict: a failure throws instead of reading as an empty page.
+    /// </summary>
+    public async Task<Models.AddressHistoryPage> GetAddressHistoryPageAsync(string address, string? afterTxId)
+    {
+        var url = afterTxId is null ? $"{_baseUrl}/address/{address}/txs" : $"{_baseUrl}/address/{address}/txs/chain/{afterTxId}";
+        var txs = await _http.GetFromJsonAsync<List<EsploraTx>>(url)
+            ?? throw new InvalidOperationException("The explorer's reply had no transaction list.");
+
+        var currentHeight = await GetBlockHeightAsync();
+        var heights = new Dictionary<string, int>();
+        string? lastConfirmed = null;
+        foreach (var tx in txs)
+        {
+            if (tx.Status?.Confirmed != true) continue;
+            lastConfirmed = tx.TxId;
+            if (tx.Status.BlockHeight > 0) heights[tx.TxId] = tx.Status.BlockHeight;
+        }
+
+        return new Models.AddressHistoryPage(txs.Select(tx => ToInfo(tx, currentHeight)).ToList(), lastConfirmed, heights);
+    }
+
+    private static TransactionInfo ToInfo(EsploraTx tx, int currentHeight) => new()
+    {
+        TxId = tx.TxId,
+        Confirmations = tx.Status?.Confirmed == true && tx.Status.BlockHeight > 0 && currentHeight > 0
+            ? currentHeight - tx.Status.BlockHeight + 1
+            : tx.Status?.Confirmed == true ? 1 : 0,
+        Timestamp = tx.Status?.BlockTime != null
+            ? DateTimeOffset.FromUnixTimeSeconds(tx.Status.BlockTime.Value).UtcDateTime
+            : DateTime.UtcNow,
+        FeeSatoshis = tx.Fee,
+        Inputs = tx.Vin?.Select(v => new TxInput
+        {
+            Address = v.Prevout?.ScriptPubKeyAddress ?? "unknown",
+            AmountSatoshis = v.Prevout?.Value ?? 0,
+        }).ToList() ?? [],
+        Outputs = tx.Vout?.Select((v, i) => new TxOutput
+        {
+            Address = v.ScriptPubKeyAddress ?? "unknown",
+            AmountSatoshis = v.Value,
+            Index = (uint)i,
+            ScriptHex = v.ScriptPubKey,
+        }).ToList() ?? [],
+    };
 
     public async Task<bool> HasAddressHistoryAsync(string address)
     {
@@ -277,7 +352,27 @@ public class BlockchainApiService : IBlockchainService
         throw new InvalidOperationException("CoinGecko returned no price data");
     }
 
-    public async Task<int> GetBlockHeightAsync()
+    /// <summary>
+    /// The tip height, shared by every caller for <see cref="TipHeightLifetime"/> and while a request is in flight, so one history
+    /// load (and the Fallback's own height read) sends one tip request. 0 when the explorer could not answer; a 0 is never shared.
+    /// </summary>
+    public Task<int> GetBlockHeightAsync()
+    {
+        lock (_tipGate)
+        {
+            if (_tipTask is { } task)
+            {
+                var running = !task.IsCompleted;
+                var fresh = task.IsCompletedSuccessfully && task.Result > 0 && DateTime.UtcNow - _tipReadAt < TipHeightLifetime;
+                if (running || fresh) return task;
+            }
+            _tipReadAt = DateTime.UtcNow;
+            _tipTask = ReadTipAsync();
+            return _tipTask;
+        }
+    }
+
+    private async Task<int> ReadTipAsync()
     {
         try
         {

@@ -263,6 +263,8 @@ public class FallbackNodePreferenceTests
 
         Assert.Equal("h1", Assert.Single(await rig.Sut.GetAddressTransactionsAsync("DAbc")).TxId);
 
+        // History is cached per address whatever the page size (spec 023), so clear it for the next read to reach the sources.
+        rig.Sut.InvalidateCache();
         rig.AllExplorersFail();
         await Assert.ThrowsAsync<InvalidOperationException>(() => rig.Sut.GetAddressTransactionsAsync("DAbc", 1, 10));
         Assert.Equal(0, rig.Node.RequestCount);

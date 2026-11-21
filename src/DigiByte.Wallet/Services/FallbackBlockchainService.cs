@@ -17,7 +17,7 @@ namespace DigiByte.Wallet.Services;
 ///   syncing answers address lookups with incomplete data, so it is never asked, not even as a last resort.
 /// - Node active: see the route classes (<see cref="NodeRouteClass"/>).
 /// </summary>
-public class FallbackBlockchainService : IBlockchainService
+public class FallbackBlockchainService : IBlockchainService, IAddressSummarySource
 {
     private readonly NodeApiBlockchainService _nodeApi;
     private readonly List<IBlockchainService> _explorers;
@@ -72,8 +72,23 @@ public class FallbackBlockchainService : IBlockchainService
     private readonly Dictionary<int, DateTime> _explorerCooldowns = new();
     private static readonly TimeSpan CooldownDuration = TimeSpan.FromMinutes(2);
 
+    /// <summary>
+    /// One cache slot: a finished answer with its expiry, or a read still in flight that concurrent callers share (spec 023,
+    /// FR-002). <see cref="Generation"/> is the cache generation when the read started; a read from an older generation (one
+    /// that started before <see cref="InvalidateCache"/>) is never stored, so nothing from before a send is served after it.
+    /// </summary>
+    private sealed class CacheEntry
+    {
+        public object? Value;
+        public DateTime ExpiresAt;
+        public Task<object?>? Pending;
+        public long Generation;
+    }
+
     // Service-level cache for read operations
-    private readonly ConcurrentDictionary<string, (object Value, DateTime ExpiresAt)> _cache = new();
+    private readonly Dictionary<string, CacheEntry> _cache = new();
+    private readonly object _cacheGate = new();
+    private long _cacheGeneration;
     private static readonly TimeSpan BalanceCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TxHistoryCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan BlockHeightCacheTtl = TimeSpan.FromSeconds(15);
@@ -591,11 +606,70 @@ public class FallbackBlockchainService : IBlockchainService
     public Task<TransactionInfo?> GetTransactionAsync(string txId) =>
         TryRead(s => s.GetTransactionAsync(txId), NodeRouteClass.Fast);
 
-    public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) =>
-        // History: explorers only while node use is on. The node cannot list full history (it only sees transactions that
-        // still have unspent outputs), so it is never asked for it, not even as a last resort.
-        CachedRead($"txs:{address}:{skip}:{take}", TxHistoryCacheTtl,
-            s => s.GetAddressTransactionsAsync(address, skip, take), NodeRouteClass.History);
+    /// <summary>
+    /// History: explorers only while node use is on. The node cannot list full history (it only sees transactions that still
+    /// have unspent outputs), so it is never asked for it, not even as a last resort. The address's full list is cached under
+    /// one key whatever page size the caller wants, and <paramref name="skip"/>/<paramref name="take"/> are applied after the
+    /// read (spec 023, FR-003), so pages asking for different amounts share one fetch.
+    /// </summary>
+    public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
+    {
+        var all = await CachedRead($"txs:{address}", TxHistoryCacheTtl,
+            s => s.GetAddressTransactionsAsync(address, 0, int.MaxValue), NodeRouteClass.History);
+        return all.Skip(skip).Take(take).ToList();
+    }
+
+    // ── Address summaries and history pages (spec 023) ──
+
+    /// <summary>
+    /// Routes to the first explorer that can give summaries and is not cooling down, with the same cooldown and counters as
+    /// other address reads; with <paramref name="recordFailure"/> false (address discovery) a failure leaves no cooldown and no
+    /// outage state, matching <see cref="HasAddressHistoryAsync"/>. Not cached: <see cref="WalletHistorySync"/> keeps the
+    /// snapshot. Throws <see cref="SummaryUnavailableException"/> on regtest, in demo mode, while the gateway is active and
+    /// first (so a gateway-first wallet's addresses never go to the explorer), when no explorer can give summaries, or when
+    /// every one failed; the caller then uses the full-read path.
+    /// </summary>
+    public Task<Models.AddressSummary> GetAddressSummaryAsync(string address, bool recordFailure = true) =>
+        RouteSummaryAsync(s => s.GetAddressSummaryAsync(address, recordFailure), recordFailure);
+
+    /// <summary>A history page from the same explorer route as <see cref="GetAddressSummaryAsync"/>. Not cached.</summary>
+    public Task<Models.AddressHistoryPage> GetAddressHistoryPageAsync(string address, string? afterTxId) =>
+        RouteSummaryAsync(s => s.GetAddressHistoryPageAsync(address, afterTxId), recordFailure: true);
+
+    private async Task<T> RouteSummaryAsync<T>(Func<IAddressSummarySource, Task<T>> call, bool recordFailure)
+    {
+        if (_isRegtest || ForceDemoMode)
+            throw new SummaryUnavailableException("Address summaries are not available on this network.");
+        if (GatewayActive && _gatewayPosition == GatewayPosition.First)
+            throw new SummaryUnavailableException("The gateway answers this wallet's reads first.");
+
+        Exception? lastError = null;
+        var any = false;
+        for (var i = 0; i < _explorers.Count; i++)
+        {
+            if (_explorers[i] is not IAddressSummarySource source) continue;
+            any = true;
+            if (IsOnCooldown(i)) continue;
+            try
+            {
+                var result = await call(source);
+                Note($"explorer-{i}", true);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                if (recordFailure)
+                {
+                    Note($"explorer-{i}", false);
+                    _explorerCooldowns[i] = DateTime.UtcNow + CooldownDuration;
+                }
+            }
+        }
+
+        throw new SummaryUnavailableException(
+            any ? "No explorer could give this address's summary." : "No explorer can give address summaries.", lastError);
+    }
 
     /// <summary>
     /// Explorers only: the node can't answer this. Unlike other reads it isn't cached, because a retry must see a payment made
@@ -731,8 +805,11 @@ public class FallbackBlockchainService : IBlockchainService
     public async Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD")
     {
         var cacheKey = $"price:{fiatCurrency.ToLower()}";
-        if (_cache.TryGetValue(cacheKey, out var cached) && cached.ExpiresAt > DateTime.UtcNow)
-            return (decimal)cached.Value;
+        lock (_cacheGate)
+        {
+            if (_cache.TryGetValue(cacheKey, out var cached) && cached.Pending is null && cached.ExpiresAt > DateTime.UtcNow)
+                return (decimal)cached.Value!;
+        }
 
         // CoinGecko prices DGB directly in only some currencies; for the others convert the USD price.
         var native = DigiByte.Wallet.Models.FiatCurrencies.IsCoinGeckoNative(fiatCurrency);
@@ -754,7 +831,8 @@ public class FallbackBlockchainService : IBlockchainService
             }
             if (price > 0)
             {
-                _cache[cacheKey] = (price, DateTime.UtcNow.AddMinutes(5));
+                lock (_cacheGate)
+                    _cache[cacheKey] = new CacheEntry { Value = price, ExpiresAt = DateTime.UtcNow.AddMinutes(5), Generation = _cacheGeneration };
                 return price;
             }
         }
@@ -768,16 +846,84 @@ public class FallbackBlockchainService : IBlockchainService
     /// <summary>
     /// Invalidate all cached data — call after sending a transaction so balance refreshes immediately.
     /// </summary>
-    public void InvalidateCache() => _cache.Clear();
+    /// <remarks>
+    /// Also drops reads still in flight and bumps the generation, so a read that started before this call can't fill the cache
+    /// afterwards and a read that starts after it never joins one from before (spec 023, FR-023).
+    /// </remarks>
+    public void InvalidateCache()
+    {
+        lock (_cacheGate)
+        {
+            _cacheGeneration++;
+            _cache.Clear();
+        }
+    }
 
+    /// <summary>
+    /// A finished, unexpired answer is returned at once. Otherwise concurrent callers share one read (FR-002). A failed read is
+    /// removed, never cached, so the next call asks again.
+    /// </summary>
     private async Task<T> CachedRead<T>(string key, TimeSpan ttl, Func<IBlockchainService, Task<T>> call,
         NodeRouteClass routeClass = NodeRouteClass.Address)
     {
-        if (_cache.TryGetValue(key, out var entry) && DateTime.UtcNow < entry.ExpiresAt)
-            return (T)entry.Value;
+        CacheEntry entry;
+        TaskCompletionSource<object?> owner;
+        Task<object?>? shared = null;
+        lock (_cacheGate)
+        {
+            entry = null!;
+            owner = null!;
+            if (_cache.TryGetValue(key, out var existing))
+            {
+                if (existing.Pending is null && DateTime.UtcNow < existing.ExpiresAt)
+                    return (T)existing.Value!;
+                if (existing.Pending is not null && existing.Generation == _cacheGeneration)
+                    shared = existing.Pending;
+            }
 
-        var result = await TryRead(call, routeClass);
-        _cache[key] = (result!, DateTime.UtcNow + ttl);
-        return result;
+            if (shared is null)
+            {
+                owner = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                entry = new CacheEntry { Pending = owner.Task, Generation = _cacheGeneration };
+                _cache[key] = entry;
+            }
+        }
+
+        if (shared is not null)
+            return (T)(await shared)!;
+
+        try
+        {
+            var result = await TryRead(call, routeClass);
+            lock (_cacheGate)
+            {
+                if (_cache.TryGetValue(key, out var current) && ReferenceEquals(current, entry))
+                {
+                    if (entry.Generation == _cacheGeneration)
+                    {
+                        entry.Value = result;
+                        entry.ExpiresAt = DateTime.UtcNow + ttl;
+                        entry.Pending = null;
+                    }
+                    else
+                    {
+                        _cache.Remove(key);
+                    }
+                }
+            }
+            owner.SetResult(result);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            lock (_cacheGate)
+            {
+                if (_cache.TryGetValue(key, out var current) && ReferenceEquals(current, entry))
+                    _cache.Remove(key);
+            }
+            owner.SetException(ex);
+            _ = owner.Task.Exception; // observed: a failure nobody else waited on is not an unobserved task exception
+            throw;
+        }
     }
 }

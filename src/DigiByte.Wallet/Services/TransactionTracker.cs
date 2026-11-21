@@ -30,7 +30,10 @@ public class TransactionTracker
         _cache = null;
     }
 
-    private string CurrentKey => $"{TxKeyPrefix}{_walletId}";
+    private string CurrentKey => StorageKey(_walletId);
+
+    /// <summary>The storage key a wallet's tracked transactions are kept under.</summary>
+    public static string StorageKey(string walletId) => $"{TxKeyPrefix}{walletId}";
 
     public async Task<List<TransactionRecord>> GetAllAsync()
     {
