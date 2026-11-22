@@ -19,5 +19,10 @@ jobs:
         working-directory: src/DigiByte.Web
       # A published build whose service-worker asset list does not match its files can never update
       # an installed app (0.7.0 and 0.8.0 shipped that way). Publish once and check every fingerprint.
+      # Install the stylesheet tools first, as the live container does (docker/web/Dockerfile), so the publish
+      # rebuilds tailwind.css here too. Without them the rebuild is skipped and this check cannot see a
+      # stylesheet that is rebuilt after its fingerprint was taken.
+      - run: npm ci
+        working-directory: src/DigiByte.Web
       - run: dotnet publish src/DigiByte.Web -c Release -o publish --nologo
       - run: python3 tools/verify-sw-manifest.py publish/wwwroot

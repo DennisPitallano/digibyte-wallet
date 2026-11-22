@@ -48,8 +48,13 @@
     <ProjectReference Include="..\DigiByte.P2P.Shared\DigiByte.P2P.Shared.csproj" />
   </ItemGroup>
 
-  <!-- Rebuild Tailwind CSS on build (purged & minified) -->
-  <Target Name="BuildTailwindCSS" BeforeTargets="Build" Condition="Exists('node_modules/.package-lock.json')">
+  <!-- Rebuild Tailwind CSS on build (purged & minified).
+       Hooked before BeforeBuild, not before Build: MSBuild runs a target's dependencies first and its
+       BeforeTargets hooks second, and all of Build's work is in its dependencies. Hooked on Build, this ran
+       after the build had already fingerprinted and compressed wwwroot, so a publish shipped a rebuilt
+       tailwind.css next to a fingerprint and a .gz copy of the old one. The service worker checks files
+       against those fingerprints and installs nothing if one differs (see tools/verify-sw-manifest.py). -->
+  <Target Name="BuildTailwindCSS" BeforeTargets="BeforeBuild" Condition="Exists('node_modules/.package-lock.json')">
     <Exec Command="npx tailwindcss -i ./wwwroot/css/tailwind-input.css -o ./wwwroot/css/tailwind.css --minify" />
   </Target>
 
