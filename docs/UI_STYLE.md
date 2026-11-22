@@ -234,7 +234,7 @@ comparison:
 | Variant | What it is |
 | --- | --- |
 | A | The previous menu, kept as a baseline. |
-| B | **Adopted.** The same five tabs as a floating bar: lifted off the bottom edge, rounded, soft shadow. The active tab has a filled icon on a tinted pill that slides between tabs. Badges: a dot (a payment is pending) and a count (a multisig needs your signature). |
+| B | **Adopted.** The same five tabs as a floating bar: lifted off the bottom edge, fully rounded ends, soft shadow. The active tab has a filled icon on a small tinted pill (behind the icon only, not the label) that slides between tabs. Badges: a dot (a payment is pending) and a count (a multisig needs your signature). |
 | C | Not adopted. Rearranged in B's style: Wallet, Activity, a raised round Scan button, Request (today's Pay page), More. More opens a sheet with ID, Multisig, Contacts, Settings, Consolidate, Analytics, Sponsors. |
 | C2 | Not adopted. C, keeping ID as a tab in place of Request (Request moves into More). |
 

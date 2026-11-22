@@ -1108,23 +1108,23 @@ textarea.input { min-height: 96px; resize: vertical; }
     grid-template-columns: repeat(5, 1fr);
     padding: 6px;
     border: 1px solid var(--ui-border);
-    border-radius: 1.5rem;
+    border-radius: 9999px;   /* fully rounded ends */
     background: var(--ui-nav-bg);
     -webkit-backdrop-filter: blur(20px) saturate(140%);
     backdrop-filter: blur(20px) saturate(140%);
     box-shadow: var(--ui-shadow-raised);
 }
-/* The tinted pill sits behind the active tab and slides between tabs. */
+/* The tinted pill sits behind the active tab's icon only (not its label) and slides between tabs.
+   It is centred on the tab's column: 6px bar padding + (index + half) columns - half its own width. */
 .nav-float-pill {
     position: absolute;
-    top: 6px;
-    bottom: 6px;
-    left: 6px;
-    width: calc((100% - 12px) / 5);
-    border-radius: 1.125rem;
-    background: color-mix(in srgb, var(--nav-accent) 18%, transparent);
-    transform: translateX(calc(var(--nav-index) * 100%));
-    transition: transform var(--motion-slow) var(--ease-out);
+    top: 10px;
+    left: calc(6px + (var(--nav-index) + 0.5) * ((100% - 12px) / 5) - 28px);
+    width: 56px;
+    height: 30px;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--nav-accent) 22%, transparent);
+    transition: left var(--motion-slow) var(--ease-out);
     pointer-events: none;
 }
 .nav-float-tab,
@@ -1133,12 +1133,12 @@ textarea.input { min-height: 96px; resize: vertical; }
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 2px;
     min-height: 52px;
-    padding: 0;
+    padding: 4px 0 0;
     border: 0;
-    border-radius: 1.125rem;
+    border-radius: 9999px;
     background: none;
     color: var(--ui-nav-text);
     font-size: 11px;
@@ -1151,7 +1151,8 @@ textarea.input { min-height: 96px; resize: vertical; }
 .nav-float-tab[aria-current="page"] { color: var(--ui-nav-active); }
 .nav-float-tab:focus-visible,
 .nav-float-scan:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
-.nav-float-icon { position: relative; display: flex; transition: transform var(--motion-fast) var(--ease-out); }
+/* A fixed 56x30 box, the same size as the pill, so the pill lines up with the icon exactly. */
+.nav-float-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 56px; height: 30px; transition: transform var(--motion-fast) var(--ease-out); }
 .nav-float-icon svg { width: 22px; height: 22px; }
 .nav-float-tab:active .nav-float-icon { transform: scale(0.9); }
 
@@ -1165,12 +1166,13 @@ textarea.input { min-height: 96px; resize: vertical; }
     border-radius: 9999px;
     box-shadow: 0 0 0 2px var(--ui-surface);
 }
-.nav-badge-dot { width: 8px; height: 8px; top: -1px; right: -3px; }
+.nav-badge-dot { width: 8px; height: 8px; top: 2px; right: 13px; }
 .nav-badge-count {
     min-width: 16px;
     height: 16px;
     padding: 0 4px;
-    right: -10px;
+    top: 0;
+    right: 6px;
     font-size: 10px;
     font-weight: 700;
     line-height: 16px;
