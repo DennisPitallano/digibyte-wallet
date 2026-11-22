@@ -25,7 +25,7 @@
     </div>
 
     @* ===== SECTION 1: What is Multisig? (Plain Language) ===== *@
-    <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+    <div class="card slide-up-delay-1 p-4">
         <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-2">What is a Multisig Wallet?</h3>
         <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
             A <b>multisig</b> (multi-signature) wallet is like a safe deposit box that needs <b>multiple keys</b> to open.
@@ -41,7 +41,7 @@
         <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Real-World Scenarios</p>
 
         @* Scenario 1: Joint Savings *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-2">
+        <div class="card p-4 mb-2">
             <div class="flex items-start gap-3 mb-2">
                 <div class="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <svg class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -60,7 +60,7 @@
         </div>
 
         @* Scenario 2: Personal Security *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-2">
+        <div class="card p-4 mb-2">
             <div class="flex items-start gap-3 mb-2">
                 <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -80,7 +80,7 @@
         </div>
 
         @* Scenario 3: Business Treasury *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-2">
+        <div class="card p-4 mb-2">
             <div class="flex items-start gap-3 mb-2">
                 <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -99,7 +99,7 @@
         </div>
 
         @* Scenario 4: Trade Escrow *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+        <div class="card p-4">
             <div class="flex items-start gap-3 mb-2">
                 <div class="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <svg class="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -124,7 +124,7 @@
         <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">How It Works — Visual Flow</p>
 
         @* Visual: Create Flow *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-3">
+        <div class="card p-4 mb-3">
             <p class="text-xs font-bold text-purple-600 dark:text-purple-400 mb-3">Creating a Multisig Wallet</p>
 
             <div class="flex flex-col gap-0">
@@ -148,7 +148,7 @@
         </div>
 
         @* Visual: Spending Flow *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-3">
+        <div class="card p-4 mb-3">
             <p class="text-xs font-bold text-dgb-600 dark:text-dgb-400 mb-3">Spending from a Multisig Wallet</p>
 
             <div class="flex flex-col gap-0">
@@ -172,7 +172,7 @@
         </div>
 
         @* Visual: Signature Collection Diagram *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+        <div class="card p-4">
             <p class="text-xs font-bold text-slate-900 dark:text-white mb-3">Example: 2-of-3 Signature Collection</p>
 
             <div class="grid grid-cols-3 gap-2 mb-3">
@@ -214,7 +214,7 @@
         <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Step-by-Step Guide</p>
 
         @* Create guide *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden mb-2">
+        <div class="card overflow-hidden mb-2">
             <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
                     @onclick='() => ToggleGuide("create")'>
                 <div class="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
@@ -287,7 +287,7 @@
         </div>
 
         @* Spend guide *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden mb-2">
+        <div class="card overflow-hidden mb-2">
             <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
                     @onclick='() => ToggleGuide("spend")'>
                 <div class="w-8 h-8 rounded-lg bg-dgb-50 dark:bg-dgb-900/40 flex items-center justify-center flex-shrink-0">
@@ -359,7 +359,7 @@
         </div>
 
         @* Import guide *@
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+        <div class="card overflow-hidden">
             <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
                     @onclick='() => ToggleGuide("import")'>
                 <div class="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 flex items-center justify-center flex-shrink-0">
@@ -411,7 +411,7 @@
     <div>
         <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Technical Details</p>
 
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+        <div class="card overflow-hidden">
             <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
                     @onclick='() => ToggleGuide("technical")'>
                 <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
@@ -499,7 +499,7 @@ Spend:
     @* ===== Quick Comparison Table ===== *@
     <div>
         <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Wallet Type Comparison</p>
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+        <div class="card overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-[11px]">
                     <thead>
@@ -552,7 +552,7 @@ Spend:
     <div>
         <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Real-Time Collaboration</p>
 
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden mb-2">
+        <div class="card overflow-hidden mb-2">
             <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
                     @onclick='() => ToggleGuide("room")'>
                 <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center flex-shrink-0">

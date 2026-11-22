@@ -10,7 +10,7 @@
                 <input type="text" @bind="draftName" @bind:event="oninput" maxlength="@MaxLength" autocomplete="off"
                        disabled="@saved" aria-label="@Label"
                        @onkeydown="OnKeyDown"
-                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                       class="input" />
                 <span class="text-[11px] text-slate-400 text-right">@(draftName?.Length ?? 0)/@MaxLength</span>
             </label>
 

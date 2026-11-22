@@ -32,12 +32,12 @@
         }
         else
         {
-            <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-6 shadow-sm flex flex-col items-center gap-4 w-full">
+            <div class="card scale-in p-6 flex flex-col items-center gap-4 w-full">
                 <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                     <DigiDollarLogo Size="18" />
                     <span>@L.T("dd.receive.network", NetworkLabel)</span>
                 </div>
-                <div class="bg-white rounded-2xl p-3 shadow-inner ring-1 ring-slate-100 relative">
+                <div class="qr-frame">
                     <img src="@qrDataUrl" alt="@L.T("dd.receive.qr")" class="w-48 h-48 rounded-lg" />
                     <div class="absolute inset-0 flex items-center justify-center">
                         <div class="bg-white rounded-full p-1.5 shadow-md"><DigiDollarLogo Size="32" /></div>

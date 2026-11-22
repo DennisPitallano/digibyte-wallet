@@ -94,7 +94,7 @@ else
                         <input type="text" value="@r.Address" @oninput="(e) => OnBatchAddressChanged(index, e)"
                                placeholder="D... or dgb1..."
                                autocomplete="off" spellcheck="false"
-                               class="flex-1 px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-100 dark:border-dgb-800 rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                               class="input flex-1" />
                         <button type="button" @onclick="() => ShowBatchScanner(index)"
                                 class="w-8 h-8 rounded-lg bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0"
                                 title="Scan QR" aria-label="Scan QR">
@@ -242,7 +242,7 @@ else
                 <input type="text" @bind="destinationAddress" @bind:event="oninput" @bind:after="RecalcFee"
                        placeholder="D... or dgb1... or search contact"
                        autocomplete="off" spellcheck="false"
-                       class="flex-1 px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                       class="input flex-1" />
                 <button class="w-11 h-11 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0 press-effect"
                         @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
@@ -377,7 +377,7 @@ else
                         @onclick="SetFeeHigh" disabled="@isFormDisabled">Fast (400)</button>
             </div>
             <input type="number" inputmode="numeric" @bind="customFeeRate" min="1" placeholder="Custom sat/vB" disabled="@isFormDisabled"
-                   class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed" />
+                   class="input" />
         </div>
     }
 
@@ -385,7 +385,7 @@ else
     <div class="flex flex-col gap-1.5 slide-up-delay-3">
         <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Memo (optional)</label>
         <input type="text" @bind="memo" @bind:event="oninput" @bind:after="RecalcFee" placeholder="What's this for?" disabled="@isFormDisabled"
-               class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed" />
+               class="input" />
     </div>
 
     @if (!isBatchMode)

@@ -12,7 +12,7 @@
          data-testid="receive-empty-state">
         @if (qrDataUri is not null)
         {
-            <div class="bg-white rounded-xl p-1.5 shadow-inner relative flex-shrink-0">
+            <div class="qr-frame qr-frame-sm flex-shrink-0">
                 <img src="@qrDataUri" alt="@L.T("home.empty.qr_alt")" class="w-28 h-28 rounded-md block" data-testid="receive-empty-qr" />
                 <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
                     <div class="bg-white rounded-full p-1 shadow-md">

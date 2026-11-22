@@ -13,7 +13,7 @@
 <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm px-3 pt-4 pb-24" role="dialog" aria-modal="true"
      @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true">
     <div id="@DialogId" role="dialog" aria-modal="true" aria-labelledby="dd-confirm-title"
-         class="w-full max-w-[480px] max-h-full overflow-y-auto bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col gap-4 slide-up">
+         class="card w-full max-w-[480px] max-h-full overflow-y-auto p-5 flex flex-col gap-4 slide-up">
         <h3 id="dd-confirm-title" class="text-lg font-bold text-slate-900 dark:text-white">@L.T("dd.confirm.title")</h3>
 
         <dl class="flex flex-col gap-3 text-sm">
@@ -57,14 +57,13 @@
             <BakuMessage MessageId="send.error" Compact="true" />
         }
 
-        <div class="flex gap-2">
-            <button type="button" class="btn-secondary btn-sm flex-1"
+        @* A send cannot be undone: slide, not tap (docs/UI_STYLE.md). *@
+        <div class="flex flex-col gap-2">
+            <SlideToConfirm @ref="slide" Label="@L.T("dd.confirm.slide")" BusyLabel="@L.T("dd.confirm.sending")"
+                            ActionDescription="@L.T("dd.confirm.confirm")" Disabled="@(!armed || Busy)" OnConfirmed="Confirm" />
+            <button type="button" class="btn-ghost btn-sm w-full"
                     data-autofocus disabled="@Busy" @onclick="Cancel">
                 @L.T("dd.confirm.cancel")
-            </button>
-            <button type="button" class="btn-primary btn-sm flex-1"
-                    disabled="@(!armed || Busy)" @onclick="Confirm">
-                @(Busy ? L.T("dd.confirm.sending") : L.T("dd.confirm.confirm"))
             </button>
         </div>
     </div>
@@ -82,6 +81,7 @@
     [Parameter] public EventCallback OnCancel { get; set; }
 
     private bool armed;
+    private SlideToConfirm? slide;
     private bool trapped;
 
     protected override async Task OnInitializedAsync()
@@ -130,6 +130,8 @@
     {
         if (!armed || Busy) return;
         await OnConfirm.InvokeAsync();
+        // Still here and not busy: the send failed and the dialog shows why. Unlock the control for another try.
+        if (!Busy) slide?.Reset();
     }
 
     public async ValueTask DisposeAsync()

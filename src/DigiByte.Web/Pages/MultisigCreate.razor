@@ -29,11 +29,11 @@
             <div class="flex flex-col gap-1.5 slide-up-delay-1">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
                 <input type="text" @bind="walletName" placeholder="e.g. Family Savings"
-                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                       class="input" />
             </div>
 
             @* M-of-N Configuration *@
-            <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+            <div class="card slide-up-delay-1 p-4">
                 <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Signature Scheme</p>
                 <div class="flex items-center gap-3">
                     <div class="flex flex-col items-center gap-1">
@@ -145,7 +145,7 @@
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-400 w-4">@(idx + 2)</span>
                         <input type="text" @bind="entry.Name" @bind:event="oninput" placeholder="Name (e.g. Alice)" maxlength="40" autocomplete="off"
-                               class="flex-1 px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                               class="input flex-1" />
                         @if (state == KeyState.Valid)
                         {
                             <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-label="Valid public key"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
@@ -203,7 +203,7 @@
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Review & Create</h2>
         </div>
 
-        <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+        <div class="card slide-up-delay-1 p-4">
             <div class="flex flex-col gap-3">
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400">Name</span>

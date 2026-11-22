@@ -18,19 +18,19 @@
     <div class="slide-up-delay-1">
         <input type="text" @bind="searchQuery" @bind:event="oninput" @bind:after="SearchContacts"
                placeholder="Search contacts..."
-               class="w-full px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+               class="input" />
     </div>
 
     @* Add/Edit Form *@
     @if (showForm)
     {
-        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+        <div class="card scale-in p-4 flex flex-col gap-3">
             <h3 class="text-sm font-semibold text-slate-900 dark:text-white">@(editingContact != null ? "Edit Contact" : "Add Contact")</h3>
             <input type="text" @bind="formName" placeholder="Name"
-                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                   class="input" />
             <div class="flex gap-1.5">
                 <input type="text" @bind="formAddress" placeholder="DGB address (D... or dgb1...)"
-                       class="flex-1 px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                       class="input flex-1 font-mono" />
                 <button class="w-10 h-10 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0 press-effect"
                         @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR" type="button">
                     <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
@@ -40,7 +40,7 @@
                 </button>
             </div>
             <input type="text" @bind="formNotes" placeholder="Notes (optional)"
-                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                   class="input" />
             @if (formError != null)
             {
                 <InlineError Message="@formError" />
@@ -75,7 +75,7 @@
             @foreach (var contact in contacts)
             {
                 var c = contact;
-                <div class="slide-up flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 card-hover">
+                <div class="card slide-up flex items-center gap-3 p-3 card-hover">
                     <div class="w-10 h-10 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
                         <span class="text-sm font-bold text-dgb-600 dark:text-dgb-400">@c.Name[..1].ToUpper()</span>
                     </div>

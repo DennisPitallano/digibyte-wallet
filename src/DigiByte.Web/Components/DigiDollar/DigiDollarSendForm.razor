@@ -43,7 +43,7 @@
             <input id="dd-amount" type="text" inputmode="decimal" autocomplete="off"
                    value="@amountText" @oninput="OnAmountInput"
                    aria-invalid="@(AmountError is not null ? "true" : "false")" aria-describedby="dd-send-error"
-                   class="flex-1 px-3 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm tabular-nums text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="input flex-1 tabular-nums" />
             <button type="button" class="btn-secondary btn-sm"
                     @onclick="SendAllAsync">
                 @L.T("dd.send.all")

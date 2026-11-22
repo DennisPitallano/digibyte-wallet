@@ -163,9 +163,8 @@ two were removed from `app.css` and the gallery (they are in the branch history 
 
 `SlideToConfirm` (in `Components/Shared/`) replaces the final button of an action that cannot be
 undone. The owner chose it over a press-and-hold button, which was removed (it is in the branch
-history at commit `e0dd75e`, with screenshots `*-6-confirm-controls.jpg`). It is used on the
-confirm card of `Pages/Send.razor` (single and batch send); the other value-moving flows below
-still use plain buttons.
+history at commit `e0dd75e`, with screenshots `*-6-confirm-controls.jpg`). It is used on Send
+(single and batch), DigiDollar send, Consolidate, Digi-ID fund recovery and multisig broadcast.
 
 **Use it only for irreversible actions where coins leave the wallet:** send, batch send,
 multisig broadcast, consolidate, Digi-ID fund recovery. **Never for Unlock, and never for routine
@@ -302,7 +301,27 @@ what it would change. It deliberately leaves these alone, and they are still han
 - text-only link buttons, which would become taller as `btn-ghost`;
 - buttons in a colour of their own (green approve, amber warning, indigo).
 
-Cards and inputs have not been rolled out; the table below still applies to them.
+**Text fields: done for the standard cases.** `tools/input-card-style-rollout.py … inputs` moved 46
+inputs and textareas in 24 files to `input`. Left hand-written: fields inside a composite box (the
+amount box with its currency badge, search boxes), PIN and code boxes, fields with an icon inside,
+selects (the shared class removes the native arrow and has no replacement yet) and fields whose
+class is built with a Razor expression. A composite amount box next to shared fields therefore
+still looks slightly different (lighter border, 40px high).
+
+**Cards: done for the standard surface.** `… cards` moved 93 blocks in 25 files to `card`, and
+to `card card-interactive` where the block is itself a link or button. Left hand-written: dialogs
+and sheets (they would be `card-raised`), blocks with a border colour of their own (warnings,
+errors, selected states), and Home's round quick-action tiles.
+
+**QR codes: done.** Every QR code sits in `qr-frame`, including the shared `QrImage` component;
+`qr-frame-sm` is the compact frame on the empty-Home card and the sponsor form.
+
+**Slide to confirm: done for Send, DigiDollar send, Consolidate, Digi-ID fund recovery and
+multisig broadcast.** Still a tap: broadcasting from the sign-together room (its one headline
+button changes role) and signing a PSBT (it ends with the PIN).
+
+Not used anywhere yet: `stagger` and the `field` / `field-label` / `field-hint` / `field-error`
+wrappers. The table below lists pages by priority for those.
 
 Converted so far: the bottom menu, and the confirm card of Send (slide to confirm and its Cancel
 button). Everything else is still hand-written. Convert one page per commit so each diff is easy to review, and delete

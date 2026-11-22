@@ -22,7 +22,7 @@
     @* Create Payment Request *@
     @if (showCreate)
     {
-        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
+        <div class="card scale-in p-4 flex flex-col gap-3">
             <h3 class="text-sm font-semibold text-slate-900 dark:text-white">New Payment Request</h3>
             <div class="flex flex-col gap-1">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount (optional)</label>
@@ -33,9 +33,9 @@
                 </div>
             </div>
             <input type="text" @bind="createLabel" placeholder="Label (e.g. Invoice #123)"
-                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                   class="input" />
             <input type="text" @bind="createMessage" placeholder="Message (optional)"
-                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                   class="input" />
             <div class="flex gap-2">
                 <button class="btn-secondary btn-sm flex-1"
                         @onclick="() => showCreate = false">Cancel</button>
@@ -48,8 +48,8 @@
     @* Active request detail *@
     @if (activeRequest != null)
     {
-        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col items-center gap-4">
-            <div class="bg-white rounded-2xl p-3 shadow-inner relative">
+        <div class="card scale-in p-5 flex flex-col items-center gap-4">
+            <div class="qr-frame">
                 <img src="@activeQrUrl" alt="Payment QR" class="w-44 h-44 rounded-lg" />
                 <div class="absolute inset-0 flex items-center justify-center">
                     <div class="bg-white rounded-full p-1.5 shadow-md">
@@ -102,7 +102,7 @@
             @foreach (var req in requests)
             {
                 var r = req;
-                <button class="slide-up flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 card-hover text-left w-full"
+                <button class="card card-interactive slide-up flex items-center gap-3 p-3 text-left w-full"
                         @onclick="() => ShowRequest(r)">
                     <div class="w-10 h-10 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

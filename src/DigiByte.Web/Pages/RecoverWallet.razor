@@ -39,7 +39,7 @@
             <input type="text" @bind="walletName" @bind:event="oninput"
                    placeholder="e.g. Savings, Trading, Cold Storage..."
                    maxlength="30" autocomplete="off"
-                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="input" />
             <p class="text-xs text-slate-400 dark:text-slate-500 text-right">@walletName.Length / 30</p>
         </div>
 
@@ -126,7 +126,7 @@
                             <textarea @bind="mnemonicInput" @bind:event="oninput" rows="4"
                                       placeholder="Enter your recovery phrase separated by spaces..."
                                       autocomplete="off" spellcheck="false" autocapitalize="off"
-                                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                                      class="input resize-none"></textarea>
                         }
                         else
                         {
@@ -134,7 +134,7 @@
                                       placeholder="Enter your recovery phrase separated by spaces..."
                                       autocomplete="off" spellcheck="false" autocapitalize="off"
                                       style="-webkit-text-security: disc; text-security: disc;"
-                                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                                      class="input resize-none"></textarea>
                         }
                     </div>
                     @if (!string.IsNullOrWhiteSpace(mnemonicInput))
@@ -220,7 +220,7 @@
                     <input type="password" @bind="wifInput" @bind:event="oninput"
                            placeholder="5... or K... or L..."
                            autocomplete="off" spellcheck="false"
-                           class="flex-1 px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                           class="input flex-1 font-mono" />
                     <button type="button" class="w-12 h-12 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0 press-effect"
                             @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
@@ -288,7 +288,7 @@
             @* Optional: when the wallet was first used. With it, a restore through the light-client gateway reads only the blocks since then. *@
             <div class="flex flex-col gap-1">
                 <label for="first-use" class="text-xs font-semibold text-slate-500 dark:text-slate-400">Approximately when did you first use this wallet? (optional)</label>
-                <input id="first-use" type="date" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-dgb-700 bg-white dark:bg-dgb-900 text-sm"
+                <input id="first-use" type="date" class="input"
                        max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" @bind="firstUse" />
                 <p class="text-[11px] text-slate-400">A rough date is fine. Leave it empty to look through the whole history. Restoring may take a while.</p>
             </div>

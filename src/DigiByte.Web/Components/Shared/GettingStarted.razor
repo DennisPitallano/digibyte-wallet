@@ -47,7 +47,7 @@
                     @foreach (var item in steps)
                     {
                         var step = item;
-                        <button type="button" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all text-left press-effect"
+                        <button type="button" class="card card-interactive w-full flex items-center gap-3 p-3 text-left"
                                 @onclick="() => Go(step.Href)">
                             @if (step.Done)
                             {

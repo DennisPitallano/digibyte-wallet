@@ -27,7 +27,7 @@
 
     @if (loading)
     {
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
+        <div class="card p-6 text-center">
             <p class="text-sm text-slate-500 dark:text-slate-400">Loading sponsors…</p>
         </div>
     }
@@ -42,7 +42,7 @@
     }
     else if (result is { State: SponsorLoadState.FreshEmpty })
     {
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
+        <div class="card p-6 text-center">
             <p class="text-base font-semibold text-slate-900 dark:text-white">Be the first to sponsor</p>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">No sponsors are listed yet. Yours could be the first name here.</p>
         </div>
@@ -92,7 +92,7 @@
                 @if (sponsor.Link is not null)
                 {
                     <a href="@sponsor.Link" target="_blank" rel="noopener noreferrer"
-                       class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline min-w-0">
+                       class="card card-interactive flex flex-col items-center gap-2 p-4 no-underline min-w-0">
                         <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
                         <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
                         @DonationBadge(sponsor)
@@ -101,7 +101,7 @@
                 }
                 else
                 {
-                    <div class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 min-w-0">
+                    <div class="card flex flex-col items-center gap-2 p-4 min-w-0">
                         <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
                         <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
                         @DonationBadge(sponsor)
@@ -120,7 +120,7 @@
     }
 
     @* Where donations go: plain words, no amounts or percentages *@
-    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
+    <div class="card p-5 flex flex-col gap-3">
         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Where your donations go</h3>
         <ul class="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300">
             <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Hosting.</strong> The wallet app and its API run on cloud hosting that has to be paid for every month.</span></li>
@@ -135,7 +135,7 @@
     </div>
 
     @* Join section: ways to give and how to get listed *@
-    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
+    <div class="card p-5 flex flex-col gap-3">
         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Support the project</h3>
         <button class="btn-primary btn-sm w-full"
                 @onclick="() => showForm = !showForm" aria-expanded="@showForm">

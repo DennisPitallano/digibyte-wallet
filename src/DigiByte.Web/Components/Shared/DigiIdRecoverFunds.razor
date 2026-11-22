@@ -169,14 +169,15 @@
                 }
                 else
                 {
-                    <div class="flex gap-2 mt-1">
-                        <button type="button" @onclick="CancelReview"
-                                class="btn-secondary btn-sm flex-1">@L.T("identity.recover.review.cancel")</button>
+                    @* Coins move and it cannot be undone: slide, not tap (docs/UI_STYLE.md). Only drawn while idle. *@
+                    <div class="flex flex-col gap-2 mt-1">
                         @if (plan.Items.Count > 0)
                         {
-                            <button type="button" @onclick="ConfirmSweepAsync" disabled="@executing"
-                                    class="btn-primary btn-sm flex-1">@L.T("identity.recover.review.confirm")</button>
+                            <SlideToConfirm Label="@L.T("identity.recover.review.slide")" BusyLabel="@L.T("identity.recover.review.sliding")"
+                                            ActionDescription="@L.T("identity.recover.review.confirm")" OnConfirmed="ConfirmSweepAsync" />
                         }
+                        <button type="button" @onclick="CancelReview"
+                                class="btn-ghost btn-sm w-full">@L.T("identity.recover.review.cancel")</button>
                     </div>
                 }
             </div>

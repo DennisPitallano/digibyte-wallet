@@ -35,7 +35,7 @@
     @if (!pinVerified)
     {
         @* PIN verification gate *@
-        <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-4 items-center">
+        <div class="card slide-up-delay-1 p-5 flex flex-col gap-4 items-center">
             <div class="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
                 <svg class="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
@@ -52,7 +52,7 @@
     else
     {
         @* Enable/Disable toggle *@
-        <div class="slide-up-delay-1 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+        <div class="card slide-up-delay-1 flex items-center justify-between p-4">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
                     <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -77,7 +77,7 @@
                 <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1">Limits (DGB)</p>
 
                 @* Daily *@
-                <div class="flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <div class="card flex items-center justify-between p-4">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                             <span class="text-xs font-bold text-blue-500">24h</span>
@@ -91,7 +91,7 @@
                 </div>
 
                 @* Weekly *@
-                <div class="flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <div class="card flex items-center justify-between p-4">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
                             <span class="text-xs font-bold text-indigo-500">7d</span>
@@ -105,7 +105,7 @@
                 </div>
 
                 @* Monthly *@
-                <div class="flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <div class="card flex items-center justify-between p-4">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
                             <span class="text-xs font-bold text-purple-500">30d</span>
@@ -123,7 +123,7 @@
             @* Alert threshold *@
             <div class="slide-up-delay-2 flex flex-col gap-2">
                 <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1">Alert Threshold</p>
-                <div class="flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <div class="card flex items-center justify-between p-4">
                     <p class="text-sm text-slate-700 dark:text-slate-300">Warn at</p>
                     <div class="flex gap-1.5">
                         @foreach (var pct in new[] { 60, 70, 80, 90 })
@@ -137,7 +137,7 @@
             </div>
 
             @* Hard block toggle *@
-            <div class="slide-up-delay-2 flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+            <div class="card slide-up-delay-2 flex items-center justify-between p-4">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -160,7 +160,7 @@
                 <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1">Current Spending</p>
                 @if (isLoadingSpent)
                 {
-                    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
+                    <div class="card p-4">
                         <div class="animate-pulse flex flex-col gap-3">
                             <div class="h-3 bg-slate-200 dark:bg-dgb-800 rounded w-2/3"></div>
                             <div class="h-2 bg-slate-100 dark:bg-dgb-800/60 rounded w-full"></div>
@@ -171,7 +171,7 @@
                 }
                 else
                 {
-                    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 flex flex-col gap-3">
+                    <div class="card p-4 flex flex-col gap-3">
                         @if (settings.DailyLimitDgb > 0)
                         {
                             @SpendingBar("Today (24h)", spentDaily, settings.DailyLimitDgb, settings.AlertThresholdPercent)

@@ -43,7 +43,7 @@
         @foreach (var section in FilteredSections)
         {
             var isOpen = openSections.Contains(section.Id);
-            <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden transition-all">
+            <div class="card overflow-hidden">
                 <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
                         @onclick="() => ToggleSection(section.Id)">
                     <div class="w-9 h-9 rounded-xl @(section.IconBg) flex items-center justify-center flex-shrink-0">
@@ -81,7 +81,7 @@
     <div class="slide-up-delay-3 mt-2">
         <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Feedback & Support</p>
 
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 flex flex-col gap-3">
+        <div class="card p-4 flex flex-col gap-3">
             <div class="flex gap-2">
                 <button class="flex-1 py-2 text-xs font-semibold rounded-xl transition-colors @(feedbackType == "bug" ? "bg-red-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300") press-effect"
                         @onclick='() => feedbackType = "bug"'>
@@ -94,10 +94,10 @@
             </div>
 
             <input type="text" @bind="feedbackTitle" placeholder="@(feedbackType == "bug" ? "What went wrong?" : "What would you like to see?")"
-                   class="w-full px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500" />
+                   class="input" />
 
             <textarea @bind="feedbackBody" rows="3" placeholder="Describe in detail..."
-                      class="w-full px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500 resize-none"></textarea>
+                      class="input resize-none"></textarea>
 
             <button class="btn-primary btn-sm w-full"
                     disabled="@(string.IsNullOrWhiteSpace(feedbackTitle))"
@@ -342,7 +342,7 @@
             "<svg class=\"w-5 h-5 text-teal-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5\" /></svg>",
             [
                 new("What is UTXO consolidation?", "Every time you receive DGB, a new <b>UTXO</b> (Unspent Transaction Output) is created. Over time, your wallet accumulates many small UTXOs. When you spend, the wallet must include each UTXO as an input — and each input adds ~68 vBytes to the transaction size, increasing the fee. <b>Consolidation merges all your UTXOs into a single one</b>, so future sends only need 1 input instead of many."),
-                new("How do I consolidate?", "Go to <b>More</b> → <b>Consolidate</b>, or <b>More</b> → <b>Settings</b> → <b>Consolidate UTXOs</b>. The page scans your wallet, shows all UTXOs, and lets you merge them in one tap."),
+                new("How do I consolidate?", "Go to <b>More</b> → <b>Consolidate</b>, or <b>More</b> → <b>Settings</b> → <b>Consolidate UTXOs</b>. The page scans your wallet, shows all UTXOs, and lets you merge them: drag <b>Slide to consolidate</b> to confirm."),
                 new("What does the fee breakdown show?", "Before consolidating, the page shows a detailed <b>Fee Breakdown</b> card:<ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Inputs</b> — how many UTXOs will be merged into 1 output</li><li><b>Estimated tx size</b> — total virtual bytes (10 overhead + 68 per input + 31 per output)</li><li><b>Fee rate</b> — your selected rate in sat/vB (Low 100, Normal 200, Fast 500)</li><li><b>Total fee</b> — in both satoshis and DGB</li><li><b>Balance</b> — your current total</li><li><b>You'll receive</b> — balance minus fee (what ends up in your consolidated UTXO)</li></ul>All values update live when you change the fee rate."),
                 new("What are the future fee savings?", "Below the fee breakdown, a <b>Future Send Savings</b> card estimates how much cheaper your next send will be after consolidation. It compares:<br/><b>Before:</b> a send using all N UTXOs as inputs (N × 68 vB + 2 outputs + overhead)<br/><b>After:</b> a send using just 1 input (68 vB + 2 outputs + overhead)<br/>The savings are shown in sats and as a percentage reduction. For example, consolidating 50 UTXOs at 200 sat/vB saves ~6,664 sats per future send (~97% reduction)."),
                 new("When should I consolidate?", "<b>Best times to consolidate:</b><ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Many small UTXOs</b> — if you've received lots of small payments (mining payouts, faucet drips, tips)</li><li><b>Low fee periods</b> — consolidation is a non-urgent tx, so pick the Low fee rate to save costs</li><li><b>Before a large send</b> — consolidate first so your send only needs 1 input, minimizing the fee</li><li><b>Dust cleanup</b> — the page highlights UTXOs under 0.001 DGB as dust</li></ul>"),
