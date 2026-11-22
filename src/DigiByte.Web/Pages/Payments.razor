@@ -5,12 +5,13 @@
 @inject AppState AppState
 @inject IJSRuntime JS
 @inject IConfiguration Config
+@inject LocalizationService L
 
-<PageTitle>Request a payment — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("request.title") — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Request a payment</h2>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">@L.T("request.title")</h2>
         <button class="w-9 h-9 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-colors press-effect"
                 aria-label="New payment request" @onclick="ShowCreateForm">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

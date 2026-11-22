@@ -6,6 +6,7 @@
 @inject NotificationService Notifications
 @inject ISecureStorage Storage
 @inject IJSRuntime JS
+@inject LocalizationService L
 @inject MultisigWalletService Multisig
 @inject ActiveWalletContext ActiveWallet
 @inject ProposalHandoff Handoff
@@ -14,41 +15,41 @@
 @* The floating menu (variant C in docs/UI_STYLE.md): Wallet, Activity, a raised Scan button, Request, More.
    Styles: nav-float* in wwwroot/css/app.css. The active tab has a filled icon on a pill tinted with the wallet's colour.
    Scan and More are buttons, not pages: Scan opens the one app-wide scanner, More opens the one More list. *@
-<nav class="nav-float nav-float-live" aria-label="Main navigation" style="--nav-accent: @Accent; --nav-index: @Math.Max(ActiveIndex, 0);">
+<nav class="nav-float nav-float-live" aria-label="@T("nav.label", "Main navigation")" style="--nav-accent: @Accent; --nav-index: @Math.Max(ActiveIndex, 0);">
     @* No pill on pages that belong to no tab (Send, Receive and so on). *@
     @if (ActiveIndex >= 0)
     {
         <span class="nav-float-pill" aria-hidden="true"></span>
     }
 
-    <a class="nav-float-tab" href="" aria-label="Wallet" aria-current="@Current(WalletIndex)">
+    <a class="nav-float-tab" href="" aria-label="@T("nav.wallet", "Wallet")" aria-current="@Current(WalletIndex)">
         <span class="nav-float-icon">@Icon("wallet", ActiveIndex == WalletIndex)</span>
-        <span>Wallet</span>
+        <span>@T("nav.wallet", "Wallet")</span>
     </a>
-    <a class="nav-float-tab" href="transactions" aria-label="Activity" aria-current="@Current(ActivityIndex)">
+    <a class="nav-float-tab" href="transactions" aria-label="@T("nav.activity", "Activity")" aria-current="@Current(ActivityIndex)">
         <span class="nav-float-icon">@Icon("activity", ActiveIndex == ActivityIndex)</span>
-        <span>Activity</span>
+        <span>@T("nav.activity", "Activity")</span>
     </a>
-    <button type="button" class="nav-float-scan" aria-label="Scan a QR code to pay or sign in" data-testid="nav-scan" @onclick="OpenScan">
+    <button type="button" class="nav-float-scan" aria-label="@T("nav.scan.aria", "Scan a QR code to pay or sign in")" data-testid="nav-scan" @onclick="OpenScan">
         <span class="nav-float-scan-disc">@Icon("scan", false)</span>
-        <span>Scan</span>
+        <span>@T("nav.scan", "Scan")</span>
     </button>
-    <a class="nav-float-tab" href="payments" aria-label="Request a payment" aria-current="@Current(RequestIndex)">
+    <a class="nav-float-tab" href="payments" aria-label="@T("nav.request.aria", "Request a payment")" aria-current="@Current(RequestIndex)">
         <span class="nav-float-icon">@Icon("pay", ActiveIndex == RequestIndex)</span>
-        <span>Request</span>
+        <span>@T("nav.request", "Request")</span>
     </a>
-    <button type="button" class="nav-float-tab" aria-label="More: Digi-ID, Settings and other tools" aria-haspopup="dialog"
+    <button type="button" class="nav-float-tab" aria-label="@T("nav.more.aria", "More: Digi-ID, Settings and other tools")" aria-haspopup="dialog"
             aria-expanded="@(showMore ? "true" : "false")" aria-current="@Current(MoreIndex)" data-testid="nav-more" @onclick="OpenMore">
         <span class="nav-float-icon">@Icon("more", ActiveIndex == MoreIndex)</span>
-        <span>More</span>
+        <span>@T("nav.more", "More")</span>
     </button>
 
     @* Shown once to people who used the old menu, where Digi-ID and Settings were tabs. *@
     @if (showMovedTip)
     {
         <div class="nav-moved-tip" role="status" data-testid="nav-moved-tip">
-            <p><strong>Digi-ID and Settings moved.</strong> They are under More now.</p>
-            <button type="button" class="btn-ghost btn-sm" @onclick="DismissMovedTipAsync">Got it</button>
+            <p><strong>@T("nav.moved.title", "Digi-ID and Settings moved.")</strong> @T("nav.moved.body", "They are under More now.")</p>
+            <button type="button" class="btn-ghost btn-sm" @onclick="DismissMovedTipAsync">@T("nav.moved.dismiss", "Got it")</button>
         </div>
     }
 </nav>
@@ -62,9 +63,9 @@
         <div class="more-sheet sheet-enter" @onclick:stopPropagation="true">
             <div class="more-sheet-grip" aria-hidden="true"></div>
             <div class="flex items-center justify-between px-5 pb-3">
-                <h3 id="more-sheet-title" class="text-base font-bold text-slate-900 dark:text-white">More</h3>
+                <h3 id="more-sheet-title" class="text-base font-bold text-slate-900 dark:text-white">@T("more.title", "More")</h3>
                 <button type="button" class="w-11 h-11 -mr-2 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
-                        aria-label="Close" @onclick="CloseMoreAsync">
+                        aria-label="@T("more.close", "Close")" @onclick="CloseMoreAsync">
                     <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
@@ -84,8 +85,8 @@
                             </svg>
                         </span>
                         <span class="flex-1 min-w-0 text-left">
-                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@item.Label</span>
-                            <span class="block text-xs text-slate-600 dark:text-slate-400">@(blocked ? "Not available for watch-only wallets" : item.Description)</span>
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@T($"more.item.{item.Href}.label", item.Label)</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">@(blocked ? T("more.watch_only", "Not available for watch-only wallets") : T($"more.item.{item.Href}.desc", item.Description))</span>
                         </span>
                         <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -102,6 +103,13 @@
     private const int WalletIndex = 0, ActivityIndex = 1, RequestIndex = 3, MoreIndex = 4;
     private const string MoreSheetId = "more-sheet";
     private const string MovedTipKey = MoreMenu.MovedTipKey;
+
+    // The menu must never show a raw key: if the translation files could not be loaded, the English text is used.
+    private string T(string key, string english)
+    {
+        var text = L.T(key);
+        return text == key ? english : text;
+    }
 
     private bool showScanner;
     private bool showMore;
@@ -171,8 +179,6 @@
     {
         AppState.OnChange += OnStateChanged;
         Nav.LocationChanged += OnLocationChanged;
-        Shell.ScanRequested += OnScanRequested;
-        Shell.MoreRequested += OnMoreRequested;
         FirstReceive.Changed += OnFirstReceiveChanged;
     }
 
@@ -220,7 +226,7 @@
                 var match = await Multisig.FindWalletForProposalAsync(route.Payload!, ActiveWallet.WalletId, ActiveWallet.PublicKey, "");
                 if (match is null)
                 {
-                    Notifications.Warning("That proposal is for a multisig that isn't on this device.");
+                    Notifications.Warning(T("scan.proposal_elsewhere", "That proposal is for a multisig that isn't on this device."));
                     break;
                 }
                 Handoff.Set(match.WalletId, route.Payload!);
@@ -235,7 +241,7 @@
 
             default:
                 // Never guess: a code the wallet does not understand opens nothing.
-                Notifications.Warning("This wallet can't open that code. Scan a DigiByte address, a payment request, a Digi-ID login or a multisig code.");
+                Notifications.Warning(T("scan.unknown", "This wallet can't open that code. Scan a DigiByte address, a payment request, a Digi-ID login or a multisig code."));
                 break;
         }
     }
@@ -298,8 +304,6 @@
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);
-    private void OnScanRequested() => InvokeAsync(() => { OpenScan(); StateHasChanged(); });
-    private void OnMoreRequested() => InvokeAsync(() => { OpenMore(); StateHasChanged(); });
     private void OnFirstReceiveChanged() => InvokeAsync(CheckMovedTipAsync);
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
@@ -315,8 +319,6 @@
     {
         AppState.OnChange -= OnStateChanged;
         Nav.LocationChanged -= OnLocationChanged;
-        Shell.ScanRequested -= OnScanRequested;
-        Shell.MoreRequested -= OnMoreRequested;
         FirstReceive.Changed -= OnFirstReceiveChanged;
         FirstReceive.ShellDialogOpen = false;
     }

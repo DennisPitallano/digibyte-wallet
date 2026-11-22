@@ -22,10 +22,14 @@ public class LocaleParityTests
         "home.empty.", "activity.empty.", "firstreceive.",
         // optional payment sounds
         "settings.sounds",
+        // the menu, its More list, the app-wide Scan and the Request page
+        "nav.activity", "nav.scan", "nav.request", "nav.more", "nav.label", "nav.moved.", "more.", "scan.", "request.",
+        // slide to confirm
+        "identity.recover.review.slid", "dd.confirm.slide",
     ];
 
     // Words that are the same in both languages on purpose.
-    private static readonly HashSet<string> SameInBoth = ["credential.word_pin"];
+    private static readonly HashSet<string> SameInBoth = ["credential.word_pin", "more.item.identity.label"];
 
     private static string LocalesDirectory()
     {

@@ -225,17 +225,21 @@ pins the bar to the bottom of the app column). `MainLayout.razor` reserves room 
 
 How it stays unconfusing:
 
-- **One Scan.** The centre button and Home's Scan button open the same scanner
-  (`Services/ShellActions.cs`), and `Services/ScanRouter.cs` decides where a code goes: a DigiByte
+- **One Scan.** The centre button is the only app-wide scanner (Home's own Scan button was
+  removed), and `Services/ScanRouter.cs` decides where a code goes: a DigiByte
   address or payment request opens Send, a Digi-ID login opens Digi-ID, a multisig proposal opens
   the multisig it spends from, a redeem script opens Import multisig, this wallet's own room
   invite opens the room, and anything else opens nothing and says so. A code is never pasted into
   Send unless it is a valid address, and no other web link is followed.
-- **One More.** The More tab and Home's More button open the same list (`Layout/MoreMenu.cs`).
+- **One More.** The More tab is the only More (Home's own More button was removed); its list is
+  `Layout/MoreMenu.cs`.
   Digi-ID and Settings are its first two rows because they used to be tabs. The More tab is drawn
   as the current tab on every page its list leads to, and the list marks the current page.
 - **Request means the page it opens.** The Payments page is titled "Request a payment", and opens
   straight onto the form when there are no requests to list.
+- **Translated.** The menu labels, the More list, the tip and the scan messages come from
+  `wwwroot/locales` (`nav.*`, `more.*`, `scan.*`), with the English text as a fallback so the menu
+  never shows a raw key.
 - **A one-time tip for returning users.** "Digi-ID and Settings moved. They are under More now."
   appears once above the More tab on a device that was in use before; opening More or tapping
   "Got it" dismisses it for good. A wallet created on this menu never sees it.

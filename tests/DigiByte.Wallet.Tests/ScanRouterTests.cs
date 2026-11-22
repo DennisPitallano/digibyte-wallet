@@ -183,6 +183,34 @@ public class MoreMenuTests
             Assert.True(routes.Contains(item.Href), $"More row '{item.Label}' leads to '/{item.Href}', which no page declares");
     }
 
+    [Theory]
+    [InlineData("en")]
+    [InlineData("es")]
+    public void Every_row_has_a_translated_label_and_description(string locale)
+    {
+        var file = Path.Combine(PagesDirectory(), "..", "wwwroot", "locales", locale + ".json");
+        var strings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(file))!;
+
+        foreach (var item in MoreMenu.Items)
+        {
+            Assert.True(strings.ContainsKey($"more.item.{item.Href}.label"), $"{locale} has no label for the More row '{item.Href}'");
+            Assert.True(strings.ContainsKey($"more.item.{item.Href}.desc"), $"{locale} has no description for the More row '{item.Href}'");
+        }
+    }
+
+    [Fact]
+    public void The_English_fallback_in_code_matches_the_English_strings()
+    {
+        var file = Path.Combine(PagesDirectory(), "..", "wwwroot", "locales", "en.json");
+        var strings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(file))!;
+
+        foreach (var item in MoreMenu.Items)
+        {
+            Assert.Equal(item.Label, strings[$"more.item.{item.Href}.label"]);
+            Assert.Equal(item.Description, strings[$"more.item.{item.Href}.desc"]);
+        }
+    }
+
     [Fact]
     public void DigiId_and_Settings_come_first_because_they_used_to_be_tabs()
     {
