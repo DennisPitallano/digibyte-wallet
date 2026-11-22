@@ -491,6 +491,131 @@ body:has(.modal-overlay) nav {
     .baku-enter, .baku-celebrate { animation: none !important; }
 }
 
+/* First-payment celebration (spec 025): the coin settles in like the send overlay's; with reduced motion the confetti
+   and rings are left out altogether and the coin stays still. */
+.celebrate-coin { animation: coin-settle 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* The two celebrations (first payment, send confirmed): one raised card with the coin on its top edge. Colours come from the shared style
+   variables (--ui-*), so it follows light and dark. */
+.celebrate-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 340px;
+    margin-top: 40px;
+    padding: 3.5rem 1.25rem 1.25rem;
+    border-radius: 1.5rem;
+    text-align: center;
+    animation: scale-in var(--motion-slow) var(--ease-spring) both;
+}
+/* A denser backdrop than other dialogs: bright page content (a red button, a QR code) should not show through. */
+.modal-overlay:has(.celebrate-card) { background: rgba(0, 8, 20, 0.88); }
+/* The shared card rule comes later in this file and would win with its smaller corner radius. */
+.card-raised.celebrate-card { border-radius: 1.5rem; }
+.celebrate-medal {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    width: 80px;
+    height: 80px;
+    margin-left: -40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--ui-surface);
+    box-shadow: 0 0 0 6px var(--ui-surface), 0 0 36px 4px rgba(26, 117, 255, 0.45);
+}
+/* The green tick on the coin: a send that went out. */
+.celebrate-check {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 3px solid var(--ui-surface);
+    background: #16a34a;
+    color: #fff;
+    animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+.celebrate-detail { font-size: 0.875rem; color: var(--ui-text-muted); }
+.celebrate-note {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ui-radius);
+    background: rgba(245, 158, 11, 0.14);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    text-align: left;
+    color: #92400e;
+}
+.dark .celebrate-note { color: #fcd34d; }
+.celebrate-txid {
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-size: 0.6875rem;
+    color: var(--ui-text-muted);
+}
+.celebrate-title { font-size: 1.125rem; font-weight: 700; line-height: 1.3; color: var(--ui-text); }
+.celebrate-amount {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+    color: var(--ui-text);
+}
+/* Long amounts (many digits) step down so the unit stays on the same line. */
+.celebrate-amount.is-long { font-size: 1.5rem; }
+.celebrate-unit { font-size: 1rem; font-weight: 700; letter-spacing: 0; color: var(--ui-text-muted); }
+.celebrate-fiat { margin-top: 0.25rem; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: var(--ui-text-muted); }
+.celebrate-hidden { font-size: 1rem; font-weight: 600; color: var(--ui-text); }
+.celebrate-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.celebrate-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.celebrate-chip.is-pending  { background: rgba(245, 158, 11, 0.16); color: #92400e; }
+.celebrate-chip.is-received { background: rgba(16, 185, 129, 0.16); color: #065f46; }
+.dark .celebrate-chip.is-pending  { color: #fbbf24; }
+.dark .celebrate-chip.is-received { color: #34d399; }
+.celebrate-chip.is-pending .celebrate-chip-dot { animation: celebrate-pulse 1.4s ease-in-out infinite; }
+@keyframes celebrate-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.35; transform: scale(0.7); }
+}
+.celebrate-baku {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ui-radius);
+    background: rgba(0, 102, 204, 0.07);
+    text-align: left;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--ui-text-muted);
+}
+.dark .celebrate-baku { background: rgba(77, 148, 255, 0.10); color: #cbd5e1; }
+@media (prefers-reduced-motion: reduce) {
+    .celebrate-decor { display: none !important; }
+    .celebrate-coin, .celebrate-coin * { animation: none !important; }
+    .celebrate-card, .celebrate-chip-dot, .celebrate-check { animation: none !important; }
+}
+
 /* Baku's speech bubble: the tail is a rotated square that reuses the bubble's background and border. */
 .baku-bubble { position: relative; }
 .baku-bubble-tail::before {
@@ -522,12 +647,141 @@ body:has(.modal-overlay) nav {
     background-size: cover;
     background-position: center;
 }
-.wallet-tex-smooth { display: none; }
+/* Smooth (the default): smooth leather in the wallet's colour. A soft sheen from the top-left, a darker
+   lower edge where the wallet curves away, and a stitched seam all round. */
+.wallet-tex-smooth {
+    background-image:
+        radial-gradient(120% 95% at 18% 0%, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 58%),
+        radial-gradient(90% 80% at 100% 100%, rgba(0, 0, 0, 0.38), rgba(0, 0, 0, 0) 62%),
+        linear-gradient(150deg, color-mix(in srgb, var(--wc) 78%, #0a1220), color-mix(in srgb, var(--wc) 40%, #03070f));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -4px 8px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+.wallet-tex-smooth::after {
+    inset: 7px;
+    border-radius: 13px;
+    border: 1.5px dashed color-mix(in srgb, var(--wc) 35%, #ffffff);
+    opacity: 0.55;
+    filter: drop-shadow(0 1px 0.5px rgba(0, 0, 0, 0.6));
+}
 .wallet-tex::after {
     content: "";
     position: absolute;
     border-radius: inherit;
     pointer-events: none;
+}
+
+/* The balance card's shape: a closed wallet. About 1.75 to 1 at phone width, rounded corners, and a shadow
+   tinted with the wallet's colour so it looks lifted off the page. Its content is a column, so the name and
+   address sit along the bottom edge, like a name stamped into the leather. */
+.wallet-card {
+    --wc: #0066FF;
+    display: flex;
+    min-height: 12.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 1.25rem;
+    background: color-mix(in srgb, var(--wc) 60%, #020b1c);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.30),
+        0 14px 28px -14px color-mix(in srgb, var(--wc) 60%, #000000),
+        0 26px 44px -26px rgba(0, 0, 0, 0.55);
+}
+/* Loading placeholders are tinted blue for a white surface; on the coloured card they need to be light. */
+.wallet-card .skeleton { background: rgba(255, 255, 255, 0.18) !important; }
+/* The embossed DigiByte mark: a small maker's stamp near the bottom edge, to the left of the copy and QR
+   buttons. The face takes the skin's colour, so the mark is seen by its lit and shaded edges alone. Hidden on
+   very narrow screens, where it would run into the address. */
+.wallet-emboss {
+    position: absolute;
+    right: 82px;
+    bottom: 12px;
+    width: 54px;
+    height: 54px;
+    pointer-events: none;
+    overflow: visible;
+}
+.wallet-emboss-lit   { color: rgba(255, 255, 255, 0.42); }
+.wallet-emboss-shade { color: rgba(0, 0, 0, 0.55); }
+.wallet-emboss-face  { color: color-mix(in srgb, var(--wc) 66%, #070c16); }
+@media (max-width: 359px) { .wallet-emboss { display: none; } }
+
+/* The strap: a tab of the same material that comes over the right edge and holds the wallet shut. It has its own
+   stitched outline and casts a shadow on the body. */
+.wallet-strap {
+    position: absolute;
+    top: 57%;
+    right: -1px;
+    width: 78px;
+    height: 48px;
+    transform: translateY(-50%);
+    border-radius: 24px 0 0 24px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.25)),
+        color-mix(in srgb, var(--wc) 62%, #070c16);
+    box-shadow: -3px 3px 7px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.30), inset 1px 0 0 rgba(255, 255, 255, 0.12);
+    pointer-events: none;
+    z-index: 2;
+}
+.wallet-strap::after {
+    content: "";
+    position: absolute;
+    inset: 5px 0 5px 5px;
+    border: 1.5px dashed color-mix(in srgb, var(--wc) 35%, #ffffff);
+    border-right: 0;
+    border-radius: 19px 0 0 19px;
+    opacity: 0.5;
+}
+/* The snap: a domed metal press-stud on the strap. It is the lock button, so it is a real button with a
+   44px touch area, a pressed state and a focus ring. */
+.wallet-snap {
+    position: absolute;
+    top: 57%;
+    right: 36px;
+    width: 36px;
+    height: 36px;
+    margin-top: -18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 28%, #ffffff 0%, #e3e7ec 22%, #a9b1bc 58%, #6b7480 100%);
+    color: #303945;
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(0, 0, 0, 0.35),
+        inset 0 1px 1px rgba(255, 255, 255, 0.95),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.30);
+    text-shadow: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out), filter var(--motion-base) var(--ease-out);
+    z-index: 3;
+}
+.wallet-snap::before { content: ""; position: absolute; inset: -4px; border-radius: 50%; }   /* 44px touch area */
+.wallet-snap svg { width: 16px; height: 16px; filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6)); }
+@media (hover: hover) { .wallet-snap:hover { filter: brightness(1.08); } }
+.wallet-snap:active {
+    transform: scale(0.93);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 2px 4px rgba(0, 0, 0, 0.40);
+}
+.wallet-snap:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .wallet-snap:active { transform: none; } }
+
+/* The name on the card: small capitals, spaced out. */
+.wallet-card-name {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.78);
+}
+/* The address, set like an embossed card number: light on top, a dark edge underneath. */
+.wallet-card-number {
+    margin-top: 0.125rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.8125rem;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55), 0 -1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .wallet-card-textured {
@@ -596,3 +850,1080 @@ body:has(.modal-overlay) nav {
 
 /* Small previews (the texture picker): no seam, it would crowd a thumbnail. */
 .wallet-tex-swatch::after { display: none; }
+
+/* =====================================================================================
+   Shared UI primitives: buttons, cards, inputs, QR frame, motion.
+   Reference and rollout plan: docs/UI_STYLE.md. Live gallery: /test-animations.
+
+   Every colour comes from a --ui-* token, set once for light (:root) and once for dark
+   (.dark), so the component rules below have no per-theme copies. Layout (width, margin,
+   flex, card padding) is left to Tailwind utilities; these classes own colour, shape,
+   depth and motion.
+   ===================================================================================== */
+
+:root {
+    /* Motion */
+    --motion-fast: 120ms;
+    --motion-base: 200ms;
+    --motion-slow: 360ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Shape */
+    --ui-radius-sm: 0.75rem;
+    --ui-radius: 1rem;
+    --ui-radius-lg: 1.25rem;
+
+    /* Light theme */
+    --ui-surface: #ffffff;
+    --ui-border: #e2e8f0;
+    --ui-text: #0f172a;
+    --ui-text-muted: #475569;
+    --ui-focus: #0066cc;
+    --ui-focus-ring: 0 0 0 3px rgba(0, 102, 204, 0.25);
+
+    --ui-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px -4px rgba(15, 23, 42, 0.08);
+    --ui-shadow-raised: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 16px -6px rgba(15, 23, 42, 0.10), 0 20px 40px -16px rgba(0, 61, 122, 0.18);
+
+    --ui-primary: #0066cc;
+    --ui-primary-hover: #0052a3;
+    --ui-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 21, 41, 0.18), 0 1px 2px rgba(0, 41, 82, 0.30), 0 4px 10px -2px rgba(0, 102, 204, 0.35), 0 10px 22px -10px rgba(0, 102, 204, 0.45);
+    --ui-primary-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 21, 41, 0.18), 0 2px 4px rgba(0, 41, 82, 0.30), 0 8px 16px -4px rgba(0, 102, 204, 0.40), 0 18px 32px -12px rgba(0, 102, 204, 0.50);
+
+    --ui-danger: #dc2626;
+    --ui-danger-hover: #b91c1c;
+    --ui-danger-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(69, 10, 10, 0.20), 0 1px 2px rgba(127, 29, 29, 0.30), 0 4px 10px -2px rgba(220, 38, 38, 0.30), 0 10px 22px -10px rgba(220, 38, 38, 0.40);
+    --ui-danger-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(69, 10, 10, 0.20), 0 2px 4px rgba(127, 29, 29, 0.30), 0 8px 16px -4px rgba(220, 38, 38, 0.35), 0 18px 32px -12px rgba(220, 38, 38, 0.45);
+
+    --ui-secondary: #ffffff;
+    --ui-secondary-hover: #f8fafc;
+    --ui-secondary-text: #1e293b;
+    --ui-secondary-border: #cbd5e1;
+    --ui-secondary-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.06), 0 3px 8px -2px rgba(15, 23, 42, 0.08);
+    --ui-secondary-shadow-hover: inset 0 -1px 0 rgba(15, 23, 42, 0.04), 0 2px 4px rgba(15, 23, 42, 0.06), 0 8px 16px -6px rgba(15, 23, 42, 0.14);
+    --ui-secondary-pressed: inset 0 2px 4px rgba(15, 23, 42, 0.12);
+
+    --ui-ghost-text: #0052a3;
+    --ui-ghost-hover: rgba(0, 102, 204, 0.08);
+    --ui-ghost-active: rgba(0, 102, 204, 0.14);
+    --ui-pressed-shadow: inset 0 2px 4px rgba(0, 21, 41, 0.25);
+
+    --ui-input-bg: #ffffff;
+    --ui-input-border: #7c8ba1;
+    --ui-input-border-hover: #475569;
+    --ui-placeholder: #64748b;
+    --ui-label: #334155;
+    --ui-error: #b91c1c;
+    --ui-error-border: #dc2626;
+    --ui-error-ring: 0 0 0 3px rgba(220, 38, 38, 0.20);
+
+    --ui-qr-border: #e2e8f0;
+    --ui-qr-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 28px -12px rgba(0, 61, 122, 0.25);
+}
+
+.dark {
+    --ui-surface: #002352;
+    --ui-border: #0b3a75;
+    --ui-text: #ffffff;
+    --ui-text-muted: #94a3b8;
+    --ui-focus: #4d94ff;
+    --ui-focus-ring: 0 0 0 3px rgba(77, 148, 255, 0.35);
+
+    --ui-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 16px -8px rgba(0, 0, 0, 0.50);
+    --ui-shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 32px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(77, 148, 255, 0.06);
+
+    --ui-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 102, 204, 0.45), 0 10px 26px -8px rgba(26, 117, 255, 0.40);
+    --ui-primary-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.45), 0 8px 18px -4px rgba(0, 102, 204, 0.55), 0 18px 36px -10px rgba(26, 117, 255, 0.50);
+
+    --ui-secondary: #002952;
+    --ui-secondary-hover: #003366;
+    --ui-secondary-text: #f1f5f9;
+    --ui-secondary-border: #1d4f8f;
+    --ui-secondary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 10px -4px rgba(0, 0, 0, 0.50);
+    --ui-secondary-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.40), 0 10px 20px -8px rgba(0, 0, 0, 0.60);
+    --ui-secondary-pressed: inset 0 2px 4px rgba(0, 0, 0, 0.40);
+
+    --ui-ghost-text: #80b3ff;
+    --ui-ghost-hover: rgba(77, 148, 255, 0.12);
+    --ui-ghost-active: rgba(77, 148, 255, 0.20);
+    --ui-pressed-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.40);
+
+    --ui-input-bg: #001529;
+    --ui-input-border: #4577b8;
+    --ui-input-border-hover: #80b3ff;
+    --ui-placeholder: #94a3b8;
+    --ui-label: #e2e8f0;
+    --ui-error: #fca5a5;
+    --ui-error-border: #f87171;
+    --ui-error-ring: 0 0 0 3px rgba(248, 113, 113, 0.25);
+
+    --ui-qr-border: rgba(255, 255, 255, 0.10);
+    --ui-qr-shadow: 0 0 0 4px rgba(77, 148, 255, 0.10), 0 16px 36px -12px rgba(0, 102, 204, 0.55);
+}
+
+/* ----- Buttons -----
+   btn-primary | btn-secondary | btn-ghost | btn-danger, plus btn-sm for the small size.
+   Loading: add is-loading or aria-busy="true". Disabled: the disabled attribute, or
+   aria-disabled="true" on links. Default height 48px, small 44px (minimum touch target). */
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        background-color var(--motion-base) var(--ease-out),
+        border-color var(--motion-base) var(--ease-out),
+        opacity var(--motion-base) var(--ease-out);
+}
+.btn-sm {
+    min-height: 44px;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.875rem;
+}
+
+.btn-primary   { background: var(--ui-primary);   color: #fff; box-shadow: var(--ui-primary-shadow); }
+.btn-danger    { background: var(--ui-danger);    color: #fff; box-shadow: var(--ui-danger-shadow); }
+.btn-secondary { background: var(--ui-secondary); color: var(--ui-secondary-text); border-color: var(--ui-secondary-border); box-shadow: var(--ui-secondary-shadow); }
+.btn-ghost     { background: transparent;         color: var(--ui-ghost-text); }
+
+/* Hover lift only where a real pointer exists, so it never sticks after a tap. */
+@media (hover: hover) {
+    .btn-primary:hover   { background: var(--ui-primary-hover);   box-shadow: var(--ui-primary-shadow-hover);   transform: translateY(-1px); }
+    .btn-danger:hover    { background: var(--ui-danger-hover);    box-shadow: var(--ui-danger-shadow-hover);    transform: translateY(-1px); }
+    .btn-secondary:hover { background: var(--ui-secondary-hover); box-shadow: var(--ui-secondary-shadow-hover); transform: translateY(-1px); }
+    .btn-ghost:hover     { background: var(--ui-ghost-hover); }
+}
+
+.btn-primary:active,
+.btn-danger:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: var(--ui-pressed-shadow);
+}
+.btn-secondary:active { transform: translateY(0) scale(0.98); box-shadow: var(--ui-secondary-pressed); }
+.btn-ghost:active     { background: var(--ui-ghost-active); transform: scale(0.98); }
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible,
+.btn-danger:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+}
+
+.btn-primary:disabled,   .btn-primary[aria-disabled="true"],
+.btn-secondary:disabled, .btn-secondary[aria-disabled="true"],
+.btn-ghost:disabled,     .btn-ghost[aria-disabled="true"],
+.btn-danger:disabled,    .btn-danger[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    pointer-events: none;
+}
+
+/* Loading: a spinner in front of the label; the button stops taking clicks. */
+.btn-primary.is-loading,   .btn-primary[aria-busy="true"],
+.btn-secondary.is-loading, .btn-secondary[aria-busy="true"],
+.btn-ghost.is-loading,     .btn-ghost[aria-busy="true"],
+.btn-danger.is-loading,    .btn-danger[aria-busy="true"] {
+    cursor: progress;
+    pointer-events: none;
+    transform: none;
+}
+.btn-primary.is-loading::before,   .btn-primary[aria-busy="true"]::before,
+.btn-secondary.is-loading::before, .btn-secondary[aria-busy="true"]::before,
+.btn-ghost.is-loading::before,     .btn-ghost[aria-busy="true"]::before,
+.btn-danger.is-loading::before,    .btn-danger[aria-busy="true"]::before {
+    content: "";
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: ui-spin 0.7s linear infinite;
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+/* ----- Cards -----
+   card: the standard surface. card-raised: a surface that sits above the page (hero
+   blocks, dialogs, sheets). card-interactive: add to a card that is itself a link or
+   button. Padding comes from Tailwind (p-4, p-5). */
+.card,
+.card-raised {
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+}
+.card        { box-shadow: var(--ui-shadow-card); }
+.card-raised { box-shadow: var(--ui-shadow-raised); }
+
+.card-interactive {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--motion-base) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        border-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+    .card-interactive:hover { transform: translateY(-2px); box-shadow: var(--ui-shadow-raised); }
+}
+.card-interactive:active { transform: scale(0.99); box-shadow: var(--ui-shadow-card); }
+.card-interactive:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* ----- Text inputs -----
+   Wrap in .field with a .field-label, the .input, then .field-hint or .field-error.
+   Error: aria-invalid="true" (preferred, it is announced) or the input-error class.
+   16px text stops iOS zooming the page on focus. */
+.field { display: flex; flex-direction: column; gap: 0.375rem; }
+.field-label { font-size: 0.875rem; font-weight: 500; line-height: 1.25; color: var(--ui-label); }
+.field-hint  { font-size: 0.8125rem; line-height: 1.35; color: var(--ui-text-muted); }
+.field-error { display: flex; align-items: flex-start; gap: 0.375rem; font-size: 0.8125rem; font-weight: 500; line-height: 1.35; color: var(--ui-error); }
+.field-error svg { flex: none; width: 1rem; height: 1rem; margin-top: 0.05rem; }
+
+.input {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 0.625rem 0.875rem;
+    background: var(--ui-input-bg);
+    color: var(--ui-text);
+    border: 1px solid var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+    font-size: 16px;
+    line-height: 1.5;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+    -webkit-appearance: none;
+    appearance: none;
+    transition:
+        border-color var(--motion-base) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        background-color var(--motion-base) var(--ease-out);
+}
+textarea.input { min-height: 96px; resize: vertical; }
+.input::placeholder { color: var(--ui-placeholder); opacity: 1; }
+@media (hover: hover) {
+    .input:hover { border-color: var(--ui-input-border-hover); }
+}
+.input:focus,
+.input:focus-visible {
+    outline: none;
+    border-color: var(--ui-focus);
+    box-shadow: var(--ui-focus-ring);
+}
+/* The ring is a box-shadow, which forced-colours mode drops: keep a real outline there. */
+@media (forced-colors: active) {
+    .input:focus { outline: 2px solid Highlight; outline-offset: 1px; }
+}
+.input[aria-invalid="true"],
+.input.input-error { border-color: var(--ui-error-border); }
+.input[aria-invalid="true"]:focus,
+.input.input-error:focus { border-color: var(--ui-error-border); box-shadow: var(--ui-error-ring); }
+.input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ----- Recovery phrase, word by word -----
+   One box per word with its number inside. The grid fits as many 128px columns as the screen allows (two on a
+   small phone, three from about 420px), and every box may shrink, so the grid never runs off the side.
+   16px text: anything smaller makes iOS zoom the page when a box is tapped. */
+.seed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 0.5rem; }
+.seed-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 44px;
+    background: var(--ui-input-bg);
+    border: 1px solid var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+    transition: border-color var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.seed-cell:focus-within { border-color: var(--ui-focus); box-shadow: var(--ui-focus-ring); }
+.seed-cell-num {
+    flex: none;
+    width: 2rem;
+    padding-left: 0.5rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-text-muted);
+    user-select: none;
+    -webkit-user-select: none;
+}
+.seed-cell input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    padding: 0.5rem 0.5rem 0.5rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--ui-text);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 16px;
+    line-height: 1.4;
+    outline: none;
+}
+/* A recognised word gets a quiet tick; an unrecognised one a red border. Neither relies on colour alone:
+   the tick is a shape, and the count above the grid says how many words are not recognised. */
+.seed-cell.is-valid { border-color: #16a34a; }
+.seed-cell.is-valid::after {
+    content: "";
+    flex: none;
+    width: 0.375rem;
+    height: 0.625rem;
+    margin: 0 0.625rem 0.125rem 0;
+    border: solid #16a34a;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+.dark .seed-cell.is-valid { border-color: #22c55e; }
+.dark .seed-cell.is-valid::after { border-color: #4ade80; }
+.seed-cell.is-invalid { border-color: var(--ui-error-border); }
+.seed-cell.is-invalid:focus-within { box-shadow: var(--ui-error-ring); }
+.seed-suggest {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    max-height: 9rem;
+    overflow-y: auto;
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    box-shadow: var(--ui-shadow-raised);
+}
+.seed-suggest button {
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.875rem;
+    color: var(--ui-text);
+    background: transparent;
+}
+.seed-suggest button.is-active,
+.seed-suggest button:hover { background: var(--ui-ghost-hover); color: var(--ui-ghost-text); }
+/* The 12 / 24 switch. */
+.seed-count { display: inline-flex; padding: 2px; border-radius: 9999px; background: var(--ui-ghost-hover); }
+.seed-count button {
+    min-width: 44px;
+    min-height: 32px;
+    padding: 0 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+    transition: background-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out);
+}
+.seed-count button[aria-pressed="true"] { background: var(--ui-primary); color: #fff; }
+.seed-count button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* ----- Addresses -----
+   A long address has no spaces, so it wraps wherever the line ends and can leave one character alone on the last
+   line. addr-balance asks the browser for lines of even length. addr-lines is the certain version for a narrow
+   column: two halves, each kept whole when it fits and broken evenly when it does not. */
+.addr-balance { text-wrap: balance; }
+.addr-lines { font-family: 'JetBrains Mono', ui-monospace, monospace; line-height: 1.6; }
+.addr-lines > span { display: inline-block; max-width: 100%; word-break: break-all; text-wrap: balance; vertical-align: top; }
+
+/* ----- Headings -----
+   page-title: the one title at the top of a page. block-title: the title of a card, dialog or section
+   (-lg and -sm for the larger and smaller cases). section-label: the small capitals above a group of rows. */
+.page-title { font-size: 1.375rem; line-height: 1.25; font-weight: 700; letter-spacing: -0.015em; color: var(--ui-text); }
+.block-title { font-size: 1rem; line-height: 1.35; font-weight: 700; letter-spacing: -0.005em; color: var(--ui-text); }
+.block-title-lg { font-size: 1.125rem; }
+.block-title-sm { font-size: 0.875rem; }
+.section-label {
+    font-size: 0.6875rem;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ui-text-muted);
+}
+
+/* ----- Tabs (segmented control) -----
+   <div class="segmented"><button class="segmented-item" aria-pressed="true">…</button>…</div>
+   For switching between views of the same thing (Recovery phrase / Private key). The selected item is a raised
+   tile; aria-pressed carries the state, so it is announced and styled from one attribute. */
+.segmented { display: flex; gap: 2px; padding: 4px; border-radius: calc(var(--ui-radius-sm) + 2px); background: var(--ui-ghost-hover); }
+.segmented-item {
+    flex: 1;
+    min-height: 40px;
+    padding: 0 0.75rem;
+    border: 1px solid transparent;
+    border-radius: calc(var(--ui-radius-sm) - 2px);
+    background: transparent;
+    color: var(--ui-text-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        background-color var(--motion-base) var(--ease-out),
+        color var(--motion-base) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) { .segmented-item:hover { color: var(--ui-text); } }
+.segmented-item[aria-pressed="true"] {
+    background: var(--ui-surface);
+    border-color: var(--ui-border);
+    color: var(--ui-ghost-text);
+    box-shadow: var(--ui-shadow-card);
+}
+.segmented-item:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* ----- Choice buttons -----
+   One of several options (fee speed, a filter, PIN or passphrase). Selected is filled; choice-pill is the
+   rounded form for filters. State comes from aria-pressed. */
+.choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: 40px;
+    padding: 0 0.875rem;
+    border: 1px solid var(--ui-secondary-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-secondary);
+    color: var(--ui-secondary-text);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        background-color var(--motion-base) var(--ease-out),
+        border-color var(--motion-base) var(--ease-out),
+        color var(--motion-base) var(--ease-out),
+        transform var(--motion-fast) var(--ease-out);
+}
+@media (hover: hover) { .choice:hover { background: var(--ui-secondary-hover); } }
+.choice:active { transform: scale(0.97); }
+.choice[aria-pressed="true"] { background: var(--ui-primary); border-color: var(--ui-primary); color: #fff; }
+.choice:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.choice:disabled { opacity: 0.45; cursor: not-allowed; }
+.choice-pill { min-height: 36px; border-radius: 9999px; }
+
+/* ----- Icon buttons -----
+   A square button holding one icon: the "+" beside a page title, a close button, a header action. 44px, the
+   minimum for a finger; icon-btn-sm (36px) only inside dense rows. icon-btn-primary is the page's add action.
+   Every icon button needs an aria-label. */
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--ui-secondary-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-secondary);
+    color: var(--ui-secondary-text);
+    box-shadow: var(--ui-secondary-shadow);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        background-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+    .icon-btn:hover { background: var(--ui-secondary-hover); box-shadow: var(--ui-secondary-shadow-hover); transform: translateY(-1px); }
+    .icon-btn-primary:hover { background: var(--ui-primary-hover); box-shadow: var(--ui-primary-shadow-hover); }
+}
+.icon-btn:active { transform: scale(0.95); box-shadow: var(--ui-secondary-pressed); }
+.icon-btn:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.icon-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+.icon-btn-primary { border-color: transparent; background: var(--ui-primary); color: #fff; box-shadow: var(--ui-primary-shadow); }
+.icon-btn-primary:active { box-shadow: var(--ui-pressed-shadow); }
+.icon-btn-sm { width: 36px; height: 36px; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) {
+    .icon-btn, .icon-btn:hover, .icon-btn:active, .choice:active { transform: none !important; }
+}
+
+/* ----- Back button -----
+   The one way back at the top of a page: a chevron and a label in a pill-shaped tap target (44px high, the
+   minimum for a finger). Negative margins keep the text where the old, smaller link sat, so page layouts do not
+   shift. back-btn-icon is the chevron alone, for headers that put the title beside it. */
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 0.25rem;
+    width: fit-content;
+    min-height: 44px;
+    margin: -0.5rem 0 -0.375rem -0.625rem;
+    padding: 0 0.875rem 0 0.5rem;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        background-color var(--motion-base) var(--ease-out),
+        color var(--motion-base) var(--ease-out),
+        transform var(--motion-fast) var(--ease-out);
+}
+.back-btn svg { flex: none; width: 1.125rem; height: 1.125rem; transition: transform var(--motion-base) var(--ease-out); }
+@media (hover: hover) {
+    .back-btn:hover { background: var(--ui-ghost-hover); color: var(--ui-ghost-text); }
+    .back-btn:hover svg { transform: translateX(-2px); }
+}
+.back-btn:active { background: var(--ui-ghost-active); color: var(--ui-ghost-text); transform: scale(0.97); }
+.back-btn:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.back-btn-icon { align-self: center; justify-content: center; width: 44px; padding: 0; margin: 0 0 0 -0.625rem; }
+.back-btn-icon svg { width: 1.25rem; height: 1.25rem; }
+@media (prefers-reduced-motion: reduce) {
+    .back-btn, .back-btn svg, .back-btn:hover svg, .back-btn:active { transform: none !important; }
+}
+
+/* ----- Muted text in the light theme -----
+   Hundreds of labels, hints and section headings use text-slate-400 (#94a3b8). On the light theme's white and
+   near-white surfaces that is about 2.6:1, well under the 4.5:1 that small text needs. In the light theme only,
+   the same class draws a darker slate (5.3:1 on white, 4.8:1 on slate-100). :where() keeps the specificity of a
+   single class, so hover and state colours on the same element still win. Dark theme is unchanged. */
+:where(html:not(.dark)) .text-slate-400 { color: #5a6a80; }
+
+/* ----- No zoom on focus (touch screens) -----
+   iOS Safari zooms the whole page when a focused field's text is under 16px, and does not zoom back. Many fields
+   here are hand-written with 12px or 14px text, so on touch screens every text field is raised to 16px. Fields that
+   are already larger (PIN boxes and the like) are left alone. Mouse-driven screens keep the compact sizes. */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]),
+    textarea:not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]),
+    select:not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]) { font-size: 16px; }
+}
+
+/* ----- QR frame -----
+   <div class="qr-frame"><img …><span class="qr-frame-logo">…</span></div>
+   Always white, in both themes, so scanners get a clean quiet zone. Keep the logo under
+   about a fifth of the code's width or it eats into the error correction. */
+.qr-frame {
+    position: relative;
+    display: inline-flex;
+    padding: 0.875rem;
+    background: #ffffff;
+    border: 1px solid var(--ui-qr-border);
+    border-radius: var(--ui-radius-lg);
+    box-shadow: var(--ui-qr-shadow);
+    line-height: 0;
+}
+/* A compact frame for a small code that sits inside another card. */
+.qr-frame-sm { padding: 0.375rem; border-radius: var(--ui-radius-sm); }
+.qr-frame > img,
+.qr-frame > svg,
+.qr-frame > canvas { display: block; border-radius: 0.375rem; }
+.qr-frame-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem;
+    background: #ffffff;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+
+/* ----- Staggered list entrance -----
+   Put .stagger on the list container: its first ten children rise in 40ms apart, the
+   rest arrive together. Fill mode is "backwards" so no transform is left behind (a
+   lingering transform would trap position:fixed dialogs inside the item). */
+@keyframes stagger-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+}
+.stagger > * { animation: stagger-in var(--motion-slow) var(--ease-out) backwards; animation-delay: 400ms; }
+.stagger > :nth-child(1)  { animation-delay: 0ms; }
+.stagger > :nth-child(2)  { animation-delay: 40ms; }
+.stagger > :nth-child(3)  { animation-delay: 80ms; }
+.stagger > :nth-child(4)  { animation-delay: 120ms; }
+.stagger > :nth-child(5)  { animation-delay: 160ms; }
+.stagger > :nth-child(6)  { animation-delay: 200ms; }
+.stagger > :nth-child(7)  { animation-delay: 240ms; }
+.stagger > :nth-child(8)  { animation-delay: 280ms; }
+.stagger > :nth-child(9)  { animation-delay: 320ms; }
+.stagger > :nth-child(10) { animation-delay: 360ms; }
+
+/* Reduced motion: no lifts, no presses, no entrance. Colour and shadow changes
+   stay (they are instant under the global rule above). The loading spinner turns once
+   and rests as a static ring. */
+@media (prefers-reduced-motion: reduce) {
+    .btn-primary, .btn-secondary, .btn-ghost, .btn-danger,
+    .btn-primary:hover, .btn-secondary:hover, .btn-ghost:hover, .btn-danger:hover,
+    .btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active,
+    .card-interactive, .card-interactive:hover, .card-interactive:active { transform: none !important; }
+    .stagger > * { animation: none !important; }
+}
+
+/* ----- Confirm control: slide to confirm -----
+   For irreversible, value-moving actions only (docs/UI_STYLE.md). Markup and behaviour are in
+   Components/Shared/SlideToConfirm.razor. --p is the slide progress (0 to 1), --confirm-hold the
+   time a key must be held; both are set by the component. */
+:root {
+    --ui-confirm-track: #e6f0ff;
+    --ui-confirm-track-border: #b3d1ff;
+    --ui-confirm-text: #003d7a;
+    --ui-confirm-fill: rgba(0, 102, 204, 0.22);
+}
+.dark {
+    --ui-confirm-track: #002952;
+    --ui-confirm-track-border: #1d4f8f;
+    --ui-confirm-text: #b3d1ff;
+    --ui-confirm-fill: rgba(77, 148, 255, 0.28);
+}
+
+.confirm-slide {
+    --p: 0;
+    --thumb: 48px;
+    position: relative;
+    height: 56px;
+    border: 1px solid var(--ui-confirm-track-border);
+    border-radius: 9999px;
+    background: var(--ui-confirm-track);
+    box-shadow: inset 0 1px 3px rgba(0, 21, 41, 0.12);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: pan-y;
+}
+.confirm-slide:has(.confirm-slide-thumb:focus-visible) { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.confirm-slide-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(4px + var(--thumb) + var(--p) * (100% - var(--thumb) - 8px));
+    border-radius: inherit;
+    background: var(--ui-confirm-fill);
+    transition: width var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+.confirm-slide-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 0.75rem 0 calc(var(--thumb) + 0.75rem);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--ui-confirm-text);
+    opacity: calc(1 - var(--p) * 1.6);
+    pointer-events: none;
+}
+.confirm-slide-thumb {
+    position: absolute;
+    top: 3px;
+    left: calc(4px + var(--p) * (100% - var(--thumb) - 8px));
+    width: var(--thumb);
+    height: var(--thumb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--ui-primary);
+    color: #fff;
+    box-shadow: var(--ui-primary-shadow);
+    cursor: grab;
+    touch-action: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: left var(--motion-base) var(--ease-out), opacity var(--motion-base) var(--ease-out);
+}
+.confirm-slide-thumb svg { width: 1.25rem; height: 1.25rem; }
+/* While dragging the thumb follows the finger exactly: no easing. */
+.confirm-slide.is-dragging .confirm-slide-thumb,
+.confirm-slide.is-dragging .confirm-slide-fill { transition: none; }
+.confirm-slide.is-dragging .confirm-slide-thumb { cursor: grabbing; }
+/* Key held: the thumb travels by itself over the hold time. */
+.confirm-slide.is-holding .confirm-slide-thumb { left: calc(100% - var(--thumb) - 4px); transition: left var(--confirm-hold, 1s) linear; }
+.confirm-slide.is-holding .confirm-slide-fill  { width: 100%; transition: width var(--confirm-hold, 1s) linear; }
+.confirm-slide.is-holding .confirm-slide-label { opacity: 1; }
+/* Confirmed: locked, solid, busy. */
+.confirm-slide.is-done { border-color: transparent; }
+.confirm-slide.is-done .confirm-slide-fill  { width: 100%; background: var(--ui-primary); }
+.confirm-slide.is-done .confirm-slide-thumb { opacity: 0; pointer-events: none; }
+.confirm-slide.is-done .confirm-slide-label { opacity: 1; color: #fff; padding: 0 0.75rem; }
+
+/* Busy spinner in front of the label once confirmed. */
+.confirm-slide.is-done .confirm-slide-label::before {
+    content: "";
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: ui-spin 0.7s linear infinite;
+}
+
+/* Reduced motion: the deliberate drag or key hold is still required, but nothing travels or fills by
+   itself. A held control shows a steady half-tint (with "Keep holding…") instead of progress. */
+@media (prefers-reduced-motion: reduce) {
+    .confirm-slide.is-holding .confirm-slide-thumb { left: 4px; }
+    .confirm-slide.is-holding .confirm-slide-fill  { width: 100%; opacity: 0.5; }
+}
+
+/* ----- Bottom menu -----
+   nav-float is the floating bar. Layout/NavMenu.razor (the live menu) adds nav-float-live, which
+   pins it to the bottom of the 480px app column. Components/Dev/NavMenuPreview.razor uses the same
+   classes inside a frame for the gallery; nav-float-scan and nav-preview-* are for those previews only. */
+:root {
+    /* Glass: a translucent fill over blurred page content, a light rim, and a layered shadow. */
+    --ui-nav-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.80), rgba(244, 248, 255, 0.68));
+    --ui-nav-bg-solid: rgba(255, 255, 255, 0.96);   /* where the browser cannot blur */
+    --ui-nav-border: rgba(255, 255, 255, 0.85);
+    --ui-nav-shadow:
+        0 0 0 1px rgba(0, 41, 82, 0.07),
+        0 1px 2px rgba(0, 41, 82, 0.08),
+        0 8px 20px -6px rgba(0, 41, 82, 0.18),
+        0 22px 44px -14px rgba(0, 41, 82, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --ui-nav-pill-rim: rgba(0, 82, 163, 0.14);
+    --ui-nav-text: #475569;
+    --ui-nav-active: #0052a3;
+    --ui-nav-badge: #dc2626;
+}
+.dark {
+    --ui-nav-bg: linear-gradient(180deg, rgba(12, 52, 110, 0.70), rgba(0, 30, 72, 0.62));
+    --ui-nav-bg-solid: rgba(0, 35, 82, 0.96);
+    --ui-nav-border: rgba(160, 200, 255, 0.16);
+    --ui-nav-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.30),
+        0 10px 24px -6px rgba(0, 0, 0, 0.50),
+        0 24px 48px -12px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    --ui-nav-pill-rim: rgba(179, 209, 255, 0.18);
+    --ui-nav-text: #94a3b8;
+    --ui-nav-active: #b3d1ff;
+    --ui-nav-badge: #ef4444;
+}
+
+.nav-preview-frame {
+    position: relative;
+    width: 375px;
+    max-width: 100%;
+    height: 132px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px dashed var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+}
+.nav-preview-frame-tall { height: 150px; }
+.nav-preview-page { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+.nav-preview-page span { height: 10px; border-radius: 9999px; background: var(--ui-border); }
+.nav-preview-page span:nth-child(2) { width: 70%; }
+.nav-preview-page span:nth-child(3) { width: 45%; }
+
+.nav-float {
+    --nav-accent: var(--ui-primary);
+    --nav-index: 0;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 6px;
+    border: 1px solid var(--ui-nav-border);
+    border-radius: 9999px;   /* fully rounded ends */
+    background: var(--ui-nav-bg-solid);
+    background-clip: padding-box;
+    box-shadow: var(--ui-nav-shadow);
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .nav-float {
+        background: var(--ui-nav-bg);
+        background-clip: padding-box;
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        backdrop-filter: blur(24px) saturate(180%);
+    }
+}
+/* The tinted pill sits behind the active tab's icon only (not its label) and slides between tabs.
+   It is centred on the tab's column: 6px bar padding + (index + half) columns - half its own width. */
+.nav-float-pill {
+    position: absolute;
+    top: 10px;
+    left: calc(6px + (var(--nav-index) + 0.5) * ((100% - 12px) / 5) - 28px);
+    width: 56px;
+    height: 30px;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--nav-accent) 22%, transparent);
+    box-shadow: inset 0 0 0 1px var(--ui-nav-pill-rim), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: left var(--motion-slow) var(--ease-out);
+    pointer-events: none;
+}
+.nav-float-tab,
+.nav-float-scan {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2px;
+    min-height: 52px;
+    padding: 4px 0 0;
+    border: 0;
+    border-radius: 9999px;
+    background: none;
+    color: var(--ui-nav-text);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--motion-base) var(--ease-out);
+}
+.nav-float-tab[aria-current="page"] { color: var(--ui-nav-active); }
+.nav-float-tab:focus-visible,
+.nav-float-scan:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
+/* A fixed 56x30 box, the same size as the pill, so the pill lines up with the icon exactly. */
+.nav-float-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 56px; height: 30px; transition: transform var(--motion-fast) var(--ease-out); }
+.nav-float-icon svg { width: 22px; height: 22px; }
+.nav-float-tab:active .nav-float-icon { transform: scale(0.9); }
+
+.nav-badge-dot,
+.nav-badge-count {
+    position: absolute;
+    top: -3px;
+    right: -6px;
+    background: var(--ui-nav-badge);
+    color: #fff;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 2px var(--ui-surface);
+}
+.nav-badge-dot { width: 8px; height: 8px; top: 2px; right: 13px; }
+.nav-badge-count {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    top: 0;
+    right: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+}
+
+/* Variant C: the raised round Scan button in the centre column. */
+.nav-float-scan { justify-content: flex-end; padding-bottom: 6px; color: var(--ui-nav-active); }
+.nav-float-scan-disc {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    width: 56px;
+    height: 56px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--ui-primary);
+    color: #fff;
+    box-shadow: var(--ui-primary-shadow), 0 0 0 4px var(--ui-surface);
+    transition: transform var(--motion-fast) var(--ease-out);
+}
+.nav-float-scan-disc svg { width: 26px; height: 26px; }
+.nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%) scale(0.94); }
+.nav-float-scan:focus-visible { outline: none; }
+.nav-float-scan:focus-visible .nav-float-scan-disc { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* More: a sheet from the bottom on phones and tablets, a centred card on desktop. It lists every page that is not a tab. */
+.more-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 8, 20, 0.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: backdrop-in 0.2s ease both;
+}
+.more-sheet {
+    width: 100%;
+    max-width: 480px;
+    max-height: 85dvh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-radius: 1.5rem 1.5rem 0 0;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    box-shadow: var(--ui-shadow-raised);
+}
+.more-sheet-grip { width: 40px; height: 4px; margin: 12px auto 4px; border-radius: 9999px; background: var(--ui-border); }
+.more-sheet-list { display: flex; flex-direction: column; gap: 0.5rem; padding: 0 1rem 1rem; overflow-y: auto; }
+.more-sheet-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 56px;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: transparent;
+    cursor: pointer;
+    transition: border-color var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) { .more-sheet-row:hover { background: var(--ui-ghost-hover); } }
+.more-sheet-row:active { background: var(--ui-ghost-active); }
+.more-sheet-row:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.more-sheet-row:disabled { opacity: 0.5; cursor: not-allowed; }
+.more-sheet-row[aria-current="page"] { border-color: var(--ui-focus); background: var(--ui-ghost-hover); }
+.more-sheet-icon {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: var(--ui-ghost-hover);
+    color: var(--ui-ghost-text);
+}
+@media (min-width: 1024px) {
+    .more-sheet-overlay { align-items: center; }
+    .more-sheet { max-width: 420px; border-radius: 1.5rem; padding-bottom: 0; }
+    .more-sheet-grip { visibility: hidden; margin-bottom: 0; }
+}
+
+/* The one-time "Digi-ID and Settings moved" tip: a bubble above the More tab, with a tail pointing at it. */
+.nav-moved-tip {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 14px);
+    width: min(260px, calc(100vw - 24px));
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.5rem 0.625rem 0.875rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    box-shadow: var(--ui-shadow-raised);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    text-align: left;
+    animation: scale-in var(--motion-slow) var(--ease-out) both;
+}
+.nav-moved-tip p { flex: 1; }
+.nav-moved-tip::after {
+    content: "";
+    position: absolute;
+    right: calc(10% - 6px);
+    bottom: -7px;
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+    background: var(--ui-surface);
+    border-right: 1px solid var(--ui-border);
+    border-bottom: 1px solid var(--ui-border);
+}
+
+/* The live menu: fixed to the viewport, centred in the app column, 12px in from its sides. */
+.nav-float-live {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    width: calc(100% - 24px);
+    max-width: 456px;
+    transform: translateX(-50%);
+    z-index: 50;
+}
+.nav-float-tab { text-decoration: none; }
+/* Room for the floating bar under the page content: bar (66px) + its 12px gap + the device's safe area. */
+.main-with-nav { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
+
+/* Desktop (1024px and wider): the live menu becomes a vertical rail hugging the left side of the
+   480px app column, centred vertically. Same tabs and markup; the pill slides up and down.
+   Rail: 76px wide, 16px gap to the column. Tabs: 56px high with 4px between them, 14px rail padding. */
+@media (min-width: 1024px) {
+    .nav-float-live {
+        left: calc(50% - 240px - 16px - 76px);
+        top: 50%;
+        bottom: auto;
+        width: 76px;
+        max-width: none;
+        transform: translateY(-50%);
+        grid-template-columns: 1fr;
+        grid-auto-rows: 56px;
+        row-gap: 4px;
+        padding: 14px 6px;
+    }
+    .nav-float-live .nav-float-tab { min-height: 0; }
+    .nav-float-live .nav-float-pill {
+        left: calc(50% - 28px);
+        top: calc(14px + var(--nav-index) * 60px + 4px);
+        transition: top var(--motion-slow) var(--ease-out);
+    }
+    /* In the rail, Scan is one more row: a smaller disc in line with the tabs, not raised above them. */
+    .nav-float-live .nav-float-scan { min-height: 0; justify-content: center; padding: 0; gap: 1px; }
+    .nav-float-live .nav-float-scan-disc {
+        position: static;
+        width: 36px;
+        height: 36px;
+        transform: none;
+        box-shadow: var(--ui-primary-shadow);
+    }
+    .nav-float-live .nav-float-scan-disc svg { width: 20px; height: 20px; }
+    .nav-float-live .nav-float-scan:active .nav-float-scan-disc { transform: scale(0.94); }
+    .nav-float-live .nav-moved-tip { right: auto; left: calc(100% + 14px); bottom: 6px; }
+    .nav-float-live .nav-moved-tip::after {
+        right: auto;
+        left: -7px;
+        bottom: 22px;
+        border: 0;
+        border-left: 1px solid var(--ui-border);
+        border-bottom: 1px solid var(--ui-border);
+    }
+    /* Nothing sits over the bottom of the page any more. */
+    .main-with-nav { padding-bottom: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-float-pill { transition: none; }
+    .nav-float-tab:active .nav-float-icon { transform: none; }
+    .nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%); }
+    .nav-moved-tip { animation: none; }
+}

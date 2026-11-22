@@ -84,6 +84,11 @@ builder.Services.AddSingleton<HistorySyncOptions>();
 builder.Services.AddScoped(sp => new AddressSummaryStore(sp.GetRequiredService<ISecureStorage>()));
 builder.Services.AddScoped(sp => new WalletHistorySync(sp.GetRequiredService<IBlockchainService>(), sp.GetRequiredService<AddressSummaryStore>()));
 builder.Services.AddScoped<DigiByte.Web.Services.WalletSnapshotCache>();
+// First-receive flow (spec 025): whether a wallet started empty, its one-time first-payment celebration, and the
+// per-device "first session ended" marker the install banner and sponsors strip wait for.
+builder.Services.AddScoped(sp => new FirstReceiveStore(sp.GetRequiredService<ISecureStorage>()));
+builder.Services.AddScoped<DigiByte.Web.Services.FirstReceiveCoordinator>();
+builder.Services.AddScoped<DigiByte.Web.Services.InstallAppState>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();
@@ -105,6 +110,8 @@ builder.Services.AddScoped<SpendingLimitService>();
 builder.Services.AddScoped<AddressLabelService>();
 builder.Services.AddScoped<MarketSnapshotService>();
 builder.Services.AddScoped<ClipboardService>();
+builder.Services.AddScoped<SoundService>();
+builder.Services.AddScoped<ShellActions>();
 
 // ── Blockchain service chain: Own Node (pruned) → Explorer list (with fallback) ──
 // Mock demo data is only available in Development — production throws if all backends fail.

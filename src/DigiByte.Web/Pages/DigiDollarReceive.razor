@@ -32,12 +32,12 @@
         }
         else
         {
-            <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-6 shadow-sm flex flex-col items-center gap-4 w-full">
+            <div class="card scale-in p-6 flex flex-col items-center gap-4 w-full">
                 <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                     <DigiDollarLogo Size="18" />
                     <span>@L.T("dd.receive.network", NetworkLabel)</span>
                 </div>
-                <div class="bg-white rounded-2xl p-3 shadow-inner ring-1 ring-slate-100 relative">
+                <div class="qr-frame">
                     <img src="@qrDataUrl" alt="@L.T("dd.receive.qr")" class="w-48 h-48 rounded-lg" />
                     <div class="absolute inset-0 flex items-center justify-center">
                         <div class="bg-white rounded-full p-1.5 shadow-md"><DigiDollarLogo Size="32" /></div>
@@ -48,11 +48,11 @@
                     <span class="block font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center" aria-label="@L.T("dd.receive.address")">@current.Address</span>
                 </button>
                 <div class="grid grid-cols-2 gap-2 w-full">
-                    <button class="inline-flex items-center justify-center gap-2 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="CopyAsync">
+                    <button class="btn-primary btn-sm" @onclick="CopyAsync">
                         <DdIcon Name="@(copied ? "check" : "copy")" Class="w-4 h-4" StrokeWidth="2" />
                         @(copied ? L.T("dd.receive.copied") : L.T("dd.receive.copy"))
                     </button>
-                    <button class="inline-flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                    <button class="btn-secondary btn-sm"
                             disabled="@busy" @onclick="ShareAsync">
                         <DdIcon Name="share" Class="w-4 h-4" StrokeWidth="2" />
                         @L.T("dd.receive.share")
@@ -73,7 +73,7 @@
             @if (addresses.Count > 1)
             {
                 <div class="w-full">
-                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">@L.T("dd.receive.yours")</h3>
+                    <h3 class="section-label mb-2">@L.T("dd.receive.yours")</h3>
                     <ul class="flex flex-col divide-y divide-slate-100 dark:divide-dgb-800 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
                         @foreach (var a in addresses.OrderByDescending(a => a.Index))
                         {

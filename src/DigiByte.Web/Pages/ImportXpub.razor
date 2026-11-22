@@ -9,12 +9,10 @@
 <div class="flex flex-col gap-5">
     @if (isAddWalletMode)
     {
-        <button class="self-start flex items-center gap-1.5 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
+        <button type="button" class="back-btn self-start"
                 @onclick="GoBack">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-            Back
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <span>Back</span>
         </button>
     }
 
@@ -30,7 +28,7 @@
     @if (step == Step.NameWallet)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Name Your Wallet</h2>
+            <h2 class="page-title">Name Your Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
         </div>
 
@@ -38,7 +36,7 @@
             <input type="text" @bind="walletName" @bind:event="oninput"
                    placeholder="e.g. Savings, Trading, Cold Storage..."
                    maxlength="30" autocomplete="off"
-                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="input" />
             <p class="text-xs text-slate-400 dark:text-slate-500 text-right">@walletName.Length / 30</p>
         </div>
 
@@ -63,7 +61,7 @@
             </div>
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+        <button class="btn-primary w-full"
                 @onclick="NameContinue" disabled="@string.IsNullOrWhiteSpace(walletName)">
             Continue
         </button>
@@ -71,7 +69,7 @@
     else if (step == Step.EnterXpub)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Watch-Only Wallet</h2>
+            <h2 class="page-title">Watch-Only Wallet</h2>
         </div>
 
         <div class="flex flex-col gap-3 slide-up-delay-1">
@@ -81,7 +79,7 @@
             <textarea @bind="xpubInput" rows="3"
                       placeholder="xpub6..."
                       autocomplete="off" spellcheck="false"
-                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                      class="input font-mono resize-none"></textarea>
 
             @* Address preview *@
             @if (previewAddress != null)
@@ -104,17 +102,17 @@
         </div>
 
         <div class="flex flex-col gap-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="ValidateXpub" disabled="@string.IsNullOrWhiteSpace(xpubInput)">
                 Continue
             </button>
-            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="GoBack">Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="GoBack">Back</button>
         </div>
     }
     else if (step == Step.SetPin)
     {
         <div class="slide-up text-center">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
+            <h2 class="page-title">Set Your PIN</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
         </div>
 
@@ -132,7 +130,7 @@
             }
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-2 flex items-center justify-center gap-2"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="OnPinButtonClick"
                 disabled="@(isImporting || (!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))">
             @if (isImporting)

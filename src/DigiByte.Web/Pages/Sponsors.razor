@@ -5,14 +5,14 @@
 <PageTitle>Sponsors — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-4">
-    <button class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors w-fit -mb-2" @onclick="GoBack">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-        Back
+    <button type="button" class="back-btn" @onclick="GoBack">
+        <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        <span>Back</span>
     </button>
 
     <div class="slide-up">
         <div class="flex items-center justify-between gap-3">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Sponsors</h2>
+            <h2 class="page-title">Sponsors</h2>
             <button class="flex items-center gap-1.5 text-xs font-semibold text-dgb-600 dark:text-dgb-400 hover:underline disabled:opacity-50" @onclick="RefreshAsync" disabled="@loading" aria-label="Refresh the sponsors list">
                 <svg class="w-4 h-4 @(loading ? "animate-spin" : "")" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356M2.985 19.644v-4.992h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
                 Refresh
@@ -27,7 +27,7 @@
 
     @if (loading)
     {
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
+        <div class="card p-6 text-center">
             <p class="text-sm text-slate-500 dark:text-slate-400">Loading sponsors…</p>
         </div>
     }
@@ -35,14 +35,14 @@
     {
         <div class="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30 p-5 text-center" role="alert">
             <p class="text-sm text-amber-800 dark:text-amber-300">Couldn't load sponsors right now. Check your connection and try again.</p>
-            <button class="mt-3 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect transition-colors" @onclick="LoadAsync">
+            <button class="btn-primary btn-sm mt-3" @onclick="LoadAsync">
                 Try again
             </button>
         </div>
     }
     else if (result is { State: SponsorLoadState.FreshEmpty })
     {
-        <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
+        <div class="card p-6 text-center">
             <p class="text-base font-semibold text-slate-900 dark:text-white">Be the first to sponsor</p>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">No sponsors are listed yet. Yours could be the first name here.</p>
         </div>
@@ -85,14 +85,14 @@
             </div>
         </div>
 
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 -mb-1">All sponsors</h3>
+        <h3 class="section-label -mb-1">All sponsors</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             @foreach (var sponsor in list.Entries.Take(visibleCount))
             {
                 @if (sponsor.Link is not null)
                 {
                     <a href="@sponsor.Link" target="_blank" rel="noopener noreferrer"
-                       class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline min-w-0">
+                       class="card card-interactive flex flex-col items-center gap-2 p-4 no-underline min-w-0">
                         <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
                         <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
                         @DonationBadge(sponsor)
@@ -101,7 +101,7 @@
                 }
                 else
                 {
-                    <div class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 min-w-0">
+                    <div class="card flex flex-col items-center gap-2 p-4 min-w-0">
                         <SponsorAvatar Name="@sponsor.Name" ImageUrl="@sponsor.ImageUrl" />
                         <p class="text-sm font-semibold text-slate-900 dark:text-white text-center w-full truncate" title="@sponsor.Name">@sponsor.Name</p>
                         @DonationBadge(sponsor)
@@ -112,7 +112,7 @@
 
         @if (list.Entries.Count > visibleCount)
         {
-            <button class="self-center px-4 py-2 text-sm font-semibold text-dgb-600 dark:text-dgb-400 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors"
+            <button class="btn-secondary btn-sm self-center"
                     @onclick="() => visibleCount += PageSize">
                 Show more
             </button>
@@ -120,8 +120,8 @@
     }
 
     @* Where donations go: plain words, no amounts or percentages *@
-    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
-        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Where your donations go</h3>
+    <div class="card p-5 flex flex-col gap-3">
+        <h3 class="block-title block-title-sm">Where your donations go</h3>
         <ul class="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300">
             <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Hosting.</strong> The wallet app and its API run on cloud hosting that has to be paid for every month.</span></li>
             <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Our own DigiByte node.</strong> Running a full node of our own, so the wallet depends less on public services.</span></li>
@@ -135,9 +135,9 @@
     </div>
 
     @* Join section: ways to give and how to get listed *@
-    <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-3">
-        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Support the project</h3>
-        <button class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors"
+    <div class="card p-5 flex flex-col gap-3">
+        <h3 class="block-title block-title-sm">Support the project</h3>
+        <button class="btn-primary btn-sm w-full"
                 @onclick="() => showForm = !showForm" aria-expanded="@showForm">
             @(showForm ? "Hide the form" : "Add me to the list")
         </button>

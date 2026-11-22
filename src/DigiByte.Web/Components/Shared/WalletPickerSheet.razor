@@ -20,9 +20,9 @@
 
             @* Header *@
             <div class="flex items-center justify-between px-5 pb-3">
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">My Wallets</h3>
-                <button class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
-                        @onclick="Close">
+                <h3 class="block-title">My Wallets</h3>
+                <button class="icon-btn icon-btn-sm"
+                        @onclick="Close" aria-label="Close">
                     <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
@@ -108,7 +108,7 @@
 
             @* Footer actions *@
             <div class="px-4 pt-2 pb-4 border-t border-slate-200 dark:border-dgb-800 flex flex-col gap-2">
-                <button class="w-full flex items-center justify-center gap-2 py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold text-sm rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect"
+                <button class="btn-primary w-full"
                         @onclick="AddNewWallet">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

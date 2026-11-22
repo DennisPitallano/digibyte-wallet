@@ -13,9 +13,11 @@ window.domHelpers = {
     },
     autoSizeTxList: function () {
         var main = document.querySelector('main');
-        if (main) main.style.overflow = 'hidden';
-
         var el = document.getElementById('tx-list');
+        // The page itself stops scrolling only while the transaction list is there to scroll instead. With no list (an
+        // empty wallet's address and QR code, the loading rows, a failed load) the page must scroll, or its lower part
+        // cannot be reached on a small screen.
+        if (main) main.style.overflow = el ? 'hidden' : '';
         if (!el) return;
         var rect = el.getBoundingClientRect();
         var navHeight = 64;
@@ -119,6 +121,13 @@ window.domHelpers = {
     // Used by Home page poller to pause network refreshes while hidden.
     isHidden: function () {
         return typeof document !== 'undefined' && document.hidden === true;
+    },
+    // Slide to confirm: keep the drag on the thumb even when the pointer leaves it (pointer capture),
+    // and return how far the thumb can travel in px (track width minus the thumb and its 4px insets).
+    beginSlide: function (thumb, pointerId) {
+        if (!thumb || !thumb.parentElement) return 0;
+        try { thumb.setPointerCapture(pointerId); } catch (e) { }
+        return thumb.parentElement.clientWidth - thumb.offsetWidth - 8;
     },
     // Returns true if history.back() would stay within this app.
     // Used by pages like /help that can be deep-linked: if the user arrived

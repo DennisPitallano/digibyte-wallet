@@ -1,7 +1,7 @@
-@* A QR code in the same frame the Receive page uses: white rounded tile, inner shadow, and the DigiByte logo in the middle. *@
+@* A QR code in the shared frame (qr-frame, docs/UI_STYLE.md): white in both themes, with the DigiByte logo in the middle when asked. *@
 @if (dataUrl is not null)
 {
-    <div class="bg-white rounded-2xl p-3 shadow-inner relative @Class">
+    <div class="qr-frame @Class">
         <img src="@dataUrl" alt="@Alt" class="@(Small ? "w-36 h-36" : "w-48 h-48") rounded-lg" />
         @if (ShowLogo)
         {

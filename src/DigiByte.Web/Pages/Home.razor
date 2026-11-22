@@ -14,11 +14,12 @@
 @inject TransactionTracker TxTracker
 @inject MarketSnapshotService Market
 @inject NotificationService Notifications
+@inject FirstReceiveCoordinator FirstReceive
+@inject SoundService Sounds
 
 <PageTitle>DigiByte Wallet — Self-Custodial DGB Wallet</PageTitle>
 
 <AuthGuard>
-    <OnboardingWalkthrough />
     <div class="flex flex-col gap-4" @ontouchstart="OnTouchStart" @ontouchmove="OnTouchMove" @ontouchend="OnTouchEnd">
         @* Pull-to-refresh indicator *@
         @if (pullDistance > 0)
@@ -45,8 +46,12 @@
                     </svg>
                 </button>
             }
-                @* Newest sponsors: loads quietly in the background and hides itself on any problem. *@
-                <SponsorsStrip />
+                @* Newest sponsors: loads quietly in the background and hides itself on any problem. Not shown until some wallet
+                   on this device has a transaction, so a new user's first screen is about getting a first payment (spec 025). *@
+                @if (FirstReceive.FirstSessionEnded)
+                {
+                    <SponsorsStrip />
+                }
             </div>
 
             @* Balance Card Stack *@
@@ -61,20 +66,29 @@
                          style="transform: translateX(@(i * 10)px) scale(@(1 - i * 0.04)); background: linear-gradient(135deg, @(lc)18, @(lc)08); z-index: @(5 - i);"></div>
                 }
             }
-            @* Balance Card. With a finish chosen, the card becomes that material in the wallet's colour and its text stays light. *@
+            @* Balance Card, drawn as a closed wallet in the wallet's own colour: a stitched body, a strap across the right
+               edge and a metal snap that locks the app. The material is the wallet's finish (smooth leather by default;
+               pebbled leather, cotton, plastic or metal from Manage Wallets). Light text in both themes. *@
             @{ var cardTexture = WalletInfo.NormalizeTexture(WalletService.ActiveWallet?.Texture); }
-            <div class="@(cardTexture == WalletInfo.DefaultTexture ? "" : "dark wallet-card-textured") relative overflow-hidden rounded-2xl bg-white dark:bg-gradient-to-br dark:from-dgb-900 dark:via-dgb-800 dark:to-dgb-700 border border-dgb-200 dark:border-dgb-700/50 px-5 py-4 text-dgb-900 dark:text-white shadow-lg shadow-gray-200/50 dark:shadow-dgb-900/25"
-                 style="z-index: 10; transform: translateX(@(cardSwipeOffset)px); @(isCardAnimating ? "transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);" : "")">
-                @* Tinted with the wallet's own colour, so multi-wallet users can tell wallets apart at a glance *@
-                <div class="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-2xl" style="background-color: @(WalletService.ActiveWallet?.Color ?? "#0066FF")40;"></div>
-                @* The wallet's chosen finish (leather, cotton, plastic, metal), set in Manage Wallets. "smooth" draws nothing. *@
+            <div class="dark wallet-card wallet-card-textured relative overflow-hidden px-5 py-4"
+                 style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF"); z-index: 10; transform: translateX(@(cardSwipeOffset)px); @(isCardAnimating ? "transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);" : "")">
+                @* The wallet's chosen finish (leather, cotton, plastic, metal), set in Manage Wallets. "smooth" is the plain glossy card. *@
                 <div class="wallet-tex wallet-tex-@cardTexture" style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF");" aria-hidden="true"></div>
-                <div class="absolute left-0 top-4 bottom-4 w-1 rounded-r-full" style="background-color: @(WalletService.ActiveWallet?.Color ?? "#0066FF");"></div>
-                <div class="absolute -bottom-6 -left-6 w-20 h-20 bg-dgb-50/50 dark:bg-dgb-400/10 rounded-full blur-xl"></div>
-                <div class="absolute -bottom-4 -right-4 opacity-[0.08] dark:opacity-[0.10] pointer-events-none">
-                    <SpinningCoin Size="120" />
-                </div>
-                <div class="relative">
+                @* The DigiByte mark stamped into the skin, like a maker's mark on a real wallet. Three copies of the same
+                   shape: a light one nudged up-left, a dark one nudged down-right, and the face on top in the skin's
+                   own colour, so only the lit and shaded edges show and the mark reads as raised. *@
+                <svg class="wallet-emboss" viewBox="-14 -14 507.8 507.8" aria-hidden="true">
+                    <defs>
+                        <g id="wallet-emboss-mark">
+                            <circle cx="239.9" cy="239.9" r="219.5" fill="none" stroke="currentColor" stroke-width="40.8" />
+                            <path fill="currentColor" d="M116.9 182.9h155s53.5-.5 16.5 68.5c0 0-27 54-94 53l36.1-92.2a7.3 7.3 0 0 0-6.6-10l-47.5-.8-60 146s20 2 31 1l-6 15h28.3a3.8 3.8 0 0 0 3.6-2.5l5.1-13.5 12-1-7 17H211a5 5 0 0 0 4.7-3.2l7.7-19.8s84-14 122-82c0 0 51-79-9-107a116 116 0 0 0-37-10l7-17.3a3.4 3.4 0 0 0-3.1-4.7h-25.9l-8 21h-11l6.2-16.3a3.5 3.5 0 0 0-3.2-4.7h-26l-8 21h-80.8a12 12 0 0 0-10.6 6.3z" />
+                        </g>
+                    </defs>
+                    <use href="#wallet-emboss-mark" class="wallet-emboss-lit" transform="translate(-9 -9)" />
+                    <use href="#wallet-emboss-mark" class="wallet-emboss-shade" transform="translate(10 11)" />
+                    <use href="#wallet-emboss-mark" class="wallet-emboss-face" />
+                </svg>
+                <div class="relative flex flex-col flex-1 w-full min-w-0">
                     <div class="flex items-center gap-2">
                         <p class="text-xs text-dgb-600 dark:text-dgb-200 font-medium">Total Balance</p>
                         @if (AppState.NetworkMode != "mainnet")
@@ -186,8 +200,11 @@
                     @* Wallet address with copy & QR *@
                     @if (!string.IsNullOrEmpty(receivingAddress))
                     {
-                        <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-dgb-300/30 dark:border-white/10">
-                            <span class="text-[11px] font-mono text-dgb-500/70 dark:text-dgb-300/80 truncate flex-1">@TruncateAddress(receivingAddress)</span>
+                        <div class="flex items-end gap-1.5 mt-auto pt-3">
+                            <div class="flex-1 min-w-0">
+                                <p class="wallet-card-name truncate">@(WalletService.ActiveWallet?.Name ?? "Wallet")</p>
+                                <p class="wallet-card-number truncate">@TruncateAddress(receivingAddress)</p>
+                            </div>
                             <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Copy address" aria-label="Copy address"
                                     @onclick="CopyAddress">
                                 <svg class="w-3.5 h-3.5 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -204,6 +221,14 @@
                         </div>
                     }
                 </div>
+                @* The wallet's strap and its snap. The snap is a real button: pressing it closes (locks) the wallet. *@
+                <span class="wallet-strap" aria-hidden="true"></span>
+                <button type="button" class="wallet-snap" aria-label="Lock wallet" title="Lock wallet" data-testid="wallet-lock"
+                        @onclick="AppState.LockNow" @onclick:stopPropagation="true">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" />
+                    </svg>
+                </button>
             </div>
             @* Wallet Indicators *@
             @if (allWallets.Count > 1)
@@ -220,7 +245,8 @@
             }
             </div> @* end card stack *@
 
-            @* Action buttons: the four everyday actions plus More, which opens a sheet with the rest. *@
+            @* Action buttons: four everyday actions. Scan and More are in the menu, which is always on screen, so they are
+               not repeated here. *@
             <div class="flex justify-center gap-5 mt-3">
                 <button type="button" class="flex flex-col items-center gap-1 group disabled:opacity-40" @onclick="OnSend" disabled="@isWatchOnly">
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
@@ -238,15 +264,6 @@
                     </div>
                     <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
                 </button>
-                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnScan">
-                    <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                        <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 14.625v2.625m3.375-2.625v2.625M16.875 20.25h-3.375v-2.625" />
-                        </svg>
-                    </div>
-                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Scan</span>
-                </button>
                 <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnContacts">
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                         <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -255,13 +272,13 @@
                     </div>
                     <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Contacts</span>
                 </button>
-                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="() => showMore = true" aria-haspopup="dialog">
+                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnMultisig">
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                         <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
                         </svg>
                     </div>
-                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">More</span>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Multisig</span>
                 </button>
             </div>
         </div>
@@ -276,7 +293,7 @@
             @if (quickContacts.Count > 0 && !isWatchOnly)
             {
                 <div class="mt-2 flex items-center gap-3">
-                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider leading-tight shrink-0">Quick<br />send</h3>
+                    <h3 class="section-label leading-tight shrink-0">Quick<br />send</h3>
                     <div class="flex-1 min-w-0 flex gap-3 overflow-x-auto thin-scrollbar">
                         @foreach (var c in quickContacts)
                         {
@@ -312,7 +329,7 @@
             @* Transaction Header *@
             <div class="flex items-center justify-between mt-2 mb-2">
                 <div class="flex items-center gap-1.5">
-                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Transactions</h3>
+                    <h3 class="section-label">Transactions</h3>
                     @if (transactions.Count > 0)
                     {
                         <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500">(@transactions.Count)</span>
@@ -331,7 +348,9 @@
             </div>
 
             @* Transaction List — scrollable *@
-            @if (isLoadingTx && transactions.Count == 0)
+            @* Placeholder rows only until the first load has answered. After that an empty wallet keeps showing its address
+               while the background check runs, instead of blinking to placeholders every few seconds (spec 025). *@
+            @if (isLoadingTx && transactions.Count == 0 && !txLoadedOnce)
             {
                 @* Skeleton rows while loading *@
                 <div class="flex flex-col gap-1">
@@ -353,38 +372,30 @@
             }
             else if (transactions.Count == 0)
             {
-                @if (!fetchFailed)
+                @if (fetchFailed)
                 {
-                    <BakuMessage MessageId="home.empty" Class="mb-3" />
-                }
-                <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
-                    <div class="w-10 h-10 mx-auto mb-2 rounded-full @(fetchFailed ? "bg-amber-100 dark:bg-amber-900/20" : "bg-slate-100 dark:bg-dgb-800") flex items-center justify-center">
-                        @if (fetchFailed)
-                        {
+                    <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-6 text-center">
+                        <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
                             <svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                             </svg>
-                        }
-                        else
-                        {
-                            <svg class="w-5 h-5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                            </svg>
-                        }
-                    </div>
-                    @if (fetchFailed)
-                    {
+                        </div>
                         <p class="text-xs font-medium text-amber-600 dark:text-amber-400">Unable to load data</p>
                         <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Check your connection, then try again</p>
-                        <button type="button" class="mt-3 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect transition-colors disabled:opacity-50"
+                        <button type="button" class="btn-primary btn-sm mt-3"
                                 @onclick="ManualRefreshAsync" disabled="@isRefreshing">@(isRefreshing ? "Trying..." : "Try again")</button>
-                    }
-                    else
-                    {
-                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">No transactions yet</p>
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Send or receive DGB to get started</p>
-                    }
-                </div>
+                    </div>
+                    @* The address does not depend on the network, so it stays available while the history cannot be read
+                       (spec 025, FR-007, FR-008). No mascot line here: nothing is known about this wallet's history yet. *@
+                    <ReceiveEmptyState Address="@receivingAddress" Class="mt-3" />
+                }
+                else
+                {
+                    @* Nothing here yet: the address to share is the next step (spec 025, FR-003). The mascot's message is the
+                       only explanatory copy; the empty state stands on its own when the mascot is off or the tip was dismissed. *@
+                    <BakuMessage MessageId="home.empty" Class="mb-3" />
+                    <ReceiveEmptyState Address="@receivingAddress" />
+                }
             }
             else
             {
@@ -402,10 +413,12 @@
         </div>
     </div>
 
-    <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
     <TransactionDetailModal IsOpen="@(selectedTx != null)" Tx="@selectedTx"
         OnClosed="() => selectedTx = null"
         OnAddContact="AddCounterpartyToContacts" />
+
+    @* The wallet's first payment, celebrated once. It waits while one of this page's dialogs is open (spec 025, FR-023). *@
+    <FirstReceiveCelebration Blocked="@(selectedTx != null || showWalletInfo || showAddressQr || showWalletPicker)" />
 
     @* Wallet Info Modal *@
     @if (showWalletInfo)
@@ -414,7 +427,7 @@
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-3"
                  @onclick:stopPropagation="true">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">Wallet Info</h3>
+                    <h3 class="block-title block-title-sm">Wallet Info</h3>
                     <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
                             @onclick="() => showWalletInfo = false">
                         <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -475,10 +488,10 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="() => showAddressQr = false">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col items-center gap-3"
                  @onclick:stopPropagation="true">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Your Receiving Address</h3>
+                <h3 class="block-title block-title-sm">Your Receiving Address</h3>
                 @if (!string.IsNullOrEmpty(addressQrDataUri))
                 {
-                    <div class="bg-white rounded-2xl p-3 shadow-inner relative">
+                    <div class="qr-frame">
                         <img src="@addressQrDataUri" alt="QR Code" class="w-48 h-48 rounded-lg" />
                         <div class="absolute inset-0 flex items-center justify-center">
                             <div class="bg-white rounded-full p-1.5 shadow-md">
@@ -487,56 +500,12 @@
                         </div>
                     </div>
                 }
-                <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400 text-center break-all leading-relaxed select-all">@receivingAddress</p>
+                <p class="addr-balance text-[11px] font-mono text-slate-500 dark:text-slate-400 text-center break-all leading-relaxed select-all">@receivingAddress</p>
                 <div class="flex gap-2 w-full">
-                    <button class="flex-1 py-2 text-xs font-semibold rounded-xl bg-dgb-500 text-white hover:bg-dgb-600 transition-colors"
+                    <button class="btn-primary btn-sm flex-1"
                             @onclick="CopyAddress">Copy</button>
-                    <button class="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                    <button class="btn-secondary btn-sm flex-1"
                             @onclick="() => showAddressQr = false">Close</button>
-                </div>
-            </div>
-        </div>
-    }
-
-    @* More actions bottom sheet *@
-    @if (showMore)
-    {
-        <div class="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true" aria-label="More actions" @onclick="() => showMore = false">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-enter"></div>
-            <div class="sheet-enter relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px]" @onclick:stopPropagation="true">
-                <div class="flex justify-center pt-3 pb-1">
-                    <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700"></div>
-                </div>
-                <div class="flex items-center justify-between px-5 pb-3">
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">More</h3>
-                    <button type="button" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
-                            aria-label="Close" @onclick="() => showMore = false">
-                        <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div class="px-4 pb-4 flex flex-col gap-2">
-                    @foreach (var item in MoreActions)
-                    {
-                        var action = item;
-                        var blocked = action.NeedsKeys && isWatchOnly;
-                        <button type="button" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all text-left press-effect disabled:opacity-40"
-                                disabled="@blocked" @onclick="() => OpenMore(action.Href)">
-                            <div class="w-10 h-10 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
-                                <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="@action.Icon" />
-                                </svg>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white">@action.Label</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">@(blocked ? "Not available for watch-only wallets" : action.Description)</p>
-                            </div>
-                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                            </svg>
-                        </button>
-                    }
                 </div>
             </div>
         </div>
@@ -561,6 +530,7 @@
     private List<TransactionRecord> transactions = [];
     private bool isLoadingBalance;
     private bool isLoadingTx;
+    private bool txLoadedOnce; // a history load has finished (well or badly) for the wallet on show
     private bool isLoadingPrice;
     private bool hasCachedData; // true = loaded real data from IndexedDB
     private bool fetchFailed; // true = network fetch errored (not just empty)
@@ -593,25 +563,6 @@
     // Getting-started checklist inputs
     private bool checklistReady;
     private bool hasUserContact;
-
-    // More sheet
-    private bool showMore;
-    private sealed record MoreAction(string Label, string Description, string Href, string Icon, bool NeedsKeys = false);
-    private static readonly MoreAction[] MoreActions =
-    [
-        new("Multisig", "Shared wallets that need several signatures", "/multisig",
-            "M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"),
-        new("Consolidate", "Combine small amounts to lower future fees", "/consolidate",
-            "M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125", NeedsKeys: true),
-        new("Analytics", "DGB price and network stats", "/analytics",
-            "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"),
-        new("P2P Exchange", "Buy and sell DGB with other users (coming soon)", "/p2p",
-            "M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"),
-        new("Donate", "Support the wallet and see past donations", "/donation-history",
-            "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"),
-        new("Roadmap", "What is built and what comes next", "/roadmap",
-            "M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"),
-    ];
 
     // Pull-to-refresh state
     private double pullDistance;
@@ -646,6 +597,10 @@
         activeCardIndex = allWallets.FindIndex(w => w.Id == WalletService.ActiveWallet?.Id);
         if (activeCardIndex < 0) activeCardIndex = 0;
 
+        _refreshLoop = new AutoRefreshLoop(JS);
+        _announcer = new IncomingPaymentAnnouncer(Notifications, JS, Sounds);
+        FirstReceive.Changed += OnFirstReceiveChanged;
+
         // Fire all I/O in parallel — UI renders immediately with skeleton states
         var contactsTask = ContactService.GetAllWithWalletsAsync(WalletService);
         var addressTask = WalletService.IsUnlocked
@@ -657,6 +612,11 @@
 
         // Try IndexedDB cache first — instant display
         await LoadFromCacheAsync();
+
+        // The receiving address is derived on the device, so it must not wait for the network: an empty wallet shows it
+        // (with its QR code) as the first thing to do, including offline (spec 025, FR-007).
+        try { receivingAddress = await addressTask; } catch { }
+        StateHasChanged();
 
         // Check if redirected from a send — force fresh fetch after a short delay
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
@@ -687,7 +647,6 @@
         // Contacts & address are fast (IndexedDB) — await them
         try { ApplyContacts(await contactsTask); } catch { }
         checklistReady = true;
-        try { receivingAddress = await addressTask; } catch { }
 
         // Start the always-on background refresh poller so incoming funds and new
         // transactions appear within ~15s without requiring a manual pull-to-refresh.
@@ -710,11 +669,8 @@
             _confirmationPollTimer = null;
         }
         // Stop background auto-refresh poller
-        if (_autoRefreshTimer != null)
-        {
-            await _autoRefreshTimer.DisposeAsync();
-            _autoRefreshTimer = null;
-        }
+        FirstReceive.Changed -= OnFirstReceiveChanged;
+        if (_refreshLoop is not null) await _refreshLoop.StopAsync();
         // Restore page scroll when leaving this page
         try { await JS.InvokeVoidAsync("domHelpers.restoreScroll"); }
         catch { }
@@ -730,40 +686,18 @@
     //   2. Idle backoff   — when fetched data hasn't changed, gradually
     //      stretch the effective interval (15s → 30s → 60s, capped). Resets
     //      to 15s the moment something changes or the user manually refreshes.
-    private System.Threading.Timer? _autoRefreshTimer;
+    //
+    // The timer and the pacing live in AutoRefreshLoop / RefreshPacer, which the Receive page uses too (spec 025).
+    // Created in OnInitializedAsync, not injected: each belongs to this page and ends with it.
+    private AutoRefreshLoop _refreshLoop = null!;
+    private IncomingPaymentAnnouncer _announcer = null!;
     private bool _isFetching;
-    private int _idleStreak;          // consecutive unchanged fetches
-    private int _ticksUntilNextFetch; // base-tick countdown (1 tick = 15s)
     private string? _lastDataSignature;
 
-    private void StartAutoRefreshPoller()
-    {
-        if (_autoRefreshTimer != null) return;
-        _idleStreak = 0;
-        _ticksUntilNextFetch = 1;
-        _autoRefreshTimer = new System.Threading.Timer(
-            async _ => await OnAutoRefreshTickAsync(),
-            null,
-            dueTime: TimeSpan.FromSeconds(15),
-            period: TimeSpan.FromSeconds(15));
-    }
+    private void StartAutoRefreshPoller() =>
+        _refreshLoop.Start(() => InvokeAsync(FetchAndCacheAsync), () => _isFetching);
 
-    private async Task OnAutoRefreshTickAsync()
-    {
-        if (_isFetching) return;
-
-        // Pause while tab is hidden (minimized, screen off, switched away).
-        try
-        {
-            if (await JS.InvokeAsync<bool>("domHelpers.isHidden")) return;
-        }
-        catch { /* JS unavailable — assume visible and continue */ }
-
-        // Idle backoff: only fetch every Nth tick once the chain looks quiet.
-        if (--_ticksUntilNextFetch > 0) return;
-
-        try { await InvokeAsync(FetchAndCacheAsync); } catch { }
-    }
+    private void OnFirstReceiveChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>Compute a cheap fingerprint of the current visible state to
     /// detect whether a fetch surfaced anything new.</summary>
@@ -773,24 +707,10 @@
     private void UpdateBackoffFromFetchResult()
     {
         var sig = ComputeDataSignature();
-        if (sig == _lastDataSignature)
-        {
-            _idleStreak++;
-        }
-        else
-        {
-            _idleStreak = 0;
-            _lastDataSignature = sig;
-        }
-        // 0 unchanged → next fetch in 1 tick (15s)
-        // 1-2 unchanged → 2 ticks (30s)
-        // 3+ unchanged → 4 ticks (60s, cap)
-        _ticksUntilNextFetch = _idleStreak switch
-        {
-            0 => 1,
-            <= 2 => 2,
-            _ => 4,
-        };
+        var changed = sig != _lastDataSignature;
+        if (changed) _lastDataSignature = sig;
+        // Unchanged fetches stretch the interval (15 s, then 30 s, then 60 s); a change returns it to 15 s.
+        _refreshLoop.Report(changed);
     }
 
     // ── Pending-transaction confirmation polling ────────────────────────────
@@ -868,7 +788,9 @@
             if (snapshot.Transactions is { Count: > 0 } cachedTxs)
             {
                 transactions = cachedTxs;
-                knownTxIds ??= cachedTxs.Select(t => t.TxId).ToHashSet();
+                _announcer.Seed(ActiveWalletId, cachedTxs);
+                // Saved history is enough to know this wallet did not start empty; it never celebrates (spec 025, FR-011).
+                await FirstReceive.ObserveAsync(ActiveWalletId, cachedTxs, HistorySource.SavedSnapshot);
             }
 
             if (hasCachedData) StateHasChanged();
@@ -963,42 +885,6 @@
         throw new TimeoutException();
     }
 
-    // Transaction IDs already seen for this wallet; null until the first list (cache or network) has been recorded.
-    private HashSet<string>? knownTxIds;
-
-    /// <summary>
-    /// Says "received" once per incoming transaction that appears while Home is open. It goes by transaction ID,
-    /// not by a change in the balance figure: a balance read can come back low when an explorer drops some
-    /// address lookups, and the next good read would then look like money arriving.
-    /// </summary>
-    private async Task AnnounceNewReceivedAsync()
-    {
-        if (knownTxIds is null)
-        {
-            // First list for this wallet: record it without announcing anything.
-            knownTxIds = transactions.Select(t => t.TxId).ToHashSet();
-            return;
-        }
-
-        // Only recent transactions count as arrivals; an older one showing up late is history filling in.
-        var cutoff = DateTime.UtcNow.AddMinutes(-15);
-        var arrived = transactions
-            .Where(t => !knownTxIds.Contains(t.TxId)
-                        && t.Direction == TransactionDirection.Received
-                        && (t.Confirmations <= 2 || t.Timestamp.ToUniversalTime() >= cutoff))
-            .ToList();
-        foreach (var t in transactions) knownTxIds.Add(t.TxId);
-        if (arrived.Count == 0) return;
-
-        var message = hideBalance
-            ? (arrived.Count == 1 ? "Payment received" : $"{arrived.Count} payments received")
-            : arrived.Count == 1
-                ? $"+{arrived[0].AmountDgb:0.########} DGB received"
-                : $"{arrived.Count} payments received, +{arrived.Sum(t => t.AmountDgb):0.########} DGB";
-        Notifications.Success(message);
-        try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 15, 40, 25 }); } catch { }
-    }
-
     private async Task LoadPriceAsync()
     {
         isLoadingPrice = true;
@@ -1019,9 +905,17 @@
         isLoadingTx = true;
         try
         {
-            transactions = await WithTimeout(WalletService.GetTransactionHistoryAsync());
+            var walletId = ActiveWalletId;
+            // The load reports its own completeness: with Receive also checking, loads can overlap (spec 025, FR-015).
+            var load = await WithTimeout(WalletService.LoadTransactionHistoryAsync());
+            transactions = load.Transactions;
             await LoadWalletAddressLabelsAsync();
-            await AnnounceNewReceivedAsync();
+            if (ActiveWalletId == walletId)
+            {
+                // A wallet that started empty celebrates its first payment once; that payment gets no ordinary notice.
+                var firstPayment = await FirstReceive.ObserveAsync(walletId, transactions, FirstReceiveCoordinator.SourceOf(load));
+                await _announcer.AnnounceAsync(walletId, transactions, hideBalance, firstPayment?.TxIds);
+            }
 
             // Start poller if any txs are still under 6 confirmations
             if (transactions.Any(t => t.Confirmations < 6))
@@ -1030,7 +924,7 @@
                 StopConfirmationPoller();
         }
         catch { txFetchFailed = true; }
-        finally { isLoadingTx = false; StateHasChanged(); }
+        finally { isLoadingTx = false; txLoadedOnce = true; StateHasChanged(); }
     }
 
     // Transaction detail
@@ -1047,13 +941,7 @@
     private void OnSend() => Nav.NavigateTo("/send");
     private void OnReceive() => Nav.NavigateTo("/receive");
     private void OnContacts() => Nav.NavigateTo("/contacts");
-    private void OnScan() { showScanner = true; }
-
-    private void OpenMore(string href)
-    {
-        showMore = false;
-        Nav.NavigateTo(href);
-    }
+    private void OnMultisig() => Nav.NavigateTo("/multisig");
 
     private void ApplyContacts(List<Contact> all)
     {
@@ -1128,24 +1016,6 @@
         }
     }
 
-    private bool showScanner;
-
-    private void OnQrScanned(string data)
-    {
-        showScanner = false;
-        // Parse digibyte: URI and navigate to send with pre-filled data
-        var parsed = DigiByte.Wallet.Models.PaymentRequest.FromUri(data);
-        if (parsed != null)
-        {
-            var url = $"/send?address={Uri.EscapeDataString(parsed.Address)}";
-            if (parsed.AmountDgb.HasValue) url += $"&amount={parsed.AmountDgb.Value}";
-            Nav.NavigateTo(url);
-        }
-        else
-        {
-            Nav.NavigateTo($"/send?address={Uri.EscapeDataString(data.Trim())}");
-        }
-    }
     private void SendToContact(Contact c) =>
         Nav.NavigateTo($"/send?address={Uri.EscapeDataString(c.Address)}&name={Uri.EscapeDataString(c.Name)}");
 
@@ -1211,8 +1081,7 @@
 
         // User explicitly asked for fresh data — reset idle backoff so the
         // background poller resumes at full 15s cadence afterwards.
-        _idleStreak = 0;
-        _ticksUntilNextFetch = 1;
+        _refreshLoop.NotifyManualRefresh();
 
         // A refresh the user starts reads every address, not just the hot ones (spec 024, FR-006).
         WalletService.RequestFullCheck();
@@ -1339,7 +1208,8 @@
         balance = new WalletBalance();
         _animToken++; animatedDgb = null;
         transactions = [];
-        knownTxIds = null;
+        _announcer.Forget();
+        txLoadedOnce = false;
         receivingAddress = "";
         addressQrDataUri = null;
         hasCachedData = false;
@@ -1397,7 +1267,8 @@
             balance = new WalletBalance();
         _animToken++; animatedDgb = null;
             transactions = [];
-            knownTxIds = null;
+            _announcer.Forget();
+            txLoadedOnce = false;
             receivingAddress = "";
             addressQrDataUri = null;
             hasCachedData = false;

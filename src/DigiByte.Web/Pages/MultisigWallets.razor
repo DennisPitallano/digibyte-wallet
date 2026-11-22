@@ -23,7 +23,7 @@
         <div class="flex flex-col gap-3">
             @for (int i = 0; i < 2; i++)
             {
-                <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <div class="card p-4">
                     <div class="h-5 w-40 skeleton rounded"></div>
                     <div class="h-4 w-60 skeleton rounded mt-2"></div>
                 </div>
@@ -63,12 +63,12 @@
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">No Multisig Wallets</h3>
+                    <h3 class="block-title">No Multisig Wallets</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-[260px]">
                         Create a shared wallet that requires multiple signatures to spend funds.
                     </p>
                 </div>
-                <button class="min-h-[44px] py-2.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl transition-all press-effect"
+                <button class="btn-primary btn-sm"
                         @onclick='() => Nav.NavigateTo("/multisig/create")'>
                     Create Multisig Wallet
                 </button>
@@ -97,11 +97,11 @@
                                 <span class="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full flex-shrink-0">DRAFT</span>
                             </div>
                             <div class="flex items-center gap-2 mt-3">
-                                <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect"
+                                <button class="btn-primary btn-sm flex-1"
                                         @onclick="() => ContinueDraft(draft.Id)">Continue</button>
                                 @if (confirmDeleteId == draft.Id)
                                 {
-                                    <button class="min-h-[44px] py-2 px-3 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl press-effect"
+                                    <button class="btn-danger btn-sm"
                                             @onclick="() => DeleteDraft(draft.Id)">Delete draft?</button>
                                     <button class="min-h-[44px] py-2 px-3 text-xs font-medium text-slate-500" @onclick="() => confirmDeleteId = null">Cancel</button>
                                 }
@@ -127,7 +127,7 @@
             <div class="flex flex-col gap-2">
                 @foreach (var (wallet, config) in wallets)
                 {
-                    <div class="slide-up-delay-1 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+                    <div class="card slide-up-delay-1 card-hover">
                         <div class="flex items-center">
                             <button class="flex-1 min-w-0 p-4 pr-2 text-left" aria-label="Open @wallet.Name" @onclick="() => OpenWallet(wallet.Id)">
                                 <div class="flex items-center gap-3">

@@ -5,13 +5,14 @@
 @inject AppState AppState
 @inject IJSRuntime JS
 @inject IConfiguration Config
+@inject LocalizationService L
 
-<PageTitle>Payments — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("request.title") — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Payments</h2>
-        <button class="w-9 h-9 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-colors press-effect"
+        <h2 class="page-title">@L.T("request.title")</h2>
+        <button class="icon-btn icon-btn-primary"
                 aria-label="New payment request" @onclick="ShowCreateForm">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -22,8 +23,8 @@
     @* Create Payment Request *@
     @if (showCreate)
     {
-        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 flex flex-col gap-3">
-            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">New Payment Request</h3>
+        <div class="card scale-in p-4 flex flex-col gap-3">
+            <h3 class="block-title block-title-sm">New Payment Request</h3>
             <div class="flex flex-col gap-1">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount (optional)</label>
                 <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl">
@@ -33,13 +34,13 @@
                 </div>
             </div>
             <input type="text" @bind="createLabel" placeholder="Label (e.g. Invoice #123)"
-                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                   class="input" />
             <input type="text" @bind="createMessage" placeholder="Message (optional)"
-                   class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                   class="input" />
             <div class="flex gap-2">
-                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-secondary btn-sm flex-1"
                         @onclick="() => showCreate = false">Cancel</button>
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-primary btn-sm flex-1"
                         @onclick="CreateRequest">Create</button>
             </div>
         </div>
@@ -48,8 +49,8 @@
     @* Active request detail *@
     @if (activeRequest != null)
     {
-        <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-5 flex flex-col items-center gap-4">
-            <div class="bg-white rounded-2xl p-3 shadow-inner relative">
+        <div class="card scale-in p-5 flex flex-col items-center gap-4">
+            <div class="qr-frame">
                 <img src="@activeQrUrl" alt="Payment QR" class="w-44 h-44 rounded-lg" />
                 <div class="absolute inset-0 flex items-center justify-center">
                     <div class="bg-white rounded-full p-1.5 shadow-md">
@@ -69,9 +70,9 @@
                 @activeRequest.ToUri()
             </p>
             <div class="flex gap-2 w-full">
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-primary btn-sm flex-1"
                         @onclick="CopyUri">@(copied ? "Copied!" : "Copy Link")</button>
-                <button class="flex-1 py-2.5 bg-white dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-secondary btn-sm flex-1"
                         @onclick="ShareUri">Share</button>
             </div>
             <button class="flex items-center justify-center gap-1.5 w-full py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors"
@@ -102,7 +103,7 @@
             @foreach (var req in requests)
             {
                 var r = req;
-                <button class="slide-up flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 card-hover text-left w-full"
+                <button class="card card-interactive slide-up flex items-center gap-3 p-3 text-left w-full"
                         @onclick="() => ShowRequest(r)">
                     <div class="w-10 h-10 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -157,6 +158,8 @@
     {
         AppState.ResetLockTimer();
         requests = await PaymentService.GetAllAsync();
+        // With nothing to list, the menu's Request tab opens straight onto the form.
+        if (requests.Count == 0) ShowCreateForm();
     }
 
     private void ShowCreateForm()

@@ -30,7 +30,7 @@ else
         <PageHeader BackLabel="Multisig" BackHref="/multisig">
             <TitleContent>
                 <button type="button" class="flex items-center gap-1.5 max-w-full min-h-[32px] text-left group" aria-label="Rename multisig" @onclick="() => renameOpen = true">
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-white truncate">@config.DisplayName</h2>
+                    <h2 class="page-title truncate">@config.DisplayName</h2>
                     <svg class="w-4 h-4 text-slate-400 group-hover:text-dgb-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
                     </svg>
@@ -120,7 +120,7 @@ else
 
         @* Recent activity: same heading and rows as the wallet's Transactions list *@
         <div class="flex items-center justify-between mt-1">
-            <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Recent activity</h3>
+            <h3 class="section-label">Recent activity</h3>
             <div class="flex items-center gap-2">
                 @if (isLoadingActivity)
                 {
@@ -149,8 +149,8 @@ else
                         If another wallet on this device also owns it, it stays there.
                     </p>
                     <div class="flex gap-2">
-                        <button type="button" class="flex-1 min-h-[44px] py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect" @onclick="DownloadBackupFirst">Download backup</button>
-                        <button type="button" class="flex-1 min-h-[44px] py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50" disabled="@isRemoving" @onclick="RemoveWallet">Remove</button>
+                        <button type="button" class="btn-secondary btn-sm flex-1" @onclick="DownloadBackupFirst">Download backup</button>
+                        <button type="button" class="btn-danger btn-sm flex-1" disabled="@isRemoving" @onclick="RemoveWallet">Remove</button>
                         <button type="button" class="min-h-[44px] px-3 text-sm font-medium text-slate-500" @onclick="() => confirmRemove = false">Cancel</button>
                     </div>
                 </div>

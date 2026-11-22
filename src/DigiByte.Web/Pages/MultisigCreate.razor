@@ -20,7 +20,7 @@
     @if (step == Step.Configure)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Create Multisig Wallet</h2>
+            <h2 class="page-title">Create Multisig Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Set up a wallet that requires multiple signatures to spend.</p>
         </div>
 
@@ -29,11 +29,11 @@
             <div class="flex flex-col gap-1.5 slide-up-delay-1">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
                 <input type="text" @bind="walletName" placeholder="e.g. Family Savings"
-                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                       class="input" />
             </div>
 
             @* M-of-N Configuration *@
-            <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+            <div class="card slide-up-delay-1 p-4">
                 <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Signature Scheme</p>
                 <div class="flex items-center gap-3">
                     <div class="flex flex-col items-center gap-1">
@@ -62,8 +62,7 @@
             </div>
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="GoToAddSigners" disabled="@string.IsNullOrWhiteSpace(walletName)">
             Next: Add Co-Signers
         </button>
@@ -89,7 +88,7 @@
     else if (step == Step.AddSigners)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Add Co-Signers</h2>
+            <h2 class="page-title">Add Co-Signers</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Add the public keys of each co-signer. Your key is added automatically.
             </p>
@@ -146,7 +145,7 @@
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-400 w-4">@(idx + 2)</span>
                         <input type="text" @bind="entry.Name" @bind:event="oninput" placeholder="Name (e.g. Alice)" maxlength="40" autocomplete="off"
-                               class="flex-1 px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                               class="input flex-1" />
                         @if (state == KeyState.Valid)
                         {
                             <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-label="Valid public key"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
@@ -187,24 +186,24 @@
         }
 
         <div class="flex flex-col gap-2 slide-up-delay-2">
-            <button class="w-full py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-200 font-semibold rounded-2xl press-effect disabled:opacity-50"
+            <button class="btn-secondary w-full"
                     @onclick="SaveDraft" disabled="@isSavingDraft">
                 @(isSavingDraft ? "Saving…" : "Save draft and finish later")
             </button>
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="GoToReview" disabled="@(!AllSignersValid())">
                 @(AllSignersValid() ? "Review Wallet" : $"Complete {coSignerEntries.Count - ValidCount} more co-signer{(coSignerEntries.Count - ValidCount == 1 ? "" : "s")} to continue")
             </button>
-            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="BackToConfigure">Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="BackToConfigure">Back</button>
         </div>
     }
     else if (step == Step.Review)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Review & Create</h2>
+            <h2 class="page-title">Review & Create</h2>
         </div>
 
-        <div class="slide-up-delay-1 p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+        <div class="card slide-up-delay-1 p-4">
             <div class="flex flex-col gap-3">
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400">Name</span>
@@ -249,7 +248,7 @@
         }
 
         <div class="flex flex-col gap-2 slide-up-delay-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="CreateWallet" disabled="@isCreating">
                 @if (isCreating)
                 {
@@ -263,7 +262,7 @@
                     <span>Create Multisig Wallet</span>
                 }
             </button>
-            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="BackToSigners">Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="BackToSigners">Back</button>
         </div>
     }
     else if (step == Step.Done && createdConfig != null)
@@ -272,7 +271,7 @@
             <div class="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
                 <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
             </div>
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Wallet created</h2>
+            <h2 class="page-title">Wallet created</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">@createdConfig.Label · @createdConfig.Address.Substring(0, Math.Min(12, createdConfig.Address.Length))…</p>
         </div>
 
@@ -285,10 +284,10 @@
         </div>
 
         <div class="slide-up-delay-1 flex flex-col gap-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect" @onclick="DownloadBackup">
+            <button class="btn-primary w-full" @onclick="DownloadBackup">
                 @(backupSaved ? "Backup downloaded ✓" : "Download backup file")
             </button>
-            <button class="w-full py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect" @onclick="CopyRedeemScript">
+            <button class="btn-secondary w-full" @onclick="CopyRedeemScript">
                 Copy redeem script
             </button>
         </div>

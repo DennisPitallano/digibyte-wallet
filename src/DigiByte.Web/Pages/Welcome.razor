@@ -7,12 +7,10 @@
     <div class="flex flex-col items-center gap-3 float-in">
         @if (isAddWalletMode)
         {
-            <button class="self-start ml-4 mb-2 flex items-center gap-1.5 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
+            <button type="button" class="back-btn self-start ml-4 mb-2"
                     @onclick="GoHome">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                </svg>
-                Back to wallet
+                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                <span>Back to wallet</span>
             </button>
         }
         <div class="relative">
@@ -41,19 +39,24 @@
         <BakuMessage MessageId="welcome.greeting" Large="true" Class="w-full max-w-[320px] text-left" />
     }
 
+    @* Shared button styles (docs/UI_STYLE.md): one primary action, the other two secondary. Each entrance animation is on
+       a wrapper so it does not hold the button's own hover and press movement. *@
     <div class="flex flex-col gap-3 w-full max-w-[280px]">
-        <button class="slide-up-delay-2 w-full py-3.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all duration-200 press-effect"
-                @onclick="CreateWallet">
-            Create New Wallet
-        </button>
-        <button class="slide-up-delay-3 w-full py-3.5 px-6 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 font-semibold rounded-2xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all duration-200 press-effect"
-                @onclick="RecoverWallet">
-            Recover Existing Wallet
-        </button>
-        <button class="slide-up-delay-3 w-full py-3.5 px-6 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 font-semibold rounded-2xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all duration-200 press-effect"
-                @onclick="ImportXpub">
-            Watch-Only (xpub)
-        </button>
+        <div class="slide-up-delay-2">
+            <button type="button" class="btn-primary w-full" @onclick="CreateWallet">
+                Create New Wallet
+            </button>
+        </div>
+        <div class="slide-up-delay-3">
+            <button type="button" class="btn-secondary w-full" @onclick="RecoverWallet">
+                Recover Existing Wallet
+            </button>
+        </div>
+        <div class="slide-up-delay-3">
+            <button type="button" class="btn-secondary w-full" @onclick="ImportXpub">
+                Watch-Only (xpub)
+            </button>
+        </div>
     </div>
 
     @if (!isAddWalletMode)

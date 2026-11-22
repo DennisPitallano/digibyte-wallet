@@ -15,7 +15,7 @@
             </svg>
         </div>
 
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">Enable Biometric Unlock?</h3>
+        <h3 class="block-title block-title-lg text-center">Enable Biometric Unlock?</h3>
         <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">
             @L.T("credential.biometric_enroll_body", CredentialText.Word(L, WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin))
         </p>
@@ -26,7 +26,7 @@
         }
 
         <div class="flex flex-col gap-2 w-full mt-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="() => EnableAsync(false)" disabled="@isEnrolling">
                 @if (isEnrolling)
                 {

@@ -4,6 +4,8 @@
 @inject NavigationManager Nav
 @inject LocalizationService L
 @inject CommonPasswordList CommonList
+@inject FirstReceiveCoordinator FirstReceive
+@inject ISecureStorage Storage
 @using DigiByte.Wallet.Storage
 
 <PageTitle>@(isAddWalletMode ? "Add" : "Create") Wallet — DigiByte Wallet</PageTitle>
@@ -11,12 +13,10 @@
 <div class="flex flex-col gap-5">
     @if (isAddWalletMode)
     {
-        <button class="self-start flex items-center gap-1.5 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
+        <button type="button" class="back-btn self-start"
                 @onclick="GoBack">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-            Back
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <span>Back</span>
         </button>
     }
 
@@ -33,7 +33,7 @@
     {
         <BakuMessage MessageId="create.intro" />
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Name Your Wallet</h2>
+            <h2 class="page-title">Name Your Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
         </div>
 
@@ -41,7 +41,7 @@
             <input type="text" @bind="walletName" @bind:event="oninput"
                    placeholder="e.g. Savings, Trading, Cold Storage..."
                    maxlength="30" autocomplete="off"
-                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="input" />
             <p class="text-xs text-slate-400 dark:text-slate-500 text-right">@walletName.Length / 30</p>
         </div>
 
@@ -66,7 +66,7 @@
             </div>
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+        <button class="btn-primary w-full"
                 @onclick="NameContinue" disabled="@string.IsNullOrWhiteSpace(walletName)">
             Continue
         </button>
@@ -75,7 +75,7 @@
     {
         <BakuMessage MessageId="backup.why" />
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Recovery Phrase</h2>
+            <h2 class="page-title">Your Recovery Phrase</h2>
             <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 leading-relaxed bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
                 Write these 24 words down and store them safely. They are the <strong>only</strong> way to recover your wallet.
             </p>
@@ -92,7 +92,7 @@
             }
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect slide-up-delay-2"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="GoToConfirm">
             I've Written It Down
         </button>
@@ -100,14 +100,14 @@
     else if (step == Step.ConfirmMnemonic)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Confirm Recovery Phrase</h2>
+            <h2 class="page-title">Confirm Recovery Phrase</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter word <strong class="text-dgb-500">#@(confirmWordIndex + 1)</strong> from your recovery phrase</p>
         </div>
 
         <div class="flex flex-col gap-3">
             <input type="text" @bind="confirmInput" @bind:event="oninput"
                    placeholder="Enter word #@(confirmWordIndex + 1)" autocomplete="off"
-                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="input" />
             @if (confirmError != null)
             {
                 <InlineError Message="@confirmError" />
@@ -115,7 +115,7 @@
         </div>
 
         <div class="flex flex-col gap-2 slide-up-delay-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="VerifyWord" disabled="@string.IsNullOrWhiteSpace(confirmInput)">
                 @(confirmStep < 2 ? "Next" : "Confirm")
             </button>
@@ -128,14 +128,14 @@
     {
         <BakuMessage MessageId="backup.done" Class="baku-celebrate" />
         <div class="slide-up text-center">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">@(credKind == CredentialKind.Pin ? "Set Your PIN" : L.T("create.passphrase.title"))</h2>
+            <h2 class="page-title">@(credKind == CredentialKind.Pin ? "Set Your PIN" : L.T("create.passphrase.title"))</h2>
             <div class="flex justify-center gap-2 mt-3" role="group" aria-label="@L.T("create.credential.choose")">
                 <button type="button" data-testid="choose-pin"
-                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all @(credKind == CredentialKind.Pin ? "border-dgb-500 bg-dgb-500/10 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
-                        aria-pressed="@(credKind == CredentialKind.Pin)" @onclick="() => SelectKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
+                        class="choice"
+                        aria-pressed="@(credKind == CredentialKind.Pin ? "true" : "false")" @onclick="() => SelectKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
                 <button type="button" data-testid="choose-passphrase"
-                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all @(credKind == CredentialKind.Passphrase ? "border-dgb-500 bg-dgb-500/10 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
-                        aria-pressed="@(credKind == CredentialKind.Passphrase)" @onclick="() => SelectKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
+                        class="choice"
+                        aria-pressed="@(credKind == CredentialKind.Passphrase ? "true" : "false")" @onclick="() => SelectKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
             </div>
             @if (credKind == CredentialKind.Pin)
             {
@@ -178,7 +178,7 @@
         </div>
         }
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-3 flex items-center justify-center gap-2"
+        <button class="btn-primary w-full slide-up-delay-3"
                 @onclick="OnPinButtonClick"
                 disabled="@(isCreating || (credKind == CredentialKind.Passphrase ? (passphrase.Length == 0 || passphraseConfirm.Length == 0) : ((!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))))">
             @if (isCreating)
@@ -375,7 +375,12 @@
             var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
-            await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind, legacyAgreed);
+            var created = await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind, legacyAgreed);
+            // A wallet made from a phrase generated just now cannot have history, so it is known to be empty without waiting
+            // for the network: its first payment will be celebrated (spec 025, FR-011). Nothing secret is stored for this.
+            try { await FirstReceive.MarkCreatedEmptyAsync(created.Id); } catch { }
+            // A wallet created on this menu never saw the old tabs: no "Digi-ID and Settings moved" tip for it.
+            try { await Storage.SetAsync(DigiByte.Web.Layout.MoreMenu.MovedTipKey, "1"); } catch { }
             // Remember where this wallet started, so a later restore can begin there (specs/011-p2p-spv-gateway). Best effort.
             await WalletService.RecordBirthHeightAsync();
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();

@@ -4,6 +4,8 @@
 @inject ActiveWalletContext ActiveWallet
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ShellActions Shell
+@implements IDisposable
 
 <PageTitle>Import Multisig — DigiByte Wallet</PageTitle>
 
@@ -52,7 +54,7 @@
         <div class="flex flex-col gap-1.5 slide-up-delay-1">
             <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
             <input type="text" @bind="walletName" placeholder="e.g. Shared Fund"
-                   class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="input" />
         </div>
 
         @* Redeem Script *@
@@ -60,7 +62,7 @@
             <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Redeem Script (Hex)</label>
             <textarea @bind="redeemScriptHex" @bind:event="oninput" rows="4"
                       placeholder="Paste the multisig redeem script hex..."
-                      class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none"></textarea>
+                      class="input font-mono resize-none"></textarea>
         </div>
 
         @* Own key — detected automatically from the script *@
@@ -85,7 +87,7 @@
     }
 
     <div class="flex flex-col gap-2 slide-up-delay-2">
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+        <button class="btn-primary w-full"
                 @onclick="ImportWallet" disabled="@(isImporting || string.IsNullOrWhiteSpace(walletName) || string.IsNullOrWhiteSpace(redeemScriptHex))">
             @if (isImporting)
             {
@@ -123,7 +125,22 @@
             try { ownPubKeyHex = WalletService.GetPublicKey(); }
             catch { }
         }
+        // A redeem script read by the menu's Scan button, before or while this page is open.
+        Shell.RedeemScriptArrived += OnRedeemScriptArrived;
+        TakeScannedRedeemScript();
     }
+
+    private void OnRedeemScriptArrived() => InvokeAsync(() => { TakeScannedRedeemScript(); StateHasChanged(); });
+
+    private void TakeScannedRedeemScript()
+    {
+        if (Shell.TakeRedeemScript() is not { } hex) return;
+        redeemScriptHex = hex;
+        fileName = null;
+        error = null;
+    }
+
+    public void Dispose() => Shell.RedeemScriptArrived -= OnRedeemScriptArrived;
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {

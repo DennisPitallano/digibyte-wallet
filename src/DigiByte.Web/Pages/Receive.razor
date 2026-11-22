@@ -1,4 +1,5 @@
 @page "/receive"
+@implements IAsyncDisposable
 @inject WalletService WalletService
 @inject ClipboardService Clipboard
 @inject AddressLabelService LabelService
@@ -7,6 +8,9 @@
 @inject DigiByte.Web.Services.WalletSnapshotCache Snapshots
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject FirstReceiveCoordinator FirstReceive
+@inject SoundService Sounds
+@inject NotificationService Notifications
 
 <PageTitle>Receive DGB — DigiByte Wallet</PageTitle>
 
@@ -25,7 +29,7 @@
     @* Address format selector — WIF wallets only (HD wallets always use SegWit via BIP84) *@
     @if (isWifWallet)
     {
-        <div class="slide-up-delay-1 flex bg-slate-100 dark:bg-dgb-900 rounded-xl p-1 gap-0.5 w-full">
+        <div class="segmented slide-up-delay-1 w-full">
             <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(addressFormat == "legacy" ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
                     @onclick="SetLegacy">
                 Legacy (D...)
@@ -39,8 +43,8 @@
 
     @if (address != null)
     {
-        <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-6 shadow-sm flex flex-col items-center gap-4 w-full card-hover">
-            <div class="bg-white rounded-2xl p-3 shadow-inner relative">
+        <div class="card scale-in p-6 flex flex-col items-center gap-4 w-full card-hover">
+            <div class="qr-frame">
                 <img src="@qrDataUrl" alt="QR Code" class="w-48 h-48 rounded-lg" />
                 <div class="absolute inset-0 flex items-center justify-center">
                     <div class="bg-white rounded-full p-1.5 shadow-md">
@@ -64,15 +68,15 @@
                         @requestAmount.Value.ToString("0.########") <span class="text-sm font-bold text-dgb-500">DGB</span>
                     </p>
                 }
-                <p class="font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800">
+                <p class="addr-balance font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800">
                     @address
                 </p>
                 <div class="flex gap-2 w-full">
-                    <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect"
+                    <button class="btn-primary btn-sm flex-1"
                             @onclick="CopyAddress">
                         @(copied ? "Copied!" : requestAmount is not null ? "Copy Payment Link" : "Copy Address")
                     </button>
-                    <button class="py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all press-effect"
+                    <button class="btn-secondary btn-sm"
                             @onclick="ShareAddress">
                         Share
                     </button>
@@ -110,7 +114,7 @@
                     </div>
                     <input type="text" maxlength="60" placeholder="What is it for? (optional)" aria-label="Note for the sender"
                            value="@requestNote" @oninput="OnRequestNoteInput"
-                           class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                           class="input" />
                     @if (requestError is not null)
                     {
                         <p class="text-xs text-red-500 font-medium" role="alert">@requestError</p>
@@ -260,6 +264,9 @@
         </div>
     }
 </div>
+
+@* The wallet's first payment, celebrated once (spec 025). Receive has no dialog of its own that could be in the way. *@
+<FirstReceiveCelebration Blocked="false" />
 </AuthGuard>
 
 @code {
@@ -343,8 +350,81 @@
         // Default to segwit for HD wallets, legacy for WIF
         addressFormat = isWifWallet ? "legacy" : "segwit";
         await GenerateAddress();
+
+        // Someone showing this page is waiting to be paid, so it checks for incoming payments by itself, at Home's pace
+        // (spec 025, FR-024). Both pieces belong to this page and end with it.
+        _refreshLoop = new AutoRefreshLoop(JS);
+        _announcer = new IncomingPaymentAnnouncer(Notifications, JS, Sounds);
+        try { hideAmounts = await Storage.GetAsync("pref:hideBalance") == "1"; } catch { }
+
         _ = LoadHistoryAsync(); // background: the page and the QR code never wait for it
         _ = LoadWalletLabelsAsync();
+
+        // The history load above skips private-key wallets (they have no address list), so check them once here: every
+        // wallet type is then checked when the page opens, not 15 seconds later.
+        if (isWifWallet) _ = CheckForPaymentsAsync();
+        _refreshLoop.Start(CheckForPaymentsAsync);
+    }
+
+    // ── Incoming payments while this page is open (spec 025, FR-024 to FR-026) ──
+    private AutoRefreshLoop _refreshLoop = null!;
+    private IncomingPaymentAnnouncer _announcer = null!;
+    private bool hideAmounts;
+    private string? _lastCheckSignature;
+
+    /// <summary>
+    /// One check, from the loop or on opening: is there a new payment? A check that cannot read the chain changes nothing on
+    /// the page and shows no error; the loop simply tries again later (FR-025).
+    /// </summary>
+    private async Task CheckForPaymentsAsync()
+    {
+        if (!WalletService.IsUnlocked || WalletService.ActiveWallet is not { } wallet)
+        {
+            _refreshLoop.Report(changed: false);
+            return;
+        }
+
+        WalletService.HistoryLoad load;
+        try { load = await WalletService.LoadTransactionHistoryAsync(0, 50); }
+        catch { _refreshLoop.Report(changed: false); return; }
+        if (!load.Complete || WalletService.ActiveWallet?.Id != wallet.Id)
+        {
+            _refreshLoop.Report(changed: false);
+            return;
+        }
+
+        await ReportLoadAsync(wallet.Id, load);
+
+        var top = load.Transactions.Count > 0 ? load.Transactions[0] : null;
+        var signature = $"{load.Transactions.Count}:{top?.TxId}:{load.Transactions.Count(t => t.Confirmations == 0)}";
+        var changed = signature != _lastCheckSignature;
+        _lastCheckSignature = signature;
+        _refreshLoop.Report(changed);
+
+        // Keep the "used" marks on the address list current, without dropping the older history already loaded.
+        if (changed && !isWifWallet && HasWalletAddressData(load.Transactions))
+        {
+            var known = history?.Select(t => t.TxId).ToHashSet() ?? [];
+            var added = load.Transactions.Where(t => !known.Contains(t.TxId)).ToList();
+            if (added.Count > 0) ApplyHistory(history is null ? added : [.. added, .. history]);
+        }
+    }
+
+    /// <summary>
+    /// Tells the first-receive coordinator and the "payment received" notice about a load that read the chain, and saves
+    /// the list the way Activity does, so that Home (which starts from the saved list) does not announce the same payment again.
+    /// </summary>
+    private async Task ReportLoadAsync(string walletId, WalletService.HistoryLoad load)
+    {
+        var firstPayment = await FirstReceive.ObserveAsync(walletId, load.Transactions, FirstReceiveCoordinator.SourceOf(load));
+        await _announcer.AnnounceAsync(walletId, load.Transactions, hideAmounts, firstPayment?.TxIds);
+        if (load.Complete)
+            _ = Snapshots.SaveTransactionsAsync(walletId, load.Transactions.Take(50).ToList());
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_refreshLoop is not null) await _refreshLoop.StopAsync();
     }
 
     // ── Your addresses (spec 012) ──
@@ -400,15 +480,27 @@
             // 1. The saved history shows at once (spec 023, FR-017); unreadable saved data is the same as none.
             var saved = (await Snapshots.LoadAsync(wallet.Id)).Transactions;
             if (HasWalletAddressData(saved)) ApplyHistory(saved);
+            if (saved is { Count: > 0 })
+            {
+                // Saved history is already known: it is never announced, and it is enough to record that this wallet did
+                // not start empty (spec 025, FR-011).
+                _announcer.Seed(wallet.Id, saved);
+                await FirstReceive.ObserveAsync(wallet.Id, saved, HistorySource.SavedSnapshot);
+            }
 
             // 2. Then the same history call Home and Activity use, in the background of what is on screen. That call returns
             //    whatever it could read, so an answer that couldn't reach the chain replaces nothing, and only a history that
             //    carries wallet addresses is used; otherwise every status stays as it was (unknown, never "unused").
             try
             {
-                var loaded = await WalletService.GetTransactionHistoryAsync(0, 1000);
-                if (WalletService.ActiveWallet?.Id == wallet.Id && !WalletService.LastHistoryIncomplete && HasWalletAddressData(loaded))
-                    ApplyHistory(loaded);
+                // The load reports its own completeness: this page's automatic check can overlap it (spec 025, FR-015).
+                var load = await WalletService.LoadTransactionHistoryAsync(0, 1000);
+                var loaded = load.Transactions;
+                if (WalletService.ActiveWallet?.Id == wallet.Id)
+                {
+                    if (load.Complete && HasWalletAddressData(loaded)) ApplyHistory(loaded);
+                    await ReportLoadAsync(wallet.Id, load);
+                }
             }
             catch { /* offline or locked: the saved statuses stay */ }
         }

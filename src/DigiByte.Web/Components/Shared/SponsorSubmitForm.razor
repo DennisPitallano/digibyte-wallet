@@ -6,7 +6,7 @@
 @* "Add me to the list": a donor with no GitHub account asks to be listed (or removed). The server checks the donation automatically and opens a
    pull request for a maintainer to review. This form never reads or sends wallet data. *@
 
-<div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-5 flex flex-col gap-4">
+<div class="card p-5 flex flex-col gap-4">
     @if (done)
     {
         <div class="text-center py-2" role="status">
@@ -16,7 +16,7 @@
     }
     else
     {
-        <div class="flex rounded-xl bg-slate-100 dark:bg-dgb-800 p-1 text-sm font-semibold" role="tablist">
+        <div class="segmented" role="tablist">
             <button type="button" role="tab" aria-selected="@(!removing)" class="flex-1 py-1.5 rounded-lg @(!removing ? "bg-white dark:bg-dgb-900 shadow text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400")" @onclick="() => SetMode(false)">Add me</button>
             <button type="button" role="tab" aria-selected="@removing" class="flex-1 py-1.5 rounded-lg @(removing ? "bg-white dark:bg-dgb-900 shadow text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400")" @onclick="() => SetMode(true)">Remove me</button>
         </div>
@@ -33,7 +33,7 @@
                 @if (donationQr is not null)
                 {
                     @* The DGB logo sits in the middle, as on the Receive QR; the code uses the highest error correction so it still scans. *@
-                    <div class="relative w-48 h-48 rounded-lg bg-white p-1">
+                    <div class="qr-frame qr-frame-sm w-48 h-48">
                         <img src="@donationQr" alt="QR code for the project's donation address" class="w-full h-full rounded-lg" />
                         <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
                             <div class="bg-white rounded-full p-1.5 shadow-md">
@@ -47,7 +47,7 @@
                     <CopyValueButton Value="@DonationInfo.CurrentAddress" Label="donation address" />
                 </div>
                 <button type="button" @onclick="() => donated = true"
-                        class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors">
+                        class="btn-primary btn-sm w-full">
                     I've donated, continue
                 </button>
                 <p class="text-[11px] text-slate-400">Already donated earlier? Continue and paste that donation's transaction ID.</p>
@@ -140,7 +140,7 @@
         }
 
         <button type="button" disabled="@submitting" @onclick="SubmitAsync"
-                class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 disabled:opacity-60 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors">
+                class="btn-primary btn-sm w-full">
             @(submitting ? "Sending…" : removing ? "Request removal" : "Send for review")
         </button>
         }

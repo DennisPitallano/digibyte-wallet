@@ -1,0 +1,233 @@
+@* The wallet's first received payment, celebrated once (spec 025, FR-013 to FR-023, FR-027). Home, Receive and Activity each
+   place one; it appears on whichever of them first shows the payment. The coordinator holds the pending payment; the moment
+   this overlay is on screen the wallet is marked, so it never shows twice, whatever happens next. *@
+@implements IAsyncDisposable
+@inject FirstReceiveCoordinator FirstReceive
+@inject WalletService WalletService
+@inject InstallAppState InstallApp
+@inject BakuService Baku
+@inject AppState AppState
+@inject MemoryCacheService Cache
+@inject ISecureStorage Storage
+@inject LocalizationService L
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject SoundService Sounds
+
+@if (shown is { } payment)
+{
+    <div id="@DialogId" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="@TitleId" tabindex="-1"
+         data-testid="first-receive-celebration" @onkeydown="OnKeyDown">
+        @* One raised card, so nothing behind the overlay competes with it. The coin sits on the card's top edge. *@
+        <div class="card-raised celebrate-card">
+            <div class="celebrate-medal" aria-hidden="true">
+                @* Moving decoration: left out entirely when the device asks for reduced motion (FR-020). *@
+                <div class="celebrate-decor confetti-container" style="top:50%; left:50%; transform:translate(-50%,-50%);">
+                    @for (int i = 0; i < 18; i++)
+                    {
+                        var angle = i * 20;
+                        var distance = 50 + (i % 3) * 30;
+                        var delay = i * 0.04;
+                        var color = Colors[i % Colors.Length];
+                        var x = Math.Cos(angle * Math.PI / 180) * distance;
+                        var y = Math.Sin(angle * Math.PI / 180) * distance;
+                        <div class="confetti-particle"
+                             style="left:calc(50% + @(x.ToString("F0", Inv))px); top:calc(50% + @(y.ToString("F0", Inv))px); background:@color; animation-delay:@(delay.ToString("F2", Inv))s;"></div>
+                    }
+                </div>
+                <div class="celebrate-decor success-ring"></div>
+                <div class="celebrate-decor success-ring success-ring-2"></div>
+                <div class="celebrate-coin">
+                    <SpinningCoin Size="72" />
+                </div>
+            </div>
+
+            <h3 id="@TitleId" class="celebrate-title" data-testid="first-receive-title">@L.T("firstreceive.title")</h3>
+
+            @* Screen readers get the one full sentence; the large amount and the status chip are its visual form. *@
+            <p class="sr-only" aria-live="polite" data-testid="first-receive-amount">@AmountLine(payment)</p>
+            @if (hideAmounts)
+            {
+                <p class="celebrate-hidden" aria-hidden="true">@AmountLine(payment)</p>
+            }
+            else
+            {
+                <div aria-hidden="true">
+                    <p class="celebrate-amount @(AmountText(payment).Length > 9 ? "is-long" : "")">+@AmountText(payment) <span class="celebrate-unit">DGB</span></p>
+                    @if (FiatLine(payment) is { } fiat)
+                    {
+                        <p class="celebrate-fiat" data-testid="first-receive-fiat">@fiat</p>
+                    }
+                </div>
+                <span class="celebrate-chip @(payment.IsPending ? "is-pending" : "is-received")" aria-hidden="true" data-testid="first-receive-status">
+                    <span class="celebrate-chip-dot"></span>
+                    @L.T(payment.IsPending ? "firstreceive.status_pending" : "firstreceive.status_received")
+                </span>
+            }
+
+            @* The mascot's line, in the mascot's voice, only when the mascot is fully on (FR-021). English only (FR-032).
+               Its catalog title repeats the heading above, so only the sentence is shown. *@
+            @if (Baku.Mode == BakuMode.Full && BakuCatalog.Find("receive.first") is { } line)
+            {
+                <div class="celebrate-baku baku-celebrate" data-testid="first-receive-mascot">
+                    <img src="@BakuCatalog.PosePath(line.PoseId)" alt="" class="w-10 flex-shrink-0 object-contain select-none" draggable="false" />
+                    <p>@line.Body</p>
+                </div>
+            }
+
+            <div class="flex flex-col gap-2 w-full mt-1">
+                <button type="button" data-autofocus data-testid="first-receive-done" @ref="doneButton"
+                        class="btn-primary w-full" @onclick="CloseAsync">
+                    @L.T("firstreceive.done")
+                </button>
+                @if (installMode != InstallMode.Hidden)
+                {
+                    <button type="button" data-testid="first-receive-install" class="btn-secondary w-full" @onclick="InstallAsync">
+                        @L.T("firstreceive.install")
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>True while the page has a dialog of its own open: the celebration waits until it is closed (FR-023).</summary>
+    [Parameter] public bool Blocked { get; set; }
+
+    /// <summary>
+    /// For the animation test page only: shows this payment as a preview. A preview reads and changes no wallet's record.
+    /// </summary>
+    [Parameter] public FirstPayment? Preview { get; set; }
+
+    /// <summary>Raised when the overlay closes (used by the preview).</summary>
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private const string DialogId = "first-receive-celebration";
+    private const string TitleId = "first-receive-title";
+    private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+    private static readonly string[] Colors =
+    [
+        "#4ade80", "#22d3ee", "#a78bfa", "#fb923c",
+        "#f472b6", "#fbbf24", "#34d399", "#60a5fa"
+    ];
+
+    private FirstPayment? shown;
+    private bool opening;
+    private bool needsFocus;
+    private bool hideAmounts;
+    private InstallMode installMode = InstallMode.Hidden;
+    private ElementReference doneButton;
+
+    protected override void OnInitialized() => FirstReceive.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(TryShowAsync);
+
+    protected override Task OnParametersSetAsync() => TryShowAsync();
+
+    /// <summary>Shows the pending celebration for the active wallet, unless something is in the way.</summary>
+    private async Task TryShowAsync()
+    {
+        if (shown is not null || opening) return;
+        if (Preview is { } preview)
+        {
+            opening = true;
+            try
+            {
+                try { hideAmounts = await Storage.GetAsync("pref:hideBalance") == "1"; } catch { hideAmounts = false; }
+                installMode = await InstallApp.GetModeAsync();
+                shown = preview;
+                needsFocus = true;
+            }
+            finally { opening = false; }
+            StateHasChanged();
+            return;
+        }
+        if (Blocked || FirstReceive.OtherDialogOpen || FirstReceive.ShellDialogOpen) return;
+        if (WalletService.ActiveWallet?.Id is not { Length: > 0 } walletId) return;
+        if (FirstReceive.Pending(walletId) is not { } payment) return;
+
+        opening = true;
+        try
+        {
+            try { hideAmounts = await Storage.GetAsync("pref:hideBalance") == "1"; } catch { hideAmounts = false; }
+            installMode = await InstallApp.GetModeAsync();
+
+            // On screen from here: never again for this wallet, including if it locks or the page is left while this is up.
+            await FirstReceive.MarkShownAsync(walletId);
+            shown = payment;
+            needsFocus = true;
+        }
+        finally { opening = false; }
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!needsFocus || shown is null) return;
+        needsFocus = false;
+        try { await JS.InvokeVoidAsync("domHelpers.trapFocus", DialogId); } catch { }
+        try { await doneButton.FocusAsync(); } catch { }
+        try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 15, 40, 25 }); } catch { }
+        await Sounds.PlayAsync(Sound.Receive);
+    }
+
+    private static string AmountText(FirstPayment payment) => payment.AmountDgb.ToString("0.########", Inv);
+
+    private string AmountLine(FirstPayment payment)
+    {
+        if (hideAmounts)
+            return L.T(payment.IsPending ? "firstreceive.pending_hidden" : "firstreceive.received_hidden");
+        var amount = payment.AmountDgb.ToString("0.########", Inv);
+        return L.T(payment.IsPending ? "firstreceive.pending" : "firstreceive.received", amount);
+    }
+
+    /// <summary>The amount in the user's display currency, when a price is already known. Never fetched for this.</summary>
+    private string? FiatLine(FirstPayment payment)
+    {
+        if (!Cache.TryGet<decimal>($"price:{AppState.FiatCurrency}", out var price) || price <= 0) return null;
+        var decimals = AppState.FiatDecimals;
+        return $"≈ {AppState.FiatSymbol}{(payment.AmountDgb * price).ToString("N" + decimals)} {AppState.FiatCurrency}";
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await CloseAsync();
+    }
+
+    private async Task CloseAsync()
+    {
+        if (shown is null) return;
+        try { await JS.InvokeVoidAsync("domHelpers.releaseFocus", DialogId); } catch { }
+        shown = null;
+        StateHasChanged();
+        await OnClosed.InvokeAsync();
+    }
+
+    private async Task InstallAsync()
+    {
+        var mode = installMode;
+        await CloseAsync();
+
+        if (mode == InstallMode.Native)
+        {
+            // The browser's own prompt. If it is no longer available, Settings explains how to install from the menu.
+            if (await InstallApp.PromptAsync()) return;
+            if (await InstallApp.GetModeAsync() is InstallMode.IosSteps or InstallMode.MenuSteps)
+                Nav.NavigateTo("/settings?install=1");
+            return;
+        }
+
+        // iPhone, iPad and browsers that install from their menu: the steps live in Settings.
+        Nav.NavigateTo("/settings?install=1");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        FirstReceive.Changed -= OnChanged;
+        if (shown is not null)
+        {
+            try { await JS.InvokeVoidAsync("domHelpers.releaseFocus", DialogId); } catch { }
+        }
+    }
+}

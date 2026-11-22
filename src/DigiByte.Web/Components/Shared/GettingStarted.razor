@@ -33,10 +33,10 @@
                 </div>
                 <div class="flex items-center justify-between px-5 pb-3">
                     <div>
-                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Getting started</h3>
+                        <h3 class="block-title">Getting started</h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400">@doneCount of @steps.Count done</p>
                     </div>
-                    <button type="button" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                    <button type="button" class="icon-btn icon-btn-sm"
                             aria-label="Close" @onclick="() => open = false">
                         <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -47,7 +47,7 @@
                     @foreach (var item in steps)
                     {
                         var step = item;
-                        <button type="button" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all text-left press-effect"
+                        <button type="button" class="card card-interactive w-full flex items-center gap-3 p-3 text-left"
                                 @onclick="() => Go(step.Href)">
                             @if (step.Done)
                             {

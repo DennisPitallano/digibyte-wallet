@@ -2,8 +2,11 @@
 @implements IDisposable
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject FirstReceiveCoordinator FirstReceive
 
-@if (showBanner)
+@* A new user's first session is about getting a first payment, so the banner waits until some wallet on this device has a
+   transaction. The setup pages, where it always shows, are not affected (spec 025, FR-029, FR-030). *@
+@if (showBanner && (FirstReceive.FirstSessionEnded || IsAlwaysShowPage()))
 {
     <div class="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none slide-up">
         <div class="pointer-events-auto mx-4 mt-3 max-w-[460px] w-full flex items-center gap-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-2xl shadow-xl px-4 py-3">
@@ -26,7 +29,7 @@
             </div>
             @if (!isIos)
             {
-                <button class="px-4 py-1.5 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-bold rounded-xl press-effect flex-shrink-0 transition-colors"
+                <button class="btn-primary btn-sm flex-shrink-0"
                         @onclick="InstallApp">
                     Install
                 </button>
@@ -129,14 +132,20 @@
         }
     }
 
+    protected override void OnInitialized() => FirstReceive.Changed += OnFirstReceiveChanged;
+
+    private void OnFirstReceiveChanged() => _ = InvokeAsync(StateHasChanged);
+
     public async ValueTask DisposeAsync()
     {
+        FirstReceive.Changed -= OnFirstReceiveChanged;
         Nav.LocationChanged -= OnLocationChanged;
         selfRef?.Dispose();
     }
 
     public void Dispose()
     {
+        FirstReceive.Changed -= OnFirstReceiveChanged;
         Nav.LocationChanged -= OnLocationChanged;
         selfRef?.Dispose();
     }

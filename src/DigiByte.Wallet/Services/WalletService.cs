@@ -1609,11 +1609,36 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// </summary>
     public bool LastHistoryIncomplete { get; private set; }
 
+    /// <summary>
+    /// One history load with what it proves (spec 025, FR-011, FR-015). <paramref name="Complete"/>: the chain was read for
+    /// this call. <paramref name="AddressesSettled"/>: the wallet had finished finding which of its addresses have been used
+    /// when this call read them; until then an empty list does not prove the wallet is empty.
+    /// </summary>
+    public sealed record HistoryLoad(List<TransactionRecord> Transactions, bool Complete, bool AddressesSettled);
+
+    /// <summary>
+    /// <see cref="GetTransactionHistoryAsync"/> together with that call's own completeness. Use this, not
+    /// <see cref="LastHistoryIncomplete"/>, when two loads can overlap: the property is shared by every call.
+    /// </summary>
     public async Task<List<TransactionRecord>> GetTransactionHistoryAsync(int skip = 0, int take = 50)
+    {
+        var load = await LoadTransactionHistoryAsync(skip, take);
+        LastHistoryIncomplete = !load.Complete;
+        return load.Transactions;
+    }
+
+    public async Task<HistoryLoad> LoadTransactionHistoryAsync(int skip = 0, int take = 50)
     {
         EnsureUnlocked();
         await WaitForAddressDiscoveryAsync(AddressDiscoveryWait);
-        LastHistoryIncomplete = false;
+
+        // Completeness belongs to this call (kept in locals), so overlapping loads cannot be mistaken for each other.
+        var incomplete = false;
+        // A wallet with no HD key (a private key) has one fixed address and nothing to discover. A failed discovery clears
+        // its task, so "completed successfully" is false for running, not started and failed alike.
+        var addressesSettled = ActiveSession is not { } loadSession
+            || loadSession.Hd is null
+            || loadSession.AddressDiscovery is { IsCompletedSuccessfully: true };
 
         // Always return locally tracked transactions (works on all networks)
         var localTxs = await _txTracker.GetAllAsync();
@@ -1665,8 +1690,13 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                             allTxs.TryAdd(tx.TxId, tx);
                         changeOnly = true;
                     }
-                    catch (SummaryUnavailableException)
+                    catch (SummaryUnavailableException ex)
                     {
+                        // Without a cause, summaries do not exist on this route (regtest, the gateway answering first): every
+                        // address is read in full below, as before. With one, the explorers were asked and could not answer.
+                        // The read below still runs, so the page shows what it can, but it answers "no transactions" for an
+                        // address it could not reach, so its result cannot show that the chain was read (spec 025, FR-015).
+                        if (ex.InnerException is not null) incomplete = true;
                     }
                 }
 
@@ -1747,7 +1777,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             }
             catch (Exception ex)
             {
-                LastHistoryIncomplete = true;
+                incomplete = true;
                 Console.WriteLine($"[TxHistory] Explorer failed: {ex.Message}");
             }
         }
@@ -1769,11 +1799,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         // Update confirmation counts in background
         _ = _txTracker.UpdateConfirmationsAsync(_blockchain);
 
-        return localTxs
+        var page = localTxs
             .OrderByDescending(t => t.Timestamp)
             .Skip(skip)
             .Take(take)
             .ToList();
+        return new HistoryLoad(page, Complete: !incomplete, AddressesSettled: addressesSettled);
     }
 
     /// <summary>
@@ -1870,6 +1901,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         await _walletStore.Storage.RemoveAsync(TransactionTracker.StorageKey(walletId));
         foreach (var key in WalletSnapshotKeys(walletId))
             await _walletStore.Storage.RemoveAsync(key);
+        // Whether the wallet started empty and whether its first payment was celebrated (spec 025, FR-028). The per-device
+        // "first session ended" marker stays.
+        await _walletStore.Storage.RemoveAsync(FirstReceiveStore.StateKey(walletId));
 
         if (_activeWalletId == walletId)
         {

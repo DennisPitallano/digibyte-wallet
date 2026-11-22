@@ -9,13 +9,15 @@
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject LocalizationService L
+@inject FirstReceiveCoordinator FirstReceive
 
 <PageTitle>Activity — DigiByte Wallet</PageTitle>
 
 <PullToRefresh OnRefresh="PullRefreshAsync">
 <div class="flex flex-col gap-3">
     <div class="slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Activity</h2>
+        <h2 class="page-title">Activity</h2>
         @if (!loading && !failed)
         {
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -71,7 +73,7 @@
             {
                 var selected = filter == key;
                 <button role="tab" aria-selected="@selected"
-                        class="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors @(selected ? "bg-dgb-500 text-white" : "bg-white dark:bg-dgb-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-dgb-800")"
+                        class="choice choice-pill" aria-pressed="@(selected ? "true" : "false")"
                         @onclick="() => SetFilter(key)">@label</button>
             }
         </div>
@@ -81,7 +83,7 @@
         {
             <div class="flex items-center gap-1">
                 <button type="button" aria-haspopup="listbox" aria-expanded="@showAddressPicker"
-                        class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors max-w-[14rem] @(selectedAddress != null ? "bg-dgb-500 text-white" : "bg-white dark:bg-dgb-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-dgb-800")"
+                        class="choice choice-pill" aria-pressed="@(selectedAddress != null ? "true" : "false")"
                         @onclick="() => showAddressPicker = !showAddressPicker">
                     <span class="truncate">@(SelectedAddressText ?? "Addresses")</span>
                     <svg class="w-3 h-3 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
@@ -162,7 +164,7 @@
     {
         <div class="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30 p-5 text-center" role="alert">
             <p class="text-sm text-amber-800 dark:text-amber-300">Couldn't load your transactions. Check your connection and try again.</p>
-            <button class="mt-3 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect transition-colors" @onclick="LoadAsync">Try again</button>
+            <button class="btn-primary btn-sm mt-3" @onclick="LoadAsync">Try again</button>
         </div>
     }
     else if (shown.Count == 0)
@@ -171,6 +173,17 @@
             <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
                 @(all.Count == 0 ? "No transactions yet" : query.Length > 0 ? $"Nothing matches \"{query}\"" : selectedAddress != null ? "No transactions match this address and filter" : "No transactions match this filter")
             </p>
+            @* A wallet with nothing in it yet: the way forward is Receive (spec 025, FR-010). Not shown when the list is
+               empty only because of a search or filter, or when the chain could not be read. *@
+            @if (all.Count == 0 && !refreshFailed)
+            {
+                <div class="mt-3">
+                    <a href="/receive" data-testid="activity-empty-receive"
+                       class="btn-primary btn-sm no-underline">
+                        @L.T("activity.empty.receive")
+                    </a>
+                </div>
+            }
             @if (all.Count > 0 && query.Length > 0)
             {
                 <button class="mt-2 text-xs font-semibold text-dgb-500 hover:text-dgb-600" @onclick="ClearQuery">Clear search</button>
@@ -186,7 +199,7 @@
         <div class="flex flex-col gap-0.5">
             @foreach (var day in shown.Take(visibleCount).GroupBy(t => t.Timestamp.ToLocalTime().Date))
             {
-                <h3 @key="day.Key" class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-2 mb-1 px-1">@DayLabel(day.Key)</h3>
+                <h3 @key="day.Key" class="section-label mt-2 mb-1 px-1">@DayLabel(day.Key)</h3>
                 @foreach (var tx in day)
                 {
                     <TransactionRow @key="tx.TxId" Tx="tx" OnOpen="OpenTx" Name="@NameFor(tx)" TimeOnly="true"
@@ -198,7 +211,7 @@
         </div>
         @if (shown.Count > visibleCount)
         {
-            <button class="self-center px-4 py-2 text-sm font-semibold text-dgb-600 dark:text-dgb-400 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors"
+            <button class="btn-secondary btn-sm self-center"
                     @onclick="() => visibleCount += PageSize">
                 Show more
             </button>
@@ -206,6 +219,9 @@
     }
 </div>
 </PullToRefresh>
+
+@* The wallet's first payment, celebrated once. It waits while one of this page's two dialogs is open (spec 025, FR-023). *@
+<FirstReceiveCelebration Blocked="@(selected != null || showAddressPicker)" />
 
 <TransactionDetailModal IsOpen="@(selected != null)" Tx="@selected"
     OnClosed="() => selected = null"
@@ -371,6 +387,8 @@
         var snapshot = await Snapshots.LoadAsync(WalletService.ActiveWallet?.Id ?? "");
         if (snapshot.Transactions is { Count: > 0 } saved)
         {
+            // Saved history is enough to record that this wallet did not start empty; it never celebrates (spec 025, FR-011).
+            await FirstReceive.ObserveAsync(WalletService.ActiveWallet?.Id, saved, HistorySource.SavedSnapshot);
             all = saved;
             savedAt = snapshot.LastFetchUtc;
             showingSaved = true;
@@ -400,8 +418,12 @@
         try
         {
             var walletId = WalletService.ActiveWallet?.Id;
-            var fresh = await WalletService.GetTransactionHistoryAsync(0, MaxLoaded);
-            if (WalletService.LastHistoryIncomplete && showingSaved)
+            // The load reports its own completeness, so another page's load cannot be mistaken for it (spec 025, FR-015).
+            var load = await WalletService.LoadTransactionHistoryAsync(0, MaxLoaded);
+            var fresh = load.Transactions;
+            if (walletId is not null && WalletService.ActiveWallet?.Id == walletId)
+                await FirstReceive.ObserveAsync(walletId, fresh, FirstReceiveCoordinator.SourceOf(load));
+            if (!load.Complete && showingSaved)
             {
                 // The chain couldn't be read: keep the saved list (never a partial one) and say when it was last updated (FR-018).
                 refreshFailed = true;
@@ -409,7 +431,7 @@
             }
             all = fresh;
             showingSaved = false;
-            refreshFailed = WalletService.LastHistoryIncomplete;
+            refreshFailed = !load.Complete;
             if (!refreshFailed && walletId is not null)
                 _ = Snapshots.SaveTransactionsAsync(walletId, fresh.Take(50).ToList());
             RefreshUsedAddresses();

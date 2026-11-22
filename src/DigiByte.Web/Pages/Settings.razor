@@ -14,6 +14,7 @@
 @inject IConfiguration Config
 @inject BakuService Baku
 @inject ClipboardService Clipboard
+@inject SoundService Sounds
 
 <PageTitle>Settings — DigiByte Wallet</PageTitle>
 
@@ -26,9 +27,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 0 1-3.827-5.802" />
                 </svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Coming Soon</h3>
+            <h3 class="block-title">Coming Soon</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Multi-language support is coming in a future update.</p>
-            <button class="mt-1 px-5 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect"
+            <button class="btn-primary btn-sm mt-1"
                     @onclick="() => showLanguageToast = false">Got it</button>
         </div>
     </div>
@@ -45,7 +46,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                     </svg>
                 </div>
-                <h3 id="install-steps-title" class="text-base font-bold text-slate-900 dark:text-white">@(installMode == InstallMode.IosSteps ? "Install on iPhone / iPad" : "Install this app")</h3>
+                <h3 id="install-steps-title" class="block-title">@(installMode == InstallMode.IosSteps ? "Install on iPhone / iPad" : "Install this app")</h3>
             </div>
             @if (installMode == InstallMode.IosSteps)
             {
@@ -71,20 +72,20 @@
                     <li>Confirm.</li>
                 </ol>
             }
-            <button type="button" class="mt-1 px-5 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect"
+            <button type="button" class="btn-primary btn-sm mt-1"
                     @onclick="CloseInstallSteps">Close</button>
         </div>
     </div>
 }
 
 <div class="flex flex-col gap-4">
-    <h2 class="text-xl font-bold text-slate-900 dark:text-white slide-up">Settings</h2>
+    <h2 class="page-title slide-up">Settings</h2>
     <BakuMessage MessageId="settings.tip" />
 
     <div class="flex flex-col gap-2">
-        <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-1">Wallet</h3>
+        <h3 class="section-label px-1 mt-1">Wallet</h3>
         @* Manage Wallets *@
-        <a href="/settings/wallets" class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline">
+        <a href="/settings/wallets" class="card card-interactive slide-up flex items-center justify-between p-4 no-underline">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
                     <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -102,7 +103,7 @@
         </a>
 
         @* Backup *@
-        <button class="slide-up flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left"
+        <button class="card card-interactive slide-up flex items-center gap-3 w-full p-4 text-left"
                 @onclick="GoToBackup">
             <div class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
                 <svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -116,7 +117,7 @@
         </button>
 
         @* Recovery Tools *@
-        <a href="/recovery" class="slide-up flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+        <a href="/recovery" class="card card-interactive slide-up flex items-center gap-3 w-full p-4 text-left no-underline">
             <div class="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-cyan-900/20 flex items-center justify-center">
                 <svg class="w-5 h-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
@@ -129,7 +130,7 @@
         </a>
 
         @* Share xpub — watch-only key for DigiPay / external services *@
-        <a href="/settings/xpub" class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline">
+        <a href="/settings/xpub" class="card card-interactive slide-up flex items-center justify-between p-4 no-underline">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-900/40 flex items-center justify-center">
                     <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -149,7 +150,7 @@
         @* Multisig public key — what co-signers ask for when building a shared wallet *@
         @if (WalletService.IsUnlocked && WalletService.ActiveWallet?.WalletType != "xpub")
         {
-            <button type="button" @onclick="CopyMultisigPublicKey" class="slide-up w-full flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left">
+            <button type="button" @onclick="CopyMultisigPublicKey" class="card card-interactive slide-up w-full flex items-center justify-between p-4 text-left">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -167,7 +168,7 @@
         @* Merchant Dashboard — for shop owners. Same URL pattern as the Payments page.
            Uses the actual DigiPay product logo so the card reads as the sibling
            product rather than a generic shop icon. *@
-        <a href="@MerchantDashboardUrl" target="_blank" rel="noopener" class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline">
+        <a href="@MerchantDashboardUrl" target="_blank" rel="noopener" class="card card-interactive slide-up flex items-center justify-between p-4 no-underline">
             <div class="flex items-center gap-3">
                 <img src="/digipay-logo.svg" alt="" class="w-9 h-9 shrink-0" />
                 <div>
@@ -180,14 +181,14 @@
             </svg>
         </a>
 
-        <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-4">Security</h3>
+        <h3 class="section-label px-1 mt-4">Security</h3>
         @* How the wallet is protected, with the passphrase upgrade tip *@
         <WalletProtectionCard />
 
         @* Biometric Unlock *@
         @if (biometricSupported)
         {
-            <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+            <div class="card slide-up flex items-center justify-between p-4 card-hover">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
                         <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -217,9 +218,9 @@
                     <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@L.T("credential.enter_to_enable_biometric", CredentialText.Word(L, credKind))</p>
                     <CredentialInput Kind="credKind" @ref="bioPinInput" ValueChanged="(v) => bioPin = v" OnSubmit="ConfirmBioEnroll" Error="@bioPinError" />
                     <div class="flex gap-2">
-                        <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        <button class="btn-secondary btn-sm flex-1"
                                 @onclick="CancelBioToggle">Cancel</button>
-                        <button class="flex-1 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                        <button class="btn-primary btn-sm flex-1"
                                 @onclick="ConfirmBioEnroll" disabled="@(!Ready(bioPin) || isBioToggling)">
                             @(isBioToggling ? "Setting up..." : "Enable")
                         </button>
@@ -235,7 +236,7 @@
                         @L.T("credential.biometric_disable_confirm", CredentialText.Word(L, credKind))
                     </p>
                     <div class="flex gap-2">
-                        <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        <button class="btn-secondary btn-sm flex-1"
                                 @onclick="CancelBioToggle">Cancel</button>
                         <button class="flex-1 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl press-effect"
                                 @onclick="ConfirmBioDisable">Disable</button>
@@ -246,7 +247,7 @@
             @* Confirm Sends with Biometric *@
             @if (biometricEnabled)
             {
-                <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+                <div class="card slide-up flex items-center justify-between p-4 card-hover">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
                             <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -267,7 +268,7 @@
         }
 
         @* Auto-Lock Timeout *@
-        <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
                     <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -291,7 +292,7 @@
         </div>
 
         @* Lock on Tab Hidden *@
-        <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
                     <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -312,7 +313,7 @@
         @* Spending Limits *@
         @if (WalletService.ActiveWallet?.WalletType != "xpub")
         {
-        <a href="/settings/spending-limits" class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline">
+        <a href="/settings/spending-limits" class="card card-interactive slide-up flex items-center justify-between p-4 no-underline">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
                     <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -330,9 +331,9 @@
         </a>
         }
 
-        <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-4">Display</h3>
+        <h3 class="section-label px-1 mt-4">Display</h3>
         @* Appearance: follow the device, or force light / dark *@
-        <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-3">
+        <div class="card p-4 flex flex-col gap-3">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
                     <svg class="w-5 h-5 text-amber-500 dark:text-dgb-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -345,19 +346,19 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400">@(Theme.Mode switch { "system" => "Follows your device", "light" => "Light mode", _ => "Dark mode" })</p>
                 </div>
             </div>
-            <div class="flex bg-slate-100 dark:bg-dgb-950 rounded-xl p-1 gap-0.5" role="radiogroup" aria-label="Appearance">
+            <div class="segmented" role="radiogroup" aria-label="Appearance">
                 @foreach (var (mode, label) in ThemeModes)
                 {
                     var active = Theme.Mode == mode;
                     <button type="button" role="radio" aria-checked="@(active ? "true" : "false")"
-                            class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(active ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                            class="segmented-item flex-1" aria-pressed="@(active ? "true" : "false")"
                             @onclick="() => Theme.SetModeAsync(mode)">@label</button>
                 }
             </div>
         </div>
 
         @* Display Mode *@
-        <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
                     <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -377,7 +378,7 @@
         </div>
 
         @* Currency *@
-        <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
                     <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -400,7 +401,7 @@
         <CurrencyPickerSheet IsOpen="showCurrencyPicker" Selected="@AppState.FiatCurrency" OnSelected="SelectCurrency" OnClosed="() => showCurrencyPicker = false" />
 
         @* Language (continued) *@
-        <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
                     <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -422,7 +423,7 @@
         </div>
 
         @* Baku — how much of the mascot guide and guardian to show. Warnings always stay visible as text. *@
-        <div class="slide-up p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 flex flex-col gap-3">
+        <div class="card slide-up p-4 flex flex-col gap-3">
             <div class="flex items-center gap-3">
                 <img src="@BakuCatalog.PosePath("greeting")" alt="" class="w-9 h-9 shrink-0 object-contain" loading="lazy" />
                 <div>
@@ -430,12 +431,12 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400">Security warnings always stay on.</p>
                 </div>
             </div>
-            <div class="flex bg-slate-100 dark:bg-dgb-950 rounded-xl p-1 gap-0.5" role="radiogroup" aria-label="How much of Baku to show">
+            <div class="segmented" role="radiogroup" aria-label="How much of Baku to show">
                 @foreach (var (mode, label) in BakuModes)
                 {
                     var active = Baku.Mode == mode;
                     <button type="button" role="radio" aria-checked="@(active ? "true" : "false")"
-                            class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(active ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                            class="segmented-item flex-1" aria-pressed="@(active ? "true" : "false")"
                             @onclick="() => Baku.SetModeAsync(mode)">@label</button>
                 }
             </div>
@@ -449,12 +450,33 @@
             }
         </div>
 
+        @* Sounds: a chime when a payment arrives and when a send goes out. Off unless turned on here. *@
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p id="sounds-label" class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.sounds")</p>
+                    <p id="sounds-hint" class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.sounds_hint")</p>
+                </div>
+            </div>
+            <button type="button" role="switch" aria-checked="@(soundsOn ? "true" : "false")" aria-labelledby="sounds-label" aria-describedby="sounds-hint"
+                    data-testid="sounds-switch"
+                    class="relative shrink-0 w-12 h-7 rounded-full transition-colors duration-200 @(soundsOn ? "bg-dgb-500" : "bg-slate-300 dark:bg-dgb-700")"
+                    @onclick="ToggleSoundsAsync">
+                <span class="absolute top-1 left-1 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200 @(soundsOn ? "translate-x-5" : "translate-x-0")"></span>
+            </button>
+        </div>
+
         @if (installMode != InstallMode.Hidden)
         {
-            <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-4">App</h3>
+            <h3 class="section-label px-1 mt-4">App</h3>
             @* Install: shown only while the wallet is not installed (spec 019) *@
             <button type="button" @onclick="OnInstallTapped"
-                    class="slide-up flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left">
+                    class="card card-interactive slide-up flex items-center gap-3 w-full p-4 text-left">
                 <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
                     <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -467,9 +489,9 @@
             </button>
         }
 
-        <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-4">Network & advanced</h3>
+        <h3 class="section-label px-1 mt-4">Network & advanced</h3>
         @* Network *@
-        <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl @NetworkIconBg flex items-center justify-center">
                     <svg class="w-5 h-5 @NetworkIconColor" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -492,7 +514,7 @@
         @* Sign a PSBT (Advanced mode only) *@
         @if (!AppState.IsSimpleMode)
         {
-        <a href="/settings/psbt-sign" class="slide-up flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+        <a href="/settings/psbt-sign" class="card card-interactive slide-up flex items-center gap-3 w-full p-4 text-left no-underline">
             <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
                 <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -508,7 +530,7 @@
         @* Consolidate UTXOs *@
         @if (WalletService.ActiveWallet?.WalletType != "xpub")
         {
-        <a href="/consolidate" class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover no-underline">
+        <a href="/consolidate" class="card card-interactive slide-up flex items-center justify-between p-4 no-underline">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
                     <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -530,7 +552,7 @@
         <div class="mt-4 pt-4 border-t border-slate-200 dark:border-dgb-800">
             <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">About & Info</p>
             <div class="flex flex-col gap-2">
-                <a href="/about" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                <a href="/about" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
                     <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-900/40 flex items-center justify-center">
                         <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
@@ -541,7 +563,7 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400">Version, tech stack & credits</p>
                     </div>
                 </a>
-                <a href="/roadmap" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                <a href="/roadmap" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
                     <div class="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" />
@@ -563,7 +585,7 @@
                         <p class="text-xs text-rose-500">Thank you to everyone who supports the wallet</p>
                     </div>
                 </a>
-                <a href="/analytics" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                <a href="/analytics" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
                     <div class="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
@@ -574,7 +596,7 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400">DGB price, market cap & network stats</p>
                     </div>
                 </a>
-                <a href="/deployment" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                <a href="/deployment" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
                     <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
                         <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008ZM6.75 14.25h.008v.008H6.75v-.008Z" />
@@ -585,7 +607,7 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400">Infrastructure status & costs</p>
                     </div>
                 </a>
-                <a href="/help" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
+                <a href="/help" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
                     <div class="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
@@ -678,9 +700,9 @@
                     <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@L.T("credential.enter_to_confirm", CredentialText.Word(L, credKind))</p>
                     <CredentialInput Kind="credKind" @ref="deletePinInput" ValueChanged="(v) => deletePin = v" Error="@deleteError" />
                     <div class="flex gap-2">
-                        <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                        <button class="btn-secondary btn-sm flex-1"
                                 @onclick="CancelDelete">Cancel</button>
-                        <button class="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                        <button class="btn-danger btn-sm flex-1"
                                 @onclick="ConfirmDelete" disabled="@(!Ready(deletePin))">Delete Wallet</button>
                     </div>
                 </div>
@@ -759,9 +781,8 @@
     private bool cacheCleared;
     private bool showLanguageToast;
 
-    // Install-app state (spec 019). The mode follows the table in specs/019-settings-install-app/data-model.md.
-    private enum InstallMode { Hidden, Native, IosSteps, MenuSteps }
-    private sealed record InstallState(bool Standalone, bool Ios, bool Android, bool CanPrompt, bool NonSafariIos, bool PromptSeen);
+    // Install-app state (spec 019). The mode follows the table in specs/019-settings-install-app/data-model.md. The types
+    // and the rule live in InstallAppState, which the first-payment celebration uses too (spec 025).
     private InstallState installState = new(false, false, false, false, false, false);
     private InstallMode installMode = InstallMode.Hidden;
     private bool installed;            // the browser reported a completed install
@@ -770,18 +791,11 @@
     private ElementReference installDialogRef;
     private DotNetObjectReference<Settings>? installRef;
 
-    private static InstallMode ComputeInstallMode(InstallState s) =>
-        s.Standalone ? InstallMode.Hidden
-        : s.CanPrompt ? InstallMode.Native
-        : s.Ios ? InstallMode.IosSteps
-        : (s.Android || s.PromptSeen) ? InstallMode.MenuSteps
-        : InstallMode.Hidden;
-
     private async Task RefreshInstallStateAsync()
     {
         try { installState = await JS.InvokeAsync<InstallState>("pwaInstall.getState"); }
         catch { return; } // interop unavailable (prerender / blocked): leave the row hidden
-        installMode = installed ? InstallMode.Hidden : ComputeInstallMode(installState);
+        installMode = installed ? InstallMode.Hidden : InstallAppState.ComputeInstallMode(installState);
         if (installMode == InstallMode.Hidden) showInstallSteps = false;
         StateHasChanged();
     }
@@ -854,6 +868,17 @@
     {
         try { await Theme.InitializeAsync(); } catch { }
         try { walletCount = (await WalletService.GetAllWalletsAsync()).Count; } catch { walletCount = 1; }
+        soundsOn = await Sounds.IsEnabledAsync();
+    }
+
+    private bool soundsOn;
+
+    private async Task ToggleSoundsAsync()
+    {
+        soundsOn = !soundsOn;
+        await Sounds.SetEnabledAsync(soundsOn);
+        // Turning it on plays the receive chime once, so the user hears what they chose.
+        if (soundsOn) await Sounds.PlayAsync(Sound.Receive);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -871,6 +896,19 @@
                 installRef = DotNetObjectReference.Create(this);
                 await JS.InvokeVoidAsync("pwaInstall.registerCallback", installRef, new { promptUsed = true });
                 await RefreshInstallStateAsync();
+
+                // Arriving from the first-payment celebration's Install app button (spec 025, FR-027): open the steps
+                // straight away where the browser has no install prompt of its own, then drop the marker from the address.
+                if (new Uri(Nav.Uri).Query.Contains("install=1"))
+                {
+                    if (installMode is InstallMode.IosSteps or InstallMode.MenuSteps)
+                    {
+                        showInstallSteps = true;
+                        focusInstallDialog = true;
+                        StateHasChanged();
+                    }
+                    Nav.NavigateTo("/settings", replace: true);
+                }
             }
             catch { }
 

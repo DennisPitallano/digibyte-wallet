@@ -16,6 +16,36 @@ public class AppStateTests
     }
 
     [Fact]
+    public void LockNow_WhenUnlocked_LocksAndTellsTheApp()
+    {
+        var sut = CreateAppState();
+        sut.IsWalletUnlocked = true;
+        sut.LockOnHidden = false;   // the user's own request locks whatever the "lock when hidden" setting says
+        var locked = 0;
+        sut.OnAutoLocked += () => locked++;
+
+        sut.LockNow();
+
+        Assert.False(sut.IsWalletUnlocked);
+        Assert.Equal(1, locked);
+    }
+
+    [Fact]
+    public void LockNow_WhenAlreadyLocked_DoesNothing()
+    {
+        var sut = CreateAppState();
+        sut.IsWalletUnlocked = false;
+        var locked = 0;
+        sut.OnAutoLocked += () => locked++;
+
+        sut.LockNow();
+        sut.LockNow();
+
+        Assert.False(sut.IsWalletUnlocked);
+        Assert.Equal(0, locked);
+    }
+
+    [Fact]
     public void OnTabHidden_WhenUnlockedAndLockOnHiddenTrue_LocksWallet()
     {
         var sut = CreateAppState();

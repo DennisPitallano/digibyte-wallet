@@ -18,10 +18,18 @@ public class LocaleParityTests
         "protection.", "create.passphrase.", "create.credential.", "create.pin_limitation", "passphrase.reject.",
         "credential.", "throttle.", "upgrade.notice.", "biometric.upgrade.", "biometric.weak.", "legacy.",
         "unlock.passphrase_prompt", "unlock.forgot_passphrase", "unlock.or_passphrase", "recover.new_passphrase",
+        // spec 025 (first-receive flow)
+        "home.empty.", "activity.empty.", "firstreceive.",
+        // optional payment sounds
+        "settings.sounds",
+        // the menu, its More list, the app-wide Scan and the Request page
+        "nav.activity", "nav.scan", "nav.request", "nav.more", "nav.label", "nav.moved.", "more.", "scan.", "request.",
+        // slide to confirm
+        "identity.recover.review.slid", "dd.confirm.slide",
     ];
 
     // Words that are the same in both languages on purpose.
-    private static readonly HashSet<string> SameInBoth = ["credential.word_pin"];
+    private static readonly HashSet<string> SameInBoth = ["credential.word_pin", "more.item.identity.label"];
 
     private static string LocalesDirectory()
     {
@@ -96,6 +104,9 @@ public class LocaleParityTests
             "Components/Shared/CredentialInput.razor", "Components/Wallet/WalletProtectionCard.razor",
             "Components/BiometricNotice.razor", "Components/LegacyProtectionConsent.razor",
             "Pages/CreateWallet.razor", "Pages/Unlock.razor",
+            // spec 025 (first-receive flow)
+            "Components/Wallet/ReceiveEmptyState.razor", "Pages/Transactions.razor",
+            "Components/Shared/FirstReceiveCelebration.razor",
         };
         var call = new Regex("L\\.T\\(\"([^\"]+)\"");
 

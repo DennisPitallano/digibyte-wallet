@@ -96,6 +96,16 @@ A seed wallet watches about 80 addresses. The read path keeps the number of expl
 - **Switches and benchmark.** `/dev/node` has "Change-only history sync" (`dev:history-change-only`) and "Tiered refresh" (`dev:tiered-refresh`) switches and a wallet refresh benchmark that shows time and explorer requests by kind, quiet refreshes with tiering on and off, and how many addresses a send would read, counted by `RequestCountingHandler` on the explorer `HttpClient` in memory only. The switches are for developers, testing and benchmarks: a saved value counts only while the developer view is on (`HistorySyncOptions.FromStorage`); otherwise both are on.
 - **Instant pages.** `WalletSnapshotCache` (Web) holds the figures Home has always saved (`cache:balance:{id}`, `cache:transactions:{id}`, `cache:lastFetch:{id}`, the shared `cache:dgbPrice`). Transactions, Receive and Send show them at once and refresh in the background; a refresh that can't reach the chain keeps them with "Last updated". Home's main figure is the confirmed balance, with a separate "Pending ±X DGB" line; Send offers `AvailableDgb` = confirmed + min(0, pending). The coins for a send are always read fresh.
 
+### First-receive flow (specs/025-first-receive-flow)
+
+A new user's first session is built around getting a first payment.
+
+- **State per wallet** (`FirstReceiveRule`, `FirstReceiveStore` in `DigiByte.Wallet`): one stored value, `empty`, `history` or `celebrated`. A wallet created on the device is `empty` from the start. Any other wallet is decided by history: saved history with a transaction means `history`; a complete load with nothing in it, after address discovery has finished, means `empty`. Only an `empty` wallet can celebrate, once.
+- **What a load proves** (`WalletService.LoadTransactionHistoryAsync`): each call returns its own `Complete` and `AddressesSettled`. A failed summary read is incomplete even though the per-address fallback answers, because that reader returns nothing for an address it cannot reach. The shared `LastHistoryIncomplete` is set from the same result for older callers.
+- **Coordinator** (`FirstReceiveCoordinator` in `DigiByte.Web`): Home, Receive and Activity report every history load to it. It keeps the pending celebration in memory and marks the wallet `celebrated` when the overlay is actually on screen, so a celebration that could not be shown is offered again.
+- **Shared refresh** (`RefreshPacer`, `AutoRefreshLoop`): Home's poller pacing, used by Home and by Receive, which now checks while open. `NewArrivals` and `IncomingPaymentAnnouncer` are Home's "payment received" notice, one instance per page.
+- **First-session marker**: a per-device flag set the first time any wallet shows a transaction. Until then the install banner (outside the setup pages) and the sponsors strip are hidden.
+
 ### P2P light-client gateway (optional, off by default)
 
 `DigiByte.SpvGateway` is a separate ASP.NET service that depends only on `DigiByte.Crypto` (specs/011-p2p-spv-gateway). It connects to public peers, verifies
@@ -184,7 +194,8 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 | `ToastContainer` | Auto-dismiss notifications via NotificationService |
 | `OfflineBanner` | Offline indicator via NetworkStatusService |
 | `DigiLogo` | Official DigiByte SVG logo, configurable size |
-| `OnboardingWalkthrough` | 5-step first-time carousel, persisted in localStorage |
+| `ReceiveEmptyState` | Home's empty state: the receiving address, its QR code, Copy address and a link to Receive (spec 025) |
+| `FirstReceiveCelebration` | The one-time first-payment celebration, placed on Home, Receive and Activity (spec 025) |
 | `TransactionDetailModal` | Tx detail popup — status, fee, explorer link, add to contacts |
 | `BakuMessage` | Baku the mascot: one guide, tip or warning card (pose + text); text-only when Baku is Off or the image fails |
 | `BakuWarningDialog` | Guardian confirmation ("Go back" / "I understand, continue"), hosted once in `MainLayout` |

@@ -9,13 +9,11 @@
 <AuthGuard>
 <div class="flex flex-col gap-5">
     <div class="slide-up">
-        <button class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 mb-2" @onclick='() => Nav.NavigateTo("/settings")'>
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-            Settings
+        <button type="button" class="back-btn mb-2" @onclick='() => Nav.NavigateTo("/settings")'>
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <span>Settings</span>
         </button>
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Share Account xpub</h2>
+        <h2 class="page-title">Share Account xpub</h2>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Watch-only extended public key for this wallet. Paste it into DigiPay or any compatible service.</p>
     </div>
 
@@ -36,9 +34,9 @@
     }
     else if (xpub != null)
     {
-        <div class="slide-up-delay-2 bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 p-5 shadow-sm flex flex-col items-center gap-4">
+        <div class="card slide-up-delay-2 p-5 flex flex-col items-center gap-4">
             @* DigiByte mark centred — ECCLevel.H compensates for the punched-out centre. *@
-            <div class="relative bg-white rounded-2xl p-3 shadow-inner">
+            <div class="qr-frame">
                 <img src="@qrDataUrl" alt="Account xpub QR" class="w-56 h-56 rounded-lg" />
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div class="bg-white rounded-full p-1.5 shadow-md">
@@ -52,7 +50,7 @@
                     @xpub
                 </p>
             </div>
-            <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl transition-colors"
+            <button class="btn-primary w-full"
                     @onclick="CopyAsync">
                 @(copied ? "Copied ✓" : "Copy xpub")
             </button>

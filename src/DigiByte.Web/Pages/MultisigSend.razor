@@ -71,7 +71,7 @@ else
                     @foreach (var (label, share) in AmountShares)
                     {
                         var fraction = share;
-                        <button type="button" class="flex-1 min-h-[32px] py-1.5 text-xs font-semibold rounded-lg transition-colors press-effect disabled:opacity-50 @(IsShareActive(fraction) ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700")"
+                        <button type="button" class="choice flex-1" aria-pressed="@(IsShareActive(fraction) ? "true" : "false")"
                                 @onclick="() => SetAmountShare(fraction)" disabled="@(utxos is null || Spendable <= 0)">@label</button>
                     }
                 </div>
@@ -92,12 +92,12 @@ else
                 <div class="flex flex-col gap-1.5 slide-up-delay-3">
                     <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fee Rate (sat/vB)</label>
                     <div class="flex gap-2">
-                        <button class="flex-1 min-h-[36px] py-2 text-xs font-semibold rounded-lg transition-all @(feeRate == 100 ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")" @onclick="() => SetFeeRate(100)">Slow (100)</button>
-                        <button class="flex-1 min-h-[36px] py-2 text-xs font-semibold rounded-lg transition-all @(feeRate == 200 ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")" @onclick="() => SetFeeRate(200)">Normal (200)</button>
-                        <button class="flex-1 min-h-[36px] py-2 text-xs font-semibold rounded-lg transition-all @(feeRate == 400 ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")" @onclick="() => SetFeeRate(400)">Fast (400)</button>
+                        <button class="choice flex-1" aria-pressed="@(feeRate == 100 ? "true" : "false")" @onclick="() => SetFeeRate(100)">Slow (100)</button>
+                        <button class="choice flex-1" aria-pressed="@(feeRate == 200 ? "true" : "false")" @onclick="() => SetFeeRate(200)">Normal (200)</button>
+                        <button class="choice flex-1" aria-pressed="@(feeRate == 400 ? "true" : "false")" @onclick="() => SetFeeRate(400)">Fast (400)</button>
                     </div>
                     <input type="number" inputmode="numeric" value="@feeRate" @onchange="OnCustomFee" min="1" placeholder="Custom sat/vB" aria-label="Custom fee rate in sat per vB"
-                           class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
+                           class="input" />
                 </div>
             }
 
@@ -105,7 +105,7 @@ else
             <div class="flex flex-col gap-1.5 slide-up-delay-3">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-memo">Memo (optional)</label>
                 <input id="ms-memo" type="text" value="@memo" @oninput="OnMemoInput" maxlength="80" placeholder="What's this for?"
-                       class="w-full px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                       class="input" />
             </div>
 
             @* Fee display *@
@@ -131,7 +131,7 @@ else
                 <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">This creates a proposal that needs <b>@config.RequiredSignatures of @config.TotalSigners</b> signatures before it can be broadcast.</p>
             </div>
 
-            <button class="slide-up-delay-5 w-full min-h-[44px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 mt-2"
+            <button class="btn-primary btn-sm slide-up-delay-5 w-full mt-2"
                     disabled="@(!CanContinue)" @onclick="GoToReview">
                 <span>Review Transaction</span>
             </button>
@@ -143,7 +143,7 @@ else
                 <div class="w-12 h-12 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
                     <svg class="w-6 h-6 text-green-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                 </div>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Proposal Created</h3>
+                <h3 class="block-title block-title-lg">Proposal Created</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400 text-center max-w-[260px]">It needs @created.RequiredSignatures signature(s) before it can be broadcast.</p>
             </div>
 
@@ -176,11 +176,11 @@ else
             <div class="flex flex-col gap-2">
                 @if (MultisigWalletService.NeedsMySignature(created, config))
                 {
-                    <button class="w-full min-h-[44px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50" disabled="@isSigning" @onclick="SignNow">
+                    <button class="btn-primary btn-sm w-full" disabled="@isSigning" @onclick="SignNow">
                         @(isSigning ? "Signing…" : "Sign Now")
                     </button>
                 }
-                <button class="w-full min-h-[44px] py-3 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect" @onclick="SharePsbt">
+                <button class="btn-secondary btn-sm w-full" @onclick="SharePsbt">
                     Copy Proposal to Share
                 </button>
                 <button class="w-full min-h-[44px] py-2.5 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>
@@ -201,7 +201,7 @@ else
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
                         </svg>
                     </div>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Confirm Proposal</h3>
+                    <h3 class="block-title block-title-lg">Confirm Proposal</h3>
                     <span class="text-xs font-semibold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-0.5 rounded-md">@config.RequiredSignatures of @config.TotalSigners signatures</span>
                 </div>
 
@@ -251,11 +251,11 @@ else
                 }
 
                 <div class="flex gap-3">
-                    <button class="flex-1 min-h-[44px] py-3 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect"
+                    <button class="btn-secondary btn-sm flex-1"
                             @onclick="() => { step = Step.Form; error = null; }" disabled="@isCreating">
                         Cancel
                     </button>
-                    <button class="flex-1 min-h-[44px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                    <button class="btn-primary btn-sm flex-1"
                             @onclick="Confirm" disabled="@isCreating">
                         @if (isCreating)
                         {

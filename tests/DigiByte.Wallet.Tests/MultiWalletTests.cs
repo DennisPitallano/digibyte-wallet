@@ -12,9 +12,10 @@ public class MultiWalletTests
     private static readonly Network Network = DigiByteNetwork.Mainnet;
     private const string Pin = "123456";
 
-    private static WalletService CreateService()
+    private static WalletService CreateService() => CreateService(new InMemorySecureStorage());
+
+    private static WalletService CreateService(ISecureStorage storage)
     {
-        var storage = new InMemorySecureStorage();
         var walletStore = new WalletKeyStore(storage);
         var crypto = new FakeCryptoService();
         var blockchain = new FakeBlockchainService();
@@ -267,6 +268,26 @@ public class MultiWalletTests
         var all = await service.GetAllWalletsAsync();
         Assert.Single(all);
         Assert.Equal("Keep", all[0].Name);
+    }
+
+    /// <summary>Spec 025, FR-028: the first-receive record goes with the wallet; the per-device marker stays.</summary>
+    [Fact]
+    public async Task DeleteWalletAsync_RemovesItsFirstReceiveRecord_AndKeepsTheFirstSessionMarker()
+    {
+        var storage = new InMemorySecureStorage();
+        var service = CreateService(storage);
+        var keep = await service.CreateWalletAsync("Keep", GenerateMnemonic(), Pin);
+        var delete = await service.CreateWalletAsync("Delete", GenerateMnemonic(), Pin);
+        var records = new FirstReceiveStore(storage);
+        await records.SetAsync(keep.Id, FirstReceiveState.Empty);
+        await records.SetAsync(delete.Id, FirstReceiveState.Empty);
+        await records.EndFirstSessionAsync();
+
+        await service.DeleteWalletAsync(delete.Id);
+
+        Assert.False(await storage.ContainsKeyAsync(FirstReceiveStore.StateKey(delete.Id)));
+        Assert.True(await storage.ContainsKeyAsync(FirstReceiveStore.StateKey(keep.Id)));
+        Assert.True(await records.IsFirstSessionEndedAsync());
     }
 
     [Fact]

@@ -31,7 +31,7 @@
                     }
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">@(Tx.DigiDollar?.Label ?? (IsSent ? "Sent" : "Received"))</h3>
+                    <h3 class="block-title block-title-lg">@(Tx.DigiDollar?.Label ?? (IsSent ? "Sent" : "Received"))</h3>
                     <p class="text-xs text-slate-400 dark:text-slate-500">@Tx.Timestamp.ToLocalTime().ToString("MMMM d, yyyy h:mm tt")</p>
                 </div>
             </div>
@@ -92,7 +92,7 @@
                                 <div class="flex items-center gap-1 mt-1">
                                     <input type="text" @bind="editLabelText" @bind:event="oninput"
                                            placeholder="e.g. Alice, Rent, Shop..."
-                                           class="flex-1 px-2 py-1 text-[11px] bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-dgb-500/30" />
+                                           class="input flex-1" />
                                     <button class="text-green-500 press-effect" @onclick="SaveLabel" title="Save" aria-label="Save">
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -208,7 +208,7 @@
                     </button>
                 </div>
                 <a href="https://digiexplorer.info/tx/@Tx.TxId" target="_blank" rel="noopener"
-                   class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl text-center press-effect flex items-center justify-center gap-2">
+                   class="btn-primary btn-sm w-full">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                     </svg>

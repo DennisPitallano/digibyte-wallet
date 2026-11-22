@@ -110,6 +110,19 @@ public class AppState : IDisposable
         _lockTimer = null;
     }
 
+    /// <summary>
+    /// Locks the wallet because the user asked to (the snap on the balance card). Does exactly what the auto-lock does:
+    /// the app goes to the unlock screen and the PIN or passphrase is needed again.
+    /// </summary>
+    public void LockNow()
+    {
+        if (!IsWalletUnlocked) return;
+        IsWalletUnlocked = false;
+        StopLockTimer();
+        OnAutoLocked?.Invoke();
+        NotifyStateChanged();
+    }
+
     /// <summary>Called from JS when the tab/app becomes hidden.</summary>
     [JSInvokable]
     public void OnTabHidden()

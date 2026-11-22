@@ -5,6 +5,9 @@
 @inject AppState AppState
 @inject WalletService WalletService
 @inject IJSRuntime JS
+@inject FirstReceiveCoordinator FirstReceive
+@inject SoundService Sounds
+@inject WalletSnapshotCache Snapshots
 
 <ToastContainer />
 <BakuWarningDialog />
@@ -14,7 +17,7 @@
 <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-dgb-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold">Skip to content</a>
 <div class="flex flex-col h-dvh max-w-[480px] mx-auto relative bg-slate-50 dark:bg-dgb-950">
     <NodeSourceIndicator />
-    <main id="main-content" class="flex-1 overflow-y-auto px-4 pt-4 safe-area-top @(ShowNav ? "pb-24" : "pb-4") scroll-smooth thin-scrollbar"
+    <main id="main-content" class="flex-1 overflow-y-auto px-4 pt-4 safe-area-top @(ShowNav ? "main-with-nav" : "pb-4") scroll-smooth thin-scrollbar"
           role="main" @onclick="AppState.ResetLockTimer" @ontouchstart="AppState.ResetLockTimer">
         <OfflineBanner />
         <NodeDegradedBanner />
@@ -38,7 +41,7 @@
         <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
              @onclick:stopPropagation="true">
             <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">@(autoWhatsNew ? "Updated to v" + AppVersion.Version : "Version Info")</h3>
+                <h3 class="block-title block-title-sm">@(autoWhatsNew ? "Updated to v" + AppVersion.Version : "Version Info")</h3>
                 <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
                         @onclick="() => showVersionInfo = false">
                     <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -128,8 +131,28 @@
     private bool autoWhatsNew;
     private bool whatsNewChecked;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // First-receive flow (spec 025): load the "first session ended" marker once. A device that already has a wallet
+        // with saved history (an existing user after an update) is past its first session, whichever page opens first.
+        try { await FirstReceive.InitializeAsync(AnyWalletHasSavedHistoryAsync); } catch { }
+        // Optional chimes: when the user has turned Sounds on, get the files ready for the first tap.
+        try { await Sounds.InitializeAsync(); } catch { }
+    }
+
+    private async Task<bool> AnyWalletHasSavedHistoryAsync()
+    {
+        foreach (var wallet in await WalletService.GetAllWalletsAsync())
+            if ((await Snapshots.LoadAsync(wallet.Id)).Transactions is { Count: > 0 })
+                return true;
+        return false;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The first-payment celebration must not cover this window (spec 025, FR-023).
+        FirstReceive.OtherDialogOpen = showVersionInfo;
+
         // Wait until the wallet is unlocked and Home is showing, so it never covers the unlock or setup screens.
         if (whatsNewChecked || CurrentPath != "/" || !WalletService.IsUnlocked) return;
         whatsNewChecked = true;

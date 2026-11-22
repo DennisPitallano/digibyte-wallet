@@ -22,7 +22,7 @@
         <div class="flex flex-col gap-3">
             @for (int i = 0; i < 2; i++)
             {
-                <div class="p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
+                <div class="card p-4">
                     <div class="h-5 w-48 skeleton rounded"></div>
                     <div class="h-4 w-32 skeleton rounded mt-2"></div>
                 </div>
@@ -170,19 +170,22 @@
                             <div class="flex flex-wrap gap-2 mt-3">
                                 @if (tx.Status == PendingTxStatus.ReadyToFinalize)
                                 {
-                                    <button class="flex-1 min-h-[44px] py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect disabled:opacity-50"
-                                            @onclick="() => BroadcastTransaction(tx)" disabled="@(isBroadcasting || spent)">
-                                        @(isBroadcasting && busyId == tx.Id ? "Broadcasting…" : "Broadcast")
-                                    </button>
+                                    @* Broadcasting sends the coins and cannot be undone: slide, not tap (docs/UI_STYLE.md).
+                                       The key changes after every attempt, so a failed one leaves a fresh, unlocked control. *@
+                                    <div class="basis-full">
+                                        <SlideToConfirm @key="@($"{tx.Id}:{broadcastAttempt}")" Label="Slide to broadcast" BusyLabel="Broadcasting…"
+                                                        ActionDescription="Broadcast this multisig payment"
+                                                        Disabled="@(isBroadcasting || spent)" OnConfirmed="() => BroadcastTransaction(tx)" />
+                                    </div>
                                 }
                                 @if (tx.Status == PendingTxStatus.Failed)
                                 {
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             @onclick="() => RetryBroadcast(tx)" disabled="@isBroadcasting">Retry broadcast</button>
                                 }
                                 @if (mine)
                                 {
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             @onclick="() => signConfirmFor = tx.Id" disabled="@(isSigning || spent)">
                                         @(isSigning && busyId == tx.Id ? "Signing…" : "Sign")
                                     </button>
@@ -215,9 +218,9 @@
                             <div class="mt-3 p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="Confirm signing">
                                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Sign @MultisigFormat.Dgb(tx.AmountSatoshis) DGB to @MultisigFormat.Short(tx.DestinationAddress)?</p>
                                 <div class="flex gap-2">
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             disabled="@isSigning" @onclick="() => ConfirmSign(tx)">Confirm and sign</button>
-                                    <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="() => signConfirmFor = null">Back</button>
+                                    <button type="button" class="btn-ghost btn-sm" @onclick="() => signConfirmFor = null">Back</button>
                                 </div>
                             </div>
                         }
@@ -250,9 +253,9 @@
                                     </select>
                                     <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-name">Your name in the room</label>
                                     <input id="room-name" @bind="roomName" @bind:event="oninput" maxlength="40"
-                                           class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500" />
+                                           class="input" />
                                     <div class="flex gap-2">
-                                        <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                        <button class="btn-primary btn-sm flex-1"
                                                 disabled="@(isOpening || string.IsNullOrWhiteSpace(roomName))" @onclick="() => OpenRoomAsync(tx)">
                                             @(isOpening ? "Opening…" : "Open room")
                                         </button>
@@ -289,7 +292,7 @@
                                 <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Add a co-signer's signed copy (paste, scan, or choose a file):</p>
                                 <textarea @bind="importPsbtBase64" @bind:event="oninput" rows="3" aria-label="Signed PSBT from co-signer"
                                           placeholder="Base64-encoded PSBT…"
-                                          class="w-full px-3 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all resize-none"></textarea>
+                                          class="input font-mono resize-none"></textarea>
                                 <div class="flex flex-wrap gap-2">
                                     <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="PasteImport">Paste</button>
                                     <button class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-xl press-effect" @onclick="StartScanSignature">Scan QR</button>
@@ -303,7 +306,7 @@
                                     <p class="text-xs text-amber-600 dark:text-amber-400" role="status">@importNotice</p>
                                 }
                                 <div class="flex gap-2">
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             @onclick="() => ImportSignedPSBT(tx)" disabled="@(string.IsNullOrWhiteSpace(importPsbtBase64))">Merge signatures</button>
                                     <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="() => importFor = null">Close</button>
                                 </div>
@@ -376,7 +379,12 @@
     // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
     protected override async Task OnParametersSetAsync()
     {
-        if (loadedFor == WalletId) return;
+        if (loadedFor == WalletId)
+        {
+            // Already showing this multisig: the app-wide Scan may have just handed over a proposal for it.
+            if (config is not null && Handoff.Take(WalletId) is { } scanned) await ReceiveProposalText(scanned);
+            return;
+        }
         loadedFor = WalletId;
         isLoading = true;
         config = null;
@@ -885,8 +893,12 @@
         {
             isBroadcasting = false;
             busyId = null;
+            broadcastAttempt++;
         }
     }
+
+    // Counts broadcast attempts; part of the slide control's key, so each attempt starts with an unlocked control.
+    private int broadcastAttempt;
 
     private async Task RetryBroadcast(PendingMultisigTransaction tx)
     {

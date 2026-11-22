@@ -10,12 +10,10 @@
 <div class="flex flex-col gap-5">
     @if (isAddWalletMode)
     {
-        <button class="self-start flex items-center gap-1.5 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
+        <button type="button" class="back-btn self-start"
                 @onclick="GoBack">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-            Back
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <span>Back</span>
         </button>
     }
 
@@ -31,7 +29,7 @@
     @if (step == Step.NameWallet)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Name Your Wallet</h2>
+            <h2 class="page-title">Name Your Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
         </div>
 
@@ -39,7 +37,7 @@
             <input type="text" @bind="walletName" @bind:event="oninput"
                    placeholder="e.g. Savings, Trading, Cold Storage..."
                    maxlength="30" autocomplete="off"
-                   class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-slate-900 dark:text-white text-base outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                   class="input" />
             <p class="text-xs text-slate-400 dark:text-slate-500 text-right">@walletName.Length / 30</p>
         </div>
 
@@ -64,7 +62,7 @@
             </div>
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+        <button class="btn-primary w-full"
                 @onclick="NameContinue" disabled="@string.IsNullOrWhiteSpace(walletName)">
             Continue
         </button>
@@ -73,24 +71,24 @@
     {
         <BakuMessage MessageId="recover.intro" />
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Recover Your Wallet</h2>
+            <h2 class="page-title">Recover Your Wallet</h2>
         </div>
 
         @* Recovery method toggle *@
-        <div class="slide-up-delay-1 flex bg-slate-100 dark:bg-dgb-900 rounded-xl p-1 gap-0.5">
-            <button class="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 @(!isPrivateKeyMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+        <div class="segmented slide-up-delay-1">
+            <button class="segmented-item flex-1" aria-pressed="@(!isPrivateKeyMode ? "true" : "false")"
                     @onclick="() => isPrivateKeyMode = false">Recovery Phrase</button>
-            <button class="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 @(isPrivateKeyMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+            <button class="segmented-item flex-1" aria-pressed="@(isPrivateKeyMode ? "true" : "false")"
                     @onclick="() => isPrivateKeyMode = true">Private Key</button>
         </div>
 
         @if (!isPrivateKeyMode)
         {
             @* Mnemonic input mode toggle *@
-            <div class="flex bg-slate-100 dark:bg-dgb-900 rounded-xl p-1 gap-0.5 slide-up-delay-1">
-                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(!wordByWordMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+            <div class="segmented slide-up-delay-1">
+                <button class="segmented-item flex-1" aria-pressed="@(!wordByWordMode ? "true" : "false")"
                         @onclick="() => SwitchInputMode(false)">Paste All</button>
-                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(wordByWordMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                <button class="segmented-item flex-1" aria-pressed="@(wordByWordMode ? "true" : "false")"
                         @onclick="() => SwitchInputMode(true)">Word by Word</button>
             </div>
 
@@ -126,7 +124,7 @@
                             <textarea @bind="mnemonicInput" @bind:event="oninput" rows="4"
                                       placeholder="Enter your recovery phrase separated by spaces..."
                                       autocomplete="off" spellcheck="false" autocapitalize="off"
-                                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                                      class="input resize-none"></textarea>
                         }
                         else
                         {
@@ -134,7 +132,7 @@
                                       placeholder="Enter your recovery phrase separated by spaces..."
                                       autocomplete="off" spellcheck="false" autocapitalize="off"
                                       style="-webkit-text-security: disc; text-security: disc;"
-                                      class="w-full px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all resize-none leading-relaxed"></textarea>
+                                      class="input resize-none"></textarea>
                         }
                     </div>
                     @if (!string.IsNullOrWhiteSpace(mnemonicInput))
@@ -146,38 +144,49 @@
                 else
                 {
                     @* Word-by-word mode *@
-                    <div class="flex items-center gap-2 mb-1">
-                        <p class="text-xs text-slate-400 dark:text-slate-500">Words: @wordCount</p>
-                        <div class="flex-1"></div>
-                        <button type="button" class="text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
-                                @onclick="() => SetWordCount(12)">12</button>
-                        <span class="text-slate-300 dark:text-slate-600">|</span>
-                        <button type="button" class="text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
-                                @onclick="() => SetWordCount(24)">24</button>
+                    <div class="flex items-center justify-between gap-3">
+                        @* Progress, so a missing word is noticed before Continue. *@
+                        <p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite" data-testid="seed-progress">
+                            <span class="font-semibold text-slate-900 dark:text-white">@FilledWords</span> of @wordCount words
+                            @if (InvalidWords > 0)
+                            {
+                                <span class="text-red-600 dark:text-red-400">· @InvalidWords not recognised</span>
+                            }
+                        </p>
+                        <div class="seed-count" role="group" aria-label="Number of words in the phrase">
+                            <button type="button" aria-pressed="@(wordCount == 12 ? "true" : "false")" @onclick="() => SetWordCount(12)">12</button>
+                            <button type="button" aria-pressed="@(wordCount == 24 ? "true" : "false")" @onclick="() => SetWordCount(24)">24</button>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Tip: paste the whole phrase into box 1 and it fills every box.</p>
+                    @* Each word is one box with its number inside. The grid picks two or three columns to fit the screen,
+                       and boxes can shrink, so nothing runs off the side. *@
+                    <div class="seed-grid">
                         @for (int i = 0; i < wordCount; i++)
                         {
                             var idx = i;
-                            <div class="relative flex items-center gap-1.5">
-                                <span class="text-[11px] text-slate-400 dark:text-slate-500 w-5 text-right font-mono">@((idx + 1).ToString())</span>
-                                <input type="@(showMnemonic ? "text" : "password")"
+                            var state = string.IsNullOrEmpty(wordInputs[idx]) ? "" : IsWordValid(idx) ? "is-valid" : "is-invalid";
+                            <div class="seed-cell @state">
+                                <label class="seed-cell-num" for="@($"seed-word-{idx + 1}")" aria-hidden="true">@((idx + 1).ToString())</label>
+                                <input id="@($"seed-word-{idx + 1}")" type="@(showMnemonic ? "text" : "password")"
+                                       aria-label="@($"Word {idx + 1} of {wordCount}")"
+                                       aria-invalid="@(state == "is-invalid" ? "true" : null)"
                                        value="@wordInputs[idx]"
                                        @oninput="(e) => OnWordInput(idx, e.Value?.ToString() ?? string.Empty)"
                                        @onfocus="() => OnWordFocus(idx)"
                                        @onblur="() => OnWordBlur(idx)"
                                        @onkeydown="(e) => OnWordKeyDown(idx, e)"
                                        autocomplete="off" spellcheck="false" autocapitalize="off"
-                                       class="flex-1 px-2.5 py-2 bg-white dark:bg-dgb-900 border rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-dgb-500/20 transition-all font-mono @(IsWordValid(idx) ? "border-slate-200 dark:border-dgb-800 focus:border-dgb-500" : wordInputs[idx].Length > 0 ? "border-red-300 dark:border-red-700 focus:border-red-400" : "border-slate-200 dark:border-dgb-800 focus:border-dgb-500")" />
+                                       />
                                 @if (activeWordIndex == idx && suggestions.Length > 0)
                                 {
-                                    <div class="absolute top-full left-5 right-0 mt-0.5 z-50 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-lg shadow-lg max-h-28 overflow-y-auto">
+                                    <div class="seed-suggest">
                                         @for (int j = 0; j < suggestions.Length; j++)
                                         {
                                             var sIdx = j;
                                             var word = suggestions[sIdx];
                                             <button type="button"
-                                                    class="w-full text-left px-2.5 py-1.5 text-xs font-mono transition-colors @(sIdx == selectedSuggestion ? "bg-dgb-100 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dgb-800/50")"
+                                                    class="@(sIdx == selectedSuggestion ? "is-active" : "")"
                                                     @onmousedown:preventDefault
                                                     @onmousedown="() => SelectSuggestion(idx, word)">
                                                 @if (showMnemonic)
@@ -204,11 +213,11 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                <button class="btn-primary w-full"
                         @onclick="ValidateMnemonic" disabled="@IsMnemonicEmpty">
                     Continue
                 </button>
-                <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="GoBack">Back</button>
+                <button type="button" class="btn-ghost btn-sm" @onclick="GoBack">Back</button>
             </div>
         }
         else
@@ -220,7 +229,7 @@
                     <input type="password" @bind="wifInput" @bind:event="oninput"
                            placeholder="5... or K... or L..."
                            autocomplete="off" spellcheck="false"
-                           class="flex-1 px-4 py-3.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
+                           class="input flex-1 font-mono" />
                     <button type="button" class="w-12 h-12 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0 press-effect"
                             @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
@@ -246,18 +255,18 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                <button class="btn-primary w-full"
                         @onclick="ValidateWif" disabled="@string.IsNullOrWhiteSpace(wifInput)">
                     Continue
                 </button>
-                <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="GoBack">Back</button>
+                <button type="button" class="btn-ghost btn-sm" @onclick="GoBack">Back</button>
             </div>
         }
     }
     else if (step == Step.SetPin)
     {
         <div class="slide-up text-center">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
+            <h2 class="page-title">Set Your PIN</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
         </div>
 
@@ -288,13 +297,13 @@
             @* Optional: when the wallet was first used. With it, a restore through the light-client gateway reads only the blocks since then. *@
             <div class="flex flex-col gap-1">
                 <label for="first-use" class="text-xs font-semibold text-slate-500 dark:text-slate-400">Approximately when did you first use this wallet? (optional)</label>
-                <input id="first-use" type="date" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-dgb-700 bg-white dark:bg-dgb-900 text-sm"
+                <input id="first-use" type="date" class="input"
                        max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" @bind="firstUse" />
                 <p class="text-[11px] text-slate-400">A rough date is fine. Leave it empty to look through the whole history. Restoring may take a while.</p>
             </div>
         }
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-2 flex items-center justify-center gap-2"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="OnPinButtonClick"
                 disabled="@(isRecovering || (!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))">
             @if (isRecovering)
@@ -544,6 +553,9 @@
             activeWordIndex = -1;
         }
     }
+
+    private int FilledWords => wordInputs.Take(wordCount).Count(w => !string.IsNullOrWhiteSpace(w));
+    private int InvalidWords => Enumerable.Range(0, wordCount).Count(i => !IsWordValid(i));
 
     private bool IsWordValid(int index)
     {
