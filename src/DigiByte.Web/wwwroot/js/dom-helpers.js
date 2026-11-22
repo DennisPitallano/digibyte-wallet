@@ -13,9 +13,11 @@ window.domHelpers = {
     },
     autoSizeTxList: function () {
         var main = document.querySelector('main');
-        if (main) main.style.overflow = 'hidden';
-
         var el = document.getElementById('tx-list');
+        // The page itself stops scrolling only while the transaction list is there to scroll instead. With no list (an
+        // empty wallet's address and QR code, the loading rows, a failed load) the page must scroll, or its lower part
+        // cannot be reached on a small screen.
+        if (main) main.style.overflow = el ? 'hidden' : '';
         if (!el) return;
         var rect = el.getBoundingClientRect();
         var navHeight = 64;

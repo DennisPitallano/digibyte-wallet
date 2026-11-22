@@ -1,0 +1,75 @@
+@* Home's empty state (spec 025, FR-003 to FR-007): where the transaction list will be, the address to share to get a first
+   payment. The address is derived on the device, so this renders with no network. It carries no explanatory sentence of
+   its own: that is the mascot's "home.empty" message, which Home shows above it and which the user can turn off. *@
+@inject ClipboardService Clipboard
+@inject LocalizationService L
+
+@if (!string.IsNullOrEmpty(Address))
+{
+    @* Side by side, so the whole card (and its Copy button) stays near the top of a phone screen. *@
+    <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-3 flex items-center gap-3 @Class"
+         data-testid="receive-empty-state">
+        @if (qrDataUri is not null)
+        {
+            <div class="bg-white rounded-xl p-1.5 shadow-inner relative flex-shrink-0">
+                <img src="@qrDataUri" alt="@L.T("home.empty.qr_alt")" class="w-28 h-28 rounded-md block" data-testid="receive-empty-qr" />
+                <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                    <div class="bg-white rounded-full p-1 shadow-md">
+                        <DigiLogo Size="20" />
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="flex-1 min-w-0 flex flex-col gap-2">
+            <p class="text-[11px] font-mono text-slate-600 dark:text-slate-300 break-all leading-relaxed select-all"
+               data-testid="receive-empty-address">@Address</p>
+
+            <button type="button" class="w-full min-h-[44px] px-3 py-2.5 text-sm font-semibold rounded-xl bg-dgb-500 text-white hover:bg-dgb-600 transition-colors press-effect"
+                    data-testid="receive-empty-copy" @onclick="CopyAsync">
+                @L.T("home.empty.copy")
+            </button>
+            <a href="/receive" class="w-full min-h-[44px] px-3 py-2.5 text-sm font-semibold text-center rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors no-underline flex items-center justify-center"
+               data-testid="receive-empty-link">
+                @L.T("home.empty.receive_link")
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>The wallet's current receiving address: the same one the balance card and the Receive page show.</summary>
+    [Parameter] public string? Address { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    private string? qrFor;
+    private string? qrDataUri;
+
+    protected override void OnParametersSet()
+    {
+        if (Address == qrFor) return;
+        qrFor = Address;
+        qrDataUri = null;
+        if (string.IsNullOrEmpty(Address)) return;
+
+        try
+        {
+            // The same generator and colours as Home's address QR dialog.
+            using var generator = new QRCoder.QRCodeGenerator();
+            using var data = generator.CreateQrCode(Address, QRCoder.QRCodeGenerator.ECCLevel.H);
+            using var code = new QRCoder.PngByteQRCode(data);
+            qrDataUri = $"data:image/png;base64,{Convert.ToBase64String(code.GetGraphic(10, [0, 35, 82], [255, 255, 255]))}";
+        }
+        catch
+        {
+            // Without a QR code the address and the Copy button still do the job.
+        }
+    }
+
+    private async Task CopyAsync()
+    {
+        if (!string.IsNullOrEmpty(Address))
+            await Clipboard.CopyAsync(Address, message: L.T("home.empty.copied"));
+    }
+}

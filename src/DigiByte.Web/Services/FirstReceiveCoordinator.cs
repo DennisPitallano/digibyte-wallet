@@ -38,6 +38,15 @@ public sealed class FirstReceiveCoordinator(FirstReceiveStore store)
     }
 
     /// <summary>
+    /// What a network history load proves. It is judged from that load's own result, never from the wallet service's shared
+    /// <see cref="WalletService.LastHistoryIncomplete"/>, which another load running at the same time can overwrite (FR-015).
+    /// </summary>
+    public static HistorySource SourceOf(WalletService.HistoryLoad load) =>
+        !load.Complete ? HistorySource.IncompleteLoad
+        : !load.AddressesSettled ? HistorySource.PartialAddressLoad
+        : HistorySource.CompleteLoad;
+
+    /// <summary>
     /// Loads the first-session marker, once. When it is absent, <paramref name="anyWalletHasSavedHistory"/> is asked once:
     /// a device that already has a wallet with saved history (an existing user after an update) is past its first session.
     /// </summary>

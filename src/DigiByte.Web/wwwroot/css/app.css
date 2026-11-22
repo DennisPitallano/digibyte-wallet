@@ -491,6 +491,14 @@ body:has(.modal-overlay) nav {
     .baku-enter, .baku-celebrate { animation: none !important; }
 }
 
+/* First-payment celebration (spec 025): the coin settles in like the send overlay's; with reduced motion the confetti
+   and rings are left out altogether and the coin stays still. */
+.first-receive-coin { animation: coin-settle 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+    .first-receive-decor { display: none !important; }
+    .first-receive-coin, .first-receive-coin * { animation: none !important; }
+}
+
 /* Baku's speech bubble: the tail is a rotated square that reuses the bubble's background and border. */
 .baku-bubble { position: relative; }
 .baku-bubble-tail::before {

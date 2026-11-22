@@ -98,6 +98,9 @@ public class LocaleParityTests
             "Components/Shared/CredentialInput.razor", "Components/Wallet/WalletProtectionCard.razor",
             "Components/BiometricNotice.razor", "Components/LegacyProtectionConsent.razor",
             "Pages/CreateWallet.razor", "Pages/Unlock.razor",
+            // spec 025 (first-receive flow)
+            "Components/Wallet/ReceiveEmptyState.razor", "Pages/Transactions.razor",
+            "Components/Shared/FirstReceiveCelebration.razor",
         };
         var call = new Regex("L\\.T\\(\"([^\"]+)\"");
 

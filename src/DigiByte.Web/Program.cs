@@ -88,6 +88,7 @@ builder.Services.AddScoped<DigiByte.Web.Services.WalletSnapshotCache>();
 // per-device "first session ended" marker the install banner and sponsors strip wait for.
 builder.Services.AddScoped(sp => new FirstReceiveStore(sp.GetRequiredService<ISecureStorage>()));
 builder.Services.AddScoped<DigiByte.Web.Services.FirstReceiveCoordinator>();
+builder.Services.AddScoped<DigiByte.Web.Services.InstallAppState>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<PaymentRequestService>();

@@ -759,9 +759,8 @@
     private bool cacheCleared;
     private bool showLanguageToast;
 
-    // Install-app state (spec 019). The mode follows the table in specs/019-settings-install-app/data-model.md.
-    private enum InstallMode { Hidden, Native, IosSteps, MenuSteps }
-    private sealed record InstallState(bool Standalone, bool Ios, bool Android, bool CanPrompt, bool NonSafariIos, bool PromptSeen);
+    // Install-app state (spec 019). The mode follows the table in specs/019-settings-install-app/data-model.md. The types
+    // and the rule live in InstallAppState, which the first-payment celebration uses too (spec 025).
     private InstallState installState = new(false, false, false, false, false, false);
     private InstallMode installMode = InstallMode.Hidden;
     private bool installed;            // the browser reported a completed install
@@ -770,18 +769,11 @@
     private ElementReference installDialogRef;
     private DotNetObjectReference<Settings>? installRef;
 
-    private static InstallMode ComputeInstallMode(InstallState s) =>
-        s.Standalone ? InstallMode.Hidden
-        : s.CanPrompt ? InstallMode.Native
-        : s.Ios ? InstallMode.IosSteps
-        : (s.Android || s.PromptSeen) ? InstallMode.MenuSteps
-        : InstallMode.Hidden;
-
     private async Task RefreshInstallStateAsync()
     {
         try { installState = await JS.InvokeAsync<InstallState>("pwaInstall.getState"); }
         catch { return; } // interop unavailable (prerender / blocked): leave the row hidden
-        installMode = installed ? InstallMode.Hidden : ComputeInstallMode(installState);
+        installMode = installed ? InstallMode.Hidden : InstallAppState.ComputeInstallMode(installState);
         if (installMode == InstallMode.Hidden) showInstallSteps = false;
         StateHasChanged();
     }
@@ -871,6 +863,19 @@
                 installRef = DotNetObjectReference.Create(this);
                 await JS.InvokeVoidAsync("pwaInstall.registerCallback", installRef, new { promptUsed = true });
                 await RefreshInstallStateAsync();
+
+                // Arriving from the first-payment celebration's Install app button (spec 025, FR-027): open the steps
+                // straight away where the browser has no install prompt of its own, then drop the marker from the address.
+                if (new Uri(Nav.Uri).Query.Contains("install=1"))
+                {
+                    if (installMode is InstallMode.IosSteps or InstallMode.MenuSteps)
+                    {
+                        showInstallSteps = true;
+                        focusInstallDialog = true;
+                        StateHasChanged();
+                    }
+                    Nav.NavigateTo("/settings", replace: true);
+                }
             }
             catch { }
 

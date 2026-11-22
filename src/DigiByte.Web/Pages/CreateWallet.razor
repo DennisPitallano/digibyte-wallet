@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 @inject LocalizationService L
 @inject CommonPasswordList CommonList
+@inject FirstReceiveCoordinator FirstReceive
 @using DigiByte.Wallet.Storage
 
 <PageTitle>@(isAddWalletMode ? "Add" : "Create") Wallet — DigiByte Wallet</PageTitle>
@@ -375,7 +376,10 @@
             var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
-            await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind, legacyAgreed);
+            var created = await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind, legacyAgreed);
+            // A wallet made from a phrase generated just now cannot have history, so it is known to be empty without waiting
+            // for the network: its first payment will be celebrated (spec 025, FR-011). Nothing secret is stored for this.
+            try { await FirstReceive.MarkCreatedEmptyAsync(created.Id); } catch { }
             // Remember where this wallet started, so a later restore can begin there (specs/011-p2p-spv-gateway). Best effort.
             await WalletService.RecordBirthHeightAsync();
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
