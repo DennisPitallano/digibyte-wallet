@@ -1654,6 +1654,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 // than NBitcoin generates; stripping the 6-char checksum from dgb1/dgbt1
                 // addresses makes comparison encoding-independent.
                 var rawAddresses = GetAllAddresses();
+                // The wallet these addresses belong to. The user can switch wallets while the reads below are awaited, so
+                // everything saved from here on is saved for this wallet, never for whichever one is active by then.
+                var walletId = _activeWalletId;
+                var network = HistoryNetwork;
+                bool stillActive() => _activeWalletId == walletId;
                 var ourNormalized = new HashSet<string>(rawAddresses.Select(NormalizeAddress));
                 bool isOurs(string? addr) => addr != null && ourNormalized.Contains(NormalizeAddress(addr));
 
@@ -1680,12 +1685,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 }
 
                 // 2. Change-only sync, then 3. every address in full.
-                if (!onePass && ChangeOnlySync)
+                if (!onePass && ChangeOnlySync && walletId is not null)
                 {
                     try
                     {
                         // Change-only sync (spec 023): one summary per address, history pages only where something changed.
-                        var synced = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, rawAddresses, BuildHotHints());
+                        var synced = await _historySync!.RefreshAsync(walletId, network, rawAddresses, BuildHotHints());
                         foreach (var tx in synced.Transactions)
                             allTxs.TryAdd(tx.TxId, tx);
                         changeOnly = true;
@@ -1716,7 +1721,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 }
 
                 // Offer what the explorer returned to the gateway record. Runs in the background and never changes this result.
-                _gatewayBootstrap?.Offer(_activeWalletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),
+                _gatewayBootstrap?.Offer(walletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),
                     servedByGateway: onePass || _blockchain is FallbackBlockchainService { ActiveBackend: "spv-gateway" });
 
                 var ownByKey = new Dictionary<string, string>();
@@ -1724,7 +1729,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 var changeKeys = GetChangeAddressKeys();
                 var singleKey = _singleKey != null;
 
-                var explorerRecords = allTxs.Values.Select(tx =>
+                // A transaction that neither spends from nor pays any of this wallet's addresses is not this wallet's. Saved
+                // history can hold such rows (another wallet's, saved here by an older version when the wallet was switched
+                // mid-load); shown, each would read as "Received 0".
+                var explorerRecords = allTxs.Values
+                    .Where(tx => tx.Inputs.Any(i => isOurs(i.Address)) || tx.Outputs.Any(o => isOurs(o.Address)))
+                    .Select(tx =>
                 {
                     var isSent = tx.Inputs.Any(i => isOurs(i.Address));
                     var (walletAddresses, receivedTo) = TransactionAddressResolver.Resolve(tx, isSent, ownByKey, changeKeys, singleKey);
@@ -1763,17 +1773,19 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 // and save them: they then still show after a reload when the explorer is unreachable.
                 var explorerById = explorerRecords.ToDictionary(r => r.TxId);
                 var filled = TransactionAddressResolver.CopyMissing(localToCheck, explorerById);
-                if (filled.Count > 0)
+                if (filled.Count > 0 && stillActive())
                     await _txTracker.SetWalletAddressesAsync(filled.ToDictionary(
                         r => r.TxId, r => (r.WalletAddresses, r.WalletReceivedAddresses)));
 
                 localTxs = merged.Values.ToList();
 
-                await RepairUnderRecordedBatchesAsync(localToCheck, allTxs, isOurs);
+                // The tracker follows the active wallet: after a switch, a write would land in the other wallet's records.
+                if (stillActive())
+                    await RepairUnderRecordedBatchesAsync(localToCheck, allTxs, isOurs);
 
                 // Once per unlock, after the change-only result is built: re-read every address in full in the background (FR-009).
                 if (changeOnly)
-                    _historySync!.EnsureFullResync(_activeWalletId!, HistoryNetwork, rawAddresses);
+                    _historySync!.EnsureFullResync(walletId!, network, rawAddresses);
             }
             catch (Exception ex)
             {
