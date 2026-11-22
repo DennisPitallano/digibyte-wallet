@@ -2,9 +2,9 @@
    balance, the one most urgent thing about its payments, and two marks that matter before opening it: not backed
    up, and view only. Every mark is an icon and words, never colour alone. The balance has a fixed height and fills
    in after the card is shown, so nothing moves when it arrives. *@
-<div class="wallet-card @(Model.NeedsYou > 0 ? "wallet-card-needs-you" : "")" data-testid="multisig-wallet-card">
+<div class="shared-card @(Model.NeedsYou > 0 ? "shared-card-needs-you" : "")" data-testid="multisig-wallet-card">
     <div class="flex items-start">
-        <button type="button" class="wallet-card-body" aria-label="@OpenLabel" @onclick="() => OnOpen.InvokeAsync(Model.Id)">
+        <button type="button" class="shared-card-body" aria-label="@OpenLabel" @onclick="() => OnOpen.InvokeAsync(Model.Id)">
             <span class="flex items-center gap-3 min-w-0">
                 <span class="w-10 h-10 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center shrink-0" aria-hidden="true">
                     <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -21,11 +21,11 @@
             </span>
 
             @* Balance: always the same height, whatever it is showing *@
-            <span class="wallet-card-balance" data-testid="wallet-card-balance" data-state="@BalanceState">
+            <span class="shared-card-balance" data-testid="wallet-card-balance" data-state="@BalanceState">
                 @if (HideBalance)
                 {
                     <span class="text-xl font-extrabold text-slate-900 dark:text-white" aria-label="Balance hidden">••••••</span>
-                    <span class="wallet-card-fiat">Hidden</span>
+                    <span class="shared-card-fiat">Hidden</span>
                 }
                 else if (BalanceLoading)
                 {
@@ -38,7 +38,7 @@
                         <span class="text-xl font-extrabold tabular-nums text-slate-900 dark:text-white">@MultisigFormat.Dgb(sats)</span>
                         <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">DGB</span>
                     </span>
-                    <span class="wallet-card-fiat tabular-nums">@(FiatText ?? " ")</span>
+                    <span class="shared-card-fiat tabular-nums">@(FiatText ?? " ")</span>
                 }
                 else
                 {
@@ -46,7 +46,7 @@
                         <UxIcon Name="alert" Class="w-4 h-4 shrink-0" />
                         Balance unavailable
                     </span>
-                    <span class="wallet-card-fiat">Open the wallet to try again</span>
+                    <span class="shared-card-fiat">Open the wallet to try again</span>
                 }
             </span>
 
@@ -55,21 +55,21 @@
                 <span class="flex flex-wrap items-center gap-1.5 mt-3">
                     @if (Model.Status.Kind != WalletCardStatusKind.None)
                     {
-                        <span class="wallet-card-mark @StatusClass" data-testid="wallet-card-status">
+                        <span class="shared-card-mark @StatusClass" data-testid="wallet-card-status">
                             <UxIcon Name="@StatusIcon" Class="w-3.5 h-3.5 shrink-0" />
                             @StatusText
                         </span>
                     }
                     @if (Model.NotBackedUp)
                     {
-                        <span class="wallet-card-mark wallet-card-mark-warn" data-testid="wallet-card-not-backed-up">
+                        <span class="shared-card-mark shared-card-mark-warn" data-testid="wallet-card-not-backed-up">
                             <UxIcon Name="alert" Class="w-3.5 h-3.5 shrink-0" />
                             Not backed up
                         </span>
                     }
                     @if (Model.IsViewOnly)
                     {
-                        <span class="wallet-card-mark" data-testid="wallet-card-view-only">
+                        <span class="shared-card-mark" data-testid="wallet-card-view-only">
                             <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
                             View only
                         </span>
@@ -125,9 +125,9 @@
 
     private string StatusClass => Model.Status.Kind switch
     {
-        WalletCardStatusKind.NeedsSignature or WalletCardStatusKind.LiveRoom => "wallet-card-mark-action",
-        WalletCardStatusKind.ReadyToBroadcast => "wallet-card-mark-good",
-        WalletCardStatusKind.FailedBroadcast => "wallet-card-mark-warn",
+        WalletCardStatusKind.NeedsSignature or WalletCardStatusKind.LiveRoom => "shared-card-mark-action",
+        WalletCardStatusKind.ReadyToBroadcast => "shared-card-mark-good",
+        WalletCardStatusKind.FailedBroadcast => "shared-card-mark-warn",
         _ => "",
     };
 

@@ -2229,16 +2229,17 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 
 /* ----- Shared wallet list (specs/026-multisig-wallet-experience) ----- */
 
-/* A shared wallet's card. The body is one button that opens the wallet. One that has something waiting for the
+/* A shared wallet's card. Named shared-card, not wallet-card: that name is the personal wallet's balance card
+   higher up in this file, with paddings of its own. The body is one button that opens the wallet. One that has something waiting for the
    viewer gets a stronger edge; its status mark says what is waiting. */
-.wallet-card {
+.shared-card {
     border: 1px solid var(--ui-border);
     border-radius: 1rem;
     background: var(--ui-surface);
 }
-.wallet-card-needs-you { border-color: var(--ui-focus); }
-.wallet-card-draft { border-style: dashed; }
-.wallet-card-body {
+.shared-card-needs-you { border-color: var(--ui-focus); }
+.shared-card-draft { border-style: dashed; }
+.shared-card-body {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
@@ -2248,19 +2249,19 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
     text-align: left;
     cursor: pointer;
 }
-.wallet-card-body:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
-@media (hover: hover) { .wallet-card-body:hover { background: var(--ui-ghost-hover); } }
+.shared-card-body:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
+@media (hover: hover) { .shared-card-body:hover { background: var(--ui-ghost-hover); } }
 /* Always this tall, whether it shows an amount, a placeholder or "unavailable": nothing moves when the balance arrives. */
-.wallet-card-balance {
+.shared-card-balance {
     display: flex;
     flex-direction: column;
     justify-content: center;
     height: 3.25rem;
     margin-top: 0.75rem;
 }
-.wallet-card-fiat { font-size: 0.75rem; line-height: 1.25rem; color: var(--ui-text-muted); }
+.shared-card-fiat { font-size: 0.75rem; line-height: 1.25rem; color: var(--ui-text-muted); }
 /* A mark on the card: always an icon and words. */
-.wallet-card-mark {
+.shared-card-mark {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -2272,8 +2273,8 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
     font-weight: 600;
     line-height: 1.35;
 }
-.wallet-card-mark-action { color: var(--ui-ghost-text); }
-.wallet-card-mark-good { background: rgba(22, 163, 74, 0.12); color: #15803d; }
-.dark .wallet-card-mark-good { color: #86efac; }
-.wallet-card-mark-warn { background: rgba(245, 158, 11, 0.14); color: #b45309; }
-.dark .wallet-card-mark-warn { color: #fcd34d; }
+.shared-card-mark-action { color: var(--ui-ghost-text); }
+.shared-card-mark-good { background: rgba(22, 163, 74, 0.12); color: #15803d; }
+.dark .shared-card-mark-good { color: #86efac; }
+.shared-card-mark-warn { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+.dark .shared-card-mark-warn { color: #fcd34d; }

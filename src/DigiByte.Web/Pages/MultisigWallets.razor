@@ -126,7 +126,7 @@
                     {
                         var filled = draft.CoSigners.Count(c => !string.IsNullOrWhiteSpace(c.PublicKeyHex));
                         var needed = draft.TotalSigners - 1;
-                        <div class="wallet-card wallet-card-draft">
+                        <div class="shared-card shared-card-draft">
                             <div class="p-4 flex flex-col gap-3">
                                 <div class="flex items-center justify-between gap-2">
                                     <button type="button" class="flex items-center gap-1.5 min-w-0 min-h-[32px] text-left group" aria-label="Rename draft @draft.Name"
@@ -134,7 +134,7 @@
                                         <span class="text-base font-bold text-slate-900 dark:text-white truncate">@draft.Name</span>
                                         <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-dgb-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
                                     </button>
-                                    <span class="wallet-card-mark wallet-card-mark-warn shrink-0">
+                                    <span class="shared-card-mark shared-card-mark-warn shrink-0">
                                         <UxIcon Name="clock" Class="w-3.5 h-3.5 shrink-0" />
                                         Draft
                                     </span>
