@@ -604,3 +604,681 @@ body:has(.modal-overlay) nav {
 
 /* Small previews (the texture picker): no seam, it would crowd a thumbnail. */
 .wallet-tex-swatch::after { display: none; }
+
+/* =====================================================================================
+   Shared UI primitives: buttons, cards, inputs, QR frame, motion.
+   Reference and rollout plan: docs/UI_STYLE.md. Live gallery: /test-animations.
+
+   Every colour comes from a --ui-* token, set once for light (:root) and once for dark
+   (.dark), so the component rules below have no per-theme copies. Layout (width, margin,
+   flex, card padding) is left to Tailwind utilities; these classes own colour, shape,
+   depth and motion.
+   ===================================================================================== */
+
+:root {
+    /* Motion */
+    --motion-fast: 120ms;
+    --motion-base: 200ms;
+    --motion-slow: 360ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Shape */
+    --ui-radius-sm: 0.75rem;
+    --ui-radius: 1rem;
+    --ui-radius-lg: 1.25rem;
+
+    /* Light theme */
+    --ui-surface: #ffffff;
+    --ui-border: #e2e8f0;
+    --ui-text: #0f172a;
+    --ui-text-muted: #475569;
+    --ui-focus: #0066cc;
+    --ui-focus-ring: 0 0 0 3px rgba(0, 102, 204, 0.25);
+
+    --ui-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px -4px rgba(15, 23, 42, 0.08);
+    --ui-shadow-raised: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 16px -6px rgba(15, 23, 42, 0.10), 0 20px 40px -16px rgba(0, 61, 122, 0.18);
+
+    --ui-primary: #0066cc;
+    --ui-primary-hover: #0052a3;
+    --ui-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 21, 41, 0.18), 0 1px 2px rgba(0, 41, 82, 0.30), 0 4px 10px -2px rgba(0, 102, 204, 0.35), 0 10px 22px -10px rgba(0, 102, 204, 0.45);
+    --ui-primary-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 21, 41, 0.18), 0 2px 4px rgba(0, 41, 82, 0.30), 0 8px 16px -4px rgba(0, 102, 204, 0.40), 0 18px 32px -12px rgba(0, 102, 204, 0.50);
+
+    --ui-danger: #dc2626;
+    --ui-danger-hover: #b91c1c;
+    --ui-danger-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(69, 10, 10, 0.20), 0 1px 2px rgba(127, 29, 29, 0.30), 0 4px 10px -2px rgba(220, 38, 38, 0.30), 0 10px 22px -10px rgba(220, 38, 38, 0.40);
+    --ui-danger-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(69, 10, 10, 0.20), 0 2px 4px rgba(127, 29, 29, 0.30), 0 8px 16px -4px rgba(220, 38, 38, 0.35), 0 18px 32px -12px rgba(220, 38, 38, 0.45);
+
+    --ui-secondary: #ffffff;
+    --ui-secondary-hover: #f8fafc;
+    --ui-secondary-text: #1e293b;
+    --ui-secondary-border: #cbd5e1;
+    --ui-secondary-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.06), 0 3px 8px -2px rgba(15, 23, 42, 0.08);
+    --ui-secondary-shadow-hover: inset 0 -1px 0 rgba(15, 23, 42, 0.04), 0 2px 4px rgba(15, 23, 42, 0.06), 0 8px 16px -6px rgba(15, 23, 42, 0.14);
+    --ui-secondary-pressed: inset 0 2px 4px rgba(15, 23, 42, 0.12);
+
+    --ui-ghost-text: #0052a3;
+    --ui-ghost-hover: rgba(0, 102, 204, 0.08);
+    --ui-ghost-active: rgba(0, 102, 204, 0.14);
+    --ui-pressed-shadow: inset 0 2px 4px rgba(0, 21, 41, 0.25);
+
+    --ui-input-bg: #ffffff;
+    --ui-input-border: #7c8ba1;
+    --ui-input-border-hover: #475569;
+    --ui-placeholder: #64748b;
+    --ui-label: #334155;
+    --ui-error: #b91c1c;
+    --ui-error-border: #dc2626;
+    --ui-error-ring: 0 0 0 3px rgba(220, 38, 38, 0.20);
+
+    --ui-qr-border: #e2e8f0;
+    --ui-qr-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 28px -12px rgba(0, 61, 122, 0.25);
+}
+
+.dark {
+    --ui-surface: #002352;
+    --ui-border: #0b3a75;
+    --ui-text: #ffffff;
+    --ui-text-muted: #94a3b8;
+    --ui-focus: #4d94ff;
+    --ui-focus-ring: 0 0 0 3px rgba(77, 148, 255, 0.35);
+
+    --ui-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 16px -8px rgba(0, 0, 0, 0.50);
+    --ui-shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 32px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(77, 148, 255, 0.06);
+
+    --ui-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 102, 204, 0.45), 0 10px 26px -8px rgba(26, 117, 255, 0.40);
+    --ui-primary-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.45), 0 8px 18px -4px rgba(0, 102, 204, 0.55), 0 18px 36px -10px rgba(26, 117, 255, 0.50);
+
+    --ui-secondary: #002952;
+    --ui-secondary-hover: #003366;
+    --ui-secondary-text: #f1f5f9;
+    --ui-secondary-border: #1d4f8f;
+    --ui-secondary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 10px -4px rgba(0, 0, 0, 0.50);
+    --ui-secondary-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.40), 0 10px 20px -8px rgba(0, 0, 0, 0.60);
+    --ui-secondary-pressed: inset 0 2px 4px rgba(0, 0, 0, 0.40);
+
+    --ui-ghost-text: #80b3ff;
+    --ui-ghost-hover: rgba(77, 148, 255, 0.12);
+    --ui-ghost-active: rgba(77, 148, 255, 0.20);
+    --ui-pressed-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.40);
+
+    --ui-input-bg: #001529;
+    --ui-input-border: #4577b8;
+    --ui-input-border-hover: #80b3ff;
+    --ui-placeholder: #94a3b8;
+    --ui-label: #e2e8f0;
+    --ui-error: #fca5a5;
+    --ui-error-border: #f87171;
+    --ui-error-ring: 0 0 0 3px rgba(248, 113, 113, 0.25);
+
+    --ui-qr-border: rgba(255, 255, 255, 0.10);
+    --ui-qr-shadow: 0 0 0 4px rgba(77, 148, 255, 0.10), 0 16px 36px -12px rgba(0, 102, 204, 0.55);
+}
+
+/* ----- Buttons -----
+   btn-primary | btn-secondary | btn-ghost | btn-danger, plus btn-sm for the small size.
+   Loading: add is-loading or aria-busy="true". Disabled: the disabled attribute, or
+   aria-disabled="true" on links. Default height 48px, small 44px (minimum touch target). */
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        background-color var(--motion-base) var(--ease-out),
+        border-color var(--motion-base) var(--ease-out),
+        opacity var(--motion-base) var(--ease-out);
+}
+.btn-sm {
+    min-height: 44px;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.875rem;
+}
+
+.btn-primary   { background: var(--ui-primary);   color: #fff; box-shadow: var(--ui-primary-shadow); }
+.btn-danger    { background: var(--ui-danger);    color: #fff; box-shadow: var(--ui-danger-shadow); }
+.btn-secondary { background: var(--ui-secondary); color: var(--ui-secondary-text); border-color: var(--ui-secondary-border); box-shadow: var(--ui-secondary-shadow); }
+.btn-ghost     { background: transparent;         color: var(--ui-ghost-text); }
+
+/* Hover lift only where a real pointer exists, so it never sticks after a tap. */
+@media (hover: hover) {
+    .btn-primary:hover   { background: var(--ui-primary-hover);   box-shadow: var(--ui-primary-shadow-hover);   transform: translateY(-1px); }
+    .btn-danger:hover    { background: var(--ui-danger-hover);    box-shadow: var(--ui-danger-shadow-hover);    transform: translateY(-1px); }
+    .btn-secondary:hover { background: var(--ui-secondary-hover); box-shadow: var(--ui-secondary-shadow-hover); transform: translateY(-1px); }
+    .btn-ghost:hover     { background: var(--ui-ghost-hover); }
+}
+
+.btn-primary:active,
+.btn-danger:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: var(--ui-pressed-shadow);
+}
+.btn-secondary:active { transform: translateY(0) scale(0.98); box-shadow: var(--ui-secondary-pressed); }
+.btn-ghost:active     { background: var(--ui-ghost-active); transform: scale(0.98); }
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible,
+.btn-danger:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+}
+
+.btn-primary:disabled,   .btn-primary[aria-disabled="true"],
+.btn-secondary:disabled, .btn-secondary[aria-disabled="true"],
+.btn-ghost:disabled,     .btn-ghost[aria-disabled="true"],
+.btn-danger:disabled,    .btn-danger[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    pointer-events: none;
+}
+
+/* Loading: a spinner in front of the label; the button stops taking clicks. */
+.btn-primary.is-loading,   .btn-primary[aria-busy="true"],
+.btn-secondary.is-loading, .btn-secondary[aria-busy="true"],
+.btn-ghost.is-loading,     .btn-ghost[aria-busy="true"],
+.btn-danger.is-loading,    .btn-danger[aria-busy="true"] {
+    cursor: progress;
+    pointer-events: none;
+    transform: none;
+}
+.btn-primary.is-loading::before,   .btn-primary[aria-busy="true"]::before,
+.btn-secondary.is-loading::before, .btn-secondary[aria-busy="true"]::before,
+.btn-ghost.is-loading::before,     .btn-ghost[aria-busy="true"]::before,
+.btn-danger.is-loading::before,    .btn-danger[aria-busy="true"]::before {
+    content: "";
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: ui-spin 0.7s linear infinite;
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+/* ----- Cards -----
+   card: the standard surface. card-raised: a surface that sits above the page (hero
+   blocks, dialogs, sheets). card-interactive: add to a card that is itself a link or
+   button. Padding comes from Tailwind (p-4, p-5). */
+.card,
+.card-raised {
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+}
+.card        { box-shadow: var(--ui-shadow-card); }
+.card-raised { box-shadow: var(--ui-shadow-raised); }
+
+.card-interactive {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        transform var(--motion-base) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        border-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) {
+    .card-interactive:hover { transform: translateY(-2px); box-shadow: var(--ui-shadow-raised); }
+}
+.card-interactive:active { transform: scale(0.99); box-shadow: var(--ui-shadow-card); }
+.card-interactive:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* ----- Text inputs -----
+   Wrap in .field with a .field-label, the .input, then .field-hint or .field-error.
+   Error: aria-invalid="true" (preferred, it is announced) or the input-error class.
+   16px text stops iOS zooming the page on focus. */
+.field { display: flex; flex-direction: column; gap: 0.375rem; }
+.field-label { font-size: 0.875rem; font-weight: 500; line-height: 1.25; color: var(--ui-label); }
+.field-hint  { font-size: 0.8125rem; line-height: 1.35; color: var(--ui-text-muted); }
+.field-error { display: flex; align-items: flex-start; gap: 0.375rem; font-size: 0.8125rem; font-weight: 500; line-height: 1.35; color: var(--ui-error); }
+.field-error svg { flex: none; width: 1rem; height: 1rem; margin-top: 0.05rem; }
+
+.input {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 0.625rem 0.875rem;
+    background: var(--ui-input-bg);
+    color: var(--ui-text);
+    border: 1px solid var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+    font-size: 16px;
+    line-height: 1.5;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+    -webkit-appearance: none;
+    appearance: none;
+    transition:
+        border-color var(--motion-base) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        background-color var(--motion-base) var(--ease-out);
+}
+textarea.input { min-height: 96px; resize: vertical; }
+.input::placeholder { color: var(--ui-placeholder); opacity: 1; }
+@media (hover: hover) {
+    .input:hover { border-color: var(--ui-input-border-hover); }
+}
+.input:focus,
+.input:focus-visible {
+    outline: none;
+    border-color: var(--ui-focus);
+    box-shadow: var(--ui-focus-ring);
+}
+/* The ring is a box-shadow, which forced-colours mode drops: keep a real outline there. */
+@media (forced-colors: active) {
+    .input:focus { outline: 2px solid Highlight; outline-offset: 1px; }
+}
+.input[aria-invalid="true"],
+.input.input-error { border-color: var(--ui-error-border); }
+.input[aria-invalid="true"]:focus,
+.input.input-error:focus { border-color: var(--ui-error-border); box-shadow: var(--ui-error-ring); }
+.input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ----- QR frame -----
+   <div class="qr-frame"><img …><span class="qr-frame-logo">…</span></div>
+   Always white, in both themes, so scanners get a clean quiet zone. Keep the logo under
+   about a fifth of the code's width or it eats into the error correction. */
+.qr-frame {
+    position: relative;
+    display: inline-flex;
+    padding: 0.875rem;
+    background: #ffffff;
+    border: 1px solid var(--ui-qr-border);
+    border-radius: var(--ui-radius-lg);
+    box-shadow: var(--ui-qr-shadow);
+    line-height: 0;
+}
+.qr-frame > img,
+.qr-frame > svg,
+.qr-frame > canvas { display: block; border-radius: 0.375rem; }
+.qr-frame-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem;
+    background: #ffffff;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+
+/* ----- Staggered list entrance -----
+   Put .stagger on the list container: its first ten children rise in 40ms apart, the
+   rest arrive together. Fill mode is "backwards" so no transform is left behind (a
+   lingering transform would trap position:fixed dialogs inside the item). */
+@keyframes stagger-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+}
+.stagger > * { animation: stagger-in var(--motion-slow) var(--ease-out) backwards; animation-delay: 400ms; }
+.stagger > :nth-child(1)  { animation-delay: 0ms; }
+.stagger > :nth-child(2)  { animation-delay: 40ms; }
+.stagger > :nth-child(3)  { animation-delay: 80ms; }
+.stagger > :nth-child(4)  { animation-delay: 120ms; }
+.stagger > :nth-child(5)  { animation-delay: 160ms; }
+.stagger > :nth-child(6)  { animation-delay: 200ms; }
+.stagger > :nth-child(7)  { animation-delay: 240ms; }
+.stagger > :nth-child(8)  { animation-delay: 280ms; }
+.stagger > :nth-child(9)  { animation-delay: 320ms; }
+.stagger > :nth-child(10) { animation-delay: 360ms; }
+
+/* Reduced motion: no lifts, no presses, no entrance. Colour and shadow changes
+   stay (they are instant under the global rule above). The loading spinner turns once
+   and rests as a static ring. */
+@media (prefers-reduced-motion: reduce) {
+    .btn-primary, .btn-secondary, .btn-ghost, .btn-danger,
+    .btn-primary:hover, .btn-secondary:hover, .btn-ghost:hover, .btn-danger:hover,
+    .btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active,
+    .card-interactive, .card-interactive:hover, .card-interactive:active { transform: none !important; }
+    .stagger > * { animation: none !important; }
+}
+
+/* ----- Confirm control: slide to confirm -----
+   For irreversible, value-moving actions only (docs/UI_STYLE.md). Markup and behaviour are in
+   Components/Shared/SlideToConfirm.razor. --p is the slide progress (0 to 1), --confirm-hold the
+   time a key must be held; both are set by the component. */
+:root {
+    --ui-confirm-track: #e6f0ff;
+    --ui-confirm-track-border: #b3d1ff;
+    --ui-confirm-text: #003d7a;
+    --ui-confirm-fill: rgba(0, 102, 204, 0.22);
+}
+.dark {
+    --ui-confirm-track: #002952;
+    --ui-confirm-track-border: #1d4f8f;
+    --ui-confirm-text: #b3d1ff;
+    --ui-confirm-fill: rgba(77, 148, 255, 0.28);
+}
+
+.confirm-slide {
+    --p: 0;
+    --thumb: 48px;
+    position: relative;
+    height: 56px;
+    border: 1px solid var(--ui-confirm-track-border);
+    border-radius: 9999px;
+    background: var(--ui-confirm-track);
+    box-shadow: inset 0 1px 3px rgba(0, 21, 41, 0.12);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: pan-y;
+}
+.confirm-slide:has(.confirm-slide-thumb:focus-visible) { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.confirm-slide-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(4px + var(--thumb) + var(--p) * (100% - var(--thumb) - 8px));
+    border-radius: inherit;
+    background: var(--ui-confirm-fill);
+    transition: width var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+.confirm-slide-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 0.75rem 0 calc(var(--thumb) + 0.75rem);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--ui-confirm-text);
+    opacity: calc(1 - var(--p) * 1.6);
+    pointer-events: none;
+}
+.confirm-slide-thumb {
+    position: absolute;
+    top: 3px;
+    left: calc(4px + var(--p) * (100% - var(--thumb) - 8px));
+    width: var(--thumb);
+    height: var(--thumb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--ui-primary);
+    color: #fff;
+    box-shadow: var(--ui-primary-shadow);
+    cursor: grab;
+    touch-action: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: left var(--motion-base) var(--ease-out), opacity var(--motion-base) var(--ease-out);
+}
+.confirm-slide-thumb svg { width: 1.25rem; height: 1.25rem; }
+/* While dragging the thumb follows the finger exactly: no easing. */
+.confirm-slide.is-dragging .confirm-slide-thumb,
+.confirm-slide.is-dragging .confirm-slide-fill { transition: none; }
+.confirm-slide.is-dragging .confirm-slide-thumb { cursor: grabbing; }
+/* Key held: the thumb travels by itself over the hold time. */
+.confirm-slide.is-holding .confirm-slide-thumb { left: calc(100% - var(--thumb) - 4px); transition: left var(--confirm-hold, 1s) linear; }
+.confirm-slide.is-holding .confirm-slide-fill  { width: 100%; transition: width var(--confirm-hold, 1s) linear; }
+.confirm-slide.is-holding .confirm-slide-label { opacity: 1; }
+/* Confirmed: locked, solid, busy. */
+.confirm-slide.is-done { border-color: transparent; }
+.confirm-slide.is-done .confirm-slide-fill  { width: 100%; background: var(--ui-primary); }
+.confirm-slide.is-done .confirm-slide-thumb { opacity: 0; pointer-events: none; }
+.confirm-slide.is-done .confirm-slide-label { opacity: 1; color: #fff; padding: 0 0.75rem; }
+
+/* Busy spinner in front of the label once confirmed. */
+.confirm-slide.is-done .confirm-slide-label::before {
+    content: "";
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: ui-spin 0.7s linear infinite;
+}
+
+/* Reduced motion: the deliberate drag or key hold is still required, but nothing travels or fills by
+   itself. A held control shows a steady half-tint (with "Keep holding…") instead of progress. */
+@media (prefers-reduced-motion: reduce) {
+    .confirm-slide.is-holding .confirm-slide-thumb { left: 4px; }
+    .confirm-slide.is-holding .confirm-slide-fill  { width: 100%; opacity: 0.5; }
+}
+
+/* ----- Bottom menu -----
+   nav-float is the floating bar. Layout/NavMenu.razor (the live menu) adds nav-float-live, which
+   pins it to the bottom of the 480px app column. Components/Dev/NavMenuPreview.razor uses the same
+   classes inside a frame for the gallery; nav-float-scan and nav-preview-* are for those previews only. */
+:root {
+    /* Glass: a translucent fill over blurred page content, a light rim, and a layered shadow. */
+    --ui-nav-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.80), rgba(244, 248, 255, 0.68));
+    --ui-nav-bg-solid: rgba(255, 255, 255, 0.96);   /* where the browser cannot blur */
+    --ui-nav-border: rgba(255, 255, 255, 0.85);
+    --ui-nav-shadow:
+        0 0 0 1px rgba(0, 41, 82, 0.07),
+        0 1px 2px rgba(0, 41, 82, 0.08),
+        0 8px 20px -6px rgba(0, 41, 82, 0.18),
+        0 22px 44px -14px rgba(0, 41, 82, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --ui-nav-pill-rim: rgba(0, 82, 163, 0.14);
+    --ui-nav-text: #475569;
+    --ui-nav-active: #0052a3;
+    --ui-nav-badge: #dc2626;
+}
+.dark {
+    --ui-nav-bg: linear-gradient(180deg, rgba(12, 52, 110, 0.70), rgba(0, 30, 72, 0.62));
+    --ui-nav-bg-solid: rgba(0, 35, 82, 0.96);
+    --ui-nav-border: rgba(160, 200, 255, 0.16);
+    --ui-nav-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.30),
+        0 10px 24px -6px rgba(0, 0, 0, 0.50),
+        0 24px 48px -12px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    --ui-nav-pill-rim: rgba(179, 209, 255, 0.18);
+    --ui-nav-text: #94a3b8;
+    --ui-nav-active: #b3d1ff;
+    --ui-nav-badge: #ef4444;
+}
+
+.nav-preview-frame {
+    position: relative;
+    width: 375px;
+    max-width: 100%;
+    height: 132px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px dashed var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+}
+.nav-preview-frame-tall { height: 150px; }
+.nav-preview-page { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+.nav-preview-page span { height: 10px; border-radius: 9999px; background: var(--ui-border); }
+.nav-preview-page span:nth-child(2) { width: 70%; }
+.nav-preview-page span:nth-child(3) { width: 45%; }
+
+.nav-float {
+    --nav-accent: var(--ui-primary);
+    --nav-index: 0;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 6px;
+    border: 1px solid var(--ui-nav-border);
+    border-radius: 9999px;   /* fully rounded ends */
+    background: var(--ui-nav-bg-solid);
+    background-clip: padding-box;
+    box-shadow: var(--ui-nav-shadow);
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .nav-float {
+        background: var(--ui-nav-bg);
+        background-clip: padding-box;
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        backdrop-filter: blur(24px) saturate(180%);
+    }
+}
+/* The tinted pill sits behind the active tab's icon only (not its label) and slides between tabs.
+   It is centred on the tab's column: 6px bar padding + (index + half) columns - half its own width. */
+.nav-float-pill {
+    position: absolute;
+    top: 10px;
+    left: calc(6px + (var(--nav-index) + 0.5) * ((100% - 12px) / 5) - 28px);
+    width: 56px;
+    height: 30px;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--nav-accent) 22%, transparent);
+    box-shadow: inset 0 0 0 1px var(--ui-nav-pill-rim), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: left var(--motion-slow) var(--ease-out);
+    pointer-events: none;
+}
+.nav-float-tab,
+.nav-float-scan {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2px;
+    min-height: 52px;
+    padding: 4px 0 0;
+    border: 0;
+    border-radius: 9999px;
+    background: none;
+    color: var(--ui-nav-text);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--motion-base) var(--ease-out);
+}
+.nav-float-tab[aria-current="page"] { color: var(--ui-nav-active); }
+.nav-float-tab:focus-visible,
+.nav-float-scan:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
+/* A fixed 56x30 box, the same size as the pill, so the pill lines up with the icon exactly. */
+.nav-float-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 56px; height: 30px; transition: transform var(--motion-fast) var(--ease-out); }
+.nav-float-icon svg { width: 22px; height: 22px; }
+.nav-float-tab:active .nav-float-icon { transform: scale(0.9); }
+
+.nav-badge-dot,
+.nav-badge-count {
+    position: absolute;
+    top: -3px;
+    right: -6px;
+    background: var(--ui-nav-badge);
+    color: #fff;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 2px var(--ui-surface);
+}
+.nav-badge-dot { width: 8px; height: 8px; top: 2px; right: 13px; }
+.nav-badge-count {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    top: 0;
+    right: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+}
+
+/* Variant C: the raised round Scan button in the centre column. */
+.nav-float-scan { justify-content: flex-end; padding-bottom: 6px; color: var(--ui-nav-active); }
+.nav-float-scan-disc {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    width: 56px;
+    height: 56px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--ui-primary);
+    color: #fff;
+    box-shadow: var(--ui-primary-shadow), 0 0 0 4px var(--ui-surface);
+    transition: transform var(--motion-fast) var(--ease-out);
+}
+.nav-float-scan-disc svg { width: 26px; height: 26px; }
+.nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%) scale(0.94); }
+.nav-float-scan:focus-visible { outline: none; }
+.nav-float-scan:focus-visible .nav-float-scan-disc { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* The live menu: fixed to the viewport, centred in the app column, 12px in from its sides. */
+.nav-float-live {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    width: calc(100% - 24px);
+    max-width: 456px;
+    transform: translateX(-50%);
+    z-index: 50;
+}
+.nav-float-tab { text-decoration: none; }
+/* Room for the floating bar under the page content: bar (66px) + its 12px gap + the device's safe area. */
+.main-with-nav { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
+
+/* Desktop (1024px and wider): the live menu becomes a vertical rail hugging the left side of the
+   480px app column, centred vertically. Same tabs and markup; the pill slides up and down.
+   Rail: 76px wide, 16px gap to the column. Tabs: 56px high with 4px between them, 14px rail padding. */
+@media (min-width: 1024px) {
+    .nav-float-live {
+        left: calc(50% - 240px - 16px - 76px);
+        top: 50%;
+        bottom: auto;
+        width: 76px;
+        max-width: none;
+        transform: translateY(-50%);
+        grid-template-columns: 1fr;
+        grid-auto-rows: 56px;
+        row-gap: 4px;
+        padding: 14px 6px;
+    }
+    .nav-float-live .nav-float-tab { min-height: 0; }
+    .nav-float-live .nav-float-pill {
+        left: calc(50% - 28px);
+        top: calc(14px + var(--nav-index) * 60px + 4px);
+        transition: top var(--motion-slow) var(--ease-out);
+    }
+    /* Nothing sits over the bottom of the page any more. */
+    .main-with-nav { padding-bottom: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-float-pill { transition: none; }
+    .nav-float-tab:active .nav-float-icon { transform: none; }
+    .nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%); }
+}

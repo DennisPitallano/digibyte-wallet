@@ -623,26 +623,13 @@ else
                     <BakuMessage MessageId="send.error" Compact="true" />
                 }
 
-                @* Actions *@
-                <div class="flex gap-3">
-                    <button class="flex-1 py-3 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect"
+                @* Actions: sliding is the deliberate step for a send that cannot be undone (docs/UI_STYLE.md). *@
+                <div class="flex flex-col gap-2">
+                    <SlideToConfirm @ref="sendSlide" Label="Slide to send" BusyLabel="Sending…"
+                                    ActionDescription="@ConfirmDescription" OnConfirmed="ConfirmSend" />
+                    <button type="button" class="btn-ghost w-full"
                             @onclick="() => { showConfirm = false; sendError = null; }" disabled="@isSending">
                         Cancel
-                    </button>
-                    <button class="flex-1 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
-                            @onclick="ConfirmSend" disabled="@isSending">
-                        @if (isSending)
-                        {
-                            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                            </svg>
-                            <span>Sending...</span>
-                        }
-                        else
-                        {
-                            <span>Send Now</span>
-                        }
                     </button>
                 </div>
             </div>
@@ -1176,6 +1163,14 @@ else
     private string? sentTxId;
     private string? sentNote;
 
+    // The slide control on the confirm card. It locks after one confirmation; Reset() unlocks it when a send fails.
+    private SlideToConfirm? sendSlide;
+
+    // What the slide confirms, for screen readers.
+    private string ConfirmDescription => isBatchMode
+        ? $"Send {BatchTotal:N8} DGB to {batchRecipients.Count} recipients"
+        : $"Send {amountDgb:N8} DGB to {(string.IsNullOrEmpty(recipientName) ? destinationAddress : recipientName)}";
+
     private async Task ConfirmSend()
     {
         sendError = null; isSending = true;
@@ -1191,6 +1186,7 @@ else
                 {
                     sendError = "Biometric verification failed or was cancelled.";
                     isSending = false;
+                    sendSlide?.Reset();
                     return;
                 }
             }
@@ -1229,6 +1225,7 @@ else
                 ? "Sending is unavailable until the connection returns. Your funds are safe; try again in a moment."
                 : MapSendError(ex.Message);
             isSending = false;
+            sendSlide?.Reset();
         }
     }
 

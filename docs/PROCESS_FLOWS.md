@@ -135,7 +135,7 @@ User clicks "Create"
 User enters address + amount
   → AddressValidator.IsValid(address) across all networks
   → User taps "Review" → Confirm modal
-  → User taps "Send Now"
+  → User slides "Slide to send"
   → WalletService.SendAsync():
     1. Collect all HD addresses (20 receiving + 10 change)
     2. Fetch UTXOs via IBlockchainService.GetUtxosAsync()

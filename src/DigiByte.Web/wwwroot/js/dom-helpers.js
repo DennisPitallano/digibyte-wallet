@@ -122,6 +122,13 @@ window.domHelpers = {
     isHidden: function () {
         return typeof document !== 'undefined' && document.hidden === true;
     },
+    // Slide to confirm: keep the drag on the thumb even when the pointer leaves it (pointer capture),
+    // and return how far the thumb can travel in px (track width minus the thumb and its 4px insets).
+    beginSlide: function (thumb, pointerId) {
+        if (!thumb || !thumb.parentElement) return 0;
+        try { thumb.setPointerCapture(pointerId); } catch (e) { }
+        return thumb.parentElement.clientWidth - thumb.offsetWidth - 8;
+    },
     // Returns true if history.back() would stay within this app.
     // Used by pages like /help that can be deep-linked: if the user arrived
     // directly (no same-origin referrer and short history), fall back to the home page.

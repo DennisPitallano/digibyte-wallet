@@ -1,0 +1,135 @@
+@* Dev-only: static previews of bottom-menu variants for the style gallery on /test-animations.
+   Nothing here navigates. Tapping a tab only moves this preview's active state.
+   The real menu is Layout/NavMenu.razor (the Floating variant, adopted); icons are shared via Layout/NavIcons.cs. *@
+
+<div class="nav-preview-frame @(IsFloating ? "nav-preview-frame-tall" : "")">
+    <div class="nav-preview-page" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    @if (Variant == NavVariant.Current)
+    {
+        @* The menu as it was before the floating bar was adopted, kept for comparison. *@
+        <nav class="absolute bottom-0 left-0 w-full" aria-label="@AriaLabel">
+            <div class="absolute inset-0 bg-white/70 dark:bg-dgb-950/80 backdrop-blur-2xl border-t border-slate-200/60 dark:border-white/[0.06]" aria-hidden="true"></div>
+            <div class="relative flex justify-around items-end px-2 pt-2.5 pb-1.5">
+                @for (var i = 0; i < Tabs.Length; i++)
+                {
+                    var index = i;
+                    var tab = Tabs[i];
+                    <button type="button" class="nav-item group flex flex-col items-center gap-1 relative px-3 py-1 select-none @(index == active ? "active" : "")"
+                            aria-current="@(index == active ? "page" : null)" @onclick="() => active = index">
+                        <div class="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-gradient-to-r from-dgb-400 to-dgb-600 transition-all duration-300 ease-out group-[.active]:w-6 group-[.active]:opacity-100 w-0 opacity-0" style="background: @Accent;" aria-hidden="true"></div>
+                        <div class="transition-transform duration-200 ease-out group-[.active]:scale-110 group-active:scale-90">
+                            <svg class="w-[22px] h-[22px] text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-500 transition-colors duration-200" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                @foreach (var d in DigiByte.Web.Layout.NavIcons.All[tab.Icon].Outline)
+                                {
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="@d" />
+                                }
+                            </svg>
+                        </div>
+                        <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 group-[.active]:text-dgb-600 dark:group-[.active]:text-dgb-400 transition-colors duration-200">@tab.Label</span>
+                    </button>
+                }
+            </div>
+        </nav>
+    }
+    else
+    {
+        <nav class="nav-float" aria-label="@AriaLabel" style="--nav-accent: @Accent; --nav-index: @active;">
+            <span class="nav-float-pill" aria-hidden="true"></span>
+            @for (var i = 0; i < Tabs.Length; i++)
+            {
+                var index = i;
+                var tab = Tabs[i];
+                if (tab.Icon == "scan")
+                {
+                    <button type="button" class="nav-float-scan" aria-label="Scan a QR code">
+                        <span class="nav-float-scan-disc">
+                            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                @foreach (var d in DigiByte.Web.Layout.NavIcons.All["scan"].Outline)
+                                {
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="@d" />
+                                }
+                            </svg>
+                        </span>
+                        <span>Scan</span>
+                    </button>
+                    continue;
+                }
+                var isActive = index == active;
+                var badge = ShowBadges ? tab.Badge : null;
+                <button type="button" class="nav-float-tab"
+                        aria-current="@(isActive ? "page" : null)"
+                        aria-label="@(tab.Label + BadgeText(badge))"
+                        @onclick="() => active = index">
+                    <span class="nav-float-icon">
+                        @if (isActive)
+                        {
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+                                @foreach (var d in DigiByte.Web.Layout.NavIcons.All[tab.Icon].Solid)
+                                {
+                                    <path fill-rule="evenodd" clip-rule="evenodd" d="@d" />
+                                }
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                @foreach (var d in DigiByte.Web.Layout.NavIcons.All[tab.Icon].Outline)
+                                {
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="@d" />
+                                }
+                            </svg>
+                        }
+                        @if (badge == "dot")
+                        {
+                            <span class="nav-badge-dot" aria-hidden="true"></span>
+                        }
+                        else if (badge is not null)
+                        {
+                            <span class="nav-badge-count" aria-hidden="true">@badge</span>
+                        }
+                    </span>
+                    <span>@tab.Label</span>
+                </button>
+            }
+        </nav>
+    }
+</div>
+
+@if (IsFloating)
+{
+    <label class="flex items-center gap-2 px-8 text-xs text-slate-600 dark:text-slate-300 min-h-[44px]">
+        <input type="checkbox" @bind="ShowBadges" />
+        Show sample badges (dot: payment pending; count: multisig to sign)
+    </label>
+}
+
+@code {
+    public enum NavVariant { Current, Floating, Rearranged, RearrangedWithId }
+
+    [Parameter] public NavVariant Variant { get; set; }
+    [Parameter] public string Accent { get; set; } = "#0066FF";
+
+    private int active;
+    private bool ShowBadges { get; set; } = true;
+
+    private bool IsFloating => Variant != NavVariant.Current;
+    private string AriaLabel => $"Menu preview: {Variant}";
+
+    private record Tab(string Label, string Icon, string? Badge = null);
+
+    private Tab[] Tabs => Variant switch
+    {
+        NavVariant.Current => [new("Wallet", "wallet"), new("Pay", "pay"), new("Activity", "activity"), new("ID", "id"), new("Settings", "settings")],
+        NavVariant.Floating => [new("Wallet", "wallet", "2"), new("Pay", "pay"), new("Activity", "activity", "dot"), new("ID", "id"), new("Settings", "settings")],
+        NavVariant.Rearranged => [new("Wallet", "wallet"), new("Activity", "activity", "dot"), new("Scan", "scan"), new("Request", "pay"), new("More", "more", "2")],
+        _ => [new("Wallet", "wallet"), new("Activity", "activity", "dot"), new("Scan", "scan"), new("ID", "id"), new("More", "more", "2")],
+    };
+
+    private static string BadgeText(string? badge) => badge switch
+    {
+        null => "",
+        "dot" => ", a payment is pending",
+        _ => $", {badge} need your signature",
+    };
+}
