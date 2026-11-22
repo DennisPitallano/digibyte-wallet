@@ -17,3 +17,7 @@ jobs:
       - run: dotnet test tests/DigiByte.Wallet.Tests --filter "Category!=Live"
       - run: npm test
         working-directory: src/DigiByte.Web
+      # A published build whose service-worker asset list does not match its files can never update
+      # an installed app (0.7.0 and 0.8.0 shipped that way). Publish once and check every fingerprint.
+      - run: dotnet publish src/DigiByte.Web -c Release -o publish --nologo
+      - run: python3 tools/verify-sw-manifest.py publish/wwwroot

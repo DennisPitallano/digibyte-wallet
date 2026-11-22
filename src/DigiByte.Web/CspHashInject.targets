@@ -23,6 +23,7 @@
       AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <IndexHtmlPath ParameterType="System.String" Required="true" />
+      <AssetsManifestPath ParameterType="System.String" Required="false" />
     </ParameterGroup>
     <Task>
       <Using Namespace="System" />
@@ -126,6 +127,55 @@
           File.WriteAllText(IndexHtmlPath, newHtml, new UTF8Encoding(false));
           Log.LogMessage(MessageImportance.High,
               $"InjectCspHashes: patched {IndexHtmlPath} with {hashes.Count} inline-script hash(es).");
+
+          // index.html has just changed, but the service worker's asset list
+          // (service-worker-assets.js) was written earlier in the publish and
+          // still carries the fingerprint of the file as it was. The service
+          // worker fetches every listed file with that fingerprint as its
+          // integrity value and refuses to install if one does not match, so
+          // a stale index.html entry means no update is ever installed:
+          // devices keep whatever stylesheets and scripts they cached before,
+          // while new page code arrives from the network. Rewrite the entry
+          // with the fingerprint of the file as published.
+          if (!string.IsNullOrEmpty(AssetsManifestPath) && File.Exists(AssetsManifestPath))
+          {
+              string indexHash;
+              using (var sha = SHA256.Create())
+              {
+                  indexHash = "sha256-" + Convert.ToBase64String(
+                      sha.ComputeHash(File.ReadAllBytes(IndexHtmlPath)));
+              }
+
+              var manifest = File.ReadAllText(AssetsManifestPath, Encoding.UTF8);
+              var entryRegex = new Regex(
+                  "(\\{\\s*\"hash\"\\s*:\\s*\")sha256-[^\"]+(\"\\s*,\\s*\"url\"\\s*:\\s*\"index\\.html\"\\s*\\})");
+              var entries = entryRegex.Matches(manifest).Count;
+              if (entries != 1)
+              {
+                  Log.LogError(
+                      $"InjectCspHashes: expected one index.html entry in {AssetsManifestPath}, found {entries}. The service worker would not be able to install.");
+                  return false;
+              }
+              manifest = entryRegex.Replace(manifest, m => m.Groups[1].Value + indexHash + m.Groups[2].Value);
+
+              // The cache name comes from the version, so it must change with the content.
+              var versionRegex = new Regex("(\"version\"\\s*:\\s*\")([^\"]+)(\")");
+              var versionMatch = versionRegex.Match(manifest);
+              if (versionMatch.Success)
+              {
+                  string newVersion;
+                  using (var sha = SHA256.Create())
+                  {
+                      var digest = sha.ComputeHash(Encoding.UTF8.GetBytes(versionMatch.Groups[2].Value + "|" + indexHash));
+                      newVersion = Convert.ToBase64String(digest).Replace("+", "-").Replace("/", "_").Substring(0, 8);
+                  }
+                  manifest = versionRegex.Replace(manifest, m => m.Groups[1].Value + newVersion + m.Groups[3].Value, 1);
+              }
+
+              File.WriteAllText(AssetsManifestPath, manifest, new UTF8Encoding(false));
+              Log.LogMessage(MessageImportance.High,
+                  $"InjectCspHashes: updated the index.html fingerprint in {AssetsManifestPath}.");
+          }
         ]]>
       </Code>
     </Task>
@@ -137,6 +187,7 @@
     to the publish output set by the SDK during `dotnet publish`.
   -->
   <Target Name="DigiPayInjectCspHashes" AfterTargets="Publish">
-    <InjectCspHashes IndexHtmlPath="$(PublishDir)wwwroot/index.html" />
+    <InjectCspHashes IndexHtmlPath="$(PublishDir)wwwroot/index.html"
+                     AssetsManifestPath="$(PublishDir)wwwroot/service-worker-assets.js" />
   </Target>
 </Project>
