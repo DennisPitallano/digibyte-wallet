@@ -159,6 +159,103 @@ two were removed from `app.css` and the gallery (they are in the branch history 
 `197dd73`, with screenshots `*-1-primary-variants.jpg` and `*-3-cards.jpg` in
 `docs/media/ui-style/`).
 
+## Confirm controls (candidates, not yet used on any page)
+
+`SlideToConfirm` and `HoldToConfirm` (in `Components/Shared/`) replace the final button of an
+action that cannot be undone. Both are in the gallery so one can be chosen; neither is wired
+into a page.
+
+**Use them only for irreversible actions where coins leave the wallet:** send, batch send,
+multisig broadcast, consolidate, Digi-ID fund recovery. **Never for Unlock, and never for routine
+confirmations** (saving a setting, closing a dialog, deleting a contact). A deliberate gesture
+only protects the user while it is rare; on every dialog it becomes a habit and protects nothing.
+
+```razor
+<SlideToConfirm @ref="confirm" Label="Slide to send"
+                ActionDescription="@($"Send {amount} DGB to {recipient}")"
+                OnConfirmed="SendAsync" />
+
+@code {
+    private SlideToConfirm? confirm;
+
+    private async Task SendAsync()
+    {
+        try { await DoSend(); }
+        catch { confirm?.Reset(); throw; }   // unlock the control again if the send failed
+    }
+}
+```
+
+`HoldToConfirm` takes the same parameters, so the two are interchangeable.
+
+| Parameter | Meaning |
+| --- | --- |
+| `Label` | Visible text while idle ("Slide to send", "Hold to send"). |
+| `BusyLabel` | Visible text after confirming. Default "Sending…". |
+| `ActionDescription` | What is being confirmed, read by screen readers: include the amount and recipient. |
+| `HoldMs` | How long a press or key must be held. Default 1000. |
+| `Disabled` | Blocks the control. |
+| `OnConfirmed` | Raised exactly once. The control then stays locked and busy until `Reset()`. |
+| `Reset()` | Method: returns the control to idle. |
+
+How each can be completed:
+
+- **Pointer.** Slide: drag the thumb to the end; releasing before 90% snaps it back. Hold: press
+  for `HoldMs`; releasing, or sliding off the button, drains the fill and cancels.
+- **Keyboard.** Tab to the control and hold Enter or Space for `HoldMs`. The slide's thumb travels
+  by itself while the key is down. Releasing early cancels. A quick tap does nothing.
+- **Screen reader.** A screen reader's "activate" cannot be held, so it is a two-step: the first
+  activation announces "Activate again within five seconds to confirm", the second confirms.
+- Completion is announced politely ("Confirmed. Sending…") and the control sets `aria-busy`.
+
+Both are 56px high. Place the slide at least 24px in from the screen edge, so the drag never
+starts in the iOS swipe-back zone (inside a `card` on a normal page it is about 48px in).
+
+Under reduced motion nothing travels or fills by itself: the drag or the one-second hold is still
+required, and a held control shows a steady half-tint with "Keep holding…" instead of progress.
+
+The slide needs one small script, `domHelpers.beginSlide` in `wwwroot/js/dom-helpers.js`, for
+pointer capture. It is self-hosted and the Content Security Policy is unchanged.
+
+## Bottom menu variants (previews only)
+
+The gallery shows four static previews built by `Components/Dev/NavMenuPreview.razor`. The live
+menu (`Layout/NavMenu.razor`), the layout and the routes are untouched. The `nav-float*` and
+`nav-badge-*` classes in `app.css` exist only for these previews; delete them, or promote them,
+once a variant is chosen.
+
+| Variant | What it is |
+| --- | --- |
+| A | Today's menu, copied as a baseline. |
+| B | The same five tabs as a floating bar: lifted off the bottom edge, rounded, soft shadow. The active tab has a filled icon on a tinted pill that slides between tabs. Badges: a dot (a payment is pending) and a count (a multisig needs your signature). |
+| C | Rearranged in B's style: Wallet, Activity, a raised round Scan button, Request (today's Pay page), More. More opens a sheet with ID, Multisig, Contacts, Settings, Consolidate, Analytics, Sponsors. |
+| C2 | C, keeping ID as a tab in place of Request (Request moves into More). |
+
+The pill takes the active wallet's colour as a tint; the active icon and label use fixed colours,
+because a wallet colour can be anything and could not be guaranteed to pass contrast as text.
+
+Today's menu (A) draws inactive labels in slate-400, which is 2.6:1 on the light theme and fails
+AA; B and C use slate-600 (7.6:1). Screenshots: `*-7-menu-a-b-c.jpg` and
+`*-8-menu-c2-more-sheet.jpg` in `docs/media/ui-style/`.
+
+Adopting B is styling only: `NavMenu.razor` and its bottom padding in `MainLayout.razor`, plus
+two new pieces of state for the badges.
+
+Adopting C or C2 is a navigation change, not a restyle:
+
+- `NavMenu.razor` is rebuilt: Settings (and Pay or ID) stop being tabs.
+- A new More sheet component, with focus trapping and its own route-active state, since five
+  destinations now live inside it.
+- The centre button opens `QrScannerModal` from the layout. Today the scanner is opened from
+  inside Send and other pages, so its result handling (address, payment request, Digi-ID login)
+  has to move somewhere shared.
+- Pay is renamed Request: page title, header, Help text, translations in `wwwroot/locales`, and
+  any onboarding copy that says "Pay".
+- Every instruction that says "tap Settings" or "tap ID" in the bottom bar changes: Help,
+  `OnboardingWalkthrough`, `GettingStarted`, README screenshots and the videos in `docs/media`.
+- Existing users lose tabs they are used to: Settings moves one tap deeper in both, and either
+  ID (C) or Request (C2) does too.
+
 ## Accessibility checks (measured in the gallery)
 
 | Pair | Light | Dark |

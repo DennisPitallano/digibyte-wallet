@@ -951,3 +951,301 @@ textarea.input { min-height: 96px; resize: vertical; }
     .card-interactive, .card-interactive:hover, .card-interactive:active { transform: none !important; }
     .stagger > * { animation: none !important; }
 }
+
+/* ----- Confirm controls: slide to confirm, hold to confirm -----
+   For irreversible, value-moving actions only (docs/UI_STYLE.md). Markup and behaviour are in
+   Components/Shared/SlideToConfirm.razor and HoldToConfirm.razor. --p is the slide progress (0 to 1),
+   --confirm-hold the hold time; both are set by the components. */
+:root {
+    --ui-confirm-track: #e6f0ff;
+    --ui-confirm-track-border: #b3d1ff;
+    --ui-confirm-text: #003d7a;
+    --ui-confirm-fill: rgba(0, 102, 204, 0.22);
+    --ui-confirm-hold-fill: #003d7a;
+}
+.dark {
+    --ui-confirm-track: #002952;
+    --ui-confirm-track-border: #1d4f8f;
+    --ui-confirm-text: #b3d1ff;
+    --ui-confirm-fill: rgba(77, 148, 255, 0.28);
+}
+
+.confirm-slide {
+    --p: 0;
+    --thumb: 48px;
+    position: relative;
+    height: 56px;
+    border: 1px solid var(--ui-confirm-track-border);
+    border-radius: 9999px;
+    background: var(--ui-confirm-track);
+    box-shadow: inset 0 1px 3px rgba(0, 21, 41, 0.12);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: pan-y;
+}
+.confirm-slide:has(.confirm-slide-thumb:focus-visible) { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.confirm-slide-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(4px + var(--thumb) + var(--p) * (100% - var(--thumb) - 8px));
+    border-radius: inherit;
+    background: var(--ui-confirm-fill);
+    transition: width var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+.confirm-slide-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 0.75rem 0 calc(var(--thumb) + 0.75rem);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--ui-confirm-text);
+    opacity: calc(1 - var(--p) * 1.6);
+    pointer-events: none;
+}
+.confirm-slide-thumb {
+    position: absolute;
+    top: 3px;
+    left: calc(4px + var(--p) * (100% - var(--thumb) - 8px));
+    width: var(--thumb);
+    height: var(--thumb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--ui-primary);
+    color: #fff;
+    box-shadow: var(--ui-primary-shadow);
+    cursor: grab;
+    touch-action: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: left var(--motion-base) var(--ease-out), opacity var(--motion-base) var(--ease-out);
+}
+.confirm-slide-thumb svg { width: 1.25rem; height: 1.25rem; }
+/* While dragging the thumb follows the finger exactly: no easing. */
+.confirm-slide.is-dragging .confirm-slide-thumb,
+.confirm-slide.is-dragging .confirm-slide-fill { transition: none; }
+.confirm-slide.is-dragging .confirm-slide-thumb { cursor: grabbing; }
+/* Key held: the thumb travels by itself over the hold time. */
+.confirm-slide.is-holding .confirm-slide-thumb { left: calc(100% - var(--thumb) - 4px); transition: left var(--confirm-hold, 1s) linear; }
+.confirm-slide.is-holding .confirm-slide-fill  { width: 100%; transition: width var(--confirm-hold, 1s) linear; }
+.confirm-slide.is-holding .confirm-slide-label { opacity: 1; }
+/* Confirmed: locked, solid, busy. */
+.confirm-slide.is-done { border-color: transparent; }
+.confirm-slide.is-done .confirm-slide-fill  { width: 100%; background: var(--ui-primary); }
+.confirm-slide.is-done .confirm-slide-thumb { opacity: 0; pointer-events: none; }
+.confirm-slide.is-done .confirm-slide-label { opacity: 1; color: #fff; padding: 0 0.75rem; }
+
+.confirm-hold {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 56px;
+    padding: 0.75rem 1.25rem;
+    border: 0;
+    border-radius: var(--ui-radius);
+    background: var(--ui-primary);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    box-shadow: var(--ui-primary-shadow);
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.confirm-hold:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.confirm-hold-fill {
+    position: absolute;
+    inset: 0;
+    background: var(--ui-confirm-hold-fill);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--motion-base) var(--ease-out);   /* drains back quickly when released early */
+}
+.confirm-hold-label { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; }
+.confirm-hold.is-holding { transform: scale(0.98); box-shadow: var(--ui-pressed-shadow); }
+.confirm-hold.is-holding .confirm-hold-fill { transform: scaleX(1); transition: transform var(--confirm-hold, 1s) linear; }
+.confirm-hold.is-done { cursor: progress; box-shadow: none; }
+.confirm-hold.is-done .confirm-hold-fill { transform: scaleX(1); transition: none; }
+
+/* Busy spinner in front of the label once confirmed. */
+.confirm-slide.is-done .confirm-slide-label::before,
+.confirm-hold.is-done .confirm-hold-label::before {
+    content: "";
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: ui-spin 0.7s linear infinite;
+}
+
+/* Reduced motion: the deliberate drag or hold is still required, but nothing travels or fills by
+   itself. A held control shows a steady half-tint (with "Keep holding…") instead of progress. */
+@media (prefers-reduced-motion: reduce) {
+    .confirm-slide.is-holding .confirm-slide-thumb { left: 4px; }
+    .confirm-slide.is-holding .confirm-slide-fill  { width: 100%; opacity: 0.5; }
+    .confirm-hold.is-holding { transform: none; }
+    .confirm-hold.is-holding .confirm-hold-fill { transform: scaleX(1); opacity: 0.5; }
+}
+
+/* ----- Bottom menu variants: PREVIEW ONLY -----
+   Used by Components/Dev/NavMenuPreview.razor in the style gallery. The live menu
+   (Layout/NavMenu.razor) does not use these. If a variant is adopted, nav-float needs
+   position: fixed and the safe-area margin below; otherwise delete this block. */
+:root {
+    --ui-nav-bg: rgba(255, 255, 255, 0.88);
+    --ui-nav-text: #475569;
+    --ui-nav-active: #0052a3;
+    --ui-nav-badge: #dc2626;
+}
+.dark {
+    --ui-nav-bg: rgba(0, 35, 82, 0.88);
+    --ui-nav-text: #94a3b8;
+    --ui-nav-active: #b3d1ff;
+    --ui-nav-badge: #ef4444;
+}
+
+.nav-preview-frame {
+    position: relative;
+    width: 375px;
+    max-width: 100%;
+    height: 132px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px dashed var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+}
+.nav-preview-frame-tall { height: 150px; }
+.nav-preview-page { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+.nav-preview-page span { height: 10px; border-radius: 9999px; background: var(--ui-border); }
+.nav-preview-page span:nth-child(2) { width: 70%; }
+.nav-preview-page span:nth-child(3) { width: 45%; }
+
+.nav-float {
+    --nav-accent: var(--ui-primary);
+    --nav-index: 0;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 6px;
+    border: 1px solid var(--ui-border);
+    border-radius: 1.5rem;
+    background: var(--ui-nav-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    box-shadow: var(--ui-shadow-raised);
+}
+/* The tinted pill sits behind the active tab and slides between tabs. */
+.nav-float-pill {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 6px;
+    width: calc((100% - 12px) / 5);
+    border-radius: 1.125rem;
+    background: color-mix(in srgb, var(--nav-accent) 18%, transparent);
+    transform: translateX(calc(var(--nav-index) * 100%));
+    transition: transform var(--motion-slow) var(--ease-out);
+    pointer-events: none;
+}
+.nav-float-tab,
+.nav-float-scan {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 52px;
+    padding: 0;
+    border: 0;
+    border-radius: 1.125rem;
+    background: none;
+    color: var(--ui-nav-text);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--motion-base) var(--ease-out);
+}
+.nav-float-tab[aria-current="page"] { color: var(--ui-nav-active); }
+.nav-float-tab:focus-visible,
+.nav-float-scan:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
+.nav-float-icon { position: relative; display: flex; transition: transform var(--motion-fast) var(--ease-out); }
+.nav-float-icon svg { width: 22px; height: 22px; }
+.nav-float-tab:active .nav-float-icon { transform: scale(0.9); }
+
+.nav-badge-dot,
+.nav-badge-count {
+    position: absolute;
+    top: -3px;
+    right: -6px;
+    background: var(--ui-nav-badge);
+    color: #fff;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 2px var(--ui-surface);
+}
+.nav-badge-dot { width: 8px; height: 8px; top: -1px; right: -3px; }
+.nav-badge-count {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    right: -10px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+}
+
+/* Variant C: the raised round Scan button in the centre column. */
+.nav-float-scan { justify-content: flex-end; padding-bottom: 6px; color: var(--ui-nav-active); }
+.nav-float-scan-disc {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    width: 56px;
+    height: 56px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--ui-primary);
+    color: #fff;
+    box-shadow: var(--ui-primary-shadow), 0 0 0 4px var(--ui-surface);
+    transition: transform var(--motion-fast) var(--ease-out);
+}
+.nav-float-scan-disc svg { width: 26px; height: 26px; }
+.nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%) scale(0.94); }
+.nav-float-scan:focus-visible { outline: none; }
+.nav-float-scan:focus-visible .nav-float-scan-disc { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-float-pill { transition: none; }
+    .nav-float-tab:active .nav-float-icon { transform: none; }
+    .nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%); }
+}

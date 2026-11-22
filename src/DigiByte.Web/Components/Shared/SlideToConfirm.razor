@@ -1,0 +1,93 @@
+@* Slide to confirm: for irreversible, value-moving actions only (see docs/UI_STYLE.md).
+   Drag the thumb to the end to confirm; letting go early snaps it back. Keep the track at least 24px inside the
+   screen edge so the drag never starts in the iOS swipe-back zone. Keyboard and screen-reader paths are in ConfirmGestureBase. *@
+@inherits ConfirmGestureBase
+@inject IJSRuntime JS
+@using System.Globalization
+
+<div class="confirm-slide @StateClass" style="--p: @(_progress.ToString("0.###", CultureInfo.InvariantCulture)); --confirm-hold: @(HoldMs)ms">
+    <span class="confirm-slide-fill" aria-hidden="true"></span>
+    <span class="confirm-slide-label" aria-hidden="true">
+        @(State switch
+        {
+            Phase.Done => BusyLabel,
+            Phase.Holding => "Keep holding…",
+            _ => Armed ? "Activate again to confirm" : Label,
+        })
+    </span>
+    <button type="button" class="confirm-slide-thumb" @ref="_thumb"
+            aria-label="@AccessibleName"
+            aria-busy="@(State == Phase.Done ? "true" : null)"
+            aria-disabled="@(Disabled || State == Phase.Done ? "true" : null)"
+            @onpointerdown="OnPointerDown"
+            @onpointermove="OnPointerMove"
+            @onpointerup="OnPointerUp"
+            @onpointercancel="CancelDrag"
+            @onlostpointercapture="CancelDrag"
+            @onkeydown="OnKeyDown"
+            @onkeyup="OnKeyUp"
+            @onblur="OnBlur"
+            @onclick="OnClick">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+    </button>
+</div>
+<span class="sr-only" role="status" aria-live="polite">@Announcement</span>
+
+@code {
+    private ElementReference _thumb;
+    private double _progress;      // 0 = start, 1 = end
+    private double _startX;
+    private double _travel;        // how far the thumb can move, in px
+
+    protected override string GestureHint => "Slide";
+
+    private string StateClass => State switch
+    {
+        Phase.Dragging => "is-dragging",
+        Phase.Holding => "is-holding",
+        Phase.Done => "is-done",
+        _ => "",
+    };
+
+    protected override void OnReset() => _progress = 0;
+
+    private async Task OnPointerDown(PointerEventArgs e)
+    {
+        if (Disabled || State != Phase.Idle || e.Button != 0) return;
+        State = Phase.Dragging;
+        _startX = e.ClientX;
+        _progress = 0;
+        // Capture keeps the drag alive when the pointer leaves the thumb, and tells us how far it can travel.
+        _travel = await JS.InvokeAsync<double>("domHelpers.beginSlide", _thumb, e.PointerId);
+        if (_travel <= 0) State = Phase.Idle;
+    }
+
+    private async Task OnPointerMove(PointerEventArgs e)
+    {
+        if (State != Phase.Dragging || _travel <= 0) return;
+        _progress = Math.Clamp((e.ClientX - _startX) / _travel, 0, 1);
+        if (_progress >= 0.98) await FinishAsync();
+    }
+
+    private async Task OnPointerUp(PointerEventArgs e)
+    {
+        if (State != Phase.Dragging) return;
+        if (_progress >= 0.9) await FinishAsync();
+        else CancelDrag();
+    }
+
+    private void CancelDrag()
+    {
+        if (State != Phase.Dragging) return;
+        State = Phase.Idle;
+        _progress = 0;
+    }
+
+    private Task FinishAsync()
+    {
+        _progress = 1;
+        return CompleteAsync();
+    }
+}

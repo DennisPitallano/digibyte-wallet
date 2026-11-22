@@ -1,5 +1,7 @@
 @page "/test-animations"
 @inject ThemeService Theme
+@inject WalletService WalletService
+@using DigiByte.Web.Components.Dev
 
 <PageTitle>Animation Test — DigiByte Wallet</PageTitle>
 
@@ -16,7 +18,7 @@
             </button>
         </div>
 
-        @* --- Primary button: pick a variant --- *@
+        @* --- Primary button --- *@
         <div class="flex flex-col gap-3">
             <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Primary button</h3>
             <div class="flex flex-col gap-1.5">
@@ -154,6 +156,95 @@
                 }
             </div>
             <button type="button" class="btn-ghost btn-sm self-start" @onclick="() => staggerKey++">Replay entrance</button>
+        </div>
+
+        @* --- Confirm an irreversible action: two candidates to compare --- *@
+        <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Confirm an irreversible action — pick one</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">For actions where coins leave (send, batch send, multisig broadcast, consolidate, Digi-ID fund recovery). Not for Unlock or routine confirmations. Keyboard: Tab to the control and hold Enter or Space for one second.</p>
+
+            <div class="card p-4 flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-semibold">1 · Slide to confirm</span>
+                    <button type="button" class="btn-ghost btn-sm" @onclick="() => slideDemo?.Reset()">Reset</button>
+                </div>
+                <span class="text-xs text-slate-600 dark:text-slate-400">Idle (live, try it) — confirmed @slideCount time(s)</span>
+                <SlideToConfirm @ref="slideDemo" Label="Slide to send" ActionDescription="Send 12.5 DGB (gallery demo, nothing is sent)" OnConfirmed="() => slideCount++" />
+                <span class="text-xs text-slate-600 dark:text-slate-400">In progress (static sample)</span>
+                <div class="confirm-slide is-dragging" style="--p: 0.55" aria-hidden="true">
+                    <span class="confirm-slide-fill"></span>
+                    <span class="confirm-slide-label">Slide to send</span>
+                    <span class="confirm-slide-thumb"><svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg></span>
+                </div>
+                <span class="text-xs text-slate-600 dark:text-slate-400">Completed (static sample)</span>
+                <div class="confirm-slide is-done" style="--p: 1" aria-hidden="true">
+                    <span class="confirm-slide-fill"></span>
+                    <span class="confirm-slide-label">Sending…</span>
+                </div>
+            </div>
+
+            <div class="card p-4 flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-semibold">2 · Hold to confirm</span>
+                    <button type="button" class="btn-ghost btn-sm" @onclick="() => holdDemo?.Reset()">Reset</button>
+                </div>
+                <span class="text-xs text-slate-600 dark:text-slate-400">Idle (live, try it) — confirmed @holdCount time(s)</span>
+                <HoldToConfirm @ref="holdDemo" Label="Hold to send" ActionDescription="Send 12.5 DGB (gallery demo, nothing is sent)" OnConfirmed="() => holdCount++" />
+                <span class="text-xs text-slate-600 dark:text-slate-400">In progress (static sample)</span>
+                <div class="confirm-hold" aria-hidden="true">
+                    <span class="confirm-hold-fill" style="transform: scaleX(0.55); transition: none"></span>
+                    <span class="confirm-hold-label">Keep holding…</span>
+                </div>
+                <span class="text-xs text-slate-600 dark:text-slate-400">Completed (static sample)</span>
+                <div class="confirm-hold is-done" aria-hidden="true">
+                    <span class="confirm-hold-fill"></span>
+                    <span class="confirm-hold-label">Sending…</span>
+                </div>
+            </div>
+        </div>
+
+        @* --- Bottom menu variants (previews only; the live menu is unchanged) --- *@
+        <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bottom menu — pick one</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Static previews in a 375px frame. Tapping a tab only moves that preview's active state; nothing navigates.</p>
+
+            <div style="margin: 0 -2rem" class="flex flex-col gap-4">
+                <div>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">A · Current (baseline)</p>
+                    <NavMenuPreview Variant="NavMenuPreview.NavVariant.Current" Accent="@NavAccent" />
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">B · Floating bar, sliding pill, filled active icon, badges</p>
+                    <NavMenuPreview Variant="NavMenuPreview.NavVariant.Floating" Accent="@NavAccent" />
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">C · Rearranged: Wallet, Activity, Scan, Request, More</p>
+                    <NavMenuPreview Variant="NavMenuPreview.NavVariant.Rearranged" Accent="@NavAccent" />
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">C2 · Rearranged, keeping ID: Wallet, Activity, Scan, ID, More</p>
+                    <NavMenuPreview Variant="NavMenuPreview.NavVariant.RearrangedWithId" Accent="@NavAccent" />
+                </div>
+            </div>
+
+            <span class="text-xs font-medium text-slate-600 dark:text-slate-300">The sheet "More" would open (static mock-up; C2 lists Request in place of ID)</span>
+            <div class="card-raised p-2" aria-hidden="true">
+                <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700 mx-auto mt-1 mb-2"></div>
+                @foreach (var item in MoreItems)
+                {
+                    <div class="flex items-center justify-between px-3 min-h-[48px] text-sm font-medium">
+                        <span>@item</span>
+                        @if (item == "Multisig")
+                        {
+                            <span class="nav-badge-count" style="position: static; box-shadow: none">2</span>
+                        }
+                        else
+                        {
+                            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        }
+                    </div>
+                }
+            </div>
         </div>
     </section>
 
@@ -354,6 +445,16 @@
     };
 
     private Task ToggleTheme() => Theme.ToggleAsync();
+
+    // Confirm controls demo
+    private SlideToConfirm? slideDemo;
+    private HoldToConfirm? holdDemo;
+    private int slideCount;
+    private int holdCount;
+
+    // Bottom menu previews
+    private string NavAccent => WalletService.ActiveWallet?.Color ?? "#0066FF";
+    private static readonly string[] MoreItems = ["ID", "Multisig", "Contacts", "Settings", "Consolidate", "Analytics", "Sponsors"];
 
     protected override async Task OnInitializedAsync()
     {
