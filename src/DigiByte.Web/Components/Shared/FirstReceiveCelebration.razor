@@ -12,6 +12,7 @@
 @inject LocalizationService L
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject SoundService Sounds
 
 @if (shown is { } payment)
 {
@@ -159,6 +160,7 @@
         try { await JS.InvokeVoidAsync("domHelpers.trapFocus", DialogId); } catch { }
         try { await doneButton.FocusAsync(); } catch { }
         try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 15, 40, 25 }); } catch { }
+        await Sounds.PlayAsync(Sound.Receive);
     }
 
     private string AmountLine(FirstPayment payment)

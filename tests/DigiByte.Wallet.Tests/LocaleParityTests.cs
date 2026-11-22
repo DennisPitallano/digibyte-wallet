@@ -20,6 +20,8 @@ public class LocaleParityTests
         "unlock.passphrase_prompt", "unlock.forgot_passphrase", "unlock.or_passphrase", "recover.new_passphrase",
         // spec 025 (first-receive flow)
         "home.empty.", "activity.empty.", "firstreceive.",
+        // optional payment sounds
+        "settings.sounds",
     ];
 
     // Words that are the same in both languages on purpose.

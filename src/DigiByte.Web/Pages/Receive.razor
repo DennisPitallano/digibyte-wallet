@@ -9,6 +9,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject FirstReceiveCoordinator FirstReceive
+@inject SoundService Sounds
 @inject NotificationService Notifications
 
 <PageTitle>Receive DGB — DigiByte Wallet</PageTitle>
@@ -353,7 +354,7 @@
         // Someone showing this page is waiting to be paid, so it checks for incoming payments by itself, at Home's pace
         // (spec 025, FR-024). Both pieces belong to this page and end with it.
         _refreshLoop = new AutoRefreshLoop(JS);
-        _announcer = new IncomingPaymentAnnouncer(Notifications, JS);
+        _announcer = new IncomingPaymentAnnouncer(Notifications, JS, Sounds);
         try { hideAmounts = await Storage.GetAsync("pref:hideBalance") == "1"; } catch { }
 
         _ = LoadHistoryAsync(); // background: the page and the QR code never wait for it

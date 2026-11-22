@@ -14,6 +14,7 @@
 @inject IConfiguration Config
 @inject BakuService Baku
 @inject ClipboardService Clipboard
+@inject SoundService Sounds
 
 <PageTitle>Settings — DigiByte Wallet</PageTitle>
 
@@ -449,6 +450,27 @@
             }
         </div>
 
+        @* Sounds: a chime when a payment arrives and when a send goes out. Off unless turned on here. *@
+        <div class="slide-up flex items-center justify-between p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 card-hover">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p id="sounds-label" class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.sounds")</p>
+                    <p id="sounds-hint" class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.sounds_hint")</p>
+                </div>
+            </div>
+            <button type="button" role="switch" aria-checked="@(soundsOn ? "true" : "false")" aria-labelledby="sounds-label" aria-describedby="sounds-hint"
+                    data-testid="sounds-switch"
+                    class="relative shrink-0 w-12 h-7 rounded-full transition-colors duration-200 @(soundsOn ? "bg-dgb-500" : "bg-slate-300 dark:bg-dgb-700")"
+                    @onclick="ToggleSoundsAsync">
+                <span class="absolute top-1 left-1 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200 @(soundsOn ? "translate-x-5" : "translate-x-0")"></span>
+            </button>
+        </div>
+
         @if (installMode != InstallMode.Hidden)
         {
             <h3 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1 mt-4">App</h3>
@@ -846,6 +868,17 @@
     {
         try { await Theme.InitializeAsync(); } catch { }
         try { walletCount = (await WalletService.GetAllWalletsAsync()).Count; } catch { walletCount = 1; }
+        soundsOn = await Sounds.IsEnabledAsync();
+    }
+
+    private bool soundsOn;
+
+    private async Task ToggleSoundsAsync()
+    {
+        soundsOn = !soundsOn;
+        await Sounds.SetEnabledAsync(soundsOn);
+        // Turning it on plays the receive chime once, so the user hears what they chose.
+        if (soundsOn) await Sounds.PlayAsync(Sound.Receive);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

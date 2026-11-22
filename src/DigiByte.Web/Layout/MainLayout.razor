@@ -6,6 +6,7 @@
 @inject WalletService WalletService
 @inject IJSRuntime JS
 @inject FirstReceiveCoordinator FirstReceive
+@inject SoundService Sounds
 @inject WalletSnapshotCache Snapshots
 
 <ToastContainer />
@@ -135,6 +136,8 @@
         // First-receive flow (spec 025): load the "first session ended" marker once. A device that already has a wallet
         // with saved history (an existing user after an update) is past its first session, whichever page opens first.
         try { await FirstReceive.InitializeAsync(AnyWalletHasSavedHistoryAsync); } catch { }
+        // Optional chimes: when the user has turned Sounds on, get the files ready for the first tap.
+        try { await Sounds.InitializeAsync(); } catch { }
     }
 
     private async Task<bool> AnyWalletHasSavedHistoryAsync()

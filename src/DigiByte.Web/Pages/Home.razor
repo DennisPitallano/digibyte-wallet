@@ -15,6 +15,7 @@
 @inject MarketSnapshotService Market
 @inject NotificationService Notifications
 @inject FirstReceiveCoordinator FirstReceive
+@inject SoundService Sounds
 
 <PageTitle>DigiByte Wallet — Self-Custodial DGB Wallet</PageTitle>
 
@@ -649,7 +650,7 @@
         if (activeCardIndex < 0) activeCardIndex = 0;
 
         _refreshLoop = new AutoRefreshLoop(JS);
-        _announcer = new IncomingPaymentAnnouncer(Notifications, JS);
+        _announcer = new IncomingPaymentAnnouncer(Notifications, JS, Sounds);
         FirstReceive.Changed += OnFirstReceiveChanged;
 
         // Fire all I/O in parallel — UI renders immediately with skeleton states

@@ -346,5 +346,7 @@
   "firstreceive.received_hidden": "Payment received",
   "firstreceive.pending_hidden": "A payment is on its way",
   "firstreceive.done": "Done",
-  "firstreceive.install": "Install app"
+  "firstreceive.install": "Install app",
+  "settings.sounds": "Sounds",
+  "settings.sounds_hint": "A chime when you receive or send"
 }

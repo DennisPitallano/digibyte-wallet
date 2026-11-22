@@ -10,7 +10,7 @@ namespace DigiByte.Web.Services;
 /// history when there is one, and starts again on a wallet switch. This is Home's notice, moved here so Receive shows the
 /// same one (spec 025, FR-022, FR-026).
 /// </summary>
-public sealed class IncomingPaymentAnnouncer(NotificationService notifications, IJSRuntime js)
+public sealed class IncomingPaymentAnnouncer(NotificationService notifications, IJSRuntime js, SoundService? sounds = null)
 {
     private string? _walletId;
     // Transaction IDs already seen for the wallet; null until the first list (saved or from the network) has been recorded.
@@ -58,6 +58,7 @@ public sealed class IncomingPaymentAnnouncer(NotificationService notifications, 
                 : $"{arrived.Count} payments received, +{arrived.Sum(t => t.AmountDgb):0.########} DGB";
         notifications.Success(message);
         try { await js.InvokeVoidAsync("domHelpers.haptic", new[] { 15, 40, 25 }); } catch { }
+        if (sounds is not null) await sounds.PlayAsync(Sound.Receive);
     }
 
     private void Follow(string walletId)
