@@ -17,24 +17,24 @@
 @if (shown is { } payment)
 {
     <div id="@DialogId" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="@TitleId" tabindex="-1"
-         style="flex-direction:column; gap:1rem;" data-testid="first-receive-celebration" @onkeydown="OnKeyDown">
-        <div class="flex flex-col items-center gap-4 relative">
-            @* Moving decoration: left out entirely when the device asks for reduced motion (FR-020). *@
-            <div class="first-receive-decor confetti-container" style="top:-60px; left:50%; transform:translateX(-50%);" aria-hidden="true">
-                @for (int i = 0; i < 18; i++)
-                {
-                    var angle = i * 20;
-                    var distance = 40 + (i % 3) * 30;
-                    var delay = i * 0.04;
-                    var color = Colors[i % Colors.Length];
-                    var x = Math.Cos(angle * Math.PI / 180) * distance;
-                    var y = Math.Sin(angle * Math.PI / 180) * distance;
-                    <div class="confetti-particle"
-                         style="left:calc(50% + @(x.ToString("F0", Inv))px); top:calc(50% + @(y.ToString("F0", Inv))px); background:@color; animation-delay:@(delay.ToString("F2", Inv))s;"></div>
-                }
-            </div>
-
-            <div class="relative flex items-center justify-center" style="width:80px;height:80px;" aria-hidden="true">
+         data-testid="first-receive-celebration" @onkeydown="OnKeyDown">
+        @* One raised card, so nothing behind the overlay competes with it. The coin sits on the card's top edge. *@
+        <div class="card-raised first-receive-card">
+            <div class="first-receive-medal" aria-hidden="true">
+                @* Moving decoration: left out entirely when the device asks for reduced motion (FR-020). *@
+                <div class="first-receive-decor confetti-container" style="top:50%; left:50%; transform:translate(-50%,-50%);">
+                    @for (int i = 0; i < 18; i++)
+                    {
+                        var angle = i * 20;
+                        var distance = 50 + (i % 3) * 30;
+                        var delay = i * 0.04;
+                        var color = Colors[i % Colors.Length];
+                        var x = Math.Cos(angle * Math.PI / 180) * distance;
+                        var y = Math.Sin(angle * Math.PI / 180) * distance;
+                        <div class="confetti-particle"
+                             style="left:calc(50% + @(x.ToString("F0", Inv))px); top:calc(50% + @(y.ToString("F0", Inv))px); background:@color; animation-delay:@(delay.ToString("F2", Inv))s;"></div>
+                    }
+                </div>
                 <div class="first-receive-decor success-ring"></div>
                 <div class="first-receive-decor success-ring success-ring-2"></div>
                 <div class="first-receive-coin">
@@ -42,42 +42,51 @@
                 </div>
             </div>
 
-            <div class="text-center">
-                <h3 id="@TitleId" class="text-xl font-bold text-white" data-testid="first-receive-title">@L.T("firstreceive.title")</h3>
-                <p class="text-sm text-white/80 mt-1 tabular-nums" aria-live="polite" data-testid="first-receive-amount">@AmountLine(payment)</p>
-                @if (!hideAmounts && FiatLine(payment) is { } fiat)
-                {
-                    <p class="text-xs text-white/60 mt-0.5 tabular-nums" data-testid="first-receive-fiat">@fiat</p>
-                }
-            </div>
+            <h3 id="@TitleId" class="first-receive-title" data-testid="first-receive-title">@L.T("firstreceive.title")</h3>
 
-            @* The mascot's line, in the mascot's voice, only when the mascot is fully on (FR-021). English only (FR-032). *@
+            @* Screen readers get the one full sentence; the large amount and the status chip are its visual form. *@
+            <p class="sr-only" aria-live="polite" data-testid="first-receive-amount">@AmountLine(payment)</p>
+            @if (hideAmounts)
+            {
+                <p class="first-receive-hidden" aria-hidden="true">@AmountLine(payment)</p>
+            }
+            else
+            {
+                <div aria-hidden="true">
+                    <p class="first-receive-amount @(AmountText(payment).Length > 9 ? "is-long" : "")">+@AmountText(payment) <span class="first-receive-unit">DGB</span></p>
+                    @if (FiatLine(payment) is { } fiat)
+                    {
+                        <p class="first-receive-fiat" data-testid="first-receive-fiat">@fiat</p>
+                    }
+                </div>
+                <span class="first-receive-chip @(payment.IsPending ? "is-pending" : "is-received")" aria-hidden="true" data-testid="first-receive-status">
+                    <span class="first-receive-chip-dot"></span>
+                    @L.T(payment.IsPending ? "firstreceive.status_pending" : "firstreceive.status_received")
+                </span>
+            }
+
+            @* The mascot's line, in the mascot's voice, only when the mascot is fully on (FR-021). English only (FR-032).
+               Its catalog title repeats the heading above, so only the sentence is shown. *@
             @if (Baku.Mode == BakuMode.Full && BakuCatalog.Find("receive.first") is { } line)
             {
-                <div class="flex items-center gap-2 max-w-[280px] mx-auto baku-celebrate" data-testid="first-receive-mascot">
-                    <img src="@BakuCatalog.PosePath(line.PoseId)" alt="" class="w-12 flex-shrink-0 object-contain select-none" draggable="false" />
-                    <div class="rounded-2xl border border-dgb-700 bg-dgb-900 px-3 py-2 text-left">
-                        <p class="text-sm font-bold text-white">@line.Title</p>
-                        <p class="text-xs text-slate-300 leading-relaxed">@line.Body</p>
-                    </div>
+                <div class="first-receive-baku baku-celebrate" data-testid="first-receive-mascot">
+                    <img src="@BakuCatalog.PosePath(line.PoseId)" alt="" class="w-10 flex-shrink-0 object-contain select-none" draggable="false" />
+                    <p>@line.Body</p>
                 </div>
             }
-        </div>
 
-        <div class="flex flex-col gap-2 w-full max-w-[280px]">
-            <button type="button" data-autofocus data-testid="first-receive-done" @ref="doneButton"
-                    class="w-full min-h-[44px] py-3 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-colors press-effect"
-                    @onclick="CloseAsync">
-                @L.T("firstreceive.done")
-            </button>
-            @if (installMode != InstallMode.Hidden)
-            {
-                <button type="button" data-testid="first-receive-install"
-                        class="w-full min-h-[44px] py-3 px-6 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold rounded-2xl transition-colors press-effect"
-                        @onclick="InstallAsync">
-                    @L.T("firstreceive.install")
+            <div class="flex flex-col gap-2 w-full mt-1">
+                <button type="button" data-autofocus data-testid="first-receive-done" @ref="doneButton"
+                        class="btn-primary w-full" @onclick="CloseAsync">
+                    @L.T("firstreceive.done")
                 </button>
-            }
+                @if (installMode != InstallMode.Hidden)
+                {
+                    <button type="button" data-testid="first-receive-install" class="btn-secondary w-full" @onclick="InstallAsync">
+                        @L.T("firstreceive.install")
+                    </button>
+                }
+            </div>
         </div>
     </div>
 }
@@ -162,6 +171,8 @@
         try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 15, 40, 25 }); } catch { }
         await Sounds.PlayAsync(Sound.Receive);
     }
+
+    private static string AmountText(FirstPayment payment) => payment.AmountDgb.ToString("0.########", Inv);
 
     private string AmountLine(FirstPayment payment)
     {
