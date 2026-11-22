@@ -48,7 +48,7 @@
 
     @* Scan / Paste URI *@
     <div class="slide-up-delay-2 flex flex-col gap-3">
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect flex items-center justify-center gap-2"
+        <button class="btn-primary w-full"
                 @onclick="ScanDigiId">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5Z" />
@@ -66,7 +66,7 @@
         <div class="flex gap-2">
             <input type="text" @bind="digiIdUri" placeholder="digiid://..."
                    class="flex-1 px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
-            <button class="px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+            <button class="btn-primary btn-sm"
                     @onclick="AuthenticateAsync" disabled="@(string.IsNullOrWhiteSpace(digiIdUri) || isAuthenticating)">
                 @(isAuthenticating ? "..." : "Sign")
             </button>
@@ -128,9 +128,9 @@
             </div>
 
             <div class="flex gap-3">
-                <button class="flex-1 py-3 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                <button class="btn-secondary flex-1"
                         @onclick="CancelAuth">Cancel</button>
-                <button class="flex-1 py-3 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-bold rounded-xl press-effect shadow-md shadow-dgb-500/25 transition-all"
+                <button class="btn-primary flex-1"
                         @onclick="ConfirmAuthAsync">
                     Approve
                 </button>
@@ -268,9 +268,9 @@
                 </div>
             }
             <div class="flex gap-2 w-full">
-                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-secondary btn-sm flex-1"
                         @onclick="ResetState">Dismiss</button>
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-primary btn-sm flex-1"
                         @onclick="RetryAuth">Try Again</button>
             </div>
         </div>

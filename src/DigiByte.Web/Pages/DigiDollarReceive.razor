@@ -48,11 +48,11 @@
                     <span class="block font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center" aria-label="@L.T("dd.receive.address")">@current.Address</span>
                 </button>
                 <div class="grid grid-cols-2 gap-2 w-full">
-                    <button class="inline-flex items-center justify-center gap-2 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="CopyAsync">
+                    <button class="btn-primary btn-sm" @onclick="CopyAsync">
                         <DdIcon Name="@(copied ? "check" : "copy")" Class="w-4 h-4" StrokeWidth="2" />
                         @(copied ? L.T("dd.receive.copied") : L.T("dd.receive.copy"))
                     </button>
-                    <button class="inline-flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                    <button class="btn-secondary btn-sm"
                             disabled="@busy" @onclick="ShareAsync">
                         <DdIcon Name="share" Class="w-4 h-4" StrokeWidth="2" />
                         @L.T("dd.receive.share")

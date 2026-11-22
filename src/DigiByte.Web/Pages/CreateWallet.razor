@@ -68,7 +68,7 @@
             </div>
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+        <button class="btn-primary w-full"
                 @onclick="NameContinue" disabled="@string.IsNullOrWhiteSpace(walletName)">
             Continue
         </button>
@@ -94,7 +94,7 @@
             }
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect slide-up-delay-2"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="GoToConfirm">
             I've Written It Down
         </button>
@@ -117,7 +117,7 @@
         </div>
 
         <div class="flex flex-col gap-2 slide-up-delay-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="VerifyWord" disabled="@string.IsNullOrWhiteSpace(confirmInput)">
                 @(confirmStep < 2 ? "Next" : "Confirm")
             </button>
@@ -180,7 +180,7 @@
         </div>
         }
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-3 flex items-center justify-center gap-2"
+        <button class="btn-primary w-full slide-up-delay-3"
                 @onclick="OnPinButtonClick"
                 disabled="@(isCreating || (credKind == CredentialKind.Passphrase ? (passphrase.Length == 0 || passphraseConfirm.Length == 0) : ((!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))))">
             @if (isCreating)

@@ -46,9 +46,9 @@
                 <InlineError Message="@formError" />
             }
             <div class="flex gap-2">
-                <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-secondary btn-sm flex-1"
                         @onclick="CancelForm">Cancel</button>
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                <button class="btn-primary btn-sm flex-1"
                         @onclick="SaveContact" disabled="@(string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formAddress))">
                     Save
                 </button>
@@ -130,9 +130,9 @@
                 <p class="text-sm text-slate-500 dark:text-slate-400">This removes the saved name and address. Past transactions are not affected.</p>
             </div>
             <div class="flex gap-2">
-                <button type="button" class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                <button type="button" class="btn-secondary btn-sm flex-1"
                         @onclick="() => deleteTarget = null">Cancel</button>
-                <button type="button" class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl press-effect"
+                <button type="button" class="btn-danger btn-sm flex-1"
                         @onclick="ConfirmDeleteAsync">Delete</button>
             </div>
         </div>

@@ -58,11 +58,11 @@
         }
 
         <div class="flex gap-2">
-            <button type="button" class="flex-1 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+            <button type="button" class="btn-secondary btn-sm flex-1"
                     data-autofocus disabled="@Busy" @onclick="Cancel">
                 @L.T("dd.confirm.cancel")
             </button>
-            <button type="button" class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl press-effect"
+            <button type="button" class="btn-primary btn-sm flex-1"
                     disabled="@(!armed || Busy)" @onclick="Confirm">
                 @(Busy ? L.T("dd.confirm.sending") : L.T("dd.confirm.confirm"))
             </button>

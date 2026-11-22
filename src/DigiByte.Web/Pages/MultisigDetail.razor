@@ -149,8 +149,8 @@ else
                         If another wallet on this device also owns it, it stays there.
                     </p>
                     <div class="flex gap-2">
-                        <button type="button" class="flex-1 min-h-[44px] py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect" @onclick="DownloadBackupFirst">Download backup</button>
-                        <button type="button" class="flex-1 min-h-[44px] py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50" disabled="@isRemoving" @onclick="RemoveWallet">Remove</button>
+                        <button type="button" class="btn-secondary btn-sm flex-1" @onclick="DownloadBackupFirst">Download backup</button>
+                        <button type="button" class="btn-danger btn-sm flex-1" disabled="@isRemoving" @onclick="RemoveWallet">Remove</button>
                         <button type="button" class="min-h-[44px] px-3 text-sm font-medium text-slate-500" @onclick="() => confirmRemove = false">Cancel</button>
                     </div>
                 </div>

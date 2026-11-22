@@ -72,11 +72,11 @@
                     @address
                 </p>
                 <div class="flex gap-2 w-full">
-                    <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect"
+                    <button class="btn-primary btn-sm flex-1"
                             @onclick="CopyAddress">
                         @(copied ? "Copied!" : requestAmount is not null ? "Copy Payment Link" : "Copy Address")
                     </button>
-                    <button class="py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all press-effect"
+                    <button class="btn-secondary btn-sm"
                             @onclick="ShareAddress">
                         Share
                     </button>

@@ -371,7 +371,7 @@
                         </div>
                         <p class="text-xs font-medium text-amber-600 dark:text-amber-400">Unable to load data</p>
                         <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Check your connection, then try again</p>
-                        <button type="button" class="mt-3 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect transition-colors disabled:opacity-50"
+                        <button type="button" class="btn-primary btn-sm mt-3"
                                 @onclick="ManualRefreshAsync" disabled="@isRefreshing">@(isRefreshing ? "Trying..." : "Try again")</button>
                     </div>
                     @* The address does not depend on the network, so it stays available while the history cannot be read
@@ -491,9 +491,9 @@
                 }
                 <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400 text-center break-all leading-relaxed select-all">@receivingAddress</p>
                 <div class="flex gap-2 w-full">
-                    <button class="flex-1 py-2 text-xs font-semibold rounded-xl bg-dgb-500 text-white hover:bg-dgb-600 transition-colors"
+                    <button class="btn-primary btn-sm flex-1"
                             @onclick="CopyAddress">Copy</button>
-                    <button class="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
+                    <button class="btn-secondary btn-sm flex-1"
                             @onclick="() => showAddressQr = false">Close</button>
                 </div>
             </div>

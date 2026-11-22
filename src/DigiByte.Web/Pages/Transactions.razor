@@ -164,7 +164,7 @@
     {
         <div class="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30 p-5 text-center" role="alert">
             <p class="text-sm text-amber-800 dark:text-amber-300">Couldn't load your transactions. Check your connection and try again.</p>
-            <button class="mt-3 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect transition-colors" @onclick="LoadAsync">Try again</button>
+            <button class="btn-primary btn-sm mt-3" @onclick="LoadAsync">Try again</button>
         </div>
     }
     else if (shown.Count == 0)
@@ -179,7 +179,7 @@
             {
                 <div class="mt-3">
                     <a href="/receive" data-testid="activity-empty-receive"
-                       class="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect transition-colors no-underline">
+                       class="btn-primary btn-sm no-underline">
                         @L.T("activity.empty.receive")
                     </a>
                 </div>
@@ -211,7 +211,7 @@
         </div>
         @if (shown.Count > visibleCount)
         {
-            <button class="self-center px-4 py-2 text-sm font-semibold text-dgb-600 dark:text-dgb-400 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors"
+            <button class="btn-secondary btn-sm self-center"
                     @onclick="() => visibleCount += PageSize">
                 Show more
             </button>

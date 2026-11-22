@@ -19,7 +19,7 @@
             </div>
             @if (!showForm)
             {
-                <button class="px-3 py-2 text-xs font-semibold rounded-xl bg-dgb-500 text-white press-effect" data-testid="protection-change"
+                <button class="btn-primary btn-sm" data-testid="protection-change"
                         @onclick="OpenForm">
                     @(wallet.Kind == CredentialKind.Pin ? L.T("protection.use_passphrase") : L.T("protection.change"))
                 </button>
@@ -75,9 +75,9 @@
                     <p role="alert" class="text-sm text-red-500 font-medium text-center" data-testid="protection-error">@error</p>
                 }
                 <div class="flex gap-2 w-full">
-                    <button class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                    <button class="btn-secondary btn-sm flex-1"
                             @onclick="CloseForm" disabled="@busy">@L.T("common.cancel")</button>
-                    <button class="flex-1 py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                    <button class="btn-primary btn-sm flex-1"
                             data-testid="protection-submit" @onclick="SubmitAsync" disabled="@(busy || current.Length == 0 || next.Length == 0)">
                         @(busy ? L.T("protection.working") : L.T("protection.apply"))
                     </button>

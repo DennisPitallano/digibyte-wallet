@@ -177,12 +177,12 @@
                                 }
                                 @if (tx.Status == PendingTxStatus.Failed)
                                 {
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             @onclick="() => RetryBroadcast(tx)" disabled="@isBroadcasting">Retry broadcast</button>
                                 }
                                 @if (mine)
                                 {
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl transition-colors press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             @onclick="() => signConfirmFor = tx.Id" disabled="@(isSigning || spent)">
                                         @(isSigning && busyId == tx.Id ? "Signing…" : "Sign")
                                     </button>
@@ -215,7 +215,7 @@
                             <div class="mt-3 p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="Confirm signing">
                                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Sign @MultisigFormat.Dgb(tx.AmountSatoshis) DGB to @MultisigFormat.Short(tx.DestinationAddress)?</p>
                                 <div class="flex gap-2">
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             disabled="@isSigning" @onclick="() => ConfirmSign(tx)">Confirm and sign</button>
                                     <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="() => signConfirmFor = null">Back</button>
                                 </div>
@@ -252,7 +252,7 @@
                                     <input id="room-name" @bind="roomName" @bind:event="oninput" maxlength="40"
                                            class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500" />
                                     <div class="flex gap-2">
-                                        <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                        <button class="btn-primary btn-sm flex-1"
                                                 disabled="@(isOpening || string.IsNullOrWhiteSpace(roomName))" @onclick="() => OpenRoomAsync(tx)">
                                             @(isOpening ? "Opening…" : "Open room")
                                         </button>
@@ -303,7 +303,7 @@
                                     <p class="text-xs text-amber-600 dark:text-amber-400" role="status">@importNotice</p>
                                 }
                                 <div class="flex gap-2">
-                                    <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                                    <button class="btn-primary btn-sm flex-1"
                                             @onclick="() => ImportSignedPSBT(tx)" disabled="@(string.IsNullOrWhiteSpace(importPsbtBase64))">Merge signatures</button>
                                     <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="() => importFor = null">Close</button>
                                 </div>

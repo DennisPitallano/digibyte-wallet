@@ -37,7 +37,7 @@
     {
         <div class="w-full max-w-[320px] rounded-2xl border border-slate-500/30 bg-slate-500/10 p-4 text-center" data-testid="deferred-note">
             <p class="text-xs text-slate-600 dark:text-slate-300">@deferredNote</p>
-            <button class="mt-3 px-4 py-2 rounded-xl bg-dgb-500 text-white text-sm font-semibold press-effect"
+            <button class="btn-primary btn-sm mt-3"
                     data-testid="deferred-note-ok" @onclick="DismissDeferredAsync">@L.T("biometric.weak.ok")</button>
         </div>
     }
@@ -47,7 +47,7 @@
         <div class="w-full max-w-[320px] rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center" data-testid="upgrade-notice">
             <p class="text-sm font-bold text-slate-900 dark:text-white">@L.T("upgrade.notice.title")</p>
             <p class="text-xs text-slate-600 dark:text-slate-300 mt-2">@L.T("upgrade.notice.body")</p>
-            <button class="mt-3 px-4 py-2 rounded-xl bg-dgb-500 text-white text-sm font-semibold press-effect"
+            <button class="btn-primary btn-sm mt-3"
                     data-testid="upgrade-notice-ok" @onclick="DismissUpgradeNoticeAsync">@L.T("upgrade.notice.ok")</button>
         </div>
     }
@@ -88,7 +88,7 @@
                          OnSubmit="UnlockAsync"
                          Error="@error" />
 
-        <button class="w-full max-w-[280px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50"
+        <button class="btn-primary w-full max-w-[280px]"
                 @onclick="UnlockAsync" disabled="@(isUnlocking || !Ready(pin, credKind))">
             @if (isUnlocking)
             {
@@ -179,11 +179,11 @@
                     <CredentialInput @ref="resetPinInput" Kind="resetKind" IsNew="true" ValueChanged="(v) => newPin = v" OnSubmit="ConfirmResetPin" Error="@resetError" />
                 }
                 <div class="flex gap-2">
-                    <button class="flex-1 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                    <button class="btn-secondary btn-sm flex-1"
                             @onclick="CancelForgot">Cancel</button>
                     @if (!showNewPin)
                     {
-                        <button class="flex-1 py-2 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                        <button class="btn-primary btn-sm flex-1"
                                 @onclick="VerifySeed" disabled="@string.IsNullOrWhiteSpace(seedInput)">Verify</button>
                     }
                 </div>
@@ -200,9 +200,9 @@
                 <input type="text" @bind="deleteConfirmText" placeholder="Type DELETE to confirm"
                        class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-red-300 dark:border-red-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none text-center uppercase tracking-widest" />
                 <div class="flex gap-2">
-                    <button class="flex-1 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect"
+                    <button class="btn-secondary btn-sm flex-1"
                             @onclick="CancelForgot">Cancel</button>
-                    <button class="flex-1 py-2 bg-red-500 text-white text-sm font-semibold rounded-xl press-effect disabled:opacity-50"
+                    <button class="btn-danger btn-sm flex-1"
                             @onclick="DeleteWallet" disabled="@(deleteConfirmText?.ToUpper() != "DELETE")">Delete Forever</button>
                 </div>
             }

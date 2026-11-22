@@ -68,7 +68,7 @@
                         Create a shared wallet that requires multiple signatures to spend funds.
                     </p>
                 </div>
-                <button class="min-h-[44px] py-2.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl transition-all press-effect"
+                <button class="btn-primary btn-sm"
                         @onclick='() => Nav.NavigateTo("/multisig/create")'>
                     Create Multisig Wallet
                 </button>
@@ -97,11 +97,11 @@
                                 <span class="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full flex-shrink-0">DRAFT</span>
                             </div>
                             <div class="flex items-center gap-2 mt-3">
-                                <button class="flex-1 min-h-[44px] py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect"
+                                <button class="btn-primary btn-sm flex-1"
                                         @onclick="() => ContinueDraft(draft.Id)">Continue</button>
                                 @if (confirmDeleteId == draft.Id)
                                 {
-                                    <button class="min-h-[44px] py-2 px-3 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl press-effect"
+                                    <button class="btn-danger btn-sm"
                                             @onclick="() => DeleteDraft(draft.Id)">Delete draft?</button>
                                     <button class="min-h-[44px] py-2 px-3 text-xs font-medium text-slate-500" @onclick="() => confirmDeleteId = null">Cancel</button>
                                 }

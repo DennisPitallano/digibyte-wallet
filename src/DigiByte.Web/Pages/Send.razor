@@ -28,7 +28,7 @@
         </div>
         <h2 class="text-lg font-bold text-slate-900 dark:text-white">Watch-Only Wallet</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[260px]">This wallet can only view balances and receive funds. Sending requires a wallet with private keys.</p>
-        <button class="py-2.5 px-6 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl transition-all press-effect"
+        <button class="btn-primary btn-sm"
                 @onclick='() => Nav.NavigateTo("/")'>
             Back to Home
         </button>
@@ -328,7 +328,7 @@ else
             @foreach (var (label, share) in AmountShares)
             {
                 var fraction = share;
-                <button type="button" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors press-effect disabled:opacity-50"
+                <button type="button" class="btn-secondary btn-sm flex-1"
                         @onclick="() => SetAmountShare(fraction)" disabled="@(isFormDisabled || isLoadingBalance || availableBalance <= 0)">@label</button>
             }
         </div>
@@ -407,7 +407,7 @@ else
     </div>
     }
 
-    <button class="slide-up-delay-5 w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 mt-2"
+    <button class="btn-primary slide-up-delay-5 w-full mt-2"
             @onclick="PreviewSend"
             disabled="@(isFormDisabled || isReviewing || (!isBatchMode && (string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)) || (isBatchMode && batchRecipients.Count < 2))">
         @if (isFormDisabled || isReviewing)
@@ -470,7 +470,7 @@ else
                     </div>
                 </div>
 
-                <button class="w-full py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect flex-shrink-0"
+                <button class="btn-primary btn-sm w-full flex-shrink-0"
                         @onclick="() => showBatchInfo = false">Got it</button>
             </div>
         </div>
@@ -515,7 +515,7 @@ else
                     <p class="text-xs text-slate-400 dark:text-slate-500">DigiByte blocks are mined every ~15 seconds, so even "Slow" is fast compared to traditional payments. For most transactions, <strong>Normal</strong> is perfect.</p>
                 </div>
 
-                <button class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect"
+                <button class="btn-primary btn-sm w-full"
                         @onclick="() => showFeeInfo = false">Got it</button>
             </div>
         </div>

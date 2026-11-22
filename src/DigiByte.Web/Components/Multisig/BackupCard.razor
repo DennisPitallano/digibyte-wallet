@@ -16,8 +16,8 @@
                 Your seed phrase alone <b>cannot recover</b> this multisig. Download the backup or copy the script and keep it safe.
             </p>
             <div class="flex gap-2 mt-2.5">
-                <button type="button" class="flex-1 min-h-[44px] py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect" @onclick="Download">Download backup</button>
-                <button type="button" class="min-h-[44px] py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="CopyScript">@(copied ? "Copied!" : "Copy script")</button>
+                <button type="button" class="btn-primary btn-sm flex-1" @onclick="Download">Download backup</button>
+                <button type="button" class="btn-secondary btn-sm" @onclick="CopyScript">@(copied ? "Copied!" : "Copy script")</button>
             </div>
         </div>
     </div>
@@ -51,8 +51,8 @@ else
         </div>
     }
     <div class="flex gap-2">
-        <button type="button" class="flex-1 min-h-[44px] py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect" @onclick="Download">Download backup</button>
-        <button type="button" class="min-h-[44px] py-2.5 px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="CopyScript">@(copied ? "Copied!" : "Copy script")</button>
+        <button type="button" class="btn-primary btn-sm flex-1" @onclick="Download">Download backup</button>
+        <button type="button" class="btn-secondary btn-sm" @onclick="CopyScript">@(copied ? "Copied!" : "Copy script")</button>
     </div>
 </CollapsePanel>
 

@@ -62,8 +62,7 @@
             </div>
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="GoToAddSigners" disabled="@string.IsNullOrWhiteSpace(walletName)">
             Next: Add Co-Signers
         </button>
@@ -187,11 +186,11 @@
         }
 
         <div class="flex flex-col gap-2 slide-up-delay-2">
-            <button class="w-full py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-200 font-semibold rounded-2xl press-effect disabled:opacity-50"
+            <button class="btn-secondary w-full"
                     @onclick="SaveDraft" disabled="@isSavingDraft">
                 @(isSavingDraft ? "Saving…" : "Save draft and finish later")
             </button>
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="GoToReview" disabled="@(!AllSignersValid())">
                 @(AllSignersValid() ? "Review Wallet" : $"Complete {coSignerEntries.Count - ValidCount} more co-signer{(coSignerEntries.Count - ValidCount == 1 ? "" : "s")} to continue")
             </button>
@@ -249,7 +248,7 @@
         }
 
         <div class="flex flex-col gap-2 slide-up-delay-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="CreateWallet" disabled="@isCreating">
                 @if (isCreating)
                 {
@@ -285,10 +284,10 @@
         </div>
 
         <div class="slide-up-delay-1 flex flex-col gap-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect" @onclick="DownloadBackup">
+            <button class="btn-primary w-full" @onclick="DownloadBackup">
                 @(backupSaved ? "Backup downloaded ✓" : "Download backup file")
             </button>
-            <button class="w-full py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect" @onclick="CopyRedeemScript">
+            <button class="btn-secondary w-full" @onclick="CopyRedeemScript">
                 Copy redeem script
             </button>
         </div>

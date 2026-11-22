@@ -13,7 +13,7 @@
         </p>
         <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("legacy.body")</p>
         <div class="flex flex-col gap-2 w-full mt-2">
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect"
+            <button class="btn-primary w-full"
                     data-testid="legacy-consent-agree" @onclick="() => OnAgree.InvokeAsync()">@L.T("legacy.agree")</button>
             <button class="w-full py-3 text-slate-500 dark:text-slate-400 text-sm font-medium"
                     data-testid="legacy-consent-cancel" @onclick="() => OnCancel.InvokeAsync()">@L.T("common.cancel")</button>

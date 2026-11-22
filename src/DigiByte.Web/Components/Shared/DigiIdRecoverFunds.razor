@@ -24,7 +24,7 @@
     @if (!WalletService.IsUnlocked)
     {
         <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed" role="status">@L.T("identity.recover.locked")</p>
-        <button type="button" class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500"
+        <button type="button" class="btn-primary btn-sm w-full"
                 @onclick="GoToUnlock">@L.T("identity.recover.unlock")</button>
     }
     else if (!IsSeedWallet)
@@ -42,7 +42,7 @@
                        disabled="@(checking || busy)" aria-describedby="@(siteError != null ? "recover-site-error" : null)" aria-invalid="@(siteError != null ? "true" : null)"
                        class="flex-1 min-w-0 px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500" />
                 <button type="button" @onclick="AddSite" disabled="@(checking || busy || string.IsNullOrWhiteSpace(siteInput))"
-                        class="px-4 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">@L.T("identity.recover.siteAdd")</button>
+                        class="btn-secondary btn-sm">@L.T("identity.recover.siteAdd")</button>
             </div>
             @if (siteError != null)
             {
@@ -81,13 +81,13 @@
                 <div class="w-4 h-4 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden="true"></div>
                 <span class="flex-1 text-xs text-slate-600 dark:text-slate-300">@L.T("identity.recover.checking", progressPct)</span>
                 <button type="button" @onclick="CancelCheck"
-                        class="px-3 py-1.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500">@L.T("identity.recover.cancel")</button>
+                        class="btn-secondary btn-sm">@L.T("identity.recover.cancel")</button>
             </div>
         }
         else
         {
             <button type="button" @onclick="CheckAllAsync" disabled="@(AllDomains.Count == 0 || busy)"
-                    class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">
+                    class="btn-primary btn-sm w-full">
                 @(findings == null ? L.T("identity.recover.check") : L.T("identity.recover.checkAgain"))
             </button>
         }
@@ -171,11 +171,11 @@
                 {
                     <div class="flex gap-2 mt-1">
                         <button type="button" @onclick="CancelReview"
-                                class="flex-1 py-2.5 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500">@L.T("identity.recover.review.cancel")</button>
+                                class="btn-secondary btn-sm flex-1">@L.T("identity.recover.review.cancel")</button>
                         @if (plan.Items.Count > 0)
                         {
                             <button type="button" @onclick="ConfirmSweepAsync" disabled="@executing"
-                                    class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">@L.T("identity.recover.review.confirm")</button>
+                                    class="btn-primary btn-sm flex-1">@L.T("identity.recover.review.confirm")</button>
                         }
                     </div>
                 }
@@ -257,7 +257,7 @@
                             </button>
                         </div>
                         <button type="button" @onclick="StartSweepAsync" disabled="@(SelectedCount == 0 || busy)"
-                                class="w-full py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 disabled:opacity-50">
+                                class="btn-primary btn-sm w-full">
                             @L.T("identity.recover.sweep", SelectedCount)
                         </button>
                     }
@@ -283,7 +283,7 @@
                 @if (RetryableFindings.Count > 0)
                 {
                     <button type="button" @onclick="RetryFailedAsync"
-                            class="w-full py-2 bg-slate-100 dark:bg-dgb-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl press-effect focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500">
+                            class="btn-secondary btn-sm w-full">
                         @(findings.All(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck) ? L.T("identity.recover.retry") : L.T("identity.recover.retryFailed"))
                     </button>
                 }

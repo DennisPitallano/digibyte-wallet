@@ -68,7 +68,7 @@
                 <InlineError Message="@loadRefusal.Message" />
             }
 
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+            <button class="btn-primary w-full"
                     @onclick="LoadTextAsync" disabled="@(isBusy || string.IsNullOrWhiteSpace(pastedText))">
                 @(isBusy ? "Checking..." : "Review")
             </button>
@@ -179,7 +179,7 @@
 
                 @if (result is null && review.CanBroadcastSigned)
                 {
-                    <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                    <button class="btn-primary w-full"
                             @onclick="PrepareSignedAsync" disabled="@(isBusy || (review.NeedsAcknowledgment && !acknowledged))">
                         @(isBusy ? "Checking..." : "Broadcast signed transaction")
                     </button>
@@ -187,7 +187,7 @@
 
                 @if (result is null && review.CanSign)
                 {
-                    <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                    <button class="btn-primary w-full"
                             @onclick="SignAsync" disabled="@(isBusy || (review.NeedsAcknowledgment && !acknowledged))">
                         @(isBusy ? "Signing..." : $"Sign {review.InputsToSign} input{(review.InputsToSign == 1 ? "" : "s")}")
                     </button>
@@ -225,7 +225,7 @@
                             }
                         </p>
                         <div class="flex gap-2 mt-3">
-                            <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="CopyAsync">
+                            <button class="btn-primary btn-sm flex-1" @onclick="CopyAsync">
                                 @(copied ? "Copied" : "Copy base64")
                             </button>
                             <button class="flex-1 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl press-effect" @onclick="DownloadAsync">
@@ -292,7 +292,7 @@
             <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="v => pin = v" OnSubmit="SubmitPinAsync" Error="@pinError" />
             <div class="flex gap-2 w-full">
                 <button class="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300" @onclick="CancelPin">Cancel</button>
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl disabled:opacity-50"
+                <button class="btn-primary btn-sm flex-1"
                         @onclick="SubmitPinAsync" disabled="@(!Ready(pin) || isCheckingPin)">@(isCheckingPin ? L.T("credential.checking") : "Confirm")</button>
             </div>
         </div>

@@ -33,7 +33,7 @@ else
             <EmptyActions>
                 @if (filter == ActivityFilter.All)
                 {
-                    <button type="button" class="min-h-[44px] px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect" @onclick="() => receiveOpen = true">Receive</button>
+                    <button type="button" class="btn-primary btn-sm" @onclick="() => receiveOpen = true">Receive</button>
                     <button type="button" class="min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 press-effect"
                             @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>Send</button>
                 }
@@ -100,12 +100,12 @@ else
                 <div class="flex items-center gap-2 flex-wrap">
                     @if (!string.IsNullOrEmpty(e.TxId))
                     {
-                        <button type="button" class="min-h-[44px] px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => CopyTxId(e.TxId!)">@(copiedTx ? "Copied!" : "Copy TxID")</button>
-                        <button type="button" class="min-h-[44px] px-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all press-effect" @onclick="() => OpenExplorer(e.TxId!)">Open in explorer</button>
+                        <button type="button" class="btn-secondary btn-sm" @onclick="() => CopyTxId(e.TxId!)">@(copiedTx ? "Copied!" : "Copy TxID")</button>
+                        <button type="button" class="btn-secondary btn-sm" @onclick="() => OpenExplorer(e.TxId!)">Open in explorer</button>
                     }
                     @if (e.IsPending || e.Kind == ActivityKind.Failed)
                     {
-                        <button type="button" class="min-h-[44px] px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-dgb-500/25 transition-all press-effect" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>Open in Pending</button>
+                        <button type="button" class="btn-primary btn-sm" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>Open in Pending</button>
                     }
                 </div>
             </div>

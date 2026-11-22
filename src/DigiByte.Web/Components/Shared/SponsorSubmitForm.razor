@@ -47,7 +47,7 @@
                     <CopyValueButton Value="@DonationInfo.CurrentAddress" Label="donation address" />
                 </div>
                 <button type="button" @onclick="() => donated = true"
-                        class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors">
+                        class="btn-primary btn-sm w-full">
                     I've donated, continue
                 </button>
                 <p class="text-[11px] text-slate-400">Already donated earlier? Continue and paste that donation's transaction ID.</p>
@@ -140,7 +140,7 @@
         }
 
         <button type="button" disabled="@submitting" @onclick="SubmitAsync"
-                class="w-full py-2.5 text-sm font-semibold text-center rounded-xl bg-dgb-500 hover:bg-dgb-600 disabled:opacity-60 text-white shadow-lg shadow-dgb-500/25 press-effect transition-colors">
+                class="btn-primary btn-sm w-full">
             @(submitting ? "Sending…" : removing ? "Request removal" : "Send for review")
         </button>
         }

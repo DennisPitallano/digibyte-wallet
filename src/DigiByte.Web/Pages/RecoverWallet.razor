@@ -64,7 +64,7 @@
             </div>
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+        <button class="btn-primary w-full"
                 @onclick="NameContinue" disabled="@string.IsNullOrWhiteSpace(walletName)">
             Continue
         </button>
@@ -204,7 +204,7 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                <button class="btn-primary w-full"
                         @onclick="ValidateMnemonic" disabled="@IsMnemonicEmpty">
                     Continue
                 </button>
@@ -246,7 +246,7 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                <button class="btn-primary w-full"
                         @onclick="ValidateWif" disabled="@string.IsNullOrWhiteSpace(wifInput)">
                     Continue
                 </button>
@@ -294,7 +294,7 @@
             </div>
         }
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 slide-up-delay-2 flex items-center justify-center gap-2"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="OnPinButtonClick"
                 disabled="@(isRecovering || (!isConfirmingPin && pin.Length < 6) || (isConfirmingPin && pinConfirm.Length < 6))">
             @if (isRecovering)

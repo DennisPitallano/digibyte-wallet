@@ -43,7 +43,7 @@
             </div>
             <p class="text-sm text-slate-600 dark:text-slate-400 text-center">@L.T("credential.enter_to_view_limits", CredentialText.Word(L, credKind))</p>
             <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="(v) => pin = v" OnSubmit="VerifyPin" Error="@pinError" />
-            <button class="w-full max-w-[260px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50"
+            <button class="btn-primary w-full max-w-[260px]"
                     @onclick="VerifyPin" disabled="@(!Ready(pin) || isVerifying)">
                 @(isVerifying ? "Verifying..." : "Unlock")
             </button>

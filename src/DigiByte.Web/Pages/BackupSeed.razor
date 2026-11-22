@@ -27,7 +27,7 @@
 
             <div class="flex flex-col items-center gap-4 slide-up-delay-2">
                 <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="(v) => pin = v" OnSubmit="VerifyPin" Error="@error" />
-                <button class="w-full max-w-[280px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50"
+                <button class="btn-primary w-full max-w-[280px]"
                         @onclick="VerifyPin" disabled="@(isVerifying || !Ready(pin))">
                     @(isVerifying ? "Verifying..." : "Continue")
                 </button>
@@ -60,7 +60,7 @@
             }
         </div>
 
-        <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect slide-up-delay-2"
+        <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="GoBack">
             Done
         </button>

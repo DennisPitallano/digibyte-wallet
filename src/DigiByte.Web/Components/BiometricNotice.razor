@@ -16,7 +16,7 @@
                 <p class="text-xs text-red-500 font-medium text-center" role="alert">@Error</p>
             }
             <div class="flex flex-col gap-2 w-full mt-2">
-                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50"
+                <button class="btn-primary w-full"
                         data-testid="biometric-upgrade-yes" @onclick="() => OnPrimary.InvokeAsync()" disabled="@Busy">
                     @(Busy ? L.T("protection.working") : L.T("biometric.upgrade.yes"))
                 </button>
@@ -29,7 +29,7 @@
             <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.weak.title")</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.weak.body")</p>
             <div class="flex flex-col gap-2 w-full mt-2">
-                <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect disabled:opacity-50"
+                <button class="btn-primary w-full"
                         data-testid="biometric-consent-yes" @onclick="() => OnPrimary.InvokeAsync()" disabled="@Busy">@L.T("biometric.weak.consent_yes")</button>
                 <button class="w-full py-3 text-slate-500 dark:text-slate-400 text-sm font-medium" data-testid="biometric-consent-cancel"
                         @onclick="() => OnSecondary.InvokeAsync()" disabled="@Busy">@L.T("common.cancel")</button>
@@ -39,7 +39,7 @@
         {
             <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.weak.title")</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.weak.body")</p>
-            <button class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl press-effect mt-2"
+            <button class="btn-primary w-full mt-2"
                     data-testid="biometric-notice-ok" @onclick="() => OnPrimary.InvokeAsync()">@L.T("biometric.weak.ok")</button>
         }
     </div>

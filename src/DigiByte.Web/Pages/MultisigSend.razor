@@ -131,7 +131,7 @@ else
                 <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">This creates a proposal that needs <b>@config.RequiredSignatures of @config.TotalSigners</b> signatures before it can be broadcast.</p>
             </div>
 
-            <button class="slide-up-delay-5 w-full min-h-[44px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 hover:shadow-xl hover:shadow-dgb-500/30 transition-all press-effect disabled:opacity-50 mt-2"
+            <button class="btn-primary btn-sm slide-up-delay-5 w-full mt-2"
                     disabled="@(!CanContinue)" @onclick="GoToReview">
                 <span>Review Transaction</span>
             </button>
@@ -176,11 +176,11 @@ else
             <div class="flex flex-col gap-2">
                 @if (MultisigWalletService.NeedsMySignature(created, config))
                 {
-                    <button class="w-full min-h-[44px] py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50" disabled="@isSigning" @onclick="SignNow">
+                    <button class="btn-primary btn-sm w-full" disabled="@isSigning" @onclick="SignNow">
                         @(isSigning ? "Signing…" : "Sign Now")
                     </button>
                 }
-                <button class="w-full min-h-[44px] py-3 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect" @onclick="SharePsbt">
+                <button class="btn-secondary btn-sm w-full" @onclick="SharePsbt">
                     Copy Proposal to Share
                 </button>
                 <button class="w-full min-h-[44px] py-2.5 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>
@@ -251,11 +251,11 @@ else
                 }
 
                 <div class="flex gap-3">
-                    <button class="flex-1 min-h-[44px] py-3 bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 font-semibold rounded-2xl press-effect"
+                    <button class="btn-secondary btn-sm flex-1"
                             @onclick="() => { step = Step.Form; error = null; }" disabled="@isCreating">
                         Cancel
                     </button>
-                    <button class="flex-1 min-h-[44px] py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect disabled:opacity-50 flex items-center justify-center gap-2"
+                    <button class="btn-primary btn-sm flex-1"
                             @onclick="Confirm" disabled="@isCreating">
                         @if (isCreating)
                         {

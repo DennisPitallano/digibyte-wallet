@@ -292,6 +292,18 @@ Text needs 4.5:1 and boundaries 3:1 for AA. Button heights measure 48px and 44px
 
 ## Rollout
 
+**Buttons: done for the standard cases.** `tools/button-style-rollout.py` moved 159 hand-written
+primary, secondary and danger buttons in 56 files to `btn-primary`, `btn-secondary` and
+`btn-danger` (`btn-sm` where the original was a compact button). Run it without `--apply` to see
+what it would change. It deliberately leaves these alone, and they are still hand-written:
+
+- buttons whose class is built with a Razor expression (26), such as toggles and tabs;
+- icon-only buttons with a fixed size, pills and chips;
+- text-only link buttons, which would become taller as `btn-ghost`;
+- buttons in a colour of their own (green approve, amber warning, indigo).
+
+Cards and inputs have not been rolled out; the table below still applies to them.
+
 Converted so far: the bottom menu, and the confirm card of Send (slide to confirm and its Cancel
 button). Everything else is still hand-written. Convert one page per commit so each diff is easy to review, and delete
 the hand-written class strings as you go. The order below is by expected traffic: it follows the
