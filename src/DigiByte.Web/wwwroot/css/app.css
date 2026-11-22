@@ -1069,13 +1069,32 @@ textarea.input { min-height: 96px; resize: vertical; }
    pins it to the bottom of the 480px app column. Components/Dev/NavMenuPreview.razor uses the same
    classes inside a frame for the gallery; nav-float-scan and nav-preview-* are for those previews only. */
 :root {
-    --ui-nav-bg: rgba(255, 255, 255, 0.88);
+    /* Glass: a translucent fill over blurred page content, a light rim, and a layered shadow. */
+    --ui-nav-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.80), rgba(244, 248, 255, 0.68));
+    --ui-nav-bg-solid: rgba(255, 255, 255, 0.96);   /* where the browser cannot blur */
+    --ui-nav-border: rgba(255, 255, 255, 0.85);
+    --ui-nav-shadow:
+        0 0 0 1px rgba(0, 41, 82, 0.07),
+        0 1px 2px rgba(0, 41, 82, 0.08),
+        0 8px 20px -6px rgba(0, 41, 82, 0.18),
+        0 22px 44px -14px rgba(0, 41, 82, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --ui-nav-pill-rim: rgba(0, 82, 163, 0.14);
     --ui-nav-text: #475569;
     --ui-nav-active: #0052a3;
     --ui-nav-badge: #dc2626;
 }
 .dark {
-    --ui-nav-bg: rgba(0, 35, 82, 0.88);
+    --ui-nav-bg: linear-gradient(180deg, rgba(12, 52, 110, 0.70), rgba(0, 30, 72, 0.62));
+    --ui-nav-bg-solid: rgba(0, 35, 82, 0.96);
+    --ui-nav-border: rgba(160, 200, 255, 0.16);
+    --ui-nav-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.30),
+        0 10px 24px -6px rgba(0, 0, 0, 0.50),
+        0 24px 48px -12px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    --ui-nav-pill-rim: rgba(179, 209, 255, 0.18);
     --ui-nav-text: #94a3b8;
     --ui-nav-active: #b3d1ff;
     --ui-nav-badge: #ef4444;
@@ -1107,12 +1126,19 @@ textarea.input { min-height: 96px; resize: vertical; }
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     padding: 6px;
-    border: 1px solid var(--ui-border);
+    border: 1px solid var(--ui-nav-border);
     border-radius: 9999px;   /* fully rounded ends */
-    background: var(--ui-nav-bg);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    backdrop-filter: blur(20px) saturate(140%);
-    box-shadow: var(--ui-shadow-raised);
+    background: var(--ui-nav-bg-solid);
+    background-clip: padding-box;
+    box-shadow: var(--ui-nav-shadow);
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .nav-float {
+        background: var(--ui-nav-bg);
+        background-clip: padding-box;
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        backdrop-filter: blur(24px) saturate(180%);
+    }
 }
 /* The tinted pill sits behind the active tab's icon only (not its label) and slides between tabs.
    It is centred on the tab's column: 6px bar padding + (index + half) columns - half its own width. */
@@ -1124,6 +1150,7 @@ textarea.input { min-height: 96px; resize: vertical; }
     height: 30px;
     border-radius: 9999px;
     background: color-mix(in srgb, var(--nav-accent) 22%, transparent);
+    box-shadow: inset 0 0 0 1px var(--ui-nav-pill-rim), inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transition: left var(--motion-slow) var(--ease-out);
     pointer-events: none;
 }
