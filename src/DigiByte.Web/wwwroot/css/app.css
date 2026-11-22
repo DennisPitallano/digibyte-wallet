@@ -2100,3 +2100,129 @@ textarea.input { min-height: 96px; resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
     .pending-card, .detail-row-chevron { transition: none; }
 }
+
+/* ----- Signing room (specs/026-multisig-wallet-experience) ----- */
+
+/* The context line as a plain label: says where you are, opens nothing. */
+.context-line-static { cursor: default; padding-right: 12px; }
+@media (hover: hover) { .context-line-static:hover { background: var(--ui-surface); } }
+
+/* The bar at the top of a live room: back, code, time left, connection, menu. Stays put while the room scrolls. */
+.room-bar {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 -0.5rem;
+    padding: 4px 0.5rem;
+    border-radius: 1rem;
+    background: rgba(248, 250, 252, 0.9);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+.dark .room-bar { background: rgba(0, 21, 41, 0.9); }
+.room-bar-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 9999px;
+    background: var(--ui-ghost-hover);
+    color: var(--ui-ghost-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+.room-bar-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+    white-space: nowrap;
+}
+.room-bar-time-label { font-weight: 500; }
+/* Closing soon: a warning icon in place of the clock, heavier type, and a stronger colour. */
+.room-bar-time-urgent { color: #b45309; font-weight: 700; }
+.dark .room-bar-time-urgent { color: #fbbf24; }
+.room-bar-connection { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #b45309; white-space: nowrap; }
+.dark .room-bar-connection { color: #fbbf24; }
+.room-bar-dot { width: 8px; height: 8px; border-radius: 9999px; background: #22c55e; }
+.room-bar-dot-off { background: #f59e0b; }
+
+/* Invite, Sign, Broadcast: a mark and a word per step, joined by a line. */
+.room-steps { display: flex; align-items: center; gap: 6px; }
+.room-step { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; font-size: 12px; font-weight: 600; color: var(--ui-text-muted); }
+.room-step:not(:last-child)::after { content: ""; flex: 1 1 auto; min-width: 8px; height: 2px; border-radius: 2px; background: var(--ui-border); }
+.room-step-mark {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    border: 2px solid var(--ui-border);
+    font-size: 11px;
+    font-weight: 700;
+}
+.room-step-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-step-now { color: var(--ui-text); }
+.room-step-now .room-step-mark { border-color: var(--ui-primary); background: var(--ui-primary); color: #fff; }
+.room-step-done { color: var(--ui-text); }
+.room-step-done .room-step-mark { border-color: #16a34a; background: #16a34a; color: #fff; }
+.room-step-done:not(:last-child)::after { background: #16a34a; }
+
+/* The invite, folded to one row. */
+.room-invite-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 0.875rem;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.room-invite-row:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* The six boxes of the room code. The real input lies over them, see-through, so typing and pasting are native. */
+.room-code { position: relative; display: block; flex: 1 1 auto; min-width: 0; cursor: text; }
+.room-code-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    font-size: 16px;   /* below 16px, phones zoom the page on focus */
+}
+.room-code-boxes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.room-code-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 52px;
+    border: 1.5px solid var(--ui-input-border, var(--ui-border));
+    border-radius: 0.75rem;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 22px;
+    font-weight: 800;
+}
+.room-code-box-filled { border-color: var(--ui-focus); }
+.room-code-input:focus ~ .room-code-boxes .room-code-box-next,
+.room-code-input:focus ~ .room-code-boxes .room-code-box-filled:last-child { outline: 2px solid var(--ui-focus); outline-offset: 1px; }
+
+/* With no menu under it, the pinned button keeps clear of the device's system bar by itself. */
+main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px)); }

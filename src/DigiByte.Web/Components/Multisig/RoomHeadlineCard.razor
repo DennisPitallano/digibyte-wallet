@@ -10,7 +10,7 @@
             }
         </div>
     </div>
-    @if (Headline.Action != PrimaryAction.None && !string.IsNullOrEmpty(Headline.ActionLabel))
+    @if (ShowAction && Headline.Action != PrimaryAction.None && !string.IsNullOrEmpty(Headline.ActionLabel))
     {
         <button class="w-full min-h-[48px] px-4 text-sm font-semibold rounded-xl press-effect disabled:opacity-50 @ButtonClasses"
                 disabled="@Busy" @onclick="() => OnAction.InvokeAsync(Headline.Action)">
@@ -26,6 +26,8 @@
 @code {
     [Parameter, EditorRequired] public RoomHeadline Headline { get; set; } = default!;
     [Parameter] public EventCallback<PrimaryAction> OnAction { get; set; }
+    /// <summary>False when the page shows the action itself, pinned to the bottom of the screen (spec 026, FR-028).</summary>
+    [Parameter] public bool ShowAction { get; set; } = true;
     /// <summary>Disables the button while an action is running; <see cref="BusyLabel"/> replaces its text.</summary>
     [Parameter] public bool Busy { get; set; }
     [Parameter] public string? BusyLabel { get; set; }

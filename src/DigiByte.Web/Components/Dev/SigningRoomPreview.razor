@@ -1,0 +1,106 @@
+@* Dev-only: the pieces of the signing room with made-up data, for the style gallery on /test-animations
+   (specs/026-multisig-wallet-experience). Nothing here connects to a room, signs or sends: the buttons only move
+   this preview through the room's stages. The real screen is Pages/MultisigSigningRoom.razor. *@
+@using DigiByte.Web.Components.Multisig
+
+<div class="flex flex-col gap-3" data-testid="signing-room-preview">
+    <div class="flex flex-wrap gap-2">
+        @foreach (var option in Scenes)
+        {
+            var scene = option;
+            <button type="button" class="@(scene == current ? "btn-primary" : "btn-secondary") btn-sm" @onclick="() => current = scene">@scene.Name</button>
+        }
+    </div>
+
+    <div class="flex flex-col gap-4 p-4 rounded-2xl border border-dashed border-slate-300 dark:border-dgb-700">
+        <RoomBar InviteCode="3WAU9Y" Countdown="RoomCountdown.For(current.Remaining)" Spoken="@RoomCountdown.Spoken(current.Remaining)"
+                 IsReconnecting="current.Reconnecting" />
+
+        <RoomStageTracker Stage="Stage" />
+
+        <ConnectionBanner IsReconnecting="current.Reconnecting" />
+
+        <RoomHeadlineCard Headline="Headline" ShowAction="false" />
+
+        @if (InviteUpFront)
+        {
+            <RoomInvite InviteCode="3WAU9Y" InviteLink="https://example.invalid/multisig/sign-room?code=3WAU9Y" Prominent="true" />
+        }
+
+        <PaymentSummary Summary="Summary" ShowCheckCue="@(!current.ViewerSigned && Stage != RoomStageKind.Done)" />
+
+        <div class="card p-4 flex flex-col gap-3">
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                @Signed of @Required signatures
+                <span class="font-normal text-slate-500 dark:text-slate-400">· @(Required - Signed <= 0 ? "enough to broadcast" : Required - Signed == 1 ? "1 more needed" : $"{Required - Signed} more needed")</span>
+            </p>
+            <SignerList Cards="SignerOrder.Sort(Cards)" />
+        </div>
+
+        @if (!InviteUpFront && Phase == RoomPhase.Open)
+        {
+            <RoomInvite InviteCode="3WAU9Y" InviteLink="https://example.invalid/multisig/sign-room?code=3WAU9Y" Prominent="false" />
+        }
+
+        @if (Headline.Action != PrimaryAction.None && !string.IsNullOrEmpty(Headline.ActionLabel))
+        {
+            <StickyAction DisabledReason="@(current.Reconnecting ? "Waiting for the connection to come back." : null)">
+                <button type="button" class="btn-primary w-full" disabled="@current.Reconnecting">@Headline.ActionLabel</button>
+                @if (!current.ViewerSigned && Phase == RoomPhase.Open)
+                {
+                    <button type="button" class="self-center min-h-[44px] px-3 text-sm font-medium text-slate-500 dark:text-slate-400">Decline to sign</button>
+                }
+            </StickyAction>
+        }
+    </div>
+</div>
+
+@code {
+    private const int Required = 3;
+
+    // One made-up room seen at different moments. Who: the viewer (host), then four co-signers.
+    private sealed record Scene(string Name, bool Host, bool ViewerSigned, bool[] Online, bool[] SignedBy, TimeSpan Remaining,
+        bool Reconnecting = false, bool Sent = false);
+
+    private static readonly Scene[] Scenes =
+    [
+        new("Host, nobody here", true, false, [false, false, false, false], [false, false, false, false], TimeSpan.FromSeconds(27 * 60 + 40)),
+        new("Joined, sign", false, false, [true, true, false, false], [true, false, false, false], TimeSpan.FromMinutes(21)),
+        new("Signed, waiting", true, true, [true, false, true, false], [true, false, false, false], TimeSpan.FromMinutes(12)),
+        new("Ready", true, true, [true, true, false, false], [true, true, false, false], TimeSpan.FromSeconds(4 * 60 + 12)),
+        new("Reconnecting", false, false, [true, true, false, false], [true, false, false, false], TimeSpan.FromMinutes(9), Reconnecting: true),
+        new("Sent", true, true, [true, true, false, false], [true, true, false, false], TimeSpan.FromMinutes(3), Sent: true),
+    ];
+
+    private static readonly string[] Names = ["Alex Rivera", "Sam", "Priya N.", "Jordan"];
+
+    private Scene current = Scenes[0];
+
+    private int Signed => current.SignedBy.Count(s => s) + (current.ViewerSigned ? 1 : 0);
+    private RoomPhase Phase => current.Sent ? RoomPhase.Broadcast : Signed >= Required ? RoomPhase.Complete : RoomPhase.Open;
+
+    private IReadOnlyList<SignerCardModel> Cards
+    {
+        get
+        {
+            var inputs = new List<SignerInput>
+            {
+                new("02aa", "Treasury", true, current.ViewerSigned ? SignerStatus.Signed : SignerStatus.Waiting, current.Host),
+            };
+            for (var i = 0; i < Names.Length; i++)
+                inputs.Add(new SignerInput($"02b{i}", Names[i], current.Online[i],
+                    current.SignedBy[i] ? SignerStatus.Signed : SignerStatus.Waiting, !current.Host && i == 0));
+            return SignerCards.Build(inputs, "02aa");
+        }
+    }
+
+    private int PresentOrSigned => RoomStage.PresentOrSigned(Cards);
+    private RoomStageKind Stage => RoomStage.For(Phase, PresentOrSigned, Signed, Required);
+    private bool InviteUpFront => RoomStage.InviteProminent(current.Host, PresentOrSigned, Required, Phase);
+
+    private RoomHeadline Headline =>
+        SigningRoomHeadline.For(Phase, current.ViewerSigned, false, Signed, Required, unreachable: false, isWatchOnly: false);
+
+    private static PaymentSummaryModel Summary =>
+        PaymentSummaryBuilder.Build(1_320_752_000, 80_600, "dgb1qs3gl6884ld4zzr6qwz70zh5jpp9h4ashhxz0f", "Half the pot, as agreed", null);
+}

@@ -1,0 +1,41 @@
+@* Where the group is: Invite, Sign, Broadcast (specs/026-multisig-wallet-experience, FR-027). Each step is shown by
+   a mark and a word, never by colour alone: a check for done, a filled number for now, an outlined number for later.
+   Assistive technology gets one sentence in place of the three marks. *@
+<ol class="room-steps" aria-label="@RoomStage.Describe(Stage)" data-testid="room-steps" data-stage="@Stage">
+    @for (var i = 0; i < Steps.Length; i++)
+    {
+        var index = i;
+        var state = StateOf(index);
+        <li class="room-step room-step-@state" aria-hidden="true">
+            <span class="room-step-mark">
+                @if (state == "done")
+                {
+                    <UxIcon Name="check" Class="w-3.5 h-3.5" />
+                }
+                else
+                {
+                    @(index + 1)
+                }
+            </span>
+            <span class="room-step-label">@Steps[index]</span>
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired] public RoomStageKind Stage { get; set; }
+
+    private static readonly string[] Steps = ["Invite", "Sign", "Broadcast"];
+
+    private string StateOf(int index)
+    {
+        var current = Stage switch
+        {
+            RoomStageKind.Invite => 0,
+            RoomStageKind.Sign => 1,
+            RoomStageKind.Broadcast => 2,
+            _ => 3,     // everything done
+        };
+        return index < current ? "done" : index == current ? "now" : "later";
+    }
+}

@@ -1,0 +1,106 @@
+@* The ways out of a signing room, each with what it does (specs/026-multisig-wallet-experience, FR-032).
+   Leaving keeps every signature already collected on this device. Closing ends the room for everyone, is the host's
+   alone, asks first, and never cancels the payment. *@
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div id="@SheetId" class="more-sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="@TitleId" tabindex="-1"
+         data-testid="room-menu" @onclick="CloseAsync" @onkeydown="OnKeyDown">
+        <div class="more-sheet sheet-enter" @onclick:stopPropagation="true">
+            <div class="more-sheet-grip" aria-hidden="true"></div>
+            <div class="flex items-center justify-between px-5 pb-3">
+                <h3 id="@TitleId" class="block-title">Room</h3>
+                <button type="button" class="icon-btn -mr-2" aria-label="Close" @onclick="CloseAsync">
+                    <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="more-sheet-list">
+                @if (!confirmClose)
+                {
+                    <button type="button" class="more-sheet-row" data-autofocus="true" data-testid="room-leave" @onclick="() => ChooseAsync(OnLeave)">
+                        <span class="more-sheet-icon" aria-hidden="true">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" /></svg>
+                        </span>
+                        <span class="flex-1 min-w-0 text-left">
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">Leave the room</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">Signatures already collected stay on this device. The room stays open for the others.</span>
+                        </span>
+                    </button>
+                    @if (IsHost)
+                    {
+                        <button type="button" class="more-sheet-row" data-testid="room-close" @onclick="() => confirmClose = true">
+                            <span class="more-sheet-icon text-red-600 dark:text-red-400" aria-hidden="true"><UxIcon Name="x" Class="w-5 h-5" /></span>
+                            <span class="flex-1 min-w-0 text-left">
+                                <span class="block text-sm font-semibold text-red-700 dark:text-red-300">Close the room for everyone</span>
+                                <span class="block text-xs text-slate-600 dark:text-slate-400">Ends the room now. The payment is not cancelled and everyone keeps the signatures so far.</span>
+                            </span>
+                        </button>
+                    }
+                }
+                else
+                {
+                    <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl" role="alertdialog" aria-label="Confirm close room">
+                        <p class="text-sm font-bold text-red-700 dark:text-red-300">Close this room for everyone?</p>
+                        <p class="text-xs text-red-700 dark:text-red-400 mt-1">Closing the room does not cancel the payment. Everyone keeps the signatures collected so far.</p>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" class="btn-danger btn-sm" data-autofocus="true" data-testid="room-close-confirm" @onclick="() => ChooseAsync(OnCloseRoom)">Close room</button>
+                            <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmClose = false">Keep it open</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+
+    /// <summary>Only the person who opened the room can close it for everyone.</summary>
+    [Parameter] public bool IsHost { get; set; }
+
+    [Parameter] public EventCallback OnLeave { get; set; }
+    [Parameter] public EventCallback OnCloseRoom { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private readonly string SheetId = "room-menu-" + Guid.NewGuid().ToString("N")[..8];
+    private string TitleId => SheetId + "-title";
+    private bool wasOpen;
+    private bool confirmClose;
+
+    protected override void OnParametersSet()
+    {
+        if (!IsOpen)
+        {
+            wasOpen = false;
+            confirmClose = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!IsOpen || wasOpen) return;
+        wasOpen = true;
+        try { await JS.InvokeVoidAsync("domHelpers.trapFocus", SheetId); } catch { }
+    }
+
+    private async Task CloseAsync()
+    {
+        try { await JS.InvokeVoidAsync("domHelpers.releaseFocus", SheetId); } catch { }
+        await OnClosed.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await CloseAsync();
+    }
+
+    private async Task ChooseAsync(EventCallback choice)
+    {
+        await CloseAsync();
+        await choice.InvokeAsync();
+    }
+}
