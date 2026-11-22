@@ -159,13 +159,15 @@ two were removed from `app.css` and the gallery (they are in the branch history 
 `197dd73`, with screenshots `*-1-primary-variants.jpg` and `*-3-cards.jpg` in
 `docs/media/ui-style/`).
 
-## Confirm controls (candidates, not yet used on any page)
+## Slide to confirm
 
-`SlideToConfirm` and `HoldToConfirm` (in `Components/Shared/`) replace the final button of an
-action that cannot be undone. Both are in the gallery so one can be chosen; neither is wired
-into a page.
+`SlideToConfirm` (in `Components/Shared/`) replaces the final button of an action that cannot be
+undone. The owner chose it over a press-and-hold button, which was removed (it is in the branch
+history at commit `e0dd75e`, with screenshots `*-6-confirm-controls.jpg`). It is used on the
+confirm card of `Pages/Send.razor` (single and batch send); the other value-moving flows below
+still use plain buttons.
 
-**Use them only for irreversible actions where coins leave the wallet:** send, batch send,
+**Use it only for irreversible actions where coins leave the wallet:** send, batch send,
 multisig broadcast, consolidate, Digi-ID fund recovery. **Never for Unlock, and never for routine
 confirmations** (saving a setting, closing a dialog, deleting a contact). A deliberate gesture
 only protects the user while it is rare; on every dialog it becomes a habit and protects nothing.
@@ -186,62 +188,64 @@ only protects the user while it is rare; on every dialog it becomes a habit and 
 }
 ```
 
-`HoldToConfirm` takes the same parameters, so the two are interchangeable.
-
 | Parameter | Meaning |
 | --- | --- |
-| `Label` | Visible text while idle ("Slide to send", "Hold to send"). |
+| `Label` | Visible text while idle ("Slide to send"). |
 | `BusyLabel` | Visible text after confirming. Default "Sending…". |
 | `ActionDescription` | What is being confirmed, read by screen readers: include the amount and recipient. |
-| `HoldMs` | How long a press or key must be held. Default 1000. |
+| `HoldMs` | How long Enter or Space must be held. Default 1000. |
 | `Disabled` | Blocks the control. |
 | `OnConfirmed` | Raised exactly once. The control then stays locked and busy until `Reset()`. |
 | `Reset()` | Method: returns the control to idle. |
 
-How each can be completed:
+How it can be completed:
 
-- **Pointer.** Slide: drag the thumb to the end; releasing before 90% snaps it back. Hold: press
-  for `HoldMs`; releasing, or sliding off the button, drains the fill and cancels.
-- **Keyboard.** Tab to the control and hold Enter or Space for `HoldMs`. The slide's thumb travels
+- **Pointer.** Drag the thumb to the end; releasing before 90% snaps it back.
+- **Keyboard.** Tab to the control and hold Enter or Space for `HoldMs`. The thumb travels
   by itself while the key is down. Releasing early cancels. A quick tap does nothing.
 - **Screen reader.** A screen reader's "activate" cannot be held, so it is a two-step: the first
   activation announces "Activate again within five seconds to confirm", the second confirms.
 - Completion is announced politely ("Confirmed. Sending…") and the control sets `aria-busy`.
 
-Both are 56px high. Place the slide at least 24px in from the screen edge, so the drag never
+The control is 56px high. Place it at least 24px in from the screen edge, so the drag never
 starts in the iOS swipe-back zone (inside a `card` on a normal page it is about 48px in).
 
-Under reduced motion nothing travels or fills by itself: the drag or the one-second hold is still
-required, and a held control shows a steady half-tint with "Keep holding…" instead of progress.
+Under reduced motion nothing travels or fills by itself: the drag or the one-second key hold is
+still required, and a held control shows a steady half-tint with "Keep holding…" instead of
+progress.
 
-The slide needs one small script, `domHelpers.beginSlide` in `wwwroot/js/dom-helpers.js`, for
+It needs one small script, `domHelpers.beginSlide` in `wwwroot/js/dom-helpers.js`, for
 pointer capture. It is self-hosted and the Content Security Policy is unchanged.
 
-## Bottom menu variants (previews only)
+## Bottom menu
 
-The gallery shows four static previews built by `Components/Dev/NavMenuPreview.razor`. The live
-menu (`Layout/NavMenu.razor`), the layout and the routes are untouched. The `nav-float*` and
-`nav-badge-*` classes in `app.css` exist only for these previews; delete them, or promote them,
-once a variant is chosen.
+The owner chose **variant B**, the floating bar, and `Layout/NavMenu.razor` now uses it: the same
+five tabs, order, links and accessible names as before, restyled with the `nav-float*` classes
+(`nav-float-live` pins the bar to the bottom of the app column). `MainLayout.razor` reserves room
+for it with `main-with-nav`. Icon paths live in `Layout/NavIcons.cs`.
+
+Not live yet: the **badges**. `nav-badge-dot` and `nav-badge-count` are styled and shown in the
+gallery, but the menu has no source for "a payment is pending" or "a multisig needs your
+signature", so it draws none.
+
+The gallery still shows four static previews built by `Components/Dev/NavMenuPreview.razor`, for
+comparison:
 
 | Variant | What it is |
 | --- | --- |
-| A | Today's menu, copied as a baseline. |
-| B | The same five tabs as a floating bar: lifted off the bottom edge, rounded, soft shadow. The active tab has a filled icon on a tinted pill that slides between tabs. Badges: a dot (a payment is pending) and a count (a multisig needs your signature). |
-| C | Rearranged in B's style: Wallet, Activity, a raised round Scan button, Request (today's Pay page), More. More opens a sheet with ID, Multisig, Contacts, Settings, Consolidate, Analytics, Sponsors. |
-| C2 | C, keeping ID as a tab in place of Request (Request moves into More). |
+| A | The previous menu, kept as a baseline. |
+| B | **Adopted.** The same five tabs as a floating bar: lifted off the bottom edge, rounded, soft shadow. The active tab has a filled icon on a tinted pill that slides between tabs. Badges: a dot (a payment is pending) and a count (a multisig needs your signature). |
+| C | Not adopted. Rearranged in B's style: Wallet, Activity, a raised round Scan button, Request (today's Pay page), More. More opens a sheet with ID, Multisig, Contacts, Settings, Consolidate, Analytics, Sponsors. |
+| C2 | Not adopted. C, keeping ID as a tab in place of Request (Request moves into More). |
 
 The pill takes the active wallet's colour as a tint; the active icon and label use fixed colours,
 because a wallet colour can be anything and could not be guaranteed to pass contrast as text.
 
-Today's menu (A) draws inactive labels in slate-400, which is 2.6:1 on the light theme and fails
-AA; B and C use slate-600 (7.6:1). Screenshots: `*-7-menu-a-b-c.jpg` and
+The previous menu (A) drew inactive labels in slate-400, which is 2.6:1 on the light theme and
+fails AA; B and C use slate-600 (7.6:1). Screenshots: `*-7-menu-a-b-c.jpg` and
 `*-8-menu-c2-more-sheet.jpg` in `docs/media/ui-style/`.
 
-Adopting B is styling only: `NavMenu.razor` and its bottom padding in `MainLayout.razor`, plus
-two new pieces of state for the badges.
-
-Adopting C or C2 is a navigation change, not a restyle:
+Moving to C or C2 later would be a navigation change, not a restyle:
 
 - `NavMenu.razor` is rebuilt: Settings (and Pay or ID) stop being tabs.
 - A new More sheet component, with focus trapping and its own route-active state, since five
@@ -274,7 +278,8 @@ Text needs 4.5:1 and boundaries 3:1 for AA. Button heights measure 48px and 44px
 
 ## Rollout
 
-Nothing is converted yet. Convert one page per commit so each diff is easy to review, and delete
+Converted so far: the bottom menu, and the confirm card of Send (slide to confirm and its Cancel
+button). Everything else is still hand-written. Convert one page per commit so each diff is easy to review, and delete
 the hand-written class strings as you go. The order below is by expected traffic: it follows the
 bottom navigation and the main flows, and is an estimate, not measured usage. The numbers are
 rough counts of `<button>` and form elements in each file today.

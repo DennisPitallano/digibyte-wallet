@@ -158,14 +158,14 @@
             <button type="button" class="btn-ghost btn-sm self-start" @onclick="() => staggerKey++">Replay entrance</button>
         </div>
 
-        @* --- Confirm an irreversible action: two candidates to compare --- *@
+        @* --- Confirm an irreversible action: slide to confirm (used on Send) --- *@
         <div class="flex flex-col gap-3">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Confirm an irreversible action — pick one</h3>
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Confirm an irreversible action</h3>
             <p class="text-xs text-slate-500 dark:text-slate-400">For actions where coins leave (send, batch send, multisig broadcast, consolidate, Digi-ID fund recovery). Not for Unlock or routine confirmations. Keyboard: Tab to the control and hold Enter or Space for one second.</p>
 
             <div class="card p-4 flex flex-col gap-3">
                 <div class="flex items-center justify-between gap-2">
-                    <span class="text-sm font-semibold">1 · Slide to confirm</span>
+                    <span class="text-sm font-semibold">Slide to confirm</span>
                     <button type="button" class="btn-ghost btn-sm" @onclick="() => slideDemo?.Reset()">Reset</button>
                 </div>
                 <span class="text-xs text-slate-600 dark:text-slate-400">Idle (live, try it) — confirmed @slideCount time(s)</span>
@@ -182,47 +182,28 @@
                     <span class="confirm-slide-label">Sending…</span>
                 </div>
             </div>
-
-            <div class="card p-4 flex flex-col gap-3">
-                <div class="flex items-center justify-between gap-2">
-                    <span class="text-sm font-semibold">2 · Hold to confirm</span>
-                    <button type="button" class="btn-ghost btn-sm" @onclick="() => holdDemo?.Reset()">Reset</button>
-                </div>
-                <span class="text-xs text-slate-600 dark:text-slate-400">Idle (live, try it) — confirmed @holdCount time(s)</span>
-                <HoldToConfirm @ref="holdDemo" Label="Hold to send" ActionDescription="Send 12.5 DGB (gallery demo, nothing is sent)" OnConfirmed="() => holdCount++" />
-                <span class="text-xs text-slate-600 dark:text-slate-400">In progress (static sample)</span>
-                <div class="confirm-hold" aria-hidden="true">
-                    <span class="confirm-hold-fill" style="transform: scaleX(0.55); transition: none"></span>
-                    <span class="confirm-hold-label">Keep holding…</span>
-                </div>
-                <span class="text-xs text-slate-600 dark:text-slate-400">Completed (static sample)</span>
-                <div class="confirm-hold is-done" aria-hidden="true">
-                    <span class="confirm-hold-fill"></span>
-                    <span class="confirm-hold-label">Sending…</span>
-                </div>
-            </div>
         </div>
 
-        @* --- Bottom menu variants (previews only; the live menu is unchanged) --- *@
+        @* --- Bottom menu: B is the live menu; the rest are kept for comparison --- *@
         <div class="flex flex-col gap-3">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bottom menu — pick one</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Static previews in a 375px frame. Tapping a tab only moves that preview's active state; nothing navigates.</p>
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bottom menu</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">B is the live menu. Static previews in a 375px frame: tapping a tab only moves that preview's active state; nothing navigates. Badges are shown here only; the live menu has none yet.</p>
 
             <div style="margin: 0 -2rem" class="flex flex-col gap-4">
                 <div>
-                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">A · Current (baseline)</p>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">A · Previous menu (replaced)</p>
                     <NavMenuPreview Variant="NavMenuPreview.NavVariant.Current" Accent="@NavAccent" />
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">B · Floating bar, sliding pill, filled active icon, badges</p>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">B · Adopted: floating bar, sliding pill, filled active icon (badges not live yet)</p>
                     <NavMenuPreview Variant="NavMenuPreview.NavVariant.Floating" Accent="@NavAccent" />
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">C · Rearranged: Wallet, Activity, Scan, Request, More</p>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">C · Not adopted: Wallet, Activity, Scan, Request, More</p>
                     <NavMenuPreview Variant="NavMenuPreview.NavVariant.Rearranged" Accent="@NavAccent" />
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">C2 · Rearranged, keeping ID: Wallet, Activity, Scan, ID, More</p>
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300 px-8 mb-1.5">C2 · Not adopted, keeps ID: Wallet, Activity, Scan, ID, More</p>
                     <NavMenuPreview Variant="NavMenuPreview.NavVariant.RearrangedWithId" Accent="@NavAccent" />
                 </div>
             </div>
@@ -448,9 +429,7 @@
 
     // Confirm controls demo
     private SlideToConfirm? slideDemo;
-    private HoldToConfirm? holdDemo;
     private int slideCount;
-    private int holdCount;
 
     // Bottom menu previews
     private string NavAccent => WalletService.ActiveWallet?.Color ?? "#0066FF";

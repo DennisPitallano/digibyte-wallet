@@ -952,16 +952,15 @@ textarea.input { min-height: 96px; resize: vertical; }
     .stagger > * { animation: none !important; }
 }
 
-/* ----- Confirm controls: slide to confirm, hold to confirm -----
+/* ----- Confirm control: slide to confirm -----
    For irreversible, value-moving actions only (docs/UI_STYLE.md). Markup and behaviour are in
-   Components/Shared/SlideToConfirm.razor and HoldToConfirm.razor. --p is the slide progress (0 to 1),
-   --confirm-hold the hold time; both are set by the components. */
+   Components/Shared/SlideToConfirm.razor. --p is the slide progress (0 to 1), --confirm-hold the
+   time a key must be held; both are set by the component. */
 :root {
     --ui-confirm-track: #e6f0ff;
     --ui-confirm-track-border: #b3d1ff;
     --ui-confirm-text: #003d7a;
     --ui-confirm-fill: rgba(0, 102, 204, 0.22);
-    --ui-confirm-hold-fill: #003d7a;
 }
 .dark {
     --ui-confirm-track: #002952;
@@ -1046,49 +1045,8 @@ textarea.input { min-height: 96px; resize: vertical; }
 .confirm-slide.is-done .confirm-slide-thumb { opacity: 0; pointer-events: none; }
 .confirm-slide.is-done .confirm-slide-label { opacity: 1; color: #fff; padding: 0 0.75rem; }
 
-.confirm-hold {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 56px;
-    padding: 0.75rem 1.25rem;
-    border: 0;
-    border-radius: var(--ui-radius);
-    background: var(--ui-primary);
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 600;
-    line-height: 1.25;
-    box-shadow: var(--ui-primary-shadow);
-    overflow: hidden;
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
-}
-.confirm-hold:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
-.confirm-hold-fill {
-    position: absolute;
-    inset: 0;
-    background: var(--ui-confirm-hold-fill);
-    transform: scaleX(0);
-    transform-origin: left center;
-    transition: transform var(--motion-base) var(--ease-out);   /* drains back quickly when released early */
-}
-.confirm-hold-label { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; }
-.confirm-hold.is-holding { transform: scale(0.98); box-shadow: var(--ui-pressed-shadow); }
-.confirm-hold.is-holding .confirm-hold-fill { transform: scaleX(1); transition: transform var(--confirm-hold, 1s) linear; }
-.confirm-hold.is-done { cursor: progress; box-shadow: none; }
-.confirm-hold.is-done .confirm-hold-fill { transform: scaleX(1); transition: none; }
-
 /* Busy spinner in front of the label once confirmed. */
-.confirm-slide.is-done .confirm-slide-label::before,
-.confirm-hold.is-done .confirm-hold-label::before {
+.confirm-slide.is-done .confirm-slide-label::before {
     content: "";
     flex: none;
     width: 1em;
@@ -1099,19 +1057,17 @@ textarea.input { min-height: 96px; resize: vertical; }
     animation: ui-spin 0.7s linear infinite;
 }
 
-/* Reduced motion: the deliberate drag or hold is still required, but nothing travels or fills by
+/* Reduced motion: the deliberate drag or key hold is still required, but nothing travels or fills by
    itself. A held control shows a steady half-tint (with "Keep holding…") instead of progress. */
 @media (prefers-reduced-motion: reduce) {
     .confirm-slide.is-holding .confirm-slide-thumb { left: 4px; }
     .confirm-slide.is-holding .confirm-slide-fill  { width: 100%; opacity: 0.5; }
-    .confirm-hold.is-holding { transform: none; }
-    .confirm-hold.is-holding .confirm-hold-fill { transform: scaleX(1); opacity: 0.5; }
 }
 
-/* ----- Bottom menu variants: PREVIEW ONLY -----
-   Used by Components/Dev/NavMenuPreview.razor in the style gallery. The live menu
-   (Layout/NavMenu.razor) does not use these. If a variant is adopted, nav-float needs
-   position: fixed and the safe-area margin below; otherwise delete this block. */
+/* ----- Bottom menu -----
+   nav-float is the floating bar. Layout/NavMenu.razor (the live menu) adds nav-float-live, which
+   pins it to the bottom of the 480px app column. Components/Dev/NavMenuPreview.razor uses the same
+   classes inside a frame for the gallery; nav-float-scan and nav-preview-* are for those previews only. */
 :root {
     --ui-nav-bg: rgba(255, 255, 255, 0.88);
     --ui-nav-text: #475569;
@@ -1243,6 +1199,20 @@ textarea.input { min-height: 96px; resize: vertical; }
 .nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%) scale(0.94); }
 .nav-float-scan:focus-visible { outline: none; }
 .nav-float-scan:focus-visible .nav-float-scan-disc { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* The live menu: fixed to the viewport, centred in the app column, 12px in from its sides. */
+.nav-float-live {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    width: calc(100% - 24px);
+    max-width: 456px;
+    transform: translateX(-50%);
+    z-index: 50;
+}
+.nav-float-tab { text-decoration: none; }
+/* Room for the floating bar under the page content: bar (66px) + its 12px gap + the device's safe area. */
+.main-with-nav { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
 
 @media (prefers-reduced-motion: reduce) {
     .nav-float-pill { transition: none; }

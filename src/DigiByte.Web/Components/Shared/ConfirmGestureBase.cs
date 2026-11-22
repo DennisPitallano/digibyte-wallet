@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Components.Web;
 namespace DigiByte.Web.Components.Shared;
 
 /// <summary>
-/// Shared behaviour of <see cref="SlideToConfirm"/> and <see cref="HoldToConfirm"/>: controls for
-/// irreversible, value-moving actions only (see docs/UI_STYLE.md). Both raise <see cref="OnConfirmed"/>
-/// exactly once and then stay locked in a busy state until <see cref="Reset"/> is called.
+/// Behaviour behind <see cref="SlideToConfirm"/>: a control for irreversible, value-moving actions
+/// only (see docs/UI_STYLE.md). It raises <see cref="OnConfirmed"/> exactly once and then stays
+/// locked in a busy state until <see cref="Reset"/> is called.
 ///
 /// Ways to confirm without a pointer gesture:
 /// - keyboard: hold Enter or Space for <see cref="HoldMs"/>; releasing early cancels;
