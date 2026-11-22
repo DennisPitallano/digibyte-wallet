@@ -493,11 +493,11 @@ body:has(.modal-overlay) nav {
 
 /* First-payment celebration (spec 025): the coin settles in like the send overlay's; with reduced motion the confetti
    and rings are left out altogether and the coin stays still. */
-.first-receive-coin { animation: coin-settle 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.celebrate-coin { animation: coin-settle 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-/* First-payment celebration: one raised card with the coin on its top edge. Colours come from the shared style
+/* The two celebrations (first payment, send confirmed): one raised card with the coin on its top edge. Colours come from the shared style
    variables (--ui-*), so it follows light and dark. */
-.first-receive-card {
+.celebrate-card {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -512,8 +512,10 @@ body:has(.modal-overlay) nav {
     animation: scale-in var(--motion-slow) var(--ease-spring) both;
 }
 /* A denser backdrop than other dialogs: bright page content (a red button, a QR code) should not show through. */
-.modal-overlay:has(.first-receive-card) { background: rgba(0, 8, 20, 0.88); }
-.first-receive-medal {
+.modal-overlay:has(.celebrate-card) { background: rgba(0, 8, 20, 0.88); }
+/* The shared card rule comes later in this file and would win with its smaller corner radius. */
+.card-raised.celebrate-card { border-radius: 1.5rem; }
+.celebrate-medal {
     position: absolute;
     top: -40px;
     left: 50%;
@@ -527,8 +529,41 @@ body:has(.modal-overlay) nav {
     background: var(--ui-surface);
     box-shadow: 0 0 0 6px var(--ui-surface), 0 0 36px 4px rgba(26, 117, 255, 0.45);
 }
-.first-receive-title { font-size: 1.125rem; font-weight: 700; line-height: 1.3; color: var(--ui-text); }
-.first-receive-amount {
+/* The green tick on the coin: a send that went out. */
+.celebrate-check {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 3px solid var(--ui-surface);
+    background: #16a34a;
+    color: #fff;
+    animation: check-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+.celebrate-detail { font-size: 0.875rem; color: var(--ui-text-muted); }
+.celebrate-note {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ui-radius);
+    background: rgba(245, 158, 11, 0.14);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    text-align: left;
+    color: #92400e;
+}
+.dark .celebrate-note { color: #fcd34d; }
+.celebrate-txid {
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-size: 0.6875rem;
+    color: var(--ui-text-muted);
+}
+.celebrate-title { font-size: 1.125rem; font-weight: 700; line-height: 1.3; color: var(--ui-text); }
+.celebrate-amount {
     font-size: 2rem;
     font-weight: 800;
     line-height: 1.1;
@@ -538,11 +573,11 @@ body:has(.modal-overlay) nav {
     color: var(--ui-text);
 }
 /* Long amounts (many digits) step down so the unit stays on the same line. */
-.first-receive-amount.is-long { font-size: 1.5rem; }
-.first-receive-unit { font-size: 1rem; font-weight: 700; letter-spacing: 0; color: var(--ui-text-muted); }
-.first-receive-fiat { margin-top: 0.25rem; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: var(--ui-text-muted); }
-.first-receive-hidden { font-size: 1rem; font-weight: 600; color: var(--ui-text); }
-.first-receive-chip {
+.celebrate-amount.is-long { font-size: 1.5rem; }
+.celebrate-unit { font-size: 1rem; font-weight: 700; letter-spacing: 0; color: var(--ui-text-muted); }
+.celebrate-fiat { margin-top: 0.25rem; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: var(--ui-text-muted); }
+.celebrate-hidden { font-size: 1rem; font-weight: 600; color: var(--ui-text); }
+.celebrate-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
@@ -551,17 +586,17 @@ body:has(.modal-overlay) nav {
     font-size: 0.75rem;
     font-weight: 600;
 }
-.first-receive-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.first-receive-chip.is-pending  { background: rgba(245, 158, 11, 0.16); color: #92400e; }
-.first-receive-chip.is-received { background: rgba(16, 185, 129, 0.16); color: #065f46; }
-.dark .first-receive-chip.is-pending  { color: #fbbf24; }
-.dark .first-receive-chip.is-received { color: #34d399; }
-.first-receive-chip.is-pending .first-receive-chip-dot { animation: first-receive-pulse 1.4s ease-in-out infinite; }
-@keyframes first-receive-pulse {
+.celebrate-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.celebrate-chip.is-pending  { background: rgba(245, 158, 11, 0.16); color: #92400e; }
+.celebrate-chip.is-received { background: rgba(16, 185, 129, 0.16); color: #065f46; }
+.dark .celebrate-chip.is-pending  { color: #fbbf24; }
+.dark .celebrate-chip.is-received { color: #34d399; }
+.celebrate-chip.is-pending .celebrate-chip-dot { animation: celebrate-pulse 1.4s ease-in-out infinite; }
+@keyframes celebrate-pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%      { opacity: 0.35; transform: scale(0.7); }
 }
-.first-receive-baku {
+.celebrate-baku {
     display: flex;
     align-items: center;
     gap: 0.625rem;
@@ -574,11 +609,11 @@ body:has(.modal-overlay) nav {
     line-height: 1.4;
     color: var(--ui-text-muted);
 }
-.dark .first-receive-baku { background: rgba(77, 148, 255, 0.10); color: #cbd5e1; }
+.dark .celebrate-baku { background: rgba(77, 148, 255, 0.10); color: #cbd5e1; }
 @media (prefers-reduced-motion: reduce) {
-    .first-receive-decor { display: none !important; }
-    .first-receive-coin, .first-receive-coin * { animation: none !important; }
-    .first-receive-card, .first-receive-chip-dot { animation: none !important; }
+    .celebrate-decor { display: none !important; }
+    .celebrate-coin, .celebrate-coin * { animation: none !important; }
+    .celebrate-card, .celebrate-chip-dot, .celebrate-check { animation: none !important; }
 }
 
 /* Baku's speech bubble: the tail is a rotated square that reuses the bubble's background and border. */

@@ -19,10 +19,10 @@
     <div id="@DialogId" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="@TitleId" tabindex="-1"
          data-testid="first-receive-celebration" @onkeydown="OnKeyDown">
         @* One raised card, so nothing behind the overlay competes with it. The coin sits on the card's top edge. *@
-        <div class="card-raised first-receive-card">
-            <div class="first-receive-medal" aria-hidden="true">
+        <div class="card-raised celebrate-card">
+            <div class="celebrate-medal" aria-hidden="true">
                 @* Moving decoration: left out entirely when the device asks for reduced motion (FR-020). *@
-                <div class="first-receive-decor confetti-container" style="top:50%; left:50%; transform:translate(-50%,-50%);">
+                <div class="celebrate-decor confetti-container" style="top:50%; left:50%; transform:translate(-50%,-50%);">
                     @for (int i = 0; i < 18; i++)
                     {
                         var angle = i * 20;
@@ -35,32 +35,32 @@
                              style="left:calc(50% + @(x.ToString("F0", Inv))px); top:calc(50% + @(y.ToString("F0", Inv))px); background:@color; animation-delay:@(delay.ToString("F2", Inv))s;"></div>
                     }
                 </div>
-                <div class="first-receive-decor success-ring"></div>
-                <div class="first-receive-decor success-ring success-ring-2"></div>
-                <div class="first-receive-coin">
+                <div class="celebrate-decor success-ring"></div>
+                <div class="celebrate-decor success-ring success-ring-2"></div>
+                <div class="celebrate-coin">
                     <SpinningCoin Size="72" />
                 </div>
             </div>
 
-            <h3 id="@TitleId" class="first-receive-title" data-testid="first-receive-title">@L.T("firstreceive.title")</h3>
+            <h3 id="@TitleId" class="celebrate-title" data-testid="first-receive-title">@L.T("firstreceive.title")</h3>
 
             @* Screen readers get the one full sentence; the large amount and the status chip are its visual form. *@
             <p class="sr-only" aria-live="polite" data-testid="first-receive-amount">@AmountLine(payment)</p>
             @if (hideAmounts)
             {
-                <p class="first-receive-hidden" aria-hidden="true">@AmountLine(payment)</p>
+                <p class="celebrate-hidden" aria-hidden="true">@AmountLine(payment)</p>
             }
             else
             {
                 <div aria-hidden="true">
-                    <p class="first-receive-amount @(AmountText(payment).Length > 9 ? "is-long" : "")">+@AmountText(payment) <span class="first-receive-unit">DGB</span></p>
+                    <p class="celebrate-amount @(AmountText(payment).Length > 9 ? "is-long" : "")">+@AmountText(payment) <span class="celebrate-unit">DGB</span></p>
                     @if (FiatLine(payment) is { } fiat)
                     {
-                        <p class="first-receive-fiat" data-testid="first-receive-fiat">@fiat</p>
+                        <p class="celebrate-fiat" data-testid="first-receive-fiat">@fiat</p>
                     }
                 </div>
-                <span class="first-receive-chip @(payment.IsPending ? "is-pending" : "is-received")" aria-hidden="true" data-testid="first-receive-status">
-                    <span class="first-receive-chip-dot"></span>
+                <span class="celebrate-chip @(payment.IsPending ? "is-pending" : "is-received")" aria-hidden="true" data-testid="first-receive-status">
+                    <span class="celebrate-chip-dot"></span>
                     @L.T(payment.IsPending ? "firstreceive.status_pending" : "firstreceive.status_received")
                 </span>
             }
@@ -69,7 +69,7 @@
                Its catalog title repeats the heading above, so only the sentence is shown. *@
             @if (Baku.Mode == BakuMode.Full && BakuCatalog.Find("receive.first") is { } line)
             {
-                <div class="first-receive-baku baku-celebrate" data-testid="first-receive-mascot">
+                <div class="celebrate-baku baku-celebrate" data-testid="first-receive-mascot">
                     <img src="@BakuCatalog.PosePath(line.PoseId)" alt="" class="w-10 flex-shrink-0 object-contain select-none" draggable="false" />
                     <p>@line.Body</p>
                 </div>
