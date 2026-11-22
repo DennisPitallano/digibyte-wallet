@@ -71,19 +71,14 @@ jobs:
             -p:Version=${{ steps.version.outputs.version }} \
             -p:InformationalVersion=${{ steps.version.outputs.version }}
 
-      - name: Inject CSP hashes for inline scripts
-        # Blazor's publish injects a populated <script type="importmap">
-        # whose contents move on every build (fingerprinted asset names).
-        # The injector reads the published index.html, hashes every
-        # inline <script>, and rewrites the CSP <meta> to enumerate
-        # those hashes — letting us drop 'unsafe-inline' from script-src
-        # without breaking the importmap. Idempotent, runs in <1s.
-        # Must run BEFORE the manifest step so the hashed index.html is
-        # what reviewers see at the production URL and what the manifest
-        # vouches for.
-        run: |
-          python tools/inject-csp-hashes.py \
-            --index-html publish/wwwroot/index.html
+      - name: Verify the service worker's asset list
+        # `dotnet publish` already rewrites index.html's CSP (CspHashInject.targets) and then
+        # refreshes index.html's fingerprint in service-worker-assets.js. This step used to run
+        # tools/inject-csp-hashes.py a second time, which changed index.html again and left the
+        # fingerprint stale: the service worker checks every file against that list and refuses
+        # to install if one does not match. Releases 0.7.0 and 0.8.0 shipped that way. Fail the release
+        # here if any listed file does not match what was published.
+        run: python tools/verify-sw-manifest.py publish/wwwroot
 
       - name: Generate manifest
         env:
