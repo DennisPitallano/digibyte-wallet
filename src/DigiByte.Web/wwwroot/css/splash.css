@@ -45,32 +45,69 @@
     animation: splash-bar 1.8s ease-in-out infinite;
 }
 
-/* Boot-failure recovery panel (js/boot-recovery.js) */
+/* Boot-failure recovery panel (js/boot-recovery.js). The offline page in service-worker.published.js
+   carries its own copy of these rules (it must work with no files at all): keep the two alike. */
 #boot-recovery {
     position: fixed;
     inset: 0;
     z-index: 2000;
     overflow-y: auto;
-    padding: 2rem 1.25rem;
-    background: #001529;
-    color: rgba(255, 255, 255, .85);
-    font: 15px/1.5 system-ui, sans-serif;
+    padding: calc(2rem + env(safe-area-inset-top, 0px)) 1.25rem calc(2rem + env(safe-area-inset-bottom, 0px));
 }
-#boot-recovery h2 { margin: 0 0 .5rem; font-size: 1.25rem; color: #fff; }
-#boot-recovery p { margin: .5rem 0; }
-#boot-recovery ol { margin: .5rem 0 1rem 1.25rem; padding: 0; }
-#boot-recovery li { margin: .35rem 0; }
-#boot-recovery .br-title { margin-top: 1.25rem; font-weight: 600; color: #fff; }
-#boot-recovery .br-warn { padding: .75rem; border-radius: .5rem; background: rgba(239, 68, 68, .15); }
-#boot-recovery .br-actions { display: flex; gap: .75rem; margin: 1rem 0; flex-wrap: wrap; }
+#boot-recovery {
+    background: radial-gradient(120% 80% at 50% 0%, #012a52 0%, #001529 60%);
+    color: rgba(255, 255, 255, .82);
+    font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+#boot-recovery .br-card { max-width: 480px; margin: 0 auto; }
+#boot-recovery .br-head { display: flex; align-items: center; gap: .75rem; }
+#boot-recovery .br-baku { flex: 0 0 auto; width: 112px; height: 112px; object-fit: contain; filter: drop-shadow(0 8px 18px rgba(0, 102, 255, .35)); }
+#boot-recovery .br-bubble {
+    flex: 1 1 auto;
+    padding: .9rem 1rem;
+    border: 1px solid rgba(77, 148, 255, .28);
+    border-radius: 1rem;
+    background: rgba(0, 102, 204, .16);
+}
+#boot-recovery h2 { margin: 0 0 .25rem; font-size: 1.15rem; line-height: 1.3; font-weight: 700; color: #fff; }
+#boot-recovery p { margin: 0; }
+#boot-recovery .br-actions { display: flex; gap: .75rem; margin: 1.25rem 0; flex-wrap: wrap; }
 #boot-recovery button {
     flex: 1 1 140px;
+    min-height: 48px;
     padding: .75rem 1rem;
     border: 0;
-    border-radius: .5rem;
-    background: #0066cc;
+    border-radius: .875rem;
+    background: linear-gradient(180deg, #1a7dff, #0066cc);
+    box-shadow: 0 6px 16px rgba(0, 102, 204, .35);
     color: #fff;
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
+    cursor: pointer;
 }
-#boot-recovery button + button { background: rgba(255, 255, 255, .15); }
+#boot-recovery button + button { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+#boot-recovery button:focus-visible { outline: 2px solid #7fb4ff; outline-offset: 2px; }
+#boot-recovery .br-title { margin: 0 0 .5rem; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+#boot-recovery ol { list-style: none; margin: 0 0 1.25rem; padding: 0; counter-reset: br-step; border: 1px solid rgba(255, 255, 255, .1); border-radius: 1rem; background: rgba(255, 255, 255, .04); }
+#boot-recovery li { counter-increment: br-step; position: relative; padding: .75rem 1rem .75rem 3.25rem; }
+#boot-recovery li + li { border-top: 1px solid rgba(255, 255, 255, .08); }
+#boot-recovery li::before {
+    content: counter(br-step);
+    position: absolute;
+    left: 1rem;
+    top: .75rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: rgba(77, 148, 255, .2);
+    color: #9cc6ff;
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1.5rem;
+    text-align: center;
+}
+#boot-recovery li b, #boot-recovery .br-warn b { color: #fff; }
+#boot-recovery .br-warn { padding: .85rem 1rem; border: 1px solid rgba(239, 68, 68, .35); border-radius: 1rem; background: rgba(239, 68, 68, .12); font-size: .875rem; }
+@media (max-width: 380px) {
+    #boot-recovery .br-head { flex-direction: column; text-align: center; }
+}
