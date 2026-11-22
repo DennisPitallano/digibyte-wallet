@@ -83,6 +83,7 @@ FirstPayment? Pending(string walletId)                   // celebration waiting 
 Task MarkShownAsync(string walletId)                     // state → Celebrated, clears pending
 bool FirstSessionEnded { get; }
 bool OtherDialogOpen { get; set; }                       // set by MainLayout for "What's New"
+bool ShellDialogOpen { get; set; }                       // set by NavMenu while its scanner or More list is open
 event Action? Changed                                    // pending or marker changed
 ```
 
@@ -144,7 +145,7 @@ Task StopAsync()
 ### `FirstReceiveCelebration` (Home, Receive, Activity)
 
 - **Inputs**: `Blocked` (the page has a dialog open).
-- **Appears when**: the coordinator has a pending payment for the active wallet, `Blocked` is false and `OtherDialogOpen` is false. On appearing it calls `MarkShownAsync`.
+- **Appears when**: the coordinator has a pending payment for the active wallet, `Blocked` is false, and `OtherDialogOpen` and `ShellDialogOpen` are false. On appearing it calls `MarkShownAsync`.
 - **Shows**: a heading; the amount in DGB and, when a price is known, in the user's currency, or no amount when balances are hidden; "on its way" wording when `IsPending`, otherwise "received"; the mascot's line only in Full mascot mode; **Done**; **Install app** when `InstallAppState` mode is not `Hidden`.
 - **Behaviour**: `role="dialog"`, `aria-modal`, labelled by its heading, focus moves to **Done**, Escape and **Done** close it, focus returns to the page. Moving decoration is omitted under `prefers-reduced-motion`. **Install app** closes the overlay, then prompts (Native) or goes to `/settings?install=1` (steps modes). Leaving the page or locking closes it.
 - **Text**: from `firstreceive.*` translation keys, English and Spanish; the mascot line is English only.
