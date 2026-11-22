@@ -29,10 +29,8 @@ else
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
         <div class="flex items-center gap-3">
-            <button class="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" @onclick='() => Nav.NavigateTo("/")'>
-                <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                </svg>
+            <button type="button" class="back-btn back-btn-icon" @onclick='() => Nav.NavigateTo("/")' aria-label="Back">
+                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             </button>
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Consolidate UTXOs</h2>
         </div>

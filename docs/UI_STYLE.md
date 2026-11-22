@@ -58,6 +58,23 @@ States:
 `btn-danger` uses red-600 (`#dc2626`), not the red-500 most hand-written danger buttons use
 today: white on red-500 is 3.8:1 and fails AA, white on red-600 is 4.8:1.
 
+## Back button
+
+`back-btn` is the one way back at the top of a page: a chevron and a label in a 44px-high pill.
+`Components/Shared/PageHeader.razor` uses it, so most pages get it for free; pages with a header of
+their own use the same class. `back-btn-icon` is the chevron alone, for a header that puts the
+title beside it, and needs an `aria-label`.
+
+```razor
+<button type="button" class="back-btn" @onclick="GoBack">
+    <svg aria-hidden="true" …chevron…></svg>
+    <span>Back</span>
+</button>
+```
+
+Negative margins keep the label where the old, smaller text link sat, so adopting it does not
+shift a page. A "Back" step inside a multi-step form is not this: use `btn-ghost btn-sm`.
+
 ## Cards
 
 | Class | Use it for |

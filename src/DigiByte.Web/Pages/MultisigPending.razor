@@ -220,7 +220,7 @@
                                 <div class="flex gap-2">
                                     <button class="btn-primary btn-sm flex-1"
                                             disabled="@isSigning" @onclick="() => ConfirmSign(tx)">Confirm and sign</button>
-                                    <button class="min-h-[44px] px-3 text-sm text-slate-500 font-medium" @onclick="() => signConfirmFor = null">Back</button>
+                                    <button type="button" class="btn-ghost btn-sm" @onclick="() => signConfirmFor = null">Back</button>
                                 </div>
                             </div>
                         }

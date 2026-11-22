@@ -19,10 +19,8 @@
 <div class="flex flex-col gap-4">
     @* Header *@
     <div class="flex items-center gap-3 fade-in">
-        <button class="p-2 -ml-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors" @onclick="GoBack">
-            <svg class="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
+        <button type="button" class="back-btn back-btn-icon" @onclick="GoBack" aria-label="Back">
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
         </button>
         <div>
             <h1 class="text-lg font-bold text-slate-900 dark:text-white">
@@ -165,7 +163,7 @@
                 }
             </button>
 
-            <button class="text-xs text-slate-400 hover:text-slate-500 text-center" @onclick="() => mode = Mode.Select">← Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="() => mode = Mode.Select">Back</button>
         </div>
     }
 
@@ -201,7 +199,7 @@
                 }
             </button>
 
-            <button class="text-xs text-slate-400 hover:text-slate-500 text-center" @onclick="() => mode = Mode.Select">← Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="() => mode = Mode.Select">Back</button>
         </div>
     }
 

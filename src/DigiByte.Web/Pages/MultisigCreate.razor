@@ -194,7 +194,7 @@
                     @onclick="GoToReview" disabled="@(!AllSignersValid())">
                 @(AllSignersValid() ? "Review Wallet" : $"Complete {coSignerEntries.Count - ValidCount} more co-signer{(coSignerEntries.Count - ValidCount == 1 ? "" : "s")} to continue")
             </button>
-            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="BackToConfigure">Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="BackToConfigure">Back</button>
         </div>
     }
     else if (step == Step.Review)
@@ -262,7 +262,7 @@
                     <span>Create Multisig Wallet</span>
                 }
             </button>
-            <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2" @onclick="BackToSigners">Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="BackToSigners">Back</button>
         </div>
     }
     else if (step == Step.Done && createdConfig != null)
