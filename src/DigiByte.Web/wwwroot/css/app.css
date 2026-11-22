@@ -687,6 +687,23 @@ body:has(.modal-overlay) nav {
 }
 /* Loading placeholders are tinted blue for a white surface; on the coloured card they need to be light. */
 .wallet-card .skeleton { background: rgba(255, 255, 255, 0.18) !important; }
+/* The embossed DigiByte mark: a small maker's stamp near the bottom edge, to the left of the copy and QR
+   buttons. The face takes the skin's colour, so the mark is seen by its lit and shaded edges alone. Hidden on
+   very narrow screens, where it would run into the address. */
+.wallet-emboss {
+    position: absolute;
+    right: 82px;
+    bottom: 12px;
+    width: 54px;
+    height: 54px;
+    pointer-events: none;
+    overflow: visible;
+}
+.wallet-emboss-lit   { color: rgba(255, 255, 255, 0.42); }
+.wallet-emboss-shade { color: rgba(0, 0, 0, 0.55); }
+.wallet-emboss-face  { color: color-mix(in srgb, var(--wc) 66%, #070c16); }
+@media (max-width: 359px) { .wallet-emboss { display: none; } }
+
 /* The strap: a tab of the same material that comes over the right edge and holds the wallet shut. It has its own
    stitched outline and casts a shadow on the body. */
 .wallet-strap {
