@@ -37,6 +37,17 @@ jobs:
         with:
           python-version: '3.x'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the stylesheet tools
+        # The live container runs `npm install` before publishing (docker/web/Dockerfile), which
+        # makes the publish rebuild tailwind.css. Do the same here, so this bundle is built the way
+        # the site is and its tailwind.css is the rebuilt one, not the committed copy.
+        run: npm ci
+        working-directory: src/DigiByte.Web
+
       - name: Derive version from tag + verify csproj matches
         # github.ref_name is "wallet-v0.1.1"; strip the "wallet-v" prefix
         # so the assembly gets InformationalVersion=0.1.1 (what

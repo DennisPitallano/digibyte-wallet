@@ -4,6 +4,9 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Fixed
+- **The app's files and their fingerprints are built in step** — Follow-up to 0.8.1. The stylesheet was rebuilt after the build had already fingerprinted and compressed it, so the site held a newer `tailwind.css` beside a fingerprint and a compressed copy of the older one, and the compressed copy of the main page was made before that page's final rewrite. Browsers happened to receive matching copies, so nothing was broken, but one unlucky change would have stopped installed apps updating again. The stylesheet is now rebuilt first, the main page is compressed after its rewrite, and the check that guards this also verifies every compressed copy and runs on a build made the way the live site's is.
+
 ## [0.8.1] - 2026-11-22
 
 Fixes installed apps that showed a broken screen after updating to 0.8.0. No stored wallet data is touched, and nothing needs to be done on the device: the fix arrives the next time the app is opened with a connection, and the app reloads itself once.

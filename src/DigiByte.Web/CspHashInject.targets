@@ -29,6 +29,7 @@
       <Using Namespace="System" />
       <Using Namespace="System.Collections.Generic" />
       <Using Namespace="System.IO" />
+      <Using Namespace="System.IO.Compression" />
       <Using Namespace="System.Linq" />
       <Using Namespace="System.Security.Cryptography" />
       <Using Namespace="System.Text" />
@@ -127,6 +128,25 @@
           File.WriteAllText(IndexHtmlPath, newHtml, new UTF8Encoding(false));
           Log.LogMessage(MessageImportance.High,
               $"InjectCspHashes: patched {IndexHtmlPath} with {hashes.Count} inline-script hash(es).");
+
+          // The publish made index.html.gz and index.html.br from the page as it
+          // was before this rewrite. A server that sends pre-compressed files
+          // (nginx gzip_static) would hand browsers the old page, with the old
+          // CSP and a fingerprint the service worker rejects. Write the .gz
+          // again from the new page; remove the .br, which this task cannot
+          // produce, so the server falls back to the plain file.
+          var gzPath = IndexHtmlPath + ".gz";
+          if (File.Exists(gzPath))
+          {
+              using (var output = File.Create(gzPath))
+              using (var gz = new GZipStream(output, CompressionLevel.Optimal))
+              {
+                  var bytes = File.ReadAllBytes(IndexHtmlPath);
+                  gz.Write(bytes, 0, bytes.Length);
+              }
+          }
+          var brPath = IndexHtmlPath + ".br";
+          if (File.Exists(brPath)) File.Delete(brPath);
 
           // index.html has just changed, but the service worker's asset list
           // (service-worker-assets.js) was written earlier in the publish and
