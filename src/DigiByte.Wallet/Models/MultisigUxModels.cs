@@ -118,7 +118,14 @@ public enum PendingCardAction
 public sealed record PendingGroups(
     IReadOnlyList<PendingMultisigTransaction> NeedsYou,
     IReadOnlyList<PendingMultisigTransaction> WaitingForOthers,
-    IReadOnlyList<PendingMultisigTransaction> Cancelled);
+    IReadOnlyList<PendingMultisigTransaction> Cancelled)
+{
+    /// <summary>Everything the list shows.</summary>
+    public int Count => NeedsYou.Count + WaitingForOthers.Count + Cancelled.Count;
+}
+
+/// <summary>A card's button: what it does and what it says. No label means no button.</summary>
+public sealed record PendingCardButton(PendingCardAction Action, string? Label);
 
 /// <summary>What the one status line on a shared wallet's card is about, most urgent first.</summary>
 public enum WalletCardStatusKind

@@ -8,6 +8,7 @@
 @inject FirstReceiveCoordinator FirstReceive
 @inject SoundService Sounds
 @inject WalletSnapshotCache Snapshots
+@inject ShellChrome Chrome
 
 <ToastContainer />
 <BakuWarningDialog />
@@ -188,13 +189,14 @@
         {
             var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLower();
             if (string.IsNullOrEmpty(path)) path = "/";
-            return !HiddenNavPaths.Contains(path);
+            return !HiddenNavPaths.Contains(path) && !Chrome.HideNav;
         }
     }
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
+        Chrome.Changed += OnChromeChanged;
         AppState.OnAutoLocked += OnAutoLocked;
         VersionBadge.OnShowModal += OnShowVersionInfo;
     }
@@ -224,9 +226,13 @@
         InvokeAsync(StateHasChanged);
     }
 
+    // A page asked for the whole screen, or gave it back (a sheet at the bottom, the signing room).
+    private void OnChromeChanged() => InvokeAsync(StateHasChanged);
+
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
+        Chrome.Changed -= OnChromeChanged;
         AppState.OnAutoLocked -= OnAutoLocked;
         VersionBadge.OnShowModal -= OnShowVersionInfo;
     }

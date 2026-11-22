@@ -279,7 +279,10 @@
     private bool resolving;
 
     private string HeaderSubtitle => config?.DisplayName ?? "Multisig";
-    private string BackHref => config is null ? "/multisig" : $"/multisig/{config.WalletId}/pending";
+    // The payment's own screen when the payment is known: that is where it is finished or cancelled now (spec 026).
+    private string BackHref => config is null ? "/multisig"
+        : pending is null ? $"/multisig/{config.WalletId}/pending"
+        : $"/multisig/{config.WalletId}/pending/{Uri.EscapeDataString(pending.Id)}";
     private string InviteLink => view is null ? "" : $"{Nav.BaseUri}multisig/sign-room?code={view.InviteCode}";
     private bool IsCreator => view?.Participants.Any(p => p.IsCreator && Same(p.PublicKeyHex, Room.MyKey)) == true;
     private bool IMSigned => pending is not null && Room.MyKey is not null && pending.SignedBy.Any(k => Same(k, Room.MyKey));

@@ -189,8 +189,8 @@ else
                 <button class="btn-secondary btn-sm w-full" @onclick="SharePsbt">
                     Copy Proposal to Share
                 </button>
-                <button class="w-full min-h-[44px] py-2.5 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>
-                    Go to Pending Transactions
+                <button class="w-full min-h-[44px] py-2.5 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo(created is null ? $"/multisig/{WalletId}/pending" : $"/multisig/{WalletId}/pending/{Uri.EscapeDataString(created.Id)}")'>
+                    Open this payment
                 </button>
             </div>
         }

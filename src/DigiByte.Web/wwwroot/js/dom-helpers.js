@@ -7,6 +7,19 @@ window.domHelpers = {
     selectElement: function (id) {
         document.getElementById(id)?.select();
     },
+    // Where the page is scrolled to, and putting it back there: used so Back returns to the same place in a list.
+    getMainScroll: function () {
+        return document.getElementById('main-content')?.scrollTop ?? 0;
+    },
+    setMainScroll: function (top) {
+        var main = document.getElementById('main-content');
+        if (!main) return;
+        // Not animated: the person is returning to where they were, not being taken somewhere.
+        var previous = main.style.scrollBehavior;
+        main.style.scrollBehavior = 'auto';
+        main.scrollTop = top;
+        main.style.scrollBehavior = previous;
+    },
     // Bring an element into view, for links that point at a section of the same page (for example /identity#recover-funds).
     scrollToElement: function (id) {
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

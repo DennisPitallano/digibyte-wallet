@@ -1,0 +1,115 @@
+@* One pending payment on the Pending list: one status, the amount, who it goes to, who has signed, and one button
+   (specs/026-multisig-wallet-experience, FR-019). Nothing here signs, broadcasts, retries or cancels: the card and
+   its button open the payment's own screen, or its live room (FR-019a). *@
+<div id="proposal-@Pending.Id" class="pending-card @(NeedsYou ? "pending-card-needs-you" : "") @(Pending.Status == PendingTxStatus.Cancelled ? "opacity-70" : "") @(Highlighted ? "ring-2 ring-dgb-400" : "")">
+    <button type="button" class="pending-card-body" aria-label="@OpenLabel" @onclick="() => OnOpen.InvokeAsync(Pending)">
+        <span class="flex items-center justify-between gap-2">
+            <span class="flex flex-wrap items-center gap-2 min-w-0">
+                <StatusBadge State="State" />
+                @if (Pending.ReceivedFromCoSigner)
+                {
+                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">From a co-signer</span>
+                }
+            </span>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">@MultisigFormat.Age(Pending.CreatedAt)</span>
+        </span>
+
+        @* A payment in a live room that still needs this person's signature: one status, and this line (spec edge case). *@
+        @if (State == MultisigState.LiveRoom && NeedsMySignature)
+        {
+            <span class="flex items-center gap-1.5 mt-2 text-xs font-semibold text-dgb-700 dark:text-dgb-200">
+                <UxIcon Name="pen" Class="w-3.5 h-3.5 shrink-0" />
+                Your signature is needed
+            </span>
+        }
+        @if (CoinsSpent)
+        {
+            <span class="flex items-start gap-1.5 mt-2 text-xs text-amber-700 dark:text-amber-300">
+                <UxIcon Name="alert" Class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>Can't go through: some of its coins were already spent.</span>
+            </span>
+        }
+        @if (Pending.Status == PendingTxStatus.Failed)
+        {
+            <span class="flex items-start gap-1.5 mt-2 text-xs text-red-600 dark:text-red-400">
+                <UxIcon Name="alert" Class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span class="break-words min-w-0">Broadcast failed@(string.IsNullOrEmpty(Pending.FailureReason) ? "." : ": " + Pending.FailureReason)</span>
+            </span>
+        }
+
+        <span class="flex items-baseline gap-1.5 mt-3">
+            <span class="text-xl font-extrabold tabular-nums text-slate-900 dark:text-white">@MultisigFormat.Dgb(Pending.AmountSatoshis)</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">DGB</span>
+        </span>
+        <span class="block mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+            to <span class="font-mono">@MultisigFormat.Short(Pending.DestinationAddress)</span>
+        </span>
+        @if (!string.IsNullOrWhiteSpace(Pending.Memo))
+        {
+            <span class="block mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">“@Pending.Memo”</span>
+        }
+    </button>
+
+    @if (IsOpen)
+    {
+        <div class="px-4"><SignerProgress Config="Config" Pending="Pending" /></div>
+    }
+    @if (IsViewOnly && IsOpen)
+    {
+        <p class="px-4 mt-2 text-[11px] text-slate-500 dark:text-slate-400">View only: this device holds no key for this wallet.</p>
+    }
+
+    @if (Button.Action != PendingCardAction.None)
+    {
+        <div class="p-4 pt-3">
+            <button type="button" class="@ButtonClass btn-sm w-full" data-testid="pending-card-action"
+                    @onclick="() => OnAction.InvokeAsync(Pending)">
+                @Button.Label
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="pb-4"></div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PendingMultisigTransaction Pending { get; set; } = default!;
+    [Parameter, EditorRequired] public MultisigWalletConfig Config { get; set; } = default!;
+
+    /// <summary>From <see cref="PendingStateClassifier"/>.</summary>
+    [Parameter, EditorRequired] public MultisigState State { get; set; }
+
+    /// <summary>From <see cref="PendingCardActions"/>.</summary>
+    [Parameter, EditorRequired] public PendingCardButton Button { get; set; } = default!;
+
+    /// <summary>Some of the coins this payment uses are no longer available.</summary>
+    [Parameter] public bool CoinsSpent { get; set; }
+
+    /// <summary>Rings the card for a moment after it was just added or updated.</summary>
+    [Parameter] public bool Highlighted { get; set; }
+
+    /// <summary>The card body was tapped: open the payment's own screen.</summary>
+    [Parameter] public EventCallback<PendingMultisigTransaction> OnOpen { get; set; }
+
+    /// <summary>The button was tapped: the page opens the payment's own screen or its room.</summary>
+    [Parameter] public EventCallback<PendingMultisigTransaction> OnAction { get; set; }
+
+    private bool IsOpen => Pending.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
+    private bool IsViewOnly => Config.OwnKeyIndex < 0;
+    private bool NeedsMySignature => MultisigWalletService.NeedsMySignature(Pending, Config);
+
+    private bool NeedsYou => NeedsMySignature
+        || Pending.Status is PendingTxStatus.ReadyToFinalize or PendingTxStatus.Failed;
+
+    private string OpenLabel =>
+        $"Open payment: {MultisigFormat.Dgb(Pending.AmountSatoshis)} DGB to {MultisigFormat.Short(Pending.DestinationAddress)}, {MultisigStateVocabulary.For(State).Label}";
+
+    // The button that moves the payment forward is filled; looking and cancelling are quieter.
+    private string ButtonClass => Button.Action switch
+    {
+        PendingCardAction.View or PendingCardAction.ReviewAndCancel => "btn-secondary",
+        _ => "btn-primary",
+    };
+}
