@@ -44,6 +44,11 @@
         location.reload();
     }
 
+    // Baku is left out when the user turned the mascot off (Settings; same key the app reads).
+    function showBaku() {
+        try { return localStorage.getItem('dgb-baku-mode') !== 'off'; } catch (e) { return true; }
+    }
+
     function showPanel() {
         if (shown || booted) return;
         shown = true;
@@ -51,13 +56,19 @@
         el.id = 'boot-recovery';
         el.setAttribute('role', 'alert');
         el.innerHTML =
+            '<div class="br-card">' +
+            '<div class="br-head">' +
+            (showBaku() ? '<img class="br-baku" id="br-baku" src="images/mascot/poses/support.webp" alt="" width="112" height="112">' : '') +
+            '<div class="br-bubble">' +
             '<h2>The wallet could not start</h2>' +
             '<p>Your wallet and funds are safe. Nothing is stored in the app files that failed to load.</p>' +
+            '</div>' +
+            '</div>' +
             '<div class="br-actions">' +
             '<button type="button" id="br-reload">Reload</button>' +
             '<button type="button" id="br-repair">Repair app files</button>' +
             '</div>' +
-            '<p class="br-title">If it keeps happening:</p>' +
+            '<p class="br-title">If it keeps happening</p>' +
             '<ol>' +
             '<li>Check your internet connection, turn off VPN or data saver, then tap Reload.</li>' +
             '<li>Tap <b>Repair app files</b>. This clears only downloaded app files and keeps your wallet.</li>' +
@@ -66,8 +77,12 @@
             '<li>Update your browser to the latest version.</li>' +
             '</ol>' +
             '<p class="br-warn"><b>Do not</b> use "Clear site data" or "Clear browsing data" with cookies and site data ticked: that erases the wallet stored in this browser. ' +
-            'Make sure you have your 24-word recovery phrase before changing any browser settings.</p>';
+            'Make sure you have your 24-word recovery phrase before changing any browser settings.</p>' +
+            '</div>';
         document.body.appendChild(el);
+        // The picture may be one of the files that failed to load: without it the text stands alone.
+        var baku = document.getElementById('br-baku');
+        if (baku) baku.addEventListener('error', function () { baku.remove(); });
         document.getElementById('br-reload').addEventListener('click', function () { location.reload(); });
         document.getElementById('br-repair').addEventListener('click', repairAndReload);
     }

@@ -19,10 +19,30 @@
         <h2 class="block-title block-title-lg">Welcome back</h2>
         @if (!string.IsNullOrEmpty(walletName))
         {
-            <div class="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 backdrop-blur-sm">
-                <span class="w-3 h-3 rounded-full flex-shrink-0 shadow-lg" style="background-color: @walletColor; box-shadow: 0 0 8px @(walletColor)66;"></span>
-                <span class="text-base font-bold text-slate-900 dark:text-white tracking-wide">@walletName</span>
-            </div>
+            @* With more than one wallet the name is the wallet chooser: it opens a sheet, so the list never lengthens this page. *@
+            @if (allWallets.Count > 1)
+            {
+                <button type="button" data-testid="unlock-wallet-switch" aria-haspopup="dialog"
+                        aria-label="@($"{walletName}. {L.T("unlock.switch_wallet")}")"
+                        class="flex items-center gap-2 max-w-[300px] pl-4 pr-2 py-2 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 backdrop-blur-sm hover:border-dgb-300 dark:hover:border-dgb-600 transition-all press-effect"
+                        @onclick="() => showWalletSheet = true">
+                    <span class="w-3 h-3 rounded-full flex-shrink-0 shadow-lg" style="background-color: @walletColor; box-shadow: 0 0 8px @(walletColor)66;"></span>
+                    <span class="text-base font-bold text-slate-900 dark:text-white tracking-wide truncate">@walletName</span>
+                    <span class="flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-full bg-dgb-100 dark:bg-dgb-800 text-dgb-500 text-[11px] font-bold flex-shrink-0" aria-hidden="true">
+                        @allWallets.Count
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+                        </svg>
+                    </span>
+                </button>
+            }
+            else
+            {
+                <div class="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 backdrop-blur-sm">
+                    <span class="w-3 h-3 rounded-full flex-shrink-0 shadow-lg" style="background-color: @walletColor; box-shadow: 0 0 8px @(walletColor)66;"></span>
+                    <span class="text-base font-bold text-slate-900 dark:text-white tracking-wide">@walletName</span>
+                </div>
+            }
         }
             <p class="text-sm text-slate-400 dark:text-slate-500">@(credKind == CredentialKind.Pin ? "Enter your 6-digit PIN" : L.T("unlock.passphrase_prompt"))</p>
         </div>
@@ -210,22 +230,10 @@
     }
     @if (allWallets.Count > 1)
     {
-        <div class="flex flex-col items-center gap-2 slide-up-delay-3">
-            <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">Or unlock a different wallet:</p>
-            @foreach (var w in allWallets.Where(w => w.Id != walletId))
-            {
-                var wc = w.Color ?? "#0066FF";
-                <button class="flex items-center gap-1.5 text-xs text-dgb-500 hover:text-dgb-600 font-semibold transition-colors"
-                        @onclick="() => SwitchToWallet(w.Id, w.Name, w.Color)">
-                    <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: @wc;"></span>
-                    @w.Name
-                    @if (WalletService.IsWalletUnlockedInSession(w.Id))
-                    {
-                        <span class="text-green-500 ml-1">(unlocked)</span>
-                    }
-                </button>
-            }
-        </div>
+        <button type="button" class="btn-ghost btn-sm slide-up-delay-3" data-testid="unlock-wallet-switch-link"
+                @onclick="() => showWalletSheet = true">
+            @L.T("unlock.switch_wallet")
+        </button>
     }
     <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500 slide-up-delay-3">
         <a href="/help" class="hover:text-dgb-500 transition-colors">Help</a>
@@ -246,6 +254,9 @@
         <p class="text-[11px] text-slate-400 dark:text-slate-500">Speed · Security · Scalability</p>
     </div>
 </div>
+
+<UnlockWalletSheet IsOpen="showWalletSheet" Wallets="allWallets" CurrentWalletId="@walletId"
+                   OnSelect="ChooseWalletAsync" OnClose="() => showWalletSheet = false" />
 
 @if (bioNotice is { } noticeMode)
 {
@@ -306,6 +317,13 @@
     private string walletName = "";
     private string walletColor = "#0066FF";
     private List<WalletInfo> allWallets = [];
+    private bool showWalletSheet;
+
+    private async Task ChooseWalletAsync(WalletInfo wallet)
+    {
+        showWalletSheet = false;
+        if (wallet.Id != walletId) await SwitchToWallet(wallet.Id, wallet.Name, wallet.Color);
+    }
 
     // Biometric state
     private bool biometricSupported;
