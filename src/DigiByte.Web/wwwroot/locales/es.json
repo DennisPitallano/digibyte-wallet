@@ -314,6 +314,7 @@
   "unlock.reset_sub": "Ingresa tu frase semilla para definir un nuevo PIN o frase de acceso",
   "home.empty.copy": "Copiar dirección",
   "home.empty.copied": "Dirección copiada",
+  "home.empty.copy_failed": "No se pudo copiar. Selecciona la dirección para copiarla.",
   "home.empty.receive_link": "Abrir Recibir",
   "home.empty.qr_alt": "Código QR de tu dirección para recibir",
   "activity.empty.receive": "Recibir",

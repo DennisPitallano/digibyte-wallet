@@ -42,7 +42,7 @@ public static class BakuCatalog
         new("send.new-and-large", BakuSeverity.Warning, "protective", "Check this send", "New address, and half or more of your balance. Confirm both before continuing.", RequiresConfirmation: true),
         new("send.done", BakuSeverity.Info, "approve", "Sent!", "Your transaction is on its way."),
         // The mascot's line in the first-payment celebration (spec 025). Shown only when the mascot is fully on.
-        new("receive.first", BakuSeverity.Info, "approve", "Your first DGB has arrived!", "This wallet is yours alone. Nice start."),
+        new("receive.first", BakuSeverity.Info, "approve", "Your first DGB!", "This wallet is yours alone. Nice start."),
         new("send.error", BakuSeverity.Info, "error", "That did not work", "Nothing was sent. Check the details and try again."),
         new("p2p.verify", BakuSeverity.Warning, "guard", "Trade carefully", "Verify who you trade with. Never share your recovery phrase or pay outside the trade flow."),
         // Sits above the address and QR code on an empty Home (spec 025, FR-005): the only explanatory copy there.

@@ -1690,8 +1690,13 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                             allTxs.TryAdd(tx.TxId, tx);
                         changeOnly = true;
                     }
-                    catch (SummaryUnavailableException)
+                    catch (SummaryUnavailableException ex)
                     {
+                        // Without a cause, summaries do not exist on this route (regtest, the gateway answering first): every
+                        // address is read in full below, as before. With one, the explorers were asked and could not answer.
+                        // The read below still runs, so the page shows what it can, but it answers "no transactions" for an
+                        // address it could not reach, so its result cannot show that the chain was read (spec 025, FR-015).
+                        if (ex.InnerException is not null) incomplete = true;
                     }
                 }
 

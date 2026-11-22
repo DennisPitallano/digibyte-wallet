@@ -3,6 +3,7 @@
    its own: that is the mascot's "home.empty" message, which Home shows above it and which the user can turn off. *@
 @inject ClipboardService Clipboard
 @inject LocalizationService L
+@inject NotificationService Notifications
 
 @if (!string.IsNullOrEmpty(Address))
 {
@@ -69,7 +70,16 @@
 
     private async Task CopyAsync()
     {
-        if (!string.IsNullOrEmpty(Address))
+        if (string.IsNullOrEmpty(Address)) return;
+        try
+        {
             await Clipboard.CopyAsync(Address, message: L.T("home.empty.copied"));
+        }
+        catch
+        {
+            // The browser refused the clipboard (no permission, an embedded view). The address is on screen and can be
+            // selected, so say so instead of failing the page.
+            Notifications.Warning(L.T("home.empty.copy_failed"));
+        }
     }
 }

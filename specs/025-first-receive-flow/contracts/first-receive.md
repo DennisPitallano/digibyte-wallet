@@ -69,7 +69,7 @@ Task<HistoryLoad> LoadTransactionHistoryAsync(int skip = 0, int take = 50)
 
 ## Web services (`DigiByte.Web.Services`)
 
-`FirstReceiveCoordinator` and `InstallAppState` are scoped (one for the app). `IncomingPaymentAnnouncer` and `AutoRefreshLoop` are transient (one per page that uses them).
+`FirstReceiveCoordinator` and `InstallAppState` are scoped (one for the app). `IncomingPaymentAnnouncer` and `AutoRefreshLoop` are created by each page that uses them and end with it.
 
 ### `FirstReceiveCoordinator`
 
@@ -92,9 +92,13 @@ event Action? Changed                                    // pending or marker ch
 ### `IncomingPaymentAnnouncer`
 
 ```text
+void Seed(string walletId, IReadOnlyList<TransactionRecord> saved)   // the saved history is already seen
+void Forget()                                                        // wallet switch
 Task AnnounceAsync(string walletId, IReadOnlyList<TransactionRecord> transactions,
                    bool hideAmounts, IReadOnlyCollection<string>? celebratedTxIds)
 ```
+
+- Created by the page (`new IncomingPaymentAnnouncer(Notifications, JS)`); not registered for injection.
 
 - Transient: one per page that checks (Home, Receive). Its seen-ID list starts empty when the page opens and is cleared when `walletId` changes, so the first list after opening a page or switching wallet is recorded without announcing, exactly as Home behaves today.
 - Shows the existing success toast and haptic for `NewArrivals.Find(...)`, excluding `celebratedTxIds`.
@@ -103,12 +107,14 @@ Task AnnounceAsync(string walletId, IReadOnlyList<TransactionRecord> transaction
 ### `AutoRefreshLoop`
 
 ```text
-void Start(Func<Task<bool>> check)   // check returns true when the data changed
-void Stop()
+void Start(Func<Task> check, Func<bool>? isBusy = null)
+void Report(bool changed)            // the page calls this after every refresh, automatic or manual
 void NotifyManualRefresh()
+Task StopAsync()
 ```
 
-- 15 s timer; skips a tick when a check is running, when `domHelpers.isHidden` is true, or when `RefreshPacer.ShouldCheck()` is false. Exceptions from `check` are swallowed.
+- 15 s timer; skips a tick when a check is running, when `isBusy` says the page is already refreshing, when `domHelpers.isHidden` is true, or when `RefreshPacer.ShouldCheck()` is false. Exceptions from `check` are swallowed.
+- Created by the page (`new AutoRefreshLoop(JS)`) and stopped when the page is left; not registered for injection.
 
 ### `InstallAppState`
 
@@ -132,7 +138,7 @@ void NotifyManualRefresh()
 
 - **Inputs**: `Address`.
 - **Shows**: the QR code for `Address` (alt text names it as the receiving address), the full address as selectable text, a **Copy address** button, a **Receive** link to `/receive`.
-- **Behaviour**: Copy puts the full address on the clipboard and confirms with the existing copied toast. Renders with no network. Renders nothing while `Address` is empty.
+- **Behaviour**: Copy puts the full address on the clipboard and confirms with a toast; if the browser refuses the clipboard it shows a notice instead and the page keeps working. Renders with no network. Renders nothing while `Address` is empty. Home also shows it under the "Unable to load data" card.
 - **Text**: from `home.empty.*` translation keys. No explanatory sentence of its own; that is the mascot's `home.empty` message, rendered by Home above it.
 
 ### `FirstReceiveCelebration` (Home, Receive, Activity)

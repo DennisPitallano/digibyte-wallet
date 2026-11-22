@@ -4,10 +4,25 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **Your address on an empty Home** — A wallet with no transactions now shows its receiving address, a QR code, **Copy address** and a link to Receive where the transaction list will be, so the first thing to do is on the first screen. It shows without waiting for the network, including offline, and stays available under "Unable to load data".
+- **Your first payment is celebrated** — The first payment a new wallet receives shows a one-time celebration with the amount, on Home, Receive or Activity, whichever shows it first. It says "on its way" while the payment is unconfirmed, hides the amount when balances are hidden, and offers **Install app** when the wallet isn't installed. A recovered, imported or watch-only wallet that already has history never shows it. Nothing about it leaves the device.
+- **Receive checks for payments while it is open** — The Receive page now notices an incoming payment by itself, at the same pace as Home (every 15 seconds, slowing to once a minute while nothing changes, paused while the tab is hidden), and shows the same "payment received" notice. A check that can't reach the network changes nothing on the page. Security-relevant: Receive now makes the same explorer requests Home already makes while it is open; no new kind of request and no new destination.
+- **Receive button on an empty Activity** — "No transactions yet" on Activity now has a **Receive** button.
+
 ### Changed
+- **A quieter first session** — The install banner and the "Supported by" sponsors strip now wait until a wallet on the device has a transaction. The setup pages and **Install app** in Settings are unchanged, and existing users see no difference.
+- **An unreachable explorer is no longer read as an empty history** — When address summaries could not be read, the wallet fell back to a reader that answers "no transactions" for an address it cannot reach, and reported the result as complete. It is now reported as incomplete: Activity keeps the saved list with "Couldn't refresh" instead of showing "No transactions yet". Each history load also reports its own completeness, so two loads running at once can no longer be mistaken for each other.
+- **An empty Home can scroll** — Home stops the page from scrolling so the transaction list can scroll instead; with no list, the lower part of the page could not be reached on a small screen.
 - **Even fewer requests while the wallet is open** — An automatic refresh now checks only the addresses that can change: ones with funds or pending payments, the address on show and the last few handed out, the next change address and anything used in the last week. The others are checked at least every 5 minutes, a few at a time. A quiet refresh drops from about 60 requests to about 10, so the explorer's rate limits are hit even less often. A payment to an old, unused address shows within 5 minutes; pulling down or tapping refresh checks every address at once. Home's wallet info panel shows when every address was last checked.
 - **Quicker sends** — Confirming a send now reads the coins of the addresses that hold money (2 or 3 for most wallets) instead of every address, still fresh at that moment. If they aren't enough, the wallet reads the rest before saying funds are insufficient.
 - **Developer switches stay on developer devices** — The `/dev/node` switches now count only while the developer view is on, so a switch left off on a device can never change a regular user's wallet.
+
+### Removed
+- **The five introduction slides** — The first Home no longer opens under a slideshow. The address to share and the getting-started checklist take its place.
+
+### Security
+- No key, seed or password handling changed for the first-receive flow. It stores two non-secret values on the device: whether each wallet started empty, and whether the device has had a transaction.
 
 ## [0.7.0] - 2026-11-21
 

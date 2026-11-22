@@ -335,7 +335,9 @@
             </div>
 
             @* Transaction List — scrollable *@
-            @if (isLoadingTx && transactions.Count == 0)
+            @* Placeholder rows only until the first load has answered. After that an empty wallet keeps showing its address
+               while the background check runs, instead of blinking to placeholders every few seconds (spec 025). *@
+            @if (isLoadingTx && transactions.Count == 0 && !txLoadedOnce)
             {
                 @* Skeleton rows while loading *@
                 <div class="flex flex-col gap-1">
@@ -370,6 +372,9 @@
                         <button type="button" class="mt-3 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect transition-colors disabled:opacity-50"
                                 @onclick="ManualRefreshAsync" disabled="@isRefreshing">@(isRefreshing ? "Trying..." : "Try again")</button>
                     </div>
+                    @* The address does not depend on the network, so it stays available while the history cannot be read
+                       (spec 025, FR-007, FR-008). No mascot line here: nothing is known about this wallet's history yet. *@
+                    <ReceiveEmptyState Address="@receivingAddress" Class="mt-3" />
                 }
                 else
                 {
@@ -557,6 +562,7 @@
     private List<TransactionRecord> transactions = [];
     private bool isLoadingBalance;
     private bool isLoadingTx;
+    private bool txLoadedOnce; // a history load has finished (well or badly) for the wallet on show
     private bool isLoadingPrice;
     private bool hasCachedData; // true = loaded real data from IndexedDB
     private bool fetchFailed; // true = network fetch errored (not just empty)
@@ -969,7 +975,7 @@
                 StopConfirmationPoller();
         }
         catch { txFetchFailed = true; }
-        finally { isLoadingTx = false; StateHasChanged(); }
+        finally { isLoadingTx = false; txLoadedOnce = true; StateHasChanged(); }
     }
 
     // Transaction detail
@@ -1278,6 +1284,7 @@
         _animToken++; animatedDgb = null;
         transactions = [];
         _announcer.Forget();
+        txLoadedOnce = false;
         receivingAddress = "";
         addressQrDataUri = null;
         hasCachedData = false;
@@ -1336,6 +1343,7 @@
         _animToken++; animatedDgb = null;
             transactions = [];
             _announcer.Forget();
+            txLoadedOnce = false;
             receivingAddress = "";
             addressQrDataUri = null;
             hasCachedData = false;

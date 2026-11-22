@@ -239,6 +239,118 @@ public class HistoryLoadTests
         Assert.True(load.AddressesSettled);
     }
 
+    // ── With change-only sync on (the default): a summary read that fails ──
+
+    /// <summary>
+    /// A chain source that gives address summaries, as the real explorers do. When its summaries fail it behaves like the
+    /// real stack: the summary route reports "no explorer could give this address's summary" with the cause attached, and
+    /// the per-address transaction reader returns an empty list for an address it could not read.
+    /// </summary>
+    private sealed class SummaryChain(SummaryExplorer inner) : IBlockchainService, IAddressSummarySource
+    {
+        public bool SummariesFail { get; set; }
+        public bool SummariesNotOnThisRoute { get; set; }
+
+        private void Check()
+        {
+            if (SummariesNotOnThisRoute) throw new SummaryUnavailableException("Address summaries are not available on this network.");
+            if (SummariesFail)
+                throw new SummaryUnavailableException("No explorer could give this address's summary.", new HttpRequestException("Failed to fetch"));
+        }
+
+        public Task<AddressSummary> GetAddressSummaryAsync(string address, bool recordFailure = true)
+        {
+            Check();
+            return inner.GetAddressSummaryAsync(address, recordFailure);
+        }
+
+        public Task<AddressHistoryPage> GetAddressHistoryPageAsync(string address, string? afterTxId)
+        {
+            Check();
+            return inner.GetAddressHistoryPageAsync(address, afterTxId);
+        }
+
+        public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) =>
+            SummariesFail ? Task.FromResult(new List<TransactionInfo>()) : inner.GetAddressTransactionsAsync(address, skip, take);
+
+        public Task<bool> HasAddressHistoryAsync(string address) => inner.HasAddressHistoryAsync(address);
+        public Task<long> GetBalanceAsync(string address) => inner.GetBalanceAsync(address);
+        public Task<long> GetBalanceAsync(IEnumerable<string> addresses) => inner.GetBalanceAsync(addresses);
+        public Task<List<UtxoInfo>> GetUtxosAsync(string address) => inner.GetUtxosAsync(address);
+        public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => inner.GetUtxosAsync(addresses);
+        public Task<string> BroadcastTransactionAsync(byte[] rawTransaction) => inner.BroadcastTransactionAsync(rawTransaction);
+        public Task<TransactionInfo?> GetTransactionAsync(string txId) => inner.GetTransactionAsync(txId);
+        public Task<decimal> GetFeeRateAsync() => inner.GetFeeRateAsync();
+        public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => inner.GetDgbPriceAsync(fiatCurrency);
+        public Task<int> GetBlockHeightAsync() => inner.GetBlockHeightAsync();
+    }
+
+    private static (HistorySyncEnv Env, SummaryChain Chain, WalletService Service) ChangeOnlyEnv()
+    {
+        var env = new HistorySyncEnv();
+        var chain = new SummaryChain(env.Explorer);
+        var sync = new WalletHistorySync(chain, env.Store, env.Clock) { FullResyncRetryDelay = TimeSpan.FromMinutes(1) };
+        var service = new WalletService(new DigiByte.Wallet.Storage.WalletKeyStore(env.Storage), new ChangeAddressTests.PassThroughCrypto(),
+            chain, new TransactionTracker(env.Storage), historySync: sync, historyOptions: env.Options);
+        service.SetNetworkMode("mainnet");
+        service.AddressDiscoveryWait = TimeSpan.FromMinutes(1);
+        return (env, chain, service);
+    }
+
+    /// <summary>
+    /// Found in the browser with the explorer unreachable: the summary read failed, the wallet fell back to reading each
+    /// address in full, that reader answered "no transactions" for every address it could not reach, and the load was
+    /// reported complete and empty. For a recovered wallet that would record "started empty" and celebrate later.
+    /// </summary>
+    [Fact]
+    public async Task WhenTheSummaryReadFails_TheLoadIsNotComplete_EvenThoughThePerAddressFallbackAnswers()
+    {
+        var (env, chain, service) = ChangeOnlyEnv();
+        await service.CreateWalletAsync("Test", env.Words, Pin);
+        env.Explorer.Pay(env.Receive(0), 100_000_000);
+        var first = await service.LoadTransactionHistoryAsync();
+        Assert.True(first.Complete);
+        Assert.Single(first.Transactions);
+
+        chain.SummariesFail = true;
+        env.Clock.Advance(TimeSpan.FromMinutes(10)); // past any reuse of the earlier summaries
+
+        var offline = await service.LoadTransactionHistoryAsync();
+
+        Assert.False(offline.Complete);
+    }
+
+    [Fact]
+    public async Task WhenTheSummaryReadFails_OnTheFirstLoad_AnEmptyAnswerIsNotComplete()
+    {
+        var (env, chain, service) = ChangeOnlyEnv();
+        await service.CreateWalletAsync("Test", env.Words, Pin);
+        env.Explorer.Pay(env.Receive(0), 100_000_000);
+        chain.SummariesFail = true;
+
+        var offline = await service.LoadTransactionHistoryAsync();
+
+        Assert.False(offline.Complete);
+        Assert.Empty(offline.Transactions);
+        Assert.Empty(await service.GetTransactionHistoryAsync());
+        Assert.True(service.LastHistoryIncomplete);
+    }
+
+    /// <summary>Where summaries do not exist at all (regtest, the gateway answering first), reading each address in full is the normal path.</summary>
+    [Fact]
+    public async Task WhenSummariesDoNotExistOnThisRoute_ThePerAddressRead_IsStillComplete()
+    {
+        var (env, chain, service) = ChangeOnlyEnv();
+        chain.SummariesNotOnThisRoute = true;
+        await service.CreateWalletAsync("Test", env.Words, Pin);
+        env.Explorer.Pay(env.Receive(0), 100_000_000);
+
+        var load = await service.LoadTransactionHistoryAsync();
+
+        Assert.True(load.Complete);
+        Assert.Single(load.Transactions);
+    }
+
     [Fact]
     public async Task GetTransactionHistoryAsync_ReturnsTheSameList_AndStillSetsLastHistoryIncomplete()
     {

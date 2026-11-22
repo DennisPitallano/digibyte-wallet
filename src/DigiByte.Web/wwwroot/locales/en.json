@@ -336,6 +336,7 @@
   "unlock.reset_sub": "Enter your seed phrase to set a new PIN or passphrase",
   "home.empty.copy": "Copy address",
   "home.empty.copied": "Address copied",
+  "home.empty.copy_failed": "Couldn't copy. Select the address to copy it yourself.",
   "home.empty.receive_link": "Open Receive",
   "home.empty.qr_alt": "QR code for your receiving address",
   "activity.empty.receive": "Receive",

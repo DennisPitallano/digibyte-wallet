@@ -88,6 +88,21 @@ Findings from reading the code the feature touches. Each entry is a decision the
 
 - **Decision**: The celebration reads `pref:hideBalance` from `ISecureStorage`, the same key Home writes and Activity reads.
 
+## Found during implementation
+
+These were not known when the plan was written. Each changed the code, and the contracts below were updated to match.
+
+- **A failed summary read was reported as a complete, empty history.** When no explorer can answer an address summary, the fallback raises the same exception it uses for "summaries do not exist on this route", and `WalletService` then reads each address in full. That reader (`BlockchainApiService.GetAddressTransactionsAsync`) returns an empty list for an address it cannot reach. With the explorer unreachable, the load therefore came back empty and "complete". `LoadTransactionHistoryAsync` now reports the load as incomplete when the summary failure has a cause attached; without one (regtest, the gateway answering first) the per-address read is still the normal, complete path. Known limit: with the developer switch for change-only sync turned off there is no summary read to fail, so an unreachable explorer still reads as empty in that mode.
+- **Home's notice starts from the saved history, not from the first network list.** `LoadFromCacheAsync` seeds the seen list with the saved transactions, so a recent payment that is not in the saved list is announced when Home opens. `IncomingPaymentAnnouncer.Seed` keeps that. So that a payment announced on Receive is not announced again on Home, Receive saves the transactions of a complete load, as Activity already does.
+- **Home's pacing is 15 s, 30 s, 30 s, then 60 s.** One or two unchanged checks give a 30-second interval; three or more give 60. `RefreshPacer` and its tests follow the code, not the plan's shorthand.
+- **Home hid the address until its network fetch finished, and could not scroll.** The receiving address was assigned after the first fetch, so an offline or slow first load showed no address; it is now assigned before the fetch. Home also turned page scrolling off unconditionally so its list could scroll; it now does so only while the list exists.
+- **FR-007 and FR-008 conflicted for a new wallet that is offline.** One asked for the address with no network, the other for "Unable to load data" instead of the empty state. Home now shows the failure card with the address card beneath it, and FR-008 says so.
+- **A refused clipboard write must not take the page down.** `ClipboardService.CopyAsync` throws when the browser refuses, by contract. `ReceiveEmptyState` catches that and shows a notice (`home.empty.copy_failed`).
+- **The loop and the announcer are created by the page, not injected.** A transient disposable resolved from the app's single scope is kept alive until the app closes, so each page constructs its own and stops it on leaving.
+- **The celebration's mascot line is drawn by the celebration itself.** The mascot service shows only the highest-priority message on screen, and Receive already has a tip that would outrank it. The line is shown when the mascot is fully on, which is the same rule.
+- **The wallet test project references the web project.** So `FirstReceiveCoordinator` has unit tests too, although the plan said web code could only be checked by hand.
+- **The animation test page can preview the celebration** (`/test-animations`), because the explorers cannot be reached from a local preview and a real first payment cannot be produced there.
+
 ## Open items
 
 None. Nothing in the Technical Context needs clarification.

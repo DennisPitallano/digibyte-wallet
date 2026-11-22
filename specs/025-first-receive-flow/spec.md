@@ -46,7 +46,7 @@ A person finishes creating a wallet and lands on Home. No introduction covers th
 4. **Given** the empty state is showing, **When** the user taps the Receive link, **Then** the Receive page opens showing the same address.
 5. **Given** a watch-only wallet with no history, **When** Home is showing, **Then** the same QR code, address and Copy address appear, because a watch-only wallet can still receive.
 6. **Given** the device is offline and the wallet has no history saved, **When** Home is showing, **Then** the QR code and address are still shown, because they do not depend on the network.
-7. **Given** the wallet's history could not be loaded and nothing is saved from before, **When** Home is showing, **Then** the existing "Unable to load data" state with **Try again** is shown instead of the empty state.
+7. **Given** the wallet's history could not be loaded and nothing is saved from before, **When** Home is showing, **Then** the existing "Unable to load data" state with **Try again** is shown, with the QR code, address, Copy address and Receive link beneath it and without the mascot's message.
 8. **Given** the mascot is set to Off or Guardian only, or the user has dismissed the message, **When** the empty state is showing, **Then** no explanatory line is shown and the QR code, address, Copy address and Receive link are all still present and clearly labelled.
 9. **Given** a wallet whose history is known to be empty, **When** the user opens Activity, **Then** its "No transactions yet" state shows a **Receive** button that opens the Receive page.
 10. **Given** a wallet that has transactions, **When** a search or filter on Activity matches nothing, **Then** the Receive button is not shown and the existing "nothing matches" state is unchanged.
@@ -153,7 +153,7 @@ While no wallet on the device has a transaction, the install banner is not shown
 - **FR-005**: The empty state's only explanatory copy MUST be the existing mascot message for an empty Home, reworded in plain words with no technical terms to point at the address and QR code. It MUST follow the existing mascot rules (not shown when the mascot is Off or Guardian only, or once dismissed), and the empty state MUST be understandable without it through the labels on its controls.
 - **FR-006**: FR-003 MUST apply to every wallet type that can receive, including watch-only wallets and wallets imported from a private key.
 - **FR-007**: The empty state MUST work with no network connection.
-- **FR-008**: When history could not be loaded and no earlier figures are saved, Home MUST show the existing "Unable to load data" state, not the empty state.
+- **FR-008**: When history could not be loaded and no earlier figures are saved, Home MUST show the existing "Unable to load data" state with its **Try again** action. The address, QR code, Copy address and Receive link MUST still be shown beneath it (FR-007), without the mascot's message, because nothing is known yet about the wallet's history.
 - **FR-009**: The empty state MUST be replaced by the transaction list as soon as the wallet has a transaction to show.
 - **FR-010**: When the active wallet's history is known to be empty, Activity's "No transactions yet" state MUST show a Receive action that opens the Receive page, and MUST NOT show a QR code. The action MUST NOT appear when the list is empty only because of a search or filter.
 
