@@ -1,8 +1,178 @@
 @page "/test-animations"
+@inject ThemeService Theme
 
 <PageTitle>Animation Test — DigiByte Wallet</PageTitle>
 
 <div class="flex flex-col gap-6 p-4 pb-24">
+    @* ===== Style gallery: the shared primitives from app.css (see docs/UI_STYLE.md) ===== *@
+    <section id="style-gallery" class="flex flex-col gap-6">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Style gallery</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Shared classes from app.css, next to today's hand-written styles.</p>
+            </div>
+            <button type="button" class="btn-secondary btn-sm shrink-0 whitespace-nowrap" @onclick="ToggleTheme">
+                @(Theme.IsDark ? "Light theme" : "Dark theme")
+            </button>
+        </div>
+
+        @* --- Primary button: pick a variant --- *@
+        <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Primary button — pick one</h3>
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">A · Soft shadow <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">btn-primary</code></span>
+                <button type="button" class="btn-primary w-full">Send DGB</button>
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">B · Flat <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">btn-primary btn-flat</code></span>
+                <button type="button" class="btn-primary btn-flat w-full">Send DGB</button>
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">C · Gradient sheen <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">btn-primary btn-sheen</code></span>
+                <button type="button" class="btn-primary btn-sheen w-full">Send DGB</button>
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Current (hand-written, two of about 75 spellings)</span>
+                <button type="button" class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect">Send DGB</button>
+                <button type="button" class="w-full py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect">Send DGB</button>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Hover (mouse only): A and C lift 1px and deepen their shadow, C also sweeps a highlight across; B only darkens. Pressed: all three scale down slightly and sink.</p>
+        </div>
+
+        @* --- Buttons: every kind in every state --- *@
+        <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Buttons — states</h3>
+            @foreach (var b in ButtonKinds)
+            {
+                <div class="flex flex-col gap-2">
+                    <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">@b.Class</code>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" class="@b.Class">Default</button>
+                        <button type="button" class="@b.Class" style="outline:2px solid var(--ui-focus);outline-offset:2px">Focus</button>
+                        <button type="button" class="@b.Class" disabled>Disabled</button>
+                        <button type="button" class="@b.Class is-loading" aria-busy="true">Loading</button>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" class="@b.Class btn-sm">Small</button>
+                        <button type="button" class="@b.Class btn-sm" disabled>Disabled</button>
+                        <button type="button" class="@b.Class btn-sm is-loading" aria-busy="true">Loading</button>
+                    </div>
+                </div>
+            }
+            <p class="text-xs text-slate-500 dark:text-slate-400">Hover (mouse only): primary, secondary and danger lift 1px with a deeper shadow; ghost gains a tinted background. Focus shows only for keyboard users (Tab to any button to see the real ring). Default height 48px, small 44px.</p>
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Current (hand-written)</span>
+                <div class="flex gap-2">
+                    <button type="button" class="flex-1 py-2.5 bg-white dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl press-effect">Secondary</button>
+                    <button type="button" class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl press-effect">Danger</button>
+                </div>
+            </div>
+        </div>
+
+        @* --- Cards --- *@
+        <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Card — pick one</h3>
+            <div class="card p-4">
+                <p class="text-sm font-semibold">A · Soft shadow</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card</code> — one radius, one border, a quiet two-layer shadow.</p>
+            </div>
+            <div class="card card-flat p-4">
+                <p class="text-sm font-semibold">B · Flat</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card card-flat</code> — border only, no elevation.</p>
+            </div>
+            <div class="card card-sheen p-4">
+                <p class="text-sm font-semibold">C · Gradient sheen</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card card-sheen</code> — soft shadow plus a faint top-to-bottom tint.</p>
+            </div>
+            <div class="card-raised p-4">
+                <p class="text-sm font-semibold">Raised</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card-raised</code> — for hero blocks, dialogs and sheets.</p>
+            </div>
+            <button type="button" class="card card-interactive p-4 text-left w-full">
+                <p class="text-sm font-semibold">Interactive</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card card-interactive</code> — hover lifts 2px to the raised shadow; has a focus ring.</p>
+            </button>
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Current (hand-written: three of the mixes in use)</span>
+                <div class="bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 text-sm text-slate-700 dark:text-slate-300">rounded-2xl, border-slate-200/80</div>
+                <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 text-sm text-slate-700 dark:text-slate-300">rounded-xl, border-slate-200</div>
+                <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 text-sm text-slate-700 dark:text-slate-300">rounded-2xl, half-transparent in dark</div>
+            </div>
+        </div>
+
+        @* --- Text inputs --- *@
+        <div class="flex flex-col gap-4">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Text input</h3>
+            <div class="field">
+                <label class="field-label" for="sg-default">Label (default)</label>
+                <input id="sg-default" class="input" type="text" placeholder="Placeholder text" aria-describedby="sg-default-hint" />
+                <p id="sg-default-hint" class="field-hint">Hint text sits under the field. Click in to see the real focus state.</p>
+            </div>
+            <div class="field">
+                <label class="field-label" for="sg-focus">Focus</label>
+                <input id="sg-focus" class="input" type="text" value="dgb1qexampleaddress" style="border-color:var(--ui-focus);box-shadow:var(--ui-focus-ring)" />
+            </div>
+            <div class="field">
+                <label class="field-label" for="sg-error">Error</label>
+                <input id="sg-error" class="input" type="text" value="not-an-address" aria-invalid="true" aria-describedby="sg-error-msg" />
+                <p id="sg-error-msg" class="field-error">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                    <span>That is not a valid DigiByte address.</span>
+                </p>
+            </div>
+            <div class="field">
+                <label class="field-label" for="sg-disabled">Disabled</label>
+                <input id="sg-disabled" class="input" type="text" value="Cannot be edited" disabled />
+            </div>
+            <div class="field">
+                <label class="field-label" for="sg-amount">Amount (numeric fields keep JetBrains Mono)</label>
+                <input id="sg-amount" class="input" type="text" inputmode="decimal" value="1,234.5678" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Current (hand-written)</span>
+                <input type="text" placeholder="Placeholder text" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-dgb-700 bg-white dark:bg-dgb-900 text-sm" />
+            </div>
+        </div>
+
+        @* --- QR frame --- *@
+        <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">QR frame</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="flex flex-col items-center gap-2">
+                    <div class="qr-frame">
+                        <img src="images/donation-qr.png" alt="Sample QR code" class="w-32 h-32" />
+                        <span class="qr-frame-logo"><DigiLogo Size="22" /></span>
+                    </div>
+                    <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">qr-frame</code>
+                </div>
+                <div class="flex flex-col items-center gap-2">
+                    <div class="bg-white rounded-2xl p-3 shadow-inner relative">
+                        <img src="images/donation-qr.png" alt="Sample QR code" class="w-32 h-32 rounded-lg" />
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="bg-white rounded-full p-1.5 shadow-md">
+                                <DigiLogo Size="22" />
+                            </div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400">Current (Payments)</span>
+                </div>
+            </div>
+        </div>
+
+        @* --- Motion --- *@
+        <div class="flex flex-col gap-3">
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Motion</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Tokens: <code class="font-mono">--motion-fast</code> 120ms (presses), <code class="font-mono">--motion-base</code> 200ms (hover, focus), <code class="font-mono">--motion-slow</code> 360ms (entrances), with <code class="font-mono">--ease-out</code>. All of it is off under reduced motion.</p>
+            <div class="stagger flex flex-col gap-2" @key="staggerKey">
+                @for (int i = 1; i <= 5; i++)
+                {
+                    <div class="card p-3 text-sm">List row @i <span class="text-xs text-slate-600 dark:text-slate-400">— <code class="font-mono">stagger</code></span></div>
+                }
+            </div>
+            <button type="button" class="btn-ghost btn-sm self-start" @onclick="() => staggerKey++">Replay entrance</button>
+        </div>
+    </section>
+
     <h2 class="text-xl font-bold text-slate-900 dark:text-white">Animation Test Page</h2>
 
     @* ===== 1. Spinning Coin — Sizes ===== *@
@@ -188,6 +358,23 @@
 @code {
     private bool showSuccess;
     private bool animKey = true;
+
+    // Style gallery
+    private int staggerKey;
+    private static readonly (string Class, string Name)[] ButtonKinds =
+    {
+        ("btn-primary", "Primary"),
+        ("btn-secondary", "Secondary"),
+        ("btn-ghost", "Ghost"),
+        ("btn-danger", "Danger"),
+    };
+
+    private Task ToggleTheme() => Theme.ToggleAsync();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { await Theme.InitializeAsync(); } catch { }
+    }
 
     // Confirmation badge preview
     private int _previewConf = 0;
