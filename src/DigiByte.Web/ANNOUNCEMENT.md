@@ -1,3 +1,35 @@
+# DigiByte Wallet v0.8.0 - A new menu, one Scan for everything, and a wallet you can snap shut
+
+> Release date: November 2026
+> Live at: https://dgbwallet.app
+> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.8.0
+
+## Short post (~280 chars)
+
+🟦 DigiByte Wallet v0.8.0: a new menu with one Scan button for addresses, payment requests, Digi-ID and multisig codes. Sends end with a slide, new wallets show their address on Home, and the balance card is a wallet you can snap shut to lock.
+
+→ https://dgbwallet.app
+
+---
+
+## Medium post
+
+**Easier to find your way, harder to make a mistake**
+
+This release changes how the wallet is laid out and how it looks.
+
+- **A new menu.** Wallet, Activity, Scan, Request and More. Digi-ID and Settings moved into More, Pay is now called Request, and a one-time tip tells returning users where things went.
+- **One Scan for everything.** The round button in the middle reads a DigiByte address or payment request, a Digi-ID login, a multisig proposal, a redeem script or a room invite, and opens the right page. A code it does not recognise opens nothing.
+- **Slide to send.** The last step of a send, a DigiDollar send, a consolidation, a Digi-ID fund sweep and a multisig broadcast is a slide, so a stray tap cannot move coins.
+- **A better first day.** A new wallet shows its address and QR code on Home straight away, the Receive page notices an incoming payment by itself, and the first payment is marked once.
+- **A wallet that looks like one.** The balance card is drawn as a wallet in your wallet's colour, with a snap that locks the app when you press it.
+
+Also new: optional sounds for payments received and sent, an easier word-by-word recovery screen, text fields that no longer make iPhones zoom, more readable text in the light theme, and one consistent style for buttons, cards, tabs and headings.
+
+Details: [`CHANGELOG.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/CHANGELOG.md)
+
+---
+
 # DigiByte Wallet v0.7.0 - Faster balances, pending payments, and multisig signing online
 
 > Release date: November 2026

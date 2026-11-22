@@ -4,6 +4,10 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-22
+
+A new menu, one Scan for every kind of code, and a first-payment flow for new wallets, with one shared look across the app. Where things are now: **Digi-ID** and **Settings** are under **More**, **Pay** is called **Request**, and the last step of a send is a slide. No stored wallet data needs upgrading.
+
 ### Added
 - **Your address on an empty Home** — A wallet with no transactions now shows its receiving address, a QR code, **Copy address** and a link to Receive where the transaction list will be, so the first thing to do is on the first screen. It shows without waiting for the network, including offline, and stays available under "Unable to load data".
 - **Your first payment is celebrated** — The first payment a new wallet receives shows a one-time celebration with the amount, on Home, Receive or Activity, whichever shows it first. It says "on its way" while the payment is unconfirmed, hides the amount when balances are hidden, and offers **Install app** when the wallet isn't installed. A recovered, imported or watch-only wallet that already has history never shows it. Nothing about it leaves the device.
@@ -35,6 +39,8 @@ All notable changes to the DigiByte Wallet project.
 - **The five introduction slides** — The first Home no longer opens under a slideshow. The address to share and the getting-started checklist take its place.
 
 ### Security
+- **Scan opens only what it recognises** — A scanned code that is not a DigiByte address, a payment request, a Digi-ID login or a multisig code opens nothing. Before, Home's scanner put whatever it read into Send's address field. A web link is followed only when it is this wallet's own multisig room invite, on this wallet's own address.
+- **Slide to confirm and lock on demand** — Only the controls changed: every send, sweep and broadcast runs the same checks and signs the same way as before, and the snap on the balance card locks the app exactly as the auto-lock does.
 - No key, seed or password handling changed for the first-receive flow. It stores two non-secret values on the device: whether each wallet started empty, and whether the device has had a transaction.
 
 ## [0.7.0] - 2026-11-21
