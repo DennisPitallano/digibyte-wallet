@@ -71,7 +71,10 @@
               {
                   var attrs = m.Groups["attrs"].Value;
                   if (srcRegex.IsMatch(attrs)) continue;
-                  var body = m.Groups["body"].Value;
+                  // Browsers turn CRLF and lone CR into LF while parsing the page, and
+                  // hash the script as parsed. A page published on Windows has CRLF
+                  // line endings, so hash what the browser will see.
+                  var body = m.Groups["body"].Value.Replace("\r\n", "\n").Replace("\r", "\n");
                   var digest = sha.ComputeHash(Encoding.UTF8.GetBytes(body));
                   var token = "'sha256-" + Convert.ToBase64String(digest) + "'";
                   if (seen.Add(token)) hashes.Add(token);
