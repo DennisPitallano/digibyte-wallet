@@ -72,6 +72,70 @@ public class ScanRouterTests
         Assert.Equal("/identity?uri=" + Uri.EscapeDataString("digiid://example.com/callback?x=abc123"), route.Url);
     }
 
+    private const string App = "https://dgbwallet.app/";
+
+    [Fact]
+    public void A_multisig_proposal_is_handed_over_not_put_in_an_address()
+    {
+        var route = ScanRouter.Route("  cHNidP8BAHECAAAAAbcd  ");
+
+        Assert.Equal(ScanTarget.MultisigProposal, route.Kind);
+        Assert.Null(route.Url);
+        Assert.Equal("cHNidP8BAHECAAAAAbcd", route.Payload);
+    }
+
+    [Fact]
+    public void A_multisig_redeem_script_opens_Import_with_the_script_handed_over()
+    {
+        var script = "5221" + new string('a', 66) + "21" + new string('B', 66) + "52ae";
+
+        var route = ScanRouter.Route(script);
+
+        Assert.Equal(ScanTarget.MultisigRedeemScript, route.Kind);
+        Assert.Null(route.Url);
+        Assert.Equal(script.ToLowerInvariant(), route.Payload);
+    }
+
+    [Theory]
+    [InlineData("https://dgbwallet.app/multisig/room?code=ab12cd", "/multisig/room?code=AB12CD")]
+    [InlineData("https://dgbwallet.app/multisig/sign-room?code=XY98ZT", "/multisig/sign-room?code=XY98ZT")]
+    [InlineData("https://DGBWALLET.app/multisig/room/?code=ab12cd", "/multisig/room?code=AB12CD")]
+    public void This_wallets_own_room_invite_opens_the_room(string link, string expected)
+    {
+        var route = ScanRouter.Route(link, App);
+
+        Assert.Equal(ScanTarget.RoomInvite, route.Kind);
+        Assert.Equal(expected, route.Url);
+    }
+
+    [Theory]
+    [InlineData("https://dgbwallet.app.evil.example/multisig/room?code=ab12cd")]  // a look-alike site
+    [InlineData("http://dgbwallet.app/multisig/room?code=ab12cd")]                // not the same scheme
+    [InlineData("https://dgbwallet.app:8443/multisig/room?code=ab12cd")]          // not the same port
+    [InlineData("https://dgbwallet.app/settings?code=ab12cd")]                    // not a room page
+    [InlineData("https://dgbwallet.app/multisig/room")]                           // no code
+    [InlineData("https://dgbwallet.app/multisig/room?code=ab%2F..%2Fsend")]       // not letters and digits
+    [InlineData("https://dgbwallet.app/multisig/room?code=aaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public void Any_other_web_link_is_not_followed(string link)
+    {
+        Assert.Equal(ScanTarget.Unknown, ScanRouter.Route(link, App).Kind);
+    }
+
+    [Fact]
+    public void A_room_invite_is_not_recognised_without_knowing_this_wallets_own_address()
+    {
+        Assert.Equal(ScanTarget.Unknown, ScanRouter.Route("https://dgbwallet.app/multisig/room?code=ab12cd").Kind);
+    }
+
+    [Fact]
+    public void An_address_is_a_payment_even_though_a_redeem_script_is_any_run_of_hex()
+    {
+        // Checked in this order on purpose: the most specific kinds first, "plausible hex" last.
+        Assert.Equal(ScanTarget.Payment, ScanRouter.Route(Address).Kind);
+        Assert.Equal(ScanTarget.Unknown, ScanRouter.Route("abcdef").Kind);       // hex, but too short to be a script
+        Assert.Equal(ScanTarget.Unknown, ScanRouter.Route(new string('a', 41)).Kind); // odd length
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

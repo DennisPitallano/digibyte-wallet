@@ -4,6 +4,8 @@
 @inject ActiveWalletContext ActiveWallet
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ShellActions Shell
+@implements IDisposable
 
 <PageTitle>Import Multisig — DigiByte Wallet</PageTitle>
 
@@ -123,7 +125,22 @@
             try { ownPubKeyHex = WalletService.GetPublicKey(); }
             catch { }
         }
+        // A redeem script read by the menu's Scan button, before or while this page is open.
+        Shell.RedeemScriptArrived += OnRedeemScriptArrived;
+        TakeScannedRedeemScript();
     }
+
+    private void OnRedeemScriptArrived() => InvokeAsync(() => { TakeScannedRedeemScript(); StateHasChanged(); });
+
+    private void TakeScannedRedeemScript()
+    {
+        if (Shell.TakeRedeemScript() is not { } hex) return;
+        redeemScriptHex = hex;
+        fileName = null;
+        error = null;
+    }
+
+    public void Dispose() => Shell.RedeemScriptArrived -= OnRedeemScriptArrived;
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {

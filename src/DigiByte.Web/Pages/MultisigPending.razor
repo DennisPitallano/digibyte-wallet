@@ -376,7 +376,12 @@
     // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
     protected override async Task OnParametersSetAsync()
     {
-        if (loadedFor == WalletId) return;
+        if (loadedFor == WalletId)
+        {
+            // Already showing this multisig: the app-wide Scan may have just handed over a proposal for it.
+            if (config is not null && Handoff.Take(WalletId) is { } scanned) await ReceiveProposalText(scanned);
+            return;
+        }
         loadedFor = WalletId;
         isLoading = true;
         config = null;

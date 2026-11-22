@@ -228,8 +228,10 @@ How it stays unconfusing:
 
 - **One Scan.** The centre button and Home's Scan button open the same scanner
   (`Services/ShellActions.cs`), and `Services/ScanRouter.cs` decides where a code goes: a DigiByte
-  address or payment request opens Send, a Digi-ID login opens Digi-ID, and anything else opens
-  nothing and says so. A code is never pasted into Send unless it is a valid address.
+  address or payment request opens Send, a Digi-ID login opens Digi-ID, a multisig proposal opens
+  the multisig it spends from, a redeem script opens Import multisig, this wallet's own room
+  invite opens the room, and anything else opens nothing and says so. A code is never pasted into
+  Send unless it is a valid address, and no other web link is followed.
 - **One More.** The More tab and Home's More button open the same list (`Layout/MoreMenu.cs`).
   Digi-ID and Settings are its first two rows because they used to be tabs. The More tab is drawn
   as the current tab on every page its list leads to, and the list marks the current page.
@@ -268,8 +270,8 @@ fails AA; B and C use slate-600 (7.6:1). Screenshots: `*-7-menu-a-b-c.jpg` and
 Still to follow up after adopting C:
 
 - README screenshots and the videos in `docs/media` still show the old five tabs.
-- The scanner inside Send, Contacts and the multisig pages is still each page's own; only the
-  app-wide Scan uses `ScanRouter`.
+- The scan icon inside Send, Contacts and the multisig pages stays each page's own on purpose: it
+  fills in that page's field. Only the app-wide Scan uses `ScanRouter`.
 - The one-time "moved" tip can be removed a few releases from now.
 
 ## Accessibility checks (measured in the gallery)

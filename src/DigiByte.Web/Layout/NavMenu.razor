@@ -6,6 +6,9 @@
 @inject NotificationService Notifications
 @inject ISecureStorage Storage
 @inject IJSRuntime JS
+@inject MultisigWalletService Multisig
+@inject ActiveWalletContext ActiveWallet
+@inject ProposalHandoff Handoff
 @implements IDisposable
 
 @* The floating menu (variant C in docs/UI_STYLE.md): Wallet, Activity, a raised Scan button, Request, More.
@@ -198,20 +201,46 @@
         SyncDialogFlag();
     }
 
-    private Task OnScannedAsync(string data)
+    private async Task OnScannedAsync(string data)
     {
         showScanner = false;
         SyncDialogFlag();
-        var route = ScanRouter.Route(data);
-        if (route.Url is null)
+        var route = ScanRouter.Route(data, Nav.BaseUri);
+        switch (route.Kind)
         {
-            // Never guess: a code the wallet does not understand opens nothing.
-            Notifications.Warning("That code is not a DigiByte address or a Digi-ID login.");
-            return Task.CompletedTask;
+            case ScanTarget.Payment:
+            case ScanTarget.DigiId:
+            case ScanTarget.RoomInvite:
+                Nav.NavigateTo(route.Url!);
+                break;
+
+            case ScanTarget.MultisigProposal:
+                // A proposal belongs to one multisig. Find which of this wallet's multisigs it spends from and hand it
+                // over in memory; that page checks it and adds it, exactly as if it had been scanned there.
+                var match = await Multisig.FindWalletForProposalAsync(route.Payload!, ActiveWallet.WalletId, ActiveWallet.PublicKey, "");
+                if (match is null)
+                {
+                    Notifications.Warning("That proposal is for a multisig that isn't on this device.");
+                    break;
+                }
+                Handoff.Set(match.WalletId, route.Payload!);
+                // The counter makes the address new each time, so a page that is already open looks again.
+                Nav.NavigateTo($"/multisig/{Uri.EscapeDataString(match.WalletId)}/pending?scanned={++scanCount}");
+                break;
+
+            case ScanTarget.MultisigRedeemScript:
+                Shell.OfferRedeemScript(route.Payload!);
+                Nav.NavigateTo("/multisig/import");
+                break;
+
+            default:
+                // Never guess: a code the wallet does not understand opens nothing.
+                Notifications.Warning("This wallet can't open that code. Scan a DigiByte address, a payment request, a Digi-ID login or a multisig code.");
+                break;
         }
-        Nav.NavigateTo(route.Url);
-        return Task.CompletedTask;
     }
+
+    private int scanCount;
 
     // ----- More -----
 
