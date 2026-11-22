@@ -647,12 +647,57 @@ body:has(.modal-overlay) nav {
     background-size: cover;
     background-position: center;
 }
-.wallet-tex-smooth { display: none; }
+/* Smooth (the default): a glossy card in the wallet's colour. A lit corner, a dark opposite corner, a hard
+   gloss band and fine diagonal lines, like the printed surface of a payment card. */
+.wallet-tex-smooth {
+    background-image:
+        linear-gradient(115deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0) 30.5%),
+        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 1px, rgba(255, 255, 255, 0) 1px 7px),
+        radial-gradient(110% 90% at 100% 0%, color-mix(in srgb, var(--wc) 60%, #ffffff) 0%, rgba(255, 255, 255, 0) 55%),
+        radial-gradient(90% 80% at 0% 100%, rgba(0, 0, 0, 0.40), rgba(0, 0, 0, 0) 60%),
+        linear-gradient(150deg, color-mix(in srgb, var(--wc) 80%, #06122a), color-mix(in srgb, var(--wc) 36%, #020b1c));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
 .wallet-tex::after {
     content: "";
     position: absolute;
     border-radius: inherit;
     pointer-events: none;
+}
+
+/* The balance card's shape: card proportions (about 1.75 to 1 at phone width), generous corners, and a shadow
+   tinted with the wallet's colour so the card looks lifted off the page. Its content is a column, so the name and
+   address sit on the bottom edge as they do on a real card. */
+.wallet-card {
+    --wc: #0066FF;
+    display: flex;
+    min-height: 12.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 1.25rem;
+    background: color-mix(in srgb, var(--wc) 60%, #020b1c);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.30),
+        0 14px 28px -14px color-mix(in srgb, var(--wc) 60%, #000000),
+        0 26px 44px -26px rgba(0, 0, 0, 0.55);
+}
+/* Loading placeholders are tinted blue for a white surface; on the coloured card they need to be light. */
+.wallet-card .skeleton { background: rgba(255, 255, 255, 0.18) !important; }
+/* The name on the card: small capitals, spaced out. */
+.wallet-card-name {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.78);
+}
+/* The address, set like an embossed card number: light on top, a dark edge underneath. */
+.wallet-card-number {
+    margin-top: 0.125rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.8125rem;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55), 0 -1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .wallet-card-textured {

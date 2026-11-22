@@ -66,20 +66,17 @@
                          style="transform: translateX(@(i * 10)px) scale(@(1 - i * 0.04)); background: linear-gradient(135deg, @(lc)18, @(lc)08); z-index: @(5 - i);"></div>
                 }
             }
-            @* Balance Card. With a finish chosen, the card becomes that material in the wallet's colour and its text stays light. *@
+            @* Balance Card: a card in the wallet's own colour, in both themes, with light text. "smooth" is a glossy card;
+               the other finishes (leather, cotton, plastic, metal) are set in Manage Wallets. *@
             @{ var cardTexture = WalletInfo.NormalizeTexture(WalletService.ActiveWallet?.Texture); }
-            <div class="@(cardTexture == WalletInfo.DefaultTexture ? "" : "dark wallet-card-textured") relative overflow-hidden rounded-2xl bg-white dark:bg-gradient-to-br dark:from-dgb-900 dark:via-dgb-800 dark:to-dgb-700 border border-dgb-200 dark:border-dgb-700/50 px-5 py-4 text-dgb-900 dark:text-white shadow-lg shadow-gray-200/50 dark:shadow-dgb-900/25"
-                 style="z-index: 10; transform: translateX(@(cardSwipeOffset)px); @(isCardAnimating ? "transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);" : "")">
-                @* Tinted with the wallet's own colour, so multi-wallet users can tell wallets apart at a glance *@
-                <div class="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-2xl" style="background-color: @(WalletService.ActiveWallet?.Color ?? "#0066FF")40;"></div>
-                @* The wallet's chosen finish (leather, cotton, plastic, metal), set in Manage Wallets. "smooth" draws nothing. *@
+            <div class="dark wallet-card wallet-card-textured relative overflow-hidden px-5 py-4"
+                 style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF"); z-index: 10; transform: translateX(@(cardSwipeOffset)px); @(isCardAnimating ? "transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);" : "")">
+                @* The wallet's chosen finish (leather, cotton, plastic, metal), set in Manage Wallets. "smooth" is the plain glossy card. *@
                 <div class="wallet-tex wallet-tex-@cardTexture" style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF");" aria-hidden="true"></div>
-                <div class="absolute left-0 top-4 bottom-4 w-1 rounded-r-full" style="background-color: @(WalletService.ActiveWallet?.Color ?? "#0066FF");"></div>
-                <div class="absolute -bottom-6 -left-6 w-20 h-20 bg-dgb-50/50 dark:bg-dgb-400/10 rounded-full blur-xl"></div>
-                <div class="absolute -bottom-4 -right-4 opacity-[0.08] dark:opacity-[0.10] pointer-events-none">
-                    <SpinningCoin Size="120" />
+                <div class="absolute -bottom-5 -right-5 opacity-[0.14] pointer-events-none" aria-hidden="true">
+                    <SpinningCoin Size="132" />
                 </div>
-                <div class="relative">
+                <div class="relative flex flex-col flex-1 w-full min-w-0">
                     <div class="flex items-center gap-2">
                         <p class="text-xs text-dgb-600 dark:text-dgb-200 font-medium">Total Balance</p>
                         @if (AppState.NetworkMode != "mainnet")
@@ -191,8 +188,11 @@
                     @* Wallet address with copy & QR *@
                     @if (!string.IsNullOrEmpty(receivingAddress))
                     {
-                        <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-dgb-300/30 dark:border-white/10">
-                            <span class="text-[11px] font-mono text-dgb-500/70 dark:text-dgb-300/80 truncate flex-1">@TruncateAddress(receivingAddress)</span>
+                        <div class="flex items-end gap-1.5 mt-auto pt-3">
+                            <div class="flex-1 min-w-0">
+                                <p class="wallet-card-name truncate">@(WalletService.ActiveWallet?.Name ?? "Wallet")</p>
+                                <p class="wallet-card-number truncate">@TruncateAddress(receivingAddress)</p>
+                            </div>
                             <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Copy address" aria-label="Copy address"
                                     @onclick="CopyAddress">
                                 <svg class="w-3.5 h-3.5 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
