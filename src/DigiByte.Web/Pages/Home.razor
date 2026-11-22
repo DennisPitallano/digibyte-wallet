@@ -74,19 +74,20 @@
                  style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF"); z-index: 10; transform: translateX(@(cardSwipeOffset)px); @(isCardAnimating ? "transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);" : "")">
                 @* The wallet's chosen finish (leather, cotton, plastic, metal), set in Manage Wallets. "smooth" is the plain glossy card. *@
                 <div class="wallet-tex wallet-tex-@cardTexture" style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF");" aria-hidden="true"></div>
-                @* The DigiByte mark stamped into the skin, like a maker's mark on a real wallet. Three copies of the same
-                   shape: a light one nudged up-left, a dark one nudged down-right, and the face on top in the skin's
-                   own colour, so only the lit and shaded edges show and the mark reads as raised. *@
-                <svg class="wallet-emboss" viewBox="-14 -14 507.8 507.8" aria-hidden="true">
+                @* The DigiByte mark pressed into the skin (debossed), like a maker's stamp on a real wallet. Three copies
+                   of the same shape: a dark one nudged up-left (the shadow under the upper rim), a light one nudged
+                   down-right (light catching the lower rim), and the face on top, a little darker than the skin, so
+                   the mark reads as sunk in. *@
+                <svg class="wallet-stamp" viewBox="-14 -14 507.8 507.8" aria-hidden="true">
                     <defs>
-                        <g id="wallet-emboss-mark">
+                        <g id="wallet-stamp-mark">
                             <circle cx="239.9" cy="239.9" r="219.5" fill="none" stroke="currentColor" stroke-width="40.8" />
                             <path fill="currentColor" d="M116.9 182.9h155s53.5-.5 16.5 68.5c0 0-27 54-94 53l36.1-92.2a7.3 7.3 0 0 0-6.6-10l-47.5-.8-60 146s20 2 31 1l-6 15h28.3a3.8 3.8 0 0 0 3.6-2.5l5.1-13.5 12-1-7 17H211a5 5 0 0 0 4.7-3.2l7.7-19.8s84-14 122-82c0 0 51-79-9-107a116 116 0 0 0-37-10l7-17.3a3.4 3.4 0 0 0-3.1-4.7h-25.9l-8 21h-11l6.2-16.3a3.5 3.5 0 0 0-3.2-4.7h-26l-8 21h-80.8a12 12 0 0 0-10.6 6.3z" />
                         </g>
                     </defs>
-                    <use href="#wallet-emboss-mark" class="wallet-emboss-lit" transform="translate(-9 -9)" />
-                    <use href="#wallet-emboss-mark" class="wallet-emboss-shade" transform="translate(10 11)" />
-                    <use href="#wallet-emboss-mark" class="wallet-emboss-face" />
+                    <use href="#wallet-stamp-mark" class="wallet-stamp-shade" transform="translate(-9 -9)" />
+                    <use href="#wallet-stamp-mark" class="wallet-stamp-lit" transform="translate(9 10)" />
+                    <use href="#wallet-stamp-mark" class="wallet-stamp-face" />
                 </svg>
                 <div class="relative flex flex-col flex-1 w-full min-w-0">
                     <div class="flex items-center gap-2">
