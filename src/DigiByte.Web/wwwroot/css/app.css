@@ -1115,6 +1115,16 @@ textarea.input { min-height: 96px; resize: vertical; }
 .seed-count button[aria-pressed="true"] { background: var(--ui-primary); color: #fff; }
 .seed-count button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 
+/* ----- No zoom on focus (touch screens) -----
+   iOS Safari zooms the whole page when a focused field's text is under 16px, and does not zoom back. Many fields
+   here are hand-written with 12px or 14px text, so on touch screens every text field is raised to 16px. Fields that
+   are already larger (PIN boxes and the like) are left alone. Mouse-driven screens keep the compact sizes. */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]),
+    textarea:not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]),
+    select:not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]) { font-size: 16px; }
+}
+
 /* ----- QR frame -----
    <div class="qr-frame"><img …><span class="qr-frame-logo">…</span></div>
    Always white, in both themes, so scanners get a clean quiet zone. Keep the logo under
