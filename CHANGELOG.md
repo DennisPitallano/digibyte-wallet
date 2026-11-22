@@ -4,6 +4,14 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-22
+
+Fixes installed apps that showed a broken screen after updating to 0.8.0. No stored wallet data is touched, and nothing needs to be done on the device: the fix arrives the next time the app is opened with a connection, and the app reloads itself once.
+
+### Fixed
+- **Installed apps could not update, and 0.8.0 looked broken on them** — On a phone or computer where the wallet was installed before 0.7.0, opening 0.8.0 could show only huge menu icons on a dark screen. The app's update check compares every file against a list of fingerprints and installs nothing if one differs. Since 0.7.0 the fingerprint for the main page was always out of date, because that page is rewritten at the end of the build, after the list is made. So no update could be installed, and those devices kept the stylesheets and scripts they had saved earlier while the new page code came from the network. 0.8.0 changed both so much that the mix was unusable. The build now refreshes that fingerprint, and both the test run and the release build check every fingerprint against the published files. Security-relevant: this is the app's own file cache only; keys, seeds, PINs and wallet data are stored separately and were not affected. A device in the broken state was running old copies of the wallet's own scripts next to new code, which is the reason this is fixed as a release of its own.
+- **Offline use works again** — The same fault meant a fresh install since 0.7.0 saved no files for offline use at all.
+
 ## [0.8.0] - 2026-11-22
 
 A new menu, one Scan for every kind of code, and a first-payment flow for new wallets, with one shared look across the app. Where things are now: **Digi-ID** and **Settings** are under **More**, **Pay** is called **Request**, and the last step of a send is a slide. No stored wallet data needs upgrading.

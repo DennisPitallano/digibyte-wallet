@@ -1,3 +1,29 @@
+# DigiByte Wallet v0.8.1 - Fix for installed apps after the 0.8.0 update
+
+> Release date: November 2026
+> Live at: https://dgbwallet.app
+> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.8.1
+
+## Short post (~280 chars)
+
+🟦 DigiByte Wallet v0.8.1: if your installed wallet showed a broken screen after updating to 0.8.0, open it once with a connection and it repairs itself. Your wallet, keys and funds were never affected. Offline use works again too.
+
+→ https://dgbwallet.app
+
+---
+
+## Medium post
+
+**A fix for installed apps**
+
+Some installed copies of the wallet showed only large menu icons after 0.8.0. The app's update check had been failing silently since 0.7.0, so those devices kept old stylesheets and scripts while new code arrived from the network, and 0.8.0 changed enough for that mix to break.
+
+0.8.1 fixes the update check. Open the app once with a connection: it downloads the update in the background and reloads itself. Nothing needs to be cleared or reinstalled, and your wallet data, keys and funds were never touched; only the app's own downloaded files were out of step.
+
+Details: [`CHANGELOG.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/CHANGELOG.md)
+
+---
+
 # DigiByte Wallet v0.8.0 - A new menu, one Scan for everything, and a wallet you can snap shut
 
 > Release date: November 2026
