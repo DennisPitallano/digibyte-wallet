@@ -6,6 +6,7 @@
 @inject IBlockchainService Blockchain
 @inject AppState AppState
 @inject NotificationService Notifications
+@inject ISecureStorage Storage
 
 <PageTitle>@(config?.DisplayName ?? "Multisig") — DigiByte Wallet</PageTitle>
 
@@ -185,6 +186,13 @@ else
             config = await MultisigService.GetConfigAsync(WalletId, owner, key);
             if (config != null)
             {
+                // The home shortcut comes back here next time (spec 026, FR-009). Only this shared wallet's id is
+                // saved, per personal wallet, on this device. Failing to save it changes nothing else.
+                if (!string.IsNullOrEmpty(owner))
+                {
+                    try { await Storage.SetAsync(SharedWalletShortcut.StorageKey(owner), WalletId); } catch { }
+                }
+
                 var pending = await MultisigService.GetPendingTransactionsAsync(WalletId);
                 needsMySignature = MultisigWalletService.CountNeedingMySignature(pending, config);
                 _ = LoadPrice();

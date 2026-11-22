@@ -88,9 +88,17 @@
             <span>@T("nav.request", "Request")</span>
         </a>
     }
-    <button type="button" class="nav-float-tab" aria-label="@T("nav.more.aria", "More: Digi-ID, Settings and other tools")" aria-haspopup="dialog"
+    <button type="button" class="nav-float-tab" aria-label="@MoreLabel" aria-haspopup="dialog"
             aria-expanded="@(showMore ? "true" : "false")" aria-current="@Current(MoreIndex)" data-testid="nav-more" @onclick="OpenMore">
-        <span class="nav-float-icon">@Icon("more", ActiveIndex == MoreIndex)</span>
+        <span class="nav-float-icon">
+            @Icon("more", ActiveIndex == MoreIndex)
+            @* Multisig lives under More, so a waiting payment shows here from every personal screen (FR-010a).
+               Inside a shared wallet the Pending tab carries that wallet's own count instead. *@
+            @if (!Shared && NeedsYouTotal > 0)
+            {
+                <span class="nav-badge-count" aria-hidden="true" data-testid="nav-more-count">@CountBadge.Text(NeedsYouTotal)</span>
+            }
+        </span>
         <span>@T("nav.more", "More")</span>
     </button>
 
@@ -137,7 +145,14 @@
                             </svg>
                         </span>
                         <span class="flex-1 min-w-0 text-left">
-                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@T($"more.item.{item.Href}.label", item.Label)</span>
+                            <span class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                                @T($"more.item.{item.Href}.label", item.Label)
+                                @if (item.Href == "multisig" && NeedsYouTotal > 0)
+                                {
+                                    <span class="min-w-[20px] text-center text-[11px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded-full" data-testid="more-multisig-count"
+                                          aria-label="@NeedsYouText(NeedsYouTotal)">@CountBadge.Text(NeedsYouTotal)</span>
+                                }
+                            </span>
                             <span class="block text-xs text-slate-600 dark:text-slate-400">@(blocked ? T("more.watch_only", "Not available for watch-only wallets") : T($"more.item.{item.Href}.desc", item.Description))</span>
                         </span>
                         <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -191,6 +206,22 @@
     private string NavLabel => Shared
         ? string.Format(T("nav.shared.label", "{0} shared wallet navigation"), sharedConfig!.DisplayName)
         : T("nav.label", "Main navigation");
+
+    // Every multisig payment that needs the person, across the active wallet's shared wallets.
+    private int NeedsYouTotal => Attention.Current.NeedsYouTotal;
+
+    private string NeedsYouText(int count) => count == 1
+        ? T("nav.count.more.one", "1 multisig payment needs you")
+        : string.Format(T("nav.count.more.other", "{0} multisig payments need you"), CountBadge.Text(count));
+
+    private string MoreLabel
+    {
+        get
+        {
+            var label = T("nav.more.aria", "More: Digi-ID, Settings and other tools");
+            return !Shared && NeedsYouTotal > 0 ? $"{label}. {NeedsYouText(NeedsYouTotal)}" : label;
+        }
+    }
 
     private string PendingLabel(int needsYou)
     {

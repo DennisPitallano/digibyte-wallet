@@ -371,6 +371,8 @@
   "nav.pending.aria": "Pending payments of this shared wallet",
   "nav.count.pending.one": "1 payment needs you",
   "nav.count.pending.other": "{0} payments need you",
+  "nav.count.more.one": "1 multisig payment needs you",
+  "nav.count.more.other": "{0} multisig payments need you",
   "nav.shared.activity.aria": "Activity of this shared wallet",
   "nav.shared.label": "{0} shared wallet navigation",
   "nav.shared.switch": "{0}, {1}. Switch wallet",

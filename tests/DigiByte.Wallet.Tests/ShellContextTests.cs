@@ -119,7 +119,7 @@ public class SharedMenuTextTests
     private static readonly string[] Keys =
     [
         "nav.overview", "nav.overview.aria", "nav.pending", "nav.pending.aria",
-        "nav.count.pending.one", "nav.count.pending.other",
+        "nav.count.pending.one", "nav.count.pending.other", "nav.count.more.one", "nav.count.more.other",
         "nav.shared.activity.aria", "nav.shared.label", "nav.shared.switch", "scan.leaving_shared",
     ];
 

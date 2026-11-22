@@ -1,0 +1,26 @@
+@* The number of multisig payments that need the person, across the active wallet's shared wallets, as a small bubble
+   (specs/026-multisig-wallet-experience, FR-009 and FR-010a). It reads the one shared count, so every place that
+   shows it agrees, and it follows changes by itself. Shows nothing at zero. The parent supplies the words for
+   assistive technology, since the bubble sits on a control that has its own label. *@
+@inject MultisigAttentionState Attention
+@implements IDisposable
+
+@if (Attention.Current.NeedsYouTotal > 0)
+{
+    <span class="@Class" aria-hidden="true" data-testid="@TestId">@CountBadge.Text(Attention.Current.NeedsYouTotal)</span>
+}
+
+@code {
+    [Parameter] public string Class { get; set; } = "nav-badge-count";
+    [Parameter] public string? TestId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Attention.Changed += OnChanged;
+        _ = Attention.EnsureLoadedAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Attention.Changed -= OnChanged;
+}

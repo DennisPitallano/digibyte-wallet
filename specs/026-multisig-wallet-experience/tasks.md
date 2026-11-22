@@ -198,15 +198,15 @@ description: "Task list for the multisig wallet experience (list, navigation, pe
 
 ### Tests for User Story 5 (write first, must fail)
 
-- [ ] T077 [P] [US5] Add failing tests for `SharedWalletShortcut.Target(lastUsedId, availableIds)` in tests/DigiByte.Wallet.Tests/MultisigUxShortcutTests.cs: last used when it is in `availableIds`; the single id when there is exactly one and no valid last used; null (open the list) for none, for several without a valid last used, and for a last-used id that is no longer available with several others
+- [X] T077 [P] [US5] Add failing tests for `SharedWalletShortcut.Target(lastUsedId, availableIds)` in tests/DigiByte.Wallet.Tests/MultisigUxShortcutTests.cs: last used when it is in `availableIds`; the single id when there is exactly one and no valid last used; null (open the list) for none, for several without a valid last used, and for a last-used id that is no longer available with several others
 
 ### Implementation for User Story 5
 
-- [ ] T078 [P] [US5] Implement `SharedWalletShortcut` in src/DigiByte.Wallet/Services/SharedWalletShortcut.cs so T077 passes
-- [ ] T079 [P] [US5] Add English and Spanish text for `nav.count.more` ("{0} multisig payments need you", with a singular form) and `more.item.multisig.count` to src/DigiByte.Web/wwwroot/locales/en.json and src/DigiByte.Web/wwwroot/locales/es.json
-- [ ] T080 [US5] In src/DigiByte.Web/Layout/NavMenu.razor show `CountBadge.Text(MultisigAttentionState.Current NeedsYou total)` on the More tab in personal mode (`data-testid="nav-more-count"`, count in the tab's `aria-label`) and on the Multisig row inside the More list; no count in shared mode (FR-010a)
-- [ ] T081 [US5] Record the last-used shared wallet: when src/DigiByte.Web/Pages/MultisigDetail.razor loads a config, write its id to `pref:multisigLastUsed:{personalWalletId}` through `ISecureStorage`, ignoring storage failures
-- [ ] T082 [US5] In src/DigiByte.Web/Pages/Home.razor show the `NeedsYou` total on the Multisig shortcut tile and make `OnMultisig` read the last-used id, list the active wallet's shared wallets, and navigate to `SharedWalletShortcut.Target(...)` or to `/multisig` when it returns null; More → Multisig keeps going to `/multisig`
+- [X] T078 [P] [US5] Implement `SharedWalletShortcut` in src/DigiByte.Wallet/Services/SharedWalletShortcut.cs so T077 passes
+- [X] T079 [P] [US5] Add English and Spanish text for `nav.count.more` ("{0} multisig payments need you", with a singular form) and `more.item.multisig.count` to src/DigiByte.Web/wwwroot/locales/en.json and src/DigiByte.Web/wwwroot/locales/es.json
+- [X] T080 [US5] In src/DigiByte.Web/Layout/NavMenu.razor show `CountBadge.Text(MultisigAttentionState.Current NeedsYou total)` on the More tab in personal mode (`data-testid="nav-more-count"`, count in the tab's `aria-label`) and on the Multisig row inside the More list; no count in shared mode (FR-010a)
+- [X] T081 [US5] Record the last-used shared wallet: when src/DigiByte.Web/Pages/MultisigDetail.razor loads a config, write its id to `pref:multisigLastUsed:{personalWalletId}` through `ISecureStorage`, ignoring storage failures
+- [X] T082 [US5] In src/DigiByte.Web/Pages/Home.razor show the `NeedsYou` total on the Multisig shortcut tile and make `OnMultisig` read the last-used id, list the active wallet's shared wallets, and navigate to `SharedWalletShortcut.Target(...)` or to `/multisig` when it returns null; More → Multisig keeps going to `/multisig`
 - [ ] T083 [US5] Run quickstart section 5 in the preview, including signing a waiting payment and watching every count drop without a reload; fix what it finds
 
 **Checkpoint**: All five stories work
