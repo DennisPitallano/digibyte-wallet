@@ -273,7 +273,7 @@
             @if (quickContacts.Count > 0 && !isWatchOnly)
             {
                 <div class="mt-2 flex items-center gap-3">
-                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider leading-tight shrink-0">Quick<br />send</h3>
+                    <h3 class="section-label leading-tight shrink-0">Quick<br />send</h3>
                     <div class="flex-1 min-w-0 flex gap-3 overflow-x-auto thin-scrollbar">
                         @foreach (var c in quickContacts)
                         {
@@ -309,7 +309,7 @@
             @* Transaction Header *@
             <div class="flex items-center justify-between mt-2 mb-2">
                 <div class="flex items-center gap-1.5">
-                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Transactions</h3>
+                    <h3 class="section-label">Transactions</h3>
                     @if (transactions.Count > 0)
                     {
                         <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500">(@transactions.Count)</span>
@@ -407,7 +407,7 @@
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-3"
                  @onclick:stopPropagation="true">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">Wallet Info</h3>
+                    <h3 class="block-title block-title-sm">Wallet Info</h3>
                     <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
                             @onclick="() => showWalletInfo = false">
                         <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -468,7 +468,7 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="() => showAddressQr = false">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col items-center gap-3"
                  @onclick:stopPropagation="true">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Your Receiving Address</h3>
+                <h3 class="block-title block-title-sm">Your Receiving Address</h3>
                 @if (!string.IsNullOrEmpty(addressQrDataUri))
                 {
                     <div class="qr-frame">

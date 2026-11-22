@@ -63,8 +63,8 @@
         <div class="more-sheet sheet-enter" @onclick:stopPropagation="true">
             <div class="more-sheet-grip" aria-hidden="true"></div>
             <div class="flex items-center justify-between px-5 pb-3">
-                <h3 id="more-sheet-title" class="text-base font-bold text-slate-900 dark:text-white">@T("more.title", "More")</h3>
-                <button type="button" class="w-11 h-11 -mr-2 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
+                <h3 id="more-sheet-title" class="block-title">@T("more.title", "More")</h3>
+                <button type="button" class="icon-btn -mr-2"
                         aria-label="@T("more.close", "Close")" @onclick="CloseMoreAsync">
                     <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />

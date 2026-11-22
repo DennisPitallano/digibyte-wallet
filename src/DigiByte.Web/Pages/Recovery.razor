@@ -220,11 +220,11 @@
     <div class="@(isHdWallet ? "slide-up-delay-2" : "slide-up-delay-1") bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
         @* Input type tabs *@
         <div class="flex gap-2 mb-3">
-            <button class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all @(inputMode == InputMode.Mnemonic ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dgb-700")"
+            <button class="choice" aria-pressed="@(inputMode == InputMode.Mnemonic ? "true" : "false")"
                     @onclick="() => SwitchMode(InputMode.Mnemonic)">
                 Seed Phrase
             </button>
-            <button class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all @(inputMode == InputMode.Wif ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dgb-700")"
+            <button class="choice" aria-pressed="@(inputMode == InputMode.Wif ? "true" : "false")"
                     @onclick="() => SwitchMode(InputMode.Wif)">
                 Private Key (WIF)
             </button>

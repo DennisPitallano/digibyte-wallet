@@ -20,7 +20,7 @@
     @if (step == Step.Configure)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Create Multisig Wallet</h2>
+            <h2 class="page-title">Create Multisig Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Set up a wallet that requires multiple signatures to spend.</p>
         </div>
 
@@ -88,7 +88,7 @@
     else if (step == Step.AddSigners)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Add Co-Signers</h2>
+            <h2 class="page-title">Add Co-Signers</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Add the public keys of each co-signer. Your key is added automatically.
             </p>
@@ -200,7 +200,7 @@
     else if (step == Step.Review)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Review & Create</h2>
+            <h2 class="page-title">Review & Create</h2>
         </div>
 
         <div class="card slide-up-delay-1 p-4">
@@ -271,7 +271,7 @@
             <div class="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
                 <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
             </div>
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Wallet created</h2>
+            <h2 class="page-title">Wallet created</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">@createdConfig.Label · @createdConfig.Address.Substring(0, Math.Min(12, createdConfig.Address.Length))…</p>
         </div>
 

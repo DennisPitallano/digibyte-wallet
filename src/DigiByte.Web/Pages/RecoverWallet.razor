@@ -29,7 +29,7 @@
     @if (step == Step.NameWallet)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Name Your Wallet</h2>
+            <h2 class="page-title">Name Your Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
         </div>
 
@@ -71,24 +71,24 @@
     {
         <BakuMessage MessageId="recover.intro" />
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Recover Your Wallet</h2>
+            <h2 class="page-title">Recover Your Wallet</h2>
         </div>
 
         @* Recovery method toggle *@
-        <div class="slide-up-delay-1 flex bg-slate-100 dark:bg-dgb-900 rounded-xl p-1 gap-0.5">
-            <button class="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 @(!isPrivateKeyMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+        <div class="segmented slide-up-delay-1">
+            <button class="segmented-item flex-1" aria-pressed="@(!isPrivateKeyMode ? "true" : "false")"
                     @onclick="() => isPrivateKeyMode = false">Recovery Phrase</button>
-            <button class="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 @(isPrivateKeyMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+            <button class="segmented-item flex-1" aria-pressed="@(isPrivateKeyMode ? "true" : "false")"
                     @onclick="() => isPrivateKeyMode = true">Private Key</button>
         </div>
 
         @if (!isPrivateKeyMode)
         {
             @* Mnemonic input mode toggle *@
-            <div class="flex bg-slate-100 dark:bg-dgb-900 rounded-xl p-1 gap-0.5 slide-up-delay-1">
-                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(!wordByWordMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+            <div class="segmented slide-up-delay-1">
+                <button class="segmented-item flex-1" aria-pressed="@(!wordByWordMode ? "true" : "false")"
                         @onclick="() => SwitchInputMode(false)">Paste All</button>
-                <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 @(wordByWordMode ? "bg-white dark:bg-dgb-800 text-dgb-500 shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                <button class="segmented-item flex-1" aria-pressed="@(wordByWordMode ? "true" : "false")"
                         @onclick="() => SwitchInputMode(true)">Word by Word</button>
             </div>
 
@@ -266,7 +266,7 @@
     else if (step == Step.SetPin)
     {
         <div class="slide-up text-center">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Set Your PIN</h2>
+            <h2 class="page-title">Set Your PIN</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
         </div>
 

@@ -16,7 +16,7 @@
     }
     else
     {
-        <div class="flex rounded-xl bg-slate-100 dark:bg-dgb-800 p-1 text-sm font-semibold" role="tablist">
+        <div class="segmented" role="tablist">
             <button type="button" role="tab" aria-selected="@(!removing)" class="flex-1 py-1.5 rounded-lg @(!removing ? "bg-white dark:bg-dgb-900 shadow text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400")" @onclick="() => SetMode(false)">Add me</button>
             <button type="button" role="tab" aria-selected="@removing" class="flex-1 py-1.5 rounded-lg @(removing ? "bg-white dark:bg-dgb-900 shadow text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400")" @onclick="() => SetMode(true)">Remove me</button>
         </div>

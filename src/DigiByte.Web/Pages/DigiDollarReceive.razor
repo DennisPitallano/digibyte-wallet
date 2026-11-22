@@ -73,7 +73,7 @@
             @if (addresses.Count > 1)
             {
                 <div class="w-full">
-                    <h3 class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">@L.T("dd.receive.yours")</h3>
+                    <h3 class="section-label mb-2">@L.T("dd.receive.yours")</h3>
                     <ul class="flex flex-col divide-y divide-slate-100 dark:divide-dgb-800 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800">
                         @foreach (var a in addresses.OrderByDescending(a => a.Index))
                         {

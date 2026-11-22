@@ -17,7 +17,7 @@
 <section id="recover-funds" aria-labelledby="recover-heading"
          class="flex flex-col gap-3 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200 dark:border-dgb-800 p-4 scroll-mt-4">
     <div>
-        <h3 id="recover-heading" class="text-sm font-bold text-slate-900 dark:text-white">@L.T("identity.recover.title")</h3>
+        <h3 id="recover-heading" class="block-title block-title-sm">@L.T("identity.recover.title")</h3>
         <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">@L.T("identity.recover.intro")</p>
     </div>
 
@@ -114,7 +114,7 @@
         {
             @* Review: every figure is shown before anything is sent, and nothing is sent until the user confirms. *@
             <div class="flex flex-col gap-2 p-3 rounded-xl border border-dgb-300 dark:border-dgb-700 bg-dgb-50/40 dark:bg-dgb-800/20" role="group" aria-labelledby="recover-review-heading">
-                <h4 id="recover-review-heading" class="text-sm font-bold text-slate-900 dark:text-white">@L.T("identity.recover.review.title")</h4>
+                <h4 id="recover-review-heading" class="block-title block-title-sm">@L.T("identity.recover.review.title")</h4>
 
                 @if (plan.Items.Count == 0)
                 {
@@ -198,7 +198,7 @@
 
                 @if (FundsFindings.Count > 0)
                 {
-                    <h4 class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.found")</h4>
+                    <h4 class="section-label">@L.T("identity.recover.found")</h4>
                     <ul class="flex flex-col gap-1.5">
                         @foreach (var f in FundsFindings)
                         {
@@ -272,7 +272,7 @@
 
                 @if (FailedFindings.Count > 0 && !findings.All(f => f.Outcome == DigiIdFundOutcome.CouldNotCheck))
                 {
-                    <h4 class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">@L.T("identity.recover.couldNotCheck")</h4>
+                    <h4 class="section-label mt-1">@L.T("identity.recover.couldNotCheck")</h4>
                     <ul class="flex flex-col gap-1">
                         @foreach (var f in FailedFindings)
                         {
@@ -296,7 +296,7 @@
         {
             <div class="flex flex-col gap-2" role="region" aria-labelledby="recover-status-heading">
                 <div class="flex items-center justify-between gap-2">
-                    <h4 id="recover-status-heading" class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.recover.status.title")</h4>
+                    <h4 id="recover-status-heading" class="section-label">@L.T("identity.recover.status.title")</h4>
                     <button type="button" @onclick="RefreshAsync" disabled="@refreshing"
                             class="text-[11px] font-semibold text-dgb-500 hover:underline disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 rounded">@L.T("identity.recover.status.refresh")</button>
                 </div>

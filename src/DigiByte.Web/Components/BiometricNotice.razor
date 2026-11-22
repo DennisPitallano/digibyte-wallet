@@ -9,7 +9,7 @@
          @onclick:stopPropagation="true">
         @if (Mode == NoticeMode.Upgrade)
         {
-            <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.upgrade.title")</h3>
+            <h3 class="block-title block-title-lg text-center">@L.T("biometric.upgrade.title")</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.upgrade.body")</p>
             @if (Error is not null)
             {
@@ -26,7 +26,7 @@
         }
         else if (Mode == NoticeMode.Consent)
         {
-            <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.weak.title")</h3>
+            <h3 class="block-title block-title-lg text-center">@L.T("biometric.weak.title")</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.weak.body")</p>
             <div class="flex flex-col gap-2 w-full mt-2">
                 <button class="btn-primary w-full"
@@ -37,7 +37,7 @@
         }
         else
         {
-            <h3 class="text-lg font-bold text-slate-900 dark:text-white text-center">@L.T("biometric.weak.title")</h3>
+            <h3 class="block-title block-title-lg text-center">@L.T("biometric.weak.title")</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">@L.T("biometric.weak.body")</p>
             <button class="btn-primary w-full mt-2"
                     data-testid="biometric-notice-ok" @onclick="() => OnPrimary.InvokeAsync()">@L.T("biometric.weak.ok")</button>

@@ -15,7 +15,7 @@
     </button>
 
     <div class="slide-up">
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Spending Limits</h2>
+        <h2 class="page-title">Spending Limits</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Set daily, weekly, and monthly limits for
             @if (WalletService.ActiveWallet is { } w)
@@ -129,7 +129,7 @@
                         @foreach (var pct in new[] { 60, 70, 80, 90 })
                         {
                             var p = pct;
-                            <button class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all @(settings.AlertThresholdPercent == p ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dgb-700")"
+                            <button class="choice" aria-pressed="@(settings.AlertThresholdPercent == p ? "true" : "false")"
                                     @onclick="() => SetThreshold(p)">@p%</button>
                         }
                     </div>

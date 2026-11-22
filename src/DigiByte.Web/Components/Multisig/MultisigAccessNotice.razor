@@ -3,19 +3,19 @@
     @switch (State)
     {
         case MultisigAccessState.OtherWallet:
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">This multisig belongs to another wallet</h2>
+            <h2 class="block-title block-title-lg">This multisig belongs to another wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">
                 Switch to the wallet that owns it to open it. Multisigs are kept separate for each wallet on this device.
             </p>
             break;
         case MultisigAccessState.Unassigned:
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">This multisig isn't assigned to a wallet yet</h2>
+            <h2 class="block-title block-title-lg">This multisig isn't assigned to a wallet yet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">
                 Go to Multisig Wallets to claim it for the wallet you're using.
             </p>
             break;
         default:
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Multisig not found</h2>
+            <h2 class="block-title block-title-lg">Multisig not found</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">It may have been deleted from this device.</p>
             break;
     }

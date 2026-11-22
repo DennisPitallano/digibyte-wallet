@@ -12,7 +12,7 @@
 
     <div class="slide-up">
         <div class="flex items-center justify-between gap-3">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Sponsors</h2>
+            <h2 class="page-title">Sponsors</h2>
             <button class="flex items-center gap-1.5 text-xs font-semibold text-dgb-600 dark:text-dgb-400 hover:underline disabled:opacity-50" @onclick="RefreshAsync" disabled="@loading" aria-label="Refresh the sponsors list">
                 <svg class="w-4 h-4 @(loading ? "animate-spin" : "")" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356M2.985 19.644v-4.992h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
                 Refresh
@@ -85,7 +85,7 @@
             </div>
         </div>
 
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 -mb-1">All sponsors</h3>
+        <h3 class="section-label -mb-1">All sponsors</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             @foreach (var sponsor in list.Entries.Take(visibleCount))
             {
@@ -121,7 +121,7 @@
 
     @* Where donations go: plain words, no amounts or percentages *@
     <div class="card p-5 flex flex-col gap-3">
-        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Where your donations go</h3>
+        <h3 class="block-title block-title-sm">Where your donations go</h3>
         <ul class="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300">
             <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Hosting.</strong> The wallet app and its API run on cloud hosting that has to be paid for every month.</span></li>
             <li class="flex gap-2.5"><span class="text-dgb-500" aria-hidden="true">●</span><span><strong class="text-slate-900 dark:text-white">Our own DigiByte node.</strong> Running a full node of our own, so the wallet depends less on public services.</span></li>
@@ -136,7 +136,7 @@
 
     @* Join section: ways to give and how to get listed *@
     <div class="card p-5 flex flex-col gap-3">
-        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Support the project</h3>
+        <h3 class="block-title block-title-sm">Support the project</h3>
         <button class="btn-primary btn-sm w-full"
                 @onclick="() => showForm = !showForm" aria-expanded="@showForm">
             @(showForm ? "Hide the form" : "Add me to the list")

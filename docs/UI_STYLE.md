@@ -58,6 +58,44 @@ States:
 `btn-danger` uses red-600 (`#dc2626`), not the red-500 most hand-written danger buttons use
 today: white on red-500 is 3.8:1 and fails AA, white on red-600 is 4.8:1.
 
+## Headings
+
+| Class | Use it for |
+| --- | --- |
+| `page-title` | The one title at the top of a page (`h2`). `PageHeader` uses it. |
+| `block-title` | The title of a card, dialog or section. `block-title-lg` for a dialog or a hero block, `block-title-sm` inside a dense card. |
+| `section-label` | The small capitals above a group of rows ("Security", "Display"). |
+
+Add only layout beside them (`mb-2`, `text-center`, `px-1`). Colour comes from the theme variables.
+
+## Tabs and choices
+
+```razor
+<div class="segmented">
+    <button type="button" class="segmented-item" aria-pressed="@(mode == A ? "true" : "false")" @onclick="…">Recovery phrase</button>
+    <button type="button" class="segmented-item" aria-pressed="@(mode == B ? "true" : "false")" @onclick="…">Private key</button>
+</div>
+
+<button type="button" class="choice" aria-pressed="@(fee == Fast ? "true" : "false")" @onclick="…">Fast</button>
+<button type="button" class="choice choice-pill" aria-pressed="…">Received</button>
+```
+
+- `segmented` switches between views of the same thing. The selected item is a raised tile.
+- `choice` is one of several options (fee speed, PIN or passphrase); `choice-pill` is the rounded
+  form for filters. Selected is filled.
+- State is the text value of `aria-pressed` (`"true"` / `"false"`), which both styles the control
+  and announces it. A bare boolean (`aria-pressed="@flag"`) renders without a value and will not
+  be styled.
+
+## Icon buttons
+
+`icon-btn` is a 44px square holding one icon: a close button or a header action.
+`icon-btn-primary` is the page's add action (the "+" beside a title). `icon-btn-sm` (36px) is only
+for dense rows. Every icon button needs an `aria-label`.
+
+`tools/header-tab-style-rollout.py` applied the headings, tabs, choices and icon buttons, and
+reports what it skips: toggles and icon buttons with a colour or position of their own.
+
 ## Back button
 
 `back-btn` is the one way back at the top of a page: a chevron and a label in a 44px-high pill.

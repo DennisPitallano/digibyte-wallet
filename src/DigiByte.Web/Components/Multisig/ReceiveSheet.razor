@@ -8,7 +8,7 @@
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Receive to multisig" @onclick="Close">
         <div class="scale-in bg-white dark:bg-dgb-900 rounded-3xl border border-slate-200/80 dark:border-dgb-800 shadow-2xl p-6 mx-4 max-w-sm w-full flex flex-col items-center gap-4 max-h-[90vh] overflow-y-auto"
              @onclick:stopPropagation="true">
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Receive DigiByte</h3>
+            <h3 class="block-title block-title-sm">Receive DigiByte</h3>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-2 text-center">Send DGB to this address to add funds to <b>@Name</b>.</p>
 
             <QrImage Payload="@Address" Alt="Multisig address QR code" ShowLogo="true" />

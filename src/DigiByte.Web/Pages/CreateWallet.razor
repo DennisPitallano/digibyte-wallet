@@ -33,7 +33,7 @@
     {
         <BakuMessage MessageId="create.intro" />
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Name Your Wallet</h2>
+            <h2 class="page-title">Name Your Wallet</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
         </div>
 
@@ -75,7 +75,7 @@
     {
         <BakuMessage MessageId="backup.why" />
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Recovery Phrase</h2>
+            <h2 class="page-title">Your Recovery Phrase</h2>
             <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 leading-relaxed bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
                 Write these 24 words down and store them safely. They are the <strong>only</strong> way to recover your wallet.
             </p>
@@ -100,7 +100,7 @@
     else if (step == Step.ConfirmMnemonic)
     {
         <div class="slide-up">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Confirm Recovery Phrase</h2>
+            <h2 class="page-title">Confirm Recovery Phrase</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter word <strong class="text-dgb-500">#@(confirmWordIndex + 1)</strong> from your recovery phrase</p>
         </div>
 
@@ -128,14 +128,14 @@
     {
         <BakuMessage MessageId="backup.done" Class="baku-celebrate" />
         <div class="slide-up text-center">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">@(credKind == CredentialKind.Pin ? "Set Your PIN" : L.T("create.passphrase.title"))</h2>
+            <h2 class="page-title">@(credKind == CredentialKind.Pin ? "Set Your PIN" : L.T("create.passphrase.title"))</h2>
             <div class="flex justify-center gap-2 mt-3" role="group" aria-label="@L.T("create.credential.choose")">
                 <button type="button" data-testid="choose-pin"
-                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all @(credKind == CredentialKind.Pin ? "border-dgb-500 bg-dgb-500/10 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
-                        aria-pressed="@(credKind == CredentialKind.Pin)" @onclick="() => SelectKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
+                        class="choice"
+                        aria-pressed="@(credKind == CredentialKind.Pin ? "true" : "false")" @onclick="() => SelectKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
                 <button type="button" data-testid="choose-passphrase"
-                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all @(credKind == CredentialKind.Passphrase ? "border-dgb-500 bg-dgb-500/10 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
-                        aria-pressed="@(credKind == CredentialKind.Passphrase)" @onclick="() => SelectKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
+                        class="choice"
+                        aria-pressed="@(credKind == CredentialKind.Passphrase ? "true" : "false")" @onclick="() => SelectKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
             </div>
             @if (credKind == CredentialKind.Pin)
             {

@@ -18,7 +18,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
         </div>
-        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Watch-Only Wallet</h2>
+        <h2 class="block-title block-title-lg">Watch-Only Wallet</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[260px]">Consolidation requires a wallet with private keys.</p>
         <button class="btn-primary btn-sm"
                 @onclick='() => Nav.NavigateTo("/")'>Back to Home</button>
@@ -32,7 +32,7 @@ else
             <button type="button" class="back-btn back-btn-icon" @onclick='() => Nav.NavigateTo("/")' aria-label="Back">
                 <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             </button>
-            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Consolidate UTXOs</h2>
+            <h2 class="page-title">Consolidate UTXOs</h2>
         </div>
         @{ var walletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
         <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
@@ -148,7 +148,7 @@ else
                         @foreach (var (label, rate) in feeOptions)
                         {
                             var r = rate;
-                            <button class="flex-1 py-2 text-xs font-semibold rounded-xl transition-all @(selectedFeeRate == r ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
+                            <button class="choice flex-1" aria-pressed="@(selectedFeeRate == r ? "true" : "false")"
                                     @onclick="() => SelectFeeRate(r)" disabled="@isConsolidating">
                                 @label
                             </button>

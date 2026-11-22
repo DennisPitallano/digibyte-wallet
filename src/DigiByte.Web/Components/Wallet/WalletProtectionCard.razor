@@ -48,10 +48,10 @@
             <div class="flex flex-col gap-3 items-center rounded-xl bg-slate-50 dark:bg-dgb-950 p-3" data-testid="protection-form">
                 <div class="flex justify-center gap-2" role="group" aria-label="@L.T("create.credential.choose")">
                     <button type="button" data-testid="change-to-pin"
-                            class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 @(newKind == CredentialKind.Pin ? "border-dgb-500 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                            class="choice" aria-pressed="@(newKind == CredentialKind.Pin ? "true" : "false")"
                             @onclick="() => SelectNewKindAsync(CredentialKind.Pin)">@L.T("create.credential.pin")</button>
                     <button type="button" data-testid="change-to-passphrase"
-                            class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 @(newKind == CredentialKind.Passphrase ? "border-dgb-500 text-dgb-500" : "border-slate-200 dark:border-dgb-800 text-slate-500")"
+                            class="choice" aria-pressed="@(newKind == CredentialKind.Passphrase ? "true" : "false")"
                             @onclick="() => SelectNewKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
                 </div>
                 @if (newKind == CredentialKind.Passphrase)

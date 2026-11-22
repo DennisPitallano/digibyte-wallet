@@ -31,7 +31,7 @@
                     }
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">@(Tx.DigiDollar?.Label ?? (IsSent ? "Sent" : "Received"))</h3>
+                    <h3 class="block-title block-title-lg">@(Tx.DigiDollar?.Label ?? (IsSent ? "Sent" : "Received"))</h3>
                     <p class="text-xs text-slate-400 dark:text-slate-500">@Tx.Timestamp.ToLocalTime().ToString("MMMM d, yyyy h:mm tt")</p>
                 </div>
             </div>
