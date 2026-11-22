@@ -1,26 +1,31 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject AppState AppState
 
+@* "Update available". A new version downloads in the background and then waits (js/pwa-bootstrap.js). Applying it
+   reloads the page, which locks the wallet, so while the wallet is in use the user is asked. On the Welcome and
+   Unlock screens there is nothing to interrupt, so it is applied straight away: an update the user dismissed is
+   picked up the next time the wallet locks or the app is opened. *@
 @if (showBanner)
 {
-    <div class="fixed bottom-20 left-0 right-0 z-50 flex justify-center pointer-events-none slide-up">
-        <div class="pointer-events-auto mx-4 max-w-[460px] w-full flex items-center gap-3 bg-white dark:bg-dgb-900 border border-dgb-400 dark:border-dgb-600 rounded-2xl shadow-xl px-4 py-3">
-            <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-dgb-100 dark:bg-dgb-800 flex-shrink-0">
+    <div class="fixed bottom-24 left-0 right-0 z-50 flex justify-center pointer-events-none slide-up" role="status" aria-live="polite"
+         data-testid="update-banner">
+        <div class="card-raised pointer-events-auto mx-4 max-w-[460px] w-full flex items-center gap-3 px-4 py-3">
+            <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-dgb-100 dark:bg-dgb-800 flex-shrink-0" aria-hidden="true">
                 <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M20.015 4.356v4.992" />
                 </svg>
             </div>
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Update Available</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">A new version is ready to install</p>
+                <p class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Update available</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">Updating reloads the app and locks the wallet.</p>
             </div>
-            <button class="btn-primary btn-sm flex-shrink-0"
-                    @onclick="ApplyUpdate">
+            <button type="button" class="btn-primary btn-sm flex-shrink-0" data-testid="update-apply" @onclick="ApplyUpdateAsync">
                 Update
             </button>
-            <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0 p-1 -mr-1 transition-colors"
-                    @onclick="Dismiss">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <button type="button" class="icon-btn icon-btn-sm flex-shrink-0 -mr-1" aria-label="Not now" @onclick="Dismiss">
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>
             </button>
@@ -30,40 +35,62 @@
 
 @code {
     private bool showBanner;
+    private bool applying;
     private DotNetObjectReference<PwaUpdateBanner>? selfRef;
+
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
         selfRef = DotNetObjectReference.Create(this);
-        await JS.InvokeVoidAsync("pwaUpdate.registerCallback", selfRef);
+        try { await JS.InvokeVoidAsync("pwaUpdate.registerCallback", selfRef); } catch { }
     }
 
+    /// <summary>Called by js/pwa-bootstrap.js when an update has finished downloading and is waiting.</summary>
     [JSInvokable]
     public async Task OnUpdateAvailable()
     {
-        var applied = await JS.InvokeAsync<string?>("sessionStorage.getItem", "pwa-update-applied");
-        if (!string.IsNullOrEmpty(applied)) return;
-
+        if (applying) return;
+        if (UpdateAdvice.ApplyWithoutAsking(CurrentPath, AppState.IsWalletUnlocked))
+        {
+            await ApplyUpdateAsync();
+            return;
+        }
         showBanner = true;
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task ApplyUpdate()
+    // The wallet locked, or the user went back to Welcome: a waiting update can go in now without asking.
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        _ = InvokeAsync(async () =>
+        {
+            if (applying || !UpdateAdvice.ApplyWithoutAsking(CurrentPath, AppState.IsWalletUnlocked)) return;
+            bool ready;
+            try { ready = await JS.InvokeAsync<bool>("pwaUpdate.isReady"); } catch { return; }
+            if (ready) await ApplyUpdateAsync();
+        });
+
+    private string CurrentPath => new Uri(Nav.Uri).AbsolutePath;
+
+    private async Task ApplyUpdateAsync()
     {
+        if (applying) return;
+        applying = true;
         showBanner = false;
-        await JS.InvokeVoidAsync("sessionStorage.setItem", "pwa-update-applied", "1");
-        await JS.InvokeVoidAsync("pwaUpdate.skipWaiting");
+        await InvokeAsync(StateHasChanged);
+        bool applied;
+        try { applied = await JS.InvokeAsync<bool>("pwaUpdate.apply"); } catch { applied = false; }
+        // Nothing was waiting after all (it was applied from another tab, say): stay as we are.
+        if (!applied) applying = false;
     }
 
-    private void Dismiss()
-    {
-        showBanner = false;
-    }
+    private void Dismiss() => showBanner = false;
 
     public ValueTask DisposeAsync()
     {
+        Nav.LocationChanged -= OnLocationChanged;
         selfRef?.Dispose();
         return ValueTask.CompletedTask;
     }

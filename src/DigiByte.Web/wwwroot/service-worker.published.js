@@ -64,8 +64,28 @@ async function onInstall(event) {
         throw new Error('Service worker install incomplete');
     }
 
-    // Force activate — unstick users on old versions
-    self.skipWaiting();
+    // A finished download does not take over a running wallet by itself: taking over reloads the page, which
+    // locks the wallet and loses whatever the user was doing. It waits, the page shows "Update available",
+    // and the user chooses when (or the page applies it while the wallet is locked). It takes over at once
+    // only when there is nothing sound to protect: see shouldTakeOverNow.
+    if (await shouldTakeOverNow()) self.skipWaiting();
+}
+
+// True when no complete copy of the app is in use: nothing has been saved yet (a first install), or the saved
+// copy has no index.html. Versions before 0.7.0 kept a cache even when some downloads had failed; such a cache
+// serves old stylesheets and scripts next to new page code, so replacing it must not wait for anyone's say-so.
+async function shouldTakeOverNow() {
+    try {
+        const others = (await caches.keys()).filter(key => key.startsWith(cacheNamePrefix) && key !== cacheName);
+        if (others.length === 0) return true;
+        for (const key of others) {
+            const old = await caches.open(key);
+            if (!(await old.match('index.html'))) return true;
+        }
+        return false;
+    } catch {
+        return true;
+    }
 }
 
 async function onActivate(event) {

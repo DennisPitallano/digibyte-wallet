@@ -949,24 +949,25 @@
 
         try
         {
-            // Ask the service worker registration to check for a new version
-            var hasUpdate = await JS.InvokeAsync<bool>("pwaCheckForUpdate");
-            if (hasUpdate)
+            // Ask the browser to look for a new version now. The answer says whether one is ready, still
+            // downloading, or absent; only a ready one is applied, so a check with nothing new never reloads.
+            var status = await JS.InvokeAsync<string>("pwaCheckForUpdate");
+            _updateMessage = UpdateAdvice.Message(status);
+            if (status == "ready")
             {
                 _updateFound = true;
-                _updateMessage = "Update found! Reloading...";
                 StateHasChanged();
                 await Task.Delay(1200);
-                await JS.InvokeVoidAsync("pwaApplyUpdate");
-            }
-            else
-            {
-                _updateMessage = "Already up to date ✓";
+                if (!await JS.InvokeAsync<bool>("pwaApplyUpdate"))
+                {
+                    _updateFound = false;
+                    _updateMessage = UpdateAdvice.Message("none");
+                }
             }
         }
         catch
         {
-            _updateMessage = "Could not check — try again";
+            _updateMessage = UpdateAdvice.Message("failed");
         }
         finally
         {
