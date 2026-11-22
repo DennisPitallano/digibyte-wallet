@@ -699,9 +699,10 @@ body:has(.modal-overlay) nav {
     pointer-events: none;
     overflow: visible;
 }
-.wallet-stamp-shade { color: rgba(0, 0, 0, 0.60); }
-.wallet-stamp-lit   { color: rgba(255, 255, 255, 0.30); }
-.wallet-stamp-face  { color: color-mix(in srgb, var(--wc) 50%, #04070d); }
+.wallet-stamp-shade { color: rgba(0, 0, 0, 0.55); }
+.wallet-stamp-lit   { color: rgba(255, 255, 255, 0.26); }
+/* Close to the skin's own tone: the impression is read from its soft rims, not from a dark fill. */
+.wallet-stamp-face  { color: color-mix(in srgb, var(--wc) 58%, #060a12); opacity: 0.92; }
 @media (max-width: 359px) { .wallet-stamp { display: none; } }
 
 /* The strap: a tab of the same material that comes over the right edge and holds the wallet shut. It has its own
