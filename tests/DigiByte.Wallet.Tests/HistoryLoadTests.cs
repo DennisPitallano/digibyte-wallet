@@ -250,6 +250,9 @@ public class HistoryLoadTests
     {
         public bool SummariesFail { get; set; }
         public bool SummariesNotOnThisRoute { get; set; }
+        public Task? HoldHistoryPages { get; set; }
+        private int _historyPageCalls;
+        public int HistoryPageCalls => _historyPageCalls;
 
         private void Check()
         {
@@ -264,10 +267,12 @@ public class HistoryLoadTests
             return inner.GetAddressSummaryAsync(address, recordFailure);
         }
 
-        public Task<AddressHistoryPage> GetAddressHistoryPageAsync(string address, string? afterTxId)
+        public async Task<AddressHistoryPage> GetAddressHistoryPageAsync(string address, string? afterTxId)
         {
             Check();
-            return inner.GetAddressHistoryPageAsync(address, afterTxId);
+            Interlocked.Increment(ref _historyPageCalls);
+            if (HoldHistoryPages is { } hold) await hold;
+            return await inner.GetAddressHistoryPageAsync(address, afterTxId);
         }
 
         public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50) =>
@@ -287,6 +292,12 @@ public class HistoryLoadTests
 
     private static (HistorySyncEnv Env, SummaryChain Chain, WalletService Service) ChangeOnlyEnv()
     {
+        var (env, chain, service, _) = ChangeOnlyEnvWithSync();
+        return (env, chain, service);
+    }
+
+    private static (HistorySyncEnv Env, SummaryChain Chain, WalletService Service, WalletHistorySync Sync) ChangeOnlyEnvWithSync()
+    {
         var env = new HistorySyncEnv();
         var chain = new SummaryChain(env.Explorer);
         var sync = new WalletHistorySync(chain, env.Store, env.Clock) { FullResyncRetryDelay = TimeSpan.FromMinutes(1) };
@@ -294,7 +305,7 @@ public class HistoryLoadTests
             chain, new TransactionTracker(env.Storage), historySync: sync, historyOptions: env.Options);
         service.SetNetworkMode("mainnet");
         service.AddressDiscoveryWait = TimeSpan.FromMinutes(1);
-        return (env, chain, service);
+        return (env, chain, service, sync);
     }
 
     /// <summary>
@@ -349,6 +360,67 @@ public class HistoryLoadTests
 
         Assert.True(load.Complete);
         Assert.Single(load.Transactions);
+    }
+
+    // ── Switching wallets while a load is running ──
+
+    private static string OtherWords() => string.Join(' ', new Mnemonic(Wordlist.English, WordCount.Twelve).Words);
+
+    /// <summary>
+    /// Found on a phone with several wallets: swiping to an empty wallet while the previous one was still loading showed that
+    /// wallet's transactions in the empty one, each as "Received 0". The load named the wallet again after its reads, by which
+    /// time it was the other one, so the first wallet's history was read in full and saved as the second wallet's.
+    /// </summary>
+    [Fact]
+    public async Task SwitchingWalletsDuringALoad_SavesNothingUnderTheOtherWallet()
+    {
+        var (env, chain, service, sync) = ChangeOnlyEnvWithSync();
+        await service.CreateWalletAsync("Empty", OtherWords(), Pin);
+        var emptyId = service.ActiveWallet!.Id;
+        await service.CreateWalletAsync("Funded", env.Words, Pin);
+        env.Explorer.Pay(env.Receive(0), 100_000_000);
+
+        var release = new TaskCompletionSource();
+        chain.HoldHistoryPages = release.Task;
+        var fundedLoad = service.LoadTransactionHistoryAsync();
+        await WaitUntilAsync(() => chain.HistoryPageCalls > 0);
+
+        await service.SwitchWalletAsync(emptyId);
+        chain.HoldHistoryPages = null;
+        release.SetResult();
+        Assert.Single((await fundedLoad).Transactions);
+        if (sync.GetFullResyncTask(emptyId, "mainnet") is { } stray) await stray;
+
+        var emptyLoad = await service.LoadTransactionHistoryAsync();
+
+        Assert.True(emptyLoad.Complete);
+        Assert.Empty(emptyLoad.Transactions);
+        Assert.Empty((await env.Store.LoadHistoryAsync(emptyId, "mainnet")).Transactions);
+    }
+
+    /// <summary>Saved history already holding another wallet's transactions (saved before the fix above) does not show them.</summary>
+    [Fact]
+    public async Task SavedTransactionsThatTouchNoneOfTheWalletsAddresses_AreNotShown()
+    {
+        var (env, _, service) = ChangeOnlyEnv();
+        await service.CreateWalletAsync("Empty", OtherWords(), Pin);
+        var id = service.ActiveWallet!.Id;
+        var foreign = new SavedChainHistory();
+        foreign.Merge(new TransactionInfo
+        {
+            TxId = new string('a', 64),
+            Confirmations = 3,
+            FeeSatoshis = 0,
+            Timestamp = env.Clock.GetUtcNow().UtcDateTime,
+            Inputs = [new TxInput { Address = env.Receive(1), AmountSatoshis = 100_000_000 }],
+            Outputs = [new TxOutput { Address = env.Receive(0), AmountSatoshis = 100_000_000, Index = 0 }],
+        }, 900);
+        await env.Store.SaveHistoryAsync(id, "mainnet", foreign);
+
+        var load = await service.LoadTransactionHistoryAsync();
+
+        Assert.True(load.Complete);
+        Assert.Empty(load.Transactions);
     }
 
     [Fact]
