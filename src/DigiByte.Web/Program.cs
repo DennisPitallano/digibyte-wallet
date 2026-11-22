@@ -101,6 +101,10 @@ builder.Services.AddScoped<MultisigWalletService>(sp =>
     return service;
 });
 builder.Services.AddScoped<DigiByte.Web.Services.ActiveWalletContext>();
+// Shared-wallet menu and counts (specs/026-multisig-wallet-experience): one owner of "payments that need you",
+// and the switch a full-screen page uses to hide the bottom menu.
+builder.Services.AddScoped<DigiByte.Web.Services.MultisigAttentionState>();
+builder.Services.AddScoped<DigiByte.Web.Services.ShellChrome>();
 // One-shot, in-memory hand-off of a scanned proposal to the multisig it belongs to (specs/022-multisig-proposal-scan-import).
 builder.Services.AddScoped<DigiByte.Web.Services.ProposalHandoff>();
 // Online multisig signing rooms (specs/017-multisig-online-signing): connects only when a room is opened or joined.

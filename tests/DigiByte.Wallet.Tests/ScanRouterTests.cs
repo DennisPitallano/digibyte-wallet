@@ -136,6 +136,78 @@ public class ScanRouterTests
         Assert.Equal(ScanTarget.Unknown, ScanRouter.Route(new string('a', 41)).Kind); // odd length
     }
 
+    // ─── Scanning while a shared wallet is open: a payment starts from that shared wallet (spec 026, FR-002a) ───
+
+    [Fact]
+    public void Inside_a_shared_wallet_an_address_opens_that_wallets_Send()
+    {
+        var route = ScanRouter.Route(Address, App, "ms1");
+
+        Assert.Equal(ScanTarget.Payment, route.Kind);
+        Assert.Equal("/multisig/ms1/send?address=" + Address, route.Url);
+    }
+
+    [Fact]
+    public void Inside_a_shared_wallet_a_payment_request_keeps_its_amount()
+    {
+        var route = ScanRouter.Route($"digibyte:{Address}?amount=12.5", App, "ms1");
+
+        Assert.Equal(ScanTarget.Payment, route.Kind);
+        Assert.Equal($"/multisig/ms1/send?address={Address}&amount=12.5", route.Url);
+    }
+
+    [Fact]
+    public void The_amount_is_written_the_same_way_in_every_culture()
+    {
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("es-ES");
+            var route = ScanRouter.Route($"digibyte:{Address}?amount=12.5", App, "ms1");
+            Assert.Equal($"/multisig/ms1/send?address={Address}&amount=12.5", route.Url);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = before;
+        }
+    }
+
+    [Fact]
+    public void The_shared_wallet_id_is_escaped_in_the_address()
+    {
+        var route = ScanRouter.Route(Address, App, "a b/c");
+
+        Assert.Equal("/multisig/a%20b%2Fc/send?address=" + Address, route.Url);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Without_a_shared_wallet_a_payment_opens_the_personal_Send(string? sharedWalletId)
+    {
+        Assert.Equal("/send?address=" + Address, ScanRouter.Route(Address, App, sharedWalletId).Url);
+    }
+
+    [Fact]
+    public void Inside_a_shared_wallet_every_other_code_goes_where_it_always_goes()
+    {
+        var script = "5221" + new string('a', 66) + "21" + new string('b', 66) + "52ae";
+        string?[] codes =
+        [
+            "digiid://example.com/callback?x=abc123",
+            "cHNidP8BAHECAAAAAbcd",
+            script,
+            "https://dgbwallet.app/multisig/sign-room?code=XY98ZT",
+            "https://dgbwallet.app/multisig/room?code=ab12cd",
+            "hello world",
+            null,
+        ];
+
+        foreach (var code in codes)
+            Assert.Equal(ScanRouter.Route(code, App), ScanRouter.Route(code, App, "ms1"));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

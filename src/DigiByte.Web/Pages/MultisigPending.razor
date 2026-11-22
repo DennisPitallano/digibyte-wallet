@@ -13,9 +13,11 @@
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Pending Transactions" Subtitle="@config?.DisplayName" BackLabel="@(config?.DisplayName ?? "Multisig")" BackHref="@($"/multisig/{WalletId}")">
-        <WalletChip />
-    </PageHeader>
+    <PageHeader Title="Pending Transactions" BackLabel="@(config?.DisplayName ?? "Multisig")" BackHref="@($"/multisig/{WalletId}")" />
+    @if (config is not null)
+    {
+        <div class="-mt-2"><SharedWalletContextLine Config="config" /></div>
+    }
 
     @if (isLoading)
     {

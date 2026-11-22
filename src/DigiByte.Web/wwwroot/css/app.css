@@ -1928,3 +1928,110 @@ textarea.input { min-height: 96px; resize: vertical; }
     .nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%); }
     .nav-moved-tip { animation: none; }
 }
+
+/* ----- Shared-wallet mode (specs/026-multisig-wallet-experience) -----
+   Inside a shared wallet the menu keeps its five places but acts on that shared wallet. Three things say so, never
+   colour alone: the name tab on top of the bar, the labels (Overview, Pending), and the context line on the page. */
+
+/* The name tab: sits on the bar's top edge, on the left, clear of the raised Scan button in the middle.
+   It is a button that opens the wallet switcher. */
+.nav-shared-tab {
+    position: absolute;
+    left: 10px;
+    bottom: calc(100% + 6px);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(50% - 40px);
+    min-height: 30px;
+    padding: 4px 12px 4px 10px;
+    border: 1px solid var(--ui-nav-border);
+    border-radius: 9999px;
+    background: var(--ui-nav-bg-solid);
+    background-clip: padding-box;
+    box-shadow: var(--ui-nav-shadow);
+    color: var(--ui-nav-active);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+}
+/* A 44px touch target without making the tab itself taller. */
+.nav-shared-tab::before { content: ""; position: absolute; inset: -7px -4px; }
+.nav-shared-tab svg { flex: none; width: 14px; height: 14px; }
+.nav-shared-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-shared-tab:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .nav-shared-tab {
+        background: var(--ui-nav-bg);
+        background-clip: padding-box;
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        backdrop-filter: blur(24px) saturate(180%);
+    }
+}
+/* Room under the page for the bar plus the name tab above it. */
+.main-with-nav.main-with-shared-nav { padding-bottom: calc(8.5rem + env(safe-area-inset-bottom, 0px)); }
+
+@media (min-width: 1024px) {
+    /* The rail is 76px wide: the tab sits above it and may be wider, growing to the left, away from the page. */
+    .nav-float-live .nav-shared-tab {
+        left: auto;
+        right: 0;
+        bottom: calc(100% + 10px);
+        max-width: 220px;
+    }
+    .main-with-nav.main-with-shared-nav { padding-bottom: 1rem; }
+}
+
+/* The context line on every page of a shared wallet: which shared wallet, and whose it is. One button. */
+.context-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 0 12px 0 10px;
+    border: 1px solid var(--ui-border);
+    border-radius: 9999px;
+    background: var(--ui-surface);
+    color: var(--ui-text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) { .context-line:hover { background: var(--ui-ghost-hover); } }
+.context-line:active { background: var(--ui-ghost-active); }
+.context-line:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.context-line-icon { flex: none; width: 16px; height: 16px; color: var(--ui-ghost-text); }
+/* The two names share whatever room is left, which on a phone is at least 12 characters each (FR-001);
+   the full names are in the switcher. */
+.context-line-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+    color: var(--ui-text);
+}
+.context-line-kind { flex: none; font-weight: 700; color: var(--ui-text); }
+.context-line-scheme {
+    flex: none;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    background: var(--ui-ghost-hover);
+    color: var(--ui-ghost-text);
+    font-size: 11px;
+    font-weight: 700;
+}
+.context-line-in { flex: none; }
+.context-line-dot { flex: none; width: 8px; height: 8px; border-radius: 9999px; }
+.context-line-chevron { flex: none; width: 14px; height: 14px; margin-left: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .context-line { transition: none; }
+}

@@ -65,6 +65,19 @@ public class MultisigWalletService
     public void SetNetworkMode(string mode) => _networkMode = mode;
 
     /// <summary>
+    /// Raised with a multisig's id after its saved proposals changed (one saved, cancelled ones removed, or the
+    /// multisig deleted), so counts shown elsewhere can follow (specs/026-multisig-wallet-experience, FR-010a).
+    /// Not raised by reading. A handler that throws does not undo or fail the change.
+    /// </summary>
+    public event Action<string>? PendingChanged;
+
+    private void RaisePendingChanged(string walletId)
+    {
+        try { PendingChanged?.Invoke(walletId); }
+        catch { /* a listener's failure must never fail a save */ }
+    }
+
+    /// <summary>
     /// When set, the network mode is read from here on every use (the app's current setting), so a switch to testnet
     /// or regtest in Settings applies to multisig addresses and PSBTs too. Otherwise <see cref="SetNetworkMode"/> decides.
     /// </summary>
@@ -833,7 +846,10 @@ public class MultisigWalletService
         var all = await GetPendingTransactionsAsync(walletId);
         var removed = all.RemoveAll(p => p.Status == PendingTxStatus.Cancelled && (pendingId is null || p.Id == pendingId));
         if (removed > 0)
+        {
             await _storage.SetAsync(MultisigPendingPrefix + walletId, JsonSerializer.Serialize(all));
+            RaisePendingChanged(walletId);
+        }
         return removed;
     }
 
@@ -1139,6 +1155,7 @@ public class MultisigWalletService
         await _storage.RemoveAsync(MultisigConfigPrefix + walletId);
         await _storage.RemoveAsync(MultisigPendingPrefix + walletId);
         await RemoveFromWalletListAsync(walletId);
+        RaisePendingChanged(walletId);
     }
 
     private static bool TryNormalizeName(string? name, out string trimmed, out string? error)
@@ -1262,6 +1279,7 @@ public class MultisigWalletService
 
         var json = JsonSerializer.Serialize(all);
         await _storage.SetAsync(MultisigPendingPrefix + pending.WalletId, json);
+        RaisePendingChanged(pending.WalletId);
     }
 
     private async Task AddToWalletListAsync(string walletId, string name, string? ownerWalletId)

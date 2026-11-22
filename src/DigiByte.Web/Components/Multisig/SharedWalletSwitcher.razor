@@ -1,0 +1,121 @@
+@* The way out of a shared wallet, and across to another one (specs/026-multisig-wallet-experience, FR-005).
+   Opened from the context line and from the name tab on the menu. First row: back to the personal wallet. Then the
+   same wallet's other shared wallets, each with its scheme and how many payments need you. Names are shown in full. *@
+@inject MultisigAttentionState Attention
+@inject ActiveWalletContext ActiveWallet
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (IsOpen)
+{
+    <div id="@SheetId" class="more-sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="@TitleId" tabindex="-1"
+         data-testid="shared-wallet-switcher" @onclick="CloseAsync" @onkeydown="OnKeyDown">
+        <div class="more-sheet sheet-enter" @onclick:stopPropagation="true">
+            <div class="more-sheet-grip" aria-hidden="true"></div>
+            <div class="flex items-center justify-between px-5 pb-3">
+                <h3 id="@TitleId" class="block-title">Switch wallet</h3>
+                <button type="button" class="icon-btn -mr-2" aria-label="Close" @onclick="CloseAsync">
+                    <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="more-sheet-list">
+                @* Leaving: always first, always one tap. *@
+                <button type="button" class="more-sheet-row" data-autofocus="true" data-testid="switcher-back" @onclick='() => GoAsync("/")'>
+                    <span class="more-sheet-icon" aria-hidden="true">
+                        <span class="w-3 h-3 rounded-full" style="background-color: @ActiveWallet.WalletColor;"></span>
+                    </span>
+                    <span class="flex-1 min-w-0 text-left">
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white break-words">Back to @ActiveWallet.WalletName</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">Your own wallet: balance, activity and requests</span>
+                    </span>
+                    <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                    </svg>
+                </button>
+
+                @if (Attention.Wallets.Count > 0)
+                {
+                    <p class="section-label px-1 pt-2">Shared wallets in @ActiveWallet.WalletName</p>
+                }
+                @foreach (var entry in Attention.Wallets)
+                {
+                    var wallet = entry;
+                    var here = wallet.Id == CurrentId;
+                    var count = Attention.Current.NeedsYouFor(wallet.Id);
+                    <button type="button" class="more-sheet-row" aria-current="@(here ? "page" : null)" @onclick='() => GoAsync($"/multisig/{Uri.EscapeDataString(wallet.Id)}")'>
+                        <span class="more-sheet-icon" aria-hidden="true">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                            </svg>
+                        </span>
+                        <span class="flex-1 min-w-0 text-left">
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white break-words">@wallet.Name</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">
+                                @(wallet.Config is null ? "Shared wallet" : $"{wallet.Config.RequiredSignatures}-of-{wallet.Config.TotalSigners}")@(here ? " · You are here" : "")@(count > 0 ? (count == 1 ? " · 1 payment needs you" : $" · {CountBadge.Text(count)} payments need you") : "")
+                            </span>
+                        </span>
+                        @if (count > 0)
+                        {
+                            <span class="min-w-[20px] text-center text-[11px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full flex-shrink-0" aria-hidden="true">@CountBadge.Text(count)</span>
+                        }
+                    </button>
+                }
+
+                <button type="button" class="min-h-[44px] mt-1 text-sm font-medium text-dgb-600 dark:text-dgb-300" @onclick='() => GoAsync("/multisig")'>All shared wallets</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+
+    /// <summary>The shared wallet that is open now; its row is marked "You are here".</summary>
+    [Parameter] public string? CurrentId { get; set; }
+
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private readonly string SheetId = "shared-switcher-" + Guid.NewGuid().ToString("N")[..8];
+    private string TitleId => SheetId + "-title";
+    private bool wasOpen;
+
+    protected override void OnInitialized() => Attention.Changed += OnAttentionChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && !wasOpen)
+        {
+            wasOpen = true;
+            _ = Attention.EnsureLoadedAsync();
+            try { await JS.InvokeVoidAsync("domHelpers.trapFocus", SheetId); } catch { }
+        }
+        else if (!IsOpen)
+        {
+            wasOpen = false;
+        }
+    }
+
+    private async Task CloseAsync()
+    {
+        try { await JS.InvokeVoidAsync("domHelpers.releaseFocus", SheetId); } catch { }
+        await OnClosed.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await CloseAsync();
+    }
+
+    private async Task GoAsync(string href)
+    {
+        await CloseAsync();
+        Nav.NavigateTo(href);
+    }
+
+    private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Attention.Changed -= OnAttentionChanged;
+}
