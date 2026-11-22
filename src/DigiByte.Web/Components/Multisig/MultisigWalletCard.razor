@@ -1,0 +1,145 @@
+@* One shared wallet on the list (specs/026-multisig-wallet-experience, FR-012 to FR-014): its name and scheme, its
+   balance, the one most urgent thing about its payments, and two marks that matter before opening it: not backed
+   up, and view only. Every mark is an icon and words, never colour alone. The balance has a fixed height and fills
+   in after the card is shown, so nothing moves when it arrives. *@
+<div class="wallet-card @(Model.NeedsYou > 0 ? "wallet-card-needs-you" : "")" data-testid="multisig-wallet-card">
+    <div class="flex items-start">
+        <button type="button" class="wallet-card-body" aria-label="@OpenLabel" @onclick="() => OnOpen.InvokeAsync(Model.Id)">
+            <span class="flex items-center gap-3 min-w-0">
+                <span class="w-10 h-10 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center shrink-0" aria-hidden="true">
+                    <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                    </svg>
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="flex items-center gap-2 min-w-0">
+                        <span class="text-base font-bold text-slate-900 dark:text-white truncate">@Model.Name</span>
+                        <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold bg-dgb-50 dark:bg-dgb-800 text-dgb-700 dark:text-dgb-200">@Model.RequiredSignatures-of-@Model.TotalSigners</span>
+                    </span>
+                    <span class="block text-xs text-slate-600 dark:text-slate-400">@Model.TotalSigners co-signers</span>
+                </span>
+            </span>
+
+            @* Balance: always the same height, whatever it is showing *@
+            <span class="wallet-card-balance" data-testid="wallet-card-balance" data-state="@BalanceState">
+                @if (HideBalance)
+                {
+                    <span class="text-xl font-extrabold text-slate-900 dark:text-white" aria-label="Balance hidden">••••••</span>
+                    <span class="wallet-card-fiat">Hidden</span>
+                }
+                else if (BalanceLoading)
+                {
+                    <span class="h-6 w-36 skeleton rounded" role="status" aria-label="Loading balance"></span>
+                    <span class="h-3.5 w-20 skeleton rounded mt-1.5" aria-hidden="true"></span>
+                }
+                else if (BalanceSatoshis is { } sats)
+                {
+                    <span class="flex items-baseline gap-1.5">
+                        <span class="text-xl font-extrabold tabular-nums text-slate-900 dark:text-white">@MultisigFormat.Dgb(sats)</span>
+                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">DGB</span>
+                    </span>
+                    <span class="wallet-card-fiat tabular-nums">@(FiatText ?? " ")</span>
+                }
+                else
+                {
+                    <span class="flex items-center gap-1.5 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                        <UxIcon Name="alert" Class="w-4 h-4 shrink-0" />
+                        Balance unavailable
+                    </span>
+                    <span class="wallet-card-fiat">Open the wallet to try again</span>
+                }
+            </span>
+
+            @if (Model.Status.Kind != WalletCardStatusKind.None || Model.NotBackedUp || Model.IsViewOnly)
+            {
+                <span class="flex flex-wrap items-center gap-1.5 mt-3">
+                    @if (Model.Status.Kind != WalletCardStatusKind.None)
+                    {
+                        <span class="wallet-card-mark @StatusClass" data-testid="wallet-card-status">
+                            <UxIcon Name="@StatusIcon" Class="w-3.5 h-3.5 shrink-0" />
+                            @StatusText
+                        </span>
+                    }
+                    @if (Model.NotBackedUp)
+                    {
+                        <span class="wallet-card-mark wallet-card-mark-warn" data-testid="wallet-card-not-backed-up">
+                            <UxIcon Name="alert" Class="w-3.5 h-3.5 shrink-0" />
+                            Not backed up
+                        </span>
+                    }
+                    @if (Model.IsViewOnly)
+                    {
+                        <span class="wallet-card-mark" data-testid="wallet-card-view-only">
+                            <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                            View only
+                        </span>
+                    }
+                </span>
+            }
+        </button>
+
+        <button type="button" class="icon-btn mt-2 mr-1 shrink-0" aria-label="Rename @Model.Name" data-testid="wallet-card-rename" @onclick="() => OnRename.InvokeAsync(Model.Id)">
+            <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public WalletCardModel Model { get; set; } = default!;
+
+    /// <summary>The balance, once it is known. Null while loading and when it could not be fetched.</summary>
+    [Parameter] public long? BalanceSatoshis { get; set; }
+
+    /// <summary>True until the balance call for this wallet has come back, either way.</summary>
+    [Parameter] public bool BalanceLoading { get; set; }
+
+    /// <summary>The app's hide-balance setting.</summary>
+    [Parameter] public bool HideBalance { get; set; }
+
+    /// <summary>The balance in the person's currency, already formatted with its symbol, or null when no price is known.</summary>
+    [Parameter] public string? FiatText { get; set; }
+
+    [Parameter] public EventCallback<string> OnOpen { get; set; }
+    [Parameter] public EventCallback<string> OnRename { get; set; }
+
+    private string BalanceState => HideBalance ? "hidden" : BalanceLoading ? "loading" : BalanceSatoshis is null ? "unavailable" : "shown";
+
+    private string StatusText => Model.Status.Kind switch
+    {
+        WalletCardStatusKind.NeedsSignature => Model.Status.Count == 1 ? "1 payment needs your signature" : $"{Model.Status.Count} payments need your signature",
+        WalletCardStatusKind.ReadyToBroadcast => Model.Status.Count == 1 ? "1 payment ready to broadcast" : $"{Model.Status.Count} payments ready to broadcast",
+        WalletCardStatusKind.FailedBroadcast => Model.Status.Count == 1 ? "1 broadcast failed, retry" : $"{Model.Status.Count} broadcasts failed, retry",
+        WalletCardStatusKind.LiveRoom => "Live room open",
+        WalletCardStatusKind.WaitingForOthers => Model.Status.Count == 1 ? "Waiting for 1 co-signer" : $"Waiting for {Model.Status.Count} co-signers",
+        _ => "",
+    };
+
+    private string StatusIcon => Model.Status.Kind switch
+    {
+        WalletCardStatusKind.NeedsSignature => "pen",
+        WalletCardStatusKind.ReadyToBroadcast => "send",
+        WalletCardStatusKind.FailedBroadcast => "alert",
+        WalletCardStatusKind.LiveRoom => "live",
+        _ => "clock",
+    };
+
+    private string StatusClass => Model.Status.Kind switch
+    {
+        WalletCardStatusKind.NeedsSignature or WalletCardStatusKind.LiveRoom => "wallet-card-mark-action",
+        WalletCardStatusKind.ReadyToBroadcast => "wallet-card-mark-good",
+        WalletCardStatusKind.FailedBroadcast => "wallet-card-mark-warn",
+        _ => "",
+    };
+
+    private string OpenLabel
+    {
+        get
+        {
+            var parts = new List<string> { $"Open {Model.Name}, {Model.RequiredSignatures}-of-{Model.TotalSigners} shared wallet" };
+            if (StatusText.Length > 0) parts.Add(StatusText);
+            if (Model.NotBackedUp) parts.Add("not backed up");
+            if (Model.IsViewOnly) parts.Add("view only");
+            return string.Join(", ", parts);
+        }
+    }
+}

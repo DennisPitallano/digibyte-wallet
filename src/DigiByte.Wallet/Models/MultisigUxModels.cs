@@ -133,6 +133,8 @@ public enum WalletCardStatusKind
     None,
     NeedsSignature,
     ReadyToBroadcast,
+    /// <summary>A broadcast that failed and can be retried.</summary>
+    FailedBroadcast,
     /// <summary>A signing room this device has joined. The wallet cannot know about rooms it is not in.</summary>
     LiveRoom,
     WaitingForOthers,

@@ -2226,3 +2226,54 @@ textarea.input { min-height: 96px; resize: vertical; }
 
 /* With no menu under it, the pinned button keeps clear of the device's system bar by itself. */
 main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px)); }
+
+/* ----- Shared wallet list (specs/026-multisig-wallet-experience) ----- */
+
+/* A shared wallet's card. The body is one button that opens the wallet. One that has something waiting for the
+   viewer gets a stronger edge; its status mark says what is waiting. */
+.wallet-card {
+    border: 1px solid var(--ui-border);
+    border-radius: 1rem;
+    background: var(--ui-surface);
+}
+.wallet-card-needs-you { border-color: var(--ui-focus); }
+.wallet-card-draft { border-style: dashed; }
+.wallet-card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 1rem 0.25rem 1rem 1rem;
+    border-radius: 1rem;
+    text-align: left;
+    cursor: pointer;
+}
+.wallet-card-body:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: -2px; }
+@media (hover: hover) { .wallet-card-body:hover { background: var(--ui-ghost-hover); } }
+/* Always this tall, whether it shows an amount, a placeholder or "unavailable": nothing moves when the balance arrives. */
+.wallet-card-balance {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 3.25rem;
+    margin-top: 0.75rem;
+}
+.wallet-card-fiat { font-size: 0.75rem; line-height: 1.25rem; color: var(--ui-text-muted); }
+/* A mark on the card: always an icon and words. */
+.wallet-card-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    background: var(--ui-ghost-hover);
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+.wallet-card-mark-action { color: var(--ui-ghost-text); }
+.wallet-card-mark-good { background: rgba(22, 163, 74, 0.12); color: #15803d; }
+.dark .wallet-card-mark-good { color: #86efac; }
+.wallet-card-mark-warn { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+.dark .wallet-card-mark-warn { color: #fcd34d; }
