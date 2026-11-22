@@ -16,6 +16,7 @@
 @inject NotificationService Notifications
 @inject FirstReceiveCoordinator FirstReceive
 @inject SoundService Sounds
+@inject ShellActions Shell
 
 <PageTitle>DigiByte Wallet — Self-Custodial DGB Wallet</PageTitle>
 
@@ -260,7 +261,7 @@
                     </div>
                     <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Contacts</span>
                 </button>
-                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="() => showMore = true" aria-haspopup="dialog">
+                <button type="button" class="flex flex-col items-center gap-1 group" @onclick="Shell.OpenMore" aria-haspopup="dialog">
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
                         <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
@@ -401,13 +402,12 @@
         </div>
     </div>
 
-    <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
     <TransactionDetailModal IsOpen="@(selectedTx != null)" Tx="@selectedTx"
         OnClosed="() => selectedTx = null"
         OnAddContact="AddCounterpartyToContacts" />
 
     @* The wallet's first payment, celebrated once. It waits while one of this page's dialogs is open (spec 025, FR-023). *@
-    <FirstReceiveCelebration Blocked="@(showScanner || selectedTx != null || showWalletInfo || showAddressQr || showMore || showWalletPicker)" />
+    <FirstReceiveCelebration Blocked="@(selectedTx != null || showWalletInfo || showAddressQr || showWalletPicker)" />
 
     @* Wallet Info Modal *@
     @if (showWalletInfo)
@@ -500,50 +500,6 @@
         </div>
     }
 
-    @* More actions bottom sheet *@
-    @if (showMore)
-    {
-        <div class="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true" aria-label="More actions" @onclick="() => showMore = false">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-enter"></div>
-            <div class="sheet-enter relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px]" @onclick:stopPropagation="true">
-                <div class="flex justify-center pt-3 pb-1">
-                    <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700"></div>
-                </div>
-                <div class="flex items-center justify-between px-5 pb-3">
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">More</h3>
-                    <button type="button" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
-                            aria-label="Close" @onclick="() => showMore = false">
-                        <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div class="px-4 pb-4 flex flex-col gap-2">
-                    @foreach (var item in MoreActions)
-                    {
-                        var action = item;
-                        var blocked = action.NeedsKeys && isWatchOnly;
-                        <button type="button" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-all text-left press-effect disabled:opacity-40"
-                                disabled="@blocked" @onclick="() => OpenMore(action.Href)">
-                            <div class="w-10 h-10 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
-                                <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="@action.Icon" />
-                                </svg>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white">@action.Label</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">@(blocked ? "Not available for watch-only wallets" : action.Description)</p>
-                            </div>
-                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                            </svg>
-                        </button>
-                    }
-                </div>
-            </div>
-        </div>
-    }
-
     @* Wallet Picker Bottom Sheet *@
     <WalletPickerSheet IsOpen="@showWalletPicker"
                        OnClose="() => showWalletPicker = false"
@@ -596,25 +552,6 @@
     // Getting-started checklist inputs
     private bool checklistReady;
     private bool hasUserContact;
-
-    // More sheet
-    private bool showMore;
-    private sealed record MoreAction(string Label, string Description, string Href, string Icon, bool NeedsKeys = false);
-    private static readonly MoreAction[] MoreActions =
-    [
-        new("Multisig", "Shared wallets that need several signatures", "/multisig",
-            "M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"),
-        new("Consolidate", "Combine small amounts to lower future fees", "/consolidate",
-            "M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125", NeedsKeys: true),
-        new("Analytics", "DGB price and network stats", "/analytics",
-            "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"),
-        new("P2P Exchange", "Buy and sell DGB with other users (coming soon)", "/p2p",
-            "M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"),
-        new("Donate", "Support the wallet and see past donations", "/donation-history",
-            "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"),
-        new("Roadmap", "What is built and what comes next", "/roadmap",
-            "M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"),
-    ];
 
     // Pull-to-refresh state
     private double pullDistance;
@@ -993,13 +930,8 @@
     private void OnSend() => Nav.NavigateTo("/send");
     private void OnReceive() => Nav.NavigateTo("/receive");
     private void OnContacts() => Nav.NavigateTo("/contacts");
-    private void OnScan() { showScanner = true; }
-
-    private void OpenMore(string href)
-    {
-        showMore = false;
-        Nav.NavigateTo(href);
-    }
+    // Scan and More belong to the menu: these buttons open the same scanner and the same list (Layout/NavMenu.razor).
+    private void OnScan() => Shell.OpenScan();
 
     private void ApplyContacts(List<Contact> all)
     {
@@ -1074,24 +1006,6 @@
         }
     }
 
-    private bool showScanner;
-
-    private void OnQrScanned(string data)
-    {
-        showScanner = false;
-        // Parse digibyte: URI and navigate to send with pre-filled data
-        var parsed = DigiByte.Wallet.Models.PaymentRequest.FromUri(data);
-        if (parsed != null)
-        {
-            var url = $"/send?address={Uri.EscapeDataString(parsed.Address)}";
-            if (parsed.AmountDgb.HasValue) url += $"&amount={parsed.AmountDgb.Value}";
-            Nav.NavigateTo(url);
-        }
-        else
-        {
-            Nav.NavigateTo($"/send?address={Uri.EscapeDataString(data.Trim())}");
-        }
-    }
     private void SendToContact(Contact c) =>
         Nav.NavigateTo($"/send?address={Uri.EscapeDataString(c.Address)}&name={Uri.EscapeDataString(c.Name)}");
 

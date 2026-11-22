@@ -1354,6 +1354,102 @@ textarea.input { min-height: 96px; resize: vertical; }
 .nav-float-scan:focus-visible { outline: none; }
 .nav-float-scan:focus-visible .nav-float-scan-disc { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 
+/* More: a sheet from the bottom on phones and tablets, a centred card on desktop. It lists every page that is not a tab. */
+.more-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 8, 20, 0.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: backdrop-in 0.2s ease both;
+}
+.more-sheet {
+    width: 100%;
+    max-width: 480px;
+    max-height: 85dvh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-radius: 1.5rem 1.5rem 0 0;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    box-shadow: var(--ui-shadow-raised);
+}
+.more-sheet-grip { width: 40px; height: 4px; margin: 12px auto 4px; border-radius: 9999px; background: var(--ui-border); }
+.more-sheet-list { display: flex; flex-direction: column; gap: 0.5rem; padding: 0 1rem 1rem; overflow-y: auto; }
+.more-sheet-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 56px;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: transparent;
+    cursor: pointer;
+    transition: border-color var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+@media (hover: hover) { .more-sheet-row:hover { background: var(--ui-ghost-hover); } }
+.more-sheet-row:active { background: var(--ui-ghost-active); }
+.more-sheet-row:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.more-sheet-row:disabled { opacity: 0.5; cursor: not-allowed; }
+.more-sheet-row[aria-current="page"] { border-color: var(--ui-focus); background: var(--ui-ghost-hover); }
+.more-sheet-icon {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: var(--ui-ghost-hover);
+    color: var(--ui-ghost-text);
+}
+@media (min-width: 1024px) {
+    .more-sheet-overlay { align-items: center; }
+    .more-sheet { max-width: 420px; border-radius: 1.5rem; padding-bottom: 0; }
+    .more-sheet-grip { visibility: hidden; margin-bottom: 0; }
+}
+
+/* The one-time "Digi-ID and Settings moved" tip: a bubble above the More tab, with a tail pointing at it. */
+.nav-moved-tip {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 14px);
+    width: min(260px, calc(100vw - 24px));
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.5rem 0.625rem 0.875rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    box-shadow: var(--ui-shadow-raised);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    text-align: left;
+    animation: scale-in var(--motion-slow) var(--ease-out) both;
+}
+.nav-moved-tip p { flex: 1; }
+.nav-moved-tip::after {
+    content: "";
+    position: absolute;
+    right: calc(10% - 6px);
+    bottom: -7px;
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+    background: var(--ui-surface);
+    border-right: 1px solid var(--ui-border);
+    border-bottom: 1px solid var(--ui-border);
+}
+
 /* The live menu: fixed to the viewport, centred in the app column, 12px in from its sides. */
 .nav-float-live {
     position: fixed;
@@ -1390,6 +1486,26 @@ textarea.input { min-height: 96px; resize: vertical; }
         top: calc(14px + var(--nav-index) * 60px + 4px);
         transition: top var(--motion-slow) var(--ease-out);
     }
+    /* In the rail, Scan is one more row: a smaller disc in line with the tabs, not raised above them. */
+    .nav-float-live .nav-float-scan { min-height: 0; justify-content: center; padding: 0; gap: 1px; }
+    .nav-float-live .nav-float-scan-disc {
+        position: static;
+        width: 36px;
+        height: 36px;
+        transform: none;
+        box-shadow: var(--ui-primary-shadow);
+    }
+    .nav-float-live .nav-float-scan-disc svg { width: 20px; height: 20px; }
+    .nav-float-live .nav-float-scan:active .nav-float-scan-disc { transform: scale(0.94); }
+    .nav-float-live .nav-moved-tip { right: auto; left: calc(100% + 14px); bottom: 6px; }
+    .nav-float-live .nav-moved-tip::after {
+        right: auto;
+        left: -7px;
+        bottom: 22px;
+        border: 0;
+        border-left: 1px solid var(--ui-border);
+        border-bottom: 1px solid var(--ui-border);
+    }
     /* Nothing sits over the bottom of the page any more. */
     .main-with-nav { padding-bottom: 1rem; }
 }
@@ -1398,4 +1514,5 @@ textarea.input { min-height: 96px; resize: vertical; }
     .nav-float-pill { transition: none; }
     .nav-float-tab:active .nav-float-icon { transform: none; }
     .nav-float-scan:active .nav-float-scan-disc { transform: translateX(-50%); }
+    .nav-moved-tip { animation: none; }
 }

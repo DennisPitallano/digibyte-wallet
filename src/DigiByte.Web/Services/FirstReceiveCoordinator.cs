@@ -37,6 +37,19 @@ public sealed class FirstReceiveCoordinator(FirstReceiveStore store)
         }
     }
 
+    /// <summary>The menu's scanner or its More list is open, so a celebration must wait (FR-023).</summary>
+    public bool ShellDialogOpen
+    {
+        get => _shellDialogOpen;
+        set
+        {
+            if (_shellDialogOpen == value) return;
+            _shellDialogOpen = value;
+            Changed?.Invoke();
+        }
+    }
+    private bool _shellDialogOpen;
+
     /// <summary>
     /// What a network history load proves. It is judged from that load's own result, never from the wallet service's shared
     /// <see cref="WalletService.LastHistoryIncomplete"/>, which another load running at the same time can overwrite (FR-015).

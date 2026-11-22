@@ -1,90 +1,294 @@
 @inject AppState AppState
 @inject WalletService WalletService
 @inject NavigationManager Nav
+@inject ShellActions Shell
+@inject FirstReceiveCoordinator FirstReceive
+@inject NotificationService Notifications
+@inject ISecureStorage Storage
+@inject IJSRuntime JS
 @implements IDisposable
 
-@* The floating bottom menu (variant B in docs/UI_STYLE.md). Styles: nav-float* in wwwroot/css/app.css.
-   The active tab has a filled icon on a pill tinted with the wallet's colour; the pill slides between tabs. *@
+@* The floating menu (variant C in docs/UI_STYLE.md): Wallet, Activity, a raised Scan button, Request, More.
+   Styles: nav-float* in wwwroot/css/app.css. The active tab has a filled icon on a pill tinted with the wallet's colour.
+   Scan and More are buttons, not pages: Scan opens the one app-wide scanner, More opens the one More list. *@
 <nav class="nav-float nav-float-live" aria-label="Main navigation" style="--nav-accent: @Accent; --nav-index: @Math.Max(ActiveIndex, 0);">
     @* No pill on pages that belong to no tab (Send, Receive and so on). *@
     @if (ActiveIndex >= 0)
     {
         <span class="nav-float-pill" aria-hidden="true"></span>
     }
-    @for (var i = 0; i < Tabs.Length; i++)
+
+    <a class="nav-float-tab" href="" aria-label="Wallet" aria-current="@Current(WalletIndex)">
+        <span class="nav-float-icon">@Icon("wallet", ActiveIndex == WalletIndex)</span>
+        <span>Wallet</span>
+    </a>
+    <a class="nav-float-tab" href="transactions" aria-label="Activity" aria-current="@Current(ActivityIndex)">
+        <span class="nav-float-icon">@Icon("activity", ActiveIndex == ActivityIndex)</span>
+        <span>Activity</span>
+    </a>
+    <button type="button" class="nav-float-scan" aria-label="Scan a QR code to pay or sign in" data-testid="nav-scan" @onclick="OpenScan">
+        <span class="nav-float-scan-disc">@Icon("scan", false)</span>
+        <span>Scan</span>
+    </button>
+    <a class="nav-float-tab" href="payments" aria-label="Request a payment" aria-current="@Current(RequestIndex)">
+        <span class="nav-float-icon">@Icon("pay", ActiveIndex == RequestIndex)</span>
+        <span>Request</span>
+    </a>
+    <button type="button" class="nav-float-tab" aria-label="More: Digi-ID, Settings and other tools" aria-haspopup="dialog"
+            aria-expanded="@(showMore ? "true" : "false")" aria-current="@Current(MoreIndex)" data-testid="nav-more" @onclick="OpenMore">
+        <span class="nav-float-icon">@Icon("more", ActiveIndex == MoreIndex)</span>
+        <span>More</span>
+    </button>
+
+    @* Shown once to people who used the old menu, where Digi-ID and Settings were tabs. *@
+    @if (showMovedTip)
     {
-        var tab = Tabs[i];
-        var isActive = i == ActiveIndex;
-        <a class="nav-float-tab" href="@tab.Href" aria-label="@tab.AriaLabel" aria-current="@(isActive ? "page" : null)">
-            <span class="nav-float-icon">
-                @if (isActive)
-                {
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
-                        @foreach (var d in NavIcons.All[tab.Icon].Solid)
-                        {
-                            <path fill-rule="evenodd" clip-rule="evenodd" d="@d" />
-                        }
-                    </svg>
-                }
-                else
-                {
-                    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                        @foreach (var d in NavIcons.All[tab.Icon].Outline)
-                        {
-                            <path stroke-linecap="round" stroke-linejoin="round" d="@d" />
-                        }
-                    </svg>
-                }
-            </span>
-            <span>@tab.Label</span>
-        </a>
+        <div class="nav-moved-tip" role="status" data-testid="nav-moved-tip">
+            <p><strong>Digi-ID and Settings moved.</strong> They are under More now.</p>
+            <button type="button" class="btn-ghost btn-sm" @onclick="DismissMovedTipAsync">Got it</button>
+        </div>
     }
 </nav>
 
-@code {
-    private record Tab(string Href, string Label, string AriaLabel, string Icon);
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnScannedAsync" OnClosed="CloseScanner" />
 
-    // Same five destinations, order and accessible names as before the restyle.
-    private static readonly Tab[] Tabs =
-    [
-        new("", "Wallet", "Wallet", "wallet"),
-        new("payments", "Pay", "Payments", "pay"),
-        new("transactions", "Activity", "Activity", "activity"),
-        new("identity", "ID", "Identity", "id"),
-        new("settings", "Settings", "Settings", "settings"),
-    ];
+@if (showMore)
+{
+    <div id="@MoreSheetId" class="more-sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="more-sheet-title" tabindex="-1"
+         data-testid="more-sheet" @onclick="CloseMoreAsync" @onkeydown="OnMoreKeyDown">
+        <div class="more-sheet sheet-enter" @onclick:stopPropagation="true">
+            <div class="more-sheet-grip" aria-hidden="true"></div>
+            <div class="flex items-center justify-between px-5 pb-3">
+                <h3 id="more-sheet-title" class="text-base font-bold text-slate-900 dark:text-white">More</h3>
+                <button type="button" class="w-11 h-11 -mr-2 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
+                        aria-label="Close" @onclick="CloseMoreAsync">
+                    <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="more-sheet-list">
+                @foreach (var entry in MoreMenu.Items)
+                {
+                    var item = entry;
+                    var blocked = item.NeedsKeys && IsWatchOnly;
+                    var here = CurrentPath == item.Href || CurrentPath.StartsWith(item.Href + "/", StringComparison.Ordinal);
+                    <button type="button" class="more-sheet-row" disabled="@blocked" aria-current="@(here ? "page" : null)"
+                            data-autofocus="@(item == MoreMenu.Items[0] ? "true" : null)" @onclick="() => GoAsync(item.Href)">
+                        <span class="more-sheet-icon" aria-hidden="true">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="@item.Icon" />
+                            </svg>
+                        </span>
+                        <span class="flex-1 min-w-0 text-left">
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@item.Label</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">@(blocked ? "Not available for watch-only wallets" : item.Description)</span>
+                        </span>
+                        <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Column positions in the bar. Scan sits in the middle column (2) and is never "the current page".
+    private const int WalletIndex = 0, ActivityIndex = 1, RequestIndex = 3, MoreIndex = 4;
+    private const string MoreSheetId = "more-sheet";
+    private const string MovedTipKey = MoreMenu.MovedTipKey;
+
+    private bool showScanner;
+    private bool showMore;
+    private bool focusMore;
+    private bool showMovedTip;
 
     // The pill behind the active tab takes the current wallet's colour.
     private string Accent => WalletService.ActiveWallet?.Color ?? "#0066FF";
+    private bool IsWatchOnly => WalletService.ActiveWallet?.WalletType == "xpub";
+    private string CurrentPath => Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
 
-    // Which tab the current page belongs to, or -1 for none. Wallet matches the home page only;
-    // the others also match their sub-pages (settings/..., identity/...), as NavLink did.
+    // Which tab the current page belongs to, or -1 for none. Wallet matches the home page only; Activity and Request
+    // also match their sub-pages; More matches every page its list leads to.
     private int ActiveIndex
     {
         get
         {
-            var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
-            if (path.Length == 0) return 0;
-            for (var i = 1; i < Tabs.Length; i++)
-            {
-                if (path == Tabs[i].Href || path.StartsWith(Tabs[i].Href + "/", StringComparison.Ordinal)) return i;
-            }
-            return -1;
+            var path = CurrentPath;
+            if (path.Length == 0) return WalletIndex;
+            if (Under(path, "transactions")) return ActivityIndex;
+            if (Under(path, "payments")) return RequestIndex;
+            return MoreMenu.Owns(path) ? MoreIndex : -1;
         }
     }
+
+    private static bool Under(string path, string root) => path == root || path.StartsWith(root + "/", StringComparison.Ordinal);
+    private string? Current(int index) => ActiveIndex == index ? "page" : null;
+
+    private RenderFragment Icon(string name, bool solid) => builder =>
+    {
+        var icon = NavIcons.All[name];
+        if (solid && icon.Solid.Length > 0)
+        {
+            builder.OpenElement(0, "svg");
+            builder.AddAttribute(1, "aria-hidden", "true");
+            builder.AddAttribute(2, "viewBox", "0 0 24 24");
+            builder.AddAttribute(3, "fill", "currentColor");
+            foreach (var d in icon.Solid)
+            {
+                builder.OpenElement(4, "path");
+                builder.AddAttribute(5, "fill-rule", "evenodd");
+                builder.AddAttribute(6, "clip-rule", "evenodd");
+                builder.AddAttribute(7, "d", d);
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+            return;
+        }
+        builder.OpenElement(10, "svg");
+        builder.AddAttribute(11, "aria-hidden", "true");
+        builder.AddAttribute(12, "fill", "none");
+        builder.AddAttribute(13, "viewBox", "0 0 24 24");
+        builder.AddAttribute(14, "stroke-width", "1.8");
+        builder.AddAttribute(15, "stroke", "currentColor");
+        foreach (var d in icon.Outline)
+        {
+            builder.OpenElement(16, "path");
+            builder.AddAttribute(17, "stroke-linecap", "round");
+            builder.AddAttribute(18, "stroke-linejoin", "round");
+            builder.AddAttribute(19, "d", d);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+    };
 
     protected override void OnInitialized()
     {
         AppState.OnChange += OnStateChanged;
         Nav.LocationChanged += OnLocationChanged;
+        Shell.ScanRequested += OnScanRequested;
+        Shell.MoreRequested += OnMoreRequested;
+        FirstReceive.Changed += OnFirstReceiveChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await CheckMovedTipAsync();
+        if (focusMore && showMore)
+        {
+            focusMore = false;
+            try { await JS.InvokeVoidAsync("domHelpers.trapFocus", MoreSheetId); } catch { }
+        }
+    }
+
+    // ----- Scan -----
+
+    private void OpenScan()
+    {
+        showMore = false;
+        showScanner = true;
+        SyncDialogFlag();
+    }
+
+    private void CloseScanner()
+    {
+        showScanner = false;
+        SyncDialogFlag();
+    }
+
+    private Task OnScannedAsync(string data)
+    {
+        showScanner = false;
+        SyncDialogFlag();
+        var route = ScanRouter.Route(data);
+        if (route.Url is null)
+        {
+            // Never guess: a code the wallet does not understand opens nothing.
+            Notifications.Warning("That code is not a DigiByte address or a Digi-ID login.");
+            return Task.CompletedTask;
+        }
+        Nav.NavigateTo(route.Url);
+        return Task.CompletedTask;
+    }
+
+    // ----- More -----
+
+    private void OpenMore()
+    {
+        showMore = true;
+        focusMore = true;
+        if (showMovedTip) _ = DismissMovedTipAsync();
+        SyncDialogFlag();
+    }
+
+    private async Task CloseMoreAsync()
+    {
+        if (!showMore) return;
+        try { await JS.InvokeVoidAsync("domHelpers.releaseFocus", MoreSheetId); } catch { }
+        showMore = false;
+        SyncDialogFlag();
+    }
+
+    private async Task OnMoreKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await CloseMoreAsync();
+    }
+
+    private async Task GoAsync(string href)
+    {
+        await CloseMoreAsync();
+        Nav.NavigateTo(href);
+    }
+
+    // A first-payment celebration waits while Scan or More is open (spec 025, FR-023).
+    private void SyncDialogFlag() => FirstReceive.ShellDialogOpen = showScanner || showMore;
+
+    // ----- The one-time "moved" tip -----
+
+    // Only a device that was in use before needs it: its first session is over. A wallet created on this version
+    // never saw the old tabs, so creating one marks the tip as seen.
+    private async Task CheckMovedTipAsync()
+    {
+        if (showMovedTip || !FirstReceive.FirstSessionEnded) return;
+        try
+        {
+            if (await Storage.GetAsync(MovedTipKey) == "1") return;
+        }
+        catch { return; }
+        showMovedTip = true;
+        StateHasChanged();
+    }
+
+    private async Task DismissMovedTipAsync()
+    {
+        showMovedTip = false;
+        try { await Storage.SetAsync(MovedTipKey, "1"); } catch { }
+        StateHasChanged();
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+    private void OnScanRequested() => InvokeAsync(() => { OpenScan(); StateHasChanged(); });
+    private void OnMoreRequested() => InvokeAsync(() => { OpenMore(); StateHasChanged(); });
+    private void OnFirstReceiveChanged() => InvokeAsync(CheckMovedTipAsync);
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        InvokeAsync(() =>
+        {
+            // Any navigation closes the list (a link inside it, the browser's Back button).
+            showMore = false;
+            SyncDialogFlag();
+            StateHasChanged();
+        });
 
     public void Dispose()
     {
         AppState.OnChange -= OnStateChanged;
         Nav.LocationChanged -= OnLocationChanged;
+        Shell.ScanRequested -= OnScanRequested;
+        Shell.MoreRequested -= OnMoreRequested;
+        FirstReceive.Changed -= OnFirstReceiveChanged;
+        FirstReceive.ShellDialogOpen = false;
     }
 }

@@ -111,6 +111,7 @@ builder.Services.AddScoped<AddressLabelService>();
 builder.Services.AddScoped<MarketSnapshotService>();
 builder.Services.AddScoped<ClipboardService>();
 builder.Services.AddScoped<SoundService>();
+builder.Services.AddScoped<ShellActions>();
 
 // ── Blockchain service chain: Own Node (pruned) → Explorer list (with fallback) ──
 // Mock demo data is only available in Development — production throws if all backends fail.

@@ -2,6 +2,7 @@
 @inject WalletService WalletService
 @inject HttpClient Http
 @inject NavigationManager Nav
+@implements IDisposable
 @inject IConfiguration Config
 @inject ISecureStorage Storage
 @inject BakuService Baku
@@ -345,7 +346,21 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadHistoryAsync();
-        
+        Nav.LocationChanged += OnLocationChanged;
+        await HandleIncomingUriAsync();
+    }
+
+    // The menu's Scan button can deliver a login code while this page is already open: the address changes but the
+    // page is not created again, so it has to look at the address a second time.
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        _ = InvokeAsync(HandleIncomingUriAsync);
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
+    private string? handledUri;
+
+    private async Task HandleIncomingUriAsync()
+    {
         // Auto-populate from query parameter if present
         // Sources: PWA protocol handler (?uri=web+digiid:...) or API redirect (?uri=digiid://...)
         var navUri = new Uri(Nav.Uri);
@@ -367,6 +382,10 @@
                     Nav.NavigateTo("/unlock?returnUrl=" + Uri.EscapeDataString(back));
                     return;
                 }
+
+                // Each arriving code is acted on once, however many times the address is looked at.
+                if (incomingUri == handledUri) return;
+                handledUri = incomingUri;
 
                 digiIdUri = incomingUri;
                 StateHasChanged();

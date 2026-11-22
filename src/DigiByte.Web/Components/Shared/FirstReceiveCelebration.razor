@@ -143,7 +143,7 @@
             StateHasChanged();
             return;
         }
-        if (Blocked || FirstReceive.OtherDialogOpen) return;
+        if (Blocked || FirstReceive.OtherDialogOpen || FirstReceive.ShellDialogOpen) return;
         if (WalletService.ActiveWallet?.Id is not { Length: > 0 } walletId) return;
         if (FirstReceive.Pending(walletId) is not { } payment) return;
 

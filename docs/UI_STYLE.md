@@ -219,10 +219,25 @@ pointer capture. It is self-hosted and the Content Security Policy is unchanged.
 
 ## Bottom menu
 
-The owner chose **variant B**, the floating bar, and `Layout/NavMenu.razor` now uses it: the same
-five tabs, order, links and accessible names as before, restyled with the `nav-float*` classes
-(`nav-float-live` pins the bar to the bottom of the app column). `MainLayout.razor` reserves room
-for it with `main-with-nav`. Icon paths live in `Layout/NavIcons.cs`.
+The owner chose **variant C**, and `Layout/NavMenu.razor` now uses it: Wallet, Activity, a raised
+round **Scan** button, **Request**, **More**, styled with the `nav-float*` classes (`nav-float-live`
+pins the bar to the bottom of the app column). `MainLayout.razor` reserves room for it with
+`main-with-nav`. Icon paths live in `Layout/NavIcons.cs`.
+
+How it stays unconfusing:
+
+- **One Scan.** The centre button and Home's Scan button open the same scanner
+  (`Services/ShellActions.cs`), and `Services/ScanRouter.cs` decides where a code goes: a DigiByte
+  address or payment request opens Send, a Digi-ID login opens Digi-ID, and anything else opens
+  nothing and says so. A code is never pasted into Send unless it is a valid address.
+- **One More.** The More tab and Home's More button open the same list (`Layout/MoreMenu.cs`).
+  Digi-ID and Settings are its first two rows because they used to be tabs. The More tab is drawn
+  as the current tab on every page its list leads to, and the list marks the current page.
+- **Request means the page it opens.** The Payments page is titled "Request a payment", and opens
+  straight onto the form when there are no requests to list.
+- **A one-time tip for returning users.** "Digi-ID and Settings moved. They are under More now."
+  appears once above the More tab on a device that was in use before; opening More or tapping
+  "Got it" dismisses it for good. A wallet created on this menu never sees it.
 
 From 1024px wide the same menu becomes a vertical rail hugging the left side of the app column
 (one media query on `nav-float-live`; the pill slides up and down, and the page drops its bottom
@@ -239,8 +254,8 @@ comparison:
 | Variant | What it is |
 | --- | --- |
 | A | The previous menu, kept as a baseline. |
-| B | **Adopted.** The same five tabs as a floating bar: lifted off the bottom edge, fully rounded ends, soft shadow. The active tab has a filled icon on a small tinted pill (behind the icon only, not the label) that slides between tabs. Badges: a dot (a payment is pending) and a count (a multisig needs your signature). |
-| C | Not adopted. Rearranged in B's style: Wallet, Activity, a raised round Scan button, Request (today's Pay page), More. More opens a sheet with ID, Multisig, Contacts, Settings, Consolidate, Analytics, Sponsors. |
+| B | Replaced by C. The old five tabs (Wallet, Pay, Activity, ID, Settings) as a floating bar: lifted off the bottom edge, fully rounded ends, soft shadow. The active tab has a filled icon on a small tinted pill (behind the icon only, not the label) that slides between tabs. Badges: a dot (a payment is pending) and a count (a multisig needs your signature). |
+| C | **Adopted.** Rearranged in B's style: Wallet, Activity, a raised round Scan button, Request (the old Pay page), More. More opens a list: Digi-ID, Settings, Multisig, Contacts, Consolidate, Analytics, P2P Exchange, Donate, Roadmap. In the desktop rail, Scan is a smaller disc in line with the tabs. |
 | C2 | Not adopted. C, keeping ID as a tab in place of Request (Request moves into More). |
 
 The pill takes the active wallet's colour as a tint; the active icon and label use fixed colours,
@@ -250,20 +265,12 @@ The previous menu (A) drew inactive labels in slate-400, which is 2.6:1 on the l
 fails AA; B and C use slate-600 (7.6:1). Screenshots: `*-7-menu-a-b-c.jpg` and
 `*-8-menu-c2-more-sheet.jpg` in `docs/media/ui-style/`.
 
-Moving to C or C2 later would be a navigation change, not a restyle:
+Still to follow up after adopting C:
 
-- `NavMenu.razor` is rebuilt: Settings (and Pay or ID) stop being tabs.
-- A new More sheet component, with focus trapping and its own route-active state, since five
-  destinations now live inside it.
-- The centre button opens `QrScannerModal` from the layout. Today the scanner is opened from
-  inside Send and other pages, so its result handling (address, payment request, Digi-ID login)
-  has to move somewhere shared.
-- Pay is renamed Request: page title, header, Help text, translations in `wwwroot/locales`, and
-  any onboarding copy that says "Pay".
-- Every instruction that says "tap Settings" or "tap ID" in the bottom bar changes: Help,
-  `OnboardingWalkthrough`, `GettingStarted`, README screenshots and the videos in `docs/media`.
-- Existing users lose tabs they are used to: Settings moves one tap deeper in both, and either
-  ID (C) or Request (C2) does too.
+- README screenshots and the videos in `docs/media` still show the old five tabs.
+- The scanner inside Send, Contacts and the multisig pages is still each page's own; only the
+  app-wide Scan uses `ScanRouter`.
+- The one-time "moved" tip can be removed a few releases from now.
 
 ## Accessibility checks (measured in the gallery)
 
