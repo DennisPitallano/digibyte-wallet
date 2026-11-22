@@ -129,10 +129,12 @@ One radius (1rem), one border and one elevation each. Padding is not included, s
 <a class="card card-interactive p-4 flex items-center gap-3" href="contacts">…</a>
 ```
 
-The wallet balance card is a separate, deliberate design and is not a `card`: `wallet-card` gives
-it card proportions and a shadow in the wallet's colour, and `wallet-tex-*` paints its finish
-(`smooth`, the default glossy card, or leather, cotton, plastic, metal). It is always a coloured
-surface with light text, in both themes.
+The wallet balance card is a separate, deliberate design and is not a `card`. It is drawn as a
+closed wallet: `wallet-card` is the body (proportions, corners, a shadow in the wallet's colour),
+`wallet-tex-*` is the material (`smooth` leather by default, or pebbled leather, cotton, plastic,
+metal), `wallet-strap` is the tab across the right edge, and `wallet-snap` is the metal stud on
+it. The snap is a real button, "Lock wallet", and calls `AppState.LockNow()`. The wallet is always
+a coloured surface with light text, in both themes.
 
 ## Text inputs
 

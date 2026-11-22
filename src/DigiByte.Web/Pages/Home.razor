@@ -66,8 +66,9 @@
                          style="transform: translateX(@(i * 10)px) scale(@(1 - i * 0.04)); background: linear-gradient(135deg, @(lc)18, @(lc)08); z-index: @(5 - i);"></div>
                 }
             }
-            @* Balance Card: a card in the wallet's own colour, in both themes, with light text. "smooth" is a glossy card;
-               the other finishes (leather, cotton, plastic, metal) are set in Manage Wallets. *@
+            @* Balance Card, drawn as a closed wallet in the wallet's own colour: a stitched body, a strap across the right
+               edge and a metal snap that locks the app. The material is the wallet's finish (smooth leather by default;
+               pebbled leather, cotton, plastic or metal from Manage Wallets). Light text in both themes. *@
             @{ var cardTexture = WalletInfo.NormalizeTexture(WalletService.ActiveWallet?.Texture); }
             <div class="dark wallet-card wallet-card-textured relative overflow-hidden px-5 py-4"
                  style="--wc: @(WalletService.ActiveWallet?.Color ?? "#0066FF"); z-index: 10; transform: translateX(@(cardSwipeOffset)px); @(isCardAnimating ? "transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);" : "")">
@@ -209,6 +210,14 @@
                         </div>
                     }
                 </div>
+                @* The wallet's strap and its snap. The snap is a real button: pressing it closes (locks) the wallet. *@
+                <span class="wallet-strap" aria-hidden="true"></span>
+                <button type="button" class="wallet-snap" aria-label="Lock wallet" title="Lock wallet" data-testid="wallet-lock"
+                        @onclick="AppState.LockNow" @onclick:stopPropagation="true">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" />
+                    </svg>
+                </button>
             </div>
             @* Wallet Indicators *@
             @if (allWallets.Count > 1)
