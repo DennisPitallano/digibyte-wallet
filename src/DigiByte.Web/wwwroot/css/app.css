@@ -622,7 +622,6 @@ body:has(.modal-overlay) nav {
 
     /* Light theme */
     --ui-surface: #ffffff;
-    --ui-surface-sheen: linear-gradient(180deg, #ffffff 0%, #f1f6ff 100%);
     --ui-border: #e2e8f0;
     --ui-text: #0f172a;
     --ui-text-muted: #475569;
@@ -634,7 +633,6 @@ body:has(.modal-overlay) nav {
 
     --ui-primary: #0066cc;
     --ui-primary-hover: #0052a3;
-    --ui-primary-sheen: linear-gradient(180deg, #1470d6 0%, #0066cc 45%, #0056ad 100%);
     --ui-primary-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 21, 41, 0.18), 0 1px 2px rgba(0, 41, 82, 0.30), 0 4px 10px -2px rgba(0, 102, 204, 0.35), 0 10px 22px -10px rgba(0, 102, 204, 0.45);
     --ui-primary-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 -1px 0 rgba(0, 21, 41, 0.18), 0 2px 4px rgba(0, 41, 82, 0.30), 0 8px 16px -4px rgba(0, 102, 204, 0.40), 0 18px 32px -12px rgba(0, 102, 204, 0.50);
 
@@ -671,7 +669,6 @@ body:has(.modal-overlay) nav {
 
 .dark {
     --ui-surface: #002352;
-    --ui-surface-sheen: linear-gradient(180deg, #06306a 0%, #002352 100%);
     --ui-border: #0b3a75;
     --ui-text: #ffffff;
     --ui-text-muted: #94a3b8;
@@ -815,26 +812,6 @@ body:has(.modal-overlay) nav {
 }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 
-/* Primary button variants, for choosing a look in the gallery. Plain btn-primary is the
-   soft-shadow look; once one is chosen the other two can be deleted. */
-.btn-primary.btn-flat { box-shadow: none; }
-.btn-primary.btn-flat:hover { box-shadow: none; transform: none; }
-.btn-primary.btn-flat:active { box-shadow: none; transform: scale(0.98); }
-
-.btn-primary.btn-sheen { background: var(--ui-primary-sheen); overflow: hidden; }
-.btn-primary.btn-sheen::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.22) 50%, transparent 65%);
-    transform: translateX(-120%);
-    pointer-events: none;
-}
-@media (hover: hover) {
-    .btn-primary.btn-sheen:hover { background: var(--ui-primary-sheen); }
-    .btn-primary.btn-sheen:hover::after { transform: translateX(120%); transition: transform 0.7s var(--ease-out); }
-}
-
 /* ----- Cards -----
    card: the standard surface. card-raised: a surface that sits above the page (hero
    blocks, dialogs, sheets). card-interactive: add to a card that is itself a link or
@@ -862,10 +839,6 @@ body:has(.modal-overlay) nav {
 }
 .card-interactive:active { transform: scale(0.99); box-shadow: var(--ui-shadow-card); }
 .card-interactive:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
-
-/* Card variants for the gallery. Plain card is the soft-shadow look. */
-.card.card-flat  { box-shadow: none; }
-.card.card-sheen { background: var(--ui-surface-sheen); }
 
 /* ----- Text inputs -----
    Wrap in .field with a .field-label, the .input, then .field-hint or .field-error.
@@ -968,7 +941,7 @@ textarea.input { min-height: 96px; resize: vertical; }
 .stagger > :nth-child(9)  { animation-delay: 320ms; }
 .stagger > :nth-child(10) { animation-delay: 360ms; }
 
-/* Reduced motion: no lifts, no presses, no entrance, no sheen. Colour and shadow changes
+/* Reduced motion: no lifts, no presses, no entrance. Colour and shadow changes
    stay (they are instant under the global rule above). The loading spinner turns once
    and rests as a static ring. */
 @media (prefers-reduced-motion: reduce) {
@@ -977,5 +950,4 @@ textarea.input { min-height: 96px; resize: vertical; }
     .btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active,
     .card-interactive, .card-interactive:hover, .card-interactive:active { transform: none !important; }
     .stagger > * { animation: none !important; }
-    .btn-primary.btn-sheen::after { display: none; }
 }

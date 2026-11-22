@@ -151,19 +151,13 @@ Colours and shadows still change, instantly. The loading spinner rests as a stat
 
 New animations should use these tokens instead of new hard-coded durations.
 
-## Variants to choose from
+## Chosen look
 
-The gallery shows three looks for the primary button and the card. Plain `btn-primary` and `card`
-are the soft-shadow look (A). `btn-flat` / `card-flat` (B) and `btn-sheen` / `card-sheen` (C) are
-modifiers that exist only so the three can be compared. Once one is chosen, fold it into the base
-class and delete the other two blocks from `app.css` and the gallery.
-
-Screenshots at 375px are in `docs/media/ui-style/` (`light-*` and `dark-*`).
-
-Recommendation: **A (soft shadow) for both.** It gives the depth that was asked for and reads
-well in both themes. B is what the app mostly has today. C's gradient looks good on one hero
-button but busy when two or three buttons share a screen, and the card tint is barely visible in
-light and slightly muddy in dark.
+Three looks were compared for the primary button and the card: soft shadow, flat, and gradient
+sheen. The owner chose **soft shadow**, which is what `btn-primary` and `card` now are. The other
+two were removed from `app.css` and the gallery (they are in the branch history at commit
+`197dd73`, with screenshots `*-1-primary-variants.jpg` and `*-3-cards.jpg` in
+`docs/media/ui-style/`).
 
 ## Accessibility checks (measured in the gallery)
 

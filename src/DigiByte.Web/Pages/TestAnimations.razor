@@ -18,25 +18,17 @@
 
         @* --- Primary button: pick a variant --- *@
         <div class="flex flex-col gap-3">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Primary button — pick one</h3>
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Primary button</h3>
             <div class="flex flex-col gap-1.5">
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">A · Soft shadow <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">btn-primary</code></span>
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">New <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">btn-primary</code></span>
                 <button type="button" class="btn-primary w-full">Send DGB</button>
-            </div>
-            <div class="flex flex-col gap-1.5">
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">B · Flat <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">btn-primary btn-flat</code></span>
-                <button type="button" class="btn-primary btn-flat w-full">Send DGB</button>
-            </div>
-            <div class="flex flex-col gap-1.5">
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-300">C · Gradient sheen <code class="font-mono text-[11px] text-slate-500 dark:text-slate-400">btn-primary btn-sheen</code></span>
-                <button type="button" class="btn-primary btn-sheen w-full">Send DGB</button>
             </div>
             <div class="flex flex-col gap-1.5">
                 <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Current (hand-written, two of about 75 spellings)</span>
                 <button type="button" class="w-full py-3.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-2xl shadow-lg shadow-dgb-500/25 transition-all press-effect">Send DGB</button>
                 <button type="button" class="w-full py-2.5 bg-dgb-500 text-white text-sm font-semibold rounded-xl press-effect">Send DGB</button>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Hover (mouse only): A and C lift 1px and deepen their shadow, C also sweeps a highlight across; B only darkens. Pressed: all three scale down slightly and sink.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Hover (mouse only): lifts 1px and deepens its shadow. Pressed: scales down slightly and sinks.</p>
         </div>
 
         @* --- Buttons: every kind in every state --- *@
@@ -71,18 +63,10 @@
 
         @* --- Cards --- *@
         <div class="flex flex-col gap-3">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Card — pick one</h3>
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Card</h3>
             <div class="card p-4">
-                <p class="text-sm font-semibold">A · Soft shadow</p>
+                <p class="text-sm font-semibold">Card</p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card</code> — one radius, one border, a quiet two-layer shadow.</p>
-            </div>
-            <div class="card card-flat p-4">
-                <p class="text-sm font-semibold">B · Flat</p>
-                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card card-flat</code> — border only, no elevation.</p>
-            </div>
-            <div class="card card-sheen p-4">
-                <p class="text-sm font-semibold">C · Gradient sheen</p>
-                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1"><code class="font-mono">card card-sheen</code> — soft shadow plus a faint top-to-bottom tint.</p>
             </div>
             <div class="card-raised p-4">
                 <p class="text-sm font-semibold">Raised</p>
