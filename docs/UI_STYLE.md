@@ -224,6 +224,11 @@ five tabs, order, links and accessible names as before, restyled with the `nav-f
 (`nav-float-live` pins the bar to the bottom of the app column). `MainLayout.razor` reserves room
 for it with `main-with-nav`. Icon paths live in `Layout/NavIcons.cs`.
 
+From 1024px wide the same menu becomes a vertical rail hugging the left side of the app column
+(one media query on `nav-float-live`; the pill slides up and down, and the page drops its bottom
+padding). Below that, phones and tablets keep the bottom bar. The bar has a glass look: a
+translucent fill over blurred content, a light rim and a layered shadow (`--ui-nav-*` tokens).
+
 Not live yet: the **badges**. `nav-badge-dot` and `nav-badge-count` are styled and shown in the
 gallery, but the menu has no source for "a payment is pending" or "a multisig needs your
 signature", so it draws none.

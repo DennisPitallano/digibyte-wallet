@@ -1243,6 +1243,32 @@ textarea.input { min-height: 96px; resize: vertical; }
 /* Room for the floating bar under the page content: bar (66px) + its 12px gap + the device's safe area. */
 .main-with-nav { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
 
+/* Desktop (1024px and wider): the live menu becomes a vertical rail hugging the left side of the
+   480px app column, centred vertically. Same tabs and markup; the pill slides up and down.
+   Rail: 76px wide, 16px gap to the column. Tabs: 56px high with 4px between them, 14px rail padding. */
+@media (min-width: 1024px) {
+    .nav-float-live {
+        left: calc(50% - 240px - 16px - 76px);
+        top: 50%;
+        bottom: auto;
+        width: 76px;
+        max-width: none;
+        transform: translateY(-50%);
+        grid-template-columns: 1fr;
+        grid-auto-rows: 56px;
+        row-gap: 4px;
+        padding: 14px 6px;
+    }
+    .nav-float-live .nav-float-tab { min-height: 0; }
+    .nav-float-live .nav-float-pill {
+        left: calc(50% - 28px);
+        top: calc(14px + var(--nav-index) * 60px + 4px);
+        transition: top var(--motion-slow) var(--ease-out);
+    }
+    /* Nothing sits over the bottom of the page any more. */
+    .main-with-nav { padding-bottom: 1rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .nav-float-pill { transition: none; }
     .nav-float-tab:active .nav-float-icon { transform: none; }
