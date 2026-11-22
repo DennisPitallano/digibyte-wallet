@@ -1115,6 +1115,13 @@ textarea.input { min-height: 96px; resize: vertical; }
 .seed-count button[aria-pressed="true"] { background: var(--ui-primary); color: #fff; }
 .seed-count button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 
+/* ----- Muted text in the light theme -----
+   Hundreds of labels, hints and section headings use text-slate-400 (#94a3b8). On the light theme's white and
+   near-white surfaces that is about 2.6:1, well under the 4.5:1 that small text needs. In the light theme only,
+   the same class draws a darker slate (5.3:1 on white, 4.8:1 on slate-100). :where() keeps the specificity of a
+   single class, so hover and state colours on the same element still win. Dark theme is unchanged. */
+:where(html:not(.dark)) .text-slate-400 { color: #5a6a80; }
+
 /* ----- No zoom on focus (touch screens) -----
    iOS Safari zooms the whole page when a focused field's text is under 16px, and does not zoom back. Many fields
    here are hand-written with 12px or 14px text, so on touch screens every text field is raised to 16px. Fields that
