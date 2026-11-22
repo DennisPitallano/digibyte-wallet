@@ -1115,6 +1115,14 @@ textarea.input { min-height: 96px; resize: vertical; }
 .seed-count button[aria-pressed="true"] { background: var(--ui-primary); color: #fff; }
 .seed-count button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 
+/* ----- Addresses -----
+   A long address has no spaces, so it wraps wherever the line ends and can leave one character alone on the last
+   line. addr-balance asks the browser for lines of even length. addr-lines is the certain version for a narrow
+   column: two halves, each kept whole when it fits and broken evenly when it does not. */
+.addr-balance { text-wrap: balance; }
+.addr-lines { font-family: 'JetBrains Mono', ui-monospace, monospace; line-height: 1.6; }
+.addr-lines > span { display: inline-block; max-width: 100%; word-break: break-all; text-wrap: balance; vertical-align: top; }
+
 /* ----- Headings -----
    page-title: the one title at the top of a page. block-title: the title of a card, dialog or section
    (-lg and -sm for the larger and smaller cases). section-label: the small capitals above a group of rows. */
