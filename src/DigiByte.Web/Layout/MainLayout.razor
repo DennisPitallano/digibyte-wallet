@@ -5,6 +5,8 @@
 @inject AppState AppState
 @inject WalletService WalletService
 @inject IJSRuntime JS
+@inject FirstReceiveCoordinator FirstReceive
+@inject WalletSnapshotCache Snapshots
 
 <ToastContainer />
 <BakuWarningDialog />
@@ -128,8 +130,26 @@
     private bool autoWhatsNew;
     private bool whatsNewChecked;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // First-receive flow (spec 025): load the "first session ended" marker once. A device that already has a wallet
+        // with saved history (an existing user after an update) is past its first session, whichever page opens first.
+        try { await FirstReceive.InitializeAsync(AnyWalletHasSavedHistoryAsync); } catch { }
+    }
+
+    private async Task<bool> AnyWalletHasSavedHistoryAsync()
+    {
+        foreach (var wallet in await WalletService.GetAllWalletsAsync())
+            if ((await Snapshots.LoadAsync(wallet.Id)).Transactions is { Count: > 0 })
+                return true;
+        return false;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The first-payment celebration must not cover this window (spec 025, FR-023).
+        FirstReceive.OtherDialogOpen = showVersionInfo;
+
         // Wait until the wallet is unlocked and Home is showing, so it never covers the unlock or setup screens.
         if (whatsNewChecked || CurrentPath != "/" || !WalletService.IsUnlocked) return;
         whatsNewChecked = true;

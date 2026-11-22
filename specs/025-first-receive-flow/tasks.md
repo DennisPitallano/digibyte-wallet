@@ -31,8 +31,8 @@ description: "Task list for First-Receive Flow"
 **Purpose**: The branch, the value types and the text every later phase uses
 
 - [X] T001 Create the feature branch `feature/first-receive-flow` from `main` and commit the existing `specs/025-first-receive-flow/` directory to it.
-- [ ] T002 [P] Create the value types in src/DigiByte.Wallet/Services/FirstReceiveRule.cs (types only, `Evaluate` throws `NotImplementedException`): `enum FirstReceiveState { Undecided, Empty, History, Celebrated }`, `enum HistorySource { CompleteLoad, PartialAddressLoad, IncompleteLoad, SavedSnapshot }`, `record FirstPayment(decimal AmountDgb, bool IsPending, IReadOnlyList<string> TxIds)`, `record FirstReceiveOutcome(FirstReceiveState State, FirstPayment? Payment)`, per contracts/first-receive.md.
-- [ ] T003 [P] Add the new translation keys to src/DigiByte.Web/wwwroot/locales/en.json and src/DigiByte.Web/wwwroot/locales/es.json (same keys in both, Spanish translated, not copied):
+- [X] T002 [P] Create the value types in src/DigiByte.Wallet/Services/FirstReceiveRule.cs (types only, `Evaluate` throws `NotImplementedException`): `enum FirstReceiveState { Undecided, Empty, History, Celebrated }`, `enum HistorySource { CompleteLoad, PartialAddressLoad, IncompleteLoad, SavedSnapshot }`, `record FirstPayment(decimal AmountDgb, bool IsPending, IReadOnlyList<string> TxIds)`, `record FirstReceiveOutcome(FirstReceiveState State, FirstPayment? Payment)`, per contracts/first-receive.md.
+- [X] T003 [P] Add the new translation keys to src/DigiByte.Web/wwwroot/locales/en.json and src/DigiByte.Web/wwwroot/locales/es.json (same keys in both, Spanish translated, not copied):
   - `home.empty.copy` ("Copy address"), `home.empty.copied`, `home.empty.receive_link` ("Open Receive"), `home.empty.qr_alt` ("QR code for your receiving address")
   - `activity.empty.receive` ("Receive")
   - `firstreceive.title` ("Your first DGB"), `firstreceive.received` ("{0} DGB received"), `firstreceive.pending` ("{0} DGB is on its way"), `firstreceive.received_hidden` ("Payment received"), `firstreceive.pending_hidden` ("A payment is on its way"), `firstreceive.done` ("Done"), `firstreceive.install` ("Install app")
@@ -47,7 +47,7 @@ description: "Task list for First-Receive Flow"
 
 ### Tests (write first, must fail)
 
-- [ ] T004 [P] Write tests/DigiByte.Wallet.Tests/FirstReceiveRuleTests.cs covering every row of the transition table in data-model.md:
+- [X] T004 [P] Write tests/DigiByte.Wallet.Tests/FirstReceiveRuleTests.cs covering every row of the transition table in data-model.md:
   - `Undecided` + `CompleteLoad`, no transactions → `Empty`, no payment
   - `Undecided` + `CompleteLoad`, with transactions → `History`, no payment
   - `Undecided` + `IncompleteLoad` (empty and non-empty) → `Undecided`
@@ -64,7 +64,7 @@ description: "Task list for First-Receive Flow"
   - `Undecided` + `PartialAddressLoad`, with transactions → `History`
   - `Empty` + `PartialAddressLoad` with a receipt → payment, exactly as for `CompleteLoad`
   - `Evaluate` never returns `Celebrated` from any other state
-- [ ] T005 [P] Write tests/DigiByte.Wallet.Tests/FirstReceiveStoreTests.cs against an in-memory `ISecureStorage`:
+- [X] T005 [P] Write tests/DigiByte.Wallet.Tests/FirstReceiveStoreTests.cs against an in-memory `ISecureStorage`:
   - no key reads as `Undecided`; an unreadable or unknown stored value reads as `Undecided`
   - `SetAsync` round-trips `Empty`, `History`, `Celebrated` as the stored values `empty`, `history`, `celebrated`
   - `SetAsync(Undecided)` writes nothing
@@ -72,8 +72,8 @@ description: "Task list for First-Receive Flow"
   - `StateKey("abc")` is `firstReceive:abc`
   - `IsFirstSessionEndedAsync` is false until `EndFirstSessionAsync`, which stores `1` under `firstSession:ended` and is idempotent
   - `DeleteAsync` removes the wallet's key and leaves `firstSession:ended` in place
-- [ ] T006 [P] Add a test to tests/DigiByte.Wallet.Tests/MultiWalletTests.cs: after `WalletService.DeleteWalletAsync(walletId)`, storage has no `firstReceive:{walletId}` key, another wallet's `firstReceive:` key is untouched, and `firstSession:ended` is still present.
-- [ ] T007 [P] Write tests/DigiByte.Wallet.Tests/HistoryLoadTests.cs for a new `WalletService.LoadTransactionHistoryAsync(skip, take)` that returns `HistoryLoad(Transactions, Complete, AddressesSettled)`, using the `SummaryExplorer` / `HistorySyncEnv` doubles:
+- [X] T006 [P] Add a test to tests/DigiByte.Wallet.Tests/MultiWalletTests.cs: after `WalletService.DeleteWalletAsync(walletId)`, storage has no `firstReceive:{walletId}` key, another wallet's `firstReceive:` key is untouched, and `firstSession:ended` is still present.
+- [X] T007 [P] Write tests/DigiByte.Wallet.Tests/HistoryLoadTests.cs for a new `WalletService.LoadTransactionHistoryAsync(skip, take)` that returns `HistoryLoad(Transactions, Complete, AddressesSettled)`, using the `SummaryExplorer` / `HistorySyncEnv` doubles:
   - a load that reads the chain returns `Complete` true; one whose explorer read throws returns `Complete` false with only the locally tracked transactions
   - **two overlapping loads, the first failing and the second succeeding (and the reverse)**: each caller gets its own `Complete` value, whatever order they finish in (today the shared `LastHistoryIncomplete` property is reset by the second call, so the first caller can read a failed load as complete)
   - `AddressesSettled` is false while address discovery for the session has not finished or has failed, and true once it has completed; always true for private-key wallets, which have no discovery; a watch-only wallet has an HD key and address discovery like a seed wallet, so it follows the same rule (cover it with a watch-only session)
@@ -81,12 +81,12 @@ description: "Task list for First-Receive Flow"
 
 ### Implementation
 
-- [ ] T008 Implement `FirstReceiveRule.Evaluate` in src/DigiByte.Wallet/Services/FirstReceiveRule.cs until T004 passes. A "DGB receipt" is a `TransactionRecord` with `Direction == TransactionDirection.Received` and an amount above zero; `IsPending` is true only when every receipt in the load has 0 confirmations.
-- [ ] T009 Implement `FirstReceiveStore` in src/DigiByte.Wallet/Services/FirstReceiveStore.cs (`GetAsync`, `SetAsync`, `DeleteAsync`, `IsFirstSessionEndedAsync`, `EndFirstSessionAsync`, `static StateKey`) until T005 passes. All storage calls are wrapped so a storage failure reads as `Undecided` / not ended and never throws to the caller.
-- [ ] T010 In `WalletService.DeleteWalletAsync(string walletId)` in src/DigiByte.Wallet/Services/WalletService.cs, also remove `FirstReceiveStore.StateKey(walletId)` next to the existing `WalletSnapshotKeys` removal, until T006 passes.
-- [ ] T011 In src/DigiByte.Wallet/Services/WalletService.cs, add `record HistoryLoad(List<TransactionRecord> Transactions, bool Complete, bool AddressesSettled)` and `LoadTransactionHistoryAsync(int skip = 0, int take = 50)`, which carries completeness in a local variable for that call; make `GetTransactionHistoryAsync` call it and set `LastHistoryIncomplete` from its result, until T007 passes. `AddressesSettled` reads the session's address-discovery task: true when it has completed successfully, or when the session has no HD key (a private-key wallet); false while it is running, not started or failed. Seed and watch-only sessions both have an HD key and both use this rule. No change to what is fetched.
-- [ ] T012 Create `FirstReceiveCoordinator` in src/DigiByte.Web/Services/FirstReceiveCoordinator.cs per contracts/first-receive.md: `InitializeAsync` (loads the marker only, for now), `MarkCreatedEmptyAsync`, `ObserveAsync` (applies `FirstReceiveRule`, saves a changed state, calls `EndFirstSessionAsync` when `transactions` is not empty, stores and returns a pending `FirstPayment`), `Pending(walletId)`, `MarkShownAsync` (state → `Celebrated`, clears pending), `FirstSessionEnded`, `OtherDialogOpen`, `event Action? Changed`. Serialise `ObserveAsync` and `MarkShownAsync` per wallet with a `SemaphoreSlim`. Register it as scoped in src/DigiByte.Web/Program.cs together with `FirstReceiveStore`.
-- [ ] T013 In src/DigiByte.Web/Layout/MainLayout.razor, inject the coordinator, call `InitializeAsync()` once in `OnInitializedAsync`, and set `OtherDialogOpen` whenever `showVersionInfo` changes (opened by the badge, opened by the automatic "What's New", closed).
+- [X] T008 Implement `FirstReceiveRule.Evaluate` in src/DigiByte.Wallet/Services/FirstReceiveRule.cs until T004 passes. A "DGB receipt" is a `TransactionRecord` with `Direction == TransactionDirection.Received` and an amount above zero; `IsPending` is true only when every receipt in the load has 0 confirmations.
+- [X] T009 Implement `FirstReceiveStore` in src/DigiByte.Wallet/Services/FirstReceiveStore.cs (`GetAsync`, `SetAsync`, `DeleteAsync`, `IsFirstSessionEndedAsync`, `EndFirstSessionAsync`, `static StateKey`) until T005 passes. All storage calls are wrapped so a storage failure reads as `Undecided` / not ended and never throws to the caller.
+- [X] T010 In `WalletService.DeleteWalletAsync(string walletId)` in src/DigiByte.Wallet/Services/WalletService.cs, also remove `FirstReceiveStore.StateKey(walletId)` next to the existing `WalletSnapshotKeys` removal, until T006 passes.
+- [X] T011 In src/DigiByte.Wallet/Services/WalletService.cs, add `record HistoryLoad(List<TransactionRecord> Transactions, bool Complete, bool AddressesSettled)` and `LoadTransactionHistoryAsync(int skip = 0, int take = 50)`, which carries completeness in a local variable for that call; make `GetTransactionHistoryAsync` call it and set `LastHistoryIncomplete` from its result, until T007 passes. `AddressesSettled` reads the session's address-discovery task: true when it has completed successfully, or when the session has no HD key (a private-key wallet); false while it is running, not started or failed. Seed and watch-only sessions both have an HD key and both use this rule. No change to what is fetched.
+- [X] T012 Create `FirstReceiveCoordinator` in src/DigiByte.Web/Services/FirstReceiveCoordinator.cs per contracts/first-receive.md: `InitializeAsync` (loads the marker only, for now), `MarkCreatedEmptyAsync`, `ObserveAsync` (applies `FirstReceiveRule`, saves a changed state, calls `EndFirstSessionAsync` when `transactions` is not empty, stores and returns a pending `FirstPayment`), `Pending(walletId)`, `MarkShownAsync` (state → `Celebrated`, clears pending), `FirstSessionEnded`, `OtherDialogOpen`, `event Action? Changed`. Serialise `ObserveAsync` and `MarkShownAsync` per wallet with a `SemaphoreSlim`. Register it as scoped in src/DigiByte.Web/Program.cs together with `FirstReceiveStore`.
+- [X] T013 In src/DigiByte.Web/Layout/MainLayout.razor, inject the coordinator, call `InitializeAsync()` once in `OnInitializedAsync`, and set `OtherDialogOpen` whenever `showVersionInfo` changes (opened by the badge, opened by the automatic "What's New", closed).
 
 **Checkpoint**: `dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName~FirstReceive|FullyQualifiedName~HistoryLoad"` passes; the app builds and behaves exactly as before.
 

@@ -311,5 +311,17 @@
   "unlock.or_pin": "o PIN",
   "unlock.or_passphrase": "o frase de acceso",
   "unlock.reset_title": "Restablecer {0} con la frase de recuperaci\u00f3n",
-  "unlock.reset_sub": "Ingresa tu frase semilla para definir un nuevo PIN o frase de acceso"
+  "unlock.reset_sub": "Ingresa tu frase semilla para definir un nuevo PIN o frase de acceso",
+  "home.empty.copy": "Copiar dirección",
+  "home.empty.copied": "Dirección copiada",
+  "home.empty.receive_link": "Abrir Recibir",
+  "home.empty.qr_alt": "Código QR de tu dirección para recibir",
+  "activity.empty.receive": "Recibir",
+  "firstreceive.title": "Tu primer DGB",
+  "firstreceive.received": "{0} DGB recibidos",
+  "firstreceive.pending": "{0} DGB en camino",
+  "firstreceive.received_hidden": "Pago recibido",
+  "firstreceive.pending_hidden": "Hay un pago en camino",
+  "firstreceive.done": "Listo",
+  "firstreceive.install": "Instalar app"
 }

@@ -333,5 +333,17 @@
   "unlock.or_pin": "or PIN",
   "unlock.or_passphrase": "or passphrase",
   "unlock.reset_title": "Reset {0} with recovery phrase",
-  "unlock.reset_sub": "Enter your seed phrase to set a new PIN or passphrase"
+  "unlock.reset_sub": "Enter your seed phrase to set a new PIN or passphrase",
+  "home.empty.copy": "Copy address",
+  "home.empty.copied": "Address copied",
+  "home.empty.receive_link": "Open Receive",
+  "home.empty.qr_alt": "QR code for your receiving address",
+  "activity.empty.receive": "Receive",
+  "firstreceive.title": "Your first DGB",
+  "firstreceive.received": "{0} DGB received",
+  "firstreceive.pending": "{0} DGB is on its way",
+  "firstreceive.received_hidden": "Payment received",
+  "firstreceive.pending_hidden": "A payment is on its way",
+  "firstreceive.done": "Done",
+  "firstreceive.install": "Install app"
 }
