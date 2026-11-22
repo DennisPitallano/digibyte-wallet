@@ -146,38 +146,49 @@
                 else
                 {
                     @* Word-by-word mode *@
-                    <div class="flex items-center gap-2 mb-1">
-                        <p class="text-xs text-slate-400 dark:text-slate-500">Words: @wordCount</p>
-                        <div class="flex-1"></div>
-                        <button type="button" class="text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
-                                @onclick="() => SetWordCount(12)">12</button>
-                        <span class="text-slate-300 dark:text-slate-600">|</span>
-                        <button type="button" class="text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 transition-colors"
-                                @onclick="() => SetWordCount(24)">24</button>
+                    <div class="flex items-center justify-between gap-3">
+                        @* Progress, so a missing word is noticed before Continue. *@
+                        <p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite" data-testid="seed-progress">
+                            <span class="font-semibold text-slate-900 dark:text-white">@FilledWords</span> of @wordCount words
+                            @if (InvalidWords > 0)
+                            {
+                                <span class="text-red-600 dark:text-red-400">· @InvalidWords not recognised</span>
+                            }
+                        </p>
+                        <div class="seed-count" role="group" aria-label="Number of words in the phrase">
+                            <button type="button" aria-pressed="@(wordCount == 12 ? "true" : "false")" @onclick="() => SetWordCount(12)">12</button>
+                            <button type="button" aria-pressed="@(wordCount == 24 ? "true" : "false")" @onclick="() => SetWordCount(24)">24</button>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Tip: paste the whole phrase into box 1 and it fills every box.</p>
+                    @* Each word is one box with its number inside. The grid picks two or three columns to fit the screen,
+                       and boxes can shrink, so nothing runs off the side. *@
+                    <div class="seed-grid">
                         @for (int i = 0; i < wordCount; i++)
                         {
                             var idx = i;
-                            <div class="relative flex items-center gap-1.5">
-                                <span class="text-[11px] text-slate-400 dark:text-slate-500 w-5 text-right font-mono">@((idx + 1).ToString())</span>
-                                <input type="@(showMnemonic ? "text" : "password")"
+                            var state = string.IsNullOrEmpty(wordInputs[idx]) ? "" : IsWordValid(idx) ? "is-valid" : "is-invalid";
+                            <div class="seed-cell @state">
+                                <label class="seed-cell-num" for="@($"seed-word-{idx + 1}")" aria-hidden="true">@((idx + 1).ToString())</label>
+                                <input id="@($"seed-word-{idx + 1}")" type="@(showMnemonic ? "text" : "password")"
+                                       aria-label="@($"Word {idx + 1} of {wordCount}")"
+                                       aria-invalid="@(state == "is-invalid" ? "true" : null)"
                                        value="@wordInputs[idx]"
                                        @oninput="(e) => OnWordInput(idx, e.Value?.ToString() ?? string.Empty)"
                                        @onfocus="() => OnWordFocus(idx)"
                                        @onblur="() => OnWordBlur(idx)"
                                        @onkeydown="(e) => OnWordKeyDown(idx, e)"
                                        autocomplete="off" spellcheck="false" autocapitalize="off"
-                                       class="flex-1 px-2.5 py-2 bg-white dark:bg-dgb-900 border rounded-lg text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-dgb-500/20 transition-all font-mono @(IsWordValid(idx) ? "border-slate-200 dark:border-dgb-800 focus:border-dgb-500" : wordInputs[idx].Length > 0 ? "border-red-300 dark:border-red-700 focus:border-red-400" : "border-slate-200 dark:border-dgb-800 focus:border-dgb-500")" />
+                                       />
                                 @if (activeWordIndex == idx && suggestions.Length > 0)
                                 {
-                                    <div class="absolute top-full left-5 right-0 mt-0.5 z-50 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-lg shadow-lg max-h-28 overflow-y-auto">
+                                    <div class="seed-suggest">
                                         @for (int j = 0; j < suggestions.Length; j++)
                                         {
                                             var sIdx = j;
                                             var word = suggestions[sIdx];
                                             <button type="button"
-                                                    class="w-full text-left px-2.5 py-1.5 text-xs font-mono transition-colors @(sIdx == selectedSuggestion ? "bg-dgb-100 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-dgb-800/50")"
+                                                    class="@(sIdx == selectedSuggestion ? "is-active" : "")"
                                                     @onmousedown:preventDefault
                                                     @onmousedown="() => SelectSuggestion(idx, word)">
                                                 @if (showMnemonic)
@@ -544,6 +555,9 @@
             activeWordIndex = -1;
         }
     }
+
+    private int FilledWords => wordInputs.Take(wordCount).Count(w => !string.IsNullOrWhiteSpace(w));
+    private int InvalidWords => Enumerable.Range(0, wordCount).Count(i => !IsWordValid(i));
 
     private bool IsWordValid(int index)
     {

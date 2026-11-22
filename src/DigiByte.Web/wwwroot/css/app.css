@@ -1015,6 +1015,106 @@ textarea.input { min-height: 96px; resize: vertical; }
 .input.input-error:focus { border-color: var(--ui-error-border); box-shadow: var(--ui-error-ring); }
 .input:disabled { opacity: 0.55; cursor: not-allowed; }
 
+/* ----- Recovery phrase, word by word -----
+   One box per word with its number inside. The grid fits as many 128px columns as the screen allows (two on a
+   small phone, three from about 420px), and every box may shrink, so the grid never runs off the side.
+   16px text: anything smaller makes iOS zoom the page when a box is tapped. */
+.seed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 0.5rem; }
+.seed-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 44px;
+    background: var(--ui-input-bg);
+    border: 1px solid var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+    transition: border-color var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.seed-cell:focus-within { border-color: var(--ui-focus); box-shadow: var(--ui-focus-ring); }
+.seed-cell-num {
+    flex: none;
+    width: 2rem;
+    padding-left: 0.5rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-text-muted);
+    user-select: none;
+    -webkit-user-select: none;
+}
+.seed-cell input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    padding: 0.5rem 0.5rem 0.5rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--ui-text);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 16px;
+    line-height: 1.4;
+    outline: none;
+}
+/* A recognised word gets a quiet tick; an unrecognised one a red border. Neither relies on colour alone:
+   the tick is a shape, and the count above the grid says how many words are not recognised. */
+.seed-cell.is-valid { border-color: #16a34a; }
+.seed-cell.is-valid::after {
+    content: "";
+    flex: none;
+    width: 0.375rem;
+    height: 0.625rem;
+    margin: 0 0.625rem 0.125rem 0;
+    border: solid #16a34a;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+.dark .seed-cell.is-valid { border-color: #22c55e; }
+.dark .seed-cell.is-valid::after { border-color: #4ade80; }
+.seed-cell.is-invalid { border-color: var(--ui-error-border); }
+.seed-cell.is-invalid:focus-within { box-shadow: var(--ui-error-ring); }
+.seed-suggest {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    max-height: 9rem;
+    overflow-y: auto;
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    box-shadow: var(--ui-shadow-raised);
+}
+.seed-suggest button {
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.875rem;
+    color: var(--ui-text);
+    background: transparent;
+}
+.seed-suggest button.is-active,
+.seed-suggest button:hover { background: var(--ui-ghost-hover); color: var(--ui-ghost-text); }
+/* The 12 / 24 switch. */
+.seed-count { display: inline-flex; padding: 2px; border-radius: 9999px; background: var(--ui-ghost-hover); }
+.seed-count button {
+    min-width: 44px;
+    min-height: 32px;
+    padding: 0 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+    transition: background-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out);
+}
+.seed-count button[aria-pressed="true"] { background: var(--ui-primary); color: #fff; }
+.seed-count button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
 /* ----- QR frame -----
    <div class="qr-frame"><img …><span class="qr-frame-logo">…</span></div>
    Always white, in both themes, so scanners get a clean quiet zone. Keep the logo under
