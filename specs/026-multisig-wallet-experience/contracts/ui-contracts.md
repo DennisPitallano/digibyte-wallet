@@ -10,7 +10,7 @@ The app exposes no new API. Its contracts are routes, the menu, and the reusable
 | `/multisig/{id}` | `MultisigDetail` | Shared, Overview current | Context line, two action tiles, records last-used |
 | `/multisig/{id}/send?address=&amount=` | `MultisigSend` | Shared, none current | Accepts `address`, `amount` (new, optional) |
 | `/multisig/{id}/pending` | `MultisigPending` | Shared, Pending current | Grouped list only |
-| `/multisig/{id}/pending/{pendingId}` | `MultisigPendingDetail` (new) | Shared, Pending current | All actions on one payment |
+| `/multisig/{id}/pending/{pendingId}` | `MultisigPendingDetail` (new) | Shared, Pending current | All actions on one payment. With `#get-signatures` it opens at that section. |
 | `/multisig/{id}/activity` | `MultisigActivity` | Shared, Activity current | Context line |
 | `/multisig/sign-room?code=` | `MultisigSigningRoom` | Personal on join; hidden in room and on result | Redesigned |
 | `/multisig/create`, `/multisig/import`, `/multisig/room`, `/help/multisig` | unchanged | Personal | none |
@@ -39,7 +39,7 @@ Query values allowed in an address: `address`, `amount`, `code`, `scanned`, `dra
 | `SharedWalletContextLine` | `Config`, `OnSwitch` | Name, scheme chip, "in *wallet*" with colour dot. One button; opens the switcher. Names truncate after at least 12 characters. Replaces `WalletChip` on multisig pages. |
 | `SharedWalletSwitcher` | `IsOpen`, `CurrentId`, `OnClosed` | Sheet: "Back to *wallet*" first, then the wallet's other shared wallets with scheme and count, then "All shared wallets". Focus trapped, Esc closes. |
 | `MultisigWalletCard` | `Model` (WalletCardModel), `HideBalance`, `OnOpen`, `OnRename` | Whole card opens the wallet. Status line, "Not backed up", "View only" with icon and text. Balance area has a fixed height. Rename under a "more" button. |
-| `PendingCard` | `Pending`, `Config`, `State`, `Action` (PendingCardAction), `CoinsSpent`, `OnOpen`, `OnAction` | One status, amount, short recipient, signer progress, age, one button. Tapping the card body raises `OnOpen`. No irreversible control. |
+| `PendingCard` | `Pending`, `Config`, `State`, `Action` (PendingCardAction), `CoinsSpent`, `OnOpen`, `OnAction` | One status, amount, short recipient, signer progress, age, one button. Tapping the card body raises `OnOpen`. No irreversible control. With `CoinsSpent` the status is a single "Can't go through" badge. |
 | `AddProposalSheet` | `IsOpen`, `CanJoinRoom`, `OnScan`, `OnPaste`, `OnFile`, `OnJoinRoom`, `OnClosed` | Four labelled choices with one-line explanations. |
 | `StickyAction` | `Label`, `BusyLabel`, `Busy`, `DisabledReason`, `Tone`, `OnAction`, optional `ChildContent` (for `SlideToConfirm`) | Pinned to the bottom edge above the system bar. Reserves space so content is not covered. |
 | `RoomBar` | `InviteCode`, `Countdown`, `IsReconnecting`, `OnMenu` | Code, time left (emphasised when urgent), connection state, menu button. Sticky at the top of the room. |
@@ -71,7 +71,11 @@ Existing components reused unchanged: `PaymentSummary`, `SignerList`, `SignerCar
 | CantGoThrough | Can't go through | Open; coins known to be spent; not counted; card button "Review & cancel" |
 | Cancelled | Cancelled | Folded by default |
 
-`MultisigAttentionState.ReportSpent(checkedIds, spentIds)` is how the Pending list and the payment's own screen tell the counts which payments cannot go through; `IsSpent(id)` is read by the list of shared wallets. Kept in memory for the session only.
+`MultisigAttentionState.ReportSpent(checkedIds, spentIds)` is how the Pending list and the payment's own screen tell the counts which payments cannot go through; `IsSpent(id)` is read by the list of shared wallets, by the Pending list's cards and groups, and by the payment's own screen when it opens. Kept in memory for the session only.
+
+On the payment's own screen the sign button and the broadcast slide are held back while the coins are looked up, for 8 seconds at most; an unknown answer is treated as "not spent", as before.
+
+A proposal just brought into the Pending list (scan, paste, file, restore) is named in a bar at the top of the list with a Review button, until it is opened or dismissed (`pending-just-received`, `pending-review-received`).
 
 ## Behaviour guarantees
 

@@ -252,7 +252,8 @@
         var liveRoom = !string.IsNullOrEmpty(tx.UnsignedTxId) && Room.Current?.UnsignedTxId == tx.UnsignedTxId;
         var state = PendingStateClassifier.Classify(tx, LocalKey, liveRoom);
         var open = tx.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
-        var spent = open && spentIds.Contains(tx.Id);
+        // The same two sources the grouping uses, so a card never disagrees with the group it sits in.
+        var spent = open && (spentIds.Contains(tx.Id) || Attention.IsSpent(tx.Id));
         var button = PendingCardActions.For(state, spent, config!.OwnKeyIndex < 0);
         <PendingCard @key="tx.Id" Pending="tx" Config="config" State="state" Button="button" CoinsSpent="spent"
                      Highlighted="@(highlightId == tx.Id)" OnOpen="OpenPayment" OnAction="p => OnCardAction(p, button.Action)" />
