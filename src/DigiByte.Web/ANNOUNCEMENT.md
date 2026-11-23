@@ -1,3 +1,37 @@
+# DigiByte Wallet v0.9.0 - Multisig you can find your way around
+
+> Release date: November 2026
+> Live at: https://dgbwallet.app
+> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.9.0
+
+## Short post (~280 chars)
+
+🟦 DigiByte Wallet v0.9.0: multisig got a redesign. Inside a multisig the menu is the multisig's, Pending shows what needs you first, every payment has its own screen, and the signing room walks you through Invite, Sign, Broadcast.
+
+→ https://dgbwallet.app
+
+---
+
+## Medium post
+
+**Multisig you can find your way around**
+
+Until now, opening a multisig left the menu pointing at your personal wallet: one tap on Wallet and you were back at the start. In 0.9.0 the menu belongs to the multisig while it is open (Overview, Activity, Scan, Pending, More), and every page says which multisig you are in and which wallet it belongs to. Scanning an address there pays from the multisig.
+
+**Pending** now puts the payments that need you first, as compact cards with one button each. Tapping a payment opens it on its own screen, where everything for that payment lives: sign, slide to broadcast, retry, sign together online, share with co-signers, add a signed copy, cancel. A payment whose coins were already spent is listed apart and no longer asks for your signature.
+
+**The signing room** is built around the next step. A bar shows the room's code, the time left and the connection; a tracker shows Invite, Sign, Broadcast; and your one button stays pinned to the bottom.
+
+**The multisig list** shows each multisig's balance, what is waiting, and whether it is backed up. More and the Multisig shortcut on Home count the payments that need you, and the shortcut reopens the multisig you used last.
+
+How payments are signed, checked and broadcast has not changed.
+
+Also in this release: with several wallets the Unlock screen picks the wallet from a sheet, and "Update available" shows again instead of the app reloading on its own.
+
+Details: [`CHANGELOG.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/CHANGELOG.md)
+
+---
+
 # DigiByte Wallet v0.8.1 - Fix for installed apps after the 0.8.0 update
 
 > Release date: November 2026
