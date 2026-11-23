@@ -1,0 +1,837 @@
+@page "/multisig/{WalletId}/pending/{PendingId}"
+@inject MultisigWalletService MultisigService
+@inject ActiveWalletContext ActiveWallet
+@inject ClipboardService Clipboard
+@inject WalletService WalletService
+@inject NavigationManager Nav
+@inject NotificationService Notifications
+@inject IJSRuntime JS
+@inject SigningRoomClient Room
+@inject MultisigAttentionState Attention
+@implements IDisposable
+
+@*
+    One pending payment and everything that can be done with it (specs/026-multisig-wallet-experience, FR-020, FR-021).
+    Signing, broadcasting and retrying happen here and in the signing room, never on the Pending list (FR-019a), so
+    the full payment is always in view when they do. The handlers below were moved from the Pending list as they
+    were, with their guards: one signature per tap, one broadcast per slide, the spent-coins check, the confirm steps.
+    The id in the address is this device's own id for the payment; the proposal itself is never put in an address.
+*@
+
+<PageTitle>Payment — DigiByte Wallet</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-4">
+    <PageHeader Title="@Title" BackLabel="Pending" BackHref="@ListHref" />
+    @if (config is not null)
+    {
+        <div class="-mt-2"><SharedWalletContextLine Config="config" /></div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="card p-4">
+            <div class="h-5 w-48 skeleton rounded"></div>
+            <div class="h-8 w-40 skeleton rounded mt-3"></div>
+            <div class="h-4 w-56 skeleton rounded mt-3"></div>
+        </div>
+    }
+    else if (config is null)
+    {
+        <MultisigAccessNotice State="access" />
+    }
+    else if (tx is null)
+    {
+        @* Removed here, or the link is old. Never a blank page. *@
+        <div class="card p-6 text-center flex flex-col items-center gap-3" role="status">
+            <p class="block-title">This payment is no longer here</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">It may have been removed from this device.</p>
+            <button type="button" class="btn-primary btn-sm" @onclick="() => Nav.NavigateTo(ListHref)">Back to Pending</button>
+        </div>
+    }
+    else if (tx.Status == PendingTxStatus.Broadcast)
+    {
+        @* Sent payments live in Activity, not in Pending (FR-018a). *@
+        <div class="card p-5 flex flex-col gap-3" role="status" data-testid="payment-sent">
+            <div class="flex items-center gap-2">
+                <StatusBadge State="MultisigState.Sent" />
+            </div>
+            <p class="text-2xl font-extrabold tabular-nums text-slate-900 dark:text-white">
+                @MultisigFormat.Dgb(tx.AmountSatoshis) <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">DGB</span>
+            </p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">This payment was broadcast. It now shows in Activity.</p>
+            @if (!string.IsNullOrEmpty(tx.BroadcastTxId))
+            {
+                <div>
+                    <p class="section-label">Transaction ID</p>
+                    <p class="mt-1 font-mono text-xs break-all text-slate-700 dark:text-slate-300 select-all">@tx.BroadcastTxId</p>
+                </div>
+            }
+            <div class="flex flex-wrap gap-2">
+                @if (!string.IsNullOrEmpty(tx.BroadcastTxId))
+                {
+                    <button type="button" class="btn-secondary btn-sm" @onclick="() => Clipboard.CopyAsync(tx.BroadcastTxId!)">Copy transaction ID</button>
+                }
+                <button type="button" class="btn-primary btn-sm flex-1" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/activity")'>View in Activity</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        var state = State;
+        var open = IsOpen;
+        var mine = NeedsMySignature;
+        var action = Button.Action;
+
+        @* What this is and where it stands *@
+        <div class="flex items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2 min-w-0">
+                @if (coinsSpent)
+                {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"><UxIcon Name="alert" Class="w-3 h-3 shrink-0" />Can't go through</span>
+                }
+                else
+                {
+                    <StatusBadge State="state" />
+                }
+                @if (tx.ReceivedFromCoSigner)
+                {
+                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">Received from a co-signer</span>
+                }
+            </div>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">@MultisigFormat.Age(tx.CreatedAt)</span>
+        </div>
+
+        @if (state == MultisigState.LiveRoom && mine)
+        {
+            <p class="flex items-center gap-1.5 -mt-2 text-xs font-semibold text-dgb-700 dark:text-dgb-200">
+                <UxIcon Name="pen" Class="w-3.5 h-3.5 shrink-0" />
+                Your signature is needed
+            </p>
+        }
+        @if (coinsSpent)
+        {
+            <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl" role="status">
+                <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">This payment can't go through</p>
+                <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">Some of the coins it uses were already spent, so it can't be signed or broadcast. You can cancel it.</p>
+            </div>
+        }
+        @if (tx.Status == PendingTxStatus.Failed && !string.IsNullOrEmpty(tx.FailureReason))
+        {
+            <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl" role="alert">
+                <p class="text-sm font-semibold text-red-700 dark:text-red-300">Broadcast failed</p>
+                <p class="text-xs text-red-700 dark:text-red-400 mt-0.5 break-words">@tx.FailureReason</p>
+            </div>
+        }
+        @if (config.OwnKeyIndex < 0 && open)
+        {
+            <p class="text-xs text-slate-500 dark:text-slate-400">View only: this device holds no key for this wallet, so it can't sign or join a signing room.</p>
+        }
+
+        @* The payment, in full: read from the saved proposal, the same summary the signing room shows *@
+        <PaymentSummary ShowCheckCue="mine && !coinsSpent"
+                        Summary="PaymentSummaryBuilder.Build(tx.AmountSatoshis, tx.FeeSatoshis, tx.DestinationAddress, tx.Memo, null)">
+            <Details>
+                @if (!string.IsNullOrEmpty(tx.UnsignedTxId))
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400 break-all">Unsigned transaction id: <span class="font-mono">@tx.UnsignedTxId</span></p>
+                }
+                <p class="text-xs text-slate-500 dark:text-slate-400">Created @MultisigFormat.When(tx.CreatedAt)</p>
+            </Details>
+        </PaymentSummary>
+
+        @if (open)
+        {
+            <div class="card p-4"><SignerProgress Config="config" Pending="tx" /></div>
+        }
+
+        @* The one main action for this payment's state. A confirm step takes the button's place, so it shows up
+           where the person just tapped and stays in reach, never further down the page. *@
+        @switch (action)
+        {
+            case PendingCardAction.ReviewAndSign when !signConfirm:
+                @* Until the coins have been looked up, signing waits: a payment that can't go through never offers it. *@
+                <StickyAction Label="Sign this payment" Busy="isSigning" BusyLabel="Signing…" OnAction="() => signConfirm = true"
+                              Disabled="spentChecking" DisabledReason="@(spentChecking ? "Checking this payment's coins…" : null)" />
+                break;
+
+            case PendingCardAction.ReviewAndSign:
+                @* Confirm signing: restates amount and recipient (spec 018, FR-007) *@
+                <StickyAction>
+                    <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-2xl flex flex-col gap-3" role="alertdialog" aria-label="Confirm signing">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Sign @MultisigFormat.Dgb(tx.AmountSatoshis) DGB to @MultisigFormat.Short(tx.DestinationAddress)?</p>
+                        <div class="flex gap-2">
+                            <button type="button" class="btn-primary btn-sm flex-1" disabled="@isSigning" data-testid="confirm-sign" @onclick="ConfirmSign">
+                                @(isSigning ? "Signing…" : "Confirm and sign")
+                            </button>
+                            <button type="button" class="btn-ghost btn-sm" disabled="@isSigning" @onclick="() => signConfirm = false">Back</button>
+                        </div>
+                    </div>
+                </StickyAction>
+                break;
+
+            case PendingCardAction.ReviewAndBroadcast:
+                @* Broadcasting sends the coins and cannot be undone: slide, not tap (docs/UI_STYLE.md).
+                   The key changes after every attempt, so a failed one leaves a fresh, unlocked control. *@
+                <StickyAction>
+                    <SlideToConfirm @key="@($"{tx.Id}:{broadcastAttempt}")" Label="Slide to broadcast" BusyLabel="Broadcasting…"
+                                    ActionDescription="Broadcast this multisig payment"
+                                    Disabled="@(isBroadcasting || coinsSpent || spentChecking)" OnConfirmed="BroadcastTransaction" />
+                </StickyAction>
+                break;
+
+            case PendingCardAction.ReviewAndRetry:
+                <StickyAction Label="Retry broadcast" Busy="isBroadcasting" BusyLabel="Broadcasting…" OnAction="RetryBroadcast" />
+                break;
+
+            case PendingCardAction.OpenRoom:
+                <StickyAction Label="Open room" OnAction='() => Nav.NavigateTo("/multisig/sign-room")' />
+                break;
+
+            case PendingCardAction.ReviewAndCancel when !confirmCancel:
+                <StickyAction Label="Cancel this proposal" Tone="UxTone.Warning" OnAction="() => confirmCancel = true" />
+                break;
+
+            case PendingCardAction.ReviewAndCancel:
+                <StickyAction>@CancelConfirm</StickyAction>
+                break;
+        }
+
+        @* Getting the other signatures: live in a room, or by sending the proposal and taking signed copies back *@
+        @if (open && !coinsSpent)
+        {
+            <h3 class="section-label mt-1" id="@GetSignaturesSection">Get signatures</h3>
+
+            @* Sign together online (specs/017-multisig-online-signing) *@
+            @if (action != PendingCardAction.OpenRoom)
+            {
+                <div class="card p-4 flex flex-col gap-2">
+                    <button type="button" class="detail-row" aria-expanded="@(onlineOpen ? "true" : "false")" @onclick="ToggleOnline">
+                        <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="live" Class="w-5 h-5" /></span>
+                        <span class="flex-1 min-w-0 text-left">
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">Sign together online</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">Open a live room; co-signers sign on their own devices</span>
+                        </span>
+                        <svg class="detail-row-chevron" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                    </button>
+                    @if (onlineOpen)
+                    {
+                        <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-dgb-800">
+                            @if (config.OwnKeyIndex < 0)
+                            {
+                                <p class="text-xs text-slate-500 dark:text-slate-400" role="status">Watch-only copies can't join signing rooms. Share the proposal and add signed copies instead.</p>
+                            }
+                            else if (onlineState == OnlineState.Checking)
+                            {
+                                <p class="text-xs text-slate-500 dark:text-slate-400" role="status">Checking the signing service…</p>
+                            }
+                            else if (onlineState == OnlineState.Unavailable)
+                            {
+                                <p class="text-xs text-amber-700 dark:text-amber-300" role="status">Online signing is unavailable right now. You can still share the proposal and add signed copies.</p>
+                            }
+                            else
+                            {
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Open a room and share its code. Everyone sees signatures arrive live.</p>
+                                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-length">Room stays open for</label>
+                                <select id="room-length" @bind="lifetime" class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white">
+                                    @foreach (var minutes in lifetimes)
+                                    {
+                                        <option value="@minutes">@(minutes >= 60 ? $"{minutes / 60} hour{(minutes >= 120 ? "s" : "")}" : $"{minutes} minutes")</option>
+                                    }
+                                </select>
+                                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-name">Your name in the room</label>
+                                <input id="room-name" @bind="roomName" @bind:event="oninput" maxlength="40" class="input" />
+                                <button type="button" class="btn-primary btn-sm" disabled="@(isOpening || string.IsNullOrWhiteSpace(roomName))" @onclick="OpenRoomAsync">
+                                    @(isOpening ? "Opening…" : "Open room")
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            @* Share with co-signers *@
+            <div class="card p-4 flex flex-col gap-2">
+                <button type="button" class="detail-row" aria-expanded="@(shareOpen ? "true" : "false")" @onclick="() => shareOpen = !shareOpen">
+                    <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="send" Class="w-5 h-5" /></span>
+                    <span class="flex-1 min-w-0 text-left">
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">Share with co-signers</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">Send the proposal as a QR code, text or file</span>
+                    </span>
+                    <svg class="detail-row-chevron" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                </button>
+                @if (shareOpen)
+                {
+                    <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-dgb-800">
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" class="btn-primary btn-sm" @onclick="CopyPsbt">Copy PSBT</button>
+                            <button type="button" class="btn-secondary btn-sm" @onclick="DownloadPsbt">Save as file</button>
+                        </div>
+                        @if (tx.PsbtBase64.Length <= 2200)
+                        {
+                            <div class="flex justify-center pt-1"><QrImage Payload="@tx.PsbtBase64" Alt="Proposal QR code" /></div>
+                        }
+                        else
+                        {
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">This proposal is too large for a QR code. Use Copy or Save as file.</p>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @* Add a signed copy *@
+        @if (open && !coinsSpent)
+        {
+            <div class="card p-4 flex flex-col gap-2">
+                <button type="button" class="detail-row" aria-expanded="@(importOpen ? "true" : "false")" @onclick="ToggleImport">
+                    <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="check-circle" Class="w-5 h-5" /></span>
+                    <span class="flex-1 min-w-0 text-left">
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">Add a signed copy</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">Bring in a co-signer's signature: paste, scan or file</span>
+                    </span>
+                    <svg class="detail-row-chevron" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                </button>
+                @if (importOpen)
+                {
+                    <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-dgb-800">
+                        <textarea @bind="importPsbtBase64" @bind:event="oninput" rows="3" aria-label="Signed PSBT from co-signer"
+                                  placeholder="Base64-encoded PSBT…" class="input font-mono resize-none"></textarea>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" class="btn-secondary btn-sm" @onclick="PasteImport">Paste</button>
+                            <button type="button" class="btn-secondary btn-sm" @onclick="() => showScanner = true">Scan QR</button>
+                            <label class="btn-secondary btn-sm cursor-pointer">
+                                Choose file
+                                <InputFile OnChange="OnFileChosen" class="hidden" accept=".txt,.psbt,text/plain" />
+                            </label>
+                        </div>
+                        @if (!string.IsNullOrEmpty(importNotice))
+                        {
+                            <p class="text-xs text-amber-700 dark:text-amber-400 break-words" role="status">@importNotice</p>
+                        }
+                        <button type="button" class="btn-primary btn-sm" disabled="@string.IsNullOrWhiteSpace(importPsbtBase64)" @onclick="ImportSignedPSBT">Merge signatures</button>
+                    </div>
+                }
+            </div>
+        }
+
+        @* Stopping it: set apart from everything that moves the payment forward *@
+        @if (open || tx.Status == PendingTxStatus.Failed)
+        {
+            @* When cancelling is the main action it is the pinned button above, not a second link down here. *@
+            @if (action != PendingCardAction.ReviewAndCancel)
+            {
+                <div class="mt-2 pt-4 border-t border-slate-200 dark:border-dgb-800">
+                    @if (!confirmCancel)
+                    {
+                        <button type="button" class="min-h-[44px] text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500" data-testid="cancel-proposal" @onclick="() => confirmCancel = true">Cancel this proposal</button>
+                    }
+                    else
+                    {
+                        @CancelConfirm
+                    }
+                </div>
+            }
+        }
+
+        @if (tx.Status == PendingTxStatus.Cancelled)
+        {
+            <div class="card p-4 flex flex-col gap-2">
+                <p class="text-sm text-slate-600 dark:text-slate-400">You cancelled this proposal on this device. A co-signer's copy can restore it: add it again from Pending.</p>
+                <button type="button" class="self-start min-h-[44px] text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500" @onclick="RemoveCancelled">Remove from this device</button>
+            </div>
+        }
+    }
+</div>
+
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnScannedImport" OnClosed="@(() => showScanner = false)" />
+</AuthGuard>
+
+@code {
+    [Parameter] public string WalletId { get; set; } = "";
+    [Parameter] public string PendingId { get; set; } = "";
+
+    /// <summary>
+    /// The part of this screen with the ways to collect signatures. A link that ends in #get-signatures lands on it:
+    /// the Pending list's "Get signatures" button does, so the person is not left at the top to scroll for it.
+    /// </summary>
+    public const string GetSignaturesSection = "get-signatures";
+    private string? landedFor;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Once per payment, after it is on screen and its sections exist.
+        if (isLoading || tx is null || landedFor == loadedFor) return;
+        landedFor = loadedFor;
+        if (new Uri(Nav.Uri).Fragment != "#" + GetSignaturesSection) return;
+        try { await JS.InvokeVoidAsync("domHelpers.scrollToElement", GetSignaturesSection); }
+        catch { /* landing at the top is a fine fallback */ }
+    }
+
+    // The cancel confirmation, shown where cancelling was asked for: in the pinned area or at the foot of the page.
+    private RenderFragment CancelConfirm => __builder =>
+    {
+        <div class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800/50 rounded-xl" role="alertdialog" aria-label="Confirm cancel">
+            <p class="text-sm font-bold text-red-700 dark:text-red-300">Cancel this proposal?</p>
+            <p class="text-xs text-red-700 dark:text-red-400 leading-relaxed mt-1">
+                This only cancels it on this device. Co-signers who already have a copy could still sign and broadcast it.
+                This device will not broadcast it.
+            </p>
+            <div class="flex gap-2 mt-2">
+                <button type="button" class="btn-danger btn-sm" data-testid="confirm-cancel" @onclick="CancelProposal">Cancel proposal</button>
+                <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmCancel = false">Keep it</button>
+            </div>
+        </div>
+    };
+
+    private MultisigWalletConfig? config;
+    private MultisigAccessState access = MultisigAccessState.NotFound;
+    private PendingMultisigTransaction? tx;
+    private bool isLoading = true;
+    private string? loadedFor;
+    private bool coinsSpent;
+    // True from opening the payment until its coins have been looked up, or a few seconds have passed.
+    private bool spentChecking;
+    private const int SpentCheckPatienceMs = 8000;
+
+    private bool isSigning;
+    private bool isBroadcasting;
+    private bool signConfirm;
+    private bool confirmCancel;
+    private bool shareOpen;
+    private bool importOpen;
+    private bool showScanner;
+    private string importPsbtBase64 = "";
+    private string? importNotice;
+
+    private string ListHref => $"/multisig/{WalletId}/pending";
+    private string? LocalKey => config?.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex;
+    private bool LiveRoom => tx is not null && !string.IsNullOrEmpty(tx.UnsignedTxId) && Room.Current?.UnsignedTxId == tx.UnsignedTxId;
+    private MultisigState State => PendingStateClassifier.Classify(tx!, LocalKey, LiveRoom);
+    private bool IsOpen => tx!.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
+    private bool NeedsMySignature => MultisigWalletService.NeedsMySignature(tx!, config!);
+    private PendingCardButton Button => PendingCardActions.For(State, coinsSpent, config!.OwnKeyIndex < 0);
+
+    private string Title => tx is null || isLoading ? "Payment" : tx.Status switch
+    {
+        PendingTxStatus.Broadcast => "Payment sent",
+        PendingTxStatus.Cancelled => "Cancelled payment",
+        _ => "Payment",
+    };
+
+    // Runs again when the same page is reused for another payment or another multisig.
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{WalletId}|{PendingId}";
+        if (loadedFor == key) return;
+        loadedFor = key;
+        isLoading = true;
+        config = null;
+        tx = null;
+        coinsSpent = false;
+        signConfirm = confirmCancel = shareOpen = importOpen = onlineOpen = false;
+        try
+        {
+            var owner = ActiveWallet.WalletId;
+            var publicKey = ActiveWallet.PublicKey;
+            access = await MultisigService.GetAccessStateAsync(WalletId, owner, publicKey);
+            if (access != MultisigAccessState.Owned) return;
+            config = await MultisigService.GetConfigAsync(WalletId, owner, publicKey);
+            spentChecking = true;
+            _ = StopCheckingAfterAsync(key);
+            await Reload();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Reload()
+    {
+        if (config is null) return;
+        var all = await MultisigService.GetPendingTransactionsAsync(WalletId);
+        tx = all.FirstOrDefault(p => p.Id == PendingId);
+        // What the Pending list already found out shows at once, with no moment of offering to sign.
+        if (tx is not null && Attention.IsSpent(tx.Id)) coinsSpent = true;
+        _ = RefreshSpentAsync();
+    }
+
+    /// <summary>A slow or unreachable explorer never holds the main button back for long: unknown stays "not spent".</summary>
+    private async Task StopCheckingAfterAsync(string key)
+    {
+        await Task.Delay(SpentCheckPatienceMs);
+        if (loadedFor != key || !spentChecking) return;
+        spentChecking = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Checks whether this payment's coins are already spent (spec 022, FR-007). Marks nothing when chain data is unavailable.</summary>
+    private async Task RefreshSpentAsync()
+    {
+        var current = config;
+        var payment = tx;
+        if (current is null || payment is null) { spentChecking = false; return; }
+        if (payment.Status is not (PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize))
+        {
+            spentChecking = false;
+            coinsSpent = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var spent = false;
+        var known = false;
+        try
+        {
+            var facts = MultisigProposalReader.Read(payment.PsbtBase64, current, MultisigService.ActiveNetwork);
+            if (facts.Problems.Count == 0)
+            {
+                var outPoints = facts.Inputs.Select(i => i.OutPoint).ToList();
+                var spentIds = await MultisigService.GetSpentInputIdsAsync(current, outPoints);
+                spent = outPoints.Any(o => spentIds.Contains($"{o.Hash}:{o.N}"));
+                known = true;
+            }
+        }
+        catch { /* unknown stays "not spent": nothing is blocked on a guess */ }
+
+        // The counts on the menu and on Home stop including a payment that cannot go through.
+        if (known) Attention.ReportSpent([payment.Id], spent ? [payment.Id] : []);
+
+        if (payment != tx) return;
+        // A lookup that found nothing out leaves what is already known (from the Pending list) as it is.
+        if (!known) spent = coinsSpent;
+        if (spent == coinsSpent && !spentChecking) return;
+        coinsSpent = spent;
+        spentChecking = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ─── Sign ───
+
+    private async Task ConfirmSign()
+    {
+        signConfirm = false;
+        await SignTransaction();
+    }
+
+    private async Task SignTransaction()
+    {
+        if (isSigning || tx is null || coinsSpent) return;
+        isSigning = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            var privateKey = WalletService.GetPrivateKeyForMultisig();
+            if (privateKey == null)
+                throw new InvalidOperationException("Wallet is locked or private key unavailable.");
+
+            var key = new NBitcoin.Key(Convert.FromHexString(privateKey));
+            await MultisigService.SignPendingTransactionAsync(tx, key);
+            await Reload();
+            Notifications.Success(tx is { HasEnoughSignatures: true }
+                ? "Signed. It has enough signatures and is ready to broadcast."
+                : "Signed. Now get your co-signers' signatures.");
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+        finally
+        {
+            isSigning = false;
+        }
+    }
+
+    // ─── Broadcast ───
+
+    // Counts broadcast attempts; part of the slide control's key, so each attempt starts with an unlocked control.
+    private int broadcastAttempt;
+
+    private async Task BroadcastTransaction()
+    {
+        if (isBroadcasting || tx is null) return;   // a double slide broadcasts once
+        isBroadcasting = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await MultisigService.FinalizeAndBroadcastAsync(tx);
+            await Reload();
+            Notifications.Success("Payment broadcast.");
+        }
+        catch (Exception ex)
+        {
+            await Reload();
+            Fail(ex.Message);
+        }
+        finally
+        {
+            isBroadcasting = false;
+            broadcastAttempt++;
+        }
+    }
+
+    private async Task RetryBroadcast()
+    {
+        if (isBroadcasting || tx is null) return;
+        isBroadcasting = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await MultisigService.RetryBroadcastAsync(tx);
+            await Reload();
+            Notifications.Success("Payment broadcast.");
+        }
+        catch (Exception ex)
+        {
+            await Reload();
+            Fail(ex.Message);
+        }
+        finally
+        {
+            isBroadcasting = false;
+        }
+    }
+
+    // ─── Sign together online (specs/017-multisig-online-signing) ───
+
+    private enum OnlineState { Checking, Available, Unavailable }
+
+    private bool onlineOpen;
+    private OnlineState onlineState = OnlineState.Checking;
+    private List<int> lifetimes = [30];
+    private int lifetime = 30;
+    private string roomName = "";
+    private bool isOpening;
+    private bool roomEventsWired;
+
+    private async Task ToggleOnline()
+    {
+        if (tx is null) return;
+        if (LiveRoom)
+        {
+            Nav.NavigateTo("/multisig/sign-room");
+            return;
+        }
+        onlineOpen = !onlineOpen;
+        if (!onlineOpen || config is null || config.OwnKeyIndex < 0) return;
+
+        // Only now is the signing service contacted; nothing else on this page depends on it (spec 017, FR-021).
+        onlineState = OnlineState.Checking;
+        roomName = string.IsNullOrWhiteSpace(roomName) ? ActiveWallet.WalletName : roomName;
+        StateHasChanged();
+        if (!await Room.CheckAvailabilityAsync())
+        {
+            onlineState = OnlineState.Unavailable;
+            return;
+        }
+        try
+        {
+            var options = await Room.GetOptionsAsync();
+            lifetimes = options.AllowedLifetimesMinutes.Count > 0 ? options.AllowedLifetimesMinutes : [options.DefaultLifetimeMinutes];
+            lifetime = options.DefaultLifetimeMinutes;
+            onlineState = OnlineState.Available;
+        }
+        catch
+        {
+            onlineState = OnlineState.Unavailable;
+        }
+    }
+
+    private async Task OpenRoomAsync()
+    {
+        if (isOpening || config is null || tx is null) return;   // a double tap opens one room (spec 017, FR-026)
+        isOpening = true;
+        WireRoomEvents();
+        try
+        {
+            var network = MultisigService.ActiveNetwork == DigiByte.Crypto.Networks.DigiByteNetwork.Testnet ? "test"
+                : MultisigService.ActiveNetwork == DigiByte.Crypto.Networks.DigiByteNetwork.Regtest ? "regtest" : "main";
+            await Room.OpenAsync(network, config.CoSigners.Select(c => c.PublicKeyHex).ToList(), config.RequiredSignatures,
+                tx.PsbtBase64, tx.Memo, lifetime, roomName.Trim(), tx.UnsignedTxId);
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+            isOpening = false;
+        }
+    }
+
+    private void WireRoomEvents()
+    {
+        if (roomEventsWired) return;
+        roomEventsWired = true;
+        Room.RoomStateReceived += OnRoomOpenedAsync;
+        Room.ExistingRoomReceived += OnExistingRoomAsync;
+        Room.ErrorReceived += OnRoomErrorAsync;
+    }
+
+    private Task OnRoomOpenedAsync(SigningRoomView _) => InvokeAsync(() =>
+    {
+        if (!isOpening) return;
+        isOpening = false;
+        Nav.NavigateTo("/multisig/sign-room");
+    });
+
+    // Spec 017, FR-019a: a room for this payment already exists; join it instead of opening a second one.
+    private Task OnExistingRoomAsync(string code) => InvokeAsync(() =>
+    {
+        isOpening = false;
+        Nav.NavigateTo($"/multisig/sign-room?code={Uri.EscapeDataString(code)}");
+    });
+
+    private Task OnRoomErrorAsync(string code, string message) => InvokeAsync(() =>
+    {
+        if (!isOpening) return;
+        isOpening = false;
+        Fail(message);
+        StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        if (!roomEventsWired) return;
+        Room.RoomStateReceived -= OnRoomOpenedAsync;
+        Room.ExistingRoomReceived -= OnExistingRoomAsync;
+        Room.ErrorReceived -= OnRoomErrorAsync;
+    }
+
+    // ─── Share ───
+
+    private async Task CopyPsbt()
+    {
+        if (tx is null) return;
+        await Clipboard.CopyAsync(tx.PsbtBase64, toast: false);
+        Notifications.Success("Proposal copied. Send it to your co-signers.");
+    }
+
+    private async Task DownloadPsbt()
+    {
+        if (tx is null) return;
+        await JS.InvokeVoidAsync("downloadTextFile", tx.PsbtBase64, $"multisig-proposal-{tx.Id[..Math.Min(8, tx.Id.Length)]}.psbt.txt");
+        Notifications.Success("Proposal saved as a file.");
+    }
+
+    // ─── Add a signed copy ───
+
+    private void ToggleImport()
+    {
+        importOpen = !importOpen;
+        importPsbtBase64 = "";
+        importNotice = null;
+    }
+
+    private async Task PasteImport()
+    {
+        string? text = null;
+        try { text = await Clipboard.ReadAsync(); } catch { /* blocked */ }
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            importNotice = "Nothing to paste, or the browser blocked clipboard access.";
+            return;
+        }
+        AcceptImportText(text);
+    }
+
+    private void OnScannedImport(string data)
+    {
+        showScanner = false;
+        AcceptImportText(data);
+        StateHasChanged();
+    }
+
+    private async Task OnFileChosen(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var stream = e.File.OpenReadStream(maxAllowedSize: 512 * 1024);
+            using var reader = new StreamReader(stream);
+            AcceptImportText(await reader.ReadToEndAsync());
+        }
+        catch
+        {
+            importNotice = "That file couldn't be read. Use a small text file containing the PSBT.";
+        }
+    }
+
+    private void AcceptImportText(string text)
+    {
+        var result = MultisigSendHelper.ClassifyScan(text);
+        if (result.Kind == ScanKind.Psbt)
+        {
+            importPsbtBase64 = text.Trim();
+            importNotice = null;
+        }
+        else
+        {
+            importNotice = result.Kind is ScanKind.Address or ScanKind.PaymentUri
+                ? "That is an address, not a signed transaction (PSBT). Co-signers send you a PSBT to import here."
+                : "That doesn't look like a signed transaction (PSBT).";
+        }
+    }
+
+    private async Task ImportSignedPSBT()
+    {
+        if (tx is null) return;
+        try
+        {
+            await MultisigService.ImportSignedPSBTAsync(tx, importPsbtBase64.Trim());
+            await Reload();
+            importOpen = false;
+            importPsbtBase64 = "";
+            importNotice = null;
+            Notifications.Success(tx is { HasEnoughSignatures: true }
+                ? "Signatures merged. It has enough signatures and is ready to broadcast."
+                : "Signatures merged.");
+        }
+        catch (PsbtImportException ex)
+        {
+            importNotice = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+    }
+
+    // ─── Cancel and remove ───
+
+    private async Task CancelProposal()
+    {
+        if (tx is null) return;
+        try
+        {
+            await MultisigService.CancelPendingAsync(tx);
+            confirmCancel = false;
+            await Reload();
+            Notifications.Success("Proposal cancelled on this device.");
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+    }
+
+    private async Task RemoveCancelled()
+    {
+        try
+        {
+            await MultisigService.RemoveCancelledAsync(WalletId, PendingId);
+            Notifications.Success("Removed from this device's list.");
+            Nav.NavigateTo(ListHref);
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+    }
+
+    // A failure stays on screen until it is dismissed (spec 026, FR-024).
+    private void Fail(string message) => Notifications.Sticky(message, ToastType.Error);
+}

@@ -3,20 +3,45 @@
 @inject ActiveWalletContext ActiveWallet
 @inject NavigationManager Nav
 @inject AppState AppState
+@inject IBlockchainService Blockchain
+@inject ISecureStorage Storage
+@inject SigningRoomClient Room
+@inject MultisigAttentionState Attention
+
+@*
+    The shared wallets of the active wallet (specs/026-multisig-wallet-experience, FR-011 to FR-017). Each card says
+    what is in the wallet and whether anything waits for you, without opening it. The cards come from what is saved
+    on this device and show at once; balances are fetched afterwards, one call per wallet, the same call each
+    wallet's dashboard makes, and fill in without moving anything. The order is fixed when the list loads.
+*@
 
 <PageTitle>Multisig Wallets — DigiByte Wallet</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Multisig Wallets">
-        <button class="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white transition-colors press-effect"
-                aria-label="Create multisig wallet"
-                @onclick='() => Nav.NavigateTo("/multisig/create")'>
-            <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-        </button>
+    <PageHeader Title="Shared wallets">
+        <TitleContent>
+            <h2 class="page-title">Shared wallets</h2>
+            @* Whose they are: multisigs are kept separately for each wallet on this device (FR-011) *@
+            <p class="flex items-center gap-1.5 mt-1 text-sm text-slate-600 dark:text-slate-400 min-w-0" data-testid="multisig-list-owner">
+                in
+                <span class="w-2 h-2 rounded-full shrink-0" style="background-color: @ActiveWallet.WalletColor;" aria-hidden="true"></span>
+                <span class="font-semibold text-slate-800 dark:text-slate-100 truncate">@ActiveWallet.WalletName</span>
+            </p>
+        </TitleContent>
     </PageHeader>
+
+    @* The two ways to add one, both visible and both labelled (FR-016) *@
+    <div class="grid grid-cols-2 gap-2">
+        <button type="button" class="btn-primary btn-sm" data-testid="multisig-create" @onclick='() => Nav.NavigateTo("/multisig/create")'>
+            <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            Create
+        </button>
+        <button type="button" class="btn-secondary btn-sm" data-testid="multisig-import" @onclick='() => Nav.NavigateTo("/multisig/import")'>
+            <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+            Import
+        </button>
+    </div>
 
     @if (isLoading)
     {
@@ -25,7 +50,8 @@
             {
                 <div class="card p-4">
                     <div class="h-5 w-40 skeleton rounded"></div>
-                    <div class="h-4 w-60 skeleton rounded mt-2"></div>
+                    <div class="h-6 w-36 skeleton rounded mt-4"></div>
+                    <div class="h-4 w-48 skeleton rounded mt-3"></div>
                 </div>
             }
         </div>
@@ -34,7 +60,7 @@
     {
         @if (unassigned.Count > 0 && !unassignedDismissed)
         {
-            <div class="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/30 slide-up-delay-1" role="region" aria-label="Unassigned multisigs">
+            <div class="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/30" role="region" aria-label="Unassigned multisigs">
                 <p class="text-sm font-bold text-amber-800 dark:text-amber-300">Unassigned multisigs</p>
                 <p class="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
                     These were saved before multisigs were tied to a wallet and none of your wallets' keys is in them.
@@ -45,8 +71,7 @@
                     {
                         <div class="flex items-center justify-between gap-2 p-2.5 bg-white/70 dark:bg-dgb-900/60 rounded-xl">
                             <span class="text-sm font-medium text-slate-900 dark:text-white truncate">@item.Name</span>
-                            <button type="button" class="min-h-[44px] px-4 bg-dgb-500 hover:bg-dgb-600 text-white text-xs font-semibold rounded-xl press-effect shrink-0"
-                                    @onclick="() => Claim(item.Id)">Claim</button>
+                            <button type="button" class="btn-primary btn-sm shrink-0" @onclick="() => Claim(item.Id)">Claim</button>
                         </div>
                     }
                 </div>
@@ -54,121 +79,87 @@
             </div>
         }
 
-        @if (wallets.Count == 0 && drafts.Count == 0)
+        @if (cards.Count == 0 && drafts.Count == 0)
         {
-            <div class="flex flex-col items-center justify-center gap-4 py-12 text-center slide-up-delay-1">
-                <div class="w-16 h-16 rounded-full bg-dgb-50 dark:bg-dgb-900/50 flex items-center justify-center">
-                    <svg class="w-8 h-8 text-dgb-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+            <div class="card p-6 flex flex-col items-center gap-3 text-center" data-testid="multisig-empty">
+                <div class="w-14 h-14 rounded-full bg-dgb-50 dark:bg-dgb-900/50 flex items-center justify-center" aria-hidden="true">
+                    <svg class="w-7 h-7 text-dgb-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
                     </svg>
                 </div>
-                <div>
-                    <h3 class="block-title">No Multisig Wallets</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-[260px]">
-                        Create a shared wallet that requires multiple signatures to spend funds.
-                    </p>
-                </div>
-                <button class="btn-primary btn-sm"
-                        @onclick='() => Nav.NavigateTo("/multisig/create")'>
-                    Create Multisig Wallet
-                </button>
+                <h3 class="block-title">No shared wallets yet</h3>
+                <p class="text-sm text-slate-600 dark:text-slate-400 max-w-[280px]">
+                    A shared wallet needs several people to approve each payment. Create one, or import one a co-signer already set up.
+                </p>
+                <a href="/help/multisig" class="min-h-[44px] inline-flex items-center text-sm font-medium text-dgb-600 dark:text-dgb-300">New to multisig? Read the guide</a>
             </div>
         }
         else
         {
-            @if (drafts.Count > 0)
+            @if (needsYouTotal > 0)
             {
-                <div class="flex flex-col gap-2 slide-up-delay-1">
-                    <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1">Drafts · waiting for co-signers</p>
-                    @foreach (var draft in drafts)
+                <p class="flex items-center gap-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-200" role="status" data-testid="multisig-list-summary">
+                    <UxIcon Name="pen" Class="w-4 h-4 shrink-0 text-dgb-500" />
+                    <span>@(needsYouTotal == 1 ? "1 payment needs you" : $"{needsYouTotal} payments need you")</span>
+                </p>
+            }
+
+            @if (cards.Count > 0)
+            {
+                <div class="flex flex-col gap-3">
+                    @foreach (var card in cards)
                     {
-                        var filled = draft.CoSigners.Count(c => !string.IsNullOrWhiteSpace(c.PublicKeyHex));
-                        var needed = draft.TotalSigners - 1;
-                        <div class="p-4 bg-amber-50/60 dark:bg-amber-900/10 rounded-2xl border border-amber-200/80 dark:border-amber-800/30">
-                            <div class="flex items-center justify-between gap-2">
-                                <div class="min-w-0">
-                                    <button type="button" class="flex items-center gap-1.5 max-w-full min-h-[32px] text-left group" aria-label="Rename draft @draft.Name"
-                                            @onclick="() => StartRenameDraft(draft)">
-                                        <span class="text-sm font-semibold text-slate-900 dark:text-white truncate">@draft.Name</span>
-                                        <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-dgb-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
-                                    </button>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">@draft.Label draft · @filled of @needed co-signer keys added</p>
-                                </div>
-                                <span class="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full flex-shrink-0">DRAFT</span>
-                            </div>
-                            <div class="flex items-center gap-2 mt-3">
-                                <button class="btn-primary btn-sm flex-1"
-                                        @onclick="() => ContinueDraft(draft.Id)">Continue</button>
-                                @if (confirmDeleteId == draft.Id)
-                                {
-                                    <button class="btn-danger btn-sm"
-                                            @onclick="() => DeleteDraft(draft.Id)">Delete draft?</button>
-                                    <button class="min-h-[44px] py-2 px-3 text-xs font-medium text-slate-500" @onclick="() => confirmDeleteId = null">Cancel</button>
-                                }
-                                else
-                                {
-                                    <button class="min-h-[44px] py-2 px-3 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-red-500"
-                                            @onclick="() => confirmDeleteId = draft.Id">Delete</button>
-                                }
-                            </div>
-                        </div>
+                        var model = card;
+                        var balance = balances.GetValueOrDefault(model.Id);
+                        <MultisigWalletCard @key="model.Id" Model="model" HideBalance="hideBalance"
+                                            BalanceLoading="@(balance is null)" BalanceSatoshis="@(balance?.Satoshis)"
+                                            FiatText="@FiatText(balance?.Satoshis)"
+                                            OnOpen="OpenWallet" OnRename="StartRenameWallet" />
                     }
                 </div>
             }
 
-            @if (attention.Total > 0)
+            @if (drafts.Count > 0)
             {
-                <p class="flex items-center gap-2 px-1 text-xs font-semibold text-slate-600 dark:text-slate-300" role="status">
-                    <AttentionBadge Count="attention.Total" />
-                    <span>@(attention.Total == 1 ? "1 payment needs your signature" : $"{attention.Total} payments need your signature")</span>
-                </p>
-            }
-
-            <div class="flex flex-col gap-2">
-                @foreach (var (wallet, config) in wallets)
-                {
-                    <div class="card slide-up-delay-1 card-hover">
-                        <div class="flex items-center">
-                            <button class="flex-1 min-w-0 p-4 pr-2 text-left" aria-label="Open @wallet.Name" @onclick="() => OpenWallet(wallet.Id)">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-xl bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center shrink-0">
-                                        <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-2 min-w-0">
-                                            <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
-                                            <AttentionBadge Count="attention.For(wallet.Id)" />
-                                        </div>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            @(config?.RequiredSignatures)-of-@(config?.TotalSigners) multisig
-                                        </p>
-                                    </div>
+                <section class="flex flex-col gap-3" aria-labelledby="drafts-heading">
+                    <h3 id="drafts-heading" class="section-label">Drafts · waiting for co-signers</h3>
+                    @foreach (var draft in drafts)
+                    {
+                        var filled = draft.CoSigners.Count(c => !string.IsNullOrWhiteSpace(c.PublicKeyHex));
+                        var needed = draft.TotalSigners - 1;
+                        <div class="shared-card shared-card-draft">
+                            <div class="p-4 flex flex-col gap-3">
+                                <div class="flex items-center justify-between gap-2">
+                                    <button type="button" class="flex items-center gap-1.5 min-w-0 min-h-[32px] text-left group" aria-label="Rename draft @draft.Name"
+                                            @onclick="() => StartRenameDraft(draft)">
+                                        <span class="text-base font-bold text-slate-900 dark:text-white truncate">@draft.Name</span>
+                                        <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-dgb-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
+                                    </button>
+                                    <span class="shared-card-mark shared-card-mark-warn shrink-0">
+                                        <UxIcon Name="clock" Class="w-3.5 h-3.5 shrink-0" />
+                                        Draft
+                                    </span>
                                 </div>
-                                @if (config != null)
-                                {
-                                    <p class="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-2 truncate">@MultisigFormat.Short(config.Address, 12, 8)</p>
-                                }
-                            </button>
-                            <button type="button" class="min-w-[44px] min-h-[44px] mr-1 flex items-center justify-center text-slate-400 hover:text-dgb-500" aria-label="Rename @wallet.Name"
-                                    @onclick="() => StartRenameWallet(wallet)">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
-                            </button>
+                                <p class="text-xs text-slate-600 dark:text-slate-400 -mt-2">@draft.Label · @filled of @needed co-signer keys added</p>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="btn-primary btn-sm flex-1" @onclick="() => ContinueDraft(draft.Id)">Continue</button>
+                                    @if (confirmDeleteId == draft.Id)
+                                    {
+                                        <button type="button" class="btn-danger btn-sm" @onclick="() => DeleteDraft(draft.Id)">Delete draft?</button>
+                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmDeleteId = null">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmDeleteId = draft.Id">Delete</button>
+                                    }
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                }
-            </div>
+                    }
+                </section>
+            }
         }
     }
-
-    @* Import option *@
-    <div class="slide-up-delay-2">
-        <button class="w-full min-h-[44px] py-3 text-sm text-dgb-500 hover:text-dgb-600 font-medium"
-                @onclick='() => Nav.NavigateTo("/multisig/import")'>
-            Import Existing Multisig Wallet
-        </button>
-    </div>
 </div>
 
 <RenameDialog IsOpen="@(renameWallet is not null || renameDraft is not null)"
@@ -179,17 +170,25 @@
 </AuthGuard>
 
 @code {
-    private record WalletEntry(string Id, string Name);
+    /// <summary>A balance call that has come back: the amount, or null when it could not be fetched.</summary>
+    private sealed record BalanceResult(long? Satoshis);
 
     private bool isLoading = true;
-    private List<(WalletEntry Wallet, MultisigWalletConfig? Config)> wallets = [];
+    private IReadOnlyList<WalletCardModel> cards = [];
+    private Dictionary<string, MultisigWalletConfig> configs = [];
+    private readonly Dictionary<string, BalanceResult> balances = [];
     private List<MultisigDraft> drafts = [];
-    private AttentionSummary attention = new([]);
     private List<(string Id, string Name)> unassigned = [];
+    private int needsYouTotal;
     private bool unassignedDismissed;
     private string? confirmDeleteId;
-    private WalletEntry? renameWallet;
+    private WalletCardModel? renameWallet;
     private MultisigDraft? renameDraft;
+    private bool hideBalance;
+    private decimal dgbPrice;
+    private int loadVersion;
+
+    private const string HideBalanceKey = "pref:hideBalance";
 
     private void ContinueDraft(string draftId) => Nav.NavigateTo($"/multisig/create?draft={draftId}");
 
@@ -202,46 +201,125 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try { await Load(); }
+        // The same preference the dashboards use, so hiding the balance there hides it here too (FR-013).
+        try { hideBalance = await Storage.GetAsync(HideBalanceKey) == "1"; } catch { }
+        try { await Load(reorder: true); }
         finally { isLoading = false; }
+        _ = LoadBalancesAsync();
     }
 
-    private async Task Load()
+    /// <param name="reorder">True when the list is first shown. After a rename or a claim the cards keep their places,
+    /// so nothing jumps while the person is looking at the list (FR-015).</param>
+    private async Task Load(bool reorder)
     {
         var owner = ActiveWallet.WalletId;
         var key = ActiveWallet.PublicKey;
         drafts = await MultisigService.ListDraftsAsync(owner, key);
-        wallets = [];
+
+        var loadedConfigs = new Dictionary<string, MultisigWalletConfig>();
+        var allPending = new List<PendingMultisigTransaction>();
+        var models = new List<WalletCardModel>();
+        var liveRoomTxId = Room.Current?.UnsignedTxId;
+
+        // Everything here is read from this device: the cards never wait for the network (SC-011).
+        var loaded = new List<(string Id, string Name, MultisigWalletConfig? Config, List<PendingMultisigTransaction> Pending)>();
         foreach (var (id, name) in await MultisigService.ListWalletsAsync(owner, key))
         {
             var config = await MultisigService.GetConfigAsync(id, owner, key);
-            wallets.Add((new WalletEntry(id, name), config));
+            var pending = new List<PendingMultisigTransaction>();
+            try { pending = await MultisigService.GetPendingTransactionsAsync(id); }
+            catch { /* a wallet whose payments can't be read simply shows no status */ }
+            if (config is not null) loadedConfigs[id] = config;
+            allPending.AddRange(pending);
+            loaded.Add((id, name, config, pending));
         }
+
+        var localKeys = loadedConfigs.ToDictionary(kv => kv.Key, kv => kv.Value.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex);
+        // A payment already found unable to go through (its coins were spent) is neither counted nor shown as waiting.
+        var attention = AttentionCounter.Count(allPending, id => localKeys.GetValueOrDefault(id), Attention.IsSpent);
+
+        foreach (var (id, name, config, pending) in loaded)
+        {
+            models.Add(new WalletCardModel(
+                id,
+                config?.DisplayName ?? name,
+                config?.RequiredSignatures ?? 0,
+                config?.TotalSigners ?? 0,
+                IsViewOnly: config is not null && config.OwnKeyIndex < 0,
+                NotBackedUp: config is not null && config.BackupAt is null,
+                Status: WalletCardStatus.For(pending, localKeys.GetValueOrDefault(id), liveRoomTxId, Attention.IsSpent),
+                NeedsYou: attention.NeedsYouFor(id),
+                LastActivity: SharedWalletOrder.LastActivity(config?.CreatedAt ?? DateTime.MinValue, pending)));
+        }
+
+        if (reorder || cards.Count == 0)
+        {
+            cards = SharedWalletOrder.Sort(models);
+        }
+        else
+        {
+            // Keep the places the cards already have; a wallet that is new to the list goes to the end.
+            var place = cards.Select((c, i) => (c.Id, i)).ToDictionary(x => x.Id, x => x.i);
+            cards = models.OrderBy(m => place.GetValueOrDefault(m.Id, int.MaxValue)).ToList();
+        }
+
+        configs = loadedConfigs;
+        needsYouTotal = attention.NeedsYouTotal;
         unassigned = await MultisigService.ListUnassignedAsync();
-        await LoadAttentionAsync();
     }
 
-    // Counts come from the proposals saved on this device; this list only shows the active wallet's multisigs,
-    // which are readable while the app is unlocked, so no extra unlock is needed (spec 018, FR-012).
-    private async Task LoadAttentionAsync()
+    // One balance call per wallet, all at once; each card fills in when its own call comes back. A failure shows
+    // "Balance unavailable" on that card only. Nothing is reordered when balances arrive.
+    private async Task LoadBalancesAsync()
     {
-        var pending = new List<PendingMultisigTransaction>();
-        foreach (var (wallet, _) in wallets)
+        var version = ++loadVersion;
+        var wanted = configs.Where(kv => !balances.ContainsKey(kv.Key)).ToList();
+        if (wanted.Count == 0) return;
+
+        _ = LoadPriceAsync(version);
+        await Task.WhenAll(wanted.Select(async kv =>
         {
-            try { pending.AddRange(await MultisigService.GetPendingTransactionsAsync(wallet.Id)); }
-            catch { /* a wallet whose proposals can't be read simply shows no badge */ }
+            long? sats = null;
+            try { sats = await MultisigService.GetBalanceAsync(kv.Value); }
+            catch { /* unknown stays unknown: never shown as 0 */ }
+            if (version != loadVersion) return;
+            balances[kv.Key] = new BalanceResult(sats);
+            await InvokeAsync(StateHasChanged);
+        }));
+    }
+
+    private async Task LoadPriceAsync(int version)
+    {
+        try
+        {
+            var price = await Blockchain.GetDgbPriceAsync(AppState.FiatCurrency);
+            if (version != loadVersion) return;
+            dgbPrice = price;
+            await InvokeAsync(StateHasChanged);
         }
-        var keys = wallets.ToDictionary(w => w.Wallet.Id, w => w.Config?.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex);
-        attention = AttentionCounter.Count(pending, id => keys.GetValueOrDefault(id));
+        catch { /* no price just means no fiat line */ }
+    }
+
+    private string? FiatText(long? satoshis)
+    {
+        if (satoshis is not { } sats || dgbPrice <= 0) return null;
+        var value = sats / 100_000_000m * dgbPrice;
+        return $"{AppState.FiatSymbol}{value.ToString("N" + AppState.FiatDecimals)} {AppState.FiatCurrency}";
     }
 
     private async Task Claim(string walletId)
     {
         await MultisigService.ClaimAsync(walletId, ActiveWallet.WalletId);
-        await Load();
+        await Load(reorder: false);
+        _ = LoadBalancesAsync();
     }
 
-    private void StartRenameWallet(WalletEntry wallet) { renameDraft = null; renameWallet = wallet; }
+    private void StartRenameWallet(string walletId)
+    {
+        renameDraft = null;
+        renameWallet = cards.FirstOrDefault(c => c.Id == walletId);
+    }
+
     private void StartRenameDraft(MultisigDraft draft) { renameWallet = null; renameDraft = draft; }
 
     private async Task<RenameResult> SaveRename(string name)
@@ -251,7 +329,7 @@
             : renameWallet is not null
                 ? await MultisigService.RenameWalletAsync(renameWallet.Id, name)
                 : new RenameResult(false, "Nothing to rename.", false, null);
-        if (result.Ok) await Load();
+        if (result.Ok) await Load(reorder: false);
         return result;
     }
 
@@ -261,8 +339,5 @@
         renameDraft = null;
     }
 
-    private void OpenWallet(string walletId)
-    {
-        Nav.NavigateTo($"/multisig/{walletId}");
-    }
+    private void OpenWallet(string walletId) => Nav.NavigateTo($"/multisig/{Uri.EscapeDataString(walletId)}");
 }

@@ -10,42 +10,100 @@
 @inject MultisigWalletService Multisig
 @inject ActiveWalletContext ActiveWallet
 @inject ProposalHandoff Handoff
+@inject MultisigAttentionState Attention
 @implements IDisposable
 
 @* The floating menu (variant C in docs/UI_STYLE.md): Wallet, Activity, a raised Scan button, Request, More.
    Styles: nav-float* in wwwroot/css/app.css. The active tab has a filled icon on a pill tinted with the wallet's colour.
-   Scan and More are buttons, not pages: Scan opens the one app-wide scanner, More opens the one More list. *@
-<nav class="nav-float nav-float-live" aria-label="@T("nav.label", "Main navigation")" style="--nav-accent: @Accent; --nav-index: @Math.Max(ActiveIndex, 0);">
+   Scan and More are buttons, not pages: Scan opens the one app-wide scanner, More opens the one More list.
+
+   Inside a shared wallet (specs/026-multisig-wallet-experience) the five places stay where they are but act on that
+   shared wallet: Overview, Activity, Scan, Pending, More. The name tab on top of the bar says which shared wallet
+   it is and opens the switcher, which is the way out. Layout/ShellContext decides the mode from the address. *@
+<nav class="nav-float nav-float-live" aria-label="@NavLabel" data-shell="@(Shared ? "shared" : "personal")"
+     style="--nav-accent: @Accent; --nav-index: @Math.Max(ActiveIndex, 0);">
     @* No pill on pages that belong to no tab (Send, Receive and so on). *@
     @if (ActiveIndex >= 0)
     {
         <span class="nav-float-pill" aria-hidden="true"></span>
     }
 
-    <a class="nav-float-tab" href="" aria-label="@T("nav.wallet", "Wallet")" aria-current="@Current(WalletIndex)">
-        <span class="nav-float-icon">@Icon("wallet", ActiveIndex == WalletIndex)</span>
-        <span>@T("nav.wallet", "Wallet")</span>
-    </a>
-    <a class="nav-float-tab" href="transactions" aria-label="@T("nav.activity", "Activity")" aria-current="@Current(ActivityIndex)">
-        <span class="nav-float-icon">@Icon("activity", ActiveIndex == ActivityIndex)</span>
-        <span>@T("nav.activity", "Activity")</span>
-    </a>
+    @if (Shared)
+    {
+        <button type="button" class="nav-shared-tab" aria-haspopup="dialog" aria-expanded="@(showSwitcher ? "true" : "false")"
+                aria-label="@string.Format(T("nav.shared.switch", "{0}, {1}. Switch wallet"), sharedConfig!.DisplayName, SharedScheme)"
+                data-testid="nav-shared-tab" @onclick="OpenSwitcher">
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+            </svg>
+            @* The name only: the tab shares the bar's left half with nothing else, and the scheme is on the page's context line. *@
+            <span class="nav-shared-tab-name">@sharedConfig.DisplayName</span>
+        </button>
+
+        <a class="nav-float-tab" href="@SharedHref("")" aria-label="@T("nav.overview.aria", "Overview of this shared wallet")"
+           aria-current="@Current(WalletIndex)" data-testid="nav-overview">
+            <span class="nav-float-icon">@Icon("overview", ActiveIndex == WalletIndex)</span>
+            <span>@T("nav.overview", "Overview")</span>
+        </a>
+        <a class="nav-float-tab" href="@SharedHref("/activity")" aria-label="@T("nav.shared.activity.aria", "Activity of this shared wallet")"
+           aria-current="@Current(ActivityIndex)">
+            <span class="nav-float-icon">@Icon("activity", ActiveIndex == ActivityIndex)</span>
+            <span>@T("nav.activity", "Activity")</span>
+        </a>
+    }
+    else
+    {
+        <a class="nav-float-tab" href="" aria-label="@T("nav.wallet", "Wallet")" aria-current="@Current(WalletIndex)">
+            <span class="nav-float-icon">@Icon("wallet", ActiveIndex == WalletIndex)</span>
+            <span>@T("nav.wallet", "Wallet")</span>
+        </a>
+        <a class="nav-float-tab" href="transactions" aria-label="@T("nav.activity", "Activity")" aria-current="@Current(ActivityIndex)">
+            <span class="nav-float-icon">@Icon("activity", ActiveIndex == ActivityIndex)</span>
+            <span>@T("nav.activity", "Activity")</span>
+        </a>
+    }
     <button type="button" class="nav-float-scan" aria-label="@T("nav.scan.aria", "Scan a QR code to pay or sign in")" data-testid="nav-scan" @onclick="OpenScan">
         <span class="nav-float-scan-disc">@Icon("scan", false)</span>
         <span>@T("nav.scan", "Scan")</span>
     </button>
-    <a class="nav-float-tab" href="payments" aria-label="@T("nav.request.aria", "Request a payment")" aria-current="@Current(RequestIndex)">
-        <span class="nav-float-icon">@Icon("pay", ActiveIndex == RequestIndex)</span>
-        <span>@T("nav.request", "Request")</span>
-    </a>
-    <button type="button" class="nav-float-tab" aria-label="@T("nav.more.aria", "More: Digi-ID, Settings and other tools")" aria-haspopup="dialog"
+    @if (Shared)
+    {
+        var needsYou = Attention.Current.NeedsYouFor(Context.SharedWalletId!);
+        <a class="nav-float-tab" href="@SharedHref("/pending")" aria-label="@PendingLabel(needsYou)"
+           aria-current="@Current(RequestIndex)" data-testid="nav-pending">
+            <span class="nav-float-icon">
+                @Icon("pending", ActiveIndex == RequestIndex)
+                @if (needsYou > 0)
+                {
+                    <span class="nav-badge-count" aria-hidden="true" data-testid="nav-pending-count">@CountBadge.Text(needsYou)</span>
+                }
+            </span>
+            <span>@T("nav.pending", "Pending")</span>
+        </a>
+    }
+    else
+    {
+        <a class="nav-float-tab" href="payments" aria-label="@T("nav.request.aria", "Request a payment")" aria-current="@Current(RequestIndex)">
+            <span class="nav-float-icon">@Icon("pay", ActiveIndex == RequestIndex)</span>
+            <span>@T("nav.request", "Request")</span>
+        </a>
+    }
+    <button type="button" class="nav-float-tab" aria-label="@MoreLabel" aria-haspopup="dialog"
             aria-expanded="@(showMore ? "true" : "false")" aria-current="@Current(MoreIndex)" data-testid="nav-more" @onclick="OpenMore">
-        <span class="nav-float-icon">@Icon("more", ActiveIndex == MoreIndex)</span>
+        <span class="nav-float-icon">
+            @Icon("more", ActiveIndex == MoreIndex)
+            @* Multisig lives under More, so a waiting payment shows here from every personal screen (FR-010a).
+               Inside a shared wallet the Pending tab carries that wallet's own count instead. *@
+            @if (!Shared && NeedsYouTotal > 0)
+            {
+                <span class="nav-badge-count" aria-hidden="true" data-testid="nav-more-count">@CountBadge.Text(NeedsYouTotal)</span>
+            }
+        </span>
         <span>@T("nav.more", "More")</span>
     </button>
 
     @* Shown once to people who used the old menu, where Digi-ID and Settings were tabs. *@
-    @if (showMovedTip)
+    @if (showMovedTip && !Shared)
     {
         <div class="nav-moved-tip" role="status" data-testid="nav-moved-tip">
             <p><strong>@T("nav.moved.title", "Digi-ID and Settings moved.")</strong> @T("nav.moved.body", "They are under More now.")</p>
@@ -55,6 +113,8 @@
 </nav>
 
 <QrScannerModal IsOpen="@showScanner" OnScanned="OnScannedAsync" OnClosed="CloseScanner" />
+
+<SharedWalletSwitcher IsOpen="@(showSwitcher && Shared)" CurrentId="@Context.SharedWalletId" OnClosed="CloseSwitcher" />
 
 @if (showMore)
 {
@@ -85,7 +145,14 @@
                             </svg>
                         </span>
                         <span class="flex-1 min-w-0 text-left">
-                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@T($"more.item.{item.Href}.label", item.Label)</span>
+                            <span class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                                @T($"more.item.{item.Href}.label", item.Label)
+                                @if (item.Href == "multisig" && NeedsYouTotal > 0)
+                                {
+                                    <span class="min-w-[20px] text-center text-[11px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded-full" data-testid="more-multisig-count"
+                                          aria-label="@NeedsYouText(NeedsYouTotal)">@CountBadge.Text(NeedsYouTotal)</span>
+                                }
+                            </span>
                             <span class="block text-xs text-slate-600 dark:text-slate-400">@(blocked ? T("more.watch_only", "Not available for watch-only wallets") : T($"more.item.{item.Href}.desc", item.Description))</span>
                         </span>
                         <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -113,6 +180,15 @@
 
     private bool showScanner;
     private bool showMore;
+    private bool showSwitcher;
+
+    // The shared wallet the current page belongs to, once it has been read. Until then, and when it cannot be
+    // read (not this wallet's, deleted, locked), the personal menu is shown: never a shared menu without a name.
+    private MultisigWalletConfig? sharedConfig;
+    private string? sharedLoadKey;
+
+    // AppState.OnChange carries no detail, so the active wallet seen last is kept and compared (FR-008).
+    private string lastWalletId = "";
     private bool focusMore;
     private bool showMovedTip;
 
@@ -121,12 +197,58 @@
     private bool IsWatchOnly => WalletService.ActiveWallet?.WalletType == "xpub";
     private string CurrentPath => Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
 
+    // Not lower-cased: a shared wallet's id is used exactly as the address has it.
+    private ShellContext Context => ShellContext.Resolve(Nav.ToBaseRelativePath(Nav.Uri));
+    private bool Shared => Context.IsShared && sharedConfig is not null && sharedConfig.WalletId == Context.SharedWalletId;
+    private string SharedScheme => sharedConfig is null ? "" : $"{sharedConfig.RequiredSignatures}-of-{sharedConfig.TotalSigners}";
+    private string SharedHref(string page) => $"multisig/{Uri.EscapeDataString(Context.SharedWalletId ?? "")}{page}";
+
+    private string NavLabel => Shared
+        ? string.Format(T("nav.shared.label", "{0} shared wallet navigation"), sharedConfig!.DisplayName)
+        : T("nav.label", "Main navigation");
+
+    // Every multisig payment that needs the person, across the active wallet's shared wallets.
+    private int NeedsYouTotal => Attention.Current.NeedsYouTotal;
+
+    private string NeedsYouText(int count) => count == 1
+        ? T("nav.count.more.one", "1 multisig payment needs you")
+        : string.Format(T("nav.count.more.other", "{0} multisig payments need you"), CountBadge.Text(count));
+
+    private string MoreLabel
+    {
+        get
+        {
+            var label = T("nav.more.aria", "More: Digi-ID, Settings and other tools");
+            return !Shared && NeedsYouTotal > 0 ? $"{label}. {NeedsYouText(NeedsYouTotal)}" : label;
+        }
+    }
+
+    private string PendingLabel(int needsYou)
+    {
+        var label = T("nav.pending.aria", "Pending payments of this shared wallet");
+        if (needsYou <= 0) return label;
+        var count = needsYou == 1
+            ? T("nav.count.pending.one", "1 payment needs you")
+            : string.Format(T("nav.count.pending.other", "{0} payments need you"), CountBadge.Text(needsYou));
+        return $"{label}. {count}";
+    }
+
     // Which tab the current page belongs to, or -1 for none. Wallet matches the home page only; Activity and Request
     // also match their sub-pages; More matches every page its list leads to.
     private int ActiveIndex
     {
         get
         {
+            if (Shared)
+            {
+                return Context.Section switch
+                {
+                    SharedSection.Overview => WalletIndex,
+                    SharedSection.Activity => ActivityIndex,
+                    SharedSection.Pending => RequestIndex,
+                    _ => -1,
+                };
+            }
             var path = CurrentPath;
             if (path.Length == 0) return WalletIndex;
             if (Under(path, "transactions")) return ActivityIndex;
@@ -180,6 +302,37 @@
         AppState.OnChange += OnStateChanged;
         Nav.LocationChanged += OnLocationChanged;
         FirstReceive.Changed += OnFirstReceiveChanged;
+        Attention.Changed += OnAttentionChanged;
+        Shell.SwitcherRequested += OnSwitcherRequested;
+        lastWalletId = ActiveWallet.WalletId;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSharedAsync();
+        _ = Attention.EnsureLoadedAsync();
+    }
+
+    // Reads the shared wallet the address points at. The same checks the pages make: it must be one the active
+    // wallet owns. The key includes the wallet and the unlock state, so it is read again when either changes.
+    private async Task LoadSharedAsync()
+    {
+        var context = Context;
+        var key = context.IsShared ? $"{context.SharedWalletId}|{ActiveWallet.WalletId}|{WalletService.IsUnlocked}" : null;
+        if (key == sharedLoadKey) return;
+        sharedLoadKey = key;
+        if (key is null)
+        {
+            sharedConfig = null;
+            showSwitcher = false;
+            return;
+        }
+
+        MultisigWalletConfig? config = null;
+        try { config = await Multisig.GetConfigAsync(context.SharedWalletId!, ActiveWallet.WalletId, ActiveWallet.PublicKey); }
+        catch { /* unreadable: the personal menu stays */ }
+        if (sharedLoadKey != key) return;   // the page changed while this was being read
+        sharedConfig = config;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -197,6 +350,7 @@
     private void OpenScan()
     {
         showMore = false;
+        showSwitcher = false;
         showScanner = true;
         SyncDialogFlag();
     }
@@ -211,11 +365,19 @@
     {
         showScanner = false;
         SyncDialogFlag();
-        var route = ScanRouter.Route(data, Nav.BaseUri);
+        // Inside a shared wallet a payment code starts a payment from that shared wallet (FR-002a).
+        var sharedName = Shared ? sharedConfig!.DisplayName : null;
+        var route = ScanRouter.Route(data, Nav.BaseUri, Shared ? Context.SharedWalletId : null);
         switch (route.Kind)
         {
-            case ScanTarget.Payment:
             case ScanTarget.DigiId:
+                // Digi-ID belongs to the personal wallet: say so before the shared wallet is left.
+                if (sharedName is not null)
+                    Notifications.Info(string.Format(T("scan.leaving_shared", "Digi-ID sign-in uses your own wallet, so you are leaving {0}."), sharedName));
+                Nav.NavigateTo(route.Url!);
+                break;
+
+            case ScanTarget.Payment:
             case ScanTarget.RoomInvite:
                 Nav.NavigateTo(route.Url!);
                 break;
@@ -252,6 +414,7 @@
 
     private void OpenMore()
     {
+        showSwitcher = false;
         showMore = true;
         focusMore = true;
         if (showMovedTip) _ = DismissMovedTipAsync();
@@ -277,8 +440,31 @@
         Nav.NavigateTo(href);
     }
 
-    // A first-payment celebration waits while Scan or More is open (spec 025, FR-023).
-    private void SyncDialogFlag() => FirstReceive.ShellDialogOpen = showScanner || showMore;
+    // ----- Shared-wallet switcher -----
+
+    private void OpenSwitcher()
+    {
+        showMore = false;
+        showSwitcher = true;
+        SyncDialogFlag();
+    }
+
+    // A page's context line asked for the switcher.
+    private void OnSwitcherRequested() => InvokeAsync(() =>
+    {
+        if (!Shared) return;
+        OpenSwitcher();
+        StateHasChanged();
+    });
+
+    private void CloseSwitcher()
+    {
+        showSwitcher = false;
+        SyncDialogFlag();
+    }
+
+    // A first-payment celebration waits while Scan, More or the switcher is open (spec 025, FR-023).
+    private void SyncDialogFlag() => FirstReceive.ShellDialogOpen = showScanner || showMore || showSwitcher;
 
     // ----- The one-time "moved" tip -----
 
@@ -303,15 +489,35 @@
         StateHasChanged();
     }
 
-    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+    private void OnStateChanged() => InvokeAsync(async () =>
+    {
+        // Switching to another personal wallet ends shared-wallet mode: land on that wallet's home, never on a
+        // shared wallet of the one just left (FR-008). Locking and unlocking the same wallet changes nothing here.
+        var now = ActiveWallet.WalletId;
+        var switched = now.Length > 0 && lastWalletId.Length > 0 && now != lastWalletId;
+        if (now.Length > 0) lastWalletId = now;
+        if (switched && Context.IsShared)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+        await LoadSharedAsync();
+        StateHasChanged();
+    });
+
+    private void OnAttentionChanged() => InvokeAsync(StateHasChanged);
     private void OnFirstReceiveChanged() => InvokeAsync(CheckMovedTipAsync);
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
-        InvokeAsync(() =>
+        InvokeAsync(async () =>
         {
             // Any navigation closes the list (a link inside it, the browser's Back button).
             showMore = false;
+            showSwitcher = false;
             SyncDialogFlag();
+            StateHasChanged();
+            await LoadSharedAsync();
+            _ = Attention.EnsureLoadedAsync();
             StateHasChanged();
         });
 
@@ -320,6 +526,8 @@
         AppState.OnChange -= OnStateChanged;
         Nav.LocationChanged -= OnLocationChanged;
         FirstReceive.Changed -= OnFirstReceiveChanged;
+        Attention.Changed -= OnAttentionChanged;
+        Shell.SwitcherRequested -= OnSwitcherRequested;
         FirstReceive.ShellDialogOpen = false;
     }
 }

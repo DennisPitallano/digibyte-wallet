@@ -97,3 +97,76 @@ public sealed record PaymentSummaryModel(
     string? ChangeNote);
 
 public sealed record AttentionCount(string WalletId, int NeedsSignature);
+
+// Presentation-only types for the shared-wallet list, the Pending list and the signing room
+// (specs/026-multisig-wallet-experience). Like the ones above: computed on the fly, never stored or sent.
+
+/// <summary>The one button a pending payment's card shows. Every one except <see cref="OpenRoom"/> opens the payment's own screen.</summary>
+public enum PendingCardAction
+{
+    None,
+    ReviewAndSign,
+    OpenRoom,
+    GetSignatures,
+    ReviewAndBroadcast,
+    ReviewAndRetry,
+    ReviewAndCancel,
+    View,
+}
+
+/// <summary>A shared wallet's pending payments, split the way the Pending list shows them. Sent payments are in none.</summary>
+public sealed record PendingGroups(
+    IReadOnlyList<PendingMultisigTransaction> NeedsYou,
+    IReadOnlyList<PendingMultisigTransaction> WaitingForOthers,
+    IReadOnlyList<PendingMultisigTransaction> CantGoThrough,
+    IReadOnlyList<PendingMultisigTransaction> Cancelled)
+{
+    /// <summary>An empty list.</summary>
+    public static readonly PendingGroups Empty = new([], [], [], []);
+
+    /// <summary>Everything the list shows.</summary>
+    public int Count => NeedsYou.Count + WaitingForOthers.Count + CantGoThrough.Count + Cancelled.Count;
+}
+
+/// <summary>A card's button: what it does and what it says. No label means no button.</summary>
+public sealed record PendingCardButton(PendingCardAction Action, string? Label);
+
+/// <summary>What the one status line on a shared wallet's card is about, most urgent first.</summary>
+public enum WalletCardStatusKind
+{
+    None,
+    NeedsSignature,
+    ReadyToBroadcast,
+    /// <summary>A broadcast that failed and can be retried.</summary>
+    FailedBroadcast,
+    /// <summary>A signing room this device has joined. The wallet cannot know about rooms it is not in.</summary>
+    LiveRoom,
+    WaitingForOthers,
+}
+
+/// <summary>The status line of a shared wallet's card: what it is about and how many.</summary>
+public sealed record WalletCardStatusLine(WalletCardStatusKind Kind, int Count);
+
+/// <summary>Everything a shared wallet's card on the list shows, apart from the balance, which is filled in afterwards.</summary>
+public sealed record WalletCardModel(
+    string Id,
+    string Name,
+    int RequiredSignatures,
+    int TotalSigners,
+    bool IsViewOnly,
+    bool NotBackedUp,
+    WalletCardStatusLine Status,
+    int NeedsYou,
+    DateTime LastActivity);
+
+/// <summary>Where a signing room stands, as the three-step tracker shows it.</summary>
+public enum RoomStageKind
+{
+    Invite,
+    Sign,
+    Broadcast,
+    Done,
+}
+
+/// <summary>The time left in a signing room: its text, and whether it is close enough to the end to stand out.</summary>
+public sealed record RoomCountdownModel(string Text, bool IsUrgent);

@@ -19,13 +19,19 @@
 else if (config == null)
 {
     <MultisigAccessNotice State="access" />
+    @* A scanned payment was meant to start here; when this shared wallet can't be opened, offer the personal wallet (FR-002a). *@
+    @if (!string.IsNullOrWhiteSpace(QueryAddress))
+    {
+        <div class="flex justify-center -mt-6 pb-8">
+            <button type="button" class="btn-secondary btn-sm" data-testid="pay-from-personal" @onclick="PayFromPersonalWallet">Pay from @ActiveWallet.WalletName</button>
+        </div>
+    }
 }
 else
 {
     <div class="flex flex-col gap-4">
-        <PageHeader Title="@(step == Step.Done ? "Proposal Created" : "Send from Multisig")" Subtitle="@($"{config.DisplayName} · {config.RequiredSignatures}-of-{config.TotalSigners}")" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")">
-            <WalletChip />
-        </PageHeader>
+        <PageHeader Title="@(step == Step.Done ? "Proposal Created" : "Send from Multisig")" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
+        <div class="-mt-2"><SharedWalletContextLine Config="config" /></div>
 
         @if (step != Step.Done)
         {
@@ -183,8 +189,8 @@ else
                 <button class="btn-secondary btn-sm w-full" @onclick="SharePsbt">
                     Copy Proposal to Share
                 </button>
-                <button class="w-full min-h-[44px] py-2.5 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/pending")'>
-                    Go to Pending Transactions
+                <button class="w-full min-h-[44px] py-2.5 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo(created is null ? $"/multisig/{WalletId}/pending" : $"/multisig/{WalletId}/pending/{Uri.EscapeDataString(created.Id)}")'>
+                    Open this payment
                 </button>
             </div>
         }
@@ -286,6 +292,12 @@ else
 
     [Parameter] public string WalletId { get; set; } = "";
 
+    // A recipient (and amount) scanned with the menu's Scan while this shared wallet was open
+    // (specs/026-multisig-wallet-experience, FR-002a). Only an address and an amount ever travel this way.
+    [SupplyParameterFromQuery(Name = "address")] public string? QueryAddress { get; set; }
+    [SupplyParameterFromQuery(Name = "amount")] public string? QueryAmount { get; set; }
+    private string? appliedQuery;
+
     private MultisigWalletConfig? config;
     private MultisigAccessState access = MultisigAccessState.NotFound;
     private bool isLoading = true;
@@ -324,8 +336,14 @@ else
     // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
     protected override async Task OnParametersSetAsync()
     {
-        if (loadedFor == WalletId) return;
+        if (loadedFor == WalletId)
+        {
+            // Same shared wallet, new scan: fill the form again.
+            if (config is not null && ApplyQueryPrefill()) Recalculate();
+            return;
+        }
         loadedFor = WalletId;
+        appliedQuery = null;
         isLoading = true;
         config = null;
         step = Step.Form;
@@ -342,9 +360,39 @@ else
 
         if (config != null)
         {
+            ApplyQueryPrefill();   // LoadUtxos ends with Recalculate, which checks what was filled in
             _ = LoadPrice();
             await LoadUtxos();
         }
+    }
+
+    // Puts a scanned recipient and amount into the form, once per scan. They go through the same checks as typed
+    // values (Recalculate); nothing is trusted because it came from an address. Returns true when something was filled in.
+    private bool ApplyQueryPrefill()
+    {
+        var query = $"{QueryAddress}|{QueryAmount}";
+        if (string.IsNullOrWhiteSpace(QueryAddress) || query == appliedQuery) return false;
+        appliedQuery = query;
+        if (step != Step.Form) return false;
+
+        destination = QueryAddress.Trim();
+        if (decimal.TryParse(QueryAmount, System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture, out var amount) && amount > 0)
+        {
+            useMax = false;
+            shareUsed = null;
+            amountText = amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return true;
+    }
+
+    private void PayFromPersonalWallet()
+    {
+        var url = "/send?address=" + Uri.EscapeDataString(QueryAddress!.Trim());
+        if (decimal.TryParse(QueryAmount, System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture, out var amount) && amount > 0)
+            url += "&amount=" + amount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Nav.NavigateTo(url);
     }
 
     private async Task LoadPrice()

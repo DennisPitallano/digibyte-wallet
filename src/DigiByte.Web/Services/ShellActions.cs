@@ -18,6 +18,14 @@ public sealed class ShellActions
         RedeemScriptArrived?.Invoke();
     }
 
+    /// <summary>
+    /// Raised when a page asks for the shared-wallet switcher (the context line on a shared wallet's pages). The menu
+    /// owns the one switcher and opens it: a sheet opened from inside the page would sit under the menu.
+    /// </summary>
+    public event Action? SwitcherRequested;
+
+    public void RequestSwitcher() => SwitcherRequested?.Invoke();
+
     /// <summary>The waiting redeem script, or null. Clears it.</summary>
     public string? TakeRedeemScript()
     {

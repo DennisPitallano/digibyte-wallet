@@ -265,12 +265,13 @@ Four services for production:
 | `/identity` | Identity | Digi-ID passwordless auth — scan/paste `digiid://` URI, approve domain, sign challenge |
 | `/p2p` | P2P Marketplace | Coming soon — buy/sell orders, escrow, trade chat |
 | `/remittance` | Remittance | Send by username, fee comparison vs traditional services |
-| `/multisig` | MultisigWallets | Multisig wallet list — create or import |
+| `/multisig` | MultisigWallets | Multisig wallet list — balance, status and backup marks per wallet; create or import |
 | `/multisig/create` | MultisigCreate | 3-step wizard: set threshold, add co-signers, confirm |
 | `/multisig/import` | MultisigImport | Import existing multisig via redeem script |
 | `/multisig/{id}` | MultisigDetail | Multisig wallet detail — balance, address, co-signers |
 | `/multisig/{id}/send` | MultisigSend | Create PSBT spending transaction from multisig |
-| `/multisig/{id}/pending` | MultisigPending | View/sign/broadcast pending multisig transactions |
+| `/multisig/{id}/pending` | MultisigPending | Pending multisig payments, grouped by what needs you; add a co-signer's proposal |
+| `/multisig/{id}/pending/{pendingId}` | MultisigPendingDetail | One pending payment: review, sign, broadcast, sign together online, share, add a signed copy, cancel |
 | `/help` | Help | Help center — 12 searchable tutorial sections, report issue, suggest feature |
 | `/help/multisig` | MultisigGuide | Comprehensive multisig guide — visual flows, scenarios, walkthroughs, technical details |
 | `/settings` | Settings | Theme, language, network, currency, display mode, backup seed, delete wallet |

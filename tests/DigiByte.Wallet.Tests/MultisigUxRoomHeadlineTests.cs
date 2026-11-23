@@ -57,12 +57,30 @@ public class MultisigUxRoomHeadlineTests
     }
 
     [Fact]
-    public void Unreachable_points_to_pending()
+    public void Unreachable_points_to_the_payment()
     {
         var h = Head(unreachable: true, count: 1);
         Assert.Equal(PrimaryAction.GoToPending, h.Action);
         Assert.Equal(UxTone.Warning, h.Tone);
         Assert.Contains("reach", h.Title);
+        // Cancelling lives on the payment's own screen now, not on the Pending list (spec 026).
+        Assert.Equal("Open payment", h.ActionLabel);
+        Assert.Equal("Too many co-signers declined. You can cancel it from the payment's screen.", h.Detail);
+    }
+
+    [Fact]
+    public void No_headline_sends_people_to_the_pending_list()
+    {
+        RoomHeadline[] all =
+        [
+            Head(), Head(signed: true, count: 1), Head(declined: true), Head(unreachable: true),
+            Head(count: 2), Head(phase: RoomPhase.Complete, count: 2), Head(phase: RoomPhase.Broadcast), Head(watchOnly: true),
+        ];
+        foreach (var h in all)
+        {
+            Assert.DoesNotContain("Pending list", h.Title + " " + h.Detail + " " + h.ActionLabel);
+            Assert.DoesNotContain("Go to Pending", h.ActionLabel ?? "");
+        }
     }
 
     [Fact]

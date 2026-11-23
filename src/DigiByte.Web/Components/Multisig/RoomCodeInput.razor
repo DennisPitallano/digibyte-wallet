@@ -1,0 +1,69 @@
+@* The six-character room code (specs/026-multisig-wallet-experience, FR-034). One real input, so typing, pasting
+   the whole code at once, and assistive technology all work the plain way; the six boxes under it are only how it
+   looks. Letters and digits only, shown in capitals. A button beside it scans an invite QR code.
+   The field has no length limit of its own: a limit would count a stray dash or space as one of the six and block
+   the last real character, and would cut a pasted invite link short before its code. What is kept is decided by
+   Clean, and the field is always set back to exactly that. *@
+<div class="flex items-stretch gap-2">
+    <label class="room-code" for="@InputId">
+        <input id="@InputId" class="room-code-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters"
+               spellcheck="false" aria-label="Room code, @Length letters and digits"
+               @bind:get="Value" @bind:set="OnSet" @bind:event="oninput" @onkeydown="OnKeyDown" />
+        <span class="room-code-boxes" aria-hidden="true">
+            @for (var i = 0; i < Length; i++)
+            {
+                var index = i;
+                <span class="room-code-box @(index == Value.Length ? "room-code-box-next" : "") @(index < Value.Length ? "room-code-box-filled" : "")">@(index < Value.Length ? Value[index].ToString() : "")</span>
+            }
+        </span>
+    </label>
+    <button type="button" class="btn-secondary shrink-0 px-3" aria-label="Scan an invite QR code" data-testid="room-code-scan" @onclick="OnScan">
+        <UxIcon Name="scan" Class="w-5 h-5" />
+    </button>
+</div>
+
+@code {
+    /// <summary>How long a room code is.</summary>
+    public const int Length = 6;
+
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>The scan button was tapped.</summary>
+    [Parameter] public EventCallback OnScan { get; set; }
+
+    /// <summary>Enter was pressed on a complete code.</summary>
+    [Parameter] public EventCallback OnSubmit { get; set; }
+
+    private readonly string InputId = "room-code-" + Guid.NewGuid().ToString("N")[..8];
+
+    /// <summary>
+    /// What is kept of typed, pasted or scanned text: letters and digits, in capitals, up to the code's length.
+    /// A pasted invite (a link, or a message with a link in it) gives the code after its last "code=", not the
+    /// first six letters of the link.
+    /// </summary>
+    public static string Clean(string? text)
+    {
+        var value = text ?? "";
+        const string marker = "code=";
+        var at = value.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        var kept = at >= 0
+            ? value[(at + marker.Length)..].TakeWhile(char.IsAsciiLetterOrDigit)
+            : value.Where(char.IsAsciiLetterOrDigit);
+        return new string(kept.Take(Length).ToArray()).ToUpperInvariant();
+    }
+
+    // Bound with get/set, so after every keystroke the field holds exactly what was kept, also when a keystroke
+    // changed nothing (a dash, a seventh character).
+    private async Task OnSet(string? typed)
+    {
+        var cleaned = Clean(typed);
+        Value = cleaned;
+        await ValueChanged.InvokeAsync(cleaned);
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && Value.Length == Length) await OnSubmit.InvokeAsync();
+    }
+}

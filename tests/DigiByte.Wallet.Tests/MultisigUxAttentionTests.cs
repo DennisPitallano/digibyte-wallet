@@ -74,5 +74,91 @@ public class MultisigUxAttentionTests
         var summary = AttentionCounter.Count([], Keys);
         Assert.Equal(0, summary.Total);
         Assert.Equal(0, summary.For("anything"));
+        Assert.Equal(0, summary.NeedsYouTotal);
+        Assert.Equal(0, summary.NeedsYouFor("anything"));
+    }
+
+    // ─── "Needs you": the number on Pending, More, the Multisig row and the home shortcut (spec 026, FR-004, FR-010a) ───
+
+    [Fact]
+    public void Needs_you_adds_ready_to_broadcast_and_failed_broadcasts_to_needs_signature()
+    {
+        var summary = AttentionCounter.Count(
+        [
+            P("w1", PendingTxStatus.AwaitingSignatures),
+            P("w1", PendingTxStatus.AwaitingSignatures, "02aa"),
+            P("w1", PendingTxStatus.ReadyToFinalize, "02bb", "02cc"),
+            P("w1", PendingTxStatus.ReadyToFinalize, "02aa", "02cc"),
+            P("w1", PendingTxStatus.Failed, "02aa", "02cc"),
+            P("w1", PendingTxStatus.Broadcast),
+            P("w1", PendingTxStatus.Cancelled),
+        ], Keys);
+
+        Assert.Equal(1, summary.NeedsSignatureFor("w1"));
+        Assert.Equal(2, summary.ReadyToBroadcastFor("w1"));
+        Assert.Equal(1, summary.FailedBroadcastFor("w1"));
+        Assert.Equal(4, summary.NeedsYouFor("w1"));
+        Assert.Equal(4, summary.NeedsYouTotal);
+    }
+
+    [Fact]
+    public void The_needs_signature_figures_keep_their_meaning()
+    {
+        var summary = AttentionCounter.Count(
+        [
+            P("w1", PendingTxStatus.AwaitingSignatures),
+            P("w1", PendingTxStatus.ReadyToFinalize, "02bb", "02cc"),
+            P("w1", PendingTxStatus.Failed),
+        ], Keys);
+
+        Assert.Equal(1, summary.For("w1"));
+        Assert.Equal(1, summary.Total);
+        Assert.Equal(summary.For("w1"), summary.NeedsSignatureFor("w1"));
+        Assert.Single(summary.All);
+    }
+
+    [Fact]
+    public void Ready_and_failed_count_for_a_view_only_copy_but_needs_signature_does_not()
+    {
+        var summary = AttentionCounter.Count(
+        [
+            P("watch", PendingTxStatus.AwaitingSignatures),
+            P("watch", PendingTxStatus.ReadyToFinalize, "02bb", "02cc"),
+            P("watch", PendingTxStatus.Failed, "02bb", "02cc"),
+        ], Keys);
+
+        Assert.Equal(0, summary.NeedsSignatureFor("watch"));
+        Assert.Equal(1, summary.ReadyToBroadcastFor("watch"));
+        Assert.Equal(1, summary.FailedBroadcastFor("watch"));
+        Assert.Equal(2, summary.NeedsYouFor("watch"));
+    }
+
+    [Fact]
+    public void Sent_and_cancelled_never_need_you()
+    {
+        var summary = AttentionCounter.Count(
+        [
+            P("w1", PendingTxStatus.Broadcast, "02aa", "02bb"),
+            P("w1", PendingTxStatus.Cancelled),
+        ], Keys);
+
+        Assert.Equal(0, summary.NeedsYouFor("w1"));
+        Assert.Equal(0, summary.NeedsYouTotal);
+    }
+
+    [Fact]
+    public void Needs_you_totals_across_wallets()
+    {
+        var summary = AttentionCounter.Count(
+        [
+            P("w1", PendingTxStatus.AwaitingSignatures),
+            P("w2", PendingTxStatus.ReadyToFinalize, "02aa", "02cc"),
+            P("watch", PendingTxStatus.Failed),
+        ], Keys);
+
+        Assert.Equal(1, summary.NeedsYouFor("w1"));
+        Assert.Equal(1, summary.NeedsYouFor("w2"));
+        Assert.Equal(1, summary.NeedsYouFor("watch"));
+        Assert.Equal(3, summary.NeedsYouTotal);
     }
 }

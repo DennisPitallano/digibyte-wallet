@@ -1,0 +1,46 @@
+@* The one main button of a screen, kept in reach: it stays at the bottom of the visible page while the content above
+   it scrolls, and rests in its own place once the page has been scrolled that far
+   (specs/026-multisig-wallet-experience, FR-028). It sits above the bottom menu when the menu is shown, and above the
+   device's system bar. A control that needs its own shape (the slide to broadcast) is passed as child content. *@
+<div class="sticky-action" data-testid="sticky-action">
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <button type="button" class="@ButtonClass w-full" disabled="@(Busy || Disabled)" @onclick="OnAction">
+            @(Busy && !string.IsNullOrEmpty(BusyLabel) ? BusyLabel : Label)
+        </button>
+    }
+    @if (!string.IsNullOrEmpty(DisabledReason))
+    {
+        @* Said in words: a button that only looks greyed out leaves people guessing. *@
+        <p class="sticky-action-reason" role="status">@DisabledReason</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+
+    /// <summary>Replaces the label while <see cref="Busy"/> is set.</summary>
+    [Parameter] public string? BusyLabel { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Why the action cannot be used right now. Shown under the button.</summary>
+    [Parameter] public string? DisabledReason { get; set; }
+
+    [Parameter] public UxTone Tone { get; set; } = UxTone.Action;
+    [Parameter] public EventCallback OnAction { get; set; }
+
+    /// <summary>Shown in place of the button, for a control with its own shape.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string ButtonClass => Tone switch
+    {
+        UxTone.Warning => "btn-danger",
+        UxTone.Neutral => "btn-secondary",
+        _ => "btn-primary",
+    };
+}

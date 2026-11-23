@@ -21,8 +21,9 @@ public static class SigningRoomHeadline
             return new RoomHeadline("Ready to broadcast", $"{signedCount} of {required} signatures collected.", UxTone.Positive, PrimaryAction.Broadcast, "Broadcast");
 
         if (unreachable)
-            return new RoomHeadline("Can't reach the required signatures", "Too many co-signers declined. You can cancel it on the Pending list.",
-                UxTone.Warning, PrimaryAction.GoToPending, "Go to Pending");
+            // Cancelling lives on the payment's own screen (specs/026-multisig-wallet-experience); the action opens it.
+            return new RoomHeadline("Can't reach the required signatures", "Too many co-signers declined. You can cancel it from the payment's screen.",
+                UxTone.Warning, PrimaryAction.GoToPending, "Open payment");
 
         if (viewerDeclined)
             return new RoomHeadline("You declined", "Others can still reach the required signatures.", UxTone.Neutral, PrimaryAction.None, null);

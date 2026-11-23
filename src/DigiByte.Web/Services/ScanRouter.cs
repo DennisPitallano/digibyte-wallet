@@ -38,7 +38,10 @@ public static class ScanRouter
 {
     /// <param name="scanned">The text the scanner read.</param>
     /// <param name="appBaseUri">This wallet's own address (for example https://dgbwallet.app/), to recognise its room invites.</param>
-    public static ScanRoute Route(string? scanned, string? appBaseUri = null)
+    /// <param name="sharedWalletId">The shared wallet that is open, if any. A payment code then starts a payment from
+    /// that shared wallet, not from the personal one (specs/026-multisig-wallet-experience, FR-002a). Every other
+    /// kind of code goes where it always goes.</param>
+    public static ScanRoute Route(string? scanned, string? appBaseUri = null, string? sharedWalletId = null)
     {
         var data = scanned?.Trim();
         if (string.IsNullOrEmpty(data)) return Unknown;
@@ -58,7 +61,10 @@ public static class ScanRouter
             case ScanKind.Psbt:
                 return new(ScanTarget.MultisigProposal, null, data);
             case ScanKind.Address or ScanKind.PaymentUri when result.Address is { } address && AddressValidator.IsValid(address.Trim()):
-                var url = "/send?address=" + Uri.EscapeDataString(address.Trim());
+                var send = string.IsNullOrWhiteSpace(sharedWalletId)
+                    ? "/send"
+                    : $"/multisig/{Uri.EscapeDataString(sharedWalletId)}/send";
+                var url = send + "?address=" + Uri.EscapeDataString(address.Trim());
                 if (result.AmountDgb is { } amount && amount > 0)
                     url += "&amount=" + amount.ToString(CultureInfo.InvariantCulture);
                 return new(ScanTarget.Payment, url);

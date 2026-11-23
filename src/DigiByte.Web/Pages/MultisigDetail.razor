@@ -6,6 +6,7 @@
 @inject IBlockchainService Blockchain
 @inject AppState AppState
 @inject NotificationService Notifications
+@inject ISecureStorage Storage
 
 <PageTitle>@(config?.DisplayName ?? "Multisig") — DigiByte Wallet</PageTitle>
 
@@ -40,6 +41,8 @@ else
                 <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-300 bg-dgb-50 dark:bg-dgb-900 border border-dgb-200 dark:border-dgb-700/50 px-2.5 py-1 rounded-full shrink-0">@config.RequiredSignatures-of-@config.TotalSigners</span>
             </ChildContent>
         </PageHeader>
+        @* The title already has the name and scheme; this says whose shared wallet it is and opens the switcher. *@
+        <div class="-mt-1"><SharedWalletContextLine Config="config" ShowName="false" /></div>
 
         @* Balance card, like the wallet dashboard's *@
         <div class="slide-up-delay-1">
@@ -47,7 +50,8 @@ else
                                  DgbPrice="dgbPrice" OnRefresh="Refresh" OnShowQr="() => receiveOpen = true" />
         </div>
 
-        @* Everyday actions, in the wallet dashboard's icon-tile style *@
+        @* Everyday actions, in the wallet dashboard's icon-tile style. Only the two that are this page's own:
+           Scan, Pending and Activity are on the menu while a shared wallet is open (spec 026, FR-007). *@
         <div class="flex justify-center gap-5 mt-1 slide-up-delay-1">
             <button type="button" class="flex flex-col items-center gap-1 group" @onclick="CreateTransaction">
                 <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
@@ -64,33 +68,6 @@ else
                     </svg>
                 </div>
                 <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
-            </button>
-            @* Scan a co-signer's proposal QR into this multisig's pending list (specs/022-multisig-proposal-scan-import) *@
-            <button type="button" class="flex flex-col items-center gap-1 group" @onclick="ScanProposal">
-                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                    <UxIcon Name="scan" Class="w-5 h-5 text-dgb-500" />
-                </div>
-                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Scan</span>
-            </button>
-            <button type="button" class="flex flex-col items-center gap-1 group" @onclick="ViewPendingTxs">
-                <div class="relative w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                    <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                    @if (pendingCount > 0)
-                    {
-                        <span class="absolute -top-1.5 -right-1.5 min-w-[18px] text-center text-[10px] font-bold bg-amber-500 text-white px-1 py-0.5 rounded-full" aria-label="@pendingCount pending">@pendingCount</span>
-                    }
-                </div>
-                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Pending</span>
-            </button>
-            <button type="button" class="flex flex-col items-center gap-1 group" @onclick="ViewActivity">
-                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
-                    <svg class="w-5 h-5 text-dgb-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm0 5.25h.007v.008H3.75V12Zm0 5.25h.007v.008H3.75v-.008Z" />
-                    </svg>
-                </div>
-                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Activity</span>
             </button>
         </div>
 
@@ -173,7 +150,6 @@ else
     private bool isLoadingBalance;
     private long? balanceSatoshis;
     private decimal dgbPrice;
-    private int pendingCount;
     private int needsMySignature;
     private bool signersOpen;
     private bool receiveOpen;
@@ -198,7 +174,6 @@ else
         balanceSatoshis = null;
         dgbPrice = 0;
         recentActivity = [];
-        pendingCount = 0;
         needsMySignature = 0;
         confirmRemove = false;
         try
@@ -211,8 +186,14 @@ else
             config = await MultisigService.GetConfigAsync(WalletId, owner, key);
             if (config != null)
             {
+                // The home shortcut comes back here next time (spec 026, FR-009). Only this shared wallet's id is
+                // saved, per personal wallet, on this device. Failing to save it changes nothing else.
+                if (!string.IsNullOrEmpty(owner))
+                {
+                    try { await Storage.SetAsync(SharedWalletShortcut.StorageKey(owner), WalletId); } catch { }
+                }
+
                 var pending = await MultisigService.GetPendingTransactionsAsync(WalletId);
-                pendingCount = pending.Count(p => p.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize);
                 needsMySignature = MultisigWalletService.CountNeedingMySignature(pending, config);
                 _ = LoadPrice();
                 _ = FirstLoadAsync();
@@ -353,6 +334,5 @@ else
     private void CreateTransaction() => Nav.NavigateTo($"/multisig/{WalletId}/send");
     private void ViewPendingTxs() => Nav.NavigateTo($"/multisig/{WalletId}/pending");
 
-    private void ScanProposal() => Nav.NavigateTo($"/multisig/{WalletId}/pending?scan=1");
     private void ViewActivity() => Nav.NavigateTo($"/multisig/{WalletId}/activity");
 }

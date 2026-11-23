@@ -27,12 +27,21 @@ public class NotificationService
         _active.Add(toast);
         OnChange?.Invoke();
 
+        // A duration of zero or less means the message stays until the person dismisses it.
+        if (durationMs <= 0) return;
+
         _ = Task.Delay(durationMs).ContinueWith(_ =>
         {
             _active.Remove(toast);
             OnChange?.Invoke();
         });
     }
+
+    /// <summary>
+    /// A message that stays until it is dismissed, for a failure the person must not miss
+    /// (specs/026-multisig-wallet-experience, FR-024).
+    /// </summary>
+    public void Sticky(string message, ToastType type = ToastType.Error) => Show(message, type, 0);
 
     public void Success(string message) => Show(message, ToastType.Success);
     public void Error(string message) => Show(message, ToastType.Error, 5000);
