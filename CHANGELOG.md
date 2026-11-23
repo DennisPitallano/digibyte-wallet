@@ -4,6 +4,10 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-23
+
+Multisig is easier to find your way around. While a multisig is open the menu belongs to it, every page says which multisig you are in and which wallet it belongs to, Pending puts what needs you first, each payment has a screen of its own, and the signing room is built around the next step. How payments are signed, checked and broadcast is unchanged, and nothing new is stored except which multisig you used last. Also in this release: a shorter Unlock screen with several wallets, and "Update available" shows again instead of the app reloading on its own.
+
 ### Added
 - **A screen for each pending multisig payment** — Tapping a payment in Pending opens it on its own screen, with the full payment, who has signed, and everything that can be done with it: sign, slide to broadcast, retry, sign together online, share with co-signers, add a signed copy, and cancel. The main action stays pinned above the menu and its confirm step appears in the same place.
 - **A count of multisig payments that need you** — The More tab, the Multisig row in its list and the Multisig shortcut on Home show how many multisig payments are waiting for your signature, ready to broadcast, or need a broadcast retried. Inside a multisig the count is on its Pending tab. It is worked out on the device from payments saved there.
