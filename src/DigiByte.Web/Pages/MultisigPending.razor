@@ -176,7 +176,6 @@
     private string? loadedFor;
 
     // Receiving a co-signer's proposal (specs/022-multisig-proposal-scan-import)
-    [SupplyParameterFromQuery(Name = "scan")] public string? ScanQuery { get; set; }
     private string? highlightId;
     private string? scrollToId;
     private PendingMultisigTransaction? cancelledPrompt;
@@ -247,11 +246,10 @@
         if (config is null) return;
         restoreScroll = SavedScroll.ContainsKey(WalletId);
 
-        // A proposal the user chose to open in this multisig from another one's page (spec 022, FR-006), then ?scan=1.
+        // A proposal the user chose to open in this multisig from another one's page (spec 022, FR-006), or one the
+        // menu's Scan read while another page was open.
         if (Handoff.Take(WalletId) is { } handedOver)
             await ReceiveProposalText(handedOver);
-        else if (ScanQuery == "1")
-            showScanner = true;
     }
 
     private async Task Reload()

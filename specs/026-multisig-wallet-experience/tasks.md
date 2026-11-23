@@ -217,16 +217,16 @@ description: "Task list for the multisig wallet experience (list, navigation, pe
 
 **Purpose**: Things that span stories
 
-- [ ] T084 [P] Update the menu section of docs/UI_STYLE.md to describe shared-wallet mode (the five slots, the name tab, counts, the room hiding the menu)
-- [ ] T085 [P] Remove what the feature made unused after confirming no references remain: `WalletChip` in src/DigiByte.Web/Components/Multisig/WalletChip.razor if no page uses it, dead handlers and fields left in src/DigiByte.Web/Pages/MultisigPending.razor and src/DigiByte.Web/Pages/MultisigDetail.razor
-- [ ] T086 [P] Update the multisig help text that names the old screens (five Pending buttons, dashboard tiles) in src/DigiByte.Web/Pages/MultisigGuide.razor and src/DigiByte.Web/Pages/Help.razor
+- [X] T084 [P] Update the menu section of docs/UI_STYLE.md to describe shared-wallet mode (the five slots, the name tab, counts, the room hiding the menu)
+- [X] T085 [P] Remove what the feature made unused after confirming no references remain: `WalletChip` in src/DigiByte.Web/Components/Multisig/WalletChip.razor if no page uses it, dead handlers and fields left in src/DigiByte.Web/Pages/MultisigPending.razor and src/DigiByte.Web/Pages/MultisigDetail.razor
+- [X] T086 [P] Update the multisig help text that names the old screens (five Pending buttons, dashboard tiles) in src/DigiByte.Web/Pages/MultisigGuide.razor and src/DigiByte.Web/Pages/Help.razor
 - [ ] T087 Accessibility pass over every changed screen in the preview: keyboard only, focus order and trap in sheets, status and count announcements, the 5-minute warning, 44 px targets, large text, contrast in both themes, reduced motion (FR-036, SC-013)
 - [ ] T088 Check the wide-screen side-rail layout of the menu in shared mode and with counts, and the pinned action on an installed PWA on Android and iOS (system bars, on-screen keyboard)
-- [ ] T089 Switch the app to Spanish and confirm every new menu label and count reads in Spanish with no raw keys (FR-037)
+- [X] T089 Switch the app to Spanish and confirm every new menu label and count reads in Spanish with no raw keys (FR-037)
 - [ ] T090 Walk the full specs/026-multisig-wallet-experience/checklists/existing-actions.md and quickstart section 6 end to end; record the result in that checklist (SC-012)
 - [ ] T091 Run the four moderated checks from the spec with at least five people before release (SC-002 name both wallets in 5 seconds, SC-006 pick the right next action for five card states, SC-007 say what the room is waiting for within 10 seconds, SC-010 read the list's states) and record the results in specs/026-multisig-wallet-experience/checklists/moderated-checks.md
 - [ ] T092 Run `dotnet build DigiByte.slnx` and `dotnet test` for the whole solution and confirm both pass
-- [ ] T093 Add the user-facing changes to CHANGELOG.md and the "What's New" list in src/DigiByte.Web/Layout/MainLayout.razor
+- [X] T093 Add the user-facing changes to CHANGELOG.md under Unreleased (the "What's New" list in src/DigiByte.Web/Layout/MainLayout.razor follows the changelog when the version is bumped, so it is not edited here)
 
 ---
 

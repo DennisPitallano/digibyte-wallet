@@ -308,9 +308,59 @@ From 1024px wide the same menu becomes a vertical rail hugging the left side of 
 padding). Below that, phones and tablets keep the bottom bar. The bar has a glass look: a
 translucent fill over blurred content, a light rim and a layered shadow (`--ui-nav-*` tokens).
 
-Not live yet: the **badges**. `nav-badge-dot` and `nav-badge-count` are styled and shown in the
-gallery, but the menu has no source for "a payment is pending" or "a multisig needs your
-signature", so it draws none.
+### Inside a shared wallet (multisig)
+
+While one multisig is open, the menu keeps its shape and its five places but acts on that
+multisig (spec 026):
+
+| Place | Personal wallet | Inside a multisig |
+|-------|-----------------|-------------------|
+| 1 | Wallet | **Overview** (the multisig's dashboard) |
+| 2 | Activity | Activity (the multisig's) |
+| 3 | Scan | Scan (an address or payment request pays **from this multisig**) |
+| 4 | Request | **Pending** (with a count) |
+| 5 | More | More |
+
+- **The address decides the mode.** `Layout/ShellContext.cs` is the only place that knows which
+  pages are "inside a multisig": `/multisig/{id}` and its `send`, `pending`, `pending/{id}` and
+  `activity` pages. The list, Create, Import, the guide and the room's join screen keep the
+  personal menu. Deciding from the address means the menu and the page cannot disagree, also
+  after a reload or a link straight to a page.
+- **Never colour alone.** Three things say which mode it is: a small **name tab** on the bar's
+  top edge with a key icon and the multisig's name (`nav-shared-tab`; it sits on the left, clear
+  of the raised Scan button), the labels themselves (Overview, Pending), and the **context
+  line** on the page (`Components/Multisig/SharedWalletContextLine.razor`): the multisig's name,
+  its scheme, and "in *wallet*" with that wallet's colour.
+- **One way out.** The context line and the name tab open the switcher
+  (`SharedWalletSwitcher.razor`): "Back to *wallet*" first, then the wallet's other multisigs.
+  The menu owns the switcher so it opens above the bar; a page asks for it through
+  `ShellActions.RequestSwitcher`.
+- **No repeats.** A multisig's dashboard does not offer a button for a place the menu already
+  has under the same name, so it keeps Send and Receive only.
+
+### Counts
+
+`nav-badge-count` is live for multisig: `Services/MultisigAttentionState.cs` is the one owner of
+"payments that need you" (your signature, ready to broadcast, or a broadcast to retry), worked
+out from payments saved on the device with no network call. In the personal menu the count
+sits on **More** and on the Multisig row of its list, and on Home's Multisig shortcut; inside a
+multisig it sits on **Pending** for that multisig only. `CountBadge.Text` caps it at "99+", and
+the count is always in the control's accessible label. `nav-badge-dot` is still unused.
+
+### When the menu steps aside
+
+A page can take the whole screen through `Services/ShellChrome.cs`. Two things use it: the
+signing room while it is live or showing its result, so its one button owns the bottom of the
+screen, and a sheet opened from inside a page (Add a proposal), so the sheet is not under the
+bar. The room's join screen keeps the menu.
+
+### A pinned main button
+
+`sticky-action` (`Components/Multisig/StickyAction.razor`) keeps a screen's one main button at
+the bottom of the visible page while the content above it scrolls, and lets it rest in its own
+place once the page is scrolled that far. It needs no offset for the menu: it is measured inside
+the page's own bottom padding, which already clears the bar. A confirm step takes the button's
+place, so it appears where the person just tapped.
 
 The gallery still shows four static previews built by `Components/Dev/NavMenuPreview.razor`, for
 comparison:
