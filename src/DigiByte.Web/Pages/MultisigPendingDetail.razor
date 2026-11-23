@@ -86,7 +86,14 @@
         @* What this is and where it stands *@
         <div class="flex items-center justify-between gap-2">
             <div class="flex flex-wrap items-center gap-2 min-w-0">
-                <StatusBadge State="state" />
+                @if (coinsSpent)
+                {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"><UxIcon Name="alert" Class="w-3 h-3 shrink-0" />Can't go through</span>
+                }
+                else
+                {
+                    <StatusBadge State="state" />
+                }
                 @if (tx.ReceivedFromCoSigner)
                 {
                     <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">Received from a co-signer</span>
@@ -143,7 +150,9 @@
         @switch (action)
         {
             case PendingCardAction.ReviewAndSign when !signConfirm:
-                <StickyAction Label="Sign this payment" Busy="isSigning" BusyLabel="Signing…" OnAction="() => signConfirm = true" />
+                @* Until the coins have been looked up, signing waits: a payment that can't go through never offers it. *@
+                <StickyAction Label="Sign this payment" Busy="isSigning" BusyLabel="Signing…" OnAction="() => signConfirm = true"
+                              Disabled="spentChecking" DisabledReason="@(spentChecking ? "Checking this payment's coins…" : null)" />
                 break;
 
             case PendingCardAction.ReviewAndSign:
@@ -167,7 +176,7 @@
                 <StickyAction>
                     <SlideToConfirm @key="@($"{tx.Id}:{broadcastAttempt}")" Label="Slide to broadcast" BusyLabel="Broadcasting…"
                                     ActionDescription="Broadcast this multisig payment"
-                                    Disabled="@(isBroadcasting || coinsSpent)" OnConfirmed="BroadcastTransaction" />
+                                    Disabled="@(isBroadcasting || coinsSpent || spentChecking)" OnConfirmed="BroadcastTransaction" />
                 </StickyAction>
                 break;
 
@@ -381,6 +390,9 @@
     private bool isLoading = true;
     private string? loadedFor;
     private bool coinsSpent;
+    // True from opening the payment until its coins have been looked up, or a few seconds have passed.
+    private bool spentChecking;
+    private const int SpentCheckPatienceMs = 8000;
 
     private bool isSigning;
     private bool isBroadcasting;
@@ -425,6 +437,8 @@
             access = await MultisigService.GetAccessStateAsync(WalletId, owner, publicKey);
             if (access != MultisigAccessState.Owned) return;
             config = await MultisigService.GetConfigAsync(WalletId, owner, publicKey);
+            spentChecking = true;
+            _ = StopCheckingAfterAsync(key);
             await Reload();
         }
         finally
@@ -438,7 +452,18 @@
         if (config is null) return;
         var all = await MultisigService.GetPendingTransactionsAsync(WalletId);
         tx = all.FirstOrDefault(p => p.Id == PendingId);
+        // What the Pending list already found out shows at once, with no moment of offering to sign.
+        if (tx is not null && Attention.IsSpent(tx.Id)) coinsSpent = true;
         _ = RefreshSpentAsync();
+    }
+
+    /// <summary>A slow or unreachable explorer never holds the main button back for long: unknown stays "not spent".</summary>
+    private async Task StopCheckingAfterAsync(string key)
+    {
+        await Task.Delay(SpentCheckPatienceMs);
+        if (loadedFor != key || !spentChecking) return;
+        spentChecking = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     /// <summary>Checks whether this payment's coins are already spent (spec 022, FR-007). Marks nothing when chain data is unavailable.</summary>
@@ -446,10 +471,12 @@
     {
         var current = config;
         var payment = tx;
-        if (current is null || payment is null) return;
+        if (current is null || payment is null) { spentChecking = false; return; }
         if (payment.Status is not (PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize))
         {
-            if (coinsSpent) { coinsSpent = false; await InvokeAsync(StateHasChanged); }
+            spentChecking = false;
+            coinsSpent = false;
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
@@ -471,8 +498,12 @@
         // The counts on the menu and on Home stop including a payment that cannot go through.
         if (known) Attention.ReportSpent([payment.Id], spent ? [payment.Id] : []);
 
-        if (payment != tx || spent == coinsSpent) return;
+        if (payment != tx) return;
+        // A lookup that found nothing out leaves what is already known (from the Pending list) as it is.
+        if (!known) spent = coinsSpent;
+        if (spent == coinsSpent && !spentChecking) return;
         coinsSpent = spent;
+        spentChecking = false;
         await InvokeAsync(StateHasChanged);
     }
 
