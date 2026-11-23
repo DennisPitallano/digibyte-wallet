@@ -271,6 +271,7 @@
         loadedFor = WalletId;
         isLoading = true;
         config = null;
+        justReceived = null;   // it belonged to the multisig shown before
         try
         {
             var owner = ActiveWallet.WalletId;
@@ -298,6 +299,8 @@
     {
         if (config is null) return;
         all = await MultisigService.GetPendingTransactionsAsync(WalletId);
+        // A proposal that is no longer on the list (removed, or sent) is not offered for review any more.
+        if (justReceived is { } offered && all.All(p => p.Id != offered.Id)) justReceived = null;
         // What is already known about spent coins is used at once; the check below then brings it up to date.
         Regroup();
         if (groups.Cancelled.Count == 0)
