@@ -79,6 +79,24 @@
             </div>
         }
 
+        @* The proposal that was just brought in: one tap to look at it, without hunting for its card (it stays until
+           dismissed or opened; the toast and the ring around its card are gone after a few seconds) *@
+        @if (justReceived is not null)
+        {
+            var received = justReceived;
+            <div class="flex items-center gap-3 p-3 rounded-xl border border-dgb-300 dark:border-dgb-700 bg-white dark:bg-dgb-900" role="status" data-testid="pending-just-received">
+                <p class="flex-1 min-w-0 text-sm text-slate-700 dark:text-slate-200">
+                    <span class="font-semibold">@justReceivedLabel:</span>
+                    <span class="tabular-nums">@MultisigFormat.Dgb(received.AmountSatoshis) DGB</span>
+                    to <span class="font-mono text-xs">@MultisigFormat.Short(received.DestinationAddress)</span>
+                </p>
+                <button type="button" class="btn-primary btn-sm shrink-0" data-testid="pending-review-received" @onclick="() => OpenPayment(received)">Review</button>
+                <button type="button" class="icon-btn shrink-0" aria-label="Dismiss" @onclick="() => justReceived = null">
+                    <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        }
+
         @if (OpenCount == 0)
         {
             @* Nothing waiting (cancelled ones, if any, are folded below): one sentence and the two ways to change that (FR-022) *@
@@ -191,6 +209,15 @@
 
     // Receiving a co-signer's proposal (specs/022-multisig-proposal-scan-import)
     private string? highlightId;
+    // The proposal brought in a moment ago by scan, paste or file; offered for review until opened or dismissed.
+    private PendingMultisigTransaction? justReceived;
+    private string justReceivedLabel = "";
+
+    private void OfferReview(PendingMultisigTransaction pending, string label)
+    {
+        justReceived = pending;
+        justReceivedLabel = label;
+    }
     private string? scrollToId;
     private PendingMultisigTransaction? cancelledPrompt;
     private string cancelledPsbt = "";
@@ -316,11 +343,15 @@
 
     // ─── Opening a payment ───
 
-    private async Task OpenPayment(PendingMultisigTransaction tx)
+    private Task OpenPayment(PendingMultisigTransaction tx) => OpenPayment(tx, null);
+
+    /// <param name="section">A part of the payment's screen to land on, or null for the top.</param>
+    private async Task OpenPayment(PendingMultisigTransaction tx, string? section)
     {
         try { SavedScroll[WalletId] = await JS.InvokeAsync<double>("domHelpers.getMainScroll"); }
         catch { /* returning to the top is the fallback */ }
-        Nav.NavigateTo($"/multisig/{WalletId}/pending/{Uri.EscapeDataString(tx.Id)}");
+        justReceived = null;
+        Nav.NavigateTo($"/multisig/{WalletId}/pending/{Uri.EscapeDataString(tx.Id)}" + (section is null ? "" : "#" + section));
     }
 
     // Every button opens the payment's own screen, except the room button, which opens the room (FR-019a).
@@ -331,7 +362,8 @@
             Nav.NavigateTo("/multisig/sign-room");
             return Task.CompletedTask;
         }
-        return OpenPayment(tx);
+        // "Get signatures" is about the sharing options further down the payment's screen: land on them.
+        return OpenPayment(tx, action == PendingCardAction.GetSignatures ? MultisigPendingDetail.GetSignaturesSection : null);
     }
 
     // ─── Receive a co-signer's proposal (specs/022-multisig-proposal-scan-import) ───
@@ -398,14 +430,17 @@
                 case ProposalReceiveOutcome.Added:
                     Notifications.Success("Proposal added.");
                     Highlight(result.Pending.Id);
+                    OfferReview(result.Pending, "Just added");
                     break;
                 case ProposalReceiveOutcome.Merged:
                     Notifications.Success(result.NewSignatures == 1 ? "1 new signature added." : $"{result.NewSignatures} new signatures added.");
                     Highlight(result.Pending.Id);
+                    OfferReview(result.Pending, "Just updated");
                     break;
                 case ProposalReceiveOutcome.AlreadyUpToDate:
                     Notifications.Info("Already up to date.");
                     Highlight(result.Pending.Id);
+                    OfferReview(result.Pending, "Already here");
                     break;
                 case ProposalReceiveOutcome.Cancelled:
                     cancelledPrompt = result.Pending;
@@ -451,6 +486,7 @@
             await Reload();
             Notifications.Success("Proposal restored.");
             Highlight(restored.Id);
+            OfferReview(restored, "Restored");
         }
         catch (PsbtImportException ex)
         {

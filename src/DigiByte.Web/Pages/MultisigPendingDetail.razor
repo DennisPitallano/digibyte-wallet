@@ -191,7 +191,7 @@
         @* Getting the other signatures: live in a room, or by sending the proposal and taking signed copies back *@
         @if (open && !coinsSpent)
         {
-            <h3 class="section-label mt-1" id="get-signatures">Get signatures</h3>
+            <h3 class="section-label mt-1" id="@GetSignaturesSection">Get signatures</h3>
 
             @* Sign together online (specs/017-multisig-online-signing) *@
             @if (action != PendingCardAction.OpenRoom)
@@ -341,6 +341,23 @@
 @code {
     [Parameter] public string WalletId { get; set; } = "";
     [Parameter] public string PendingId { get; set; } = "";
+
+    /// <summary>
+    /// The part of this screen with the ways to collect signatures. A link that ends in #get-signatures lands on it:
+    /// the Pending list's "Get signatures" button does, so the person is not left at the top to scroll for it.
+    /// </summary>
+    public const string GetSignaturesSection = "get-signatures";
+    private string? landedFor;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Once per payment, after it is on screen and its sections exist.
+        if (isLoading || tx is null || landedFor == loadedFor) return;
+        landedFor = loadedFor;
+        if (new Uri(Nav.Uri).Fragment != "#" + GetSignaturesSection) return;
+        try { await JS.InvokeVoidAsync("domHelpers.scrollToElement", GetSignaturesSection); }
+        catch { /* landing at the top is a fine fallback */ }
+    }
 
     // The cancel confirmation, shown where cancelling was asked for: in the pinned area or at the foot of the page.
     private RenderFragment CancelConfirm => __builder =>
