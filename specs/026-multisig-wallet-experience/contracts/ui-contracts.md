@@ -24,7 +24,7 @@ Query values allowed in an address: `address`, `amount`, `code`, `scanned`, `dra
 | 1 | Wallet → `/` | Overview → `/multisig/{id}` |
 | 2 | Activity → `/transactions` | Activity → `/multisig/{id}/activity` |
 | 3 | Scan (button) | Scan (button), payment codes route to `/multisig/{id}/send` (FR-002a) |
-| 4 | Request → `/payments` | Pending → `/multisig/{id}/pending`, count = NeedsYou for this shared wallet |
+| 4 | Request → `/payments` | Pending → `/multisig/{id}/pending`, count = NeedsYou for this shared wallet (a payment known to be unable to go through is not counted) |
 | 5 | More (button), count = NeedsYou total | More (button), no count |
 
 - Shared mode adds the name tab above the bar: key icon, "*name* · *M-of-N*", opens the switcher. `aria-label` of the `nav`: "*name* shared wallet navigation".
@@ -46,7 +46,8 @@ Query values allowed in an address: `address`, `amount`, `code`, `scanned`, `dra
 | `RoomStageTracker` | `Stage` | Invite · Sign · Broadcast with the current step marked; text alternative "Step 2 of 3: Sign". |
 | `RoomInvite` | `InviteCode`, `InviteLink`, `Prominent`, `OnShare`, `OnCopyLink`, `OnCopyCode` | Prominent: code, Share, Copy link, Copy code, QR. Folded: one row with the code and a control to expand. Share uses the device share sheet when available, else copies the link. |
 | `RoomMenu` | `IsOpen`, `IsHost`, `OnLeave`, `OnClose`, `OnClosed` | Leave and Close room, each with its consequence; Close room confirms. |
-| `RoomCodeInput` | `Value`, `ValueChanged`, `OnScan` | Six characters, uppercase, accepts a full paste, exposes one labelled input to assistive technology. |
+| `RoomCodeInput` | `Value`, `ValueChanged`, `OnScan`, `OnSubmit` | Six characters, uppercase. Accepts a full paste, including an invite link (the code after its `code=` is taken). No length limit of its own: `Clean` decides what is kept and the field is always set back to that, so a stray character never uses up a box. Exposes one labelled input to assistive technology. |
+| `NeedsYouCount` | `Class`, `TestId`, `Spoken` | The shared count as a bubble; shows nothing at zero and follows changes by itself. With `Spoken` it also says the count in words from inside the control it sits on. |
 
 Existing components reused unchanged: `PaymentSummary`, `SignerList`, `SignerCard`, `SignerProgress`, `StatusBadge`, `RoomHeadlineCard` (its button is not rendered when `StickyAction` shows it), `ConnectionBanner`, `QrImage`, `SlideToConfirm`, `RenameDialog`, `EmptyState`, `AttentionBadge`.
 
@@ -60,6 +61,17 @@ Existing components reused unchanged: `PaymentSummary`, `SignerList`, `SignerCar
 | `ScanRouter.Route(scanned, appBaseUri, sharedWalletId = null)` | Web/Services | Payment → shared send address when `sharedWalletId` is set; all other kinds unchanged |
 | `MultisigWalletService.PendingChanged` | Wallet | `event Action<string>` (shared wallet id) |
 | `AttentionCounter`, `PendingGrouping`, `PendingCardActions`, `WalletCardStatus`, `SharedWalletOrder`, `SharedWalletShortcut`, `RoomStage` (stage and `InviteProminent`), `SignerOrder`, `RoomCountdown`, `CountBadge` | Wallet | Pure functions; see data model and research. |
+
+## Pending groups
+
+| Group | Heading | Shown |
+|---|---|---|
+| NeedsYou | Needs you | Open; counted |
+| WaitingForOthers | Waiting for others | Open |
+| CantGoThrough | Can't go through | Open; coins known to be spent; not counted; card button "Review & cancel" |
+| Cancelled | Cancelled | Folded by default |
+
+`MultisigAttentionState.ReportSpent(checkedIds, spentIds)` is how the Pending list and the payment's own screen tell the counts which payments cannot go through; `IsSpent(id)` is read by the list of shared wallets. Kept in memory for the session only.
 
 ## Behaviour guarantees
 

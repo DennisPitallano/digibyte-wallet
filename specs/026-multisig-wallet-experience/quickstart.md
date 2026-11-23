@@ -41,13 +41,14 @@ Start the `DigiByte.Web` dev server from `.claude/launch.json` (preview) and vie
 3. Sign. Expect: a brief confirmation message, the list unchanged in position, card now under "Waiting for others" with "Get signatures".
 4. Reach the threshold. Expect: card "Review & broadcast"; the slide control exists only on the payment's screen. Slide. Expect: confirmation with transaction ID and a link to Activity; the payment is gone from Pending.
 5. Cancel a payment. Expect: it appears under a folded "Cancelled" group; "Clear all cancelled" is on the list.
-6. Tap "Add a proposal". Expect: Scan, Paste, Choose file, Join a room with a code in one sheet.
-7. Empty list. Expect: one explanation and two actions.
+6. Open Pending with a payment whose coins were already spent (spend the same coins from another device first). Expect: before Pending is opened, the payment is still counted on More, Home and the Pending tab; once Pending has checked, it sits under "Can't go through" with one "Review & cancel" button, it is no longer counted anywhere, the wallet's card on the list no longer says it needs your signature, and a live payment beside it stays under "Needs you" and stays counted.
+7. Tap "Add a proposal". Expect: Scan, Paste, Choose file, Join a room with a code in one sheet.
+8. Empty list. Expect: one explanation and two actions.
 
 ### 3. Signing room (Story 3)
 
 1. From a payment's screen choose Sign together online and open a room. Expect: no bottom menu; room bar with code, time left and connection; tracker on Invite; invite block directly under the headline; main button pinned to the bottom.
-2. Join from a second profile by link. Expect: join screen (with menu) shows which wallet you join as; six-character input accepts a paste. After joining: invite folded to one row, tracker moves to Sign once two are present.
+2. Join from a second profile by link. Expect: join screen (with menu) shows which wallet you join as; the six boxes accept a pasted code and a pasted invite link (its code is taken, not the start of the link), and a stray dash or space typed along the way does not use up a box. After joining: invite folded to one row, tracker moves to Sign once two are present.
 3. Scroll the room. Expect: main button always visible. Sign on both. Expect: tracker on Broadcast, signer list ordered you, signed, online, offline, "2 of 2 signatures".
 4. Open the room menu. Expect: Leave and (host only) Close room with their consequences; Close asks to confirm.
 5. Broadcast. Expect: result screen with outcome, signatures kept, transaction ID with copy, one next button; leaving it brings the menu back. In a second room, have enough co-signers decline. Expect: the headline says it can't be completed and the button reads "Open payment", leading to that payment's screen where Cancel is offered.

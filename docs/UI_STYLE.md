@@ -342,7 +342,9 @@ multisig (spec 026):
 
 `nav-badge-count` is live for multisig: `Services/MultisigAttentionState.cs` is the one owner of
 "payments that need you" (your signature, ready to broadcast, or a broadcast to retry), worked
-out from payments saved on the device with no network call. In the personal menu the count
+out from payments saved on the device with no network call. A payment whose coins were already
+spent cannot go through and is left out, once the Pending list or the payment's own screen has
+found that out; those pages report it to the service, which remembers it until the app is closed. In the personal menu the count
 sits on **More** and on the Multisig row of its list, and on Home's Multisig shortcut; inside a
 multisig it sits on **Pending** for that multisig only. `CountBadge.Text` caps it at "99+", and
 the count is always in the control's accessible label. `nav-badge-dot` is still unused.
