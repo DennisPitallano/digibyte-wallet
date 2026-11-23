@@ -1792,7 +1792,9 @@ textarea.input { min-height: 96px; resize: vertical; }
     box-shadow: var(--ui-shadow-raised);
 }
 .more-sheet-grip { width: 40px; height: 4px; margin: 12px auto 4px; border-radius: 9999px; background: var(--ui-border); }
-.more-sheet-list { display: flex; flex-direction: column; gap: 0.5rem; padding: 0 1rem 1rem; overflow-y: auto; }
+/* The list scrolls, so it clips what sticks out of it. A row's focus ring reaches 4px past the row (2px ring,
+   2px offset): the 4px of top padding is the room the first row's ring needs. The sides and bottom have 1rem. */
+.more-sheet-list { display: flex; flex-direction: column; gap: 0.5rem; padding: 4px 1rem 1rem; overflow-y: auto; }
 .more-sheet-row {
     display: flex;
     align-items: center;
