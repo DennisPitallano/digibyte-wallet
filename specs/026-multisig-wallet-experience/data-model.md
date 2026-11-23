@@ -40,6 +40,8 @@ Per shared wallet and in total:
 | FailedBroadcast | Payments whose last send failed |
 | NeedsYou | Sum of the three; the number on Pending, More, the Multisig row and the home shortcut |
 
+An open payment known to be unable to go through (coins already spent) is left out of all four. `MultisigAttentionState` keeps that knowledge in memory for the session, as reported by the Pending list and the payment's own screen; it is never stored and the service makes no network call itself.
+
 Display rule: `CountBadge.Text(n)` → "" for 0, the number up to 99, "99+" above.
 
 ### PendingGroups (`DigiByte.Wallet`)
@@ -48,6 +50,7 @@ Display rule: `CountBadge.Text(n)` → "" for 0, the number up to 99, "99+" abov
 |---|---|---|
 | NeedsYou | Needs your signature; ready to broadcast; failed broadcast; live room the viewer has not signed | Newest first |
 | WaitingForOthers | You signed; waiting for others (view only); live room the viewer has signed | Newest first |
+| CantGoThrough | Open payments whose coins are known to be spent | Newest first; not counted as needing the viewer |
 | Cancelled | Cancelled | Newest first; folded by default |
 
 Sent payments are never in a group (FR-018a).

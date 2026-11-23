@@ -7,6 +7,7 @@
 @inject NotificationService Notifications
 @inject IJSRuntime JS
 @inject SigningRoomClient Room
+@inject MultisigAttentionState Attention
 @implements IDisposable
 
 @*
@@ -436,6 +437,7 @@
         }
 
         var spent = false;
+        var known = false;
         try
         {
             var facts = MultisigProposalReader.Read(payment.PsbtBase64, current, MultisigService.ActiveNetwork);
@@ -444,9 +446,13 @@
                 var outPoints = facts.Inputs.Select(i => i.OutPoint).ToList();
                 var spentIds = await MultisigService.GetSpentInputIdsAsync(current, outPoints);
                 spent = outPoints.Any(o => spentIds.Contains($"{o.Hash}:{o.N}"));
+                known = true;
             }
         }
         catch { /* unknown stays "not spent": nothing is blocked on a guess */ }
+
+        // The counts on the menu and on Home stop including a payment that cannot go through.
+        if (known) Attention.ReportSpent([payment.Id], spent ? [payment.Id] : []);
 
         if (payment != tx || spent == coinsSpent) return;
         coinsSpent = spent;

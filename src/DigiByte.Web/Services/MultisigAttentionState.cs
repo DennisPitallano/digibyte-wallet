@@ -11,6 +11,9 @@ public sealed record SharedWalletEntry(string Id, string Name, MultisigWalletCon
 /// the Multisig row and the home shortcut can never disagree (specs/026-multisig-wallet-experience, FR-004, FR-010a).
 /// Counts come from payments already saved on this device: no network call is made. When the saved data cannot be
 /// read, nothing is shown rather than a wrong number.
+/// A payment whose coins were already spent cannot go through and is not counted. That is only known once a page
+/// that checks the chain (the Pending list, a payment's own screen) has looked; such a page reports it here, and it
+/// is remembered until the app is closed. Nothing about it is stored, and this service asks the network nothing.
 /// </summary>
 public sealed class MultisigAttentionState : IDisposable
 {
@@ -26,6 +29,9 @@ public sealed class MultisigAttentionState : IDisposable
     private bool _loadedUnlocked;
     private bool _everLoaded;
     private int _version;
+
+    // Payment ids whose coins are known to be spent. In memory only.
+    private readonly HashSet<string> _spent = new(StringComparer.Ordinal);
 
     public MultisigAttentionState(MultisigWalletService multisig, ActiveWalletContext active, WalletService wallets, AppState app)
     {
@@ -45,6 +51,24 @@ public sealed class MultisigAttentionState : IDisposable
 
     /// <summary>Raised after every refresh.</summary>
     public event Action? Changed;
+
+    /// <summary>True when a page has found that this payment's coins were already spent.</summary>
+    public bool IsSpent(string pendingId) => _spent.Contains(pendingId);
+
+    /// <summary>
+    /// A page that checked the chain says which of the payments it looked at cannot go through. Payments it looked at
+    /// and found fine are forgotten again, so a wrong answer does not stick.
+    /// </summary>
+    /// <param name="checkedIds">Every payment the page checked.</param>
+    /// <param name="spentIds">Those of them whose coins are spent.</param>
+    public void ReportSpent(IEnumerable<string> checkedIds, IEnumerable<string> spentIds)
+    {
+        var spent = spentIds.ToHashSet(StringComparer.Ordinal);
+        var changed = false;
+        foreach (var id in checkedIds)
+            changed |= spent.Contains(id) ? _spent.Add(id) : _spent.Remove(id);
+        if (changed) _ = RefreshAsync();
+    }
 
     /// <summary>
     /// Loads when nothing is loaded yet, or when what is loaded was for another wallet or another unlock state.
@@ -77,7 +101,7 @@ public sealed class MultisigAttentionState : IDisposable
                     catch { /* a wallet whose payments can't be read counts nothing */ }
                 }
                 var keys = list.ToDictionary(w => w.Id, w => w.Config?.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex);
-                summary = AttentionCounter.Count(pending, id => keys.GetValueOrDefault(id));
+                summary = AttentionCounter.Count(pending, id => keys.GetValueOrDefault(id), IsSpent);
                 entries = list;
             }
         }

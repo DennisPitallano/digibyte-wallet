@@ -118,10 +118,14 @@ public enum PendingCardAction
 public sealed record PendingGroups(
     IReadOnlyList<PendingMultisigTransaction> NeedsYou,
     IReadOnlyList<PendingMultisigTransaction> WaitingForOthers,
+    IReadOnlyList<PendingMultisigTransaction> CantGoThrough,
     IReadOnlyList<PendingMultisigTransaction> Cancelled)
 {
+    /// <summary>An empty list.</summary>
+    public static readonly PendingGroups Empty = new([], [], [], []);
+
     /// <summary>Everything the list shows.</summary>
-    public int Count => NeedsYou.Count + WaitingForOthers.Count + Cancelled.Count;
+    public int Count => NeedsYou.Count + WaitingForOthers.Count + CantGoThrough.Count + Cancelled.Count;
 }
 
 /// <summary>A card's button: what it does and what it says. No label means no button.</summary>

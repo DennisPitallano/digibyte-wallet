@@ -15,9 +15,14 @@ public static class WalletCardStatus
     /// <param name="localKey">The viewer's co-signer key, or null or empty for a view-only copy.</param>
     /// <param name="liveRoomTxId">The payment of the signing room this device is in, if any. A room the device has
     /// not joined is unknown to it, so it can never be shown.</param>
-    public static WalletCardStatusLine For(IEnumerable<PendingMultisigTransaction> pending, string? localKey, string? liveRoomTxId)
+    /// <param name="coinsSpent">Says, by payment id, whether its coins are known to be already spent. Such a payment
+    /// cannot go through and says nothing about its wallet here. Null when nothing is known.</param>
+    public static WalletCardStatusLine For(IEnumerable<PendingMultisigTransaction> pending, string? localKey, string? liveRoomTxId,
+        Func<string, bool>? coinsSpent = null)
     {
-        var items = pending as IReadOnlyCollection<PendingMultisigTransaction> ?? pending.ToList();
+        var items = pending
+            .Where(p => p.Status is not (PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize) || coinsSpent?.Invoke(p.Id) != true)
+            .ToList();
         var open = items.Where(p => p.Status == PendingTxStatus.AwaitingSignatures).ToList();
 
         var needsSignature = string.IsNullOrEmpty(localKey) ? 0 : open.Count(p => !PendingStateClassifier.HasSigned(p, localKey));

@@ -1,18 +1,25 @@
 @* The number of multisig payments that need the person, across the active wallet's shared wallets, as a small bubble
    (specs/026-multisig-wallet-experience, FR-009 and FR-010a). It reads the one shared count, so every place that
-   shows it agrees, and it follows changes by itself. Shows nothing at zero. The parent supplies the words for
-   assistive technology, since the bubble sits on a control that has its own label. *@
+   shows it agrees, and it follows changes by itself. Shows nothing at zero. With Spoken set it also says the count
+   in words for assistive technology, from inside the control it sits on, so the words change with the number. *@
 @inject MultisigAttentionState Attention
 @implements IDisposable
 
 @if (Attention.Current.NeedsYouTotal > 0)
 {
     <span class="@Class" aria-hidden="true" data-testid="@TestId">@CountBadge.Text(Attention.Current.NeedsYouTotal)</span>
+    @if (Spoken)
+    {
+        <span class="sr-only">@(Attention.Current.NeedsYouTotal == 1 ? "1 payment needs you." : $"{CountBadge.Text(Attention.Current.NeedsYouTotal)} payments need you.")</span>
+    }
 }
 
 @code {
     [Parameter] public string Class { get; set; } = "nav-badge-count";
     [Parameter] public string? TestId { get; set; }
+
+    /// <summary>Also say the count in words, hidden from sight. For a control whose name comes from its content.</summary>
+    [Parameter] public bool Spoken { get; set; }
 
     protected override void OnInitialized()
     {

@@ -54,7 +54,10 @@ public static class AttentionCounter
 {
     /// <param name="pending">Saved proposals of any wallets.</param>
     /// <param name="localKeyForWallet">The viewer's co-signer key in that wallet, or null when watch-only.</param>
-    public static AttentionSummary Count(IEnumerable<PendingMultisigTransaction> pending, Func<string, string?> localKeyForWallet)
+    /// <param name="coinsSpent">Says, by payment id, whether its coins are known to be already spent. Such a payment
+    /// cannot go through, so it needs nobody (the same rule as <see cref="PendingGrouping"/>). Null when nothing is known.</param>
+    public static AttentionSummary Count(IEnumerable<PendingMultisigTransaction> pending, Func<string, string?> localKeyForWallet,
+        Func<string, bool>? coinsSpent = null)
     {
         var needsSignature = new Dictionary<string, int>();
         var ready = new Dictionary<string, int>();
@@ -63,12 +66,14 @@ public static class AttentionCounter
         {
             switch (item.Status)
             {
-                // Anyone holding the payment can broadcast or retry it, with or without a key of their own.
-                case PendingTxStatus.ReadyToFinalize:
-                    Add(ready, item.WalletId);
-                    break;
                 case PendingTxStatus.Failed:
                     Add(failed, item.WalletId);
+                    break;
+                case PendingTxStatus.ReadyToFinalize or PendingTxStatus.AwaitingSignatures when coinsSpent?.Invoke(item.Id) == true:
+                    break;
+                // Anyone holding the payment can broadcast it, with or without a key of their own.
+                case PendingTxStatus.ReadyToFinalize:
+                    Add(ready, item.WalletId);
                     break;
                 case PendingTxStatus.AwaitingSignatures:
                     var key = localKeyForWallet(item.WalletId);

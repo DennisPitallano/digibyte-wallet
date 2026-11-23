@@ -6,6 +6,7 @@
 @inject IBlockchainService Blockchain
 @inject ISecureStorage Storage
 @inject SigningRoomClient Room
+@inject MultisigAttentionState Attention
 
 @*
     The shared wallets of the active wallet (specs/026-multisig-wallet-experience, FR-011 to FR-017). Each card says
@@ -234,7 +235,8 @@
         }
 
         var localKeys = loadedConfigs.ToDictionary(kv => kv.Key, kv => kv.Value.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex);
-        var attention = AttentionCounter.Count(allPending, id => localKeys.GetValueOrDefault(id));
+        // A payment already found unable to go through (its coins were spent) is neither counted nor shown as waiting.
+        var attention = AttentionCounter.Count(allPending, id => localKeys.GetValueOrDefault(id), Attention.IsSpent);
 
         foreach (var (id, name, config, pending) in loaded)
         {
@@ -245,7 +247,7 @@
                 config?.TotalSigners ?? 0,
                 IsViewOnly: config is not null && config.OwnKeyIndex < 0,
                 NotBackedUp: config is not null && config.BackupAt is null,
-                Status: WalletCardStatus.For(pending, localKeys.GetValueOrDefault(id), liveRoomTxId),
+                Status: WalletCardStatus.For(pending, localKeys.GetValueOrDefault(id), liveRoomTxId, Attention.IsSpent),
                 NeedsYou: attention.NeedsYouFor(id),
                 LastActivity: SharedWalletOrder.LastActivity(config?.CreatedAt ?? DateTime.MinValue, pending)));
         }

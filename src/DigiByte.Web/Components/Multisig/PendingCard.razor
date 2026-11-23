@@ -1,7 +1,7 @@
 @* One pending payment on the Pending list: one status, the amount, who it goes to, who has signed, and one button
    (specs/026-multisig-wallet-experience, FR-019). Nothing here signs, broadcasts, retries or cancels: the card and
    its button open the payment's own screen, or its live room (FR-019a). *@
-<div id="proposal-@Pending.Id" class="pending-card @(NeedsYou ? "pending-card-needs-you" : "") @(Pending.Status == PendingTxStatus.Cancelled ? "opacity-70" : "") @(Highlighted ? "ring-2 ring-dgb-400" : "")">
+<div id="proposal-@Pending.Id" class="pending-card @(NeedsYou && !CoinsSpent ? "pending-card-needs-you" : "") @(Pending.Status == PendingTxStatus.Cancelled ? "opacity-70" : "") @(Highlighted ? "ring-2 ring-dgb-400" : "")">
     <button type="button" class="pending-card-body" aria-label="@OpenLabel" @onclick="() => OnOpen.InvokeAsync(Pending)">
         <span class="flex items-center justify-between gap-2">
             <span class="flex flex-wrap items-center gap-2 min-w-0">

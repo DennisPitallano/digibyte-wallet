@@ -19,6 +19,7 @@
 - Q: After a payment is sent, should it stay in the Pending list for a while? → A: No. A sent payment appears only in Activity; sending shows a confirmation with a link to it there. Pending's folded group holds cancelled payments only, and failed payments stay under "needs you".
 - Q: Inside a shared wallet, which wallet should a scanned DigiByte address or payment request pay from? → A: The shared wallet that is open: its send screen opens with the scanned recipient and amount filled in. Digi-ID logins, proposals and room invites are routed as today.
 - Q: Should the changed multisig screens be translated into Spanish, or only the bottom menu? → A: Only the bottom menu: its new labels and counts are provided in English and Spanish. The multisig screens stay English only, as today.
+- Q: Should a payment that can no longer go through (its coins were already spent) still count as "needs you"? → A: No. Once this device knows, it is not counted on the menu, on Home or on the list of shared wallets, and on Pending it sits in its own group, "Can't go through", between "Waiting for others" and "Cancelled", where the one action is Cancel. The device learns this when the Pending list or the payment's own screen checks the chain; until then the payment is counted as before.
 - Q: Should the final "slide to send" control sit on the Pending list card or only on the payment's own screen? → A: Only on the payment's own screen. The card's button reads "Review & send" and opens that screen; retrying a failed send works the same way. The Pending list never signs, sends or retries by itself.
 
 ## Context
@@ -221,7 +222,7 @@ From the personal wallet's home, the Multisig shortcut shows how many payments a
 
 **Pending**
 
-- **FR-018**: Pending MUST group payments under plain headings in the order: needs you (including a failed broadcast awaiting retry), waiting for others, cancelled; empty groups MUST be omitted and the cancelled group MUST be folded by default.
+- **FR-018**: Pending MUST group payments under plain headings in the order: needs you (including a failed broadcast awaiting retry), waiting for others, can't go through, cancelled; empty groups MUST be omitted and the cancelled group MUST be folded by default. An open payment known to be unable to complete (FR-025) belongs to "can't go through" and to no other group.
 - **FR-018a**: A payment that has been sent MUST NOT appear in Pending. Sending MUST show a confirmation with the transaction ID and a link to the payment in the shared wallet's Activity.
 - **FR-019**: Each open payment card MUST show one status, amount, shortened recipient, signature progress with which co-signers have signed, and age, and MUST offer exactly one main button fitting its state.
 - **FR-019a**: The Pending list MUST NOT sign, send or retry a payment by itself. A card's main button MUST open the payment's own screen (or its live room); signing, the slide-to-broadcast control and retrying a failed broadcast MUST be offered only on the payment's own screen and in the signing room, with the full payment summary in view.
@@ -230,7 +231,7 @@ From the personal wallet's home, the Multisig shortcut shows how many payments a
 - **FR-022**: Adding a proposal (scan, paste, file) and joining a room with a code MUST be offered from one "Add a proposal" entry at the top of Pending, and inline in the empty state.
 - **FR-023**: Share panels, QR codes and import forms MUST appear on the payment's own screen and MUST NOT expand inside the Pending list.
 - **FR-024**: Results of actions MUST be reported by brief messages that do not displace the list; failures MUST remain until dismissed.
-- **FR-025**: A payment that can no longer complete MUST say why in plain words; its card button MUST open the payment's own screen, where Cancel is the main action.
+- **FR-025**: A payment that can no longer complete MUST say why in plain words; its card button MUST open the payment's own screen, where Cancel is the main action. Once this device knows a payment cannot complete, it MUST NOT be counted as needing the person (FR-004, FR-009, FR-010a) and MUST NOT supply the status line of its shared wallet's card (FR-012). That knowledge comes from the checks the Pending list and the payment's own screen already make; it is kept only while the app is open, and the counts themselves still make no network call.
 
 **Signing room**
 

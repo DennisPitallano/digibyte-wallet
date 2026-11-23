@@ -7,6 +7,7 @@
 @inject IJSRuntime JS
 @inject SigningRoomClient Room
 @inject ProposalHandoff Handoff
+@inject MultisigAttentionState Attention
 
 @*
     The Pending list (specs/026-multisig-wallet-experience, FR-018 to FR-025): what needs you first, then what waits on
@@ -114,6 +115,18 @@
                 </section>
             }
 
+            @if (groups.CantGoThrough.Count > 0)
+            {
+                @* Their coins were already spent: nothing to sign or wait for, only to cancel. Not counted as needing you. *@
+                <section class="flex flex-col gap-3" aria-labelledby="group-cant">
+                    <h3 id="group-cant" class="section-label">Can't go through <span class="text-slate-400 dark:text-slate-500">· @groups.CantGoThrough.Count</span></h3>
+                    @foreach (var tx in groups.CantGoThrough)
+                    {
+                        @Card(tx)
+                    }
+                </section>
+            }
+
             @if (groups.Cancelled.Count > 0)
             {
                 @* Folded by default: finished business stays out of the way *@
@@ -167,7 +180,8 @@
 
     private MultisigWalletConfig? config;
     private MultisigAccessState access = MultisigAccessState.NotFound;
-    private PendingGroups groups = new([], [], []);
+    private PendingGroups groups = PendingGroups.Empty;
+    private List<PendingMultisigTransaction> all = [];
     private bool isLoading = true;
     private bool addOpen;
     private bool cancelledOpen;
@@ -192,7 +206,7 @@
     private bool restoreScroll;
 
     // Payments still in play: everything except the cancelled ones.
-    private int OpenCount => groups.NeedsYou.Count + groups.WaitingForOthers.Count;
+    private int OpenCount => groups.NeedsYou.Count + groups.WaitingForOthers.Count + groups.CantGoThrough.Count;
 
     private string? Summary
     {
@@ -255,8 +269,9 @@
     private async Task Reload()
     {
         if (config is null) return;
-        var all = await MultisigService.GetPendingTransactionsAsync(WalletId);
-        groups = PendingGrouping.Group(all, LocalKey);
+        all = await MultisigService.GetPendingTransactionsAsync(WalletId);
+        // What is already known about spent coins is used at once; the check below then brings it up to date.
+        Regroup();
         if (groups.Cancelled.Count == 0)
         {
             cancelledOpen = false;
@@ -265,6 +280,9 @@
         _ = RefreshSpentAsync();
     }
 
+    private void Regroup() =>
+        groups = PendingGrouping.Group(all, LocalKey, id => spentIds.Contains(id) || Attention.IsSpent(id));
+
     /// <summary>Marks open proposals whose coins are already spent (spec 022, FR-007). Marks nothing when chain data is unavailable.</summary>
     private async Task RefreshSpentAsync()
     {
@@ -272,8 +290,7 @@
         if (current is null) return;
 
         var inputsByProposal = new Dictionary<string, List<NBitcoin.OutPoint>>();
-        foreach (var tx in groups.NeedsYou.Concat(groups.WaitingForOthers)
-                     .Where(q => q.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize))
+        foreach (var tx in all.Where(q => q.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize))
         {
             var facts = MultisigProposalReader.Read(tx.PsbtBase64, current, MultisigService.ActiveNetwork);
             if (facts.Problems.Count == 0)
@@ -288,9 +305,12 @@
             .Where(kv => kv.Value.Any(o => spent.Contains($"{o.Hash}:{o.N}")))
             .Select(kv => kv.Key)
             .ToHashSet();
+        // The counts on the menu and on Home stop including payments that cannot go through.
+        Attention.ReportSpent(inputsByProposal.Keys, marked);
         if (marked.SetEquals(spentIds)) return;
 
         spentIds = marked;
+        Regroup();
         await InvokeAsync(StateHasChanged);
     }
 
