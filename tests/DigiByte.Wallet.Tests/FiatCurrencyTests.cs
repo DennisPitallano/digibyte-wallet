@@ -141,6 +141,10 @@ public class FiatCurrencyTests
     [InlineData("Dominican Republic", "DOP")]
     [InlineData("Columbia", "COP")]
     [InlineData("Colombia", "COP")]
+    [InlineData("Ecuador", "USD")]
+    [InlineData("El Salvador", "USD")]
+    [InlineData("Panama", "USD")]
+    [InlineData("Puerto Rico", "USD")]
     public void CountryNames_MakeCurrenciesSearchable(string country, string code) =>
         Assert.Contains(FiatCurrencies.CountryNames(code), n => n.Equals(country, StringComparison.OrdinalIgnoreCase));
 
