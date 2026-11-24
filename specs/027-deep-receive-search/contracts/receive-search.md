@@ -149,10 +149,10 @@ event Action? Changed
 
 | Outcome | Message says |
 |---|---|
-| `Finished`, added > 0 | searched up to N; M addresses added holding X DGB (or "amount not available yet") |
+| `Finished`, added > 0 | "Searched the first N addresses. M added (X DGB)."; the brackets hold "amount not available yet" when the amount could not be read |
 | `Finished`, added = 0 | no paid addresses found up to N |
 | `NothingToCheck` | the wallet already checks its first K addresses (`AlreadyCheckedUpTo`), so there is nothing new within the first N |
-| `Cancelled` | stopped after covering the first K addresses; the rest were not checked; plus anything added |
+| `Cancelled` | stopped after covering the first K addresses; the rest were not checked; plus, when anything was added, the same "Searched the first K addresses. M added (X DGB)." line |
 | `Failed` | could not finish; covered the first K addresses; the rest were not checked; plus anything added; never "nothing found" |
 | `Failed`, covered 0 | the search could not start; nothing was checked (FR-023) |
 | `Untrusted` | the data source's answers can't be trusted; nothing was changed |
@@ -161,7 +161,7 @@ event Action? Changed
 - When `SuggestSearchingFurther`: adds that more payments may lie beyond N and a **Search further** action that fills the count field with `min(5000, N + 500)`. It does not start the search (FR-012a).
 - When `ShowForeignIssuerNotice`: adds the one-time notice (FR-015a).
 - Disposing the page cancels a running search.
-- `data-testid`: `receive-search-upto`, `receive-search-explorer-note`, `receive-search-start`, `receive-search-cancel`, `receive-search-progress`, `receive-search-result`.
+- `data-testid`: `receive-search-upto`, `receive-search-explorer-note`, `receive-search-start`, `receive-search-cancel`, `receive-search-progress`, `receive-search-result`, `receive-search-further` (the action that fills in a larger count).
 
 ### `Receive.razor`, address list
 

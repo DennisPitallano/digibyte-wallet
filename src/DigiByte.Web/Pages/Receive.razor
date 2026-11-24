@@ -645,11 +645,10 @@
 
             // The new address is the newest entry and the one on show. Only a list that was already opened needs updating.
             derivedByIndex[newIndex] = newAddress;
+            // Through the window, not by adding one row: after a search has found addresses far along, the first new address
+            // changes which addresses the list holds, and the ones now in view may not have been derived yet.
             if (shownCount > 0)
-            {
-                shownCount = Math.Min(shownCount + 1, GeneratedCount);
-                RebuildEntries();
-            }
+                await ShowWindowAsync(Math.Min(shownCount + 1, GeneratedCount));
         }
         catch (InvalidOperationException ex)
         {

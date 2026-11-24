@@ -1283,6 +1283,49 @@ public class DigiIdFundsRecoveryTests
         Assert.Equal(3016, plan.Items.Min(i => i.DestinationIndex));
     }
 
+    [Fact]
+    public async Task Sweep_AfterAFarOffFind_FundsOnADestinationAreInTheBalance()
+    {
+        var f = await FundSitesWithWatchedAsync(3, new WatchedReceiveIndex(3000, true));
+        var plan = await f.Service.PlanDigiIdSweepAsync(f.Findings);
+        await f.Service.ExecuteDigiIdSweepAsync(plan);
+
+        // The swept funds landed on 3,001 to 3,003, which the wallet checks: they are in the balance, now and after a reload.
+        var swept = f.Env.Chain.Broadcasts.Sum(t => t.Outputs.Sum(o => o.Value.Satoshi));
+        Assert.True(swept > 0);
+        Assert.Equal(swept, (await f.Service.GetBalanceAsync()).ConfirmedSatoshis);
+        var reloaded = f.Env.NewService();
+        Assert.True(await reloaded.UnlockWalletAsync(f.WalletId, DigiIdEnv.Pin));
+        Assert.Equal(swept, (await reloaded.GetBalanceAsync()).ConfirmedSatoshis);
+    }
+
+    [Fact]
+    public async Task Sweep_WithNothingWatched_RecordsNoWatchedAddresses()
+    {
+        var f = await FundSitesAsync(3);
+        var plan = await f.Service.PlanDigiIdSweepAsync(f.Findings);
+
+        await f.Service.ExecuteDigiIdSweepAsync(plan);
+
+        var stored = (await f.Service.GetWalletAsync(f.WalletId))!;
+        Assert.Equal(plan.Items.Max(i => i.DestinationIndex) + 1, stored.NextReceivingIndex);
+        Assert.Empty(stored.WatchedReceiveIndexes);
+        Assert.Equal(0, stored.ReceiveBaseFloor);
+    }
+
+    [Fact]
+    public async Task Plan_AfterAFarOffFind_WithTwentyUnpaidOut_SaysTheWalletOnlyLooksTwentyPastTheLastPaid()
+    {
+        var f = await FundSitesWithWatchedAsync(2, new WatchedReceiveIndex(3000, true));
+        for (var i = 0; i < 20; i++) await f.Service.GenerateNewReceivingAddressAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => f.Service.PlanDigiIdSweepAsync(f.Findings));
+
+        Assert.Contains("unused addresses in a row", ex.Message);
+        Assert.Contains("last one that was paid", ex.Message);
+        Assert.DoesNotContain("restoring from your seed", ex.Message);
+    }
+
     private sealed class SyncProgress(Action<int> report) : IProgress<int>
     {
         public void Report(int value) => report(value);

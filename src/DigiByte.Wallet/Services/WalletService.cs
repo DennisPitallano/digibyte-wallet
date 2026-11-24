@@ -34,6 +34,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         /// <summary>The wider search of receive addresses now running for this wallet, if any: a second caller joins it.</summary>
         public Task<ReceiveSearchResult>? ReceiveSearch { get; set; }
+
+        /// <summary>The cancel token of that search: once it is cancelled, a new caller waits for it to end and starts afresh.</summary>
+        public CancellationToken ReceiveSearchToken { get; set; }
+
+        /// <summary>
+        /// One at a time for anything that moves the address on show (a new address, a Digi-ID sweep). Two overlapping moves
+        /// whose saves both failed would each put back what the other had set, leaving an address on show that nothing records.
+        /// </summary>
+        public SemaphoreSlim AddressOnShowGate { get; } = new(1, 1);
     }
 
     private readonly Dictionary<string, UnlockedWalletSession> _sessions = new();
@@ -588,7 +597,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         if (opened.Success && info is { ProtectionLevel: "legacy" } && await _vault.HasV2Async(slot))
         {
             info.ProtectionLevel = "standard";
-            await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+            await SaveWalletRecordAsync(walletId, info);
             SyncSessionProtection(info);
         }
         return Remember(opened);
@@ -1103,26 +1112,45 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             session.AddressDiscoveryRetryAfter = default;
             await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
             if (!ScanSetOf(info).CanHandOutNew)
-                throw new InvalidOperationException(
-                    $"You have {ReceiveGapLimit} unused addresses in a row. Use one of them first: restoring from your seed " +
-                    $"only looks {ReceiveGapLimit} addresses past the last one used.");
+                throw new InvalidOperationException(TooManyUnusedMessage(ScanSetOf(info), "Use one of them first"));
         }
 
-        var index = ScanSetOf(info).NextNewIndex;
-        var undo = MoveAddressOnShow(info, index, index);
+        int index;
+        await session.AddressOnShowGate.WaitAsync();
         try
         {
-            await PersistAddressIndexesAsync(info);
+            // Read again inside the gate: another hand-out may have gone first.
+            var set = ScanSetOf(info);
+            if (!set.CanHandOutNew)
+                throw new InvalidOperationException(TooManyUnusedMessage(set, "Use one of them first"));
+
+            index = set.NextNewIndex;
+            var undo = MoveAddressOnShow(info, index, index);
+            try
+            {
+                await PersistAddressIndexesAsync(info);
+            }
+            catch (Exception ex)
+            {
+                // Nothing has been shown yet, so fail: an address lost on reload could be paid and then never scanned.
+                undo();
+                throw new InvalidOperationException("Could not save the new address. Your current address is still good to use.", ex);
+            }
         }
-        catch (Exception ex)
-        {
-            // Nothing has been shown yet, so fail: an address lost on reload could be paid and then never scanned.
-            undo();
-            throw new InvalidOperationException("Could not save the new address. Your current address is still good to use.", ex);
-        }
+        finally { session.AddressOnShowGate.Release(); }
 
         return (index, session.Hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString());
     }
+
+    /// <summary>
+    /// Why no more addresses can be handed out. After a search has found addresses far along, the reason is not what a
+    /// restore reaches (a restore needs the search run again to reach them at all) but how far past the last paid address
+    /// the wallet keeps looking.
+    /// </summary>
+    private static string TooManyUnusedMessage(ReceiveScanSet set, string whatToDo) =>
+        $"You have {ReceiveGapLimit} unused addresses in a row. {whatToDo}: " + (set.MaxPaid is null
+            ? $"restoring from your seed only looks {ReceiveGapLimit} addresses past the last one used."
+            : $"the wallet only keeps looking {ReceiveGapLimit} addresses past the last one that was paid.");
 
     /// <summary>
     /// The one place the address on show moves (spec 027, data-model.md "Moving the address on show"). <paramref name="first"/>
@@ -1230,8 +1258,23 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             return Task.FromException<ReceiveSearchResult>(
                 new ArgumentOutOfRangeException(nameof(upTo), upTo, $"Enter a whole number from 1 to {MaxReceiveSearch}."));
 
-        if (session.ReceiveSearch is { IsCompleted: false } running) return running;
+        if (session.ReceiveSearch is { IsCompleted: false } running)
+        {
+            // A run that is still going is joined. One that has been told to stop (its page was left) only has its last
+            // batch out: this caller waits for that and gets a search of its own, not the old run's "stopped" result.
+            if (!session.ReceiveSearchToken.IsCancellationRequested) return running;
+            session.ReceiveSearchToken = cancellationToken;
+            return session.ReceiveSearch = RestartAsync(running);
+        }
+
+        session.ReceiveSearchToken = cancellationToken;
         return session.ReceiveSearch = RunReceiveSearchAsync(session, upTo, progress, cancellationToken);
+
+        async Task<ReceiveSearchResult> RestartAsync(Task<ReceiveSearchResult> stopping)
+        {
+            await stopping; // Never faults.
+            return await RunReceiveSearchAsync(session, upTo, progress, cancellationToken);
+        }
     }
 
     /// <summary>Still the unlocked session the search started with: not locked, and not locked and unlocked again.</summary>
@@ -1289,11 +1332,11 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             return Nothing(ReceiveSearchOutcome.NothingToCheck, upTo, upTo, alreadyChecked: ScanSetOf(info).BaseCount);
 
         // The control: an address from a key made here and thrown away. Nobody has paid it.
-        var control = new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, EffectiveNetwork).ToString();
+        string NewControl() => new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, EffectiveNetwork).ToString();
         bool controlUsed;
         try
         {
-            controlUsed = await _blockchain.HasAddressHistoryAsync(control);
+            controlUsed = await _blockchain.HasAddressHistoryAsync(NewControl());
         }
         catch (OperationCanceledException)
         {
@@ -1332,6 +1375,21 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 if (all.Exception is { } failure)
                     return await EndAsync(ReceiveSearchOutcome.Failed, reached, failure.InnerExceptions[0].Message);
                 paid = all.Result.Where(r => r.Used).Select(r => r.Index).ToList();
+
+                // The first control vouched for one answer, not for whichever source answers each later lookup: the chain of
+                // explorers fails over per call, and a stand-in source may report every address as used. A paid mark cannot
+                // be undone, so each find is asked for a second time, and then a fresh control is looked up. A find that does
+                // not repeat is dropped; a control reported as used ends the search with this batch not applied.
+                if (paid.Count > 0)
+                {
+                    var confirmed = new List<int>();
+                    foreach (var index in paid)
+                        if (await _blockchain.HasAddressHistoryAsync(AddressAt(index))) confirmed.Add(index);
+                    if (await _blockchain.HasAddressHistoryAsync(NewControl()))
+                        return await EndAsync(ReceiveSearchOutcome.Failed, reached,
+                            "The block explorer reported history for an address nobody has used, so its answers were not believed.");
+                    paid = confirmed;
+                }
 
                 // Locked while the batch was out: its answers are not applied.
                 if (!IsSameSession(session)) return await EndAsync(ReceiveSearchOutcome.Cancelled, reached);
@@ -1652,17 +1710,38 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var stored = await GetWalletAsync(info.Id);
         if (stored is null) return; // Deleted while this was running: saving would bring back a wallet with no seed.
 
+        CopyAddressState(info, stored);
+        await _walletStore.SaveWalletInfoAsync(info.Id, JsonSerializer.Serialize(stored));
+    }
+
+    /// <summary>
+    /// Puts the unlocked wallet's address state onto a record about to be saved. With no pause between reading and assigning,
+    /// so a result applied while the record was loading is not lost. Watched entries the base run has grown over are dropped
+    /// here, whichever operation grew it (spec 027).
+    /// </summary>
+    private static void CopyAddressState(WalletInfo info, WalletInfo stored)
+    {
         stored.NextChangeIndex = info.NextChangeIndex;
         stored.NextReceivingIndex = info.NextReceivingIndex;
         stored.UsedReceivingCount = info.UsedReceivingCount;
         stored.ReceiveBaseFloor = info.ReceiveBaseFloor;
         stored.ReceiveSearchedTo = info.ReceiveSearchedTo;
         stored.ReceiveSearchNoticeShown = info.ReceiveSearchNoticeShown;
-        // Read, tidied and assigned with no pause in between, so a result applied while the record was loading is not lost.
-        // Entries the base run has grown over are dropped here, whichever operation grew it (spec 027).
         info.WatchedReceiveIndexes = ReceiveScanSet.Normalize(ScanSetOf(info).BaseCount, info.WatchedReceiveIndexes);
         stored.WatchedReceiveIndexes = [.. info.WatchedReceiveIndexes];
-        await _walletStore.SaveWalletInfoAsync(info.Id, JsonSerializer.Serialize(stored));
+    }
+
+    /// <summary>
+    /// Saves a wallet record that was loaded, changed and is saved whole (a rename, a colour, a credential change). The
+    /// record was read a moment ago: a search or the unlock search may have saved found addresses since, and saving the
+    /// older copy would drop them from storage. While the wallet is unlocked its session holds the current address state,
+    /// so that is what goes into the record.
+    /// </summary>
+    private Task SaveWalletRecordAsync(string walletId, WalletInfo record)
+    {
+        if (_sessions.TryGetValue(walletId, out var session) && !ReferenceEquals(session.Info, record))
+            CopyAddressState(session.Info, record);
+        return _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(record));
     }
 
     public async Task<string> SendAsync(string destinationAddress, decimal amountDgb, string? memo = null, int feeRateSatPerByte = 5)
@@ -2770,7 +2849,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
             wallet.CredentialType = CredentialTypeName(newKind);
             wallet.ProtectionLevel = outcome == ProtectedSecretStore.SealOutcome.Legacy ? "legacy" : "standard";
-            await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+            await SaveWalletRecordAsync(walletId, wallet);
             SyncSessionProtection(wallet);
             return ChangeCredentialOutcome.Changed;
         }
@@ -2795,7 +2874,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var wallet = await GetWalletAsync(walletId);
         if (wallet == null || wallet.PassphraseNudgeDismissed == dismissed) return;
         wallet.PassphraseNudgeDismissed = dismissed;
-        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+        await SaveWalletRecordAsync(walletId, wallet);
         SyncSessionProtection(wallet);
     }
 
@@ -2839,7 +2918,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         {
             wallet.CredentialType = credentialType;
             wallet.ProtectionLevel = protection;
-            await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(wallet));
+            await SaveWalletRecordAsync(walletId, wallet);
             SyncSessionProtection(wallet);
         }
         return true;
@@ -3086,9 +3165,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         // past the last used address. That is what limits how many addresses one confirmation can sweep.
         var room = Math.Min(DigiIdSweepPlanner.MaxItemsPerRound, scanSet.Anchor + ReceiveGapLimit - 1 - firstIndex);
         if (room <= 0)
-            throw new InvalidOperationException(
-                $"You have {ReceiveGapLimit} unused addresses in a row. Use one of them first, then sweep again: restoring from your " +
-                $"seed only looks {ReceiveGapLimit} addresses past the last one used.");
+            throw new InvalidOperationException(TooManyUnusedMessage(scanSet, "Use one of them first, then sweep again"));
 
         var inFlight = await store.GetInFlightAddressesAsync(info.Id);
 
@@ -3170,22 +3247,26 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         // Save the highest destination plus one as the next receive index, before anything is sent: the swept funds then land on
         // addresses the wallet scans, and the Receive page shows a fresh address and never one of the destinations.
-        var previous = info.NextReceivingIndex;
         var wanted = plan.Items.Max(i => i.DestinationIndex) + 1;
-        if (wanted > previous)
+        await session.AddressOnShowGate.WaitAsync();
+        try
         {
-            // Through the same rule as a new address: destinations past the base run become watched entries (spec 027).
-            var undo = MoveAddressOnShow(info, plan.Items.Min(i => i.DestinationIndex), wanted);
-            try
+            if (wanted > info.NextReceivingIndex)
             {
-                await PersistAddressIndexesAsync(info);
-            }
-            catch (Exception ex)
-            {
-                undo();
-                throw new InvalidOperationException("Could not save the new receive addresses, so nothing was sent. Try again.", ex);
+                // Through the same rule as a new address: destinations past the base run become watched entries (spec 027).
+                var undo = MoveAddressOnShow(info, plan.Items.Min(i => i.DestinationIndex), wanted);
+                try
+                {
+                    await PersistAddressIndexesAsync(info);
+                }
+                catch (Exception ex)
+                {
+                    undo();
+                    throw new InvalidOperationException("Could not save the new receive addresses, so nothing was sent. Try again.", ex);
+                }
             }
         }
+        finally { session.AddressOnShowGate.Release(); }
 
         var results = new List<DigiIdSweepRecord>(plan.Items.Count);
         foreach (var item in plan.Items)
@@ -3498,7 +3579,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         if (info == null) return;
 
         info.Name = newName;
-        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+        await SaveWalletRecordAsync(walletId, info);
 
         // Update in-memory session if unlocked
         if (_sessions.TryGetValue(walletId, out var session))
@@ -3511,7 +3592,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         if (info == null) return;
 
         info.Color = color;
-        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+        await SaveWalletRecordAsync(walletId, info);
 
         if (_sessions.TryGetValue(walletId, out var session))
             session.Info.Color = color;
@@ -3527,7 +3608,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         texture = WalletInfo.NormalizeTexture(texture);
         info.Texture = texture;
-        await _walletStore.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+        await SaveWalletRecordAsync(walletId, info);
 
         if (_sessions.TryGetValue(walletId, out var session))
             session.Info.Texture = texture;

@@ -317,11 +317,14 @@ public class ReceiveSearchTests
         Assert.Equal(5000, service.ReceiveSearchedTo);
         Assert.Equal(5000, service.DefaultReceiveSearchUpTo);
 
-        // One control address, then every address from the 21st to the 5,000th, and nothing else.
+        // One control address, then every address from the 21st to the 5,000th. The one find is asked for a second time and
+        // followed by a second control address. Nothing else.
         var (control, others) = LookupsSince(env, before);
         var expected = Enumerable.Range(20, 4980).Select(AddressAt).ToList();
         Assert.DoesNotContain(control, expected);
-        Assert.Equal(expected.Order(), others.Order());
+        var secondControl = Assert.Single(others, a => !expected.Contains(a));
+        Assert.NotEqual(control, secondControl);
+        Assert.Equal(expected.Append(AddressAt(3000)).Order(), others.Where(a => a != secondControl).Order());
 
         // From now on the wallet checks the find and the 20 after it, not everything before it.
         Assert.Equal(40 + 21 + 20, service.GetAllAddresses().Count);
@@ -745,7 +748,7 @@ public class ReceiveSearchTests
         var firstReceive = new FirstReceiveStore(env.Storage);
         await firstReceive.SetAsync(walletId, FirstReceiveState.Empty);
         env.Chain.Credit(env.ReceiveAddress(25), OneDgb);
-        env.Chain.HoldAfterLookups = 1 + WalletService.ReceiveSearchBatchSize; // the control address and the first batch
+        env.Chain.HoldAfterLookups = 1 + WalletService.ReceiveSearchBatchSize + 2; // the control address, the first batch, and its find confirmed
 
         var search = service.SearchReceiveAddressesAsync(100);
         for (var i = 0; i < 1000 && !(await service.GetWalletAsync(walletId))!.WatchedReceiveIndexes.Contains(P(25)); i++)
@@ -1032,7 +1035,7 @@ public class ReceiveSearchTests
         var before = env.Chain.HistoryAddresses.Count;
         var reports = new Reports();
         using var cancel = new CancellationTokenSource();
-        env.Chain.HoldAfterLookups = 1 + WalletService.ReceiveSearchBatchSize; // the control address and the first batch
+        env.Chain.HoldAfterLookups = 1 + WalletService.ReceiveSearchBatchSize + 2; // the control address, the first batch, and its find confirmed
 
         var search = service.SearchReceiveAddressesAsync(100, reports, cancel.Token);
         await UntilAsync(() => reports.Made.Count == 1); // first batch done, second one held
@@ -1044,7 +1047,7 @@ public class ReceiveSearchTests
         Assert.Equal([25], result.AddedIndexes);
         Assert.Equal(3 * OneDgb, result.AddedSatoshis);
         Assert.Equal(60, result.ReachedUpTo); // the batch that was out when cancel came is the last complete one
-        Assert.Equal(1 + 2 * WalletService.ReceiveSearchBatchSize, env.Chain.HistoryAddresses.Count - before);
+        Assert.Equal(1 + 2 * WalletService.ReceiveSearchBatchSize + 2, env.Chain.HistoryAddresses.Count - before);
         Assert.Equal(0, (await service.GetWalletAsync(walletId))!.ReceiveSearchedTo);
         Assert.Equal(3 * OneDgb, (await service.GetBalanceAsync()).ConfirmedSatoshis);
         Assert.Equal(
@@ -1073,7 +1076,7 @@ public class ReceiveSearchTests
         var walletId = service.ActiveWallet!.Id;
         env.Chain.Credit(env.ReceiveAddress(25), 3 * OneDgb);
         var reports = new Reports();
-        env.Chain.HoldAfterLookups = 1 + 2 * WalletService.ReceiveSearchBatchSize; // the third batch waits
+        env.Chain.HoldAfterLookups = 1 + 2 * WalletService.ReceiveSearchBatchSize + 2; // the third batch waits
 
         var search = service.SearchReceiveAddressesAsync(100, reports);
         await UntilAsync(() => reports.Made.Count == 2);
@@ -1130,5 +1133,96 @@ public class ReceiveSearchTests
         Assert.Same(first, second);
         Assert.Equal(100, (await second).RequestedUpTo);
         Assert.Equal(1 + 80, env.Chain.HistoryAddresses.Count - before);
+    }
+
+    // ─── Found in review of the first implementation ───
+
+    [Fact]
+    public async Task ASourceThatStartsReportingEverythingAsUsed_PartWay_AddsNothingFromThatBatch()
+    {
+        // The explorers fail over per lookup, and a stand-in source may answer "used" for every address. The control
+        // address at the start vouches only for the source that answered it.
+        var env = new Env();
+        var service = await SettledAsync(env);
+        var walletId = service.ActiveWallet!.Id;
+        var firstReceive = new FirstReceiveStore(env.Storage);
+        await firstReceive.SetAsync(walletId, FirstReceiveState.Empty);
+        env.Chain.HoldAfterLookups = 1; // the control address is answered honestly; the first batch waits
+
+        var search = service.SearchReceiveAddressesAsync(100);
+        env.Chain.EveryAddressHasHistory = true;
+        env.Chain.Release();
+        var result = await search;
+
+        Assert.Equal(ReceiveSearchOutcome.Failed, result.Outcome);
+        Assert.Empty(result.AddedIndexes);
+        Assert.False(string.IsNullOrEmpty(result.Error));
+        var stored = (await service.GetWalletAsync(walletId))!;
+        Assert.Empty(stored.WatchedReceiveIndexes);
+        Assert.Equal(0, stored.ReceiveSearchedTo);
+        Assert.False(stored.ReceiveSearchNoticeShown);
+        Assert.Equal(FirstReceiveState.Empty, await firstReceive.GetAsync(walletId));
+    }
+
+    [Fact]
+    public async Task TwoOverlappingHandOuts_WhoseSavesBothFail_LeaveTheWalletAsItWas()
+    {
+        var env = new Env();
+        var (service, _) = await SeededAsync(env, i => { i.NextReceivingIndex = 39; i.WatchedReceiveIndexes = [P(3000)]; });
+        await service.GetBalanceAsync();
+        env.Storage.HoldWalletInfoWrites = true;
+
+        var first = service.GenerateNewReceivingAddressAsync();
+        var second = service.GenerateNewReceivingAddressAsync();
+        env.Storage.FailWalletInfoWrites = true;
+        env.Storage.ReleaseWalletInfoWrites();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => first);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => second);
+
+        var info = service.ActiveWallet!;
+        Assert.Equal(39, info.NextReceivingIndex);
+        Assert.Equal(0, info.ReceiveBaseFloor);
+        Assert.Equal([P(3000)], info.WatchedReceiveIndexes);
+        Assert.Equal(40, ScanSetOf(info).BaseCount); // not every address up to 3,001
+    }
+
+    [Fact]
+    public async Task ASearchStartedWhileACancelledOneIsWindingDown_IsItsOwnSearch()
+    {
+        var env = new Env();
+        var service = await SettledAsync(env);
+        using var cancelFirst = new CancellationTokenSource();
+        env.Chain.HoldAfterLookups = 1; // the first batch waits
+
+        var first = service.SearchReceiveAddressesAsync(100, cancellationToken: cancelFirst.Token);
+        cancelFirst.Cancel(); // the page was left; the batch is still out
+        var second = service.SearchReceiveAddressesAsync(60);
+        env.Chain.Release();
+
+        Assert.NotSame(first, second);
+        Assert.Equal(ReceiveSearchOutcome.Cancelled, (await first).Outcome);
+        var result = await second;
+        Assert.Equal(ReceiveSearchOutcome.Finished, result.Outcome);
+        Assert.Equal(60, result.RequestedUpTo);
+        Assert.Equal(60, service.ReceiveSearchedTo);
+    }
+
+    [Fact]
+    public async Task ARenameThatLoadedTheRecordBeforeAFind_DoesNotDropTheFindFromStorage()
+    {
+        var env = new Env();
+        var service = await SettledAsync(env);
+        var walletId = service.ActiveWallet!.Id;
+        env.Chain.Credit(env.ReceiveAddress(60), OneDgb);
+        await service.SearchReceiveAddressesAsync(100);
+        // As if the rename had read the record before the search saved: storage is put back to the older copy.
+        await SeedWalletInfoAsync(env.Storage, walletId, i => { i.WatchedReceiveIndexes = []; i.ReceiveSearchedTo = 0; });
+
+        await service.RenameWalletAsync(walletId, "Renamed");
+
+        var stored = (await service.GetWalletAsync(walletId))!;
+        Assert.Equal("Renamed", stored.Name);
+        Assert.Equal([P(60)], stored.WatchedReceiveIndexes);
+        Assert.Equal(100, stored.ReceiveSearchedTo);
     }
 }
