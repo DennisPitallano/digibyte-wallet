@@ -6,38 +6,39 @@
 @inject ClipboardService Clipboard
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject LocalizationService L
 
-<PageTitle>Create Multisig — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.create.page_title")</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col gap-5">
     @* Same step language as the online creation room (spec 018, FR-008) *@
     @if (step != Step.Done)
     {
-        <StepIndicator Steps="manualSteps" Current="(int)step" />
+        <StepIndicator Steps="ManualSteps" Current="(int)step" />
     }
 
     @if (step == Step.Configure)
     {
         <div class="slide-up">
-            <h2 class="page-title">Create Multisig Wallet</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Set up a wallet that requires multiple signatures to spend.</p>
+            <h2 class="page-title">@L.T("ms.create.title")</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">@L.T("ms.create.subtitle")</p>
         </div>
 
         <div class="flex flex-col gap-4">
             @* Wallet Name *@
             <div class="flex flex-col gap-1.5 slide-up-delay-1">
-                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
-                <input type="text" @bind="walletName" placeholder="e.g. Family Savings"
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("ms.create.name_label")</label>
+                <input type="text" @bind="walletName" placeholder="@L.T("ms.create.name_placeholder")"
                        class="input" />
             </div>
 
             @* M-of-N Configuration *@
             <div class="card slide-up-delay-1 p-4">
-                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Signature Scheme</p>
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">@L.T("ms.create.scheme")</p>
                 <div class="flex items-center gap-3">
                     <div class="flex flex-col items-center gap-1">
-                        <label class="text-[11px] text-slate-400 uppercase">Required</label>
+                        <label class="text-[11px] text-slate-400 uppercase">@L.T("ms.create.required")</label>
                         <select @bind="requiredSigs"
                                 class="w-16 px-2 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-center text-slate-900 dark:text-white font-bold outline-none">
                             @for (int m = 1; m <= totalSigners; m++)
@@ -46,9 +47,9 @@
                             }
                         </select>
                     </div>
-                    <span class="text-lg font-bold text-slate-400 mt-4">of</span>
+                    <span class="text-lg font-bold text-slate-400 mt-4">@L.T("ms.create.of")</span>
                     <div class="flex flex-col items-center gap-1">
-                        <label class="text-[11px] text-slate-400 uppercase">Total</label>
+                        <label class="text-[11px] text-slate-400 uppercase">@L.T("ms.create.total")</label>
                         <select @bind="totalSigners" @bind:after="OnTotalChanged"
                                 class="w-16 px-2 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-center text-slate-900 dark:text-white font-bold outline-none">
                             @for (int n = 2; n <= 7; n++)
@@ -58,18 +59,18 @@
                         </select>
                     </div>
                 </div>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2" aria-live="polite">@SchemeExplainer.Describe(requiredSigs, totalSigners)</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2" aria-live="polite">@DescribeScheme(requiredSigs, totalSigners)</p>
             </div>
         </div>
 
         <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="GoToAddSigners" disabled="@string.IsNullOrWhiteSpace(walletName)">
-            Next: Add Co-Signers
+            @L.T("ms.create.next_signers")
         </button>
 
         <div class="flex items-center gap-3 slide-up-delay-2">
             <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
-            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase">or</span>
+            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase">@L.T("ms.create.or")</span>
             <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
         </div>
 
@@ -77,20 +78,20 @@
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
             </svg>
-            Create Together in Real-Time
+            @L.T("ms.create.together")
         </a>
 
         <a href="/help/multisig" class="flex items-center justify-center gap-1.5 text-xs text-purple-500 hover:text-purple-600 font-medium py-2 slide-up-delay-2">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" /></svg>
-            New to multisig? Read the guide
+            @L.T("ms.wallets.empty.guide")
         </a>
     }
     else if (step == Step.AddSigners)
     {
         <div class="slide-up">
-            <h2 class="page-title">Add Co-Signers</h2>
+            <h2 class="page-title">@L.T("ms.create.signers.title")</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Add the public keys of each co-signer. Your key is added automatically.
+                @L.T("ms.create.signers.subtitle")
             </p>
         </div>
 
@@ -103,36 +104,36 @@
                     </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-dgb-700 dark:text-dgb-300">You (This Wallet)</p>
-                    <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 truncate">Wallet: <b>@(WalletService.ActiveWallet?.Name ?? "Wallet")</b></p>
+                    <p class="text-sm font-semibold text-dgb-700 dark:text-dgb-300">@L.T("ms.create.you")</p>
+                    <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 truncate">@Rich(L.T("ms.create.own_wallet"), WalletService.ActiveWallet?.Name ?? L.T("ms.create.wallet_fallback"))</p>
                     <p class="text-[11px] font-mono text-dgb-500/70 truncate">@ownPubKeyHex</p>
                 </div>
                 <button type="button" class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-2.5 py-1 rounded-full press-effect disabled:opacity-50"
-                        @onclick="CopyOwnKey" disabled="@string.IsNullOrWhiteSpace(ownPubKeyHex)">Copy</button>
+                        @onclick="CopyOwnKey" disabled="@string.IsNullOrWhiteSpace(ownPubKeyHex)">@L.T("ms.create.copy")</button>
             </div>
-            <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 leading-relaxed mt-2">Your public key is safe to share. Copy it and send it to your co-signers.</p>
+            <p class="text-[11px] text-dgb-600/80 dark:text-dgb-400/80 leading-relaxed mt-2">@L.T("ms.create.own_key_hint")</p>
         </div>
 
         @* Longer help stays folded so the step shows one short instruction (spec 018, FR-013) *@
-        <CollapsePanel Title="How this works" @bind-IsOpen="showHow">
+        <CollapsePanel Title="@L.T("ms.create.how.title")" @bind-IsOpen="showHow">
             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Ask each co-signer to open <b>Multisig → Create</b> on their device, get to this same screen and tap <b>Copy</b> on their own key, then send it to you.
-                Paste theirs below. A public key is a long code starting with <b>02</b> or <b>03</b>.
+                @Rich(L.T("ms.create.how.ask"), L.T("ms.create.how.path"), L.T("ms.create.copy"))
+                @Rich(L.T("ms.create.how.paste"), "02", "03")
             </p>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Using a different wallet to sign? Switch to it first, because each wallet has its own key.</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">@L.T("ms.create.how.switch")</p>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                <b>Restoring a lost wallet?</b> Each signer first restores their own seed phrase, then use the same threshold and everyone's original public keys here. You'll get the same address back.
+                <b>@L.T("ms.create.how.restore_q")</b> @L.T("ms.create.how.restore")
             </p>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Don't have everyone's key yet? Tap <b>Save draft</b> and finish later. Nobody else needs to be online while you create the wallet.
+                @Rich(L.T("ms.create.how.draft"), L.T("ms.create.how.draft_button"))
             </p>
         </CollapsePanel>
 
         @* Co-signer entries *@
         <div class="flex items-center justify-between px-1">
-            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Co-signers</p>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("ms.create.cosigners")</p>
             <p class="text-[11px] font-semibold @(ValidCount == coSignerEntries.Count ? "text-green-600 dark:text-green-400" : "text-slate-400 dark:text-slate-500")">
-                @ValidCount of @coSignerEntries.Count added
+                @L.T("ms.create.added", ValidCount, coSignerEntries.Count)
             </p>
         </div>
         <div class="flex flex-col gap-3">
@@ -144,27 +145,27 @@
                 <div class="slide-up-delay-1 flex flex-col gap-2 p-3 bg-white dark:bg-dgb-900 rounded-2xl border @(state == KeyState.Valid ? "border-green-300 dark:border-green-700/50" : "border-slate-200/80 dark:border-dgb-800")">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-400 w-4">@(idx + 2)</span>
-                        <input type="text" @bind="entry.Name" @bind:event="oninput" placeholder="Name (e.g. Alice)" maxlength="40" autocomplete="off"
+                        <input type="text" @bind="entry.Name" @bind:event="oninput" placeholder="@L.T("ms.create.signer_name_placeholder")" maxlength="40" autocomplete="off"
                                class="input flex-1" />
                         @if (state == KeyState.Valid)
                         {
-                            <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-label="Valid public key"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-label="@L.T("ms.create.valid_key")"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                         }
                     </div>
                     <div class="flex items-center gap-2">
-                        <input type="text" @bind="entry.PubKeyHex" @bind:event="oninput" placeholder="Their public key (starts with 02 or 03)"
-                               autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="@($"Public key for co-signer {idx + 2}")"
+                        <input type="text" @bind="entry.PubKeyHex" @bind:event="oninput" placeholder="@L.T("ms.create.signer_key_placeholder")"
+                               autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="@L.T("ms.create.signer_key_aria", idx + 2)"
                                class="flex-1 min-w-0 px-3 py-2 bg-slate-50 dark:bg-dgb-800 border @(state is KeyState.Invalid or KeyState.Duplicate ? "border-red-300 dark:border-red-700/60" : "border-slate-200 dark:border-dgb-700") rounded-xl text-[11px] font-mono text-slate-900 dark:text-white outline-none focus:border-dgb-500 transition-all" />
                         <button type="button" @onclick="() => PasteKey(entry)"
-                                class="flex-shrink-0 text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-3 py-2 rounded-xl press-effect">Paste</button>
+                                class="flex-shrink-0 text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-800 px-3 py-2 rounded-xl press-effect">@L.T("send.paste")</button>
                     </div>
                     @if (state == KeyState.Invalid)
                     {
-                        <p class="text-[11px] text-red-500 dark:text-red-400">That doesn't look like a public key. It should be 66 characters, starting with 02 or 03.</p>
+                        <p class="text-[11px] text-red-500 dark:text-red-400">@L.T("ms.create.key_invalid")</p>
                     }
                     else if (state == KeyState.Duplicate)
                     {
-                        <p class="text-[11px] text-red-500 dark:text-red-400">This key is already used by you or another co-signer. Each person needs their own key.</p>
+                        <p class="text-[11px] text-red-500 dark:text-red-400">@L.T("ms.create.key_duplicate")</p>
                     }
                 </div>
             }
@@ -174,8 +175,7 @@
         {
             <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
                 <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                    This draft was started with the wallet <b>@draftOwnWalletName</b>, which has a different public key from the wallet that's open now.
-                    Switch to <b>@draftOwnWalletName</b> to finish it, or the other signers will have the wrong key for you.
+                    @Rich(L.T("ms.create.draft_mismatch"), draftOwnWalletName)
                 </p>
             </div>
         }
@@ -188,37 +188,37 @@
         <div class="flex flex-col gap-2 slide-up-delay-2">
             <button class="btn-secondary w-full"
                     @onclick="SaveDraft" disabled="@isSavingDraft">
-                @(isSavingDraft ? "Saving…" : "Save draft and finish later")
+                @(isSavingDraft ? L.T("ms.create.saving") : L.T("ms.create.save_draft"))
             </button>
             <button class="btn-primary w-full"
                     @onclick="GoToReview" disabled="@(!AllSignersValid())">
-                @(AllSignersValid() ? "Review Wallet" : $"Complete {coSignerEntries.Count - ValidCount} more co-signer{(coSignerEntries.Count - ValidCount == 1 ? "" : "s")} to continue")
+                @(AllSignersValid() ? L.T("ms.create.review_button") : coSignerEntries.Count - ValidCount == 1 ? L.T("ms.create.complete_more.one") : L.T("ms.create.complete_more.other", coSignerEntries.Count - ValidCount))
             </button>
-            <button type="button" class="btn-ghost btn-sm" @onclick="BackToConfigure">Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="BackToConfigure">@L.T("nav.back")</button>
         </div>
     }
     else if (step == Step.Review)
     {
         <div class="slide-up">
-            <h2 class="page-title">Review & Create</h2>
+            <h2 class="page-title">@L.T("ms.create.review.title")</h2>
         </div>
 
         <div class="card slide-up-delay-1 p-4">
             <div class="flex flex-col gap-3">
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-500 dark:text-slate-400">Name</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.create.review.name")</span>
                     <span class="text-sm font-semibold text-slate-900 dark:text-white">@walletName</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-500 dark:text-slate-400">Type</span>
-                    <span class="text-sm font-semibold text-dgb-500">@requiredSigs-of-@totalSigners Multisig</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.create.review.type")</span>
+                    <span class="text-sm font-semibold text-dgb-500">@L.T("ms.create.scheme_label", requiredSigs, totalSigners)</span>
                 </div>
                 <hr class="border-slate-100 dark:border-dgb-800" />
-                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Co-Signers</p>
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("ms.create.cosigners")</p>
                 <div class="flex items-start gap-2">
                     <span class="text-xs text-dgb-500 font-bold mt-0.5">1.</span>
                     <div class="min-w-0">
-                        <p class="text-sm text-slate-900 dark:text-white font-medium">You (This Wallet)</p>
+                        <p class="text-sm text-slate-900 dark:text-white font-medium">@L.T("ms.create.you")</p>
                         <p class="text-[11px] font-mono text-slate-400 dark:text-slate-500">@ShortKey(ownPubKeyHex)</p>
                     </div>
                 </div>
@@ -237,8 +237,7 @@
 
         <div class="slide-up-delay-1 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
             <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                <b>Check the keys with each person</b> before you fund this wallet. After creating it, share the <b>redeem script</b> or backup file
-                so every co-signer can import the same wallet. Without it they can't open it.
+                @Rich(L.T("ms.create.review.warning"), L.T("ms.create.review.warning_check"), L.T("ms.create.redeem_script"))
             </p>
         </div>
 
@@ -254,15 +253,15 @@
                 {
                     <div class="flex items-center justify-center gap-2">
                         <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Creating...</span>
+                        <span>@L.T("ms.create.creating")</span>
                     </div>
                 }
                 else
                 {
-                    <span>Create Multisig Wallet</span>
+                    <span>@L.T("ms.create.title")</span>
                 }
             </button>
-            <button type="button" class="btn-ghost btn-sm" @onclick="BackToSigners">Back</button>
+            <button type="button" class="btn-ghost btn-sm" @onclick="BackToSigners">@L.T("nav.back")</button>
         </div>
     }
     else if (step == Step.Done && createdConfig != null)
@@ -271,35 +270,34 @@
             <div class="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
                 <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
             </div>
-            <h2 class="page-title">Wallet created</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400">@createdConfig.Label · @createdConfig.Address.Substring(0, Math.Min(12, createdConfig.Address.Length))…</p>
+            <h2 class="page-title">@L.T("ms.create.done.title")</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">@L.T("ms.create.scheme_label", createdConfig.RequiredSignatures, createdConfig.TotalSigners) · @createdConfig.Address.Substring(0, Math.Min(12, createdConfig.Address.Length))…</p>
         </div>
 
         <div class="slide-up-delay-1 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 px-3 py-2.5">
-            <p class="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">Save a backup now</p>
+            <p class="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">@L.T("ms.create.done.backup_title")</p>
             <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                Your seed phrase alone <b>can't</b> bring this wallet back. The backup file holds the redeem script and everyone's public keys.
-                Keep a copy, and send it to your co-signers so they can import the same wallet.
+                @Rich(L.T("ms.create.done.backup_body"), L.T("ms.create.done.backup_cant"))
             </p>
         </div>
 
         <div class="slide-up-delay-1 flex flex-col gap-2">
             <button class="btn-primary w-full" @onclick="DownloadBackup">
-                @(backupSaved ? "Backup downloaded ✓" : "Download backup file")
+                @(backupSaved ? L.T("ms.create.done.downloaded") : L.T("ms.create.done.download"))
             </button>
             <button class="btn-secondary w-full" @onclick="CopyRedeemScript">
-                Copy redeem script
+                @L.T("ms.create.done.copy_script")
             </button>
         </div>
 
         <div class="slide-up-delay-2 flex flex-col gap-2">
             <button class="w-full py-3 @(backupSaved ? "bg-dgb-500 hover:bg-dgb-600 text-white shadow-lg shadow-dgb-500/25" : "bg-slate-100 dark:bg-dgb-800 text-slate-500 dark:text-slate-400") font-semibold rounded-2xl transition-all press-effect"
                     @onclick="OpenCreatedWallet">
-                Open wallet
+                @L.T("ms.create.done.open")
             </button>
             @if (!backupSaved)
             {
-                <p class="text-[11px] text-center text-slate-400 dark:text-slate-500">You can also back up later from the wallet's page.</p>
+                <p class="text-[11px] text-center text-slate-400 dark:text-slate-500">@L.T("ms.create.done.later")</p>
             }
         </div>
     }
@@ -307,8 +305,24 @@
 </AuthGuard>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    /// <summary>A translated sentence with its {n} values in bold; the sentence and the values are both HTML-encoded.</summary>
+    private static MarkupString Rich(string template, params string[] bold) =>
+        new(string.Format(System.Globalization.CultureInfo.InvariantCulture, System.Net.WebUtility.HtmlEncode(template),
+            bold.Select(b => (object)("<b>" + System.Net.WebUtility.HtmlEncode(b) + "</b>")).ToArray()));
+
     private bool showHow;
-    private static readonly string[] manualSteps = ["Set up", "Co-signers", "Confirm"];
+    private string[] ManualSteps => [L.T("ms.create.step.setup"), L.T("ms.create.cosigners"), L.T("ms.create.step.confirm")];
+
+    /// <summary>One plain-language sentence for the chosen M-of-N scheme (same cases as SchemeExplainer).</summary>
+    private string DescribeScheme(int required, int total)
+    {
+        if (total < 1 || required < 1 || required > total) return "";
+        if (required == total) return L.T("ms.create.explain.all", total);
+        if (required == 1) return L.T("ms.create.explain.any_one", total);
+        return L.T("ms.create.explain.some", required, total);
+    }
 
     private enum Step { Configure, AddSigners, Review, Done }
     private Step step = Step.Configure;
@@ -326,7 +340,7 @@
     private async Task CopyRedeemScript()
     {
         if (createdConfig == null) return;
-        try { await Clipboard.CopyAsync(createdConfig.RedeemScriptHex, message: "Redeem script copied"); }
+        try { await Clipboard.CopyAsync(createdConfig.RedeemScriptHex, message: L.T("ms.create.script_copied")); }
         catch { }
     }
 
@@ -432,7 +446,7 @@
             coSignerEntries[i].PubKeyHex = draft.CoSigners[i].PublicKeyHex;
         }
 
-        draftOwnWalletName = string.IsNullOrWhiteSpace(draft.OwnWalletName) ? "the original wallet" : draft.OwnWalletName;
+        draftOwnWalletName = string.IsNullOrWhiteSpace(draft.OwnWalletName) ? L.T("ms.create.original_wallet") : draft.OwnWalletName;
         draftWalletMismatch = !string.IsNullOrEmpty(draft.OwnPublicKeyHex)
             && !string.Equals(draft.OwnPublicKeyHex, ownPubKeyHex, StringComparison.OrdinalIgnoreCase);
         step = Step.AddSigners;
@@ -472,9 +486,13 @@
             await MultisigService.SaveDraftAsync(draft);
             Nav.NavigateTo("/multisig");
         }
-        catch (Exception ex)
+        catch (ArgumentException)
         {
-            error = ex.Message;
+            error = L.T("ms.create.error.draft_name");   // the only rule the service checks: a draft needs a name
+        }
+        catch (Exception)
+        {
+            error = L.T("ms.create.error.draft");
         }
         finally
         {
@@ -506,7 +524,7 @@
     private async Task CopyOwnKey()
     {
         if (string.IsNullOrWhiteSpace(ownPubKeyHex)) return;
-        try { await Clipboard.CopyAsync(ownPubKeyHex, message: $"Public key copied for {WalletService.ActiveWallet?.Name ?? "wallet"}"); }
+        try { await Clipboard.CopyAsync(ownPubKeyHex, message: L.T("settings.multisig.copied", WalletService.ActiveWallet?.Name ?? L.T("ms.create.wallet_fallback"))); }
         catch { } // clipboard blocked: the key is still on screen
     }
 
@@ -516,7 +534,7 @@
         error = null;
         if (!AllSignersValid())
         {
-            error = "Please give every co-signer a name and a valid, different public key.";
+            error = L.T("ms.create.error.signers");
             return;
         }
         step = Step.Review;
@@ -556,9 +574,9 @@
             }
             step = Step.Done;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            error = ex.Message;
+            error = L.T("ms.create.error.create");
         }
         finally
         {
