@@ -300,3 +300,11 @@ A separate reviewer read commit a762666. It found no way for funds to become inv
 - **Not changed: after a far hand-out, "Your addresses" lists the whole base run** (the first 20 or more addresses), including ones never handed out, because the wallet no longer knows which address was on show before. They are all addresses the wallet checks.
 - **Also done after the review:** the two refusal messages no longer talk about what a restore reaches when the limit is counted from a far-off find (T027), and the Digi-ID sweep tests missing from T026 were added.
 - **Not verified:** the four tests added for these findings were written after the fixes; they were not run against the unfixed code.
+
+## After the pull request was opened (2026-11-24)
+
+- **Auto-lock during a search.** The wallet locks after 5 minutes without activity by default, and can be set shorter; a search of the first 5,000 addresses takes about 4 minutes. Each batch of a running search now counts as activity, and the card says the wallet stays unlocked while the search runs. Checked in the browser with the lock set to 1 minute: a search ran for 92 seconds without being locked out, and the wallet locked 60 seconds after the search was cancelled. Lock-on-hide still ends a search; not changed.
+- **Confirming finds honours Cancel and a lock** between lookups; the batch being confirmed is then not applied.
+- **The progress line is no longer a live region** (it changes about 250 times in a full search). The result still is.
+- **spec.md, research.md, quickstart.md, the contract, PROCESS_FLOWS.md and the changelog** now describe the per-batch confirmation, the one-at-a-time rule for the address on show, and the auto-lock behaviour.
+- **Known and not changed:** every wallet from before this release has no recorded origin, so an empty one is shown the offer once after updating, including one created on the device (FR-002b).

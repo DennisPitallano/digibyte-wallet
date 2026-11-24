@@ -353,6 +353,7 @@
   "recovery.receive_search.start": "Search",
   "recovery.receive_search.cancel": "Cancel",
   "recovery.receive_search.progress": "Checked {0} of {1} addresses, {2} found",
+  "recovery.receive_search.keep_open": "Keep this page open. The wallet stays unlocked while the search runs.",
   "recovery.receive_search.finished_found": "Searched the first {0} addresses. {1} added ({2}).",
   "recovery.receive_search.finished_none": "No paid addresses found among the first {0} addresses.",
   "recovery.receive_search.nothing_to_check": "This wallet already checks its first {0} addresses, so there was nothing new to search.",

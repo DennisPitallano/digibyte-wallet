@@ -5,6 +5,7 @@
 @inject IJSRuntime JS
 @inject SearchOfferCoordinator SearchOffer
 @inject LocalizationService L
+@inject AppState AppState
 @implements IDisposable
 
 <PageTitle>Recovery Tools — DigiByte Wallet</PageTitle>
@@ -253,8 +254,15 @@
             }
             @if (isReceiveScanning && receiveSearchProgress is { } running)
             {
-                <p data-testid="receive-search-progress" role="status" class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">
+                @* Not a live region: it changes every batch, some 250 times in a full search. The result is announced when it ends. *@
+                <p data-testid="receive-search-progress" class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">
                     @L.T("recovery.receive_search.progress", Count(running.CheckedUpTo), Count(running.RequestedUpTo), Count(running.FoundSoFar))
+                </p>
+            }
+            @if (isReceiveScanning)
+            {
+                <p data-testid="receive-search-keep-open" class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 text-center">
+                    @L.T("recovery.receive_search.keep_open")
                 </p>
             }
         </div>
@@ -543,12 +551,17 @@
         receiveSearchAdded = null;
         receiveSearchIsProblem = false;
         receiveSearchCancel = new CancellationTokenSource();
+        // The person started this and is watching it: the wallet must not lock for inactivity in the middle of it. A full
+        // search takes minutes, and a lock ends it. Each batch counts as activity; the lock is back to normal when it ends.
+        AppState.ResetLockTimer();
         StateHasChanged();
 
         var progress = new Progress<ReceiveSearchProgress>(update =>
         {
             receiveSearchProgress = update;
-            if (!disposed) InvokeAsync(StateHasChanged);
+            if (disposed) return;
+            AppState.ResetLockTimer();
+            InvokeAsync(StateHasChanged);
         });
 
         // The wallet the search is for: the offer is answered for that one, whichever is active when it returns.

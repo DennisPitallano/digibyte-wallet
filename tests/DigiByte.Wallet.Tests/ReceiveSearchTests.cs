@@ -1225,4 +1225,28 @@ public class ReceiveSearchTests
         Assert.Equal([P(60)], stored.WatchedReceiveIndexes);
         Assert.Equal(100, stored.ReceiveSearchedTo);
     }
+
+    [Fact]
+    public async Task CancellingWhileAFindIsBeingConfirmed_AppliesNothingFromThatBatch()
+    {
+        var env = new Env();
+        var service = await SettledAsync(env);
+        var walletId = service.ActiveWallet!.Id;
+        // Two finds in the first batch: cancel arrives while the first is being confirmed, before the second is.
+        env.Chain.Credit(env.ReceiveAddress(25), OneDgb);
+        env.Chain.Credit(env.ReceiveAddress(30), OneDgb);
+        var before = env.Chain.HistoryAddresses.Count;
+        using var cancel = new CancellationTokenSource();
+        env.Chain.HoldAfterLookups = 1 + WalletService.ReceiveSearchBatchSize; // the second look at the first find waits
+
+        var search = service.SearchReceiveAddressesAsync(100, cancellationToken: cancel.Token);
+        await UntilAsync(() => env.Chain.HistoryAddresses.Count - before == 1 + WalletService.ReceiveSearchBatchSize);
+        cancel.Cancel();
+        env.Chain.Release();
+        var result = await search;
+
+        Assert.Equal(ReceiveSearchOutcome.Cancelled, result.Outcome);
+        Assert.Empty(result.AddedIndexes);
+        Assert.Empty((await service.GetWalletAsync(walletId))!.WatchedReceiveIndexes);
+    }
 }

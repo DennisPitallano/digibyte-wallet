@@ -55,7 +55,7 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 
 | Scenario | Expected |
 |----------|----------|
-| Payment at index 3,000, first 5,000 searched | `Finished`; balance includes it; the lookups are one control address, then the search targets |
+| Payment at index 3,000, first 5,000 searched | `Finished`; balance includes it; the lookups are one control address, then the search targets, with the one find asked for a second time and followed by a second control address |
 | Same payment, default count | `Finished`, nothing added |
 | Found funds | spendable; still there after a reload |
 | Nothing to find | `Finished`, nothing added, furthest search saved |

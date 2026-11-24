@@ -1384,7 +1384,12 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 {
                     var confirmed = new List<int>();
                     foreach (var index in paid)
+                    {
+                        // Asked to stop, or locked, while confirming: this batch is not applied.
+                        if (cancellationToken.IsCancellationRequested || !IsSameSession(session))
+                            return await EndAsync(ReceiveSearchOutcome.Cancelled, reached);
                         if (await _blockchain.HasAddressHistoryAsync(AddressAt(index))) confirmed.Add(index);
+                    }
                     if (await _blockchain.HasAddressHistoryAsync(NewControl()))
                         return await EndAsync(ReceiveSearchOutcome.Failed, reached,
                             "The block explorer reported history for an address nobody has used, so its answers were not believed.");

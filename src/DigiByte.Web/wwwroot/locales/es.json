@@ -331,6 +331,7 @@
   "recovery.receive_search.start": "Buscar",
   "recovery.receive_search.cancel": "Cancelar",
   "recovery.receive_search.progress": "Revisadas {0} de {1} direcciones, {2} encontradas",
+  "recovery.receive_search.keep_open": "Mantén esta página abierta. La billetera permanece desbloqueada mientras dura la búsqueda.",
   "recovery.receive_search.finished_found": "Se buscaron las primeras {0} direcciones. {1} añadidas ({2}).",
   "recovery.receive_search.finished_none": "No se encontraron direcciones con pagos entre las primeras {0}.",
   "recovery.receive_search.nothing_to_check": "Esta billetera ya revisa sus primeras {0} direcciones, así que no había nada nuevo que buscar.",

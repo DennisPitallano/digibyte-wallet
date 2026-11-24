@@ -40,7 +40,8 @@ addresses somewhere else (a shop, a deposit page that gives every order its own 
 1. On Home, an empty wallet that was restored or added as watch-only shows **"Expecting funds in this wallet?"** → tap
    **Search further** (or open **More → Settings → Recovery Tools → Current Wallet — Missing Payments**)
 2. Choose how many addresses to search, counted from the first one (up to 5,000) → **Search**
-3. Watch the progress, or **Cancel**: what was found so far is kept
+3. Watch the progress, or **Cancel**: what was found so far is kept. Keep the page open: the wallet stays unlocked
+   while the search runs
 4. Anything found joins your balance. Nothing has to be moved, and it can be spent like any other funds
 
 Good to know: the search asks the public block explorer about each address, whichever source your wallet normally uses.
@@ -439,11 +440,18 @@ Search (WalletService.SearchReceiveAddressesAsync(upTo)):
   → every index below upTo that is not in the base run and not already a paid watched index, in batches of 20,
     10 lookups in flight, straight to IBlockchainService.HasAddressHistoryAsync (the public explorer chain,
     not the history sync and not the gateway)
-  → per batch with finds: FirstReceiveStore → History (so found funds are never celebrated as a first payment),
+  → per batch with finds: each find is asked for a second time, then a fresh control address is looked up
+    (the explorers fail over per lookup, so the first control vouches for one answer only); a find that does not
+    repeat is dropped, a control reported used ends the search as Failed with the batch not applied
+  → then: FirstReceiveStore → History (so found funds are never celebrated as a first payment),
     then the indexes become paid watched entries and the wallet record is saved; progress is reported
   → Cancel and wallet lock are honoured between batches → Cancelled; a failed lookup → Failed; both report the
     count covered and keep what was found. Only Finished raises WalletInfo.ReceiveSearchedTo
   → one search per wallet at a time; leaving the page cancels it
+  → while it runs, each batch resets AppState's inactivity lock (a full search takes minutes); lock-on-hide still
+    applies and ends it
+  → the address on show moves one at a time per wallet (a new address, a Digi-ID sweep), so two overlapping moves
+    whose saves fail cannot leave it unrecorded
 
 After a find:
   → balance, history and sending read the checked set, so found funds are spendable with nothing to sweep

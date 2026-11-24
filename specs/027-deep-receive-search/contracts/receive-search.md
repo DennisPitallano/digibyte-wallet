@@ -58,7 +58,7 @@ IReadOnlyList<int> GetListedReceiveIndexes()   // ReceiveScanSet.ListedIndexes, 
 - Requires an unlocked wallet with further receive addresses; otherwise returns `NothingToCheck`.
 - `upTo` is a count: the search covers indexes `0 .. upTo - 1`. `upTo` outside `1 .. 5000` throws `ArgumentOutOfRangeException` before any lookup. The page validates first; this is the backstop.
 - When there is something to check, the control address comes before any of the wallet's addresses (research R7). A wallet with no further receive addresses, and a count with nothing left to check, return `NothingToCheck` before it, with no lookup at all. Reported used: `Untrusted`, nothing saved. Lookup failed: `Failed`, `ReachedUpTo = 0`.
-- Then `ReceiveScanSet.SearchTargets(upTo)`, taken once at the start: every index below `upTo` that is not in the base run and not already a paid watched entry, ascending, in batches of 20 (`ReceiveSearchBatchSize`). Tail indexes and unpaid watched entries are looked up, not skipped. After each batch: `MarkPaid` the used indexes, save if anything changed, report progress.
+- Then `ReceiveScanSet.SearchTargets(upTo)`, taken once at the start: every index below `upTo` that is not in the base run and not already a paid watched entry, ascending, in batches of 20 (`ReceiveSearchBatchSize`). Tail indexes and unpaid watched entries are looked up, not skipped. After each batch that reports used indexes: look each of them up a second time (one that does not repeat is dropped), then look up a fresh control address; if it is reported used, end as `Failed` with this batch not applied. Then `MarkPaid` the confirmed indexes, save, and report progress.
 - Cancel is honoured between batches; with 20 lookups a batch, that is within SC-004's 5 seconds at the slowest rate measured in the wallet. A lookup failure ends the run as `Failed` with `ReachedUpTo` at the end of the last complete batch.
 - Does not throw for cancel, lookup failure or an untrusted source: the outcome carries it. (`OperationCanceledException` is not thrown to the caller.)
 - Ends as `Cancelled` if the wallet it started on is no longer the unlocked session it started with.
@@ -143,6 +143,7 @@ event Action? Changed
 - A one-line note by the start button: the search checks up to N of this wallet's addresses with the public block explorer, with N following the field. Always shown; no confirmation step (FR-027a).
 - Shows "Furthest search so far: the first N addresses" when `ReceiveSearchedTo > 0`.
 - Every message reports extent as a count ("the first N addresses", "stopped after the first K"). No message shows an address index.
+- While a search runs, each progress report resets the wallet's inactivity lock, and a line (`receive-search-keep-open`) says the wallet stays unlocked for the search. The progress line is not a live region.
 - Start calls `SearchReceiveAddressesAsync`. When the outcome is `Finished`, and only then, the page calls `MarkSearchedAsync` if the offer is unanswered (FR-006). With today's search, before User Story 2, "finished" means the search returned without throwing.
 - While running: a progress line with how many addresses have been covered out of the count asked for, and how many found so far, and a **Cancel** button. Start is disabled.
 - Result, by outcome:
