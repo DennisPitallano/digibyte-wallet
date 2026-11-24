@@ -58,6 +58,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     /// <summary>False when the page already shows the oracle panel, so only the connection notices remain.</summary>
     [Parameter] public bool OracleDetails { get; set; } = true;
 

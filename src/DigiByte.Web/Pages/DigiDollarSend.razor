@@ -2,7 +2,7 @@
 @inject DigiDollarViewModel Dd
 @inject LocalizationService L
 
-<PageTitle>@L.T("dd.send.title") — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("dd.send.title") — @L.T("app.name")</PageTitle>
 
 <AuthGuard>
 <DigiDollarRouteGuard RequireSend="true">
@@ -16,6 +16,9 @@
 </AuthGuard>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         // Balances, health and the pending-send state must be fresh before the form validates anything.

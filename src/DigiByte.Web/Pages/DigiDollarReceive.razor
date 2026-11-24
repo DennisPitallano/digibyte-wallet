@@ -10,7 +10,7 @@
 @inject NotificationService Notifications
 @inject AppState AppState
 
-<PageTitle>@L.T("dd.receive.title") — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("dd.receive.title") — @L.T("app.name")</PageTitle>
 
 <AuthGuard>
 <DigiDollarRouteGuard>
@@ -93,6 +93,9 @@
 </AuthGuard>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private DigiDollarAddress? current;
     private List<DigiDollarAddress> addresses = [];
     private string? qrDataUrl;

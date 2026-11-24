@@ -96,6 +96,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private enum OracleState { Loading, Live, Stale, Protected, Unavailable }
 
     /// <summary>The latest health snapshot, or null while nothing has loaded.</summary>

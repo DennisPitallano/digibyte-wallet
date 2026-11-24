@@ -155,7 +155,7 @@
                     <ul class="flex flex-col gap-1">
                         @foreach (var e in plan.Excluded)
                         {
-                            <li class="text-[11px] text-slate-600 dark:text-slate-300"><b class="break-all">@e.Domain</b>: @e.Reason</li>
+                            <li class="text-[11px] text-slate-600 dark:text-slate-300"><b class="break-all">@e.Domain</b>: @ExclusionText(e)</li>
                         }
                     </ul>
                 }
@@ -276,7 +276,7 @@
                     <ul class="flex flex-col gap-1">
                         @foreach (var f in FailedFindings)
                         {
-                            <li class="text-[11px] text-slate-600 dark:text-slate-300"><b class="break-all">@f.Domain</b>: @f.Error</li>
+                            <li class="text-[11px] text-slate-600 dark:text-slate-300"><b class="break-all">@f.Domain</b>: @FailedText(f)</li>
                         }
                     </ul>
                 }
@@ -327,6 +327,23 @@
 </section>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    /// <summary>Why a site was left out of the sweep, from its kind (the planner's English reason stays for logs).</summary>
+    private string ExclusionText(DigiIdSweepExclusion e) => e.Kind switch
+    {
+        DigiIdSweepExclusionKind.InFlight => L.T("identity.recover.excluded.inFlight"),
+        DigiIdSweepExclusionKind.LookupFailed => L.T("identity.recover.excluded.lookupFailed"),
+        DigiIdSweepExclusionKind.NothingConfirmed => L.T("identity.recover.excluded.nothingConfirmed"),
+        DigiIdSweepExclusionKind.TooSmall => L.T("identity.recover.excluded.tooSmall"),
+        _ => e.Reason,
+    };
+
+    /// <summary>Why a site could not be checked: an empty address means the name was not a valid site name, else the lookup failed.</summary>
+    private string FailedText(DigiIdFundFinding f) =>
+        f.Address == "" ? L.T("identity.recover.notASite") : L.T("identity.recover.networkFailed");
+
     private const string RecoverFragment = "#recover-funds";
 
     private List<string> historyDomains = [];
