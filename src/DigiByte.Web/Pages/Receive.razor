@@ -437,8 +437,22 @@
     private IReadOnlyList<ReceiveAddressEntry> entries = [];
     private IReadOnlyDictionary<string, string> walletAddressLabels = new Dictionary<string, string>();
 
-    /// <summary>How many receiving addresses the wallet has generated: indexes 0 to the current one.</summary>
-    private int GeneratedCount => (WalletService.ActiveWallet?.NextReceivingIndex ?? 0) + 1;
+    /// <summary>
+    /// The receive indexes the list shows, oldest first: the run from the first address and, after a search has found
+    /// payments far along, those addresses and the ones handed out since, up to the address on show (spec 027, FR-015b).
+    /// Not always an unbroken run, so the list pages by position in this, never by index.
+    /// </summary>
+    private IReadOnlyList<int> ListedIndexes
+    {
+        get
+        {
+            var listed = WalletService.IsUnlocked ? WalletService.GetListedReceiveIndexes() : [];
+            return listed.Count > 0 ? listed : [.. Enumerable.Range(0, (WalletService.ActiveWallet?.NextReceivingIndex ?? 0) + 1)];
+        }
+    }
+
+    /// <summary>How many receiving addresses the list has.</summary>
+    private int GeneratedCount => ListedIndexes.Count;
 
     private static string ShortAddress(string text) =>
         text.Length > 22 ? $"{text[..10]}…{text[^6..]}" : text;
@@ -533,14 +547,12 @@
         try
         {
             await Task.Yield(); // let the page paint "Loading" before the derivation work starts
-            var newest = GeneratedCount - 1;
-            var (start, size) = ReceiveAddressList.WindowStart(newest, count);
-            var missing = Enumerable.Range(start, size).Where(i => !derivedByIndex.ContainsKey(i)).ToList();
-            if (missing.Count > 0)
-            {
-                var derived = await WalletService.GetReceivingAddressesAsync(missing.Count, missing[0]);
-                foreach (var (index, derivedAddress) in derived) derivedByIndex[index] = derivedAddress;
-            }
+            var listed = ListedIndexes;
+            var (start, size) = ReceiveAddressList.WindowStart(listed.Count - 1, count);
+            // One by one: the listed indexes can have gaps, so a range starting at the first missing one would be wrong.
+            foreach (var missing in listed.Skip(start).Take(size).Where(i => !derivedByIndex.ContainsKey(i)).ToList())
+                foreach (var (index, derivedAddress) in await WalletService.GetReceivingAddressesAsync(1, missing))
+                    derivedByIndex[index] = derivedAddress;
             shownCount = count;
             RebuildEntries();
         }
@@ -550,11 +562,11 @@
 
     private void RebuildEntries()
     {
-        var newest = GeneratedCount - 1;
-        var (start, _) = ReceiveAddressList.WindowStart(newest, shownCount);
+        var listed = ListedIndexes;
+        var (start, _) = ReceiveAddressList.WindowStart(listed.Count - 1, shownCount);
         var window = new List<(int Index, string Address)>();
-        for (var i = newest; i >= start; i--)
-            if (derivedByIndex.TryGetValue(i, out var a)) window.Add((i, a));
+        for (var position = listed.Count - 1; position >= start; position--)
+            if (derivedByIndex.TryGetValue(listed[position], out var a)) window.Add((listed[position], a));
         entries = ReceiveAddressList.Build(window, history, walletAddressLabels, address);
     }
 
@@ -633,11 +645,10 @@
 
             // The new address is the newest entry and the one on show. Only a list that was already opened needs updating.
             derivedByIndex[newIndex] = newAddress;
+            // Through the window, not by adding one row: after a search has found addresses far along, the first new address
+            // changes which addresses the list holds, and the ones now in view may not have been derived yet.
             if (shownCount > 0)
-            {
-                shownCount = Math.Min(shownCount + 1, GeneratedCount);
-                RebuildEntries();
-            }
+                await ShowWindowAsync(Math.Min(shownCount + 1, GeneratedCount));
         }
         catch (InvalidOperationException ex)
         {

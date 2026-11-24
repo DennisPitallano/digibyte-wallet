@@ -3,6 +3,7 @@
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
+@inject SearchOfferCoordinator SearchOffer
 
 <PageTitle>Watch-Only Wallet — DigiByte Wallet</PageTitle>
 
@@ -287,7 +288,9 @@
             var name = isAddWalletMode ? walletName.Trim() : "Watch-Only Wallet";
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
-            await WalletService.CreateWatchOnlyWalletAsync(name, xpubInput.Trim(), pin, color, allowLegacyProtection: legacyAgreed);
+            var imported = await WalletService.CreateWatchOnlyWalletAsync(name, xpubInput.Trim(), pin, color, allowLegacyProtection: legacyAgreed);
+            // Added as watch-only: it may get the "search further" offer (spec 027, FR-002a).
+            await SearchOffer.MarkOriginAsync(imported.Id, WalletOrigin.WatchOnly);
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             Nav.NavigateTo("/");
         }

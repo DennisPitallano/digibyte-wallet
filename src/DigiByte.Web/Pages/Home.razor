@@ -420,6 +420,10 @@
                     @* Nothing here yet: the address to share is the next step (spec 025, FR-003). The mascot's message is the
                        only explanatory copy; the empty state stands on its own when the mascot is off or the tip was dismissed. *@
                     <BakuMessage MessageId="home.empty" Class="mb-3" />
+                    @* A wallet brought onto this device that a completed load found empty: offer the wider search (spec 027).
+                       Only in this branch, so it cannot appear before a load has completed. *@
+                    <SearchFurtherOffer WalletId="@ActiveWalletId" WalletType="@WalletService.ActiveWallet?.WalletType"
+                                        LoadVersion="@historyLoadVersion" Class="mb-3" />
                     <ReceiveEmptyState Address="@receivingAddress" />
                 }
             }
@@ -563,6 +567,8 @@
     private bool isLoadingPrice;
     private bool hasCachedData; // true = loaded real data from IndexedDB
     private bool fetchFailed; // true = network fetch errored (not just empty)
+    // Raised each time a history load has been reported to the first-receive coordinator (spec 027, the offer's re-check).
+    private int historyLoadVersion;
     private bool balanceFetchFailed;
     private bool txFetchFailed;
     // The last balance / history read was taken before the wallet had finished finding its used addresses. Such a read
@@ -980,6 +986,8 @@
             {
                 // A wallet that started empty celebrates its first payment once; that payment gets no ordinary notice.
                 var firstPayment = await FirstReceive.ObserveAsync(walletId, transactions, FirstReceiveCoordinator.SourceOf(load));
+                // The wallet's first-receive state is stored now, so the "search further" offer may ask again (spec 027).
+                historyLoadVersion++;
                 await _announcer.AnnounceAsync(walletId, transactions, hideBalance, firstPayment?.TxIds);
             }
 

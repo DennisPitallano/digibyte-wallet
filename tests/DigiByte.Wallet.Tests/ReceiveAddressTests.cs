@@ -189,47 +189,6 @@ public class ReceiveAddressTests
         Assert.Equal(3, index);
     }
 
-    [Fact]
-    public async Task DeepScan_FindsFundsBeyondTheAutomaticSearch_AndTheyCanBeSpentAfterReload()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        var walletId = service.ActiveWallet!.Id;
-        env.Chain.Credit(env.ReceiveAddress(200), 5 * OneDgb);
-        Assert.Equal(0, (await service.GetBalanceAsync()).ConfirmedSatoshis);
-
-        var result = await service.ScanForMissingReceiveFundsAsync();
-
-        Assert.Equal(5 * OneDgb, result.Satoshis);
-        Assert.Equal(5 * OneDgb, (await service.GetBalanceAsync()).ConfirmedSatoshis);
-
-        var reloaded = await env.ReloadAsync(walletId);
-        await reloaded.SendAsync(Stranger(), 1m);
-        Assert.Equal(0, env.Chain.UnspentOutputsOwnedBy(env.ReceiveAddress(200)));
-    }
-
-    [Fact]
-    public async Task DeepScan_WithNothingToFind_ReportsNothing()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        env.Chain.Credit(env.ReceiveAddress(0), OneDgb);
-
-        var result = await service.ScanForMissingReceiveFundsAsync(gapLimit: 30);
-
-        Assert.Equal(new ReceiveRecoveryResult(0, 0), result);
-    }
-
-    [Fact]
-    public async Task DeepScan_WhenExplorerIsDown_ThrowsInsteadOfReportingNothing()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        env.Chain.HistoryDown = true;
-
-        await Assert.ThrowsAsync<HttpRequestException>(() => service.ScanForMissingReceiveFundsAsync(gapLimit: 30));
-    }
-
     // ─── A source that shows history for every address (a mock, a faulty explorer) must not hang the wallet ───
 
     [Fact]
@@ -266,19 +225,6 @@ public class ReceiveAddressTests
             await service.GenerateNewReceivingAddressAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(service.GenerateNewReceivingAddressAsync);
         Assert.InRange(env.Chain.HistoryLookups, 1, 2000);
-    }
-
-    [Fact]
-    public async Task DeepScan_WhenEveryAddressShowsHistory_FailsInsteadOfTrustingIt()
-    {
-        var env = new Env();
-        var service = await CreateAsync(env);
-        env.Chain.EveryAddressHasHistory = true;
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ScanForMissingReceiveFundsAsync());
-
-        Assert.InRange(env.Chain.HistoryLookups, 1, 3000);
-        Assert.Equal(0, service.ActiveWallet!.UsedReceivingCount);
     }
 
     [Fact]

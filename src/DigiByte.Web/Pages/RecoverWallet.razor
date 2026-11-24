@@ -4,6 +4,7 @@
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject DigiByte.Wallet.Services.P2pGatewayOptions Gateway
+@inject SearchOfferCoordinator SearchOffer
 
 <PageTitle>@(isAddWalletMode ? "Add" : "Recover") Wallet — DigiByte Wallet</PageTitle>
 
@@ -678,7 +679,9 @@
             {
                 var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
                 var color = isAddWalletMode ? walletColor : null;
-                await WalletService.CreateWalletAsync(name, mnemonicInput, pin, color, allowLegacyProtection: legacyAgreed);
+                var restored = await WalletService.CreateWalletAsync(name, mnemonicInput, pin, color, allowLegacyProtection: legacyAgreed);
+                // Restored from an existing phrase: it may get the "search further" offer (spec 027, FR-002a).
+                await SearchOffer.MarkOriginAsync(restored.Id, WalletOrigin.Restored);
             }
             AppState.IsWalletCreated = true; AppState.IsWalletUnlocked = true; AppState.NotifyStateChanged();
             await RestoreThroughGatewayAsync();

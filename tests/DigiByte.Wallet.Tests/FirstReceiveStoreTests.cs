@@ -137,22 +137,12 @@ public class FirstReceiveStoreTests
     [Fact]
     public async Task StorageFailures_ReadAsUndecidedAndNotEnded_AndNeverThrow()
     {
-        var store = new FirstReceiveStore(new ThrowingStorage());
+        var store = new FirstReceiveStore(new ChangeAddressTests.ThrowingStorage());
 
         Assert.Equal(FirstReceiveState.Undecided, await store.GetAsync("w1"));
         Assert.False(await store.IsFirstSessionEndedAsync());
         await store.SetAsync("w1", FirstReceiveState.Empty);
         await store.EndFirstSessionAsync();
         await store.DeleteAsync("w1");
-    }
-
-    private sealed class ThrowingStorage : ISecureStorage
-    {
-        public Task<string?> GetAsync(string key) => throw new InvalidOperationException("storage is unavailable");
-        public Task SetAsync(string key, string value) => throw new InvalidOperationException("storage is unavailable");
-        public Task RemoveAsync(string key) => throw new InvalidOperationException("storage is unavailable");
-        public Task<bool> ContainsKeyAsync(string key) => throw new InvalidOperationException("storage is unavailable");
-        public Task ClearAsync() => throw new InvalidOperationException("storage is unavailable");
-        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) => throw new InvalidOperationException("storage is unavailable");
     }
 }

@@ -251,4 +251,28 @@ public class ReceiveAddressListTests
 
         Assert.Equal(current, service.ActiveWallet!.NextReceivingIndex);
     }
+
+    // ─── Paging is by position, so a list of indexes with gaps pages the same way (spec 027, FR-015b) ───
+
+    [Fact]
+    public void Paging_OverAListWithGaps_GoesTenAtATimeByPosition()
+    {
+        int[] listed = [.. Enumerable.Range(0, 20), 3000, 3001, 3002];
+        int[] Shown(int count)
+        {
+            var (start, size) = ReceiveAddressList.WindowStart(listed.Length - 1, count);
+            return [.. listed.Skip(start).Take(size)];
+        }
+
+        var first = Math.Min(ReceiveAddressList.PageSize, listed.Length);
+        Assert.Equal([13, 14, 15, 16, 17, 18, 19, 3000, 3001, 3002], Shown(first));
+
+        var second = ReceiveAddressList.NextWindow(first, listed.Length);
+        Assert.Equal(20, second);
+        Assert.Equal([.. Enumerable.Range(3, 17), 3000, 3001, 3002], Shown(second));
+
+        var third = ReceiveAddressList.NextWindow(second, listed.Length);
+        Assert.Equal(23, third);
+        Assert.Equal(listed, Shown(third));
+    }
 }
