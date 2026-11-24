@@ -1,4 +1,5 @@
 @* One status pill: icon + text, never color alone. Shows a shared state (Pending, Activity, wallet cards, rooms) or a signer status. *@
+@inject LocalizationService L
 <span class="@Classes" title="@Text">
     <UxIcon Name="@Icon" Class="w-3.5 h-3.5 shrink-0" />
     <span>@Text</span>
@@ -7,6 +8,24 @@
 @code {
     [Parameter] public MultisigState? State { get; set; }
     [Parameter] public SignerStatus? Signer { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    /// <summary>
+    /// The translation key for a shared state's label (the words of <see cref="MultisigStateVocabulary"/>), so every
+    /// multisig component says a state the same way in every language.
+    /// </summary>
+    public static string StateKey(MultisigState state) => state switch
+    {
+        MultisigState.NeedsYourSignature => "ms.ui.common.state.needs_signature",
+        MultisigState.YouSigned => "ms.ui.common.state.you_signed",
+        MultisigState.WaitingForOthers => "ms.ui.common.state.waiting_others",
+        MultisigState.ReadyToBroadcast => "ms.ui.common.state.ready",
+        MultisigState.LiveRoom => "ms.ui.common.state.live_room",
+        MultisigState.Sent => "ms.ui.common.state.sent",
+        MultisigState.CancelledOrExpired => "ms.ui.common.state.cancelled_expired",
+        MultisigState.Failed => "ms.ui.common.state.failed",
+        _ => "ms.ui.common.state.unknown",
+    };
 
     private (string Text, string Icon, UxTone Tone) Resolved
     {
@@ -15,16 +34,16 @@
             if (State is { } s)
             {
                 var info = MultisigStateVocabulary.For(s);
-                return (info.Label, info.Icon, info.Tone);
+                return (L.T(StateKey(s)), info.Icon, info.Tone);
             }
             return Signer switch
             {
-                SignerStatus.Signed => ("Signed", "check", UxTone.Positive),
-                SignerStatus.Declined => ("Declined", "x", UxTone.Warning),
-                SignerStatus.Ready => ("Ready", "check", UxTone.Positive),
-                SignerStatus.Joined => ("Joined", "user", UxTone.Neutral),
-                SignerStatus.NotJoined => ("Not joined yet", "clock", UxTone.Neutral),
-                _ => ("Waiting", "clock", UxTone.Neutral),
+                SignerStatus.Signed => (L.T("ms.ui.statusBadge.signed"), "check", UxTone.Positive),
+                SignerStatus.Declined => (L.T("ms.ui.statusBadge.declined"), "x", UxTone.Warning),
+                SignerStatus.Ready => (L.T("ms.ui.statusBadge.ready"), "check", UxTone.Positive),
+                SignerStatus.Joined => (L.T("ms.ui.statusBadge.joined"), "user", UxTone.Neutral),
+                SignerStatus.NotJoined => (L.T("ms.ui.statusBadge.not_joined"), "clock", UxTone.Neutral),
+                _ => (L.T("ms.ui.statusBadge.waiting"), "clock", UxTone.Neutral),
             };
         }
     }

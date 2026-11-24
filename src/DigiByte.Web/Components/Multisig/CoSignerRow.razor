@@ -1,7 +1,8 @@
 @* One co-signer: a compact row that expands in place to the full public key and a label editor. *@
+@inject LocalizationService L
 <div class="rounded-xl bg-slate-50 dark:bg-dgb-950 border border-slate-100 dark:border-dgb-800 overflow-hidden">
     <button type="button" class="w-full flex items-center gap-2 px-2.5 py-2 min-h-[44px] text-left" aria-expanded="@expanded"
-            aria-label="@(Signer.Name): show full public key" @onclick="() => expanded = !expanded">
+            aria-label="@L.T("ms.ui.coSignerRow.expand_aria", Signer.Name)" @onclick="() => expanded = !expanded">
         <div class="w-7 h-7 rounded-full @(IsOwn ? "bg-dgb-100 dark:bg-dgb-800" : "bg-slate-100 dark:bg-dgb-800") flex items-center justify-center shrink-0">
             <span class="text-xs font-bold @(IsOwn ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500")">@Initial</span>
         </div>
@@ -11,7 +12,7 @@
         </div>
         @if (IsOwn)
         {
-            <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">YOU</span>
+            <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-50 dark:bg-dgb-800 px-1.5 py-0.5 rounded-full">@L.T("ms.ui.coSignerRow.you")</span>
         }
         @if (HasSigned)
         {
@@ -30,22 +31,22 @@
             @if (editing)
             {
                 <div class="flex flex-col gap-1.5">
-                    <input type="text" @bind="labelDraft" @bind:event="oninput" maxlength="@MultisigWalletService.MaxNameLength" aria-label="Co-signer label"
+                    <input type="text" @bind="labelDraft" @bind:event="oninput" maxlength="@MultisigWalletService.MaxNameLength" aria-label="@L.T("ms.ui.coSignerRow.label_aria")"
                            class="input" />
                     @if (!string.IsNullOrEmpty(error))
                     {
                         <InlineError Message="@error" />
                     }
                     <div class="flex gap-2">
-                        <button type="button" class="btn-primary btn-sm flex-1" @onclick="SaveLabel">Save label</button>
-                        <button type="button" class="btn-secondary btn-sm" @onclick="() => editing = false">Cancel</button>
+                        <button type="button" class="btn-primary btn-sm flex-1" @onclick="SaveLabel">@L.T("ms.ui.coSignerRow.save")</button>
+                        <button type="button" class="btn-secondary btn-sm" @onclick="() => editing = false">@L.T("common.cancel")</button>
                     </div>
                 </div>
             }
             else
             {
                 <button type="button" class="self-start inline-flex items-center gap-1 min-h-[32px] text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 press-effect"
-                        @onclick="StartEdit">Edit label</button>
+                        @onclick="StartEdit">@L.T("ms.ui.coSignerRow.edit")</button>
             }
         </div>
     }
@@ -55,6 +56,7 @@
     [Parameter, EditorRequired] public CoSigner Signer { get; set; } = default!;
     [Parameter] public bool IsOwn { get; set; }
     [Parameter] public bool HasSigned { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     /// <summary>Saves a new label for this co-signer's key.</summary>
     [Parameter] public Func<string, string, Task<RenameResult>>? OnRename { get; set; }

@@ -4,6 +4,7 @@
 @inject AppState AppState
 @inject ISecureStorage Storage
 @inject ClipboardService Clipboard
+@inject LocalizationService L
 
 <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-gradient-to-br dark:from-dgb-900 dark:via-dgb-800 dark:to-dgb-700 border border-dgb-200 dark:border-dgb-700/50 px-5 py-4 text-dgb-900 dark:text-white shadow-lg shadow-gray-200/50 dark:shadow-dgb-900/25">
     <div class="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-2xl" style="background-color: @(ActiveWallet.WalletColor)40;"></div>
@@ -15,22 +16,22 @@
 
     <div class="relative">
         <div class="flex items-center gap-2">
-            <p class="text-xs text-dgb-600 dark:text-dgb-200 font-medium">Multisig Balance</p>
+            <p class="text-xs text-dgb-600 dark:text-dgb-200 font-medium">@L.T("ms.ui.balanceCard.title")</p>
             @if (AppState.NetworkMode != "mainnet")
             {
                 <span class="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-full uppercase">@AppState.NetworkMode</span>
             }
             @if (IsWatchOnly)
             {
-                <span class="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-500/20 px-1.5 py-0.5 rounded-full uppercase" title="This device holds no key of this multisig">Watch-Only</span>
+                <span class="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-500/20 px-1.5 py-0.5 rounded-full uppercase" title="@L.T("ms.ui.balanceCard.watch_only_title")">@L.T("home.watch_only")</span>
             }
             @if (IsLoading)
             {
-                <div class="w-2.5 h-2.5 border-2 border-dgb-500 dark:border-dgb-300 border-t-transparent rounded-full animate-spin" role="status" aria-label="Loading balance"></div>
+                <div class="w-2.5 h-2.5 border-2 border-dgb-500 dark:border-dgb-300 border-t-transparent rounded-full animate-spin" role="status" aria-label="@L.T("ms.ui.balanceCard.loading")"></div>
             }
             <div class="flex-1"></div>
             <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors"
-                    title="@(hideBalance ? "Show balance" : "Hide balance")" aria-label="@(hideBalance ? "Show balance" : "Hide balance")" aria-pressed="@(hideBalance ? "true" : "false")"
+                    title="@(hideBalance ? L.T("home.balance.show") : L.T("home.balance.hide"))" aria-label="@(hideBalance ? L.T("home.balance.show") : L.T("home.balance.hide"))" aria-pressed="@(hideBalance ? "true" : "false")"
                     @onclick="ToggleHide">
                 <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     @if (hideBalance)
@@ -44,7 +45,7 @@
                     }
                 </svg>
             </button>
-            <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors disabled:opacity-40" title="Refresh" aria-label="Refresh"
+            <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors disabled:opacity-40" title="@L.T("dd.refresh")" aria-label="@L.T("dd.refresh")"
                     @onclick="() => OnRefresh.InvokeAsync()" disabled="@IsLoading">
                 <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300 @(IsLoading ? "animate-spin" : "")" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M20.015 4.356v4.99" />
@@ -59,13 +60,13 @@
         }
         else if (BalanceSatoshis is null)
         {
-            <h1 class="text-2xl font-extrabold mt-0.5 tracking-tight opacity-70">Balance unavailable</h1>
-            <p class="text-xs text-amber-600 dark:text-amber-300 mt-0.5" role="status">Couldn't reach the network. Your funds are not affected. Tap refresh to try again.</p>
+            <h1 class="text-2xl font-extrabold mt-0.5 tracking-tight opacity-70">@L.T("ms.ui.balanceCard.unavailable")</h1>
+            <p class="text-xs text-amber-600 dark:text-amber-300 mt-0.5" role="status">@L.T("ms.ui.balanceCard.unreachable")</p>
         }
         else if (hideBalance)
         {
-            <h1 class="text-3xl font-extrabold mt-0.5 balance-mask" aria-label="Balance hidden">••••••</h1>
-            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">Balance hidden</p>
+            <h1 class="text-3xl font-extrabold mt-0.5 balance-mask" aria-label="@L.T("home.balance.hidden")">••••••</h1>
+            <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">@L.T("home.balance.hidden")</p>
         }
         else if (AppState.IsSimpleMode && DgbPrice > 0)
         {
@@ -85,10 +86,10 @@
 
         <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-dgb-300/30 dark:border-white/10">
             <span class="text-[11px] font-mono text-dgb-500/70 dark:text-dgb-300/80 truncate flex-1" title="@Address">@MultisigFormat.Short(Address, 12, 8)</span>
-            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Copy address" aria-label="Copy address" @onclick="CopyAddress">
+            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="@L.T("dd.receive.copy")" aria-label="@L.T("dd.receive.copy")" @onclick="CopyAddress">
                 @if (copied)
                 {
-                    <span class="text-[11px] font-semibold text-green-500 px-1">Copied</span>
+                    <span class="text-[11px] font-semibold text-green-500 px-1">@L.T("ms.ui.balanceCard.copied")</span>
                 }
                 else
                 {
@@ -97,7 +98,7 @@
                     </svg>
                 }
             </button>
-            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Show QR code" aria-label="Show QR code" @onclick="() => OnShowQr.InvokeAsync()">
+            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="@L.T("home.qr.show")" aria-label="@L.T("home.qr.show")" @onclick="() => OnShowQr.InvokeAsync()">
                 <svg class="w-3.5 h-3.5 text-dgb-500 dark:text-dgb-300" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 14.625v2.625m3.375-2.625v2.625m-6.75 0h8.25" />
@@ -119,6 +120,7 @@
     [Parameter] public decimal DgbPrice { get; set; }
     [Parameter] public EventCallback OnRefresh { get; set; }
     [Parameter] public EventCallback OnShowQr { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private bool hideBalance;
     private bool copied;

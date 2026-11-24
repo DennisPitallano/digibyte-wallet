@@ -1,14 +1,15 @@
 @* Who has signed a proposal: a progress bar ("1 of 2") and a per-co-signer checklist. *@
+@inject LocalizationService L
 @{
     var signed = Math.Min(Pending.SignatureCount, Pending.RequiredSignatures);
     var percent = Pending.RequiredSignatures == 0 ? 0 : signed * 100 / Pending.RequiredSignatures;
 }
 <div class="flex flex-col gap-1.5">
     <div class="flex items-center justify-between text-[11px]">
-        <span class="font-semibold text-slate-600 dark:text-slate-300">@signed of @Pending.RequiredSignatures signatures</span>
+        <span class="font-semibold text-slate-600 dark:text-slate-300">@L.T("ms.ui.signerProgress.count", signed, Pending.RequiredSignatures)</span>
         @if (Pending.HasEnoughSignatures)
         {
-            <span class="inline-flex items-center gap-1 font-bold text-green-600 dark:text-green-400"><UxIcon Name="check-circle" Class="w-3.5 h-3.5 shrink-0" />Ready to broadcast</span>
+            <span class="inline-flex items-center gap-1 font-bold text-green-600 dark:text-green-400"><UxIcon Name="check-circle" Class="w-3.5 h-3.5 shrink-0" />@L.T("ms.ui.common.state.ready")</span>
         }
     </div>
     <div class="h-1.5 rounded-full bg-slate-200 dark:bg-dgb-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="@Pending.RequiredSignatures" aria-valuenow="@signed">
@@ -20,7 +21,7 @@
             var has = Pending.SignedBy.Contains(signer.PublicKeyHex, StringComparer.OrdinalIgnoreCase);
             <li class="inline-flex items-center gap-1 text-[11px] @(has ? "text-green-600 dark:text-green-400 font-semibold" : "text-slate-400")">
                 <UxIcon Name="@(has ? "check" : "clock")" Class="w-3 h-3 shrink-0" />
-                <span>@(signer.IsLocal ? "You" : signer.Name)</span><span class="sr-only">@(has ? " signed" : " not signed yet")</span>
+                <span>@(signer.IsLocal ? L.T("ms.ui.common.you") : signer.Name)</span><span class="sr-only">@(" " + (has ? L.T("ms.ui.signerProgress.signed") : L.T("ms.ui.signerProgress.not_signed")))</span>
             </li>
         }
     </ul>
@@ -29,4 +30,5 @@
 @code {
     [Parameter, EditorRequired] public MultisigWalletConfig Config { get; set; } = default!;
     [Parameter, EditorRequired] public PendingMultisigTransaction Pending { get; set; } = default!;
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 }
