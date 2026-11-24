@@ -190,12 +190,15 @@ public class OracleDataServiceClientTests
     public async Task A_fetch_that_does_not_answer_in_5_seconds_gives_up()
     {
         var rig = new Rig();
-        rig.Upstream.Answer = async (_, ct) => { await Task.Delay(Timeout.Infinite, ct); return Json("{}"); };
+        // The client starts its 5-second limit before it sends, so once the request arrives the limit is running.
+        // Waiting for that, not a fixed delay, keeps a slow CI runner from moving the clock before the limit exists.
+        var sent = new TaskCompletionSource();
+        rig.Upstream.Answer = async (_, ct) => { sent.TrySetResult(); await Task.Delay(Timeout.Infinite, ct); return Json("{}"); };
         var done = new TaskCompletionSource();
         rig.Feed.Changed += () => done.TrySetResult();
 
         rig.Feed.RequestRefresh();
-        await Task.Delay(30);
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(rig.Feed.IsLoading);
         rig.Clock.Advance(TimeSpan.FromSeconds(5.5));
         await done.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -279,13 +282,14 @@ public class OracleDataServiceClientTests
     {
         var rig = new Rig();
         var release = new TaskCompletionSource();
-        rig.Upstream.Answer = async (_, _) => { await release.Task; return Json(Good(rig.Clock.GetUtcNow())); };
+        var sent = new TaskCompletionSource();
+        rig.Upstream.Answer = async (_, _) => { sent.TrySetResult(); await release.Task; return Json(Good(rig.Clock.GetUtcNow())); };
         var done = new TaskCompletionSource();
         rig.Feed.Changed += () => done.TrySetResult();
         Assert.False(rig.Feed.IsLoading); // nothing asked yet
 
         rig.Feed.RequestRefresh();
-        await Task.Delay(30);
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(5)); // the fetch is in flight, however slow the runner
         Assert.True(rig.Feed.IsLoading);
 
         release.SetResult();
