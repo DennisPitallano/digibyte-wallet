@@ -18,7 +18,7 @@
             <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 flex flex-col gap-3">
                 <div class="flex flex-col gap-0.5">
                     <span class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("identity.detail.date")</span>
-                    <span class="text-xs text-slate-800 dark:text-slate-200">@Entry.Timestamp.ToLocalTime().ToString("MMMM d, yyyy h:mm:ss tt")</span>
+                    <span class="text-xs text-slate-800 dark:text-slate-200">@Entry.Timestamp.ToLocalTime().ToString(L.T("history.format.long_date_time"))</span>
                 </div>
 
                 <div class="flex flex-col gap-0.5">
