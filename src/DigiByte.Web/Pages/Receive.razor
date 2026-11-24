@@ -73,11 +73,19 @@
                 <p class="addr-balance font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800">
                     @address
                 </p>
-                <div class="flex gap-2 w-full">
+                <div class="flex flex-wrap gap-2 w-full">
                     <button class="btn-primary btn-sm flex-1"
                             @onclick="CopyAddress">
                         @(copied ? L.T("receive.copied") : requestAmount is not null ? L.T("receive.copy_link") : L.T("receive.copy"))
                     </button>
+                    @if (requestAmount is not null)
+                    {
+                        @* A web link that opens Send for the payer, or shows the payment to pay from any wallet (spec 030). *@
+                        <button class="btn-secondary btn-sm flex-1" data-testid="receive-copy-pay-link"
+                                @onclick="CopyPayLink">
+                            @(copiedPayLink ? L.T("receive.copied") : L.T("receive.copy_pay_link"))
+                        </button>
+                    }
                     <button class="btn-secondary btn-sm"
                             @onclick="ShareAddress">
                         @L.T("receive.share")
@@ -295,16 +303,24 @@
     private decimal? requestAmount;
     private string? requestError;
 
-    /// <summary>What the QR code, Copy and Share carry: a digibyte: payment link when an amount is set, else the bare address.</summary>
-    private string? Payload => address is null || requestAmount is null
-        ? address
+    private bool copiedPayLink;
+
+    // The request on show, when an amount is set.
+    private PaymentRequest? Request => address is null || requestAmount is null
+        ? null
         : new PaymentRequest
         {
             Id = "",
             Address = address,
             AmountDgb = requestAmount,
             Label = string.IsNullOrWhiteSpace(requestNote) ? null : requestNote.Trim(),
-        }.ToUri();
+        };
+
+    /// <summary>What the QR code and Copy carry: a digibyte: payment link when an amount is set, else the bare address.</summary>
+    private string? Payload => Request?.ToUri() ?? address;
+
+    /// <summary>The web payment link, when an amount is set (spec 030, FR-019). Its payment details are after the #.</summary>
+    private string? PayLink => Request is { } request ? PaymentLink.Create(new Uri(Nav.BaseUri), request) : null;
 
     private void ToggleRequest()
     {
@@ -631,11 +647,26 @@
         copied = false; StateHasChanged();
     }
 
+    private async Task CopyPayLink()
+    {
+        if (PayLink is not { } link) return;
+        await Clipboard.CopyAsync(link, toast: false);
+        copiedPayLink = true; StateHasChanged();
+        await Task.Delay(2000);
+        copiedPayLink = false; StateHasChanged();
+    }
+
+    // With an amount set, Share sends the web payment link, which works when clicked in a chat or an email.
     private async Task ShareAddress()
     {
-        if (Payload is not { } payload) return;
+        var link = PayLink;
+        if ((link ?? Payload) is not { } payload) return;
         try { await JS.InvokeVoidAsync("navigator.share", new { title = requestAmount is not null ? L.T("receive.share.request_title") : L.T("receive.share.address_title"), text = payload }); }
-        catch { await CopyAddress(); }
+        catch
+        {
+            if (link is not null) await CopyPayLink();
+            else await CopyAddress();
+        }
     }
 
     private async Task DownloadQr()

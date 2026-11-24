@@ -1,0 +1,178 @@
+@page "/pay"
+@using DigiByte.Wallet.Services
+@using DigiByte.Web.Services
+@inject NavigationManager Nav
+@inject WalletService WalletService
+@inject PaymentHandoff Handoff
+@inject ClipboardService Clipboard
+@inject LocalizationService L
+@implements IDisposable
+
+@*
+    A payment link (specs/030-desktop-paste-scan, FR-020 to FR-022): /pay#digibyte:…. Everything about the payment
+    is after the #, which the browser never sends to the web host. With a wallet on this device the payment goes to
+    Send in memory (through Unlock if needed); without one, this page shows it so it can be paid from any wallet.
+    No control on this page can move funds.
+*@
+
+<PageTitle>@L.T("pay.title") — DigiByte Wallet</PageTitle>
+
+@if (state == State.Reading)
+{
+    <div class="flex items-center justify-center min-h-[40vh]" aria-busy="true">
+        <div class="w-8 h-8 border-3 border-dgb-400 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
+    </div>
+}
+else if (state == State.Invalid)
+{
+    <div class="max-w-md mx-auto flex flex-col items-center gap-4 text-center py-12 slide-up" data-testid="pay-invalid">
+        <h1 class="page-title">@L.T("pay.invalid_title")</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">@L.T("pay.invalid")</p>
+        <a href="/" class="btn-primary btn-sm">@L.T("pay.go_to_wallet")</a>
+    </div>
+}
+else if (state == State.ReadOnly && link is not null)
+{
+    <div class="max-w-md mx-auto flex flex-col gap-4 py-6 slide-up" data-testid="pay-readonly">
+        <div class="flex items-center gap-3">
+            <DigiLogo Size="36" />
+            <h1 class="page-title">@L.T("pay.title")</h1>
+            @if (isTestnet)
+            {
+                <span class="ml-auto text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">@L.T("pay.testnet")</span>
+            }
+        </div>
+
+        <div class="card p-5 flex flex-col gap-4">
+            @if (link.AmountDgb is { } amount)
+            {
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white tabular-nums" data-testid="pay-amount">
+                        @amount.ToString("#,0.########", L.CurrentCulture) DGB
+                    </p>
+                    <button type="button" class="btn-secondary btn-sm" @onclick="CopyAmountAsync">
+                        @(copiedAmount ? L.T("receive.copied") : L.T("pay.copy_amount"))
+                    </button>
+                </div>
+            }
+
+            <div class="flex flex-col gap-2">
+                <p class="font-mono text-sm text-slate-700 dark:text-slate-200 break-all bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 border border-slate-100 dark:border-dgb-800" data-testid="pay-address">@link.Address</p>
+                <button type="button" class="btn-primary btn-sm" @onclick="CopyAddressAsync">
+                    @(copiedAddress ? L.T("receive.copied") : L.T("pay.copy_address"))
+                </button>
+            </div>
+
+            @* Plain text only: a note comes from whoever made the link. *@
+            @if (!string.IsNullOrEmpty(link.Label))
+            {
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">@link.Label</p>
+            }
+            @if (!string.IsNullOrEmpty(link.Message))
+            {
+                <p class="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line">@link.Message</p>
+            }
+
+            @if (qrDataUrl is not null)
+            {
+                <div class="flex flex-col items-center gap-2">
+                    <div class="qr-frame">
+                        <img src="@qrDataUrl" alt="@L.T("pay.qr_caption")" class="w-40 h-40 rounded-lg" />
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("pay.qr_caption")</p>
+                </div>
+            }
+        </div>
+
+        <p class="text-sm text-slate-600 dark:text-slate-300 text-center">@L.T("pay.any_wallet")</p>
+        <a href="/welcome" class="btn-secondary btn-sm self-center">@L.T("pay.set_up")</a>
+    </div>
+}
+
+@code {
+    private enum State { Reading, Invalid, ReadOnly }
+
+    private State state = State.Reading;
+    private PaymentLinkData? link;
+    private string? qrDataUrl;
+    private bool isTestnet;
+    private bool copiedAddress;
+    private bool copiedAmount;
+
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A second link opened in the same tab changes only the part after #, which reloads nothing: read it again.
+        Nav.LocationChanged += OnLocationChanged;
+        await ReadAsync();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (!new Uri(e.Location).AbsolutePath.Equals("/pay", StringComparison.OrdinalIgnoreCase)) return;
+        _ = InvokeAsync(async () =>
+        {
+            state = State.Reading;
+            link = null;
+            qrDataUrl = null;
+            copiedAddress = copiedAmount = false;
+            StateHasChanged();
+            await ReadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
+    private async Task ReadAsync()
+    {
+        var fragment = new Uri(Nav.Uri).Fragment;
+        var text = fragment.Length > 1 ? fragment[1..] : "";
+
+        var wallets = await WalletService.GetAllWalletsAsync();
+        var hasWallet = wallets.Count > 0;
+        var network = hasWallet ? WalletService.CurrentNetworkPublic : null;
+
+        if (!PaymentLink.TryRead(text, new Uri(Nav.BaseUri), network, out link) || link is null)
+        {
+            state = State.Invalid;
+            return;
+        }
+
+        if (hasWallet)
+        {
+            // Never in a URL: Send takes it from memory, after Unlock when the wallet is locked (FR-021).
+            Handoff.Set(link);
+            Nav.NavigateTo(WalletService.IsUnlocked ? "/send" : "/unlock?returnUrl=%2Fsend", replace: true);
+            return;
+        }
+
+        isTestnet = !DigiByte.Crypto.Addresses.AddressValidator.IsValid(link.Address, DigiByte.Crypto.Networks.DigiByteNetwork.Mainnet);
+        qrDataUrl = QrFor(link.ToBip21());
+        state = State.ReadOnly;
+    }
+
+    private static string QrFor(string data)
+    {
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var qrData = generator.CreateQrCode(data, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(qrData);
+        var png = qr.GetGraphic(8, [0, 35, 82], [255, 255, 255]);
+        return $"data:image/png;base64,{Convert.ToBase64String(png)}";
+    }
+
+    private async Task CopyAddressAsync()
+    {
+        if (link is null) return;
+        try { await Clipboard.CopyAsync(link.Address, toast: false); copiedAddress = true; } catch { }
+    }
+
+    private async Task CopyAmountAsync()
+    {
+        if (link?.AmountDgb is not { } amount) return;
+        // Copied the way other wallets read it: a point, whatever language this page shows.
+        try { await Clipboard.CopyAsync(amount.ToString("F8", System.Globalization.CultureInfo.InvariantCulture), toast: false); copiedAmount = true; } catch { }
+    }
+}

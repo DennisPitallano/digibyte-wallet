@@ -54,6 +54,10 @@ public static class ScanRouter
 
         if (RoomInvite(data, appBaseUri) is { } invite) return invite;
 
+        // This wallet's own payment link (specs/030-desktop-paste-scan, FR-024). Any other web link goes nowhere.
+        if (PayLink(data, appBaseUri) is { } link)
+            return new(ScanTarget.Payment, SendUrl(link.Address, link.AmountDgb, sharedWalletId));
+
         // The multisig pages' own classifier: payment request, bare address or proposal.
         var result = MultisigSendHelper.ClassifyScan(data);
         switch (result.Kind)
@@ -61,13 +65,7 @@ public static class ScanRouter
             case ScanKind.Psbt:
                 return new(ScanTarget.MultisigProposal, null, data);
             case ScanKind.Address or ScanKind.PaymentUri when result.Address is { } address && AddressValidator.IsValid(address.Trim()):
-                var send = string.IsNullOrWhiteSpace(sharedWalletId)
-                    ? "/send"
-                    : $"/multisig/{Uri.EscapeDataString(sharedWalletId)}/send";
-                var url = send + "?address=" + Uri.EscapeDataString(address.Trim());
-                if (result.AmountDgb is { } amount && amount > 0)
-                    url += "&amount=" + amount.ToString(CultureInfo.InvariantCulture);
-                return new(ScanTarget.Payment, url);
+                return new(ScanTarget.Payment, SendUrl(address.Trim(), result.AmountDgb, sharedWalletId));
         }
 
         // Last, because a redeem script is "any plausible run of hex": everything more specific was ruled out above.
@@ -78,6 +76,26 @@ public static class ScanRouter
     }
 
     private static readonly ScanRoute Unknown = new(ScanTarget.Unknown, null);
+
+    // A payment opens the personal Send, or the open shared wallet's Send (FR-002a).
+    private static string SendUrl(string address, decimal? amountDgb, string? sharedWalletId)
+    {
+        var send = string.IsNullOrWhiteSpace(sharedWalletId)
+            ? "/send"
+            : $"/multisig/{Uri.EscapeDataString(sharedWalletId)}/send";
+        var url = send + "?address=" + Uri.EscapeDataString(address);
+        if (amountDgb is { } amount && amount > 0)
+            url += "&amount=" + amount.ToString(CultureInfo.InvariantCulture);
+        return url;
+    }
+
+    // Only a web link: a bare digibyte: request keeps going through the classifier exactly as before.
+    private static PaymentLinkData? PayLink(string data, string? appBaseUri)
+    {
+        if (string.IsNullOrEmpty(appBaseUri) || !Uri.TryCreate(appBaseUri, UriKind.Absolute, out var app)) return null;
+        if (!data.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !data.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return null;
+        return PaymentLink.TryRead(data, app, null, out var link) ? link : null;
+    }
 
     // The two room pages and nothing else; the invite code is letters and digits only.
     private static readonly string[] RoomPaths = ["/multisig/room", "/multisig/sign-room"];

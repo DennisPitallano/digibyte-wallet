@@ -207,7 +207,7 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 ### Tests for User Story 5 ⚠️ (write first, must fail)
 
-- [ ] T033 [P] [US5] Write failing tests in `tests/DigiByte.Wallet.Tests/PaymentLinkTests.cs`:
+- [X] T033 [P] [US5] Write failing tests in `tests/DigiByte.Wallet.Tests/PaymentLinkTests.cs`:
   - `Create(new Uri("https://dgbwallet.app/"), request)` equals `"https://dgbwallet.app/pay#" + request.ToUri()`;
   - `TryRead` round trip for an address only; an address and amount; an address, amount, label and message;
   - a bare `digibyte:` URI; `web+digibyte:` plain; `web%2Bdigibyte%3A` escaped.
@@ -219,14 +219,14 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   - a label of 257 characters.
 
   Also: a label with control characters comes back with them removed; `SendPath` gives `/send?address=…&amount=12.5` with an invariant point, and drops `&amount` when there is no amount; `ToBip21(includeNote: false)` round-trips through `PaymentRequest.FromUri` to the same address and amount, with null label and message; `ToBip21()` keeps the label and message.
-- [ ] T034 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/ScanRouterTests.cs`:
+- [X] T034 [P] [US5] Extend `tests/DigiByte.Wallet.Tests/ScanRouterTests.cs`:
   - `{base}pay#digibyte:{addr}?amount=2` routes to `ScanTarget.Payment` with URL `/send?address={addr}&amount=2`, or `/multisig/{id}/send?...` with a shared wallet open;
   - a look-alike-host `/pay#` link routes to `Unknown`;
   - a bare `digibyte:` URI still routes as before.
 
 ### Implementation for User Story 5
 
-- [ ] T035 [US5] Implement `PaymentLinkData` (record: `Address`, `AmountDgb`, `Label`, `Message`, `ToBip21(bool includeNote = true)`, where `includeNote: false` leaves out the label and message) and static `PaymentLink` in `src/DigiByte.Wallet/Services/PaymentLink.cs`, with:
+- [X] T035 [US5] Implement `PaymentLinkData` (record: `Address`, `AmountDgb`, `Label`, `Message`, `ToBip21(bool includeNote = true)`, where `includeNote: false` leaves out the label and message) and static `PaymentLink` in `src/DigiByte.Wallet/Services/PaymentLink.cs`, with:
   - `Create(Uri walletBase, PaymentRequest request) → string`;
   - `TryRead(string text, Uri walletBase, NBitcoin.Network? network, out PaymentLinkData? data) → bool`;
   - `SendPath(PaymentLinkData) → string`.
@@ -239,11 +239,11 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   5. "Label and message ≤ 256 chars each; control characters removed".
 
   T033 must then pass.
-- [ ] T036 [US5] In `src/DigiByte.Web/Services/ScanRouter.cs`, add a step after `RoomInvite` and before `MultisigSendHelper.ClassifyScan`: when `data` is an http(s) URL and `PaymentLink.TryRead(data, new Uri(appBaseUri), null, out var link)` succeeds, return `ScanTarget.Payment` with the same personal or shared Send URL the existing payment case builds. T034 must then pass.
-- [ ] T037 [US5] In `HandOffAsync` in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`, when `!FromMenu` and `PaymentLink.TryRead(clean, new Uri(Nav.BaseUri), null, out var link)` succeeds, pass `link.ToBip21(includeNote: false)` to `OnScanned` instead of `clean` (FR-011a). A payment link pasted on any such screen then works exactly as scanning the request would on that screen, and no note reaches Send's public on-chain memo. The `ToBip21(includeNote: false)` behaviour is covered by T033.
-- [ ] T038 [US5] Create `PaymentHandoff` (scoped; `Set(PaymentLinkData)`, `Take() → PaymentLinkData?`, which clears on take) in `src/DigiByte.Web/Services/PaymentHandoff.cs`, modelled on `ProposalHandoff.cs`. Register it with `builder.Services.AddScoped<DigiByte.Web.Services.PaymentHandoff>()` in `src/DigiByte.Web/Program.cs`. Add `tests/DigiByte.Wallet.Tests/PaymentHandoffTests.cs`, checking that `Take` returns the link once and then null, and that `Set` replaces a waiting link.
-- [ ] T039 [US5] In `OnInitializedAsync` of `src/DigiByte.Web/Pages/Send.razor`, call `PaymentHandoff.Take()` **before** parsing the query. When a link is returned, set `destinationAddress` and the amount from it, after the same checks the query path applies (`AddressValidator.IsValid`, ≤128 chars, 0 < amount < 21,000,000,000), and skip the query parameters.
-- [ ] T040 [US5] Create `src/DigiByte.Web/Pages/Pay.razor` (`@page "/pay"`, **no** `<AuthGuard>`), per contracts/payment-link.md:
+- [X] T036 [US5] In `src/DigiByte.Web/Services/ScanRouter.cs`, add a step after `RoomInvite` and before `MultisigSendHelper.ClassifyScan`: when `data` is an http(s) URL and `PaymentLink.TryRead(data, new Uri(appBaseUri), null, out var link)` succeeds, return `ScanTarget.Payment` with the same personal or shared Send URL the existing payment case builds. T034 must then pass.
+- [X] T037 [US5] In `HandOffAsync` in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`, when `!FromMenu` and `PaymentLink.TryRead(clean, new Uri(Nav.BaseUri), null, out var link)` succeeds, pass `link.ToBip21(includeNote: false)` to `OnScanned` instead of `clean` (FR-011a). A payment link pasted on any such screen then works exactly as scanning the request would on that screen, and no note reaches Send's public on-chain memo. The `ToBip21(includeNote: false)` behaviour is covered by T033.
+- [X] T038 [US5] Create `PaymentHandoff` (scoped; `Set(PaymentLinkData)`, `Take() → PaymentLinkData?`, which clears on take) in `src/DigiByte.Web/Services/PaymentHandoff.cs`, modelled on `ProposalHandoff.cs`. Register it with `builder.Services.AddScoped<DigiByte.Web.Services.PaymentHandoff>()` in `src/DigiByte.Web/Program.cs`. Add `tests/DigiByte.Wallet.Tests/PaymentHandoffTests.cs`, checking that `Take` returns the link once and then null, and that `Set` replaces a waiting link.
+- [X] T039 [US5] In `OnInitializedAsync` of `src/DigiByte.Web/Pages/Send.razor`, call `PaymentHandoff.Take()` **before** parsing the query. When a link is returned, set `destinationAddress` and the amount from it, after the same checks the query path applies (`AddressValidator.IsValid`, ≤128 chars, 0 < amount < 21,000,000,000), and skip the query parameters.
+- [X] T040 [US5] Create `src/DigiByte.Web/Pages/Pay.razor` (`@page "/pay"`, **no** `<AuthGuard>`), per contracts/payment-link.md:
   - read the fragment from `Nav.Uri`, unescape it once, and map a leading `web+digibyte:` to `digibyte:`;
   - call `PaymentLink.TryRead` with the current network when a wallet exists, else null;
   - invalid → the invalid view;
@@ -251,7 +251,7 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   - otherwise `PaymentHandoff.Set(link)`, then: locked → `Nav.NavigateTo("/unlock?returnUrl=%2Fsend", replace: true)`; unlocked → `Nav.NavigateTo("/send", replace: true)`.
 
   The address and amount must never be put in any URL (FR-021).
-- [ ] T041 [US5] Read-only view in `src/DigiByte.Web/Pages/Pay.razor`:
+- [X] T041 [US5] Read-only view in `src/DigiByte.Web/Pages/Pay.razor`:
   - address in monospace with **Copy address**;
   - amount in the active language's number style, with **Copy amount** copying the invariant `F8` value;
   - label and message as plain text;
@@ -261,17 +261,17 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   - no send control.
 
   Invalid view: `pay.invalid_title`, `pay.invalid` and **Go to wallet** → `/`.
-- [ ] T042 [US5] Check `src/DigiByte.Web/Layout/MainLayout.razor` and `src/DigiByte.Web/App.razor`, so `/pay` renders for a visitor with no wallet. Remove any first-run redirect to `/welcome` that would fire before `Pay.razor` runs, the way `/identity` is allowed. Hide the bottom menu on `/pay` when no wallet exists.
-- [ ] T043 [P] [US5] In `src/DigiByte.Web/Pages/Receive.razor`:
+- [X] T042 [US5] Check `src/DigiByte.Web/Layout/MainLayout.razor` and `src/DigiByte.Web/App.razor`, so `/pay` renders for a visitor with no wallet. Remove any first-run redirect to `/welcome` that would fire before `Pay.razor` runs, the way `/identity` is allowed. Hide the bottom menu on `/pay` when no wallet exists.
+- [X] T043 [P] [US5] In `src/DigiByte.Web/Pages/Receive.razor`:
   - add **Copy payment link** (`receive.copy_pay_link`), shown when `requestAmount is not null`, copying `PaymentLink.Create(new Uri(Nav.BaseUri), <current PaymentRequest>)`;
   - when an amount is set, **Share** shares that link, falling back to copying it;
   - keep the existing Copy / Copy link (`digibyte:`) and the QR content unchanged.
-- [ ] T044 [P] [US5] In `src/DigiByte.Web/Pages/Payments.razor`:
+- [X] T044 [P] [US5] In `src/DigiByte.Web/Pages/Payments.razor`:
   - add **Copy payment link** (`payments.copy_pay_link`) for the active request;
   - relabel the existing copy button to `payments.copy_uri` ("Copy digibyte: link");
   - **Share** shares the payment link;
   - the QR content stays `activeRequest.ToUri()`.
-- [ ] T045 [P] [US5] Add `{ "protocol": "web+digibyte", "url": "/pay#%s" }` to `protocol_handlers` in `src/DigiByte.Web/wwwroot/manifest.webmanifest`, next to `web+digiid`.
+- [X] T045 [P] [US5] Add `{ "protocol": "web+digibyte", "url": "/pay#%s" }` to `protocol_handlers` in `src/DigiByte.Web/wwwroot/manifest.webmanifest`, next to `web+digiid`.
 - [ ] T046 [P] [US5] Add the English and Spanish text in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json` for `receive.copy_pay_link`, `payments.copy_pay_link`, `payments.copy_uri`, `pay.title`, `pay.invalid_title`, `pay.invalid`, `pay.go_to_wallet`, `pay.any_wallet`, `pay.qr_caption`, `pay.copy_address`, `pay.copy_amount`, `pay.set_up` and `pay.testnet`. Mark `pay.any_wallet` for native-speaker review.
 - [ ] T047 [US5] Run quickstart Q-12 in installed Chrome or Edge, and check the manifest's `/pay#%s` handler is accepted (DevTools → Application → Manifest). If it is rejected, **remove** the `web+digibyte` entry from `src/DigiByte.Web/wwwroot/manifest.webmanifest`. There is no query fallback (FR-023). Record the result in `specs/030-desktop-paste-scan/research.md` (R6).
 

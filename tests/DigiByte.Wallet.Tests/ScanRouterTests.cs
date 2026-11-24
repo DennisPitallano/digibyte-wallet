@@ -263,6 +263,49 @@ public class ScanRouterTests
         Assert.Equal(ScanRouter.Route(code, App, "ms1"), ScanRouter.Route(pasted, App, "ms1"));
     }
 
+    // ----- This wallet's own payment links (FR-024) -----
+
+    [Fact]
+    public void This_wallets_payment_link_opens_Send()
+    {
+        var route = ScanRouter.Route($"https://dgbwallet.app/pay#digibyte:{Address}?amount=2", App);
+
+        Assert.Equal(ScanTarget.Payment, route.Kind);
+        Assert.Equal($"/send?address={Address}&amount=2", route.Url);
+    }
+
+    [Fact]
+    public void Inside_a_shared_wallet_a_payment_link_pays_from_that_wallet()
+    {
+        var route = ScanRouter.Route($"https://dgbwallet.app/pay#digibyte:{Address}?amount=2", App, "ms1");
+
+        Assert.Equal($"/multisig/ms1/send?address={Address}&amount=2", route.Url);
+    }
+
+    [Theory]
+    [InlineData("https://dgbwallet.app.evil.example/pay#")]
+    [InlineData("https://evil.example/pay#")]
+    [InlineData("http://dgbwallet.app/pay#")]
+    public void A_look_alike_payment_link_opens_nothing(string prefix)
+    {
+        Assert.Equal(ScanTarget.Unknown, ScanRouter.Route(prefix + $"digibyte:{Address}?amount=2", App).Kind);
+    }
+
+    [Fact]
+    public void A_payment_link_with_a_bad_address_opens_nothing()
+    {
+        Assert.Equal(ScanTarget.Unknown, ScanRouter.Route("https://dgbwallet.app/pay#digibyte:not-an-address?amount=2", App).Kind);
+    }
+
+    [Fact]
+    public void A_bare_digibyte_request_still_routes_as_before()
+    {
+        var route = ScanRouter.Route($"digibyte:{Address}?amount=2", App);
+
+        Assert.Equal(ScanTarget.Payment, route.Kind);
+        Assert.Equal($"/send?address={Address}&amount=2", route.Url);
+    }
+
     [Fact]
     public void A_pasted_payment_inside_a_shared_wallet_starts_a_payment_from_that_wallet()
     {

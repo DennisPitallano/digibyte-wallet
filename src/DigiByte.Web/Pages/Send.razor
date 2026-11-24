@@ -14,6 +14,7 @@
 @inject BakuService Baku
 @inject NodeSourceStatusService NodeStatus
 @inject IJSRuntime JS
+@inject DigiByte.Web.Services.PaymentHandoff PayHandoff
 
 <PageTitle>@L.T("send.page_title")</PageTitle>
 
@@ -936,18 +937,35 @@ else
     {
         AppState.ResetLockTimer();
 
-        // Parse query params immediately (no I/O) — with validation
-        var uri = new Uri(Nav.Uri);
-        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        var qAddr = query["address"];
-        if (qAddr != null && qAddr.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(qAddr))
-            destinationAddress = qAddr;
-        var qName = query["name"];
-        if (qName != null && qName.Length <= 64)
-            recipientName = qName;
-        // A link amount is digits and one point only: "?amount=1,5" is left empty, never read as 15.
-        if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
-            SetAmount(qtyAmount);
+        // A payment link opened on /pay hands its payment over in memory, never in the address (spec 030, FR-021).
+        // It is checked again here with the same rules as the address below; any note stays off the memo.
+        if (PayHandoff.Take() is { } link)
+        {
+            if (link.Address.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(link.Address))
+            {
+                destinationAddress = link.Address;
+                if (link.AmountDgb is { } linkAmount && linkAmount > 0 && linkAmount < 21_000_000_000m)
+                {
+                    isAmountInFiat = false; // a link's amount is in DGB
+                    SetAmount(linkAmount);
+                }
+            }
+        }
+        else
+        {
+            // Parse query params immediately (no I/O) — with validation
+            var uri = new Uri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var qAddr = query["address"];
+            if (qAddr != null && qAddr.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(qAddr))
+                destinationAddress = qAddr;
+            var qName = query["name"];
+            if (qName != null && qName.Length <= 64)
+                recipientName = qName;
+            // A link amount is digits and one point only: "?amount=1,5" is left empty, never read as 15.
+            if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
+                SetAmount(qtyAmount);
+        }
 
         // Detect wallet address type for fee estimation
         if (WalletService.IsUnlocked)

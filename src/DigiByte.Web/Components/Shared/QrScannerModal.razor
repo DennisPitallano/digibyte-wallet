@@ -374,6 +374,14 @@
             return;
         }
 
+        // On a page's own scan button, this wallet's payment link becomes the digibyte: request it carries, without
+        // its note, so every page that reads requests accepts it and no note reaches Send's on-chain memo (FR-011a).
+        if (!FromMenu && PaymentLink.TryRead(value, new Uri(Nav.BaseUri), null, out var link)
+            && (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+        {
+            value = link!.ToBip21(includeNote: false);
+        }
+
         SetStatus("scan.found_opening");
         await ClearFieldAsync();
         await StopStreamsAsync();
