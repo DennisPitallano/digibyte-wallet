@@ -179,7 +179,9 @@ public class ReceiveSearchTests
         for (var expected = 3002; expected <= 3021; expected++)
             Assert.Equal(expected, (await service.GenerateNewReceivingAddressAsync()).Index);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GenerateNewReceivingAddressAsync());
+        var ex = await Assert.ThrowsAsync<ReceiveAddressException>(() => service.GenerateNewReceivingAddressAsync());
+        Assert.Equal(ReceiveAddressFailure.TooManyUnusedPastLastPaid, ex.Reason);
+        Assert.Equal($"You have {WalletService.ReceiveGapLimit} unused addresses in a row. Use one of them first: the wallet only keeps looking {WalletService.ReceiveGapLimit} addresses past the last one that was paid.", ex.Message);
         Assert.Equal(3021, service.ActiveWallet!.NextReceivingIndex);
     }
 
@@ -191,7 +193,7 @@ public class ReceiveSearchTests
         await service.GetBalanceAsync(); // the unlock's address search has finished
         env.Storage.FailWalletInfoWrites = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GenerateNewReceivingAddressAsync());
+        await Assert.ThrowsAsync<ReceiveAddressException>(() => service.GenerateNewReceivingAddressAsync());
 
         var info = service.ActiveWallet!;
         Assert.Equal(0, info.NextReceivingIndex);
@@ -212,7 +214,7 @@ public class ReceiveSearchTests
         service.ActiveWallet!.WatchedReceiveIndexes.Add(P(4000));
         env.Storage.FailWalletInfoWrites = true;
         env.Storage.ReleaseWalletInfoWrites();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handOut);
+        await Assert.ThrowsAsync<ReceiveAddressException>(() => handOut);
 
         var watched = service.ActiveWallet!.WatchedReceiveIndexes;
         Assert.Contains(P(4000), watched);
@@ -818,7 +820,7 @@ public class ReceiveSearchTests
         var env = new Env();
         var (service, walletId) = await SeededAsync(env, i => i.WatchedReceiveIndexes = [P(3000)]);
         for (var i = 0; i < 20; i++) await service.GenerateNewReceivingAddressAsync(); // 3,001 to 3,020: the limit
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GenerateNewReceivingAddressAsync());
+        await Assert.ThrowsAsync<ReceiveAddressException>(() => service.GenerateNewReceivingAddressAsync());
 
         env.Chain.Credit(env.ReceiveAddress(3020), OneDgb);
         var reloaded = await env.ReloadAsync(walletId);
@@ -1176,8 +1178,8 @@ public class ReceiveSearchTests
         var second = service.GenerateNewReceivingAddressAsync();
         env.Storage.FailWalletInfoWrites = true;
         env.Storage.ReleaseWalletInfoWrites();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => first);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => second);
+        await Assert.ThrowsAsync<ReceiveAddressException>(() => first);
+        await Assert.ThrowsAsync<ReceiveAddressException>(() => second);
 
         var info = service.ActiveWallet!;
         Assert.Equal(39, info.NextReceivingIndex);

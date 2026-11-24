@@ -1,5 +1,14 @@
 namespace DigiByte.Web.Services;
 
+/// <summary>What a "Check for Updates" came back with. The text for each is in the locale files (<see cref="LocaleReasonKeys"/>).</summary>
+public enum UpdateCheckResult
+{
+    UpToDate,
+    Ready,
+    Downloading,
+    Failed,
+}
+
 /// <summary>
 /// When a downloaded update may be applied without asking. Applying reloads the page, which locks the wallet and
 /// discards anything half-entered, so it is only done unasked where there is nothing to interrupt.
@@ -17,12 +26,12 @@ public static class UpdateAdvice
         return p is "/unlock" or "/welcome";
     }
 
-    /// <summary>What "Check for Updates" tells the user for each answer from the page script.</summary>
-    public static string Message(string? status) => status switch
+    /// <summary>The result for each answer from the page script's <c>pwaCheckForUpdate</c>; anything unknown is up to date.</summary>
+    public static UpdateCheckResult ResultOf(string? status) => status switch
     {
-        "ready" => "Update found. Reloading…",
-        "downloading" => "Update found. Still downloading; it will be offered when ready.",
-        "failed" => "Could not check. Try again.",
-        _ => "Already up to date ✓",
+        "ready" => UpdateCheckResult.Ready,
+        "downloading" => UpdateCheckResult.Downloading,
+        "failed" => UpdateCheckResult.Failed,
+        _ => UpdateCheckResult.UpToDate,
     };
 }
