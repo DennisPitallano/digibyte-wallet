@@ -36,6 +36,37 @@ public static class PastedCode
     /// <summary>True when there is text, but more than <see cref="MaxLength"/> characters of it once cleaned.</summary>
     public static bool IsTooLong(string? raw) => Strip(raw).Length > MaxLength;
 
+    // Recovery phrases have these word counts (BIP39). A phrase still counts with a few typos in it.
+    private static readonly HashSet<int> PhraseLengths = [12, 15, 18, 21, 24];
+    private const double PhraseWordShare = 0.8;
+
+    private static readonly HashSet<string> EnglishWords =
+        new(NBitcoin.Wordlist.English.GetWords(), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True when the text looks like a recovery phrase or a private key: 12, 15, 18, 21 or 24 words with at least
+    /// 80% of them in the BIP39 English list; a WIF private key on any DigiByte network; or exactly 64 hex
+    /// characters (a raw private key). It never decides whether a secret is valid, only that it should not stay
+    /// on screen where it was not expected (FR-027).
+    /// </summary>
+    public static bool LooksSecret(string text)
+    {
+        var trimmed = (text ?? "").Trim();
+        if (trimmed.Length == 0) return false;
+
+        var words = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (PhraseLengths.Contains(words.Length))
+        {
+            var known = words.Count(EnglishWords.Contains);
+            if (known >= words.Length * PhraseWordShare) return true;
+        }
+
+        if (words.Length != 1) return false;
+        if (trimmed.Length == 64 && trimmed.All(char.IsAsciiHexDigit)) return true;
+        // A WIF key is 51 or 52 characters; anything else need not be parsed at all.
+        return trimmed.Length is 51 or 52 && DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(trimmed);
+    }
+
     private static string Strip(string? raw)
     {
         var text = (raw ?? "").Trim();

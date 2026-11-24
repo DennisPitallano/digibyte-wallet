@@ -68,7 +68,7 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 ### Tests for User Story 1 ⚠️ (write first, must fail)
 
-- [ ] T007 [P] [US1] Write failing tests for `ScanInputMode` in `tests/DigiByte.Wallet.Tests/ScanInputModeTests.cs`:
+- [X] T007 [P] [US1] Write failing tests for `ScanInputMode` in `tests/DigiByte.Wallet.Tests/ScanInputModeTests.cs`:
   - the remembered choice wins both ways;
   - `FinePointer=true` → Paste;
   - `HasCamera=false` → Paste;
@@ -77,22 +77,22 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   - fine pointer with `HasCamera=null` → Paste;
   - `ParseRemembered`: `"paste"` and `"camera"` parse, while `"PASTE"`, `""`, `null` and `"x"` give null;
   - `ToStored` round trip.
-- [ ] T008 [P] [US1] Write failing tests for `PastedCode.LooksSecret` in `tests/DigiByte.Wallet.Tests/PastedCodeTests.cs`:
+- [X] T008 [P] [US1] Write failing tests for `PastedCode.LooksSecret` in `tests/DigiByte.Wallet.Tests/PastedCodeTests.cs`:
   - true for 12-, 15-, 18-, 21- and 24-word BIP39 English phrases, and for a 12-word phrase with 2 misspelt words (≥80% rule);
   - false for 11 and 25 words, and for an ordinary 12-word English sentence;
   - true for a valid mainnet WIF, a valid testnet WIF, and exactly 64 hex characters;
   - false for a DigiByte address, a `digibyte:` URI, a multisig redeem script hex (starts `5x…`, ends `ae`, longer than 64), a base64 PSBT and a Digi-ID URI.
-- [ ] T009 [P] [US1] Extend `tests/DigiByte.Wallet.Tests/ScanRouterTests.cs` with a parity theory. For every code kind (bare address, `digibyte:` with amount, Digi-ID, `web+digiid`, room invite, sign-room invite, PSBT, redeem script, unknown text), `ScanRouter.Route(PastedCode.Clean("  \"" + code + "\"\r\n"), base, null)` must equal `ScanRouter.Route(code, base, null)` (SC-003). Also check that a pasted payment with an open shared wallet still goes to `/multisig/{id}/send`.
+- [X] T009 [P] [US1] Extend `tests/DigiByte.Wallet.Tests/ScanRouterTests.cs` with a parity theory. For every code kind (bare address, `digibyte:` with amount, Digi-ID, `web+digiid`, room invite, sign-room invite, PSBT, redeem script, unknown text), `ScanRouter.Route(PastedCode.Clean("  \"" + code + "\"\r\n"), base, null)` must equal `ScanRouter.Route(code, base, null)` (SC-003). Also check that a pasted payment with an open shared wallet still goes to `/multisig/{id}/send`.
 
 ### Implementation for User Story 1
 
-- [ ] T010 [P] [US1] Implement `ScanInputMode` in `src/DigiByte.Wallet/Services/ScanInputMode.cs`:
-  - `enum ScanMode { Paste, Camera }`;
+- [X] T010 [P] [US1] Implement `ScanInputMode` in `src/DigiByte.Wallet/Services/ScanInputMode.cs`:
+  - `enum ScanEntry { Paste, Camera }`;
   - `record DeviceFacts(bool FinePointer, bool? HasCamera, bool CanCaptureScreen, bool CanReadClipboardText, bool CanReadClipboardImages)`;
-  - `Decide(facts, remembered)`, `ParseRemembered(string?)` and `ToStored(ScanMode)`, exactly as in data-model.md.
+  - `Decide(facts, remembered)`, `ParseRemembered(string?)` and `ToStored(ScanEntry)`, exactly as in data-model.md.
 
   T007 must then pass.
-- [ ] T011 [P] [US1] Implement `PastedCode.LooksSecret(string text)` in `src/DigiByte.Wallet/Services/PastedCode.cs`:
+- [X] T011 [P] [US1] Implement `PastedCode.LooksSecret(string text)` in `src/DigiByte.Wallet/Services/PastedCode.cs`:
   - split on white space;
   - a word count in {12, 15, 18, 21, 24} with ≥80% of the words in `NBitcoin.Wordlist.English` → true;
   - `DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(text)` → true;
@@ -100,17 +100,17 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   - otherwise false.
 
   T008 must then pass.
-- [ ] T012 [P] [US1] Add `qrScanner.deviceFacts()` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`, per contracts/scanner-js.md:
+- [X] T012 [P] [US1] Add `qrScanner.deviceFacts()` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`, per contracts/scanner-js.md:
   - `finePointer` from `matchMedia('(pointer: fine)')`;
   - `hasCamera` from `enumerateDevices()` (any `videoinput` → true, an empty list → false, a throw or missing API → null);
   - `canCaptureScreen`, `canReadClipboardText` (`navigator.clipboard?.readText`) and `canReadClipboardImages` (`navigator.clipboard?.read`).
 
   It must never prompt.
-- [ ] T013 [P] [US1] Add `qrScanner.readClipboard()` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`:
+- [X] T013 [P] [US1] Add `qrScanner.readClipboard()` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`:
   - try `navigator.clipboard.read()` and take the first `text/plain` item for now (image items are handled in US3); fall back to `readText()`;
   - return `{kind:'text', text}`, `{kind:'empty'}` or `{kind:'refused'}` on any throw;
   - never log values.
-- [ ] T014 [US1] Build the Paste view in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`, per contracts/scan-panel-ui.md:
+- [X] T014 [US1] Build the Paste view in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`, per contracts/scan-panel-ui.md:
   - a labelled `<textarea>` with `autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off"`, focused on open;
   - **Paste from clipboard** calls `qrScanner.readClipboard`;
   - on `refused`, focus the field and show `scan.keyboard_hint_full`; on `empty`, show `scan.nothing_to_paste`;
@@ -118,23 +118,23 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   - an `@onpaste` that delivers text submits once the field updates;
   - Cleaned text over 8,192 characters shows `scan.too_long`, and the field is kept;
   - **Use camera** is shown only when `facts.HasCamera != false`.
-- [ ] T015 [US1] On open in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`:
+- [X] T015 [US1] On open in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`:
   - call `qrScanner.deviceFacts()`, read `localStorage["dgb-scan-mode"]` inside try/catch (as `LocalizationService` does), and set `mode = ScanInputMode.Decide(facts, ScanInputMode.ParseRemembered(stored))`;
   - start the camera only when `mode == Camera`;
   - add **Paste instead** to the Camera view;
   - write `ScanInputMode.ToStored(mode)` only when the person uses **Use camera** or **Paste instead** (FR-004).
-- [ ] T016 [US1] Secret handling in `HandOffAsync` in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`. When `FromMenu && PastedCode.LooksSecret(clean)`: clear `fieldText` at once, set status `scan.secret_cleared`, do not call `OnScanned`, and keep the panel open. In every other case, clear `fieldText` after hand-off. Also clear `fieldText` on close and on Dispose (FR-026, FR-027).
-- [ ] T017 [US1] Keyboard and focus in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`: Escape closes; Tab and Shift+Tab are trapped inside the dialog; focus returns to the element that opened it. Reuse the pattern the More sheet uses in `src/DigiByte.Web/Layout/NavMenu.razor` (`OnMoreKeyDown`). Announce `scan.found_opening` before closing on success (FR-029).
-- [ ] T018 [US1] Update `src/DigiByte.Web/Layout/NavMenu.razor`:
+- [X] T016 [US1] Secret handling in `HandOffAsync` in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`. When `FromMenu && PastedCode.LooksSecret(clean)`: clear `fieldText` at once, set status `scan.secret_cleared`, do not call `OnScanned`, and keep the panel open. In every other case, clear `fieldText` after hand-off. Also clear `fieldText` on close and on Dispose (FR-026, FR-027).
+- [X] T017 [US1] Keyboard and focus in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`: Escape closes; Tab and Shift+Tab are trapped inside the dialog; focus returns to the element that opened it. Reuse the pattern the More sheet uses in `src/DigiByte.Web/Layout/NavMenu.razor` (`OnMoreKeyDown`). Announce `scan.found_opening` before closing on success (FR-029).
+- [X] T018 [US1] Update `src/DigiByte.Web/Layout/NavMenu.razor`:
   - pass `FromMenu="true"` to `<QrScannerModal>`;
   - in `OnInitialized`, read `matchMedia('(pointer: fine)').matches` **synchronously** through `IJSInProcessRuntime` (available in Blazor WebAssembly), so the first render already shows the right label and never flashes "Scan" on a desktop;
   - after first render, read `qrScanner.deviceFacts()` and keep `ScanInputMode.Decide(facts, null)`. This only changes the label when a touch device turns out to have no camera;
   - when it is Paste, render `nav.paste_scan` and `aria-label` `nav.paste_scan.aria`; otherwise keep `nav.scan` and `nav.scan.aria` (FR-005).
 
   The label ignores the remembered choice.
-- [ ] T019 [P] [US1] Add the English text for the US1 keys to `src/DigiByte.Web/wwwroot/locales/en.json`: `scan.panel_title`, `scan.field_label`, `scan.field_placeholder`, `scan.paste_button`, `scan.keyboard_hint`, `scan.keyboard_hint_full`, `scan.use_camera`, `scan.paste_instead`, `scan.nothing_to_paste`, `scan.too_long`, `scan.secret_cleared`, `scan.found_opening`, `nav.paste_scan` and `nav.paste_scan.aria`. Extend `scan.unknown` to mention pasting. The keyboard hints use `{0}` for "Ctrl+V" or "⌘V", chosen in the component from `navigator.platform`/`userAgentData`.
-- [ ] T020 [P] [US1] Add the Spanish text for the same keys to `src/DigiByte.Web/wwwroot/locales/es.json`. Mark `scan.secret_cleared` for native-speaker review in `specs/028-spanish-language-option/translation-review.md`.
-- [ ] T021 [P] [US1] Paste panel styles in `src/DigiByte.Web/wwwroot/css/app.css`: panel card, textarea, button row and status line. Use the existing `--ui-*` tokens, in light and dark. The panel stays usable at phone width.
+- [X] T019 [P] [US1] Add the English text for the US1 keys to `src/DigiByte.Web/wwwroot/locales/en.json`: `scan.panel_title`, `scan.field_label`, `scan.field_placeholder`, `scan.paste_button`, `scan.keyboard_hint`, `scan.keyboard_hint_full`, `scan.use_camera`, `scan.paste_instead`, `scan.nothing_to_paste`, `scan.too_long`, `scan.secret_cleared`, `scan.found_opening`, `nav.paste_scan` and `nav.paste_scan.aria`. Extend `scan.unknown` to mention pasting. The keyboard hints use `{0}` for "Ctrl+V" or "⌘V", chosen in the component from `navigator.platform`/`userAgentData`.
+- [X] T020 [P] [US1] Add the Spanish text for the same keys to `src/DigiByte.Web/wwwroot/locales/es.json`. Mark `scan.secret_cleared` for native-speaker review in `specs/028-spanish-language-option/translation-review.md`.
+- [X] T021 [P] [US1] Paste panel styles in `src/DigiByte.Web/wwwroot/css/app.css`: panel card, textarea, button row and status line. Use the existing `--ui-*` tokens, in light and dark. The panel stays usable at phone width.
 
 **Checkpoint**: Quickstart Q-1 to Q-7, Q-19 and P-1, P-2 pass. The MVP can ship here.
 
@@ -146,9 +146,9 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 **Independent Test**: For each of the 10 screens, the scan button on desktop opens Paste, and a valid pasted value behaves like a scan. Quickstart Q-8.
 
-- [ ] T022 [US2] Check every non-menu caller still compiles and needs no change: `Pages/Send.razor`, `Pages/Contacts.razor`, `Pages/Identity.razor`, `Pages/MultisigImport.razor`, `Pages/MultisigPending.razor`, `Pages/MultisigPendingDetail.razor`, `Pages/MultisigSend.razor`, `Pages/MultisigSigningRoom.razor`, `Pages/RecoverWallet.razor` and `Components/DigiDollar/DigiDollarSendForm.razor` under `src/DigiByte.Web/`. Fix any handler that relied on the panel closing **before** `OnScanned` ran: `HandOffAsync` calls `OnScanned`, then `OnClosed`, as today's `OnScanResult` does.
-- [ ] T023 [US2] In `src/DigiByte.Web/Pages/RecoverWallet.razor`, confirm the pasted WIF reaches `wifInput` through `OnQrScanned`, and that the panel's field is empty on reopen (T016). Also make sure no other copy of the key is held by the panel component after close.
-- [ ] T024 [P] [US2] Update the scan-button labels in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`: `send.scan_qr` ("Scan QR"), `dd.send.scan` ("Scan QR"), `identity.scan` ("Scan Digi-ID QR Code"), `wallet.scan` and `dd.scan` ("Scan"). Find where each key is used first. Change the wording to "Paste or scan" (and "Paste or scan a Digi-ID code" for `identity.scan`) in both languages **only** for keys on a button that opens `QrScannerModal`. Keep the same keys.
+- [X] T022 [US2] Check every non-menu caller still compiles and needs no change: `Pages/Send.razor`, `Pages/Contacts.razor`, `Pages/Identity.razor`, `Pages/MultisigImport.razor`, `Pages/MultisigPending.razor`, `Pages/MultisigPendingDetail.razor`, `Pages/MultisigSend.razor`, `Pages/MultisigSigningRoom.razor`, `Pages/RecoverWallet.razor` and `Components/DigiDollar/DigiDollarSendForm.razor` under `src/DigiByte.Web/`. Fix any handler that relied on the panel closing **before** `OnScanned` ran: `HandOffAsync` calls `OnScanned`, then `OnClosed`, as today's `OnScanResult` does.
+- [X] T023 [US2] In `src/DigiByte.Web/Pages/RecoverWallet.razor`, confirm the pasted WIF reaches `wifInput` through `OnQrScanned`, and that the panel's field is empty on reopen (T016). Also make sure no other copy of the key is held by the panel component after close.
+- [X] T024 [P] [US2] Update the scan-button labels in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`: `send.scan_qr` ("Scan QR"), `dd.send.scan` ("Scan QR"), `identity.scan` ("Scan Digi-ID QR Code"), `wallet.scan` and `dd.scan` ("Scan"). Find where each key is used first. Change the wording to "Paste or scan" (and "Paste or scan a Digi-ID code" for `identity.scan`) in both languages **only** for keys on a button that opens `QrScannerModal`. Keep the same keys.
 
 **Checkpoint**: US1 and US2 together give the complete paste experience.
 

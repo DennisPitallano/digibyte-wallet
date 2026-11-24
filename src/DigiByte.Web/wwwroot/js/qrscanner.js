@@ -82,6 +82,214 @@ window.qrScanner = {
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     },
 
+    // ----- Paste panel (specs/030-desktop-paste-scan) -----
+    // Nothing here sends anything anywhere, stores anything, or logs a pasted or decoded value.
+
+    // What the browser says about this device, read without any permission prompt (contracts/scanner-js.md).
+    async deviceFacts() {
+        const finePointer = !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
+        let hasCamera = null;
+        try {
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                // Before camera permission some browsers list nothing at all; "none listed" is then "unknown".
+                hasCamera = devices.some(d => d.kind === 'videoinput') ? true : (devices.length > 0 ? false : null);
+            }
+        } catch (e) {
+            hasCamera = null;
+        }
+        const clip = navigator.clipboard;
+        return {
+            finePointer,
+            hasCamera,
+            canCaptureScreen: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+            canReadClipboardText: !!(clip && clip.readText),
+            canReadClipboardImages: !!(clip && clip.read),
+            isMac: /Mac|iPhone|iPad/.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '')
+        };
+    },
+
+    // Synchronous pointer check, so the menu's label is right on its first render.
+    finePointer() {
+        return !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
+    },
+
+    // Reads the clipboard after the person pressed "Paste from clipboard". A picture is read for a QR code here
+    // and only the decoded text is returned; picture bytes never leave this file.
+    async readClipboard() {
+        const clip = navigator.clipboard;
+        if (!clip) return { kind: 'refused' };
+        try {
+            if (clip.read) {
+                const items = await clip.read();
+                for (const item of items) {
+                    const imageType = item.types.find(t => t.startsWith('image/'));
+                    if (imageType) {
+                        const text = await this.decodeBlob(await item.getType(imageType));
+                        if (text === 'notimage' || text === 'toolarge') return { kind: text };
+                        return text ? { kind: 'code', text } : { kind: 'nocode' };
+                    }
+                }
+                for (const item of items) {
+                    if (item.types.includes('text/plain')) {
+                        const text = await (await item.getType('text/plain')).text();
+                        return text && text.trim() ? { kind: 'text', text } : { kind: 'empty' };
+                    }
+                }
+                return { kind: 'empty' };
+            }
+            if (clip.readText) {
+                const text = await clip.readText();
+                return text && text.trim() ? { kind: 'text', text } : { kind: 'empty' };
+            }
+            return { kind: 'refused' };
+        } catch (e) {
+            // Permission refused, prompt dismissed, or not allowed here: the keyboard paste still works.
+            return { kind: 'refused' };
+        }
+    },
+
+    // Wires the paste panel: Ctrl+V / ⌘V anywhere in it (text or a picture), Enter in the field, drag and drop.
+    // Text and decoded codes go to .NET; picture bytes stay here. Call detachPanel on close.
+    attachPanel(panelEl, dotnetRef) {
+        if (!panelEl || panelEl.__qrPanel) return;
+        // The panel is the whole dialog, so the field may come and go as the view changes: look it up each time.
+        const field = panelEl.querySelector('textarea');
+        const send =(method, kind, text) => dotnetRef.invokeMethodAsync(method, kind, text == null ? null : String(text));
+        const handlers = {
+            opener: document.activeElement,
+            paste: async (e) => {
+                const data = e.clipboardData;
+                if (!data) return;
+                const image = Array.prototype.find.call(data.items || [], i => i.kind === 'file' && i.type.startsWith('image/'));
+                if (image) {
+                    e.preventDefault();
+                    const file = image.getAsFile();
+                    send('OnPanelPaste', 'decoding', null);
+                    const result = await this.decodeBlob(file);
+                    if (result === 'notimage' || result === 'toolarge') send('OnPanelPaste', result, null);
+                    else send('OnPanelPaste', result ? 'code' : 'nocode', result);
+                    return;
+                }
+                const text = data.getData('text/plain');
+                // A pasted text is handled at once; it never sits in the field first (FR-008, FR-027).
+                e.preventDefault();
+                send('OnPanelPaste', text && text.trim() ? 'text' : 'empty', text);
+            },
+            keydown: (e) => {
+                if (e.target && e.target.tagName === 'TEXTAREA' && e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                    e.preventDefault();
+                    send('OnPanelPaste', 'typed', e.target.value);
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    dotnetRef.invokeMethodAsync('OnEscape');
+                }
+            },
+            dragenter: (e) => { if (this._hasFiles(e)) { e.preventDefault(); dotnetRef.invokeMethodAsync('OnDragState', true); } },
+            dragover: (e) => { if (this._hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } },
+            dragleave: (e) => { if (!panelEl.contains(e.relatedTarget)) dotnetRef.invokeMethodAsync('OnDragState', false); },
+            drop: async (e) => {
+                if (!this._hasFiles(e)) return;
+                e.preventDefault();
+                dotnetRef.invokeMethodAsync('OnDragState', false);
+                const file = e.dataTransfer.files[0];
+                send('OnPanelDrop', 'decoding', null);
+                const result = await this.decodeBlob(file);
+                if (result === 'notimage' || result === 'toolarge') send('OnPanelDrop', result, null);
+                else send('OnPanelDrop', result ? 'code' : 'nocode', result);
+            }
+        };
+        panelEl.__qrPanel = handlers;
+        panelEl.addEventListener('paste', handlers.paste);
+        panelEl.addEventListener('keydown', handlers.keydown);
+        for (const name of ['dragenter', 'dragover', 'dragleave', 'drop']) panelEl.addEventListener(name, handlers[name]);
+        if (field) field.focus();
+    },
+
+    detachPanel(panelEl) {
+        const handlers = panelEl && panelEl.__qrPanel;
+        if (!handlers) return;
+        panelEl.removeEventListener('paste', handlers.paste);
+        panelEl.removeEventListener('keydown', handlers.keydown);
+        for (const name of ['dragenter', 'dragover', 'dragleave', 'drop']) panelEl.removeEventListener(name, handlers[name]);
+        panelEl.__qrPanel = null;
+        // Focus goes back to what opened the panel, if it is still there (FR-029).
+        try { if (handlers.opener && document.contains(handlers.opener)) handlers.opener.focus(); } catch (e) { }
+    },
+
+    // Empties the field in the page itself, so a cleared secret is gone from the DOM at once.
+    clearField(panelEl) {
+        const field = panelEl && panelEl.querySelector('textarea');
+        if (field) field.value = '';
+    },
+
+    focusField(panelEl) {
+        const field = panelEl && panelEl.querySelector('textarea');
+        if (field) field.focus();
+    },
+
+    _hasFiles(e) {
+        return !!(e.dataTransfer && Array.prototype.includes.call(e.dataTransfer.types || [], 'Files'));
+    },
+
+    // Largest picture accepted for reading, the same limit Upload image has always had.
+    MAX_IMAGE_BYTES: 10 * 1024 * 1024,
+
+    // Scales (w, h) down so the longer side is at most max, keeping the shape. Pure; covered by qrscanner.test.mjs.
+    _fitWithin(w, h, max) {
+        if (!(w > 0) || !(h > 0) || !(max > 0)) return { w: 0, h: 0 };
+        const longer = Math.max(w, h);
+        if (longer <= max) return { w, h };
+        const scale = max / longer;
+        return { w: Math.round(w * scale), h: Math.round(h * scale) };
+    },
+
+    async _ensureJsQr() {
+        if (window.jsQR) return;
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'js/jsqr.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    },
+
+    // Reads a QR code from a picture (pasted, dropped or chosen). Returns the text, null when there is no code,
+    // or 'notimage' / 'toolarge' when the file is refused before reading.
+    async decodeBlob(blob) {
+        if (!blob || !blob.type || !blob.type.startsWith('image/')) return 'notimage';
+        if (blob.size > this.MAX_IMAGE_BYTES) return 'toolarge';
+        await this._ensureJsQr();
+        let bitmap;
+        try {
+            bitmap = await createImageBitmap(blob);
+        } catch (e) {
+            return null;
+        }
+        const size = this._fitWithin(bitmap.width, bitmap.height, 2048);
+        const canvas = document.createElement('canvas');
+        canvas.width = size.w;
+        canvas.height = size.h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(bitmap, 0, 0, size.w, size.h);
+        if (bitmap.close) bitmap.close();
+        const imageData = ctx.getImageData(0, 0, size.w, size.h);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+        return code && code.data ? code.data : null;
+    },
+
+    // Reads the file chosen in an <input type=file> without sending its bytes through .NET.
+    async decodeInputFile(inputEl) {
+        const file = inputEl && inputEl.files && inputEl.files[0];
+        if (!file) return null;
+        try {
+            return await this.decodeBlob(file);
+        } finally {
+            inputEl.value = '';   // choosing the same file again fires a change again
+        }
+    },
+
     async decodeImage(imageDataUrl) {
         // Load jsQR if not loaded yet (self-hosted)
         if (!window.jsQR) {

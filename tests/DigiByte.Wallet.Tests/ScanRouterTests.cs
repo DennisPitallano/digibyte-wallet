@@ -1,4 +1,5 @@
 using DigiByte.Crypto.Networks;
+using DigiByte.Wallet.Services;
 using DigiByte.Web.Layout;
 using DigiByte.Web.Services;
 using NBitcoin;
@@ -222,6 +223,53 @@ public class ScanRouterTests
 
         Assert.Equal(ScanTarget.Unknown, route.Kind);
         Assert.Null(route.Url);
+    }
+
+    // ----- Pasted text routes exactly like scanned text (specs/030-desktop-paste-scan, FR-010, SC-003) -----
+
+    public static TheoryData<string> EveryKindOfCode()
+    {
+        var script = "5221" + new string('a', 66) + "21" + new string('b', 66) + "52ae";
+        return new TheoryData<string>
+        {
+            Address,
+            LegacyAddress,
+            $"digibyte:{Address}?amount=12.5",
+            "digiid://example.com/callback?x=abc123",
+            "web+digiid://example.com/callback?x=abc123",
+            "https://dgbwallet.app/multisig/room?code=ab12cd",
+            "https://dgbwallet.app/multisig/sign-room?code=XY98ZT",
+            "cHNidP8BAHECAAAAAbcd",
+            script,
+            "hello world",
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryKindOfCode))]
+    public void Pasted_text_with_quotes_and_line_breaks_routes_like_the_scanned_code(string code)
+    {
+        var pasted = PastedCode.Clean("  \"" + code + "\"\r\n");
+
+        Assert.Equal(ScanRouter.Route(code, App), ScanRouter.Route(pasted, App));
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryKindOfCode))]
+    public void Pasted_text_routes_like_the_scanned_code_inside_a_shared_wallet_too(string code)
+    {
+        var pasted = PastedCode.Clean("\t'" + code + "'  ");
+
+        Assert.Equal(ScanRouter.Route(code, App, "ms1"), ScanRouter.Route(pasted, App, "ms1"));
+    }
+
+    [Fact]
+    public void A_pasted_payment_inside_a_shared_wallet_starts_a_payment_from_that_wallet()
+    {
+        var route = ScanRouter.Route(PastedCode.Clean(" \"" + Address + "\" "), App, "ms1");
+
+        Assert.Equal(ScanTarget.Payment, route.Kind);
+        Assert.Equal("/multisig/ms1/send?address=" + Address, route.Url);
     }
 }
 

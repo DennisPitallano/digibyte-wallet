@@ -60,7 +60,7 @@ Tests cover the round trip `Create` → `TryRead`, each R7 failure on its own, a
 ## ScanInputMode (`DigiByte.Wallet/Services/ScanInputMode.cs`)
 
 ```text
-enum ScanMode { Paste, Camera }
+enum ScanEntry { Paste, Camera }
 
 record DeviceFacts(
   bool  FinePointer,
@@ -69,14 +69,14 @@ record DeviceFacts(
   bool  CanReadClipboardText,
   bool  CanReadClipboardImages)
 
-static ScanMode Decide(DeviceFacts facts, ScanMode? remembered)
+static ScanEntry Decide(DeviceFacts facts, ScanEntry? remembered)
   remembered is not null                → remembered
   facts.FinePointer                     → Paste
   facts.HasCamera == false              → Paste
   otherwise                             → Camera
 
-static ScanMode? ParseRemembered(string? stored)   // "paste" | "camera" | anything else → null
-static string    ToStored(ScanMode mode)           // "paste" | "camera"
+static ScanEntry? ParseRemembered(string? stored)   // "paste" | "camera" | anything else → null
+static string    ToStored(ScanEntry mode)           // "paste" | "camera"
 ```
 
 **Stored value**: `localStorage["dgb-scan-mode"]`, written only when the person switches views with the panel's own **Use camera** or **Paste instead** control (FR-004). Read and write go through `try`/`catch`, as `LocalizationService` does. When storage is blocked, the device rule applies every time.
