@@ -19,6 +19,7 @@
             </div>
 
             <RecipientInput @ref="inputs[index]" Address="@row.Address" Label="@L.T("send.recipient")" InputId="@($"ms-recipient-{index}")"
+                            InputAriaLabel="@L.T("send.batch.recipient_n", index + 1)"
                             Error="@row.AddressError" AddressChanged="v => OnAddressAsync(row, v)"
                             OnPaymentLink="link => OnPaymentLinkAsync(row, link)" OnScanRequested="() => OnScanRequested.InvokeAsync(index)" />
 
@@ -27,11 +28,16 @@
                 <div class="flex items-center bg-white dark:bg-dgb-900 border rounded-xl focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all @(string.IsNullOrEmpty(row.AmountError) ? "border-slate-200 dark:border-dgb-800 focus-within:border-dgb-500" : "border-red-400")">
                     <input id="@($"ms-amount-{index}")" type="text" inputmode="decimal" value="@row.AmountText" placeholder="0.00" autocomplete="off"
                            aria-invalid="@(!string.IsNullOrEmpty(row.AmountError))" @oninput="e => OnAmountAsync(row, e)"
+                           aria-label="@($"{L.T("send.batch.recipient_n", index + 1)} · {L.T("send.amount")}")"
                            class="flex-1 min-w-0 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
                     <span class="flex items-center mr-2 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-dgb-800">
                         <span class="text-sm font-bold text-dgb-500">DGB</span>
                     </span>
                 </div>
+                @if (row.Ambiguity is { Kind: AmountEntryKind.Ambiguous } ambiguous)
+                {
+                    <AmountAmbiguityChoice AsDecimal="ambiguous.AsDecimal!.Value" AsThousands="ambiguous.AsThousands!.Value" OnPicked="v => OnPickedAsync(row, v)" />
+                }
                 @if (!string.IsNullOrEmpty(row.AmountError)) { <InlineError Message="@row.AmountError" /> }
             </div>
         </div>
@@ -52,6 +58,12 @@
         public string AmountText { get; set; } = "";
         public string? AddressError { get; set; }
         public string? AmountError { get; set; }
+
+        /// <summary>An amount already settled for <see cref="AmountText"/>: filled in from a link, or picked after "which did you mean".</summary>
+        public (string Text, decimal Value)? Pick { get; set; }
+
+        /// <summary>Set by the page when <see cref="AmountText"/> could mean two amounts ("1.234").</summary>
+        public AmountEntryResult? Ambiguity { get; set; }
     }
 
     public const int MinRows = 2;
@@ -84,13 +96,23 @@
     private Task OnPaymentLinkAsync(Row row, ScanResult link)
     {
         if (link.AmountDgb is { } amount && amount > 0)
+        {
             row.AmountText = amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+            row.Pick = (row.AmountText, amount);   // a link's amount has its own format and never asks
+        }
         return RowsChanged.InvokeAsync();
     }
 
     private Task OnAmountAsync(Row row, ChangeEventArgs e)
     {
         row.AmountText = e.Value?.ToString() ?? "";
+        row.Pick = null;
+        return RowsChanged.InvokeAsync();
+    }
+
+    private Task OnPickedAsync(Row row, decimal value)
+    {
+        row.Pick = (row.AmountText, value);
         return RowsChanged.InvokeAsync();
     }
 

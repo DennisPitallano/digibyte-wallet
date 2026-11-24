@@ -73,6 +73,13 @@ else
                 {
                     <p class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.available", (Spendable / 100_000_000m).ToString("N4")) · @L.T("send.minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m)</p>
                 }
+                @if (dgbPrice > 0 && estimate is { Ok: true, AmountSatoshis: > 0 })
+                {
+                    <p class="text-xs text-slate-400 dark:text-slate-500" data-testid="batch-fiat">
+                        ~ @AppState.FiatSymbol@((estimate.AmountSatoshis / 100_000_000m * dgbPrice).ToString("N" + AppState.FiatDecimals)) @AppState.FiatCurrency
+                        <span class="italic ml-1">@L.T("send.estimate_note")</span>
+                    </p>
+                }
                 @if (!string.IsNullOrEmpty(batchError)) { <InlineError Message="@batchError" /> }
             }
             else
@@ -131,6 +138,10 @@ else
                     </p>
                 }
                 <p class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m)</p>
+                @if (amountAmbiguity is { Kind: AmountEntryKind.Ambiguous } ambiguous)
+                {
+                    <AmountAmbiguityChoice AsDecimal="ambiguous.AsDecimal!.Value" AsThousands="ambiguous.AsThousands!.Value" OnPicked="PickAmount" />
+                }
                 @if (!string.IsNullOrEmpty(amountError)) { <InlineError Message="@amountError" /> }
             </div>
             }
@@ -432,6 +443,8 @@ else
 
     private string destination = "";
     private string amountText = "";
+    private (string Text, decimal Value)? amountPick;
+    private AmountEntryResult? amountAmbiguity;
     private string? memo;
     private bool useMax;
     private decimal? shareUsed;
@@ -515,7 +528,7 @@ else
         {
             useMax = false;
             shareUsed = null;
-            amountText = amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+            SetAmountText(amount);
         }
         return true;
     }
@@ -615,7 +628,7 @@ else
         {
             useMax = false;
             shareUsed = null;
-            amountText = amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+            SetAmountText(amount);
         }
         if (!string.IsNullOrWhiteSpace(link.Label) && string.IsNullOrWhiteSpace(memo))
             memo = link.Label;
@@ -628,6 +641,7 @@ else
         useMax = false;
         shareUsed = null;
         amountText = e.Value?.ToString() ?? "";
+        amountPick = null;
         Recalculate();
     }
 
@@ -673,7 +687,7 @@ else
         var memoBytes = string.IsNullOrWhiteSpace(memo) ? 0 : System.Text.Encoding.UTF8.GetByteCount(memo);
         var max = MultisigSendHelper.EstimateSend(utxos ?? [], feeRate, 0, config!.RequiredSignatures, config.TotalSigners, config.AddressType, memoBytes, max: true);
         var sats = (long)Math.Floor(max.MaxSendableSatoshis * share);
-        amountText = (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+        SetAmountText(sats / 100_000_000m);
         Recalculate();
     }
 
@@ -690,6 +704,7 @@ else
         destinationError = destCheck is { Ok: false } ? DestinationMessage(destCheck) : null;
 
         amountError = null;
+        amountAmbiguity = null;
         estimate = null;
         if (config is null || utxos is null) return;
 
@@ -698,7 +713,7 @@ else
         if (!useMax)
         {
             if (string.IsNullOrWhiteSpace(amountText)) return;
-            if (!TryParseAmount(amountText, out amountSat, out var parseError))
+            if (!ReadAmount(amountText, amountPick, out amountSat, out amountAmbiguity, out var parseError))
             {
                 amountError = parseError;
                 return;
@@ -709,7 +724,7 @@ else
         if (!estimate.Ok)
             amountError = EstimateMessage(estimate);
         else if (useMax)
-            amountText = (estimate.AmountSatoshis / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+            SetAmountText(estimate.AmountSatoshis / 100_000_000m);
     }
 
     // Checks every row (ValidateRecipients), then estimates the whole payment once every row is fine. A row's message
@@ -725,8 +740,13 @@ else
         {
             var row = rows[i];
             long sats = 0;
-            if (!string.IsNullOrWhiteSpace(row.AmountText) && !TryParseAmount(row.AmountText, out sats, out parseErrors[i]))
+            row.Ambiguity = null;
+            if (!string.IsNullOrWhiteSpace(row.AmountText)
+                && !ReadAmount(row.AmountText, row.Pick, out sats, out var ambiguity, out parseErrors[i]))
+            {
                 sats = 0;
+                row.Ambiguity = ambiguity;
+            }
             batchAmounts.Add(sats);
         }
 
@@ -749,11 +769,11 @@ else
                 _ => null,
             } : null;
             // The amount is checked on its own, so a row with an address problem still says when its amount is too small.
-            row.AmountError = parseErrors[i] ?? (!hasAmount ? null
+            row.AmountError = row.Ambiguity is not null ? null : parseErrors[i] ?? (!hasAmount ? null
                 : batchAmounts[i] <= 0 ? L.T("ms.send.error.no_amount")
                 : batchAmounts[i] < MultisigSendHelper.DustThresholdSatoshis ? L.T("ms.send.error.below_minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m)
                 : null);
-            if (problem is not null || parseErrors[i] is not null) allOk = false;
+            if (problem is not null || parseErrors[i] is not null || row.Ambiguity is not null) allOk = false;
         }
         batchRowsOk = allOk;
 
@@ -767,22 +787,49 @@ else
                 : EstimateMessage(estimate);
     }
 
-    private bool TryParseAmount(string text, out long satoshis, out string? error)
+    private const decimal AmountMaxDgb = 21_000_000_000m;
+
+    // Typed amounts are read like the main Send page's (spec 028, AmountEntry): a comma or a point is the decimal mark, and
+    // "1.234" asks which was meant. A value the page filled in itself (a link, a share, Max), or one the person picked
+    // after the question, is kept as long as the text is unchanged.
+    private bool ReadAmount(string text, (string Text, decimal Value)? pick, out long satoshis, out AmountEntryResult? ambiguity, out string? error)
     {
         satoshis = 0;
+        ambiguity = null;
         error = null;
-        if (!decimal.TryParse(text.Trim(), System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var dgb) || dgb < 0)
+        if (pick is { } p && p.Text == text)
         {
-            error = L.T("ms.send.error.amount_invalid");
-            return false;
+            satoshis = (long)(p.Value * 100_000_000m);
+            return true;
         }
-        if (decimal.Round(dgb, 8) != dgb)
+
+        var result = AmountEntry.Parse(text, 8, AmountMaxDgb);
+        switch (result.Kind)
         {
-            error = L.T("ms.send.error.amount_decimals");
-            return false;
+            case AmountEntryKind.Value:
+                satoshis = (long)(result.Amount!.Value * 100_000_000m);
+                return true;
+            case AmountEntryKind.Ambiguous:
+                ambiguity = result;
+                return false;
+            case AmountEntryKind.Invalid:
+                error = AmountEntryText.Error(L, result, 8, AmountMaxDgb);
+                return false;
+            default:
+                return true;
         }
-        satoshis = (long)(dgb * 100_000_000m);
-        return true;
+    }
+
+    private void SetAmountText(decimal dgb)
+    {
+        amountText = dgb.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+        amountPick = (amountText, dgb);
+    }
+
+    private void PickAmount(decimal value)
+    {
+        amountPick = (amountText, value);
+        Recalculate();
     }
 
     // The helper's reasons, worded in the chosen language (its Error text stays English for logs and exceptions).
