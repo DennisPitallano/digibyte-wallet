@@ -353,6 +353,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Opened while locked (a reload, a link): <AuthGuard> sends the person to unlock. Asking for an address now
+        // would throw and show the error page instead.
+        if (!WalletService.IsUnlocked) return;
         AppState.ResetLockTimer();
         isWifWallet = WalletService.ActiveWallet?.WalletType == "privatekey";
         // Default to segwit for HD wallets, legacy for WIF

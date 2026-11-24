@@ -17,6 +17,8 @@ All notable changes to the DigiByte Wallet project.
 - **"Your addresses" on Receive lists the addresses the wallet checks** — After a far-off find it shows the first addresses, the found ones and those handed out since, not thousands of entries in between. For a wallet that has not used the search the list is unchanged.
 
 ### Fixed
+- **Opening Receive while the wallet is locked goes to unlock** — Opening Receive directly (a reload, a link) while locked showed "Something went wrong"; it now asks for the PIN first.
+- **The last English bits on the main screens are in Spanish too** — The Getting started card on Home, the error page, the browser's error bar, and the names of new wallets ("Mi billetera", "Billetera importada" in Spanish). Send's amount hint and its fiat estimate now use the language's decimal mark ("0,00"), and the "which did you mean" question reads "¿Cuál quisiste decir?".
 - **"12,5" typed on Send no longer sends 125 DGB** — The Send amount (single and batch) and the spending limits read a comma as a thousands mark, so "12,5" became 125. A comma is now a decimal mark there.
 - **Payment links from a Spanish browser are readable by other wallets** — The amount in a payment link or QR code followed the browser's number style, so a Spanish browser wrote `amount=1,50000000`. Links now always use a point.
 - **A payment link with a comma no longer fills in ten times the amount** — Opening or scanning a link with `amount=1,5` filled in 15 DGB. Such an amount is not valid in a payment link; it is now left empty for you to type.

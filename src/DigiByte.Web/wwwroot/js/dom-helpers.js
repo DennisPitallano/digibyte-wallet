@@ -165,3 +165,20 @@ window.domHelpers = {
         }
     }
 };
+
+// The Blazor error bar (#blazor-error-ui in index.html) is static HTML, shown before or without the app's
+// translations. Relabel it in the wallet's language (spec 028): the saved choice, else the browser's language.
+(function () {
+    var text = { es: { message: 'Se produjo un error inesperado.', reload: 'Recargar', dismiss: 'Cerrar' } };
+    var lang = null;
+    try { lang = localStorage.getItem('dgb-locale'); } catch (e) { /* storage blocked */ }
+    if (!lang) { try { lang = (navigator.language || '').split('-')[0].toLowerCase(); } catch (e) { lang = ''; } }
+    var t = text[lang];
+    var bar = document.getElementById('blazor-error-ui');
+    if (!t || !bar) return;
+    var reload = bar.querySelector('.reload');
+    var dismiss = bar.querySelector('.dismiss');
+    if (bar.firstChild && bar.firstChild.nodeType === Node.TEXT_NODE) bar.firstChild.textContent = '\n        ' + t.message + '\n        ';
+    if (reload) reload.textContent = t.reload;
+    if (dismiss) dismiss.setAttribute('aria-label', t.dismiss);
+})();

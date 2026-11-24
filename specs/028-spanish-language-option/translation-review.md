@@ -14,7 +14,8 @@ How to review:
 | identity.addrWarning.body | This is an identity address, used only to sign in to this site. The wallet does not watch it, so any funds sent here will not show in your balance. Never use it to receive payments. | Esta es una dirección de identidad, usada solo para iniciar sesión en este sitio. La cartera no la vigila, así que los fondos enviados aquí no aparecerán en tu saldo. Nunca la uses para recibir pagos. | | |
 | identity.addrWarning.link | Sent funds here by mistake? Recover them | ¿Enviaste fondos aquí por error? Recupéralos | | |
 | amount.ambiguous.choice | {0} DGB | {0} DGB | | |
-| amount.ambiguous.question | Did you mean: | ¿Quisiste decir: | | |
+| amount.ambiguous.question | Which did you mean? | ¿Cuál quisiste decir? | | |
+| error.body | An unexpected error occurred. Your wallet data is safe. | Se produjo un error inesperado. Los datos de tu billetera están a salvo. | | |
 | backup.never_share | {0} these words with anyone. Anyone with this phrase can steal your funds. | {0} estas palabras con nadie. Cualquiera que tenga esta frase puede robar tus fondos. | | |
 | backup.never_share_lead | Never share | Nunca compartas | | |
 | backup.no_wallet | No wallet found | No se encontró ninguna billetera | | |
