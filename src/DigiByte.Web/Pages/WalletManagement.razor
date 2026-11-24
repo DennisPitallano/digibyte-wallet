@@ -3,17 +3,18 @@
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject MemoryCacheService Cache
+@inject LocalizationService L
 
-<PageTitle>Manage Wallets — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("wallets.page_title")</PageTitle>
 
 <AuthGuard>
     <div class="flex flex-col gap-4">
         <div class="flex items-center gap-3">
             <button type="button" class="back-btn back-btn-icon"
-                    @onclick="GoToSettings" aria-label="Back">
+                    @onclick="GoToSettings" aria-label="@L.T("nav.back")">
                 <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             </button>
-            <h2 class="page-title">Manage Wallets</h2>
+            <h2 class="page-title">@L.T("wallets.title")</h2>
             <span class="text-xs font-semibold text-slate-400 dark:text-slate-500">@wallets.Count / 10</span>
         </div>
 
@@ -55,18 +56,18 @@
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
                                 @if (isActive)
                                 {
-                                    <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-900/40 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Active</span>
+                                    <span class="text-[11px] font-bold text-dgb-600 dark:text-dgb-400 bg-dgb-100 dark:bg-dgb-900/40 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">@L.T("wallets.badge.active")</span>
                                 }
                                 @if (wallet.WalletType == "xpub")
                                 {
-                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
+                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">@L.T("wallets.badge.watch")</span>
                                 }
                                 else if (wallet.WalletType == "privatekey")
                                 {
                                     <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
                                 }
                             </div>
-                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Created @wallet.CreatedAt.ToString("MMM d, yyyy")</p>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">@L.T("wallets.created", wallet.CreatedAt.ToString(L.T("history.format.month_day_year"), System.Globalization.CultureInfo.CurrentCulture))</p>
                         </div>
                     </div>
 
@@ -74,10 +75,10 @@
                     <div class="flex gap-2">
                         <button class="btn-secondary btn-sm flex-1"
                                 @onclick="() => StartRename(wallet)">
-                            Rename
+                            @L.T("wallets.rename")
                         </button>
                         <button class="btn-secondary btn-sm"
-                                title="Color and texture" aria-label="Change color and texture"
+                                title="@L.T("wallets.look.button_title")" aria-label="@L.T("wallets.look.button_aria", wallet.Name)"
                                 @onclick="() => StartColorPick(wallet)">
                             <span class="w-3.5 h-3.5 rounded-full inline-block align-middle" style="background-color: @wColor;"></span>
                         </button>
@@ -85,11 +86,11 @@
                         {
                             <button class="flex-1 py-2 text-xs font-semibold rounded-xl bg-amber-50 dark:bg-amber-900/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors press-effect"
                                     @onclick="() => GoToBackupSeed(wallet.Id)">
-                                Backup
+                                @L.T("wallets.backup")
                             </button>
                         }
                         <button class="py-2 px-3 text-xs font-semibold rounded-xl bg-red-50 dark:bg-red-900/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors press-effect"
-                                @onclick="() => StartDelete(wallet)">
+                                @onclick="() => StartDelete(wallet)" title="@L.T("wallets.delete.button")" aria-label="@L.T("wallets.delete.button_aria", wallet.Name)">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                             </svg>
@@ -107,12 +108,12 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
-                Add New Wallet
+                @L.T("wallets.add")
             </button>
         }
         else
         {
-            <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-2">Maximum of 10 wallets reached</p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-2">@L.T("wallets.max_reached", 10)</p>
         }
     </div>
 
@@ -122,14 +123,14 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="CancelRename">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
                  @onclick:stopPropagation="true">
-                <h3 class="block-title block-title-sm">Rename Wallet</h3>
-                <input type="text" @bind="renameInput" maxlength="30" placeholder="Wallet name"
+                <h3 class="block-title block-title-sm">@L.T("wallets.rename.title")</h3>
+                <input type="text" @bind="renameInput" maxlength="30" placeholder="@L.T("wallets.rename.placeholder")"
                        class="input" />
                 <div class="flex gap-2">
                     <button class="btn-secondary btn-sm flex-1"
-                            @onclick="CancelRename">Cancel</button>
+                            @onclick="CancelRename">@L.T("common.cancel")</button>
                     <button class="btn-primary btn-sm flex-1"
-                            @onclick="ConfirmRename" disabled="@string.IsNullOrWhiteSpace(renameInput)">Save</button>
+                            @onclick="ConfirmRename" disabled="@string.IsNullOrWhiteSpace(renameInput)">@L.T("wallets.save")</button>
                 </div>
             </div>
         </div>
@@ -141,8 +142,9 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="CancelColorPick">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
                  @onclick:stopPropagation="true">
-                <h3 class="block-title block-title-sm">Wallet Look</h3>
-                <p class="text-[11px] text-slate-400 dark:text-slate-500">Choose a color and texture for <strong>@colorWallet.Name</strong></p>
+                <h3 class="block-title block-title-sm">@L.T("wallets.look.title")</h3>
+                @{ var (lookBefore, lookAfter) = Around("wallets.look.choose"); }
+                <p class="text-[11px] text-slate-400 dark:text-slate-500">@lookBefore<strong>@colorWallet.Name</strong>@lookAfter</p>
                 <div class="flex flex-wrap gap-3 justify-center">
                     @foreach (var c in WalletInfo.ColorPalette)
                     {
@@ -160,7 +162,7 @@
                     }
                 </div>
                 @* Texture: each swatch previews the finish on the chosen color. *@
-                <div class="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Wallet texture">
+                <div class="grid grid-cols-5 gap-2" role="radiogroup" aria-label="@L.T("wallets.look.texture_aria")">
                     @foreach (var t in WalletInfo.TexturePalette)
                     {
                         var selected = t == selectedTexture;
@@ -170,15 +172,15 @@
                                   style="background: linear-gradient(135deg, @selectedColor, color-mix(in srgb, @selectedColor 70%, #000));">
                                 <span class="wallet-tex wallet-tex-swatch wallet-tex-@t" style="--wc: @selectedColor;" aria-hidden="true"></span>
                             </span>
-                            <span class="text-[11px] font-semibold capitalize @(selected ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500 dark:text-slate-400")">@t</span>
+                            <span class="text-[11px] font-semibold capitalize @(selected ? "text-dgb-600 dark:text-dgb-400" : "text-slate-500 dark:text-slate-400")">@TextureName(t)</span>
                         </button>
                     }
                 </div>
                 <div class="flex gap-2">
                     <button class="btn-secondary btn-sm flex-1"
-                            @onclick="CancelColorPick">Cancel</button>
+                            @onclick="CancelColorPick">@L.T("common.cancel")</button>
                     <button class="btn-primary btn-sm flex-1"
-                            @onclick="ConfirmColorPick">Save</button>
+                            @onclick="ConfirmColorPick">@L.T("wallets.save")</button>
                 </div>
             </div>
         </div>
@@ -190,15 +192,16 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="CancelDelete">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
                  @onclick:stopPropagation="true">
-                <h3 class="text-sm font-bold text-red-600 dark:text-red-400">Delete Wallet</h3>
+                <h3 class="text-sm font-bold text-red-600 dark:text-red-400">@L.T("wallets.delete.title")</h3>
                 <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-3">
                     <p class="text-xs text-red-600 dark:text-red-400 leading-relaxed">
-                        This will permanently delete <strong>@deleteWallet.Name</strong> and all its data.
-                        Make sure you have backed up your recovery phrase.
+                        @{ var (deleteBefore, deleteAfter) = Around("wallets.delete.warning"); }
+                        @deleteBefore<strong>@deleteWallet.Name</strong>@deleteAfter
+                        @L.T("wallets.delete.backup_reminder")
                     </p>
                 </div>
                 <div>
-                    <p class="text-[11px] text-slate-400 mb-1.5">Type the wallet name to confirm:</p>
+                    <p class="text-[11px] text-slate-400 mb-1.5">@L.T("wallets.delete.type_name")</p>
                     <input type="text" @bind="deleteConfirmInput" placeholder="@deleteWallet.Name"
                            class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-red-300 dark:border-red-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none text-center" />
                 </div>
@@ -208,10 +211,10 @@
                 }
                 <div class="flex gap-2">
                     <button class="btn-secondary btn-sm flex-1"
-                            @onclick="CancelDelete">Cancel</button>
+                            @onclick="CancelDelete">@L.T("common.cancel")</button>
                     <button class="btn-danger btn-sm flex-1"
                             @onclick="ConfirmDelete"
-                            disabled="@(deleteConfirmInput != deleteWallet.Name)">Delete</button>
+                            disabled="@(deleteConfirmInput != deleteWallet.Name)">@L.T("wallets.delete.confirm")</button>
                 </div>
             </div>
         </div>
@@ -219,7 +222,27 @@
 </AuthGuard>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private List<WalletInfo> wallets = [];
+
+    /// <summary>The text before and after "{0}" in a translation, so a name can sit in bold where the language puts it.</summary>
+    private (string Before, string After) Around(string key)
+    {
+        var text = L.T(key);
+        var at = text.IndexOf("{0}", StringComparison.Ordinal);
+        return at < 0 ? (text, "") : (text[..at], text[(at + 3)..]);
+    }
+
+    private string TextureName(string texture) => texture switch
+    {
+        "smooth" => L.T("wallets.texture.smooth"),
+        "leather" => L.T("wallets.texture.leather"),
+        "cotton" => L.T("wallets.texture.cotton"),
+        "plastic" => L.T("wallets.texture.plastic"),
+        "metal" => L.T("wallets.texture.metal"),
+        _ => texture,
+    };
 
     // Rename state
     private WalletInfo? renameWallet;
