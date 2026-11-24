@@ -170,3 +170,11 @@ The service sets the default thread culture on purpose. In tests that leaked int
 - **Measured**: production (`dgbwallet.app`) serves `locales/*.json` gzip-compressed (`Content-Encoding: gzip`, 7,790 bytes for today's `en.json`), with `Cache-Control: no-cache`, and the service worker caches them for offline use.
 - **With this feature**: `en.json` is 52.7 KB gzipped (was 7.8 KB) and `es.json` 56.6 KB. `Program.cs` awaits `LocalizationService.InitializeAsync()` before the app starts, and it always loads English as the fallback. So a first visit downloads about 53 KB more before the first screen in English, and about 110 KB more in Spanish. The plan's target (the language file in under 1 s on 3G, quickstart §6 row 6 "under ~60 KB") holds for each file on its own, not for the two together.
 - **Open decision (T061)**: accept it (cached after the first visit), or stop blocking startup on the English fallback (load it after the first render, or only when a Spanish key is missing), or split the files per screen. No change made yet.
+
+### R17. Browser check with a throwaway testnet wallet (2026-11-25)
+
+Created, used and deleted a testnet wallet in Spanish at 375 px: create (phrase, word check, PIN with Spanish screen-reader labels), unlock, biometric offer, Home, Receive (request "1.234" asks, the pick shows "1.234 DGB"), Send ("1.234" asks, "12,5" reads as 12.5, "1.234,5" is refused), History, Contacts, multisig list/create/guide, Digi-ID, Help, wallet management, recovery tools, delete with PIN. No horizontal scroll; `lang` was `es`; dates "24 nov 2026".
+
+Gaps found and fixed on `fix/spanish-gaps`: the Getting started card (now scanned), the error page in `App.razor` (now scanned), the static `#blazor-error-ui` bar (relabelled by `dom-helpers.js`), default wallet names saved in English, "¿Quisiste decir:" without its closing mark, Send's "0.00" placeholder and hand-built "$0.00" fiat zero, and Receive opened while locked throwing instead of letting `<AuthGuard>` redirect. Also fixed a development-only reload loop: the dev `service-worker.js` ignored SKIP_WAITING, so an update waiting after a rebuild was applied on every load and the 4-second fallback reloaded the page again.
+
+Not covered (need funds or a real multisig): the send confirmation, the slider, the success screen, pending multisig payments and the signing rooms.

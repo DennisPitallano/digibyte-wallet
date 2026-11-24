@@ -153,7 +153,7 @@ else
                     }
                     <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-100 dark:border-dgb-800 rounded-lg">
                         <input type="text" inputmode="decimal" autocomplete="off" value="@r.AmountText" @oninput="(e) => OnBatchAmountChanged(index, e)"
-                               placeholder="0.00" aria-invalid="@(r.Entry is { Kind: AmountEntryKind.Invalid } ? "true" : "false")"
+                               placeholder="@AmountPlaceholder" aria-invalid="@(r.Entry is { Kind: AmountEntryKind.Invalid } ? "true" : "false")"
                                class="flex-1 px-3 py-2 bg-transparent text-xs text-slate-900 dark:text-white outline-none" />
                         <span class="text-xs font-bold text-dgb-500 pr-3">DGB</span>
                     </div>
@@ -324,7 +324,7 @@ else
         </div>
         <div class="flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all @(isFormDisabled ? "opacity-50" : "")">
             @* Text, not a number field: a number field drops or rewrites a comma depending on the browser (spec 028). *@
-            <input type="text" inputmode="decimal" autocomplete="off" value="@amountText" @oninput="OnAmountInput" placeholder="0.00"
+            <input type="text" inputmode="decimal" autocomplete="off" value="@amountText" @oninput="OnAmountInput" placeholder="@AmountPlaceholder"
                    aria-invalid="@(amountEntry is { Kind: AmountEntryKind.Invalid } ? "true" : "false")"
                    disabled="@isFormDisabled"
                    class="flex-1 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none disabled:cursor-not-allowed" />
@@ -855,6 +855,8 @@ else
     private (string Text, decimal Value)? amountPick;
     private AmountEntryResult? amountEntry;
     private int AmountDecimals => isAmountInFiat ? 2 : 8;
+    /// <summary>"0.00" or "0,00": the chosen language's decimal mark, like the amounts the wallet writes.</summary>
+    private static string AmountPlaceholder => 0m.ToString("0.00", System.Globalization.CultureInfo.CurrentCulture);
     private decimal AmountMax => isAmountInFiat ? 1_000_000_000_000m : AmountMaxDgb;
 
     private void OnAmountInput(ChangeEventArgs e)
@@ -910,7 +912,7 @@ else
     private string FormatFiat(decimal value)
     {
         var decimals = AppState.FiatDecimals; // 0 for yen, rupiah, shillings and similar
-        if (value == 0) return decimals == 0 ? "0" : "0." + new string('0', decimals);
+        if (value == 0) return 0m.ToString("N" + decimals); // "0,00" in Spanish, never a hand-built "0.00"
         var abs = Math.Abs(value);
         if (abs >= 1m) return value.ToString("N" + decimals);
         if (abs >= 0.01m) return value.ToString("N4");

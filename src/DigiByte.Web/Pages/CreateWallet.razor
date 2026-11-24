@@ -381,7 +381,7 @@
         await Task.Yield();
         try
         {
-            var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
+            var name = isAddWalletMode ? walletName.Trim() : L.T("wallet.default_name"); // saved in the chosen language (spec 028)
             var color = isAddWalletMode ? walletColor : null;
             WalletService.SetNetworkMode(AppState.NetworkMode);
             var created = await WalletService.CreateWalletAsync(name, mnemonic, credential, color, credKind, legacyAgreed);

@@ -681,13 +681,13 @@
             WalletService.SetNetworkMode(AppState.NetworkMode);
             if (isPrivateKeyMode)
             {
-                var name = isAddWalletMode ? walletName.Trim() : "Imported Wallet";
+                var name = isAddWalletMode ? walletName.Trim() : L.T("wallet.imported_name"); // saved in the chosen language (spec 028)
                 var color = isAddWalletMode ? walletColor : null;
                 await WalletService.CreateWalletFromWifAsync(name, wifInput.Trim(), pin, color, allowLegacyProtection: legacyAgreed);
             }
             else
             {
-                var name = isAddWalletMode ? walletName.Trim() : "My Wallet";
+                var name = isAddWalletMode ? walletName.Trim() : L.T("wallet.default_name"); // saved in the chosen language (spec 028)
                 var color = isAddWalletMode ? walletColor : null;
                 var restored = await WalletService.CreateWalletAsync(name, mnemonicInput, pin, color, allowLegacyProtection: legacyAgreed);
                 // Restored from an existing phrase: it may get the "search further" offer (spec 027, FR-002a).

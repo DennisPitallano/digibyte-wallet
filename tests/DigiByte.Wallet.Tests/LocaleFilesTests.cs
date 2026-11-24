@@ -188,6 +188,7 @@ public partial class LocaleFilesTests
         "Components/Shared/TransactionDetailModal.razor", "Components/Shared/ConfirmationBadge.razor",
         "Layout/NavMenu.razor", "Components/Shared/PageHeader.razor", "Components/Shared/OfflineBanner.razor",
         "Components/Shared/NodeDegradedBanner.razor", "Components/Shared/ToastContainer.razor", "Components/Shared/CopyValueButton.razor",
+        "Components/Shared/GettingStarted.razor", "App.razor",
         "Pages/Contacts.razor", "Pages/WalletManagement.razor", "Pages/Recovery.razor", "Pages/Payments.razor",
         "Pages/Help.razor", "Layout/MainLayout.razor", "Pages/Identity.razor",
         "Components/Shared/DigiIdAddressWarning.razor", "Components/Shared/DigiIdLoginDetailModal.razor",
