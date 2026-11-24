@@ -1,7 +1,8 @@
 @inject NotificationService Notifications
+@inject LocalizationService L
 @implements IDisposable
 
-<div class="fixed top-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 max-w-[460px] w-full px-4 pointer-events-none" role="region" aria-label="Notifications" aria-live="polite">
+<div class="fixed top-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 max-w-[460px] w-full px-4 pointer-events-none" role="region" aria-label="@L.T("banner.toast.region")" aria-live="polite">
     @foreach (var toast in Notifications.Active)
     {
         var t = toast;
@@ -25,7 +26,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="@iconPath" />
             </svg>
             <p class="text-sm font-medium flex-1">@t.Message</p>
-            <button class="text-white/70 hover:text-white" aria-label="Dismiss notification" @onclick="() => Notifications.Dismiss(t.Id)">
+            <button class="text-white/70 hover:text-white" aria-label="@L.T("banner.toast.dismiss")" @onclick="() => Notifications.Dismiss(t.Id)">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>
@@ -35,6 +36,9 @@
 </div>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     protected override void OnInitialized() => Notifications.OnChange += StateHasChanged;
     public void Dispose() => Notifications.OnChange -= StateHasChanged;
 }

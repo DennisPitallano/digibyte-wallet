@@ -12,5 +12,6 @@ public static class DonationInfo
     public const int MinimumDgb = 1;
 
     /// <summary>A BIP21 payment link for the donation address with the minimum amount filled in, for the QR code.</summary>
-    public static string Bip21Uri(int amountDgb = MinimumDgb) => $"digibyte:{CurrentAddress}?amount={amountDgb}";
+    public static string Bip21Uri(int amountDgb = MinimumDgb) =>
+        $"digibyte:{CurrentAddress}?amount=" + amountDgb.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }

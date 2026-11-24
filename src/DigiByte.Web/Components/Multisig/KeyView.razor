@@ -1,25 +1,27 @@
 @* The full public key of a co-signer: grouped so it can be compared by eye, never clipped, with Copy and a QR code. *@
+@inject LocalizationService L
 <div class="flex flex-col gap-2">
     <p class="text-xs font-mono text-slate-600 dark:text-slate-300 break-words leading-relaxed select-all bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2.5 border border-slate-100 dark:border-dgb-800"
        data-testid="full-public-key">@MultisigKeyFormat.Group(PublicKeyHex)</p>
     <div class="flex items-center gap-3">
-        <CopyValueButton Value="@MultisigKeyFormat.Normalize(PublicKeyHex)" Label="public key" />
+        <CopyValueButton Value="@MultisigKeyFormat.Normalize(PublicKeyHex)" Label="@L.T("ms.ui.keyView.public_key")" />
         <button type="button" class="inline-flex items-center gap-1 text-[11px] font-semibold text-dgb-500 hover:text-dgb-600 press-effect min-h-[32px]"
                 aria-expanded="@showQr" @onclick="() => showQr = !showQr">
             <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" /></svg>
-            @(showQr ? "Hide QR" : "Show QR")
+            @(showQr ? L.T("ms.ui.keyView.hide_qr") : L.T("ms.ui.keyView.show_qr"))
         </button>
     </div>
     @if (showQr)
     {
         <div class="flex justify-center py-1 fade-in">
-            <QrImage Payload="@MultisigKeyFormat.Normalize(PublicKeyHex)" Alt="Public key QR code" Small="true" />
+            <QrImage Payload="@MultisigKeyFormat.Normalize(PublicKeyHex)" Alt="@L.T("ms.ui.keyView.qr_alt")" Small="true" />
         </div>
     }
 </div>
 
 @code {
     [Parameter, EditorRequired] public string PublicKeyHex { get; set; } = "";
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private bool showQr;
 }

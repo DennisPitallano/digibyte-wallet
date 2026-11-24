@@ -5,8 +5,9 @@
 @inject NavigationManager Nav
 @inject DigiByte.Wallet.Services.P2pGatewayOptions Gateway
 @inject SearchOfferCoordinator SearchOffer
+@inject LocalizationService L
 
-<PageTitle>@(isAddWalletMode ? "Add" : "Recover") Wallet — DigiByte Wallet</PageTitle>
+<PageTitle>@(isAddWalletMode ? L.T("welcome.page_title_add") : L.T("recover.page_title")) — @L.T("app.name")</PageTitle>
 
 <div class="flex flex-col gap-5">
     @if (isAddWalletMode)
@@ -14,7 +15,7 @@
         <button type="button" class="back-btn self-start"
                 @onclick="GoBack">
             <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-            <span>Back</span>
+            <span>@L.T("dd.back")</span>
         </button>
     }
 
@@ -30,13 +31,13 @@
     @if (step == Step.NameWallet)
     {
         <div class="slide-up">
-            <h2 class="page-title">Name Your Wallet</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Give this wallet a name so you can identify it easily.</p>
+            <h2 class="page-title">@L.T("create.name_title")</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">@L.T("create.name_hint")</p>
         </div>
 
         <div class="flex flex-col gap-3">
             <input type="text" @bind="walletName" @bind:event="oninput"
-                   placeholder="e.g. Savings, Trading, Cold Storage..."
+                   placeholder="@L.T("create.name_placeholder")"
                    maxlength="30" autocomplete="off"
                    class="input" />
             <p class="text-xs text-slate-400 dark:text-slate-500 text-right">@walletName.Length / 30</p>
@@ -44,7 +45,7 @@
 
         @* Color Picker *@
         <div class="flex flex-col gap-2">
-            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Color</p>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("create.color_label")</p>
             <div class="flex flex-wrap gap-2.5">
                 @foreach (var c in WalletInfo.ColorPalette)
                 {
@@ -65,22 +66,22 @@
 
         <button class="btn-primary w-full"
                 @onclick="NameContinue" disabled="@string.IsNullOrWhiteSpace(walletName)">
-            Continue
+            @L.T("create.continue")
         </button>
     }
     else if (step == Step.EnterMnemonic)
     {
         <BakuMessage MessageId="recover.intro" />
         <div class="slide-up">
-            <h2 class="page-title">Recover Your Wallet</h2>
+            <h2 class="page-title">@L.T("recover.title")</h2>
         </div>
 
         @* Recovery method toggle *@
         <div class="segmented slide-up-delay-1">
             <button class="segmented-item flex-1" aria-pressed="@(!isPrivateKeyMode ? "true" : "false")"
-                    @onclick="() => isPrivateKeyMode = false">Recovery Phrase</button>
+                    @onclick="() => isPrivateKeyMode = false">@L.T("recover.mode_phrase")</button>
             <button class="segmented-item flex-1" aria-pressed="@(isPrivateKeyMode ? "true" : "false")"
-                    @onclick="() => isPrivateKeyMode = true">Private Key</button>
+                    @onclick="() => isPrivateKeyMode = true">@L.T("recover.mode_key")</button>
         </div>
 
         @if (!isPrivateKeyMode)
@@ -88,18 +89,18 @@
             @* Mnemonic input mode toggle *@
             <div class="segmented slide-up-delay-1">
                 <button class="segmented-item flex-1" aria-pressed="@(!wordByWordMode ? "true" : "false")"
-                        @onclick="() => SwitchInputMode(false)">Paste All</button>
+                        @onclick="() => SwitchInputMode(false)">@L.T("recover.paste_all")</button>
                 <button class="segmented-item flex-1" aria-pressed="@(wordByWordMode ? "true" : "false")"
-                        @onclick="() => SwitchInputMode(true)">Word by Word</button>
+                        @onclick="() => SwitchInputMode(true)">@L.T("recover.word_by_word")</button>
             </div>
 
             <div class="flex flex-col gap-3 slide-up-delay-1">
                 <div class="flex items-center justify-between">
                     <p class="text-sm text-slate-500 dark:text-slate-400">
-                        @(wordByWordMode ? "Enter each word of your recovery phrase." : "Paste your 12 or 24-word recovery phrase.")
+                        @(wordByWordMode ? L.T("recover.word_by_word_hint") : L.T("recover.paste_hint"))
                     </p>
                     <button type="button" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
-                            @onclick="() => showMnemonic = !showMnemonic" title="@(showMnemonic ? "Hide" : "Show") phrase">
+                            @onclick="() => showMnemonic = !showMnemonic" title="@(showMnemonic ? L.T("recover.hide_phrase") : L.T("recover.show_phrase"))">
                         @if (showMnemonic)
                         {
                             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -123,14 +124,14 @@
                         @if (showMnemonic)
                         {
                             <textarea @bind="mnemonicInput" @bind:event="oninput" rows="4"
-                                      placeholder="Enter your recovery phrase separated by spaces..."
+                                      placeholder="@L.T("recover.phrase_placeholder")"
                                       autocomplete="off" spellcheck="false" autocapitalize="off"
                                       class="input resize-none"></textarea>
                         }
                         else
                         {
                             <textarea @bind="mnemonicInput" @bind:event="oninput" rows="4"
-                                      placeholder="Enter your recovery phrase separated by spaces..."
+                                      placeholder="@L.T("recover.phrase_placeholder")"
                                       autocomplete="off" spellcheck="false" autocapitalize="off"
                                       style="-webkit-text-security: disc; text-security: disc;"
                                       class="input resize-none"></textarea>
@@ -139,7 +140,7 @@
                     @if (!string.IsNullOrWhiteSpace(mnemonicInput))
                     {
                         var wc = mnemonicInput.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500 text-right">@wc / @(wc > 12 ? "24" : "12") words</p>
+                        <p class="text-[11px] text-slate-400 dark:text-slate-500 text-right">@L.T("recover.word_count", wc, wc > 12 ? 24 : 12)</p>
                     }
                 }
                 else
@@ -148,18 +149,18 @@
                     <div class="flex items-center justify-between gap-3">
                         @* Progress, so a missing word is noticed before Continue. *@
                         <p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite" data-testid="seed-progress">
-                            <span class="font-semibold text-slate-900 dark:text-white">@FilledWords</span> of @wordCount words
+                            @Before("recover.progress", wordCount)<span class="font-semibold text-slate-900 dark:text-white">@FilledWords</span>@After("recover.progress", wordCount)
                             @if (InvalidWords > 0)
                             {
-                                <span class="text-red-600 dark:text-red-400">· @InvalidWords not recognised</span>
+                                <span class="text-red-600 dark:text-red-400">@(InvalidWords == 1 ? L.T("recover.not_recognised.one", InvalidWords) : L.T("recover.not_recognised.other", InvalidWords))</span>
                             }
                         </p>
-                        <div class="seed-count" role="group" aria-label="Number of words in the phrase">
+                        <div class="seed-count" role="group" aria-label="@L.T("recover.word_count_label")">
                             <button type="button" aria-pressed="@(wordCount == 12 ? "true" : "false")" @onclick="() => SetWordCount(12)">12</button>
                             <button type="button" aria-pressed="@(wordCount == 24 ? "true" : "false")" @onclick="() => SetWordCount(24)">24</button>
                         </div>
                     </div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Tip: paste the whole phrase into box 1 and it fills every box.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("recover.tip_paste")</p>
                     @* Each word is one box with its number inside. The grid picks two or three columns to fit the screen,
                        and boxes can shrink, so nothing runs off the side. *@
                     <div class="seed-grid">
@@ -170,7 +171,7 @@
                             <div class="seed-cell @state">
                                 <label class="seed-cell-num" for="@($"seed-word-{idx + 1}")" aria-hidden="true">@((idx + 1).ToString())</label>
                                 <input id="@($"seed-word-{idx + 1}")" type="@(showMnemonic ? "text" : "password")"
-                                       aria-label="@($"Word {idx + 1} of {wordCount}")"
+                                       aria-label="@L.T("recover.word_aria", idx + 1, wordCount)"
                                        aria-invalid="@(state == "is-invalid" ? "true" : null)"
                                        value="@wordInputs[idx]"
                                        @oninput="(e) => OnWordInput(idx, e.Value?.ToString() ?? string.Empty)"
@@ -216,23 +217,23 @@
             <div class="flex flex-col gap-2">
                 <button class="btn-primary w-full"
                         @onclick="ValidateMnemonic" disabled="@IsMnemonicEmpty">
-                    Continue
+                    @L.T("create.continue")
                 </button>
-                <button type="button" class="btn-ghost btn-sm" @onclick="GoBack">Back</button>
+                <button type="button" class="btn-ghost btn-sm" @onclick="GoBack">@L.T("dd.back")</button>
             </div>
         }
         else
         {
             @* Private Key (WIF) input *@
             <div class="flex flex-col gap-3 slide-up-delay-1">
-                <p class="text-sm text-slate-500 dark:text-slate-400">Enter your WIF private key from a paper wallet or export.</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400">@L.T("recover.wif_hint")</p>
                 <div class="flex gap-1.5">
                     <input type="password" @bind="wifInput" @bind:event="oninput"
-                           placeholder="5... or K... or L..."
+                           placeholder="@L.T("recover.wif_placeholder")"
                            autocomplete="off" spellcheck="false"
                            class="input flex-1 font-mono" />
                     <button type="button" class="w-12 h-12 rounded-xl bg-dgb-500 text-white flex items-center justify-center hover:bg-dgb-600 transition-all flex-shrink-0 press-effect"
-                            @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR">
+                            @onclick="() => showScanner = true" title="@L.T("dd.send.scan")" aria-label="@L.T("dd.send.scan")">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5Z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
@@ -244,7 +245,7 @@
                 @if (previewAddress != null)
                 {
                     <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-xl p-3">
-                        <p class="text-xs text-green-600 dark:text-green-400 font-semibold mb-1">Address Preview</p>
+                        <p class="text-xs text-green-600 dark:text-green-400 font-semibold mb-1">@L.T("recover.address_preview")</p>
                         <p class="text-xs font-mono text-green-700 dark:text-green-300 break-all">@previewAddress</p>
                     </div>
                 }
@@ -258,30 +259,30 @@
             <div class="flex flex-col gap-2">
                 <button class="btn-primary w-full"
                         @onclick="ValidateWif" disabled="@string.IsNullOrWhiteSpace(wifInput)">
-                    Continue
+                    @L.T("create.continue")
                 </button>
-                <button type="button" class="btn-ghost btn-sm" @onclick="GoBack">Back</button>
+                <button type="button" class="btn-ghost btn-sm" @onclick="GoBack">@L.T("dd.back")</button>
             </div>
         }
     }
     else if (step == Step.SetPin)
     {
         <div class="slide-up text-center">
-            <h2 class="page-title">Set Your PIN</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose a 6-digit PIN to secure your wallet</p>
+            <h2 class="page-title">@L.T("create.set_pin")</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">@L.T("create.pin_choose")</p>
         </div>
 
         <div class="flex flex-col gap-4 items-center">
             @if (!isConfirmingPin)
             {
-                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Enter PIN</p>
+                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">@L.T("create.pin_enter")</p>
                 <PinInput @ref="rPinInput1" ValueChanged="(v) => pin = v" OnComplete="GoToConfirmPin" Error="@pinError" />
             }
             else
             {
-                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Confirm PIN</p>
+                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">@L.T("create.pin_confirm")</p>
                 <PinInput @ref="rPinInput2" ValueChanged="(v) => pinConfirm = v" OnComplete="RecoverAsync" Error="@pinError" />
-                <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium" @onclick="BackToSetPin">Change PIN</button>
+                <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium" @onclick="BackToSetPin">@L.T("create.pin_change")</button>
             }
         </div>
 
@@ -291,16 +292,16 @@
         }
         @if (restorePercent >= 0)
         {
-            <p class="text-xs text-slate-500 text-center" role="status">Restoring through the light-client gateway. This may take a while.</p>
+            <p class="text-xs text-slate-500 text-center" role="status">@L.T("recover.restoring_gateway")</p>
         }
         @if (Gateway.Enabled && !isPrivateKeyMode)
         {
             @* Optional: when the wallet was first used. With it, a restore through the light-client gateway reads only the blocks since then. *@
             <div class="flex flex-col gap-1">
-                <label for="first-use" class="text-xs font-semibold text-slate-500 dark:text-slate-400">Approximately when did you first use this wallet? (optional)</label>
+                <label for="first-use" class="text-xs font-semibold text-slate-500 dark:text-slate-400">@L.T("recover.first_use_label")</label>
                 <input id="first-use" type="date" class="input"
                        max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" @bind="firstUse" />
-                <p class="text-[11px] text-slate-400">A rough date is fine. Leave it empty to look through the whole history. Restoring may take a while.</p>
+                <p class="text-[11px] text-slate-400">@L.T("recover.first_use_hint")</p>
             </div>
         }
 
@@ -313,15 +314,15 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                 </svg>
-                <span>@(restorePercent >= 0 ? $"Restoring... {restorePercent}%" : "Recovering...")</span>
+                <span>@(restorePercent < 0 ? L.T("recover.recovering") : L.T("recover.restoring_percent", restorePercent))</span>
             }
             else if (!isConfirmingPin)
             {
-                <span>Continue</span>
+                <span>@L.T("create.continue")</span>
             }
             else
             {
-                <span>Recover Wallet</span>
+                <span>@L.T("recover.recover_button")</span>
             }
         </button>
     }
@@ -337,6 +338,14 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    // The text before and after {0} in a translated sentence (other values filled in), so the highlighted part can sit
+    // wherever the language puts it.
+    private string Before(string key, params object[] rest) { var t = L.T(key, [(object)"{0}", .. rest]); var i = t.IndexOf("{0}", StringComparison.Ordinal); return i < 0 ? t : t[..i]; }
+    private string After(string key, params object[] rest) { var t = L.T(key, [(object)"{0}", .. rest]); var i = t.IndexOf("{0}", StringComparison.Ordinal); return i < 0 ? "" : t[(i + 3)..]; }
+
     // A browser that cannot run the stronger protection: the wallet is created with the earlier one only if the user agrees.
     private CryptoFailure? legacyReason;
     private bool legacyAgreed;
@@ -575,7 +584,8 @@
             if (words.Any(string.IsNullOrWhiteSpace))
             {
                 var emptyIndices = words.Select((w, i) => string.IsNullOrWhiteSpace(w) ? i + 1 : -1).Where(i => i > 0);
-                mnemonicError = $"Missing word(s): {string.Join(", ", emptyIndices.Take(5))}{(emptyIndices.Count() > 5 ? "..." : "")}";
+                var missing = $"{string.Join(", ", emptyIndices.Take(5))}{(emptyIndices.Count() > 5 ? "..." : "")}";
+                mnemonicError = emptyIndices.Count() == 1 ? L.T("recover.missing.one", missing) : L.T("recover.missing.other", missing);
                 return;
             }
             cleaned = string.Join(' ', words);
@@ -587,8 +597,8 @@
         }
 
         var wordCount2 = cleaned.Split(' ').Length;
-        if (wordCount2 != 12 && wordCount2 != 24) { mnemonicError = $"Expected 12 or 24 words, got {wordCount2}."; return; }
-        if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(cleaned)) { mnemonicError = "Invalid recovery phrase. Please check your words."; return; }
+        if (wordCount2 != 12 && wordCount2 != 24) { mnemonicError = L.T("recover.wrong_count", wordCount2); return; }
+        if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(cleaned)) { mnemonicError = L.T("recover.invalid_phrase"); return; }
         mnemonicInput = cleaned;
         step = Step.SetPin;
     }
@@ -600,13 +610,13 @@
 
         if (string.IsNullOrWhiteSpace(wifInput))
         {
-            wifError = "Enter a WIF private key.";
+            wifError = L.T("recover.wif_empty");
             return;
         }
 
         if (!DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(wifInput.Trim()))
         {
-            wifError = "Invalid private key format. Expected WIF format (starts with 5, K, or L).";
+            wifError = L.T("recover.wif_invalid");
             return;
         }
 
@@ -648,7 +658,7 @@
 
     private void GoToConfirmPin()
     {
-        if (pin.Length < 6) { pinError = "Enter all 6 digits"; return; }
+        if (pin.Length < 6) { pinError = L.T("create.pin_incomplete"); return; }
         pinError = null; pinConfirm = ""; isConfirmingPin = true;
     }
 
@@ -661,8 +671,8 @@
     private async Task RecoverAsync()
     {
         pinError = null;
-        if (pin.Length < 6) { pinError = "Enter all 6 digits"; return; }
-        if (pin != pinConfirm) { pinError = "PINs don't match. Try again."; pinConfirm = ""; rPinInput2?.Clear(); return; }
+        if (pin.Length < 6) { pinError = L.T("create.pin_incomplete"); return; }
+        if (pin != pinConfirm) { pinError = L.T("create.pin_mismatch"); pinConfirm = ""; rPinInput2?.Clear(); return; }
         isRecovering = true;
         StateHasChanged();
         await Task.Yield();
@@ -688,7 +698,7 @@
             Nav.NavigateTo("/");
         }
         catch (LegacyProtectionConsentRequiredException ex) { legacyReason = ex.Reason; }
-        catch (Exception ex) { pinError = $"Failed to recover wallet: {ex.Message}"; }
+        catch (Exception ex) { pinError = L.T("recover.failed", ex.Message); }
         finally { isRecovering = false; }
     }
     /// <summary>

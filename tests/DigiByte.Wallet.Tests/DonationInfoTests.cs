@@ -12,6 +12,13 @@ public class DonationInfoTests
     }
 
     [Fact]
+    public void Bip21Uri_IsTheSame_UnderSpanish()
+    {
+        using var _ = new CultureScope("es");
+        Assert.Equal($"digibyte:{DonationInfo.CurrentAddress}?amount=1000", DonationInfo.Bip21Uri(1000));
+    }
+
+    [Fact]
     public void CurrentAddress_IsAMainnetSegwitAddress()
     {
         Assert.StartsWith("dgb1q", DonationInfo.CurrentAddress);

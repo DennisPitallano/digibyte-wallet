@@ -2,6 +2,7 @@
    Leaving keeps every signature already collected on this device. Closing ends the room for everyone, is the host's
    alone, asks first, and never cancels the payment. *@
 @inject IJSRuntime JS
+@inject LocalizationService L
 
 @if (IsOpen)
 {
@@ -10,8 +11,8 @@
         <div class="more-sheet sheet-enter" @onclick:stopPropagation="true">
             <div class="more-sheet-grip" aria-hidden="true"></div>
             <div class="flex items-center justify-between px-5 pb-3">
-                <h3 id="@TitleId" class="block-title">Room</h3>
-                <button type="button" class="icon-btn -mr-2" aria-label="Close" @onclick="CloseAsync">
+                <h3 id="@TitleId" class="block-title">@L.T("ms.ui.roomMenu.title")</h3>
+                <button type="button" class="icon-btn -mr-2" aria-label="@L.T("more.close")" @onclick="CloseAsync">
                     <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
@@ -25,8 +26,8 @@
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" /></svg>
                         </span>
                         <span class="flex-1 min-w-0 text-left">
-                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">Leave the room</span>
-                            <span class="block text-xs text-slate-600 dark:text-slate-400">Signatures already collected stay on this device. The room stays open for the others.</span>
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("ms.ui.roomMenu.leave")</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.ui.roomMenu.leave_hint")</span>
                         </span>
                     </button>
                     @if (IsHost)
@@ -34,20 +35,20 @@
                         <button type="button" class="more-sheet-row" data-testid="room-close" @onclick="() => confirmClose = true">
                             <span class="more-sheet-icon text-red-600 dark:text-red-400" aria-hidden="true"><UxIcon Name="x" Class="w-5 h-5" /></span>
                             <span class="flex-1 min-w-0 text-left">
-                                <span class="block text-sm font-semibold text-red-700 dark:text-red-300">Close the room for everyone</span>
-                                <span class="block text-xs text-slate-600 dark:text-slate-400">Ends the room now. The payment is not cancelled and everyone keeps the signatures so far.</span>
+                                <span class="block text-sm font-semibold text-red-700 dark:text-red-300">@L.T("ms.ui.roomMenu.close_all")</span>
+                                <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.ui.roomMenu.close_all_hint")</span>
                             </span>
                         </button>
                     }
                 }
                 else
                 {
-                    <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl" role="alertdialog" aria-label="Confirm close room">
-                        <p class="text-sm font-bold text-red-700 dark:text-red-300">Close this room for everyone?</p>
-                        <p class="text-xs text-red-700 dark:text-red-400 mt-1">Closing the room does not cancel the payment. Everyone keeps the signatures collected so far.</p>
+                    <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl" role="alertdialog" aria-label="@L.T("ms.ui.roomMenu.confirm_aria")">
+                        <p class="text-sm font-bold text-red-700 dark:text-red-300">@L.T("ms.ui.roomMenu.confirm_title")</p>
+                        <p class="text-xs text-red-700 dark:text-red-400 mt-1">@L.T("ms.ui.roomMenu.confirm_body")</p>
                         <div class="flex gap-2 mt-2">
-                            <button type="button" class="btn-danger btn-sm" data-autofocus="true" data-testid="room-close-confirm" @onclick="() => ChooseAsync(OnCloseRoom)">Close room</button>
-                            <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmClose = false">Keep it open</button>
+                            <button type="button" class="btn-danger btn-sm" data-autofocus="true" data-testid="room-close-confirm" @onclick="() => ChooseAsync(OnCloseRoom)">@L.T("ms.ui.roomMenu.confirm")</button>
+                            <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmClose = false">@L.T("ms.ui.roomMenu.keep")</button>
                         </div>
                     </div>
                 }
@@ -65,6 +66,7 @@
     [Parameter] public EventCallback OnLeave { get; set; }
     [Parameter] public EventCallback OnCloseRoom { get; set; }
     [Parameter] public EventCallback OnClosed { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private readonly string SheetId = "room-menu-" + Guid.NewGuid().ToString("N")[..8];
     private string TitleId => SheetId + "-title";

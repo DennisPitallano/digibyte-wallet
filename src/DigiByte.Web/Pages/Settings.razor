@@ -16,24 +16,7 @@
 @inject ClipboardService Clipboard
 @inject SoundService Sounds
 
-<PageTitle>Settings — DigiByte Wallet</PageTitle>
-
-@if (showLanguageToast)
-{
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm scale-in" role="dialog" aria-modal="true" @onclick="() => showLanguageToast = false">
-        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-6 mx-6 max-w-xs text-center shadow-2xl flex flex-col items-center gap-3" @onclick:stopPropagation="true">
-            <div class="w-12 h-12 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
-                <svg class="w-6 h-6 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 0 1-3.827-5.802" />
-                </svg>
-            </div>
-            <h3 class="block-title">Coming Soon</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Multi-language support is coming in a future update.</p>
-            <button class="btn-primary btn-sm mt-1"
-                    @onclick="() => showLanguageToast = false">Got it</button>
-        </div>
-    </div>
-}
+<PageTitle>@L.T("settings.page_title")</PageTitle>
 
 @if (showInstallSteps)
 {
@@ -46,44 +29,40 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                     </svg>
                 </div>
-                <h3 id="install-steps-title" class="block-title">@(installMode == InstallMode.IosSteps ? "Install on iPhone / iPad" : "Install this app")</h3>
+                <h3 id="install-steps-title" class="block-title">@(installMode == InstallMode.IosSteps ? L.T("settings.install.title_ios") : L.T("settings.install.title"))</h3>
             </div>
             @if (installMode == InstallMode.IosSteps)
             {
                 <ol class="flex flex-col gap-2 text-sm text-slate-600 dark:text-slate-300 list-decimal pl-5 leading-relaxed">
-                    <li>
-                        Tap the Share icon
-                        <svg class="inline w-4 h-4 -mt-0.5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-label="Share"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" /></svg>
-                        in the browser toolbar.
-                    </li>
-                    <li>Scroll and tap <strong>Add to Home Screen</strong>.</li>
-                    <li>Tap <strong>Add</strong>.</li>
+                    <li>@((MarkupString)L.T("settings.install.ios.step1", ShareIconMarkup()))</li>
+                    <li>@Bold("settings.install.ios.step2", "settings.install.ios.add_to_home")</li>
+                    <li>@Bold("settings.install.ios.step3", "settings.install.ios.add")</li>
                 </ol>
                 @if (installState.NonSafariIos)
                 {
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Don't see Add to Home Screen? Open this page in Safari.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.install.ios.not_safari", L.T("settings.install.ios.add_to_home"))</p>
                 }
             }
             else
             {
                 <ol class="flex flex-col gap-2 text-sm text-slate-600 dark:text-slate-300 list-decimal pl-5 leading-relaxed">
-                    <li>Open the browser menu (three dots).</li>
-                    <li>Choose <strong>Install app</strong>, <strong>Add to Home screen</strong> or <strong>Install DGB Wallet</strong>.</li>
-                    <li>Confirm.</li>
+                    <li>@L.T("settings.install.menu.step1")</li>
+                    <li>@Bold("settings.install.menu.step2", "settings.install.menu.install_app", "settings.install.menu.add_to_home", "settings.install.menu.install_dgb")</li>
+                    <li>@L.T("settings.install.menu.step3")</li>
                 </ol>
             }
             <button type="button" class="btn-primary btn-sm mt-1"
-                    @onclick="CloseInstallSteps">Close</button>
+                    @onclick="CloseInstallSteps">@L.T("settings.install.close")</button>
         </div>
     </div>
 }
 
 <div class="flex flex-col gap-4">
-    <h2 class="page-title slide-up">Settings</h2>
+    <h2 class="page-title slide-up">@L.T("settings.title")</h2>
     <BakuMessage MessageId="settings.tip" />
 
     <div class="flex flex-col gap-2">
-        <h3 class="section-label px-1 mt-1">Wallet</h3>
+        <h3 class="section-label px-1 mt-1">@L.T("settings.section.wallet")</h3>
         @* Manage Wallets *@
         <a href="/settings/wallets" class="card card-interactive slide-up flex items-center justify-between p-4 no-underline">
             <div class="flex items-center gap-3">
@@ -93,8 +72,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Manage Wallets</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">@walletCount wallet@(walletCount != 1 ? "s" : "")</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.wallets.title")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@(walletCount == 1 ? L.T("settings.wallets.count.one", walletCount) : L.T("settings.wallets.count.other", walletCount))</p>
                 </div>
             </div>
             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -111,8 +90,8 @@
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-semibold text-slate-900 dark:text-white">Back Up Seed Phrase</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">View your recovery phrase</p>
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.backup")</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.backup.hint")</p>
             </div>
         </button>
 
@@ -124,8 +103,8 @@
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-semibold text-slate-900 dark:text-white">Recovery Tools</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Sweep funds from another seed or key</p>
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.recovery_tools")</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.recovery_tools.hint")</p>
             </div>
         </a>
 
@@ -138,8 +117,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Share xpub (watch-only)</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">For DigiPay &amp; other watch-only integrations</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.xpub")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.xpub.hint")</p>
                 </div>
             </div>
             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -158,8 +137,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Copy my public key</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">For wallet <b>@(WalletService.ActiveWallet?.Name ?? "Wallet")</b> · send to co-signers (safe to share)</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.multisig.copy")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@MultisigHint()</p>
                     </div>
                 </div>
             </button>
@@ -172,8 +151,8 @@
             <div class="flex items-center gap-3">
                 <img src="/digipay-logo.svg" alt="" class="w-9 h-9 shrink-0" />
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Merchant Dashboard</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Accept DGB in your shop</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.merchant")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.merchant.hint")</p>
                 </div>
             </div>
             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -181,7 +160,7 @@
             </svg>
         </a>
 
-        <h3 class="section-label px-1 mt-4">Security</h3>
+        <h3 class="section-label px-1 mt-4">@L.T("settings.section.security")</h3>
         @* How the wallet is protected, with the passphrase upgrade tip *@
         <WalletProtectionCard />
 
@@ -196,8 +175,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Biometric Unlock</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">@(biometricEnabled ? "Enabled for all wallets" : "Fingerprint or face")</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.biometric")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@(biometricEnabled ? L.T("settings.biometric.on") : L.T("settings.biometric.off"))</p>
                     </div>
                 </div>
                 <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(biometricEnabled ? "bg-dgb-500" : "bg-slate-300 dark:bg-dgb-700")"
@@ -219,10 +198,10 @@
                     <CredentialInput Kind="credKind" @ref="bioPinInput" ValueChanged="(v) => bioPin = v" OnSubmit="ConfirmBioEnroll" Error="@bioPinError" />
                     <div class="flex gap-2">
                         <button class="btn-secondary btn-sm flex-1"
-                                @onclick="CancelBioToggle">Cancel</button>
+                                @onclick="CancelBioToggle">@L.T("common.cancel")</button>
                         <button class="btn-primary btn-sm flex-1"
                                 @onclick="ConfirmBioEnroll" disabled="@(!Ready(bioPin) || isBioToggling)">
-                            @(isBioToggling ? "Setting up..." : "Enable")
+                            @(isBioToggling ? L.T("settings.biometric.setting_up") : L.T("settings.biometric.enable"))
                         </button>
                     </div>
                 </div>
@@ -237,9 +216,9 @@
                     </p>
                     <div class="flex gap-2">
                         <button class="btn-secondary btn-sm flex-1"
-                                @onclick="CancelBioToggle">Cancel</button>
+                                @onclick="CancelBioToggle">@L.T("common.cancel")</button>
                         <button class="flex-1 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl press-effect"
-                                @onclick="ConfirmBioDisable">Disable</button>
+                                @onclick="ConfirmBioDisable">@L.T("settings.biometric.disable")</button>
                     </div>
                 </div>
             }
@@ -255,8 +234,8 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-sm font-semibold text-slate-900 dark:text-white">Confirm Sends</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Require biometric before sending</p>
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.confirm_sends")</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.confirm_sends.hint")</p>
                         </div>
                     </div>
                     <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(bioConfirmSendEnabled ? "bg-dgb-500" : "bg-slate-300 dark:bg-dgb-700")"
@@ -276,18 +255,18 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Auto-Lock Timeout</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Lock after inactivity</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.auto_lock")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.auto_lock.hint")</p>
                 </div>
             </div>
             <select value="@((int)AppState.LockTimeout.TotalMinutes)" @onchange="OnLockTimeoutChanged"
                     class="bg-slate-100 dark:bg-dgb-800 border-0 text-sm text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5 outline-none">
-                <option value="1">1 min</option>
-                <option value="2">2 min</option>
-                <option value="5">5 min</option>
-                <option value="10">10 min</option>
-                <option value="15">15 min</option>
-                <option value="30">30 min</option>
+                <option value="1">@L.T("settings.auto_lock.minutes", 1)</option>
+                <option value="2">@L.T("settings.auto_lock.minutes", 2)</option>
+                <option value="5">@L.T("settings.auto_lock.minutes", 5)</option>
+                <option value="10">@L.T("settings.auto_lock.minutes", 10)</option>
+                <option value="15">@L.T("settings.auto_lock.minutes", 15)</option>
+                <option value="30">@L.T("settings.auto_lock.minutes", 30)</option>
             </select>
         </div>
 
@@ -300,8 +279,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Lock When Hidden</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Lock when tab/app becomes hidden</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.lock_hidden")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.lock_hidden.hint")</p>
                 </div>
             </div>
             <button class="relative w-12 h-7 rounded-full transition-colors duration-200 @(AppState.LockOnHidden ? "bg-dgb-500" : "bg-slate-300 dark:bg-dgb-700")"
@@ -321,8 +300,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Spending Limits</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Daily, weekly & monthly limits</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.spending_limits")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.spending_limits.hint")</p>
                 </div>
             </div>
             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -331,7 +310,7 @@
         </a>
         }
 
-        <h3 class="section-label px-1 mt-4">Display</h3>
+        <h3 class="section-label px-1 mt-4">@L.T("settings.section.display")</h3>
         @* Appearance: follow the device, or force light / dark *@
         <div class="card p-4 flex flex-col gap-3">
             <div class="flex items-center gap-3">
@@ -342,17 +321,17 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Appearance</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">@(Theme.Mode switch { "system" => "Follows your device", "light" => "Light mode", _ => "Dark mode" })</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.appearance")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@ThemeHint</p>
                 </div>
             </div>
-            <div class="segmented" role="radiogroup" aria-label="Appearance">
-                @foreach (var (mode, label) in ThemeModes)
+            <div class="segmented" role="radiogroup" aria-label="@L.T("settings.appearance")">
+                @foreach (var (mode, labelKey) in ThemeModes)
                 {
                     var active = Theme.Mode == mode;
                     <button type="button" role="radio" aria-checked="@(active ? "true" : "false")"
                             class="segmented-item flex-1" aria-pressed="@(active ? "true" : "false")"
-                            @onclick="() => Theme.SetModeAsync(mode)">@label</button>
+                            @onclick="() => Theme.SetModeAsync(mode)">@L.T(labelKey)</button>
                 }
             </div>
         </div>
@@ -366,14 +345,14 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Display Mode</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">@(AppState.IsSimpleMode ? "Simple" : "Advanced")</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.display_mode")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@(AppState.IsSimpleMode ? L.T("settings.display_mode.simple") : L.T("settings.display_mode.advanced"))</p>
                 </div>
             </div>
             <select value="@(AppState.IsSimpleMode ? "true" : "false")" @onchange="OnDisplayModeChanged"
                     class="bg-slate-100 dark:bg-dgb-800 border-0 text-sm text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5 outline-none max-w-[11rem]">
-                <option value="true">Simple</option>
-                <option value="false">Advanced</option>
+                <option value="true">@L.T("settings.display_mode.simple")</option>
+                <option value="false">@L.T("settings.display_mode.advanced")</option>
             </select>
         </div>
 
@@ -386,12 +365,12 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Currency</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.currency")</p>
                     <p class="text-xs text-slate-500 dark:text-slate-400">@(FiatCurrencies.Find(AppState.FiatCurrency)?.Name ?? AppState.FiatCurrency)</p>
                 </div>
             </div>
             <button type="button" class="flex items-center gap-2 bg-slate-100 dark:bg-dgb-800 text-sm font-semibold text-slate-700 dark:text-slate-300 rounded-lg pl-2.5 pr-2 py-1.5 press-effect"
-                    aria-haspopup="dialog" aria-label="Currency: @AppState.FiatCurrency" @onclick="() => showCurrencyPicker = true">
+                    aria-haspopup="dialog" aria-label="@L.T("settings.currency"): @AppState.FiatCurrency" @onclick="() => showCurrencyPicker = true">
                 <CurrencyFlag Code="@AppState.FiatCurrency" />
                 @AppState.FiatCurrency
                 <svg class="w-3.5 h-3.5 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
@@ -400,53 +379,56 @@
 
         <CurrencyPickerSheet IsOpen="showCurrencyPicker" Selected="@AppState.FiatCurrency" OnSelected="SelectCurrency" OnClosed="() => showCurrencyPicker = false" />
 
-        @* Language (continued) *@
+        @* Language (spec 028): opens the language sheet; the row shows the language in use. *@
         <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 0 1-3.827-5.802" />
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Language</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">English</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.language")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.language.hint")</p>
                 </div>
             </div>
-            <button @onclick="ShowLanguageComingSoon"
+            <button @ref="languageButton" @onclick="() => showLanguagePicker = true"
+                    aria-haspopup="dialog" aria-label="@L.T("settings.language"): @CurrentLanguageName" lang="@L.CurrentLocale"
                     class="bg-slate-100 dark:bg-dgb-800 text-sm text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5">
-                English
-                <svg class="w-3 h-3 inline ml-1 opacity-50" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                @CurrentLanguageName
+                <svg class="w-3 h-3 inline ml-1 opacity-50" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
             </button>
         </div>
+
+        <LanguagePickerSheet IsOpen="showLanguagePicker" OnClosed="CloseLanguagePicker" />
 
         @* Baku — how much of the mascot guide and guardian to show. Warnings always stay visible as text. *@
         <div class="card slide-up p-4 flex flex-col gap-3">
             <div class="flex items-center gap-3">
                 <img src="@BakuCatalog.PosePath("greeting")" alt="" class="w-9 h-9 shrink-0 object-contain" loading="lazy" />
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Baku, your guide</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Security warnings always stay on.</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.baku")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.baku.hint")</p>
                 </div>
             </div>
-            <div class="segmented" role="radiogroup" aria-label="How much of Baku to show">
-                @foreach (var (mode, label) in BakuModes)
+            <div class="segmented" role="radiogroup" aria-label="@L.T("settings.baku.aria")">
+                @foreach (var (mode, labelKey) in BakuModes)
                 {
                     var active = Baku.Mode == mode;
                     <button type="button" role="radio" aria-checked="@(active ? "true" : "false")"
                             class="segmented-item flex-1" aria-pressed="@(active ? "true" : "false")"
-                            @onclick="() => Baku.SetModeAsync(mode)">@label</button>
+                            @onclick="() => Baku.SetModeAsync(mode)">@L.T(labelKey)</button>
                 }
             </div>
             <div class="flex items-center justify-between">
                 <p class="text-[11px] text-slate-400 dark:text-slate-500">@BakuModeHint</p>
-                <button type="button" class="text-xs font-semibold text-dgb-500 hover:text-dgb-600" @onclick="ResetBakuTipsAsync">Reset tips</button>
+                <button type="button" class="text-xs font-semibold text-dgb-500 hover:text-dgb-600" @onclick="ResetBakuTipsAsync">@L.T("settings.baku.reset")</button>
             </div>
             @if (bakuTipsReset)
             {
-                <p class="text-[11px] text-green-600 dark:text-green-400" role="status">Tips restored.</p>
+                <p class="text-[11px] text-green-600 dark:text-green-400" role="status">@L.T("settings.baku.reset_done")</p>
             }
         </div>
 
@@ -473,7 +455,7 @@
 
         @if (installMode != InstallMode.Hidden)
         {
-            <h3 class="section-label px-1 mt-4">App</h3>
+            <h3 class="section-label px-1 mt-4">@L.T("settings.section.app")</h3>
             @* Install: shown only while the wallet is not installed (spec 019) *@
             <button type="button" @onclick="OnInstallTapped"
                     class="card card-interactive slide-up flex items-center gap-3 w-full p-4 text-left">
@@ -483,13 +465,13 @@
                     </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Install app</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">@(installMode == InstallMode.IosSteps ? "Add to your home screen" : "Install for quick access")</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.install")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@(installMode == InstallMode.IosSteps ? L.T("settings.install.hint_ios") : L.T("settings.install.hint"))</p>
                 </div>
             </button>
         }
 
-        <h3 class="section-label px-1 mt-4">Network & advanced</h3>
+        <h3 class="section-label px-1 mt-4">@L.T("settings.section.network")</h3>
         @* Network *@
         <div class="card slide-up flex items-center justify-between p-4 card-hover">
             <div class="flex items-center gap-3">
@@ -499,15 +481,15 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Network</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.network")</p>
                     <p class="text-xs @NetworkIconColor font-medium">@AppState.NetworkMode</p>
                 </div>
             </div>
             <select value="@AppState.NetworkMode" @onchange="OnNetworkChanged"
                     class="bg-slate-100 dark:bg-dgb-800 border-0 text-sm text-slate-700 dark:text-slate-300 rounded-lg px-3 py-1.5 outline-none">
-                <option value="regtest">Regtest</option>
-                <option value="testnet">Testnet</option>
-                <option value="mainnet">Mainnet</option>
+                <option value="regtest">@L.T("settings.network.regtest")</option>
+                <option value="testnet">@L.T("settings.network.testnet")</option>
+                <option value="mainnet">@L.T("settings.network.mainnet")</option>
             </select>
         </div>
 
@@ -521,8 +503,8 @@
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-semibold text-slate-900 dark:text-white">Sign a PSBT</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Review and sign a partially signed transaction</p>
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.psbt")</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.psbt.hint")</p>
             </div>
         </a>
         }
@@ -538,8 +520,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Consolidate UTXOs</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Merge small UTXOs to lower fees</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.consolidate")</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.consolidate.hint")</p>
                 </div>
             </div>
             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -550,7 +532,7 @@
 
         @* About & Info *@
         <div class="mt-4 pt-4 border-t border-slate-200 dark:border-dgb-800">
-            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">About & Info</p>
+            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("settings.section.about")</p>
             <div class="flex flex-col gap-2">
                 <a href="/about" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
                     <div class="w-9 h-9 rounded-xl bg-dgb-50 dark:bg-dgb-900/40 flex items-center justify-center">
@@ -559,8 +541,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">About</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Version, tech stack & credits</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.about")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.about.hint")</p>
                     </div>
                 </a>
                 <a href="/roadmap" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
@@ -570,8 +552,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Roadmap</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Development progress & plans</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.roadmap")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.roadmap.hint")</p>
                     </div>
                 </a>
                 <a href="/sponsors" class="flex items-center gap-3 w-full p-4 bg-white dark:bg-dgb-900 rounded-2xl border border-rose-200 dark:border-rose-900/40 hover:bg-slate-50 dark:hover:bg-dgb-800 transition-all card-hover text-left no-underline">
@@ -581,8 +563,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Sponsors</p>
-                        <p class="text-xs text-rose-500">Thank you to everyone who supports the wallet</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.sponsors")</p>
+                        <p class="text-xs text-rose-500">@L.T("settings.sponsors.hint")</p>
                     </div>
                 </a>
                 <a href="/analytics" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
@@ -592,8 +574,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Analytics</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">DGB price, market cap & network stats</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.analytics")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.analytics.hint")</p>
                     </div>
                 </a>
                 <a href="/deployment" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
@@ -603,8 +585,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Deployment</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Infrastructure status & costs</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.deployment")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.deployment.hint")</p>
                     </div>
                 </a>
                 <a href="/help" class="card card-interactive flex items-center gap-3 w-full p-4 text-left no-underline">
@@ -614,8 +596,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Help Center</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Tutorials, how-tos & support</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.help")</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.help.hint")</p>
                     </div>
                 </a>
 
@@ -646,9 +628,9 @@
                     </div>
                     <div class="flex-1">
                         <p class="text-sm font-semibold @(_updateFound ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white")">
-                            @(_updateChecking ? "Checking..." : _updateFound ? "Applying update..." : _updateMessage ?? "Check for Updates")
+                            @(_updateChecking ? L.T("settings.update.checking") : _updateFound ? L.T("settings.update.applying") : _updateMessage ?? L.T("settings.update"))
                         </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Force check &amp; apply latest version</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.update.hint")</p>
                     </div>
                 </button>
             </div>
@@ -658,7 +640,7 @@
         @if (HostEnv.IsDevelopment())
         {
         <div class="mt-4 pt-4 border-t border-slate-200 dark:border-dgb-800">
-            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Developer Tools</p>
+            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("settings.section.developer")</p>
             <button class="w-full flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors text-left disabled:opacity-50"
                     @onclick="ClearAllCaches" disabled="@isCacheClearing">
                 <div class="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
@@ -667,8 +649,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-amber-700 dark:text-amber-400">@(isCacheClearing ? "Clearing..." : cacheCleared ? "Cache Cleared ✓" : "Clear All Caches")</p>
-                    <p class="text-xs text-amber-500 dark:text-amber-600">Purge in-memory & IndexedDB cache data</p>
+                    <p class="text-sm font-semibold text-amber-700 dark:text-amber-400">@(isCacheClearing ? L.T("settings.cache.clearing") : cacheCleared ? L.T("settings.cache.cleared") : L.T("settings.cache.clear"))</p>
+                    <p class="text-xs text-amber-500 dark:text-amber-600">@L.T("settings.cache.hint")</p>
                 </div>
             </button>
         </div>
@@ -686,8 +668,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-red-600 dark:text-red-400">Delete Wallet</p>
-                        <p class="text-xs text-red-400 dark:text-red-500">Remove all wallet data from this device</p>
+                        <p class="text-sm font-semibold text-red-600 dark:text-red-400">@L.T("settings.delete")</p>
+                        <p class="text-xs text-red-400 dark:text-red-500">@L.T("settings.delete.hint")</p>
                     </div>
                 </button>
             }
@@ -695,15 +677,15 @@
             {
                 <div class="scale-in bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-200 dark:border-red-900/30 p-4 flex flex-col gap-3">
                     <p class="text-xs text-red-600 dark:text-red-400 font-medium leading-relaxed">
-                        This will permanently delete your wallet and all data. Make sure you have backed up your recovery phrase first.
+                        @L.T("settings.delete.warning")
                     </p>
                     <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@L.T("credential.enter_to_confirm", CredentialText.Word(L, credKind))</p>
                     <CredentialInput Kind="credKind" @ref="deletePinInput" ValueChanged="(v) => deletePin = v" Error="@deleteError" />
                     <div class="flex gap-2">
                         <button class="btn-secondary btn-sm flex-1"
-                                @onclick="CancelDelete">Cancel</button>
+                                @onclick="CancelDelete">@L.T("common.cancel")</button>
                         <button class="btn-danger btn-sm flex-1"
-                                @onclick="ConfirmDelete" disabled="@(!Ready(deletePin))">Delete Wallet</button>
+                                @onclick="ConfirmDelete" disabled="@(!Ready(deletePin))">@L.T("settings.delete")</button>
                     </div>
                 </div>
             }
@@ -724,34 +706,58 @@
         CredentialText.ForFailure(L, credKind, WalletService.LastCredentialFailure ?? CryptoFailure.WrongCredential);
     private string PromptWord => credKind == CredentialKind.Pin ? "PIN" : "passphrase";
     private bool Ready(string value) => credKind == CredentialKind.Pin ? value.Length >= 6 : value.Length > 0;
-    private static readonly (string Mode, string Label)[] ThemeModes =
+    // Option labels are translation keys, translated at render so they follow the chosen language.
+    private static readonly (string Mode, string LabelKey)[] ThemeModes =
     [
-        ("system", "System"),
-        ("light", "Light"),
-        ("dark", "Dark"),
+        ("system", "settings.theme.system"),
+        ("light", "settings.theme.light"),
+        ("dark", "settings.theme.dark"),
     ];
-    private static readonly (BakuMode Mode, string Label)[] BakuModes =
+    private static readonly (BakuMode Mode, string LabelKey)[] BakuModes =
     [
-        (BakuMode.Full, "Full"),
-        (BakuMode.GuardianOnly, "Guardian only"),
-        (BakuMode.Off, "Off"),
+        (BakuMode.Full, "settings.baku.full"),
+        (BakuMode.GuardianOnly, "settings.baku.guardian"),
+        (BakuMode.Off, "settings.baku.off"),
     ];
+
+    private string ThemeHint => Theme.Mode switch
+    {
+        "system" => L.T("settings.appearance.system_hint"),
+        "light" => L.T("settings.light_mode"),
+        _ => L.T("settings.dark_mode"),
+    };
 
     private bool bakuTipsReset;
 
     private string BakuModeHint => Baku.Mode switch
     {
-        BakuMode.GuardianOnly => "Warnings only. No tips or guidance.",
-        BakuMode.Off => "No tips, guidance or mascot images. Warnings show as text.",
-        _ => "Guidance, tips and warnings.",
+        BakuMode.GuardianOnly => L.T("settings.baku.hint_guardian"),
+        BakuMode.Off => L.T("settings.baku.hint_off"),
+        _ => L.T("settings.baku.hint_full"),
     };
+
+    /// <summary>A translated sentence whose {n} placeholders are filled with translated names shown in bold.</summary>
+    private MarkupString Bold(string key, params string[] nameKeys) =>
+        new(L.T(key, nameKeys.Select(k => (object)$"<strong>{System.Net.WebUtility.HtmlEncode(L.T(k))}</strong>").ToArray()));
+
+    /// <summary>"For wallet <b>name</b> · send to co-signers", with the wallet name encoded and in bold.</summary>
+    private MarkupString MultisigHint() =>
+        new(L.T("settings.multisig.hint",
+            "<b>" + System.Net.WebUtility.HtmlEncode(WalletService.ActiveWallet?.Name ?? L.T("settings.wallet_fallback")) + "</b>"));
+
+    /// <summary>The Share icon shown inside the first iPhone install step, with a translated label.</summary>
+    private string ShareIconMarkup() =>
+        $"<svg class=\"inline w-4 h-4 -mt-0.5 text-dgb-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"2\" stroke=\"currentColor\" aria-label=\"{System.Net.WebUtility.HtmlEncode(L.T("settings.install.ios.share"))}\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15\" /></svg>";
+
+    /// <summary>What "Check for Updates" tells the user for each answer from the page script.</summary>
+    private string UpdateText(string? status) => L.T(LocaleReasonKeys.For(UpdateAdvice.ResultOf(status)));
 
     private async Task CopyMultisigPublicKey()
     {
         string? key = null;
         try { key = WalletService.GetPublicKey(); } catch { }
         if (string.IsNullOrEmpty(key)) return;
-        try { await Clipboard.CopyAsync(key, message: $"Public key copied for {WalletService.ActiveWallet?.Name ?? "wallet"}"); }
+        try { await Clipboard.CopyAsync(key, message: L.T("settings.multisig.copied", WalletService.ActiveWallet?.Name ?? L.T("settings.wallet_fallback"))); }
         catch { } // clipboard blocked: nothing to confirm
     }
 
@@ -779,7 +785,20 @@
     // Cache clear state
     private bool isCacheClearing;
     private bool cacheCleared;
-    private bool showLanguageToast;
+    private bool showLanguagePicker;
+    private ElementReference languageButton;
+
+    /// <summary>The page re-renders when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    private string CurrentLanguageName => LocalizationService.SupportedLocales.GetValueOrDefault(L.CurrentLocale, L.CurrentLocale);
+
+    private async Task CloseLanguagePicker()
+    {
+        showLanguagePicker = false;
+        StateHasChanged();
+        try { await languageButton.FocusAsync(); } catch { /* row not rendered */ }
+    }
 
     // Install-app state (spec 019). The mode follows the table in specs/019-settings-install-app/data-model.md. The types
     // and the rule live in InstallAppState, which the first-payment celebration uses too (spec 025).
@@ -952,7 +971,7 @@
             // Ask the browser to look for a new version now. The answer says whether one is ready, still
             // downloading, or absent; only a ready one is applied, so a check with nothing new never reloads.
             var status = await JS.InvokeAsync<string>("pwaCheckForUpdate");
-            _updateMessage = UpdateAdvice.Message(status);
+            _updateMessage = UpdateText(status);
             if (status == "ready")
             {
                 _updateFound = true;
@@ -961,13 +980,13 @@
                 if (!await JS.InvokeAsync<bool>("pwaApplyUpdate"))
                 {
                     _updateFound = false;
-                    _updateMessage = UpdateAdvice.Message("none");
+                    _updateMessage = UpdateText("none");
                 }
             }
         }
         catch
         {
-            _updateMessage = UpdateAdvice.Message("failed");
+            _updateMessage = UpdateText("failed");
         }
         finally
         {
@@ -1008,20 +1027,6 @@
         AppState.IsTestnet = mode != "mainnet";
         await AppState.SavePreferenceAsync("dgb-network", mode);
         AppState.NotifyStateChanged();
-    }
-
-    private void ShowLanguageComingSoon()
-    {
-        showLanguageToast = true;
-        StateHasChanged();
-        _ = DismissLanguageToast();
-    }
-
-    private async Task DismissLanguageToast()
-    {
-        await Task.Delay(2500);
-        showLanguageToast = false;
-        StateHasChanged();
     }
 
     private async Task OnLockTimeoutChanged(ChangeEventArgs e)
@@ -1095,7 +1100,7 @@
         try
         {
             var walletId = await WalletService.GetActiveWalletIdAsync();
-            if (walletId == null) { bioPinError = "No active wallet."; return; }
+            if (walletId == null) { bioPinError = L.T("settings.biometric.no_wallet"); return; }
 
             var seed = await WalletService.GetDecryptedSeedAsync(walletId, bioPin);
             if (seed == null)
@@ -1136,12 +1141,12 @@
             }
             else
             {
-                bioPinError = "Biometric setup failed or was cancelled.";
+                bioPinError = L.T("settings.biometric.failed_or_cancelled");
             }
         }
         catch
         {
-            bioPinError = "Biometric setup failed.";
+            bioPinError = L.T("settings.biometric.failed");
         }
         finally
         {

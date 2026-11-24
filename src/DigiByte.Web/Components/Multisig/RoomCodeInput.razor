@@ -4,10 +4,11 @@
    The field has no length limit of its own: a limit would count a stray dash or space as one of the six and block
    the last real character, and would cut a pasted invite link short before its code. What is kept is decided by
    Clean, and the field is always set back to exactly that. *@
+@inject LocalizationService L
 <div class="flex items-stretch gap-2">
     <label class="room-code" for="@InputId">
         <input id="@InputId" class="room-code-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters"
-               spellcheck="false" aria-label="Room code, @Length letters and digits"
+               spellcheck="false" aria-label="@L.T("ms.ui.roomCode.aria", Length)"
                @bind:get="Value" @bind:set="OnSet" @bind:event="oninput" @onkeydown="OnKeyDown" />
         <span class="room-code-boxes" aria-hidden="true">
             @for (var i = 0; i < Length; i++)
@@ -17,7 +18,7 @@
             }
         </span>
     </label>
-    <button type="button" class="btn-secondary shrink-0 px-3" aria-label="Scan an invite QR code" data-testid="room-code-scan" @onclick="OnScan">
+    <button type="button" class="btn-secondary shrink-0 px-3" aria-label="@L.T("ms.ui.roomCode.scan_aria")" data-testid="room-code-scan" @onclick="OnScan">
         <UxIcon Name="scan" Class="w-5 h-5" />
     </button>
 </div>
@@ -34,6 +35,7 @@
 
     /// <summary>Enter was pressed on a complete code.</summary>
     [Parameter] public EventCallback OnSubmit { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private readonly string InputId = "room-code-" + Guid.NewGuid().ToString("N")[..8];
 

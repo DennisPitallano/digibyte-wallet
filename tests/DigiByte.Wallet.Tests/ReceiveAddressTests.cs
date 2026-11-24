@@ -118,7 +118,9 @@ public class ReceiveAddressTests
         var before = await service.GetReceivingAddressAsync();
         env.Storage.FailWalletInfoWrites = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(service.GenerateNewReceivingAddressAsync);
+        var ex = await Assert.ThrowsAsync<ReceiveAddressException>(service.GenerateNewReceivingAddressAsync);
+        Assert.Equal(ReceiveAddressFailure.SaveFailed, ex.Reason);
+        Assert.Equal("Could not save the new address. Your current address is still good to use.", ex.Message);
 
         Assert.Equal(before, await service.GetReceivingAddressAsync());
     }
@@ -223,7 +225,7 @@ public class ReceiveAddressTests
         Assert.Equal(1, index);
         for (var i = 1; i < WalletService.ReceiveGapLimit - 1; i++)
             await service.GenerateNewReceivingAddressAsync();
-        await Assert.ThrowsAsync<InvalidOperationException>(service.GenerateNewReceivingAddressAsync);
+        await Assert.ThrowsAsync<ReceiveAddressException>(service.GenerateNewReceivingAddressAsync);
         Assert.InRange(env.Chain.HistoryLookups, 1, 2000);
     }
 
@@ -249,7 +251,9 @@ public class ReceiveAddressTests
             await service.GenerateNewReceivingAddressAsync();
         var last = await service.GetReceivingAddressAsync();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(service.GenerateNewReceivingAddressAsync);
+        var ex = await Assert.ThrowsAsync<ReceiveAddressException>(service.GenerateNewReceivingAddressAsync);
+        Assert.Equal(ReceiveAddressFailure.TooManyUnusedPastLastUsed, ex.Reason);
+        Assert.Equal($"You have {WalletService.ReceiveGapLimit} unused addresses in a row. Use one of them first: restoring from your seed only looks {WalletService.ReceiveGapLimit} addresses past the last one used.", ex.Message);
 
         Assert.Equal(last, await service.GetReceivingAddressAsync());
     }
@@ -298,5 +302,18 @@ public class ReceiveAddressTests
         await PayNewAddressesAsync(env, service, 25);
 
         Assert.Equal(25 * OneDgb, (await service.GetBalanceAsync()).ConfirmedSatoshis);
+    }
+
+    [Fact]
+    public async Task Generate_OnASingleAddressWallet_SaysSo()
+    {
+        var env = new Env();
+        var service = env.NewService();
+        await service.CreateWalletFromWifAsync("Paper", new NBitcoin.Key().GetWif(Network).ToString(), Pin);
+
+        var ex = await Assert.ThrowsAsync<ReceiveAddressException>(service.GenerateNewReceivingAddressAsync);
+
+        Assert.Equal(ReceiveAddressFailure.SingleAddress, ex.Reason);
+        Assert.Equal("This wallet has a single address.", ex.Message);
     }
 }

@@ -1093,15 +1093,16 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
     /// <summary>
     /// Moves to a new receive address, saved before it is returned so that it stays scanned after a reload. Skips addresses
-    /// the chain shows as used. Throws <see cref="InvalidOperationException"/>, with a message for the user, if it cannot be
-    /// saved or if <see cref="ReceiveGapLimit"/> unused addresses are already out.
+    /// the chain shows as used. Throws <see cref="ReceiveAddressException"/>, with a message for the user and the
+    /// <see cref="ReceiveAddressFailure"/> a screen translates, if it cannot be saved or if <see cref="ReceiveGapLimit"/>
+    /// unused addresses are already out.
     /// </summary>
     public async Task<(int Index, string Address)> GenerateNewReceivingAddressAsync()
     {
         EnsureUnlocked();
         var session = ActiveSession!;
         if (session.Hd is null)
-            throw new InvalidOperationException("This wallet has a single address.");
+            throw new ReceiveAddressException(ReceiveAddressFailure.SingleAddress, "This wallet has a single address.");
         var info = session.Info;
 
         await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
@@ -1112,7 +1113,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             session.AddressDiscoveryRetryAfter = default;
             await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
             if (!ScanSetOf(info).CanHandOutNew)
-                throw new InvalidOperationException(TooManyUnusedMessage(ScanSetOf(info), "Use one of them first"));
+                throw TooManyUnused(ScanSetOf(info));
         }
 
         int index;
@@ -1122,7 +1123,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             // Read again inside the gate: another hand-out may have gone first.
             var set = ScanSetOf(info);
             if (!set.CanHandOutNew)
-                throw new InvalidOperationException(TooManyUnusedMessage(set, "Use one of them first"));
+                throw TooManyUnused(set);
 
             index = set.NextNewIndex;
             var undo = MoveAddressOnShow(info, index, index);
@@ -1134,7 +1135,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             {
                 // Nothing has been shown yet, so fail: an address lost on reload could be paid and then never scanned.
                 undo();
-                throw new InvalidOperationException("Could not save the new address. Your current address is still good to use.", ex);
+                throw new ReceiveAddressException(ReceiveAddressFailure.SaveFailed,
+                    "Could not save the new address. Your current address is still good to use.", ex);
             }
         }
         finally { session.AddressOnShowGate.Release(); }
@@ -1147,6 +1149,10 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// restore reaches (a restore needs the search run again to reach them at all) but how far past the last paid address
     /// the wallet keeps looking.
     /// </summary>
+    private static ReceiveAddressException TooManyUnused(ReceiveScanSet set) => new(
+        set.MaxPaid is null ? ReceiveAddressFailure.TooManyUnusedPastLastUsed : ReceiveAddressFailure.TooManyUnusedPastLastPaid,
+        TooManyUnusedMessage(set, "Use one of them first"));
+
     private static string TooManyUnusedMessage(ReceiveScanSet set, string whatToDo) =>
         $"You have {ReceiveGapLimit} unused addresses in a row. {whatToDo}: " + (set.MaxPaid is null
             ? $"restoring from your seed only looks {ReceiveGapLimit} addresses past the last one used."

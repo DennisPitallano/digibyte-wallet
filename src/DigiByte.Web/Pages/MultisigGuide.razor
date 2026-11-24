@@ -1,13 +1,14 @@
 @page "/help/multisig"
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject LocalizationService L
 
-<PageTitle>Multisig Guide — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.guide.page_title")</PageTitle>
 
 <div class="flex flex-col gap-5">
     <button type="button" class="back-btn" @onclick="GoBack">
         <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-        <span>Back to Help</span>
+        <span>@L.T("ms.guide.back_help")</span>
     </button>
 
     <div class="slide-up">
@@ -18,27 +19,26 @@
                 </svg>
             </div>
             <div>
-                <h2 class="page-title">Multisig Wallets</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">A complete guide for everyone</p>
+                <h2 class="page-title">@L.T("ms.guide.title")</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">@L.T("ms.guide.subtitle")</p>
             </div>
         </div>
     </div>
 
     @* ===== SECTION 1: What is Multisig? (Plain Language) ===== *@
     <div class="card slide-up-delay-1 p-4">
-        <h3 class="block-title block-title-sm mb-2">What is a Multisig Wallet?</h3>
+        <h3 class="block-title block-title-sm mb-2">@L.T("ms.guide.what.title")</h3>
         <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
-            A <b>multisig</b> (multi-signature) wallet is like a safe deposit box that needs <b>multiple keys</b> to open.
-            Instead of one person controlling all the funds, you set rules like "2 out of 3 people must agree" before any money can be spent.
+            @Rich(L.T("ms.guide.what.p1"), L.T("ms.guide.what.p1_multisig"), L.T("ms.guide.what.p1_keys"))
         </p>
         <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            The "<b>M-of-N</b>" notation means: <b>M</b> signatures required out of <b>N</b> total key holders.
+            @Rich(L.T("ms.guide.what.p2"), L.T("ms.guide.m_of_n"), "M", "N")
         </p>
     </div>
 
     @* ===== SECTION 2: Real-World Scenarios ===== *@
     <div class="slide-up-delay-2">
-        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Real-World Scenarios</p>
+        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("ms.guide.scenarios")</p>
 
         @* Scenario 1: Joint Savings *@
         <div class="card p-4 mb-2">
@@ -49,13 +49,12 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">Joint Savings Account (2-of-2)</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like a joint bank account</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.s1.title")</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">@L.T("ms.guide.s1.like")</p>
                 </div>
             </div>
             <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                <b>Alice and Bob</b> are married and want a shared savings account. They create a <b>2-of-2</b> multisig — both must approve every transaction.
-                Neither can spend alone, just like a joint bank account that requires both signatures on a check.
+                @Rich(L.T("ms.guide.s1.body"), L.T("ms.guide.s1.who"), L.T("ms.detail.scheme", 2, 2))
             </p>
         </div>
 
@@ -68,14 +67,12 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">Personal Backup (2-of-3)</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like a safety deposit box with backup keys</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.s2.title")</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">@L.T("ms.guide.s2.like")</p>
                 </div>
             </div>
             <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                <b>Charlie</b> stores his DGB across 3 keys: his <b>phone</b>, his <b>laptop</b>, and a <b>hardware device</b> in a safe.
-                With <b>2-of-3</b>, if he loses his phone, he can still spend using his laptop + hardware device.
-                No single device stolen means no funds lost.
+                @Rich(L.T("ms.guide.s2.body"), "Charlie", L.T("ms.guide.s2.phone"), L.T("ms.guide.s2.laptop"), L.T("ms.guide.s2.hardware"), L.T("ms.detail.scheme", 2, 3))
             </p>
         </div>
 
@@ -88,13 +85,12 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">Business Treasury (3-of-5)</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like a company board vote</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.s3.title")</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">@L.T("ms.guide.s3.like")</p>
                 </div>
             </div>
             <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                A <b>DAO or company</b> has 5 board members, and <b>3 must agree</b> to spend from the treasury.
-                This prevents any single person from running off with funds and ensures democratic control — just like requiring a majority vote.
+                @Rich(L.T("ms.guide.s3.body"), L.T("ms.guide.s3.org"), L.T("ms.guide.s3.must"))
             </p>
         </div>
 
@@ -107,33 +103,31 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">Trade Escrow (2-of-3)</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">Like an escrow agent holding a house deposit</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.s4.title")</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 italic">@L.T("ms.guide.s4.like")</p>
                 </div>
             </div>
             <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                <b>Buyer</b>, <b>Seller</b>, and an <b>Arbitrator</b> each hold a key. The buyer deposits DGB into the 2-of-3 address.
-                If the trade goes well, buyer + seller sign to release funds. If there's a dispute, the arbitrator steps in and sides with either party.
-                No one can steal — the arbitrator alone can't move funds.
+                @Rich(L.T("ms.guide.s4.body"), L.T("ms.guide.s4.buyer"), L.T("ms.guide.s4.seller"), L.T("ms.guide.s4.arbitrator"))
             </p>
         </div>
     </div>
 
     @* ===== SECTION 3: Visual Flow ===== *@
     <div class="slide-up-delay-3">
-        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">How It Works — Visual Flow</p>
+        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("ms.guide.flow.title")</p>
 
         @* Visual: Create Flow *@
         <div class="card p-4 mb-3">
-            <p class="text-xs font-bold text-purple-600 dark:text-purple-400 mb-3">Creating a Multisig Wallet</p>
+            <p class="text-xs font-bold text-purple-600 dark:text-purple-400 mb-3">@L.T("ms.guide.flow.create")</p>
 
             <div class="flex flex-col gap-0">
-                @foreach (var step in createSteps)
+                @foreach (var step in CreateSteps)
                 {
                     <div class="flex gap-3">
                         <div class="flex flex-col items-center">
                             <div class="w-7 h-7 rounded-full bg-purple-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">@step.Number</div>
-                            @if (step.Number < createSteps.Length)
+                            @if (step.Number < CreateSteps.Length)
                             {
                                 <div class="w-[2px] h-8 bg-purple-200 dark:bg-purple-800 my-1"></div>
                             }
@@ -149,15 +143,15 @@
 
         @* Visual: Spending Flow *@
         <div class="card p-4 mb-3">
-            <p class="text-xs font-bold text-dgb-600 dark:text-dgb-400 mb-3">Spending from a Multisig Wallet</p>
+            <p class="text-xs font-bold text-dgb-600 dark:text-dgb-400 mb-3">@L.T("ms.guide.flow.spend")</p>
 
             <div class="flex flex-col gap-0">
-                @foreach (var step in spendSteps)
+                @foreach (var step in SpendSteps)
                 {
                     <div class="flex gap-3">
                         <div class="flex flex-col items-center">
                             <div class="w-7 h-7 rounded-full bg-dgb-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">@step.Number</div>
-                            @if (step.Number < spendSteps.Length)
+                            @if (step.Number < SpendSteps.Length)
                             {
                                 <div class="w-[2px] h-8 bg-dgb-200 dark:bg-dgb-800 my-1"></div>
                             }
@@ -173,7 +167,7 @@
 
         @* Visual: Signature Collection Diagram *@
         <div class="card p-4">
-            <p class="text-xs font-bold text-slate-900 dark:text-white mb-3">Example: 2-of-3 Signature Collection</p>
+            <p class="text-xs font-bold text-slate-900 dark:text-white mb-3">@L.T("ms.guide.flow.example")</p>
 
             <div class="grid grid-cols-3 gap-2 mb-3">
                 @* Key Holder 1 *@
@@ -181,37 +175,37 @@
                     <div class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                     </div>
-                    <p class="text-[11px] font-semibold text-green-700 dark:text-green-400">Alice</p>
-                    <p class="text-[11px] text-green-600 dark:text-green-500">Signed ✓</p>
+                    <p class="text-[11px] font-semibold text-green-700 dark:text-green-400">@DiagramNames[0]</p>
+                    <p class="text-[11px] text-green-600 dark:text-green-500">@L.T("ms.guide.flow.signed")</p>
                 </div>
                 @* Key Holder 2 *@
                 <div class="flex flex-col items-center gap-1.5 p-2 bg-green-50 dark:bg-green-900/15 rounded-xl border border-green-200 dark:border-green-800/30">
                     <div class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                     </div>
-                    <p class="text-[11px] font-semibold text-green-700 dark:text-green-400">Bob</p>
-                    <p class="text-[11px] text-green-600 dark:text-green-500">Signed ✓</p>
+                    <p class="text-[11px] font-semibold text-green-700 dark:text-green-400">@DiagramNames[1]</p>
+                    <p class="text-[11px] text-green-600 dark:text-green-500">@L.T("ms.guide.flow.signed")</p>
                 </div>
                 @* Key Holder 3 *@
                 <div class="flex flex-col items-center gap-1.5 p-2 bg-slate-50 dark:bg-dgb-800/50 rounded-xl border border-slate-200 dark:border-dgb-700">
                     <div class="w-8 h-8 rounded-full bg-slate-300 dark:bg-dgb-700 text-slate-500 dark:text-slate-400 flex items-center justify-center">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                     </div>
-                    <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Charlie</p>
-                    <p class="text-[11px] text-slate-400 dark:text-slate-500">Not needed</p>
+                    <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@DiagramNames[2]</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500">@L.T("ms.guide.flow.not_needed")</p>
                 </div>
             </div>
 
             <div class="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800/30">
                 <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                <p class="text-[11px] text-green-700 dark:text-green-400 font-medium">2 of 3 signed — threshold met! Transaction can be broadcast.</p>
+                <p class="text-[11px] text-green-700 dark:text-green-400 font-medium">@L.T("ms.guide.flow.met")</p>
             </div>
         </div>
     </div>
 
     @* ===== SECTION 4: Step-by-Step Guide (Non-Technical) ===== *@
     <div>
-        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Step-by-Step Guide</p>
+        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("ms.guide.steps.title")</p>
 
         @* Create guide *@
         <div class="card overflow-hidden mb-2">
@@ -221,7 +215,7 @@
                     <svg class="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                 </div>
                 <div class="flex-1">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">How to Create a Multisig Wallet</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.create.title")</p>
                 </div>
                 <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("create") ? "rotate-180" : "")"
                      fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -233,52 +227,47 @@
                 <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
                     <div class="flex flex-col gap-3 pt-3">
                         <div class="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800/30">
-                            <p class="text-[11px] font-semibold text-purple-700 dark:text-purple-300 mb-1">Before you start</p>
+                            <p class="text-[11px] font-semibold text-purple-700 dark:text-purple-300 mb-1">@L.T("ms.guide.create.before")</p>
                             <p class="text-[11px] text-purple-600 dark:text-purple-400 leading-relaxed">
-                                Each co-signer needs to have <b>their own DigiByte wallet</b> set up already.
-                                They'll need to share their <b>public key</b> with you (this is safe — public keys can't spend funds).
+                                @Rich(L.T("ms.guide.create.before_body"), L.T("ms.guide.create.own_wallet"), L.T("ms.guide.public_key"))
                             </p>
                         </div>
 
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Open the Multisig page</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.create.s1")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Tap the <b>Multisig</b> button on the Home screen, or choose <b>"Multisig Wallet"</b> on the Welcome page.
+                                @Rich(L.T("ms.guide.create.s1_body"), Multisig, L.T("ms.guide.create.s1_welcome"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. Tap "Create New Multisig"</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.create.s2")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                You'll see the creation wizard. Give your wallet a name (e.g., "Family Savings").
+                                @L.T("ms.guide.create.s2_body")
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Set the threshold</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.create.s3")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Choose how many signatures are <b>required</b> (M) and <b>total</b> key holders (N).
-                                Example: <b>2-of-3</b> means 3 people hold keys, and any 2 can approve.
+                                @Rich(L.T("ms.guide.create.s3_body"), L.T("ms.guide.create.required"), L.T("ms.guide.create.total"), L.T("ms.detail.scheme", 2, 3))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">4. Add co-signers</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.create.s4")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Your public key is <b>automatically added</b>. For each co-signer, paste their compressed public key (a hex string starting with 02 or 03).
-                                Ask them to open <b>Settings → Copy my public key</b> (or tap <b>Copy</b> next to their key on this screen) and send it to you.
+                                @Rich(L.T("ms.guide.create.s4_body"), L.T("ms.guide.create.auto_added"), L.T("ms.guide.create.settings_path"), L.T("ms.create.copy"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">5. Review and confirm</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.create.s5")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Check the details — the wallet generates a <b>multisig address</b> that all co-signers can now deposit to.
-                                <b>Share the redeem script</b> with all co-signers so they can import the same wallet.
+                                @Rich(L.T("ms.guide.create.s5_body"), L.T("ms.guide.create.ms_address"), L.T("ms.guide.create.share_script"))
                             </p>
                         </div>
 
                         <div class="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800/30">
-                            <p class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">Important</p>
+                            <p class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">@L.T("ms.guide.create.important")</p>
                             <p class="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
-                                <b>Save the redeem script!</b> Everyone needs it to reconstruct the wallet.
-                                Without it, the funds are unrecoverable even if you have all the keys.
+                                @Rich(L.T("ms.guide.create.important_body"), L.T("ms.guide.create.save_script"))
                             </p>
                         </div>
                     </div>
@@ -294,7 +283,7 @@
                     <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" /></svg>
                 </div>
                 <div class="flex-1">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">How to Send from a Multisig Wallet</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.spend.title")</p>
                 </div>
                 <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("spend") ? "rotate-180" : "")"
                      fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -306,51 +295,46 @@
                 <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
                     <div class="flex flex-col gap-3 pt-3">
                         <div class="p-3 bg-dgb-50 dark:bg-dgb-900/30 rounded-xl border border-dgb-100 dark:border-dgb-800">
-                            <p class="text-[11px] font-semibold text-dgb-700 dark:text-dgb-300 mb-1">Think of it like a group approval</p>
+                            <p class="text-[11px] font-semibold text-dgb-700 dark:text-dgb-300 mb-1">@L.T("ms.guide.spend.think")</p>
                             <p class="text-[11px] text-dgb-600 dark:text-dgb-400 leading-relaxed">
-                                One person starts the transaction, then passes a "digital approval form" (called a <b>PSBT</b>) to co-signers.
-                                Each person adds their signature. When enough people have signed, the transaction goes through.
+                                @Rich(L.T("ms.guide.spend.think_body"), "PSBT")
                             </p>
                         </div>
 
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Open your multisig wallet and tap Send</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.spend.s1")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Enter the destination address and amount, just like a normal send.
+                                @L.T("ms.guide.spend.s1_body")
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. A PSBT is created</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.spend.s2")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                The app creates a <b>Partially Signed Transaction (PSBT)</b> — a draft of the transaction.
-                                Think of it as writing a check that needs multiple signatures.
+                                @Rich(L.T("ms.guide.spend.s2_body"), L.T("ms.guide.spend.psbt_long"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Sign with your key</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.spend.s3")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Tap <b>"Sign"</b> to add your signature. The PSBT is updated but still needs more signatures.
+                                @Rich(L.T("ms.guide.spend.s3_body"), L.T("ms.guide.spend.sign"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">4. Share the PSBT with co-signers</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.spend.s4")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Copy the PSBT string (a long text code) and send it to your co-signers via <b>secure messaging</b> (Signal, WhatsApp, email, etc.).
-                                This is safe to share — it can't be spent without enough signatures.
+                                @Rich(L.T("ms.guide.spend.s4_body"), L.T("ms.guide.spend.secure"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">5. Co-signers paste and sign</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.spend.s5")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Each co-signer opens <b>Pending</b>, taps <b>Add a proposal</b> and pastes (or scans) the PSBT, then
-                                opens the payment and taps <b>Sign this payment</b>. Signatures are combined automatically.
+                                @Rich(L.T("ms.guide.spend.s5_body"), L.T("ms.guide.spend.pending"), L.T("ms.guide.spend.add_proposal"), L.T("ms.guide.spend.sign_payment"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">6. Finalize and broadcast</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.spend.s6")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Once enough signatures are collected (M of N), tap <b>"Finalize & Broadcast"</b>.
-                                The transaction is sent to the DigiByte network and confirms in ~15 seconds. Done!
+                                @Rich(L.T("ms.guide.spend.s6_body"), L.T("ms.guide.spend.finalize"))
                             </p>
                         </div>
                     </div>
@@ -366,7 +350,7 @@
                     <svg class="w-4 h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
                 </div>
                 <div class="flex-1">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">How to Import a Multisig Wallet</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.import.title")</p>
                 </div>
                 <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("import") ? "rotate-180" : "")"
                      fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -378,27 +362,25 @@
                 <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
                     <div class="flex flex-col gap-3 pt-3">
                         <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            If another co-signer created the wallet, they'll share the <b>redeem script</b> with you. This is a hex string that contains
-                            all the public keys and the threshold rules.
+                            @Rich(L.T("ms.guide.import.intro"), L.T("ms.create.redeem_script"))
                         </p>
 
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Go to Multisig → Import</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.import.s1")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Tap <b>Import</b> on the multisig wallets page.
+                                @Rich(L.T("ms.guide.import.s1_body"), L.T("ms.wallets.import"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. Paste the redeem script</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.import.s2")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Paste the hex string your co-signer shared. The wallet automatically detects the threshold, all co-signers, and the address.
+                                @L.T("ms.guide.import.s2_body")
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Signing or watch-only?</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.import.s3")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                The app checks automatically. If your key is among the co-signers, you'll be able to <b>sign transactions</b>.
-                                If not, the wallet is imported as <b>watch-only</b> — you can see the balance but can't sign.
+                                @Rich(L.T("ms.guide.import.s3_body"), L.T("ms.guide.import.sign_tx"), L.T("ms.import.watch_only"))
                             </p>
                         </div>
                     </div>
@@ -409,7 +391,7 @@
 
     @* ===== SECTION 5: Technical Details (for developers/advanced) ===== *@
     <div>
-        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Technical Details</p>
+        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("ms.guide.tech.section")</p>
 
         <div class="card overflow-hidden">
             <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
@@ -418,8 +400,8 @@
                     <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
                 </div>
                 <div class="flex-1">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">Under the Hood (Advanced)</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400">BIP standards, script types, PSBT workflow</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.tech.title")</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("ms.guide.tech.subtitle")</p>
                 </div>
                 <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("technical") ? "rotate-180" : "")"
                      fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -433,61 +415,44 @@
 
                         @* Address types *@
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Address Types</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.tech.address_types")</p>
                             <div class="flex flex-col gap-1.5">
                                 <div class="flex items-start gap-2 p-2 bg-slate-50 dark:bg-dgb-800/50 rounded-lg">
-                                    <span class="text-[11px] font-bold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-1.5 py-0.5 rounded flex-shrink-0">P2SH-P2WSH</span>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Default. Pays to a SegWit script wrapped in P2SH for broad compatibility. Address starts with <code class="text-[11px]">S...</code></p>
+                                    <span class="text-[11px] font-bold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-1.5 py-0.5 rounded flex-shrink-0">@P2shP2wsh</span>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">@Rich(L.T("ms.guide.tech.p2sh"), Code("S..."))</p>
                                 </div>
                                 <div class="flex items-start gap-2 p-2 bg-slate-50 dark:bg-dgb-800/50 rounded-lg">
-                                    <span class="text-[11px] font-bold text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 rounded flex-shrink-0">P2WSH</span>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Native SegWit. Lower fees, but requires SegWit-compatible wallets. Address starts with <code class="text-[11px]">dgb1...</code></p>
+                                    <span class="text-[11px] font-bold text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 rounded flex-shrink-0">@P2wsh</span>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">@Rich(L.T("ms.guide.tech.p2wsh"), Code("dgb1..."))</p>
                                 </div>
                             </div>
                         </div>
 
                         @* BIP Standards *@
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Standards Used</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.tech.standards")</p>
                             <div class="flex flex-col gap-1">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[11px] font-mono font-bold text-slate-500 w-14 flex-shrink-0">BIP67</span>
-                                    <p class="text-[11px] text-slate-400">Public keys sorted lexicographically in the redeem script (ensures all parties derive the same address)</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[11px] font-mono font-bold text-slate-500 w-14 flex-shrink-0">BIP174</span>
-                                    <p class="text-[11px] text-slate-400">PSBT format — standard for partially signed transactions, enabling multi-party signing</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[11px] font-mono font-bold text-slate-500 w-14 flex-shrink-0">OP_CMS</span>
-                                    <p class="text-[11px] text-slate-400">OP_CHECKMULTISIG — the Bitcoin script opcode that validates M-of-N signatures</p>
-                                </div>
+                                @foreach (var (name, description) in Standards)
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[11px] font-mono font-bold text-slate-500 w-14 flex-shrink-0">@name</span>
+                                        <p class="text-[11px] text-slate-400">@description</p>
+                                    </div>
+                                }
                             </div>
                         </div>
 
                         @* Technical flow *@
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Technical Flow</p>
-                            <div class="p-2.5 bg-slate-50 dark:bg-dgb-800/50 rounded-lg font-mono text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">Create:
-  MultisigService.CreateRedeemScript(M, pubKeys[])
-  → BIP67 sort → OP_M [key1] [key2] ... [keyN] OP_N OP_CMS
-  → Hash → P2SH-P2WSH or P2WSH address
-
-Spend:
-  CreateMultisigPSBT(redeemScript, utxos, dest, amt)
-  → PSBT with witnessUtxo + redeemScript hints
-  → SignPSBT(psbt, privKey, redeemScript)  ×M signers
-  → CombinePSBTs(original, signed1, signed2...)
-  → FinalizePSBT(combined) → extract raw tx
-  → BroadcastTransactionAsync(rawTx)</div>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.tech.flow")</p>
+                            <div class="p-2.5 bg-slate-50 dark:bg-dgb-800/50 rounded-lg font-mono text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">@TechnicalFlow</div>
                         </div>
 
                         @* Limits *@
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">Limits</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.tech.limits")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                                Maximum <b>15 co-signers</b> (Bitcoin/DigiByte protocol limit for standard P2SH scripts).
-                                Minimum threshold: <b>1-of-N</b>. Maximum: <b>N-of-N</b>.
+                                @Rich(L.T("ms.guide.tech.limits_body"), L.T("ms.guide.tech.max_signers"), L.T("ms.guide.tech.min"), L.T("ms.guide.tech.max"))
                             </p>
                         </div>
                     </div>
@@ -498,59 +463,59 @@ Spend:
 
     @* ===== Quick Comparison Table ===== *@
     <div>
-        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Wallet Type Comparison</p>
+        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("ms.guide.compare.title")</p>
         <div class="card overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-[11px]">
                     <thead>
                         <tr class="border-b border-slate-100 dark:border-dgb-800">
-                            <th class="text-left py-2 px-3 font-semibold text-slate-500 dark:text-slate-400">Feature</th>
-                            <th class="text-center py-2 px-2 font-semibold text-slate-500 dark:text-slate-400">Standard</th>
-                            <th class="text-center py-2 px-2 font-semibold text-slate-500 dark:text-slate-400">Watch-Only</th>
-                            <th class="text-center py-2 px-2 font-semibold text-purple-500">Multisig</th>
+                            <th class="text-left py-2 px-3 font-semibold text-slate-500 dark:text-slate-400">@L.T("ms.guide.compare.feature")</th>
+                            <th class="text-center py-2 px-2 font-semibold text-slate-500 dark:text-slate-400">@L.T("ms.guide.compare.standard")</th>
+                            <th class="text-center py-2 px-2 font-semibold text-slate-500 dark:text-slate-400">@L.T("ms.guide.compare.watch_only")</th>
+                            <th class="text-center py-2 px-2 font-semibold text-purple-500">@Multisig</th>
                         </tr>
                     </thead>
                     <tbody class="text-slate-600 dark:text-slate-400">
                         <tr class="border-b border-slate-50 dark:border-dgb-800/50">
-                            <td class="py-1.5 px-3">Keys needed to spend</td>
+                            <td class="py-1.5 px-3">@L.T("ms.guide.compare.keys_needed")</td>
                             <td class="text-center py-1.5 px-2">1</td>
                             <td class="text-center py-1.5 px-2">—</td>
-                            <td class="text-center py-1.5 px-2 font-semibold text-purple-500">M of N</td>
+                            <td class="text-center py-1.5 px-2 font-semibold text-purple-500">@L.T("ms.guide.compare.m_of_n")</td>
                         </tr>
                         <tr class="border-b border-slate-50 dark:border-dgb-800/50">
-                            <td class="py-1.5 px-3">Can send</td>
+                            <td class="py-1.5 px-3">@L.T("ms.guide.compare.can_send")</td>
                             <td class="text-center py-1.5 px-2 text-green-500">✓</td>
                             <td class="text-center py-1.5 px-2 text-red-400">✗</td>
                             <td class="text-center py-1.5 px-2 text-green-500">✓*</td>
                         </tr>
                         <tr class="border-b border-slate-50 dark:border-dgb-800/50">
-                            <td class="py-1.5 px-3">View balance</td>
+                            <td class="py-1.5 px-3">@L.T("ms.guide.compare.view_balance")</td>
                             <td class="text-center py-1.5 px-2 text-green-500">✓</td>
                             <td class="text-center py-1.5 px-2 text-green-500">✓</td>
                             <td class="text-center py-1.5 px-2 text-green-500">✓</td>
                         </tr>
                         <tr class="border-b border-slate-50 dark:border-dgb-800/50">
-                            <td class="py-1.5 px-3">Single point of failure</td>
-                            <td class="text-center py-1.5 px-2 text-red-400">Yes</td>
-                            <td class="text-center py-1.5 px-2">N/A</td>
-                            <td class="text-center py-1.5 px-2 text-green-500">No</td>
+                            <td class="py-1.5 px-3">@L.T("ms.guide.compare.single_point")</td>
+                            <td class="text-center py-1.5 px-2 text-red-400">@L.T("ms.guide.compare.yes")</td>
+                            <td class="text-center py-1.5 px-2">@L.T("ms.guide.compare.na")</td>
+                            <td class="text-center py-1.5 px-2 text-green-500">@L.T("ms.guide.compare.no")</td>
                         </tr>
                         <tr>
-                            <td class="py-1.5 px-3">Best for</td>
-                            <td class="text-center py-1.5 px-2">Daily use</td>
-                            <td class="text-center py-1.5 px-2">Monitoring</td>
-                            <td class="text-center py-1.5 px-2 font-semibold text-purple-500">Security</td>
+                            <td class="py-1.5 px-3">@L.T("ms.guide.compare.best_for")</td>
+                            <td class="text-center py-1.5 px-2">@L.T("ms.guide.compare.daily")</td>
+                            <td class="text-center py-1.5 px-2">@L.T("ms.guide.compare.monitoring")</td>
+                            <td class="text-center py-1.5 px-2 font-semibold text-purple-500">@L.T("ms.guide.compare.security")</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <p class="text-[11px] text-slate-400 dark:text-slate-500 px-3 py-1.5 border-t border-slate-50 dark:border-dgb-800/50">* Requires M co-signers to approve via PSBT workflow</p>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 px-3 py-1.5 border-t border-slate-50 dark:border-dgb-800/50">@L.T("ms.guide.compare.footnote")</p>
         </div>
     </div>
 
     @* ===== SECTION: Real-Time Rooms ===== *@
     <div>
-        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Real-Time Collaboration</p>
+        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("ms.guide.room.section")</p>
 
         <div class="card overflow-hidden mb-2">
             <button class="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/50 transition-colors"
@@ -559,7 +524,7 @@ Spend:
                     <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
                 </div>
                 <div class="flex-1">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">Create Together in Real-Time (Multisig Rooms)</p>
+                    <p class="text-xs font-bold text-slate-900 dark:text-white">@L.T("ms.guide.room.title")</p>
                 </div>
                 <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 @(openGuides.Contains("room") ? "rotate-180" : "")"
                      fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -571,19 +536,15 @@ Spend:
                 <div class="px-4 pb-4 border-t border-slate-100 dark:border-dgb-800">
                     <div class="flex flex-col gap-3 pt-3">
                         <div class="p-3 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
-                            <p class="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 mb-1">No manual key exchange needed!</p>
+                            <p class="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 mb-1">@L.T("ms.guide.room.no_exchange")</p>
                             <p class="text-[11px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
-                                Instead of asking each co-signer to copy and paste their public key, use a <b>Multisig Room</b>.
-                                Everyone joins a real-time room via an invite code, and public keys are shared automatically.
+                                @Rich(L.T("ms.guide.room.no_exchange_body"), L.T("ms.guide.room.room"))
                             </p>
                         </div>
                         <div class="p-3 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
-                            <p class="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 mb-1">Sign payments together too</p>
+                            <p class="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 mb-1">@L.T("ms.guide.room.sign")</p>
                             <p class="text-[11px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
-                                Open a pending payment, tap <b>Sign together online</b> and share the code. Each co-signer checks the payment
-                                and signs on their own device; signatures appear for everyone, and anyone can broadcast once there are enough.
-                                Rooms last 15 minutes to 2 hours (30 by default). Only co-signers can join, and <b>Share with co-signers</b> and
-                                <b>Add a signed copy</b> on the payment's screen still work if someone can't be online at the same time.
+                                @Rich(L.T("ms.guide.room.sign_body"), L.T("ms.guide.room.sign_online"), L.T("ms.guide.room.share"), L.T("ms.guide.room.add_copy"))
                             </p>
                         </div>
 
@@ -593,59 +554,59 @@ Spend:
                                 <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
                                 </svg>
-                                <p class="text-[11px] font-bold text-slate-800 dark:text-slate-200">Real-Life Scenario</p>
+                                <p class="text-[11px] font-bold text-slate-800 dark:text-slate-200">@L.T("ms.guide.room.story")</p>
                             </div>
                             <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
-                                <b>Maya, Leo, and Priya</b> are friends pooling DGB for a group vacation fund. They want a <b>2-of-3</b> wallet so any two of them can approve a withdrawal, but no single person can spend alone.
+                                @Rich(L.T("ms.guide.room.story_intro"), L.T("ms.guide.room.friends"), L.T("ms.detail.scheme", 2, 3))
                             </p>
                             <div class="flex flex-col gap-1.5 pl-2 border-l-2 border-indigo-200 dark:border-indigo-700/50">
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                    <b class="text-indigo-600 dark:text-indigo-400">Maya</b> opens the app, taps <b>Create Together in Real-Time</b>, names the wallet "Vacation Fund", sets it to 2-of-3, and taps <b>Create Room</b>. She gets the code <code class="text-[11px] bg-white dark:bg-dgb-900 px-1 py-0.5 rounded">H4X9K2</code>.
+                                    @Rich(L.T("ms.guide.room.story1"), Person("Maya"), L.T("ms.create.together"), L.T("ms.guide.room.create_room"), Code("H4X9K2", "text-[11px] bg-white dark:bg-dgb-900 px-1 py-0.5 rounded"))
                                 </p>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                    She drops the code in their group chat. <b class="text-indigo-600 dark:text-indigo-400">Leo</b> and <b class="text-indigo-600 dark:text-indigo-400">Priya</b> each open the app, tap <b>Join Room</b>, enter the code, and they instantly appear in Maya's participant list.
+                                    @Rich(L.T("ms.guide.room.story2"), Person("Leo"), Person("Priya"), L.T("ms.guide.room.join"))
                                 </p>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                    Everyone taps <b>"Ready"</b> — and in under <b>2 minutes</b>, all three have the same multisig wallet on their phones. No keys were copied, no files were shared. They can now deposit DGB and spend with any 2 approvals.
+                                    @Rich(L.T("ms.guide.room.story3"), L.T("ms.guide.room.ready"), L.T("ms.guide.room.two_minutes"))
                                 </p>
                             </div>
                         </div>
 
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">1. Create a Room</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.room.s1")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Go to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b>. Enter a wallet name, your display name, and set the M-of-N threshold. Tap <b>Create Room</b>.
+                                @Rich(L.T("ms.guide.room.s1_body"), Multisig, L.T("ms.wallets.create"), L.T("ms.create.together"), L.T("ms.guide.room.create_room"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">2. Share the Invite Code</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.room.s2")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                A <b>6-character invite code</b> is generated (e.g., <code class="text-[11px]">A7K3M2</code>). Share it with your co-signers via messaging. They can also use a <b>deep link</b> with <code class="text-[11px]">?code=A7K3M2</code>.
+                                @Rich(L.T("ms.guide.room.s2_body"), L.T("ms.guide.room.invite_code"), Code("A7K3M2"), L.T("ms.guide.room.deep_link"), Code("?code=A7K3M2"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">3. Co-signers Join</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.room.s3")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Each co-signer goes to <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b> → <b>Join Room</b>. They enter the invite code and their display name. Their public key is shared automatically.
+                                @Rich(L.T("ms.guide.room.s3_body"), Multisig, L.T("ms.wallets.create"), L.T("ms.create.together"), L.T("ms.guide.room.join"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">4. Everyone Taps Ready</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.room.s4")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                Once all participants have joined, each person taps <b>"Ready to Create Wallet"</b>. The participant list shows real-time status with checkmarks.
+                                @Rich(L.T("ms.guide.room.s4_body"), L.T("ms.guide.room.ready_create"))
                             </p>
                         </div>
                         <div>
-                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">5. Wallet Created on All Devices</p>
+                            <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 mb-1">@L.T("ms.guide.room.s5")</p>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                When all participants are ready, the wallet is created <b>simultaneously on every device</b>. Everyone gets the same multisig address — guaranteed by BIP67 deterministic key sorting.
+                                @Rich(L.T("ms.guide.room.s5_body"), L.T("ms.guide.room.simultaneous"))
                             </p>
                         </div>
 
                         <div class="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800/30">
-                            <p class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">⏱ Room Expiry</p>
+                            <p class="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">⏱ @L.T("ms.guide.room.expiry")</p>
                             <p class="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
-                                Rooms expire automatically after <b>15 minutes</b>. If the initiator leaves or disconnects, the room is closed for all participants.
+                                @Rich(L.T("ms.guide.room.expiry_body"), L.T("ms.guide.room.fifteen_minutes"))
                             </p>
                         </div>
                     </div>
@@ -658,16 +619,18 @@ Spend:
     <div class="flex flex-col gap-2 mt-2 pb-4">
         <button class="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-2xl shadow-lg shadow-purple-500/25 transition-all press-effect"
                 @onclick='() => Nav.NavigateTo("/multisig")'>
-            Create a Multisig Wallet
+            @L.T("ms.guide.cta.create")
         </button>
         <button class="btn-secondary w-full"
                 @onclick='() => Nav.NavigateTo("/help")'>
-            Back to Help Center
+            @L.T("ms.guide.cta.help")
         </button>
     </div>
 </div>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private HashSet<string> openGuides = [];
 
     private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
@@ -678,21 +641,66 @@ Spend:
             openGuides.Add(id);
     }
 
-    private record FlowStep(int Number, string Title, string Description);
+    // Names, product labels and standard identifiers that read the same in every language.
+    private const string Multisig = "Multisig";
+    private const string P2shP2wsh = "P2SH-P2WSH";
+    private const string P2wsh = "P2WSH";
+    private static readonly string[] DiagramNames = ["Alice", "Bob", "Charlie"];
 
-    private FlowStep[] createSteps = [
-        new(1, "Choose your threshold", "Decide how many signatures are required (M) and total key holders (N). E.g., 2-of-3."),
-        new(2, "Gather public keys", "Each co-signer shares their compressed public key (hex). Your key is auto-added."),
-        new(3, "Create the wallet", "The app generates a redeem script (BIP67 sorted), derives the multisig address, and saves the config."),
-        new(4, "Share the redeem script", "Send the redeem script to all co-signers so they can import the same wallet."),
-        new(5, "Fund the address", "Send DGB to the multisig address. Anyone can deposit — only M-of-N can withdraw."),
+    /// <summary>
+    /// A translated sentence with its {n} values filled in. A plain string value is shown in bold; a MarkupString
+    /// (from <see cref="Code"/> or <see cref="Person"/>) is inserted as is. The sentence and every value are HTML-encoded.
+    /// </summary>
+    private static MarkupString Rich(string template, params object[] parts) =>
+        new(string.Format(System.Globalization.CultureInfo.InvariantCulture, Encode(template),
+            parts.Select(p => (object)(p is MarkupString m ? m.Value : "<b>" + Encode(p?.ToString()) + "</b>")).ToArray()));
+
+    private static MarkupString Code(string text, string cssClass = "text-[11px]") =>
+        new($"<code class=\"{cssClass}\">{Encode(text)}</code>");
+
+    private static MarkupString Person(string name) =>
+        new($"<b class=\"text-indigo-600 dark:text-indigo-400\">{Encode(name)}</b>");
+
+    private static string Encode(string? text) => System.Net.WebUtility.HtmlEncode(text ?? "");
+
+    private (string Name, string Description)[] Standards =>
+    [
+        ("BIP67", L.T("ms.guide.tech.bip67")),
+        ("BIP174", L.T("ms.guide.tech.bip174")),
+        ("OP_CMS", L.T("ms.guide.tech.op_cms")),
     ];
 
-    private FlowStep[] spendSteps = [
-        new(1, "Initiator creates PSBT", "One co-signer enters the destination and amount. A Partially Signed Transaction (PSBT) is created."),
-        new(2, "Initiator signs", "The initiator adds their signature to the PSBT."),
-        new(3, "Share with co-signers", "The partially signed PSBT is shared via secure messaging (Signal, email, etc.)."),
-        new(4, "Co-signers sign", "Each co-signer imports the PSBT and adds their signature. Signatures combine automatically."),
-        new(5, "Threshold met → Broadcast", "When M signatures are collected, finalize the PSBT and broadcast to the DigiByte network."),
+    // Function and opcode names stay as they are in the code; only the words around them are translated.
+    private string TechnicalFlow =>
+        $"{L.T("ms.guide.tech.flow_create")}:\n" +
+        "  MultisigService.CreateRedeemScript(M, pubKeys[])\n" +
+        "  → BIP67 sort → OP_M [key1] [key2] ... [keyN] OP_N OP_CMS\n" +
+        $"  → Hash → {L.T("ms.guide.tech.flow_address")}\n\n" +
+        $"{L.T("ms.guide.tech.flow_spend")}:\n" +
+        "  CreateMultisigPSBT(redeemScript, utxos, dest, amt)\n" +
+        "  → PSBT with witnessUtxo + redeemScript hints\n" +
+        $"  → SignPSBT(psbt, privKey, redeemScript)  ×M {L.T("ms.guide.tech.flow_signers")}\n" +
+        "  → CombinePSBTs(original, signed1, signed2...)\n" +
+        "  → FinalizePSBT(combined) → extract raw tx\n" +
+        "  → BroadcastTransactionAsync(rawTx)";
+
+    private record FlowStep(int Number, string Title, string Description);
+
+    private FlowStep[] CreateSteps =>
+    [
+        new(1, L.T("ms.guide.flow.c1.title"), L.T("ms.guide.flow.c1.body")),
+        new(2, L.T("ms.guide.flow.c2.title"), L.T("ms.guide.flow.c2.body")),
+        new(3, L.T("ms.guide.flow.c3.title"), L.T("ms.guide.flow.c3.body")),
+        new(4, L.T("ms.guide.flow.c4.title"), L.T("ms.guide.flow.c4.body")),
+        new(5, L.T("ms.guide.flow.c5.title"), L.T("ms.guide.flow.c5.body")),
+    ];
+
+    private FlowStep[] SpendSteps =>
+    [
+        new(1, L.T("ms.guide.flow.p1.title"), L.T("ms.guide.flow.p1.body")),
+        new(2, L.T("ms.guide.flow.p2.title"), L.T("ms.guide.flow.p2.body")),
+        new(3, L.T("ms.guide.flow.p3.title"), L.T("ms.guide.flow.p3.body")),
+        new(4, L.T("ms.guide.flow.p4.title"), L.T("ms.guide.flow.p4.body")),
+        new(5, L.T("ms.guide.flow.p5.title"), L.T("ms.guide.flow.p5.body")),
     ];
 }

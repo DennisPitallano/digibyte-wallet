@@ -5,14 +5,15 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ShellActions Shell
+@inject LocalizationService L
 @implements IDisposable
 
-<PageTitle>Import Multisig — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.import.page_title")</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col gap-5">
-    <PageHeader Title="Import Multisig Wallet" BackHref="/multisig"
-                Subtitle="Paste the redeem script shared by a co-signer, or restore from a backup file." />
+    <PageHeader Title="@L.T("ms.import.title")" BackHref="/multisig"
+                Subtitle="@L.T("ms.import.subtitle")" />
 
     @* Import from file *@
     <div class="slide-up-delay-1 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800/30 p-4">
@@ -21,23 +22,23 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12-3-3m0 0-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
             </svg>
             <div class="flex-1">
-                <p class="text-xs font-bold text-indigo-800 dark:text-indigo-300">Have a backup file?</p>
+                <p class="text-xs font-bold text-indigo-800 dark:text-indigo-300">@L.T("ms.import.file.title")</p>
                 <p class="text-[11px] text-indigo-700 dark:text-indigo-400 leading-relaxed mt-0.5">
-                    Upload the <code class="text-[11px]">.txt</code> backup file exported from the multisig wallet detail page, or scan its redeem script QR code.
+                    @L.T("ms.import.file.body")
                 </p>
                 <label class="inline-flex items-center gap-1.5 mt-2 min-h-[44px] px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl cursor-pointer transition-colors press-effect">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13" /></svg>
-                    Choose File
+                    @L.T("ms.import.file.choose")
                     <InputFile OnChange="OnFileSelected" accept=".txt" class="hidden" />
                 </label>
                 <button type="button" class="inline-flex items-center gap-1.5 mt-2 ml-2 min-h-[44px] px-4 py-2.5 bg-white dark:bg-indigo-900/30 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 text-sm font-semibold rounded-xl transition-colors press-effect"
                         @onclick="() => showScanner = true">
                     <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" /></svg>
-                    Scan QR
+                    @L.T("send.scan_qr")
                 </button>
                 @if (!string.IsNullOrEmpty(fileName))
                 {
-                    <p class="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1">@fileName loaded</p>
+                    <p class="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1">@L.T("ms.import.file.loaded", fileName)</p>
                 }
             </div>
         </div>
@@ -45,23 +46,23 @@
 
     <div class="flex items-center gap-3 slide-up-delay-1">
         <div class="flex-1 border-t border-slate-200 dark:border-dgb-800"></div>
-        <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">or paste manually</span>
+        <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">@L.T("ms.import.or_paste")</span>
         <div class="flex-1 border-t border-slate-200 dark:border-dgb-800"></div>
     </div>
 
     <div class="flex flex-col gap-4">
         @* Wallet Name *@
         <div class="flex flex-col gap-1.5 slide-up-delay-1">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet Name</label>
-            <input type="text" @bind="walletName" placeholder="e.g. Shared Fund"
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("ms.create.name_label")</label>
+            <input type="text" @bind="walletName" placeholder="@L.T("ms.import.name_placeholder")"
                    class="input" />
         </div>
 
         @* Redeem Script *@
         <div class="flex flex-col gap-1.5 slide-up-delay-1">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Redeem Script (Hex)</label>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("ms.import.script_label")</label>
             <textarea @bind="redeemScriptHex" @bind:event="oninput" rows="4"
-                      placeholder="Paste the multisig redeem script hex..."
+                      placeholder="@L.T("ms.import.script_placeholder")"
                       class="input font-mono resize-none"></textarea>
         </div>
 
@@ -71,11 +72,11 @@
             <div class="slide-up-delay-1 rounded-xl px-3 py-2.5 border text-xs font-medium leading-relaxed @(ownKeyIndex >= 0 ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30 text-green-700 dark:text-green-400" : "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30 text-amber-700 dark:text-amber-400")">
                 @if (ownKeyIndex >= 0)
                 {
-                    <span>Your key is in this wallet (signer @(ownKeyIndex + 1)). You'll be able to sign transactions.</span>
+                    <span>@L.T("ms.import.key_found", ownKeyIndex + 1)</span>
                 }
                 else
                 {
-                    <span>Your key isn't in this script, so the wallet will be imported as <b>watch-only</b> (you can see the balance but can't sign). If you expected to sign, make sure your public key was included when the wallet was created.</span>
+                    <span>@Rich(L.T("ms.import.key_missing"), L.T("ms.import.watch_only"))</span>
                 }
             </div>
         }
@@ -93,22 +94,29 @@
             {
                 <div class="flex items-center justify-center gap-2">
                     <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Importing...</span>
+                    <span>@L.T("ms.import.importing")</span>
                 </div>
             }
             else
             {
-                <span>Import Wallet</span>
+                <span>@L.T("ms.import.button")</span>
             }
         </button>
         <button class="text-sm text-dgb-500 hover:text-dgb-600 font-medium py-2"
-                @onclick='() => Nav.NavigateTo("/multisig")'>Cancel</button>
+                @onclick='() => Nav.NavigateTo("/multisig")'>@L.T("common.cancel")</button>
     </div>
 </div>
 <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="@(() => showScanner = false)" />
 </AuthGuard>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    /// <summary>A translated sentence with its {n} values in bold; the sentence and the values are both HTML-encoded.</summary>
+    private static MarkupString Rich(string template, params string[] bold) =>
+        new(string.Format(System.Globalization.CultureInfo.InvariantCulture, System.Net.WebUtility.HtmlEncode(template),
+            bold.Select(b => (object)("<b>" + System.Net.WebUtility.HtmlEncode(b) + "</b>")).ToArray()));
+
     private string walletName = "";
     private string redeemScriptHex = "";
     private string? ownPubKeyHex;
@@ -150,7 +158,7 @@
             var file = e.File;
             if (file.Size > 50_000) // 50KB max for a text backup
             {
-                error = "File too large. Backup files should be under 50KB.";
+                error = L.T("ms.import.error.too_large");
                 return;
             }
 
@@ -162,9 +170,9 @@
             // Parse the backup file format
             ParseBackupFile(content);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            error = $"Failed to read file: {ex.Message}";
+            error = L.T("ms.import.error.read_failed");
         }
     }
 
@@ -198,7 +206,7 @@
             if (hexLine != null)
                 redeemScriptHex = hexLine;
             else
-                error = "Could not find a redeem script in the backup file.";
+                error = L.T("ms.import.error.no_script");
         }
     }
 
@@ -217,8 +225,8 @@
         else
         {
             error = MultisigSendHelper.ClassifyScan(data).Kind == ScanKind.Unknown
-                ? "That QR code isn't a multisig redeem script. Scan the QR code from the multisig's Redeem script & backup panel."
-                : "That QR code is an address or a transaction, not a redeem script.";
+                ? L.T("ms.import.error.qr_unknown")
+                : L.T("ms.import.error.qr_other");
         }
         StateHasChanged();
     }
@@ -235,9 +243,13 @@
             await MultisigService.ImportMultisigWalletAsync(walletName, redeemScriptHex.Trim(), ownKeyIndex, ownerWalletId: ActiveWallet.WalletId);
             Nav.NavigateTo("/multisig");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ArgumentException or FormatException)
         {
-            error = ex.Message;
+            error = L.T("ms.import.error.invalid_script");   // not hex, or not a multisig redeem script
+        }
+        catch (Exception)
+        {
+            error = L.T("ms.import.error.failed");
         }
         finally
         {

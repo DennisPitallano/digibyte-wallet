@@ -2,6 +2,7 @@
 @inject LocalizationService L
 @inject WalletService WalletService
 @using DigiByte.Wallet.Storage
+@using DigiByte.Wallet.Services
 @inject SpendingLimitService SpendingLimit
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -84,7 +85,7 @@
                         </div>
                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200">Daily</p>
                     </div>
-                    <input type="number" inputmode="decimal" min="0" step="0.01" value="@settings.DailyLimitDgb"
+                    <input type="text" inputmode="decimal" autocomplete="off" value="@LimitText(settings.DailyLimitDgb)"
                            @onchange="(e) => OnLimitChanged(e, nameof(settings.DailyLimitDgb))"
                            placeholder="0"
                            class="w-28 text-right px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-1 focus:ring-dgb-500/20" />
@@ -98,7 +99,7 @@
                         </div>
                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200">Weekly</p>
                     </div>
-                    <input type="number" inputmode="decimal" min="0" step="0.1" value="@settings.WeeklyLimitDgb"
+                    <input type="text" inputmode="decimal" autocomplete="off" value="@LimitText(settings.WeeklyLimitDgb)"
                            @onchange="(e) => OnLimitChanged(e, nameof(settings.WeeklyLimitDgb))"
                            placeholder="0"
                            class="w-28 text-right px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-1 focus:ring-dgb-500/20" />
@@ -112,11 +113,15 @@
                         </div>
                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200">Monthly</p>
                     </div>
-                    <input type="number" inputmode="decimal" min="0" step="1" value="@settings.MonthlyLimitDgb"
+                    <input type="text" inputmode="decimal" autocomplete="off" value="@LimitText(settings.MonthlyLimitDgb)"
                            @onchange="(e) => OnLimitChanged(e, nameof(settings.MonthlyLimitDgb))"
                            placeholder="0"
                            class="w-28 text-right px-3 py-2 bg-slate-50 dark:bg-dgb-800 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-1 focus:ring-dgb-500/20" />
                 </div>
+                @if (limitError is not null)
+                {
+                    <p class="text-xs text-red-500 px-1" role="alert">@limitError</p>
+                }
                 <p class="text-[11px] text-slate-400 dark:text-slate-500 px-1">Set to 0 to disable a specific period. All periods use rolling time windows.</p>
             </div>
 
@@ -281,16 +286,38 @@
         if (settings.Enabled) await LoadSpentAmounts();
     }
 
+    private const int LimitDecimals = 8;
+    private const decimal LimitMax = 21_000_000_000m;
+    private string? limitError;
+
+    /// <summary>A limit as it is shown in the field: the wallet language's style, no thousands marks, so it reads back the same.</summary>
+    private static string LimitText(decimal value) => value.ToString("0.########", System.Globalization.CultureInfo.CurrentCulture);
+
     private void OnLimitChanged(ChangeEventArgs e, string field)
     {
-        if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var val) && val >= 0)
+        // Same reading as the Send amount (spec 028): a comma or a point, never "12,5" as 125. Zero switches the period off.
+        var result = AmountEntry.Parse(e.Value?.ToString(), LimitDecimals, LimitMax);
+        decimal? val = result.Kind switch
         {
-            switch (field)
-            {
-                case nameof(settings.DailyLimitDgb): settings.DailyLimitDgb = val; break;
-                case nameof(settings.WeeklyLimitDgb): settings.WeeklyLimitDgb = val; break;
-                case nameof(settings.MonthlyLimitDgb): settings.MonthlyLimitDgb = val; break;
-            }
+            AmountEntryKind.Value => result.Amount,
+            AmountEntryKind.Invalid when result.Error == AmountEntryError.NotPositive => 0m,
+            _ => null,
+        };
+        if (val is null)
+        {
+            // An ambiguous limit ("1.234") is refused rather than asked about: a limit isn't worth a two-button question.
+            limitError = result.Kind == AmountEntryKind.Ambiguous
+                ? L.T("amount.invalid.moreThanOneMark")
+                : AmountEntryText.Error(L, result, LimitDecimals, LimitMax);
+            return; // keep the saved limit; nothing is saved from text that can't be read
+        }
+
+        limitError = null;
+        switch (field)
+        {
+            case nameof(settings.DailyLimitDgb): settings.DailyLimitDgb = val.Value; break;
+            case nameof(settings.WeeklyLimitDgb): settings.WeeklyLimitDgb = val.Value; break;
+            case nameof(settings.MonthlyLimitDgb): settings.MonthlyLimitDgb = val.Value; break;
         }
         _ = SaveSettings();
     }

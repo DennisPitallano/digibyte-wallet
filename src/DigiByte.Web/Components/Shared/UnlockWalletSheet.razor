@@ -61,11 +61,11 @@
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
                                 @if (wallet.WalletType == "xpub")
                                 {
-                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
+                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">@L.T("unlock.badge_watch")</span>
                                 }
                                 else if (wallet.WalletType == "privatekey")
                                 {
-                                    <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">WIF</span>
+                                    <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">@L.T("unlock.badge_wif")</span>
                                 }
                             </div>
                             <p class="text-[11px] @(isUnlocked ? "text-green-500" : "text-slate-400 dark:text-slate-500")">
@@ -87,6 +87,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public List<WalletInfo> Wallets { get; set; } = [];
     [Parameter] public string? CurrentWalletId { get; set; }

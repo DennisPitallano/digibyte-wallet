@@ -8,6 +8,7 @@
 @inject SigningRoomClient Room
 @inject ProposalHandoff Handoff
 @inject MultisigAttentionState Attention
+@inject LocalizationService L
 
 @*
     The Pending list (specs/026-multisig-wallet-experience, FR-018 to FR-025): what needs you first, then what waits on
@@ -17,16 +18,16 @@
     clearing cancelled ones.
 *@
 
-<PageTitle>Pending — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.pending.page_title")</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Pending" Subtitle="@Summary" BackLabel="@(config?.DisplayName ?? "Multisig")" BackHref="@($"/multisig/{WalletId}")">
+    <PageHeader Title="@L.T("nav.pending")" Subtitle="@Summary" BackLabel="@(config?.DisplayName ?? L.T("more.item.multisig.label"))" BackHref="@($"/multisig/{WalletId}")">
         @if (config is not null && OpenCount > 0)
         {
             <button type="button" class="btn-secondary btn-sm shrink-0" aria-haspopup="dialog" data-testid="add-proposal" @onclick="() => addOpen = true">
                 <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                Add a proposal
+                @L.T("ms.pending.add")
             </button>
         }
     </PageHeader>
@@ -56,12 +57,12 @@
         @* You cancelled this proposal here: nothing is re-added unless you confirm (spec 022, FR-010) *@
         @if (cancelledPrompt is not null)
         {
-            <div class="p-3 bg-white dark:bg-dgb-900 border border-amber-300 dark:border-amber-700/50 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="Restore cancelled proposal">
-                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">You cancelled this proposal.</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">@MultisigFormat.Dgb(cancelledPrompt.AmountSatoshis) DGB to @MultisigFormat.Short(cancelledPrompt.DestinationAddress). Restoring puts it back in your list so it can be signed again.</p>
+            <div class="p-3 bg-white dark:bg-dgb-900 border border-amber-300 dark:border-amber-700/50 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="@L.T("ms.pending.restore.aria")">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@L.T("ms.pending.restore.title")</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.pending.restore.body", MultisigFormat.Dgb(cancelledPrompt.AmountSatoshis), MultisigFormat.Short(cancelledPrompt.DestinationAddress))</p>
                 <div class="flex gap-2">
-                    <button type="button" class="btn-primary btn-sm" @onclick="RestoreCancelledProposal">Restore this proposal</button>
-                    <button type="button" class="btn-ghost btn-sm" @onclick="() => cancelledPrompt = null">Leave it cancelled</button>
+                    <button type="button" class="btn-primary btn-sm" @onclick="RestoreCancelledProposal">@L.T("ms.pending.restore.confirm")</button>
+                    <button type="button" class="btn-ghost btn-sm" @onclick="() => cancelledPrompt = null">@L.T("ms.pending.restore.keep")</button>
                 </div>
             </div>
         }
@@ -69,12 +70,12 @@
         @* The proposal belongs to another multisig of yours: offer to open it there (spec 022, FR-006) *@
         @if (otherWallet is not null)
         {
-            <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="Proposal is for another multisig">
-                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">This proposal is for <span class="break-words">@otherWallet.Name</span>.</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">It is not added here. Open that multisig to add it there.</p>
+            <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="@L.T("ms.pending.other.aria")">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 break-words">@L.T("ms.pending.other.title", otherWallet.Name)</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.pending.other.body")</p>
                 <div class="flex gap-2">
-                    <button type="button" class="btn-primary btn-sm" @onclick="OpenOtherWallet">Open @otherWallet.Name</button>
-                    <button type="button" class="btn-ghost btn-sm" @onclick="() => otherWallet = null">Not now</button>
+                    <button type="button" class="btn-primary btn-sm" @onclick="OpenOtherWallet">@L.T("ms.pending.other.open", otherWallet.Name)</button>
+                    <button type="button" class="btn-ghost btn-sm" @onclick="() => otherWallet = null">@L.T("biometric.upgrade.later")</button>
                 </div>
             </div>
         }
@@ -86,12 +87,12 @@
             var received = justReceived;
             <div class="flex items-center gap-3 p-3 rounded-xl border border-dgb-300 dark:border-dgb-700 bg-white dark:bg-dgb-900" role="status" data-testid="pending-just-received">
                 <p class="flex-1 min-w-0 text-sm text-slate-700 dark:text-slate-200">
-                    <span class="font-semibold">@justReceivedLabel:</span>
+                    <span class="font-semibold">@(L.T(justReceivedLabel)):</span>
                     <span class="tabular-nums">@MultisigFormat.Dgb(received.AmountSatoshis) DGB</span>
-                    to <span class="font-mono text-xs">@MultisigFormat.Short(received.DestinationAddress)</span>
+                    @L.T("ms.pending.received.to") <span class="font-mono text-xs">@MultisigFormat.Short(received.DestinationAddress)</span>
                 </p>
-                <button type="button" class="btn-primary btn-sm shrink-0" data-testid="pending-review-received" @onclick="() => OpenPayment(received)">Review</button>
-                <button type="button" class="icon-btn shrink-0" aria-label="Dismiss" @onclick="() => justReceived = null">
+                <button type="button" class="btn-primary btn-sm shrink-0" data-testid="pending-review-received" @onclick="() => OpenPayment(received)">@L.T("dd.send.continue")</button>
+                <button type="button" class="icon-btn shrink-0" aria-label="@L.T("home.search_offer.dismiss")" @onclick="() => justReceived = null">
                     <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
             </div>
@@ -101,10 +102,10 @@
         {
             @* Nothing waiting (cancelled ones, if any, are folded below): one sentence and the two ways to change that (FR-022) *@
             <div class="card p-6 text-center flex flex-col items-center gap-3" data-testid="pending-empty">
-                <p class="text-sm text-slate-600 dark:text-slate-400">Nothing is waiting. Payments that need signatures show up here.</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">@L.T("ms.pending.empty")</p>
                 <div class="flex flex-wrap justify-center gap-2">
-                    <button type="button" class="btn-primary btn-sm" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>Create a payment</button>
-                    <button type="button" class="btn-secondary btn-sm" aria-haspopup="dialog" data-testid="add-proposal" @onclick="() => addOpen = true">Add a proposal</button>
+                    <button type="button" class="btn-primary btn-sm" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>@L.T("ms.pending.create")</button>
+                    <button type="button" class="btn-secondary btn-sm" aria-haspopup="dialog" data-testid="add-proposal" @onclick="() => addOpen = true">@L.T("ms.pending.add")</button>
                 </div>
             </div>
         }
@@ -114,7 +115,7 @@
             @if (groups.NeedsYou.Count > 0)
             {
                 <section class="flex flex-col gap-3" aria-labelledby="group-needs-you">
-                    <h3 id="group-needs-you" class="section-label">Needs you <span class="text-slate-400 dark:text-slate-500">· @groups.NeedsYou.Count</span></h3>
+                    <h3 id="group-needs-you" class="section-label">@L.T("ms.pending.group.needs_you") <span class="text-slate-400 dark:text-slate-500">· @groups.NeedsYou.Count</span></h3>
                     @foreach (var tx in groups.NeedsYou)
                     {
                         @Card(tx)
@@ -125,7 +126,7 @@
             @if (groups.WaitingForOthers.Count > 0)
             {
                 <section class="flex flex-col gap-3" aria-labelledby="group-waiting">
-                    <h3 id="group-waiting" class="section-label">Waiting for others <span class="text-slate-400 dark:text-slate-500">· @groups.WaitingForOthers.Count</span></h3>
+                    <h3 id="group-waiting" class="section-label">@L.T("ms.pending.group.waiting") <span class="text-slate-400 dark:text-slate-500">· @groups.WaitingForOthers.Count</span></h3>
                     @foreach (var tx in groups.WaitingForOthers)
                     {
                         @Card(tx)
@@ -137,7 +138,7 @@
             {
                 @* Their coins were already spent: nothing to sign or wait for, only to cancel. Not counted as needing you. *@
                 <section class="flex flex-col gap-3" aria-labelledby="group-cant">
-                    <h3 id="group-cant" class="section-label">Can't go through <span class="text-slate-400 dark:text-slate-500">· @groups.CantGoThrough.Count</span></h3>
+                    <h3 id="group-cant" class="section-label">@L.T("ms.pending.group.cant") <span class="text-slate-400 dark:text-slate-500">· @groups.CantGoThrough.Count</span></h3>
                     @foreach (var tx in groups.CantGoThrough)
                     {
                         @Card(tx)
@@ -150,7 +151,7 @@
                 @* Folded by default: finished business stays out of the way *@
                 <section class="flex flex-col gap-3" aria-labelledby="group-cancelled">
                     <button type="button" class="detail-row" aria-expanded="@(cancelledOpen ? "true" : "false")" aria-controls="cancelled-list" @onclick="() => cancelledOpen = !cancelledOpen">
-                        <h3 id="group-cancelled" class="section-label flex-1">Cancelled <span class="text-slate-400 dark:text-slate-500">· @groups.Cancelled.Count</span></h3>
+                        <h3 id="group-cancelled" class="section-label flex-1">@L.T("ms.pending.group.cancelled") <span class="text-slate-400 dark:text-slate-500">· @groups.Cancelled.Count</span></h3>
                         <svg class="detail-row-chevron" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
                     </button>
                     @if (cancelledOpen)
@@ -164,17 +165,17 @@
                             @if (!confirmClearCancelled)
                             {
                                 <button type="button" class="self-end min-h-[44px] px-3 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500" @onclick="() => confirmClearCancelled = true">
-                                    @(groups.Cancelled.Count == 1 ? "Remove it from this device" : "Clear all cancelled")
+                                    @(groups.Cancelled.Count == 1 ? L.T("ms.pending.clear.one") : L.T("ms.pending.clear.other"))
                                 </button>
                             }
                             else
                             {
-                                <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl" role="alertdialog" aria-label="Confirm clear cancelled">
-                                    <p class="text-sm font-bold text-red-700 dark:text-red-300">@(groups.Cancelled.Count == 1 ? "Remove this cancelled proposal?" : $"Remove {groups.Cancelled.Count} cancelled proposals?")</p>
-                                    <p class="text-xs text-red-700 dark:text-red-400 leading-relaxed mt-1">@(groups.Cancelled.Count == 1 ? "It is" : "They are") deleted from this device, including Activity. This can't be undone.</p>
+                                <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl" role="alertdialog" aria-label="@L.T("ms.pending.clear.aria")">
+                                    <p class="text-sm font-bold text-red-700 dark:text-red-300">@(groups.Cancelled.Count == 1 ? L.T("ms.pending.clear.title.one") : L.T("ms.pending.clear.title.other", groups.Cancelled.Count))</p>
+                                    <p class="text-xs text-red-700 dark:text-red-400 leading-relaxed mt-1">@(groups.Cancelled.Count == 1 ? L.T("ms.pending.clear.body.one") : L.T("ms.pending.clear.body.other"))</p>
                                     <div class="flex gap-2 mt-2">
-                                        <button type="button" class="btn-danger btn-sm" @onclick="ClearCancelled">Remove @(groups.Cancelled.Count == 1 ? "it" : groups.Cancelled.Count.ToString())</button>
-                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmClearCancelled = false">Keep @(groups.Cancelled.Count == 1 ? "it" : "them")</button>
+                                        <button type="button" class="btn-danger btn-sm" @onclick="ClearCancelled">@(groups.Cancelled.Count == 1 ? L.T("ms.pending.clear.confirm.one") : L.T("ms.pending.clear.confirm.other", groups.Cancelled.Count))</button>
+                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmClearCancelled = false">@(groups.Cancelled.Count == 1 ? L.T("ms.pending.clear.keep.one") : L.T("ms.pending.clear.keep.other"))</button>
                                     </div>
                                 </div>
                             }
@@ -195,6 +196,7 @@
 
 @code {
     [Parameter] public string WalletId { get; set; } = "";
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private MultisigWalletConfig? config;
     private MultisigAccessState access = MultisigAccessState.NotFound;
@@ -211,6 +213,7 @@
     private string? highlightId;
     // The proposal brought in a moment ago by scan, paste or file; offered for review until opened or dismissed.
     private PendingMultisigTransaction? justReceived;
+    // A key of en.json, so the label follows a language switch.
     private string justReceivedLabel = "";
 
     private void OfferReview(PendingMultisigTransaction pending, string label)
@@ -241,8 +244,8 @@
         {
             if (isLoading || config is null || groups.Count == 0) return null;
             var parts = new List<string>();
-            if (groups.NeedsYou.Count > 0) parts.Add(groups.NeedsYou.Count == 1 ? "1 needs you" : $"{groups.NeedsYou.Count} need you");
-            if (groups.WaitingForOthers.Count > 0) parts.Add($"{groups.WaitingForOthers.Count} waiting for others");
+            if (groups.NeedsYou.Count > 0) parts.Add(groups.NeedsYou.Count == 1 ? L.T("ms.pending.summary.needs_you.one") : L.T("ms.pending.summary.needs_you.other", groups.NeedsYou.Count));
+            if (groups.WaitingForOthers.Count > 0) parts.Add(groups.WaitingForOthers.Count == 1 ? L.T("ms.pending.summary.waiting.one") : L.T("ms.pending.summary.waiting.other", groups.WaitingForOthers.Count));
             return parts.Count == 0 ? null : string.Join(" · ", parts);
         }
     }
@@ -385,7 +388,7 @@
         try { text = await Clipboard.ReadAsync(); } catch { /* blocked */ }
         if (string.IsNullOrWhiteSpace(text))
         {
-            Notifications.Warning("Nothing to paste, or the browser blocked clipboard access.");
+            Notifications.Warning(L.T("ms.pending.paste_empty"));
             return;
         }
         await ReceiveProposalText(text);
@@ -402,7 +405,7 @@
         }
         catch
         {
-            Notifications.Warning("That file couldn't be read. Use a small text file containing the proposal (PSBT).");
+            Notifications.Warning(L.T("ms.pending.toast.file_unreadable"));
             return;
         }
         await ReceiveProposalText(text);
@@ -419,8 +422,8 @@
         if (kind != ScanKind.Psbt)
         {
             Notifications.Warning(kind is ScanKind.Address or ScanKind.PaymentUri
-                ? "That is an address, not a proposal. A co-signer shares a proposal (PSBT) for you to add here."
-                : "That doesn't look like a proposal (PSBT).");
+                ? L.T("ms.pending.toast.is_address")
+                : L.T("ms.pending.toast.not_psbt"));
             return;
         }
 
@@ -432,30 +435,30 @@
             switch (result.Outcome)
             {
                 case ProposalReceiveOutcome.Added:
-                    Notifications.Success("Proposal added.");
+                    Notifications.Success(L.T("ms.pending.toast.added"));
                     Highlight(result.Pending.Id);
-                    OfferReview(result.Pending, "Just added");
+                    OfferReview(result.Pending, "ms.pending.label.added");
                     break;
                 case ProposalReceiveOutcome.Merged:
-                    Notifications.Success(result.NewSignatures == 1 ? "1 new signature added." : $"{result.NewSignatures} new signatures added.");
+                    Notifications.Success(result.NewSignatures == 1 ? L.T("ms.pending.toast.merged.one") : L.T("ms.pending.toast.merged.other", result.NewSignatures));
                     Highlight(result.Pending.Id);
-                    OfferReview(result.Pending, "Just updated");
+                    OfferReview(result.Pending, "ms.pending.label.updated");
                     break;
                 case ProposalReceiveOutcome.AlreadyUpToDate:
-                    Notifications.Info("Already up to date.");
+                    Notifications.Info(L.T("ms.pending.toast.up_to_date"));
                     Highlight(result.Pending.Id);
-                    OfferReview(result.Pending, "Already here");
+                    OfferReview(result.Pending, "ms.pending.label.already");
                     break;
                 case ProposalReceiveOutcome.Cancelled:
                     cancelledPrompt = result.Pending;
                     cancelledPsbt = psbt;
                     break;
                 case ProposalReceiveOutcome.Closed:
-                    Notifications.Info("This payment was already sent. It is in Activity.");
+                    Notifications.Info(L.T("ms.pending.toast.closed"));
                     break;
             }
             if (result.RejectedSigners.Count > 0)
-                Notifications.Warning("A signature on that copy didn't check out and was ignored.");
+                Notifications.Warning(L.T("ms.pending.toast.rejected"));
         }
         catch (PsbtImportException ex)
         {
@@ -469,7 +472,7 @@
             else
             {
                 Notifications.Warning(ex.Message.Contains("not this multisig", StringComparison.OrdinalIgnoreCase)
-                    ? ex.Message + " It may be for a multisig that isn't on this device."
+                    ? L.T("ms.pending.toast.not_on_device", ex.Message)
                     : ex.Message);
             }
         }
@@ -488,9 +491,9 @@
             cancelledPrompt = null;
             cancelledPsbt = "";
             await Reload();
-            Notifications.Success("Proposal restored.");
+            Notifications.Success(L.T("ms.pending.toast.restored"));
             Highlight(restored.Id);
-            OfferReview(restored, "Restored");
+            OfferReview(restored, "ms.pending.label.restored");
         }
         catch (PsbtImportException ex)
         {
@@ -566,7 +569,7 @@
         {
             var n = await MultisigService.RemoveCancelledAsync(WalletId);
             await Reload();
-            Notifications.Success(n == 1 ? "Removed from this device's list." : $"Removed {n} cancelled proposals from this device's list.");
+            Notifications.Success(n == 1 ? L.T("ms.pending.toast.removed.one") : L.T("ms.pending.toast.removed.other", n));
         }
         catch (Exception ex)
         {

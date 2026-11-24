@@ -132,6 +132,7 @@ public class NodeSourceStatusTests
         Assert.True(v.ShowBanner);
         Assert.Equal(NodeSourceDot.Amber, v.Dot);
         Assert.Equal("The wallet team's node is unavailable. Using public explorers instead.", v.BannerText);
+        Assert.Equal(NodeBanner.NodeFallback, v.Banner);
     }
 
     [Theory]
@@ -145,6 +146,7 @@ public class NodeSourceStatusTests
 
         Assert.False(v.ShowBanner);
         Assert.Null(v.BannerText);
+        Assert.Equal(NodeBanner.None, v.Banner);
         Assert.Equal(NodeSourceDot.Neutral, v.Dot);
     }
 
@@ -163,6 +165,7 @@ public class NodeSourceStatusTests
         Assert.Contains("Can't reach the blockchain right now", v.BannerText);
         Assert.Contains("last known balance, which may be out of date", v.BannerText);
         Assert.Contains("Sending is unavailable until the connection returns", v.BannerText);
+        Assert.Equal(NodeBanner.Unreachable, v.Banner);
         Assert.Contains("No data source is reachable", v.Detail);
     }
 
@@ -172,6 +175,7 @@ public class NodeSourceStatusTests
         var v = View(NodeSourceState.NotReady, NodeNotReadyReason.Syncing, wasActive: true, allFailed: true);
 
         Assert.DoesNotContain("wallet team's node is unavailable", v.BannerText);
+        Assert.Equal(NodeBanner.Unreachable, v.Banner);
     }
 
     [Fact]
@@ -181,6 +185,7 @@ public class NodeSourceStatusTests
 
         Assert.False(v.ShowBanner);
         Assert.Null(v.BannerText);
+        Assert.Equal(NodeBanner.None, v.Banner);
     }
 
     // ---------- copy hygiene ----------

@@ -19,6 +19,9 @@
 </div>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     /// <summary>Smaller padding and text, for the login detail dialog.</summary>
     [Parameter] public bool Compact { get; set; }
 

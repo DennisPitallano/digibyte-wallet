@@ -1,5 +1,6 @@
 @inject WalletService WalletService
 @inject NavigationManager Nav
+@inject LocalizationService L
 
 @if (IsOpen)
 {
@@ -9,7 +10,7 @@
 
         @* Sheet *@
         <div class="relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px] transition-transform duration-150 ease-out"
-             style="transform: translateY(@(dragOffset)px); @(isClosing ? "transform: translateY(100%); transition-duration: 200ms;" : "")"
+             style="transform: translateY(@(Css.N(dragOffset))px); @(isClosing ? "transform: translateY(100%); transition-duration: 200ms;" : "")"
              @onclick:stopPropagation="true"
              @ontouchstart="OnSheetTouchStart" @ontouchmove="OnSheetTouchMove" @ontouchend="OnSheetTouchEnd"
              @ontouchmove:preventDefault="isDragging">
@@ -20,9 +21,9 @@
 
             @* Header *@
             <div class="flex items-center justify-between px-5 pb-3">
-                <h3 class="block-title">My Wallets</h3>
+                <h3 class="block-title">@L.T("home.picker.title")</h3>
                 <button class="icon-btn icon-btn-sm"
-                        @onclick="Close" aria-label="Close">
+                        @onclick="Close" aria-label="@L.T("more.close")">
                     <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
@@ -72,7 +73,7 @@
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
                                 @if (wallet.WalletType == "xpub")
                                 {
-                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">Watch</span>
+                                    <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30 px-1.5 py-0.5 rounded-full uppercase flex-shrink-0">@L.T("home.picker.watch")</span>
                                 }
                                 else if (wallet.WalletType == "privatekey")
                                 {
@@ -82,15 +83,15 @@
                             <p class="text-[11px] text-slate-400 dark:text-slate-500">
                                 @if (!isUnlocked)
                                 {
-                                    <span>Locked</span>
+                                    <span>@L.T("unlock.wallet_locked")</span>
                                 }
                                 else if (isActive)
                                 {
-                                    <span class="text-dgb-500">Active</span>
+                                    <span class="text-dgb-500">@L.T("home.picker.active")</span>
                                 }
                                 else
                                 {
-                                    <span class="text-green-500">Unlocked</span>
+                                    <span class="text-green-500">@L.T("unlock.wallet_unlocked")</span>
                                 }
                             </p>
                         </div>
@@ -113,11 +114,11 @@
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
-                    Create New Wallet
+                    @L.T("home.picker.create")
                 </button>
                 <button class="w-full text-center py-2 text-xs text-slate-400 hover:text-dgb-500 font-medium transition-colors"
                         @onclick="ManageWallets">
-                    Manage Wallets
+                    @L.T("home.picker.manage")
                 </button>
             </div>
         </div>
@@ -125,6 +126,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<WalletInfo> OnWalletSelected { get; set; }

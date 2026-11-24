@@ -4,8 +4,9 @@
 @inject ClipboardService Clipboard
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject LocalizationService L
 
-<PageTitle>Multisig Activity — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.activity.page_title")</PageTitle>
 
 <AuthGuard>
 @if (isLoading)
@@ -23,7 +24,7 @@ else if (config == null)
 else
 {
     <div class="flex flex-col gap-3">
-        <PageHeader Title="Activity" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
+        <PageHeader Title="@L.T("nav.activity")" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
         <div class="-mt-2"><SharedWalletContextLine Config="config" /></div>
 
         <ActivityList Entries="entries" Filter="filter" IsLoading="isLoadingMore" IsPartial="isPartial" HasMore="hasMore"
@@ -32,9 +33,9 @@ else
             <EmptyActions>
                 @if (filter == ActivityFilter.All)
                 {
-                    <button type="button" class="btn-primary btn-sm" @onclick="() => receiveOpen = true">Receive</button>
+                    <button type="button" class="btn-primary btn-sm" @onclick="() => receiveOpen = true">@L.T("wallet.receive")</button>
                     <button type="button" class="min-h-[44px] px-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 press-effect"
-                            @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>Send</button>
+                            @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/send")'>@L.T("wallet.send")</button>
                 }
             </EmptyActions>
         </ActivityList>
@@ -45,51 +46,51 @@ else
     @if (selected is not null)
     {
         var e = selected;
-        <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Transaction details" @onclick="() => selected = null">
+        <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="@L.T("ms.activity.details")" @onclick="() => selected = null">
             <div class="modal-card flex flex-col gap-3 max-h-[85vh] overflow-y-auto" @onclick:stopPropagation="true">
                 <div class="flex items-center justify-between gap-2">
                     <h3 class="block-title">@DetailTitle(e)</h3>
-                    <button type="button" class="min-w-[44px] min-h-[44px] text-slate-400" aria-label="Close details" @onclick="() => selected = null">✕</button>
+                    <button type="button" class="min-w-[44px] min-h-[44px] text-slate-400" aria-label="@L.T("ms.activity.close_details")" @onclick="() => selected = null">✕</button>
                 </div>
                 <p class="text-2xl font-extrabold @(e.Direction == ActivityDirection.In ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white")">
                     @(e.Direction == ActivityDirection.In ? "+" : e.Direction == ActivityDirection.Out ? "−" : "")@MultisigFormat.Dgb(e.AmountSatoshis) <span class="text-base text-slate-400">DGB</span>
                 </p>
 
                 <dl class="flex flex-col gap-2 text-xs">
-                    <div><dt class="text-slate-400">When</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.When(e.Timestamp)</dd></div>
+                    <div><dt class="text-slate-400">@L.T("ms.activity.when")</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.When(e.Timestamp)</dd></div>
                     @if (e.FeeSatoshis is not null && e.FeeSatoshis > 0)
                     {
-                        <div><dt class="text-slate-400">Network fee</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(e.FeeSatoshis.Value) DGB</dd></div>
+                        <div><dt class="text-slate-400">@L.T("dd.confirm.fee")</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(e.FeeSatoshis.Value) DGB</dd></div>
                     }
                     @if (!string.IsNullOrEmpty(e.Counterparty))
                     {
                         <div>
-                            <dt class="text-slate-400">@(e.Direction == ActivityDirection.In ? "From" : "To")@(e.MoreCount > 0 ? $" (+{e.MoreCount} more)" : "")</dt>
+                            <dt class="text-slate-400">@(e.Direction == ActivityDirection.In ? L.T("history.detail.from") : L.T("history.detail.to"))@(e.MoreCount > 0 ? " " + L.T("ms.activity.more", e.MoreCount) : "")</dt>
                             <dd class="font-mono break-all text-slate-800 dark:text-slate-100 select-all">@e.Counterparty</dd>
                         </div>
                     }
                     @if (!string.IsNullOrWhiteSpace(e.Memo))
                     {
-                        <div><dt class="text-slate-400">Memo</dt><dd class="text-slate-800 dark:text-slate-100">@e.Memo</dd></div>
+                        <div><dt class="text-slate-400">@L.T("history.detail.memo")</dt><dd class="text-slate-800 dark:text-slate-100">@e.Memo</dd></div>
                     }
                     @if (e.SignedCount is not null)
                     {
-                        <div><dt class="text-slate-400">Signatures</dt><dd class="text-slate-800 dark:text-slate-100">@e.SignedCount of @e.RequiredCount</dd></div>
+                        <div><dt class="text-slate-400">@L.T("ms.activity.signatures")</dt><dd class="text-slate-800 dark:text-slate-100">@L.T("ms.activity.signed_of", e.SignedCount ?? 0, e.RequiredCount ?? 0)</dd></div>
                     }
                     @if (e.Confirmations is not null)
                     {
-                        <div><dt class="text-slate-400">Confirmations</dt><dd class="text-slate-800 dark:text-slate-100">@e.Confirmations</dd></div>
+                        <div><dt class="text-slate-400">@L.T("ms.activity.confirmations")</dt><dd class="text-slate-800 dark:text-slate-100">@e.Confirmations</dd></div>
                     }
                     @if (!string.IsNullOrEmpty(e.TxId))
                     {
                         <div>
-                            <dt class="text-slate-400">Transaction ID</dt>
+                            <dt class="text-slate-400">@L.T("ms.activity.txid")</dt>
                             <dd class="font-mono break-all text-slate-800 dark:text-slate-100 select-all">@e.TxId</dd>
                         </div>
                     }
                 </dl>
 
-                <ol class="flex flex-col gap-1 text-[11px] text-slate-500 dark:text-slate-400 border-l-2 border-slate-200 dark:border-dgb-800 pl-3" aria-label="Status timeline">
+                <ol class="flex flex-col gap-1 text-[11px] text-slate-500 dark:text-slate-400 border-l-2 border-slate-200 dark:border-dgb-800 pl-3" aria-label="@L.T("ms.activity.timeline")">
                     @foreach (var step in Timeline(e))
                     {
                         <li>@step</li>
@@ -99,12 +100,12 @@ else
                 <div class="flex items-center gap-2 flex-wrap">
                     @if (!string.IsNullOrEmpty(e.TxId))
                     {
-                        <button type="button" class="btn-secondary btn-sm" @onclick="() => CopyTxId(e.TxId!)">@(copiedTx ? "Copied!" : "Copy TxID")</button>
-                        <button type="button" class="btn-secondary btn-sm" @onclick="() => OpenExplorer(e.TxId!)">Open in explorer</button>
+                        <button type="button" class="btn-secondary btn-sm" @onclick="() => CopyTxId(e.TxId!)">@(copiedTx ? L.T("receive.copied") : L.T("ms.activity.copy_txid"))</button>
+                        <button type="button" class="btn-secondary btn-sm" @onclick="() => OpenExplorer(e.TxId!)">@L.T("ms.activity.explorer")</button>
                     }
                     @if (e.IsPending || e.Kind == ActivityKind.Failed)
                     {
-                        <button type="button" class="btn-primary btn-sm" @onclick='() => Nav.NavigateTo(string.IsNullOrEmpty(e.ProposalId) ? $"/multisig/{WalletId}/pending" : $"/multisig/{WalletId}/pending/{Uri.EscapeDataString(e.ProposalId)}")'>Open payment</button>
+                        <button type="button" class="btn-primary btn-sm" @onclick='() => Nav.NavigateTo(string.IsNullOrEmpty(e.ProposalId) ? $"/multisig/{WalletId}/pending" : $"/multisig/{WalletId}/pending/{Uri.EscapeDataString(e.ProposalId)}")'>@L.T("ms.activity.open_payment")</button>
                     }
                 </div>
             </div>
@@ -114,6 +115,8 @@ else
 </AuthGuard>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private const int PageSize = 25;
 
     [Parameter] public string WalletId { get; set; } = "";
@@ -131,10 +134,17 @@ else
     private List<ActivityEntry> entries = [];
     private ActivityEntry? selected;
 
-    private string EmptyTitle => filter == ActivityFilter.All ? "No activity yet" : $"No {filter.ToString().ToLowerInvariant()} entries";
+    private string EmptyTitle => filter switch
+    {
+        ActivityFilter.Received => L.T("ms.activity.empty.received"),
+        ActivityFilter.Sent => L.T("ms.activity.empty.sent"),
+        ActivityFilter.Pending => L.T("ms.activity.empty.pending"),
+        ActivityFilter.Failed => L.T("ms.activity.empty.failed"),
+        _ => L.T("ms.activity.empty.title"),
+    };
     private string EmptyHint => filter == ActivityFilter.All
-        ? "Receive funds or create a payment and it will show up here."
-        : "Try another filter to see the rest of this multisig's activity.";
+        ? L.T("ms.activity.empty.hint")
+        : L.T("ms.activity.empty.filter_hint");
 
     private string? loadedFor;
 
@@ -186,34 +196,40 @@ else
         }
     }
 
-    private static string DetailTitle(ActivityEntry e) => e.Kind switch
+    private string DetailTitle(ActivityEntry e) => e.Kind switch
     {
-        ActivityKind.Received => "Received",
-        ActivityKind.Sent => "Sent",
-        ActivityKind.ProposalAwaiting => "Waiting for signatures",
-        ActivityKind.ProposalReady => "Ready to broadcast",
-        ActivityKind.Failed => "Broadcast failed",
-        ActivityKind.Cancelled => "Cancelled",
-        _ => "Transaction",
+        ActivityKind.Received => L.T("history.received"),
+        ActivityKind.Sent => L.T("history.sent"),
+        ActivityKind.ProposalAwaiting => L.T("ms.activity.kind.awaiting"),
+        ActivityKind.ProposalReady => L.T("ms.activity.kind.ready"),
+        ActivityKind.Failed => L.T("ms.activity.kind.failed"),
+        ActivityKind.Cancelled => L.T("ms.activity.kind.cancelled"),
+        _ => L.T("ms.activity.kind.transaction"),
     };
 
-    private static List<string> Timeline(ActivityEntry e)
+    private List<string> Timeline(ActivityEntry e)
     {
         var steps = new List<string>();
         if (e.ProposalId is not null)
         {
-            steps.Add($"Proposed {MultisigFormat.When(e.Timestamp)}");
-            if (e.SignedCount is not null) steps.Add($"Signatures: {e.SignedCount} of {e.RequiredCount}");
+            steps.Add(L.T("ms.activity.step.proposed", MultisigFormat.When(e.Timestamp)));
+            if (e.SignedCount is not null) steps.Add(L.T("ms.activity.step.signatures", e.SignedCount.Value, e.RequiredCount ?? 0));
         }
         switch (e.Kind)
         {
-            case ActivityKind.ProposalReady: steps.Add("All required signatures collected, ready to broadcast"); break;
-            case ActivityKind.Failed: steps.Add("Broadcast failed. It can be retried from Pending"); break;
-            case ActivityKind.Cancelled: steps.Add("Cancelled on this device"); break;
+            case ActivityKind.ProposalReady: steps.Add(L.T("ms.activity.step.ready")); break;
+            case ActivityKind.Failed: steps.Add(L.T("ms.activity.step.failed")); break;
+            case ActivityKind.Cancelled: steps.Add(L.T("ms.activity.step.cancelled")); break;
             case ActivityKind.Sent:
             case ActivityKind.Received:
-                steps.Add(e.Kind == ActivityKind.Sent ? "Broadcast to the network" : "Seen on the network");
-                steps.Add((e.Confirmations ?? 0) switch { 0 => "Waiting for the first confirmation", < 6 => $"{e.Confirmations} confirmation(s)", _ => "Confirmed (6 or more)" });
+                steps.Add(e.Kind == ActivityKind.Sent ? L.T("ms.activity.step.broadcast") : L.T("ms.activity.step.seen"));
+                steps.Add((e.Confirmations ?? 0) switch
+                {
+                    0 => L.T("ms.activity.step.first_confirmation"),
+                    1 => L.T("ms.activity.step.confirmations.one"),
+                    < 6 => L.T("ms.activity.step.confirmations.other", e.Confirmations!.Value),
+                    _ => L.T("ms.activity.step.confirmed"),
+                });
                 break;
         }
         return steps;

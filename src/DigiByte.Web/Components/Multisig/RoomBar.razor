@@ -2,30 +2,31 @@
    (specs/026-multisig-wallet-experience, FR-031). It stays at the top while the room scrolls. When five minutes or
    less remain the time stands out, by a warning icon and heavier type as well as colour, and is announced once.
    The bar must fit a phone's width in every state, so the words stay short. *@
+@inject LocalizationService L
 <div class="room-bar" data-testid="room-bar">
-    <button type="button" class="icon-btn -ml-2 shrink-0" aria-label="Back. The room stays open." @onclick="OnBack">
+    <button type="button" class="icon-btn -ml-2 shrink-0" aria-label="@L.T("ms.ui.roomBar.back_aria")" @onclick="OnBack">
         <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
     </button>
 
-    <span class="room-bar-code" title="Room code">
+    <span class="room-bar-code" title="@L.T("ms.ui.roomBar.code")">
         <UxIcon Name="live" Class="w-3.5 h-3.5 shrink-0" />
-        <span class="sr-only">Room code </span>@InviteCode
+        <span class="sr-only">@L.T("ms.ui.roomBar.code") </span>@InviteCode
     </span>
 
-    <span class="room-bar-time @(Countdown.IsUrgent ? "room-bar-time-urgent" : "")" aria-hidden="true" title="@(Countdown.IsUrgent ? "The room closes soon" : null)">
+    <span class="room-bar-time @(Countdown.IsUrgent ? "room-bar-time-urgent" : "")" aria-hidden="true" title="@(Countdown.IsUrgent ? L.T("ms.ui.roomBar.closes_soon") : null)">
         <UxIcon Name="@(Countdown.IsUrgent ? "alert" : "clock")" Class="w-3.5 h-3.5 shrink-0" />
         <span class="tabular-nums">@Countdown.Text</span>
-        <span class="room-bar-time-label">left</span>
+        <span class="room-bar-time-label">@L.T("ms.ui.roomBar.left")</span>
     </span>
     @* Read on request, not every second: the ticking clock is hidden from assistive technology and this says it once. *@
     <span class="sr-only">@Spoken</span>
 
     <span class="room-bar-connection" role="status">
         <span class="room-bar-dot @(IsReconnecting ? "room-bar-dot-off" : "")" aria-hidden="true"></span>
-        <span class="@(IsReconnecting ? "" : "sr-only")">@(IsReconnecting ? "Reconnecting" : "Connected")</span>
+        <span class="@(IsReconnecting ? "" : "sr-only")">@(IsReconnecting ? L.T("ms.ui.roomBar.reconnecting") : L.T("ms.ui.roomBar.connected"))</span>
     </span>
 
-    <button type="button" class="icon-btn -mr-2 shrink-0" aria-label="Room menu: leave or close the room" aria-haspopup="dialog" data-testid="room-menu-button" @onclick="OnMenu">
+    <button type="button" class="icon-btn -mr-2 shrink-0" aria-label="@L.T("ms.ui.roomBar.menu_aria")" aria-haspopup="dialog" data-testid="room-menu-button" @onclick="OnMenu">
         <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
     </button>
 
@@ -44,6 +45,7 @@
     [Parameter] public bool IsReconnecting { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
     [Parameter] public EventCallback OnMenu { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private bool announcedUrgent;
     private string announcement = "";
@@ -54,7 +56,7 @@
         if (Countdown.IsUrgent && !announcedUrgent)
         {
             announcedUrgent = true;
-            announcement = $"The room closes soon. {Spoken}. Signatures already collected stay saved.";
+            announcement = L.T("ms.ui.roomBar.announcement", Spoken);
         }
     }
 }

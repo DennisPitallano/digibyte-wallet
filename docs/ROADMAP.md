@@ -101,7 +101,7 @@
 ## In Progress
 
 ### Alpha Release Prep
-- [ ] Multi-language support (10 locales defined, translation files pending)
+- [x] Spanish: language setting, live switch, core screens translated (specs/028-spanish-language-option)
 - [ ] Node API OpenAPI/Swagger export
 - [ ] API usage examples in docs
 
@@ -116,9 +116,11 @@
 - [ ] EF Core + PostgreSQL
 
 ### Multi-Language
-- [ ] Wire up L10n.T() across all pages
-- [ ] Complete translation files (8 of 10 locales pending)
-- [ ] Component re-render on locale change
+- [x] Language setting with English and Spanish; switches without a reload (specs/028-spanish-language-option)
+- [x] Settings, onboarding, unlock, Home, Receive, Send and History translated
+- [x] Contacts, Digi-ID, DigiDollar, multisig (every page and the signing rooms), Recovery Tools, Manage Wallets, Payments, Help and the version dialog translated
+- [ ] Messages that come straight from shared services or the server (some error details, the boot repair screen) are still English
+- [ ] More languages (each needs a full translation file and a native-speaker review of the warnings)
 
 ### UX Enhancements
 - [x] Transaction search/filter (date, amount, direction)

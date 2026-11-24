@@ -1,7 +1,8 @@
 @* Where the group is: Invite, Sign, Broadcast (specs/026-multisig-wallet-experience, FR-027). Each step is shown by
    a mark and a word, never by colour alone: a check for done, a filled number for now, an outlined number for later.
    Assistive technology gets one sentence in place of the three marks. *@
-<ol class="room-steps" aria-label="@RoomStage.Describe(Stage)" data-testid="room-steps" data-stage="@Stage">
+@inject LocalizationService L
+<ol class="room-steps" aria-label="@Describe" data-testid="room-steps" data-stage="@Stage">
     @for (var i = 0; i < Steps.Length; i++)
     {
         var index = i;
@@ -17,7 +18,7 @@
                     @(index + 1)
                 }
             </span>
-            <span class="room-step-label">@Steps[index]</span>
+            <span class="room-step-label">@L.T(Steps[index])</span>
         </li>
     }
 </ol>
@@ -25,7 +26,18 @@
 @code {
     [Parameter, EditorRequired] public RoomStageKind Stage { get; set; }
 
-    private static readonly string[] Steps = ["Invite", "Sign", "Broadcast"];
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    private static readonly string[] Steps = ["ms.ui.roomSteps.invite", "ms.ui.roomSteps.sign", "ms.ui.roomSteps.broadcast"];
+
+    // The tracker in words, for assistive technology (the words of RoomStage.Describe, in the wallet's language).
+    private string Describe => Stage switch
+    {
+        RoomStageKind.Invite => L.T("ms.ui.roomSteps.describe.invite"),
+        RoomStageKind.Sign => L.T("ms.ui.roomSteps.describe.sign"),
+        RoomStageKind.Broadcast => L.T("ms.ui.roomSteps.describe.broadcast"),
+        _ => L.T("ms.ui.roomSteps.describe.done"),
+    };
 
     private string StateOf(int index)
     {

@@ -20,6 +20,9 @@
 </div>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter, EditorRequired] public string Label { get; set; } = "";
     [Parameter, EditorRequired] public string Value { get; set; } = "";
     [Parameter, EditorRequired] public string Hint { get; set; } = "";

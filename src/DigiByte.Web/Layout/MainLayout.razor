@@ -9,13 +9,17 @@
 @inject SoundService Sounds
 @inject WalletSnapshotCache Snapshots
 @inject ShellChrome Chrome
+@inject LocalizationService L
 
+@* Every component that shows translated text takes this value, so it re-renders when the language changes
+   without a page reload (spec 028). It wraps the whole shell, so navigation and banners switch too. *@
+<CascadingValue Name="Locale" Value="L.CurrentLocale">
 <ToastContainer />
 <BakuWarningDialog />
 <PwaInstallBanner />
 <PwaUpdateBanner />
 
-<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-dgb-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold">Skip to content</a>
+<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-dgb-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold">@L.T("layout.skip_to_content")</a>
 <div class="flex flex-col h-dvh max-w-[480px] mx-auto relative bg-slate-50 dark:bg-dgb-950">
     <NodeSourceIndicator />
     <main id="main-content" class="flex-1 overflow-y-auto px-4 pt-4 safe-area-top @(ShowNav ? (InSharedWallet ? "main-with-nav main-with-shared-nav" : "main-with-nav") : "pb-4") scroll-smooth thin-scrollbar"
@@ -38,13 +42,13 @@
 @* Version Info Modal — rendered at layout level to avoid transform containing block issues *@
 @if (showVersionInfo)
 {
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Version Info" @onclick="() => showVersionInfo = false">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="@L.T("layout.version.title")" @onclick="() => showVersionInfo = false">
         <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-4"
              @onclick:stopPropagation="true">
             <div class="flex items-center justify-between">
-                <h3 class="block-title block-title-sm">@(autoWhatsNew ? "Updated to v" + AppVersion.Version : "Version Info")</h3>
+                <h3 class="block-title block-title-sm">@(autoWhatsNew ? L.T("layout.version.updated", AppVersion.Version) : L.T("layout.version.title"))</h3>
                 <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
-                        @onclick="() => showVersionInfo = false">
+                        aria-label="@L.T("more.close")" @onclick="() => showVersionInfo = false">
                     <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
@@ -57,83 +61,97 @@
                         <DigiLogo Size="24" />
                     </div>
                     <div>
-                        <p class="text-sm font-bold text-slate-900 dark:text-white">DigiByte Wallet</p>
+                        <p class="text-sm font-bold text-slate-900 dark:text-white">@L.T("layout.app_name")</p>
                         <p class="text-xs text-slate-500 dark:text-slate-400 font-mono">v@(AppVersion.Version)</p>
                     </div>
                 </div>
 
                 <div class="flex flex-col gap-2 text-xs">
                     <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
-                        <span class="text-slate-500 dark:text-slate-400">Version</span>
+                        <span class="text-slate-500 dark:text-slate-400">@L.T("layout.version.version")</span>
                         <span class="font-semibold text-slate-900 dark:text-white font-mono">@AppVersion.Version</span>
                     </div>
                     <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
-                        <span class="text-slate-500 dark:text-slate-400">Channel</span>
+                        <span class="text-slate-500 dark:text-slate-400">@L.T("layout.version.channel")</span>
                         <span class="inline-flex items-center gap-1.5 font-semibold">
                             <span class="w-1.5 h-1.5 rounded-full @(AppVersion.Channel switch { "alpha" => "bg-amber-500", "beta" => "bg-blue-500", "rc" => "bg-purple-500", _ => "bg-green-500" })"></span>
-                            <span class="text-slate-900 dark:text-white capitalize">@AppVersion.Channel</span>
+                            <span class="text-slate-900 dark:text-white capitalize">@ChannelName</span>
                         </span>
                     </div>
                     <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
-                        <span class="text-slate-500 dark:text-slate-400">Platform</span>
-                        <span class="font-semibold text-slate-900 dark:text-white">Blazor WASM (PWA)</span>
+                        <span class="text-slate-500 dark:text-slate-400">@L.T("layout.version.platform")</span>
+                        <span class="font-semibold text-slate-900 dark:text-white">@PlatformName</span>
                     </div>
                     <div class="flex justify-between py-1.5 border-b border-slate-100 dark:border-dgb-800">
-                        <span class="text-slate-500 dark:text-slate-400">Framework</span>
-                        <span class="font-semibold text-slate-900 dark:text-white">.NET 10</span>
+                        <span class="text-slate-500 dark:text-slate-400">@L.T("layout.version.framework")</span>
+                        <span class="font-semibold text-slate-900 dark:text-white">@FrameworkName</span>
                     </div>
                 </div>
 
                 <div>
-                    <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">What's New</p>
+                    <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">@L.T("layout.whats_new.title")</p>
                     <div class="flex flex-col gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
                         @* Keep in step with the newest CHANGELOG.md release when bumping the version. *@
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>Inside a multisig the menu is the multisig's: Overview, Activity, Scan, Pending and More, with its name on the menu</span>
+                            <span>@L.T("layout.whats_new.1")</span>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>Every multisig page says which multisig you are in and which wallet it belongs to, with a quick way to switch or go back</span>
+                            <span>@L.T("layout.whats_new.2")</span>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>Pending shows what needs you first, and each payment has its own screen for signing, broadcasting, sharing and cancelling</span>
+                            <span>@L.T("layout.whats_new.3")</span>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>The signing room shows the next step: Invite, Sign, Broadcast, with your one button always in reach</span>
+                            <span>@L.T("layout.whats_new.4")</span>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>The multisig list shows balances, what is waiting, and which multisigs are not backed up or view only</span>
+                            <span>@L.T("layout.whats_new.5")</span>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>More and the Multisig shortcut on Home count the multisig payments that need you</span>
+                            <span>@L.T("layout.whats_new.6")</span>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>With several wallets, the Unlock screen picks the wallet from a sheet</span>
+                            <span>@L.T("layout.whats_new.7")</span>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-dgb-500 mt-0.5">●</span>
-                            <span>"Update available" shows again, so an update no longer reloads the app without asking</span>
+                            <span>@L.T("layout.whats_new.8")</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <a href="/roadmap" class="w-full py-2 text-xs font-semibold text-center rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors">
-                View Full Roadmap
+                @L.T("layout.version.roadmap")
             </a>
         </div>
     </div>
 }
+</CascadingValue>
 
 @code {
     private static readonly string[] HiddenNavPaths = ["/welcome", "/create-wallet", "/recover-wallet", "/unlock", "/about", "/roadmap", "/sponsors", "/analytics", "/deployment", "/help", "/help/multisig", "/multisig/room", "/recovery"];
     private bool showVersionInfo;
+
+    // Technology names, the same in every language.
+    private const string PlatformName = "Blazor WASM (PWA)";
+    private const string FrameworkName = ".NET 10";
+
+    private string ChannelName => AppVersion.Channel switch
+    {
+        "alpha" => L.T("layout.channel.alpha"),
+        "beta" => L.T("layout.channel.beta"),
+        "rc" => L.T("layout.channel.rc"),
+        "stable" => L.T("layout.channel.stable"),
+        _ => AppVersion.Channel,
+    };
 
     // "What's New" opens by itself once after an update (never on a fresh install).
     private const string SeenVersionKey = "dgb-seen-version";
@@ -199,7 +217,11 @@
         Chrome.Changed += OnChromeChanged;
         AppState.OnAutoLocked += OnAutoLocked;
         VersionBadge.OnShowModal += OnShowVersionInfo;
+        L.OnLocaleChanged += OnLocaleChanged;
     }
+
+    // The language changed: re-render the shell and pass the new code down, without reloading the page.
+    private void OnLocaleChanged() => InvokeAsync(StateHasChanged);
 
     private void OnShowVersionInfo()
     {
@@ -235,5 +257,6 @@
         Chrome.Changed -= OnChromeChanged;
         AppState.OnAutoLocked -= OnAutoLocked;
         VersionBadge.OnShowModal -= OnShowVersionInfo;
+        L.OnLocaleChanged -= OnLocaleChanged;
     }
 }

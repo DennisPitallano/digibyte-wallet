@@ -21,6 +21,11 @@
     <TrimMode>partial</TrimMode>
     <!-- Brotli compression for published output -->
     <BlazorEnableCompression>true</BlazorEnableCompression>
+    <!-- Number and date style follow the wallet's own language (English or Spanish, spec 028), not the browser's, so every
+         browser loads the same ICU subset that has both. This also lets the culture be set at startup: with the default
+         per-browser subsets Blazor refuses a culture other than the browser's. Adding a language outside English, French,
+         Italian, German and Spanish means changing this file. -->
+    <BlazorIcuDataFileName>icudt_EFIGS.dat</BlazorIcuDataFileName>
   </PropertyGroup>
 
   <ItemGroup>

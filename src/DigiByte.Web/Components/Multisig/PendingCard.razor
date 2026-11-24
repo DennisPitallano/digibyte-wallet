@@ -1,6 +1,7 @@
 @* One pending payment on the Pending list: one status, the amount, who it goes to, who has signed, and one button
    (specs/026-multisig-wallet-experience, FR-019). Nothing here signs, broadcasts, retries or cancels: the card and
    its button open the payment's own screen, or its live room (FR-019a). *@
+@inject LocalizationService L
 <div id="proposal-@Pending.Id" class="pending-card @(NeedsYou && !CoinsSpent ? "pending-card-needs-you" : "") @(Pending.Status == PendingTxStatus.Cancelled ? "opacity-70" : "") @(Highlighted ? "ring-2 ring-dgb-400" : "")">
     <button type="button" class="pending-card-body" aria-label="@OpenLabel" @onclick="() => OnOpen.InvokeAsync(Pending)">
         <span class="flex items-center justify-between gap-2">
@@ -8,7 +9,7 @@
                 @* A payment that can't go through says so, and only so: "Needs your signature" beside it would contradict it. *@
                 @if (CoinsSpent)
                 {
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"><UxIcon Name="alert" Class="w-3 h-3 shrink-0" />Can't go through</span>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"><UxIcon Name="alert" Class="w-3 h-3 shrink-0" />@L.T("ms.ui.pendingCard.cant_go")</span>
                 }
                 else
                 {
@@ -16,10 +17,10 @@
                 }
                 @if (Pending.ReceivedFromCoSigner)
                 {
-                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">From a co-signer</span>
+                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">@L.T("ms.ui.pendingCard.from_cosigner")</span>
                 }
             </span>
-            <span class="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">@MultisigFormat.Age(Pending.CreatedAt)</span>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">@Age(Pending.CreatedAt)</span>
         </span>
 
         @* A payment in a live room that still needs this person's signature: one status, and this line (spec edge case). *@
@@ -27,20 +28,20 @@
         {
             <span class="flex items-center gap-1.5 mt-2 text-xs font-semibold text-dgb-700 dark:text-dgb-200">
                 <UxIcon Name="pen" Class="w-3.5 h-3.5 shrink-0" />
-                Your signature is needed
+                @L.T("ms.ui.pendingCard.your_signature")
             </span>
         }
         @if (CoinsSpent)
         {
             <span class="flex items-start gap-1.5 mt-2 text-xs text-amber-700 dark:text-amber-300">
-                <span>Some of its coins were already spent.</span>
+                <span>@L.T("ms.ui.pendingCard.coins_spent")</span>
             </span>
         }
         @if (Pending.Status == PendingTxStatus.Failed)
         {
             <span class="flex items-start gap-1.5 mt-2 text-xs text-red-600 dark:text-red-400">
                 <UxIcon Name="alert" Class="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span class="break-words min-w-0">Broadcast failed@(string.IsNullOrEmpty(Pending.FailureReason) ? "." : ": " + Pending.FailureReason)</span>
+                <span class="break-words min-w-0">@(string.IsNullOrEmpty(Pending.FailureReason) ? L.T("ms.ui.pendingCard.failed") : L.T("ms.ui.pendingCard.failed_reason", Pending.FailureReason))</span>
             </span>
         }
 
@@ -49,7 +50,7 @@
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">DGB</span>
         </span>
         <span class="block mt-0.5 text-xs text-slate-600 dark:text-slate-400">
-            to <span class="font-mono">@MultisigFormat.Short(Pending.DestinationAddress)</span>
+            @L.T("ms.ui.pendingCard.to") <span class="font-mono">@MultisigFormat.Short(Pending.DestinationAddress)</span>
         </span>
         @if (!string.IsNullOrWhiteSpace(Pending.Memo))
         {
@@ -63,7 +64,7 @@
     }
     @if (IsViewOnly && IsOpen)
     {
-        <p class="px-4 mt-2 text-[11px] text-slate-500 dark:text-slate-400">View only: this device holds no key for this wallet.</p>
+        <p class="px-4 mt-2 text-[11px] text-slate-500 dark:text-slate-400">@L.T("ms.ui.pendingCard.view_only")</p>
     }
 
     @if (Button.Action != PendingCardAction.None)
@@ -71,7 +72,7 @@
         <div class="p-4 pt-3">
             <button type="button" class="@ButtonClass btn-sm w-full" data-testid="pending-card-action"
                     @onclick="() => OnAction.InvokeAsync(Pending)">
-                @Button.Label
+                @ButtonLabel
             </button>
         </div>
     }
@@ -102,6 +103,7 @@
 
     /// <summary>The button was tapped: the page opens the payment's own screen or its room.</summary>
     [Parameter] public EventCallback<PendingMultisigTransaction> OnAction { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private bool IsOpen => Pending.Status is PendingTxStatus.AwaitingSignatures or PendingTxStatus.ReadyToFinalize;
     private bool IsViewOnly => Config.OwnKeyIndex < 0;
@@ -110,8 +112,34 @@
     private bool NeedsYou => NeedsMySignature
         || Pending.Status is PendingTxStatus.ReadyToFinalize or PendingTxStatus.Failed;
 
-    private string OpenLabel =>
-        $"Open payment: {MultisigFormat.Dgb(Pending.AmountSatoshis)} DGB to {MultisigFormat.Short(Pending.DestinationAddress)}, {(CoinsSpent ? "Can't go through" : MultisigStateVocabulary.For(State).Label)}";
+    private string OpenLabel => L.T("ms.ui.pendingCard.open_aria",
+        MultisigFormat.Dgb(Pending.AmountSatoshis), MultisigFormat.Short(Pending.DestinationAddress),
+        CoinsSpent ? L.T("ms.ui.pendingCard.cant_go") : L.T(StatusBadge.StateKey(State)));
+
+    // The button's words come from what it does, so they follow the wallet's language; an action this card does not
+    // know keeps the label it was given.
+    private string? ButtonLabel => Button.Action switch
+    {
+        PendingCardAction.ReviewAndSign => L.T("ms.ui.pendingCard.action.review_sign"),
+        PendingCardAction.OpenRoom => L.T("ms.ui.pendingCard.action.open_room"),
+        PendingCardAction.GetSignatures => L.T("ms.ui.pendingCard.action.get_signatures"),
+        PendingCardAction.ReviewAndBroadcast => L.T("ms.ui.pendingCard.action.review_broadcast"),
+        PendingCardAction.ReviewAndRetry => L.T("ms.ui.pendingCard.action.review_retry"),
+        PendingCardAction.ReviewAndCancel => L.T("ms.ui.pendingCard.action.review_cancel"),
+        PendingCardAction.View => L.T("ms.ui.pendingCard.action.view"),
+        _ => Button.Label,
+    };
+
+    // How long ago the payment was created, e.g. "5 min ago"; older ones show the date in the wallet's language.
+    private string Age(DateTime created)
+    {
+        var span = DateTime.UtcNow - (created.Kind == DateTimeKind.Utc ? created : created.ToUniversalTime());
+        if (span.TotalSeconds < 60) return L.T("home.info.checked.just_now");
+        if (span.TotalMinutes < 60) return L.T("ms.ui.pendingCard.age.minutes", (int)span.TotalMinutes);
+        if (span.TotalHours < 24) return L.T("ms.ui.pendingCard.age.hours", (int)span.TotalHours);
+        if (span.TotalDays < 30) return L.T("ms.ui.pendingCard.age.days", (int)span.TotalDays);
+        return MultisigFormat.Age(created);
+    }
 
     // The button that moves the payment forward is filled; looking and cancelling are quieter.
     private string ButtonClass => Button.Action switch

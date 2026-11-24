@@ -1,5 +1,7 @@
 @* One row of a transaction list: direction icon, who it was with (when known), time, memo, amount, fiat value and confirmations.
    Shared by Home and the All transactions page. *@
+@using System.Globalization
+@inject LocalizationService L
 <div class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500/40"
      role="button" tabindex="0" aria-label="@AriaLabel" @onclick="Open" @onkeydown="OnKeyDown">
     <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @(isDd ? "bg-dgb-50 dark:bg-dgb-900/40" : sent ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20")">
@@ -36,7 +38,7 @@
             <p class="text-[11px] text-slate-400 dark:text-slate-500 truncate" title="@WalletAddressText">
                 <span class="font-mono">@ShortAddress(WalletAddressText)</span>@if (WalletAddressMore > 0)
                 {
-                    <span> +@WalletAddressMore more</span>
+                    <span> @L.T("history.row.more_addresses", WalletAddressMore)</span>
                 }
             </p>
         }
@@ -44,7 +46,7 @@
     <div class="text-right flex-shrink-0">
         @if (HideAmounts)
         {
-            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 balance-mask" aria-label="Amount hidden">••••</p>
+            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 balance-mask" aria-label="@L.T("history.amount_hidden")">••••</p>
         }
         else if (isDd)
         {
@@ -60,7 +62,7 @@
         <div class="flex items-center justify-end gap-1.5">
             @if (isDd && !HideAmounts)
             {
-                <span class="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">fee @FeeText DGB</span>
+                <span class="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">@L.T("history.row.fee", FeeText)</span>
             }
             else if (!HideAmounts && FiatPrice > 0)
             {
@@ -72,6 +74,9 @@
 </div>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter, EditorRequired] public TransactionRecord Tx { get; set; } = default!;
     [Parameter] public EventCallback<TransactionRecord> OnOpen { get; set; }
 
@@ -110,19 +115,23 @@
     private string DisplayName => !string.IsNullOrWhiteSpace(Name) ? Name! : Tx.CounterpartyName ?? "";
 
     private string Title => isDd ? Tx.DigiDollar!.Label : DisplayName.Length > 0
-        ? (sent ? $"To {DisplayName}" : $"From {DisplayName}")
-        : (sent ? "Sent" : "Received");
+        ? (sent ? L.T("history.to_name", DisplayName) : L.T("history.from_name", DisplayName))
+        : (sent ? L.T("history.sent") : L.T("history.received"));
 
     private string WhenText
     {
         get
         {
             var local = Tx.Timestamp.ToLocalTime();
-            if (TimeOnly) return local.ToString("h:mm tt");
+            var culture = CultureInfo.CurrentCulture;
+            var time = local.ToString("t", culture);
+            if (TimeOnly) return time;
             var today = DateTime.Now.Date;
-            if (local.Date == today) return $"Today, {local:h:mm tt}";
-            if (local.Date == today.AddDays(-1)) return $"Yesterday, {local:h:mm tt}";
-            return local.ToString(local.Year == today.Year ? "MMM d, h:mm tt" : "MMM d, yyyy");
+            if (local.Date == today) return L.T("history.when.today", time);
+            if (local.Date == today.AddDays(-1)) return L.T("history.when.yesterday", time);
+            return local.Year == today.Year
+                ? L.T("history.when.date_time", local.ToString(L.T("history.format.month_day"), culture), time)
+                : local.ToString(L.T("history.format.month_day_year"), culture);
         }
     }
 
@@ -137,10 +146,10 @@
     }
 
     private string AriaLabel => HideAmounts
-        ? $"{Title}, {WhenText}, amount hidden"
+        ? L.T("history.row.aria_hidden", Title, WhenText)
         : isDd
-            ? $"{Title}, {Tx.DigiDollar!.OutputsText}, fee {FeeText} DGB, {WhenText}"
-            : $"{Title}, {Tx.AmountDgb:N4} DGB, {WhenText}";
+            ? L.T("history.row.aria_dd", Title, Tx.DigiDollar!.OutputsText, FeeText, WhenText)
+            : L.T("history.row.aria", Title, Tx.AmountDgb.ToString("N4"), WhenText);
 
     private Task Open() => OnOpen.InvokeAsync(Tx);
 
