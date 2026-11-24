@@ -114,7 +114,7 @@ public static class FiatCurrencies
     /// <summary>ISO 3166 flag code and the countries that use the currency (for search); no flag where several countries share it.</summary>
     private static readonly Dictionary<string, (string? Flag, string[] Countries)> Countries = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["USD"] = ("us", ["United States", "USA", "America"]),
+        ["USD"] = ("us", ["United States", "USA", "America", "Estados Unidos", "Ecuador", "El Salvador", "Panama", "Puerto Rico"]),
         ["EUR"] = ("eu", ["Europe", "Eurozone", "Germany", "France", "Italy", "Spain", "Espana", "Netherlands", "Ireland", "Portugal", "Belgium", "Austria", "Finland", "Greece"]),
         ["GBP"] = ("gb", ["United Kingdom", "UK", "Britain", "England", "Scotland", "Wales"]),
         ["PHP"] = ("ph", ["Philippines"]),
