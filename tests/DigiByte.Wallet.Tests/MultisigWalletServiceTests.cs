@@ -486,4 +486,44 @@ public class MultisigWalletServiceTests
         Assert.Equal(other, single.DestinationAddress);
         Assert.Null(sut.CheckProposalMatches(single, config, single.PsbtBase64));
     }
+
+    [Fact]
+    public async Task A_proposal_saved_earlier_with_a_capitals_address_still_matches_its_payment()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        var a = MainnetAddress();
+        var b = MainnetAddress();
+        var made = await sut.CreateSpendingPSBTAsync(config, [(a, 1m), (b, 0.5m)], 10);
+
+        // As saved before addresses were stored in standard form: the first line kept the capitals it was typed with.
+        var legacy = new PendingMultisigTransaction
+        {
+            Id = made.Id,
+            WalletId = made.WalletId,
+            PsbtBase64 = made.PsbtBase64,
+            DestinationAddress = a.ToUpperInvariant(),
+            AmountSatoshis = made.AmountSatoshis,
+            FeeSatoshis = made.FeeSatoshis,
+            RequiredSignatures = made.RequiredSignatures,
+            UnsignedTxId = made.UnsignedTxId,
+            Recipients = [new(a.ToUpperInvariant(), 100_000_000), new(b, 50_000_000)],
+        };
+
+        Assert.Null(sut.CheckProposalMatches(legacy, config, made.PsbtBase64));
+        Assert.NotNull(sut.CheckProposalMatches(
+            CopyOf(legacy, [new(MainnetAddress().ToUpperInvariant(), 100_000_000), new(b, 50_000_000)]), config, made.PsbtBase64));
+    }
+
+    private static PendingMultisigTransaction CopyOf(PendingMultisigTransaction p, List<ProposalRecipient> recipients) => new()
+    {
+        Id = p.Id,
+        WalletId = p.WalletId,
+        PsbtBase64 = p.PsbtBase64,
+        DestinationAddress = recipients[0].Address,
+        AmountSatoshis = p.AmountSatoshis,
+        FeeSatoshis = p.FeeSatoshis,
+        RequiredSignatures = p.RequiredSignatures,
+        UnsignedTxId = p.UnsignedTxId,
+        Recipients = recipients,
+    };
 }

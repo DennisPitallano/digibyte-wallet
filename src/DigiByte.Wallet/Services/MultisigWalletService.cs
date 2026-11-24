@@ -793,11 +793,21 @@ public class MultisigWalletService
         var saved = pending.AllRecipients;
         var sameLines = saved.Count == room.Recipients.Count
             && saved.Zip(room.Recipients).All(pair =>
-                string.Equals(pair.First.Address, pair.Second.Address, StringComparison.Ordinal)
+                string.Equals(StandardAddress(pair.First.Address), pair.Second.Address, StringComparison.Ordinal)
                 && pair.First.AmountSatoshis == pair.Second.AmountSatoshis);
         if (!sameLines || room.FeeSat != pending.FeeSatoshis)
             return "This device's saved recipients, amounts or fee do not match the payment itself.";
         return null;
+    }
+
+    /// <summary>
+    /// <paramref name="address"/> spelled the way a transaction spells it, so a proposal saved before addresses were stored
+    /// that way (a bech32 address typed in capitals) still matches its payment. Unreadable text is returned unchanged.
+    /// </summary>
+    private string StandardAddress(string address)
+    {
+        try { return BitcoinAddress.Create(address.Trim(), CurrentNetwork).ToString(); }
+        catch { return address; }
     }
 
     /// <summary>

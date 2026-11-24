@@ -138,6 +138,15 @@ docs/PROCESS_FLOWS.md, src/DigiByte.Web/Pages/Roadmap.razor, src/DigiByte.Web/Pa
 - **Oversize proposals**: a 2-of-3 proposal with 20 recipients passes the existing 2,200-character QR limit once signed. The pending detail's existing fallback (Copy, Save as file) already covers this. The work only names the limit (`QrCapacity`), tests it, and adds the signing room to the message.
 - **Mixed app versions**: older co-signer wallets refuse multi-recipient proposals with an existing clear reason. The proposer is warned on the Done screen.
 
+## Changes After Implementation
+
+Found while reviewing the finished feature and recorded here as the constitution requires (tasks T041–T044):
+
+- **Amounts** (FR-004a): `MultisigSend.razor` now reads the single amount and every row with `AmountEntry` (spec 028) and shows `AmountAmbiguityChoice`; amounts the page fills in are kept as already decided. The old fixed-format parser and its two text keys are removed.
+- **Fiat total and row names** (FR-007a, FR-019a): the total in multiple-recipients mode shows its fiat value; `RecipientInput` takes an `InputAriaLabel` and each row's amount box has its own `aria-label`.
+- **Standard-form addresses** (FR-008a): `CreateSpendingPSBTAsync` saves each address as `BitcoinAddress.ToString()` spells it, and `CheckProposalMatches` compares standard forms. A bech32 address typed in capitals had made every signed copy of its proposal be refused; this affected single-recipient proposals too.
+- **Docs**: `CHANGELOG.md` and `docs/ROADMAP.md` entries.
+
 ## Complexity Tracking
 
 Not needed. No constitution violations.

@@ -121,8 +121,11 @@ As in the main wallet, each row can be filled by pasting, scanning a QR code or 
 - **FR-004**: Before review, every row MUST be checked: valid address for the current network; not repeating another row (ignoring letter case); not the shared wallet's own address; amount present and at least 0.001 DGB, the minimum single-recipient multisig payments already use. Each problem MUST be shown on its row.
 - **FR-005**: The wallet MUST check that the total of all amounts plus the estimated fee fits in what the shared wallet can spend, and say so plainly when it does not.
 - **FR-006**: The fee estimate MUST cover the whole payment and MUST respect the fee-rate choice the shared wallet's Send page already offers.
+- **FR-004a** *(added after implementation)*: Typed amounts, in the single-recipient form and in every row, MUST be read like the main Send page's (spec 028): a comma or a point is the decimal mark, and an amount such as "1.234" asks which was meant. An amount the page fills in itself (a payment link, a share of the balance, Max) or one the person already picked MUST NOT ask again.
 - **FR-007**: The review MUST list every recipient (contact name when known, plus address) and amount, then the total, the fee, the total including the fee and the remaining balance.
+- **FR-007a** *(added after implementation)*: In multiple-recipients mode the total MUST show its approximate value in the chosen currency when a price is known, as the single-recipient form does.
 - **FR-008**: Creating the proposal MUST produce one payment that pays every recipient its exact amount, returns any change to the shared wallet, and requires the shared wallet's usual number of signatures.
+- **FR-008a** *(added after implementation)*: Recipient addresses MUST be saved the way the transaction spells them (a bech32 address typed in capitals is saved in lower case), and the check in FR-012 MUST compare addresses in that standard form, so proposals saved before this rule still match their payment.
 - **FR-009**: The single-recipient flow, including "Max", quick-amount shares and recipients arriving from the menu's Scan, MUST keep working unchanged.
 
 **Reviewing, signing and sending**
@@ -142,6 +145,7 @@ As in the main wallet, each row can be filled by pasting, scanning a QR code or 
 - **FR-017**: The pending list, the pending detail, the signing room and the shared wallet's activity MUST show a multi-recipient payment as one payment with its total and recipient count, and the detail screens MUST list every recipient and amount.
 - **FR-018**: Proposals saved before this feature (one recipient) MUST keep loading and showing exactly as before.
 - **FR-019**: All new text MUST be available in English and Spanish.
+- **FR-019a** *(added after implementation)*: Each row's address and amount fields MUST have their own names for screen readers ("Recipient 2", "Recipient 2 · Amount"), so rows don't all read the same.
 
 ### Key Entities
 

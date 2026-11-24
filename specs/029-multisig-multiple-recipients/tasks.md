@@ -206,6 +206,17 @@ description: "Task list for Multiple Recipients in a Multisig Payment"
 
 ---
 
+## Phase 8: Changes After Implementation
+
+**Purpose**: Gaps found while reviewing the finished feature (see plan.md, "Changes After Implementation").
+
+- [X] T041 [US1] Read typed amounts with `AmountEntry` (comma or point; "1.234" asks; filled-in or picked amounts kept) in the single form and every row of `src/DigiByte.Web/Pages/MultisigSend.razor` and `src/DigiByte.Web/Components/Multisig/RecipientRows.razor`; remove the old parser and the `ms.send.error.amount_invalid` / `amount_decimals` keys (FR-004a)
+- [X] T042 [US1] Show the fiat value of the total in multiple-recipients mode in `src/DigiByte.Web/Pages/MultisigSend.razor`, and give each row's fields their own screen-reader names via `InputAriaLabel` in `src/DigiByte.Web/Components/Multisig/RecipientInput.razor` (FR-007a, FR-019a)
+- [X] T043 [US2] Test, then save recipient addresses in standard form in `CreateSpendingPSBTAsync` and compare standard forms in `CheckProposalMatches` (`src/DigiByte.Wallet/Services/MultisigWalletService.cs`, `tests/DigiByte.Wallet.Tests/MultisigWalletServiceTests.cs`), including proposals saved earlier with capitals (FR-008a)
+- [X] T044 Add the feature to `CHANGELOG.md` (Unreleased) and `docs/ROADMAP.md` (Phase 5)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phases
