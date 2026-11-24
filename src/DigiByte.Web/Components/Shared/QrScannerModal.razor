@@ -45,6 +45,10 @@
                         @L.T("scan.upload_image")
                         <InputFile @ref="uploadInput" OnChange="OnFileSelectedAsync" accept="image/*" class="sr-only" />
                     </label>
+                    @if (facts.CanCaptureScreen)
+                    {
+                        <button type="button" class="btn-ghost btn-sm" data-testid="scan-from-screen" @onclick="StartScreenAsync">@L.T("scan.from_screen")</button>
+                    }
                     @if (facts.HasCamera != false)
                     {
                         <button type="button" class="btn-ghost btn-sm" data-testid="scan-use-camera" @onclick="UseCameraAsync">@L.T("scan.use_camera")</button>
@@ -52,6 +56,25 @@
                 </div>
 
                 <p class="scan-status" role="status" aria-live="polite" data-testid="scan-status">@StatusText</p>
+            </div>
+        }
+        else if (view == View.Screen)
+        {
+            @* No preview of the shared screen: nothing is shown or kept, only looked at for a code (FR-016). *@
+            <div class="scan-panel scale-in" data-testid="scan-screen-panel">
+                <div class="scan-panel-head">
+                    <h2 id="qr-panel-title" class="block-title">@L.T("scan.from_screen")</h2>
+                    <button type="button" class="icon-btn -mr-2" aria-label="@L.T("more.close")" @onclick="CloseAsync">
+                        <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 border-3 border-dgb-400 border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden="true"></div>
+                    <p class="text-sm" role="status" aria-live="polite">@L.T("scan.screen_looking")</p>
+                </div>
+                <button type="button" class="btn-secondary btn-sm self-start" data-testid="scan-screen-stop" @onclick="StopScreenAsync">@L.T("scan.screen_stop")</button>
             </div>
         }
         else if (view == View.Camera)
@@ -231,6 +254,60 @@
         focusField = true;
     }
 
+    // ----- Scan from screen -----
+
+    private async Task StartScreenAsync()
+    {
+        SetStatus(null);
+        string result;
+        try { result = await JS.InvokeAsync<string>("qrScanner.startScreen", objRef); }
+        catch (Exception) { result = "cancelled"; }
+
+        switch (result)
+        {
+            case "started":
+                view = View.Screen;
+                break;
+            case "unsupported":
+                facts = facts with { CanCaptureScreen = false };
+                break;
+            default:
+                // Cancelled or refused in the browser's prompt: the other ways in still work (FR-018).
+                SetStatus("scan.screen_cancelled");
+                break;
+        }
+    }
+
+    private async Task StopScreenAsync()
+    {
+        await StopScreenStreamAsync();
+        view = View.Paste;
+        focusField = true;
+    }
+
+    [JSInvokable]
+    public async Task OnScreenResult(string text)
+    {
+        view = View.Paste;
+        await HandOffAsync(text, keepOpenIfUnknown: true);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task OnScreenEnded(string reason)
+    {
+        view = View.Paste;
+        focusField = true;
+        SetStatus(reason == "timeout" ? "scan.screen_timeout" : null);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task StopScreenStreamAsync()
+    {
+        try { await JS.InvokeVoidAsync("qrScanner.stopScreen"); } catch (Exception) { }
+    }
+
     private async Task StartCameraAsync()
     {
         isLoading = true;
@@ -398,7 +475,9 @@
     private async Task StopStreamsAsync()
     {
         // Best effort: a stream that was never started, or a page being torn down, must not stop the close.
+        // Both the camera and a shared screen stop here, so closing or leaving always ends sharing (FR-017).
         try { await JS.InvokeVoidAsync("qrScanner.stop"); } catch (Exception) { }
+        await StopScreenStreamAsync();
     }
 
     private async Task DetachAsync()

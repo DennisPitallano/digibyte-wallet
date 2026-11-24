@@ -43,3 +43,42 @@ test("a file that is not an image is refused without reading it", async () => {
 test("an image over 10 MB is refused without reading it", async () => {
     assert.equal(await scanner.decodeBlob({ type: "image/png", size: 10 * 1024 * 1024 + 1 }), "toolarge");
 });
+
+// ----- _giveUpClock: Scan from screen stops looking after a minute (FR-017) -----
+
+test("the screen scan keeps looking before a minute has passed", () => {
+    assert.equal(scanner._giveUpClock(1000, 1000), false);
+    assert.equal(scanner._giveUpClock(1000, 60999), false);
+});
+
+test("the screen scan gives up at a minute and after", () => {
+    assert.equal(scanner._giveUpClock(1000, 61000), true);
+    assert.equal(scanner._giveUpClock(1000, 500000), true);
+});
+
+test("a different limit is honoured", () => {
+    assert.equal(scanner._giveUpClock(0, 4999, 5000), false);
+    assert.equal(scanner._giveUpClock(0, 5000, 5000), true);
+});
+
+test("stopping a screen scan that never started does nothing", () => {
+    assert.doesNotThrow(() => scanner.stopScreen());
+    assert.doesNotThrow(() => scanner.stopScreen());
+});
+
+test("a share granted after the scan was stopped is ended at once", async () => {
+    const stopped = [];
+    let grant;
+    const track = { stop: () => stopped.push("track"), addEventListener: () => { } };
+    const stream = { getTracks: () => [track], getVideoTracks: () => [track] };
+    sandbox.navigator = { mediaDevices: { getDisplayMedia: () => new Promise(resolve => { grant = resolve; }) } };
+    vm.runInContext("navigator = this.navigator", sandbox);
+
+    const pending = scanner.startScreen({ invokeMethodAsync: () => { } });
+    scanner.stopScreen();          // the panel closed while the browser's prompt was open
+    grant(stream);                 // ...and then the person picked a window
+
+    assert.equal(await pending, "cancelled");
+    assert.deepEqual(stopped, ["track"]);
+    assert.equal(scanner.screen, null);
+});

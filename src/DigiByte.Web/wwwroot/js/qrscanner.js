@@ -232,6 +232,94 @@ window.qrScanner = {
         return !!(e.dataTransfer && Array.prototype.includes.call(e.dataTransfer.types || [], 'Files'));
     },
 
+    // ----- Scan from screen (FR-015 to FR-018) -----
+    // The person picks a tab or window in the browser's own prompt. Frames are read here, a few times a second,
+    // and never kept or sent anywhere. Sharing stops as soon as a code is found, on Stop or close, when the browser's
+    // own "Stop sharing" is used, or after a minute.
+
+    screen: null,
+
+    // True once limitMs has passed since startMs. Pure; covered by qrscanner.test.mjs.
+    _giveUpClock(startMs, nowMs, limitMs = 60000) {
+        return nowMs - startMs >= limitMs;
+    },
+
+    // Bumped by every stop, so a share the person grants after the panel was closed or stopped is ended at once.
+    _screenGen: 0,
+
+    async startScreen(dotnetRef) {
+        const media = navigator.mediaDevices;
+        if (!media || !media.getDisplayMedia) return 'unsupported';
+        this.stopScreen();
+        const gen = this._screenGen;
+
+        let stream;
+        try {
+            stream = await media.getDisplayMedia({ video: { frameRate: 5 }, audio: false });
+        } catch (e) {
+            // Cancelled or refused in the browser's prompt: not an error for the person.
+            return 'cancelled';
+        }
+        const stale = () => {
+            if (gen === this._screenGen) return false;
+            stream.getTracks().forEach(track => track.stop());
+            return true;
+        };
+        if (stale()) return 'cancelled';
+
+        await this._ensureJsQr();
+        if (stale()) return 'cancelled';
+
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+        // Not awaited: a screen that sends no new frame would hold this forever. The sampler waits for frames.
+        const playing = video.play();
+        if (playing && playing.catch) playing.catch(() => { });
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const state = { stream, video, timer: null, done: false };
+        this.screen = state;
+        const started = Date.now();
+
+        const finish = (method, arg) => {
+            if (state.done) return;
+            this.stopScreen();
+            dotnetRef.invokeMethodAsync(method, arg);
+        };
+
+        stream.getVideoTracks().forEach(track => track.addEventListener('ended', () => finish('OnScreenEnded', 'ended')));
+
+        state.timer = setInterval(() => {
+            if (state.done) return;
+            if (this._giveUpClock(started, Date.now())) { finish('OnScreenEnded', 'timeout'); return; }
+            if (video.readyState < 2 || !video.videoWidth) return;
+            const size = this._fitWithin(video.videoWidth, video.videoHeight, 1920);
+            canvas.width = size.w;
+            canvas.height = size.h;
+            ctx.drawImage(video, 0, 0, size.w, size.h);
+            const frame = ctx.getImageData(0, 0, size.w, size.h);
+            const code = jsQR(frame.data, frame.width, frame.height, { inversionAttempts: 'attemptBoth' });
+            if (code && code.data) finish('OnScreenResult', code.data);
+        }, 250);
+
+        return 'started';
+    },
+
+    // Idempotent: leaves no live screen track behind.
+    stopScreen() {
+        this._screenGen++;
+        const state = this.screen;
+        if (!state) return;
+        state.done = true;
+        this.screen = null;
+        if (state.timer) clearInterval(state.timer);
+        try { state.stream.getTracks().forEach(track => track.stop()); } catch (e) { }
+        try { state.video.srcObject = null; } catch (e) { }
+    },
+
     // Largest picture accepted for reading, the same limit Upload image has always had.
     MAX_IMAGE_BYTES: 10 * 1024 * 1024,
 

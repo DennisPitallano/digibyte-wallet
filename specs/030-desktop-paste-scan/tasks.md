@@ -272,7 +272,7 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
   - **Share** shares the payment link;
   - the QR content stays `activeRequest.ToUri()`.
 - [X] T045 [P] [US5] Add `{ "protocol": "web+digibyte", "url": "/pay#%s" }` to `protocol_handlers` in `src/DigiByte.Web/wwwroot/manifest.webmanifest`, next to `web+digiid`.
-- [ ] T046 [P] [US5] Add the English and Spanish text in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json` for `receive.copy_pay_link`, `payments.copy_pay_link`, `payments.copy_uri`, `pay.title`, `pay.invalid_title`, `pay.invalid`, `pay.go_to_wallet`, `pay.any_wallet`, `pay.qr_caption`, `pay.copy_address`, `pay.copy_amount`, `pay.set_up` and `pay.testnet`. Mark `pay.any_wallet` for native-speaker review.
+- [X] T046 [P] [US5] Add the English and Spanish text in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json` for `receive.copy_pay_link`, `payments.copy_pay_link`, `payments.copy_uri`, `pay.title`, `pay.invalid_title`, `pay.invalid`, `pay.go_to_wallet`, `pay.any_wallet`, `pay.qr_caption`, `pay.copy_address`, `pay.copy_amount`, `pay.set_up` and `pay.testnet`. Mark `pay.any_wallet` for native-speaker review.
 - [ ] T047 [US5] Run quickstart Q-12 in installed Chrome or Edge, and check the manifest's `/pay#%s` handler is accepted (DevTools → Application → Manifest). If it is rejected, **remove** the `web+digibyte` entry from `src/DigiByte.Web/wwwroot/manifest.webmanifest`. There is no query fallback (FR-023). Record the result in `specs/030-desktop-paste-scan/research.md` (R6).
 
 **Checkpoint**: Payment links work end to end and fill in nothing when invalid.
@@ -287,24 +287,24 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T048 [P] [US4] Add `node:test` cases for `qrScanner._giveUpClock(startMs, nowMs, limitMs = 60000)` to `src/DigiByte.Web/tests/js/qrscanner.test.mjs`: false at 0 and 59,999 ms, true at 60,000 and above, and a custom limit is honoured.
+- [X] T048 [P] [US4] Add `node:test` cases for `qrScanner._giveUpClock(startMs, nowMs, limitMs = 60000)` to `src/DigiByte.Web/tests/js/qrscanner.test.mjs`: false at 0 and 59,999 ms, true at 60,000 and above, and a custom limit is honoured.
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] Add `_giveUpClock`, `startScreen(dotnetRef)` and `stopScreen()` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`, per research R5 and contracts/scanner-js.md:
+- [X] T049 [US4] Add `_giveUpClock`, `startScreen(dotnetRef)` and `stopScreen()` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`, per research R5 and contracts/scanner-js.md:
   - `getDisplayMedia({ video: { frameRate: 5 }, audio: false })`;
   - an off-screen `<video>`, sampled every 250 ms, scaled with `_fitWithin(…, 1920)`, decoded with `jsQR`;
   - on a code, stop all tracks, then call `OnScreenResult(text)`;
   - on the track's `ended` event → `OnScreenEnded('ended')`; at 60 s → `OnScreenEnded('timeout')`;
   - `NotAllowedError` / `AbortError` → return `'cancelled'`; no API → `'unsupported'`;
   - `stopScreen` is idempotent and leaves no live track.
-- [ ] T050 [US4] Add the Screen view to `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`:
+- [X] T050 [US4] Add the Screen view to `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`:
   - a **Scan from screen** button in the Paste view, shown only when `facts.CanCaptureScreen`;
   - the Screen view shows `scan.screen_looking` and **Stop**, with no preview;
   - add `[JSInvokable] OnScreenResult` → `HandOffAsync`, and `OnScreenEnded(reason)` → back to Paste with `scan.screen_timeout` for `timeout`, or no message for `stopped`/`ended`;
   - a `'cancelled'` return → `scan.screen_cancelled`;
   - call `stopScreen()` on Stop, close, view change and Dispose.
-- [ ] T051 [P] [US4] Add `scan.from_screen`, `scan.screen_looking`, `scan.screen_stop`, `scan.screen_cancelled` and `scan.screen_timeout` to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`.
+- [X] T051 [P] [US4] Add `scan.from_screen`, `scan.screen_looking`, `scan.screen_stop`, `scan.screen_cancelled` and `scan.screen_timeout` to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`.
 
 **Checkpoint**: Scan from screen works, and can be held back without touching the other stories.
 
