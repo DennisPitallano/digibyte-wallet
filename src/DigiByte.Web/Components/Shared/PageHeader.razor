@@ -3,12 +3,13 @@
 @inject NavigationManager Nav
 @inject AppState AppState
 @inject IJSRuntime JS
+@inject LocalizationService L
 
 <div class="flex flex-col gap-1.5 w-full slide-up @Class">
     <button type="button" class="back-btn"
             @onclick="GoBackAsync">
         <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-        <span>@BackLabel</span>
+        <span>@(BackLabel ?? L.T("nav.back"))</span>
     </button>
     <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
@@ -30,6 +31,9 @@
 </div>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter] public string? Title { get; set; }
     [Parameter] public string? Subtitle { get; set; }
 
@@ -39,7 +43,8 @@
     /// <summary>Optional action shown on the right of the title row.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
-    [Parameter] public string BackLabel { get; set; } = "Back";
+    /// <summary>The Back link's text; "Back" in the chosen language when not given.</summary>
+    [Parameter] public string? BackLabel { get; set; }
 
     /// <summary>Where Back goes when the page was opened directly (shared link, reload), so there is no in-app page to return to.</summary>
     [Parameter] public string BackHref { get; set; } = "/";

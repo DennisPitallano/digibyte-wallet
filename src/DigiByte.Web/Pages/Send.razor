@@ -1,4 +1,6 @@
 @page "/send"
+@using DigiByte.Wallet.Services
+@inject LocalizationService L
 @inject WalletService WalletService
 @inject ContactService ContactService
 @inject IBlockchainService Blockchain
@@ -13,7 +15,7 @@
 @inject NodeSourceStatusService NodeStatus
 @inject IJSRuntime JS
 
-<PageTitle>Send DGB — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("send.page_title")</PageTitle>
 
 <AuthGuard>
 <SendUnavailableNotice />
@@ -26,22 +28,22 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
         </div>
-        <h2 class="block-title block-title-lg">Watch-Only Wallet</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[260px]">This wallet can only view balances and receive funds. Sending requires a wallet with private keys.</p>
+        <h2 class="block-title block-title-lg">@L.T("send.watch_only.title")</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 max-w-[260px]">@L.T("send.watch_only.body")</p>
         <button class="btn-primary btn-sm"
                 @onclick='() => Nav.NavigateTo("/")'>
-            Back to Home
+            @L.T("send.watch_only.back")
         </button>
     </div>
 }
 else
 {
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Send DigiByte">
+    <PageHeader Title="@L.T("send.title")">
         @{ var sendWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
         <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
             <div class="w-2 h-2 rounded-full" style="background-color: @sendWalletColor;"></div>
-            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? L.T("nav.wallet"))</span>
         </div>
     </PageHeader>
 
@@ -53,11 +55,11 @@ else
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
                 </svg>
-                Multiple Recipients
+                @L.T("send.batch.toggle")
             </button>
             <button type="button" @onclick="() => showBatchInfo = true"
                     class="w-6 h-6 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-all flex-shrink-0"
-                    title="What is Batch Send?" aria-label="What is Batch Send?">
+                    title="@L.T("send.batch.what_is")" aria-label="@L.T("send.batch.what_is")">
                 <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
                 </svg>
@@ -65,7 +67,7 @@ else
         </div>
         @if (isBatchMode)
         {
-            <span class="text-xs text-slate-400 dark:text-slate-500">@batchRecipients.Count / 20 recipients</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.batch.count", batchRecipients.Count)</span>
         }
     </div>
 
@@ -79,11 +81,11 @@ else
                 var r = batchRecipients[index];
                 <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl p-3 flex flex-col gap-2 @(index > 0 ? "slide-up" : "")">
                     <div class="flex items-center justify-between">
-                        <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Recipient @(index + 1)</span>
+                        <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">@L.T("send.batch.recipient_n", index + 1)</span>
                         @if (batchRecipients.Count > 2)
                         {
                             <button type="button" @onclick="() => RemoveBatchRecipient(index)"
-                                    class="text-slate-400 hover:text-red-500 transition-colors p-0.5" title="Remove" aria-label="Remove">
+                                    class="text-slate-400 hover:text-red-500 transition-colors p-0.5" title="@L.T("send.batch.remove")" aria-label="@L.T("send.batch.remove")">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                                 </svg>
@@ -92,12 +94,12 @@ else
                     </div>
                     <div class="flex gap-1.5">
                         <input type="text" value="@r.Address" @oninput="(e) => OnBatchAddressChanged(index, e)"
-                               placeholder="D... or dgb1..."
+                               placeholder="@L.T("send.address_placeholder")"
                                autocomplete="off" spellcheck="false"
                                class="input flex-1" />
                         <button type="button" @onclick="() => ShowBatchScanner(index)"
                                 class="icon-btn icon-btn-primary icon-btn-sm flex-shrink-0"
-                                title="Scan QR" aria-label="Scan QR">
+                                title="@L.T("send.scan_qr")" aria-label="@L.T("send.scan_qr")">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 14.625v2.625m3.375-2.625v2.625" />
@@ -105,7 +107,7 @@ else
                         </button>
                         <button type="button" @onclick="() => ShowBatchContactPicker(index)"
                                 class="icon-btn icon-btn-sm flex-shrink-0"
-                                title="Pick contact" aria-label="Pick contact">
+                                title="@L.T("send.pick_contact")" aria-label="@L.T("send.pick_contact")">
                             <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0" />
                             </svg>
@@ -150,11 +152,20 @@ else
                         </div>
                     }
                     <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-100 dark:border-dgb-800 rounded-lg">
-                        <input type="number" value="@r.Amount" @oninput="(e) => OnBatchAmountChanged(index, e)"
-                               step="0.00000001" min="0" placeholder="0.00" inputmode="decimal"
+                        <input type="text" inputmode="decimal" autocomplete="off" value="@r.AmountText" @oninput="(e) => OnBatchAmountChanged(index, e)"
+                               placeholder="0.00" aria-invalid="@(r.Entry is { Kind: AmountEntryKind.Invalid } ? "true" : "false")"
                                class="flex-1 px-3 py-2 bg-transparent text-xs text-slate-900 dark:text-white outline-none" />
                         <span class="text-xs font-bold text-dgb-500 pr-3">DGB</span>
                     </div>
+                    @if (r.Entry is { Kind: AmountEntryKind.Ambiguous } rowAmbiguous)
+                    {
+                        <AmountAmbiguityChoice AsDecimal="rowAmbiguous.AsDecimal!.Value" AsThousands="rowAmbiguous.AsThousands!.Value"
+                                               OnPicked="v => PickBatchAmount(index, v)" />
+                    }
+                    @if (r.Entry is { Kind: AmountEntryKind.Invalid } rowInvalid)
+                    {
+                        <InlineError Message="@AmountEntryText.Error(L, rowInvalid, 8, AmountMaxDgb)" />
+                    }
                     @if (!string.IsNullOrEmpty(r.Error))
                     {
                         <InlineError Message="@r.Error" />
@@ -167,29 +178,29 @@ else
             {
                 <button type="button" @onclick="AddBatchRecipient"
                         class="w-full py-2.5 border-2 border-dashed border-slate-200 dark:border-dgb-800 rounded-xl text-xs font-semibold text-slate-400 dark:text-slate-500 hover:border-dgb-300 dark:hover:border-dgb-600 hover:text-dgb-500 transition-all">
-                    + Add Recipient
+                    @L.T("send.batch.add")
                 </button>
             }
 
             @* Batch Summary *@
             <div class="bg-slate-50 dark:bg-dgb-900/50 rounded-xl border border-slate-100 dark:border-dgb-800 p-3 flex flex-col gap-1.5">
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Amount</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.batch.total_amount")</span>
                     <span class="text-xs font-bold text-slate-900 dark:text-white tabular-nums">@BatchTotal.ToString("N8") DGB</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Fee</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.fee")</span>
                     <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">~@estimatedFee.ToString("N4") DGB</span>
                 </div>
                 <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Grand Total</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.batch.grand_total")</span>
                     <span class="text-xs font-bold text-dgb-500 tabular-nums">~@((BatchTotal + estimatedFee).ToString("N8")) DGB</span>
                 </div>
                 @if (!isLoadingBalance)
                 {
                     <div class="flex justify-between">
-                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Remaining</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.batch.remaining")</span>
                         <span class="text-xs font-medium @(availableBalance - BatchTotal - estimatedFee < 0 ? "text-red-500" : "text-slate-600 dark:text-slate-300")">
                             @((availableBalance - BatchTotal - estimatedFee).ToString("N4")) DGB
                         </span>
@@ -207,7 +218,7 @@ else
     {
     <div class="flex flex-col gap-1.5 slide-up-delay-1">
         <div class="flex items-center justify-between">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recipient</label>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("send.recipient")</label>
             @if (string.IsNullOrEmpty(recipientName))
             {
                 <button type="button" class="flex items-center gap-1 text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors disabled:opacity-50"
@@ -215,7 +226,7 @@ else
                     <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
                     </svg>
-                    Paste
+                    @L.T("send.paste")
                 </button>
             }
         </div>
@@ -240,18 +251,18 @@ else
         {
             <div class="flex gap-1.5">
                 <input type="text" @bind="destinationAddress" @bind:event="oninput" @bind:after="RecalcFee"
-                       placeholder="Address or contact name"
+                       placeholder="@L.T("send.recipient_placeholder")"
                        autocomplete="off" spellcheck="false"
                        class="input flex-1" />
                 <button class="icon-btn icon-btn-primary flex-shrink-0"
-                        @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR">
+                        @onclick="() => showScanner = true" title="@L.T("send.scan_qr")" aria-label="@L.T("send.scan_qr")">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 14.625v2.625m3.375-2.625v2.625" />
                     </svg>
                 </button>
                 <button class="icon-btn flex-shrink-0"
-                        @onclick="() => showContactPicker = !showContactPicker" title="Contacts" aria-label="Contacts">
+                        @onclick="() => showContactPicker = !showContactPicker" title="@L.T("send.contacts")" aria-label="@L.T("send.contacts")">
                     <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                     </svg>
@@ -295,11 +306,11 @@ else
     @* Amount *@
     <div class="flex flex-col gap-1.5 slide-up-delay-2">
         <div class="flex items-center justify-between">
-            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</label>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("send.amount")</label>
             @if (isLoadingBalance)
             {
                 <span class="flex items-center gap-1.5 text-xs text-dgb-500">
-                    <span>Available:</span>
+                    <span>@L.T("send.available_label")</span>
                     <span class="inline-block w-16 h-3.5 skeleton rounded"></span>
                 </span>
             }
@@ -307,12 +318,14 @@ else
             {
                 <button type="button" @onclick="SetMaxAmount"
                         class="text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors">
-                    Available: @availableBalance.ToString("N4") DGB
+                    @L.T("send.available", availableBalance.ToString("N4"))
                 </button>
             }
         </div>
         <div class="flex items-center bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl focus-within:border-dgb-500 focus-within:ring-2 focus-within:ring-dgb-500/20 transition-all @(isFormDisabled ? "opacity-50" : "")">
-            <input type="number" @bind="amount" @bind:after="UpdateAmountWarning" step="0.00000001" min="0" placeholder="0.00" inputmode="decimal"
+            @* Text, not a number field: a number field drops or rewrites a comma depending on the browser (spec 028). *@
+            <input type="text" inputmode="decimal" autocomplete="off" value="@amountText" @oninput="OnAmountInput" placeholder="0.00"
+                   aria-invalid="@(amountEntry is { Kind: AmountEntryKind.Invalid } ? "true" : "false")"
                    disabled="@isFormDisabled"
                    class="flex-1 px-4 py-3 bg-transparent text-sm text-slate-900 dark:text-white outline-none disabled:cursor-not-allowed" />
             <button type="button" @onclick="ToggleAmountMode" disabled="@isFormDisabled"
@@ -324,7 +337,7 @@ else
             </button>
         </div>
         @* Quick amounts: a share of what is available *@
-        <div class="flex gap-2" role="group" aria-label="Quick amounts">
+        <div class="flex gap-2" role="group" aria-label="@L.T("send.quick_amounts")">
             @foreach (var (label, share) in AmountShares)
             {
                 var fraction = share;
@@ -347,10 +360,16 @@ else
             }
             @if (amount > 0 && !isLoadingPrice)
             {
-                <span class="italic ml-1">(estimate — actual rate may vary)</span>
+                <span class="italic ml-1">@L.T("send.estimate_note")</span>
             }
         </p>
-        <p class="text-xs text-slate-400 dark:text-slate-500">Minimum send: 0.0001 DGB</p>
+        <p class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.minimum", 0.0001m)</p>
+        @if (amountEntry is { Kind: AmountEntryKind.Ambiguous } ambiguous)
+        {
+            <AmountAmbiguityChoice AsDecimal="ambiguous.AsDecimal!.Value" AsThousands="ambiguous.AsThousands!.Value"
+                                   Unit="@(isAmountInFiat ? AppState.FiatCurrency : "DGB")" OnPicked="PickAmount" />
+        }
+        @if (amountEntry is { Kind: AmountEntryKind.Invalid } invalid) { <InlineError Message="@AmountEntryText.Error(L, invalid, AmountDecimals, AmountMax)" /> }
         @if (amountError != null) { <InlineError Message="@amountError" /> }
         @if (amountWarning != null) { <p class="text-xs text-amber-500 font-medium">@amountWarning</p> }
     </div>
@@ -361,8 +380,8 @@ else
     {
         <div class="flex flex-col gap-1.5 slide-up-delay-3">
             <div class="flex items-center gap-1.5">
-                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fee Rate (sat/vB)</label>
-                <button type="button" @onclick="() => showFeeInfo = true" class="text-slate-400 hover:text-dgb-500 transition-colors" title="What is this?" aria-label="What is this?">
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("send.fee_rate")</label>
+                <button type="button" @onclick="() => showFeeInfo = true" class="text-slate-400 hover:text-dgb-500 transition-colors" title="@L.T("send.what_is_this")" aria-label="@L.T("send.what_is_this")">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
                     </svg>
@@ -370,21 +389,21 @@ else
             </div>
             <div class="flex gap-2">
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "low" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeLow" disabled="@isFormDisabled">Slow (100)</button>
+                        @onclick="SetFeeLow" disabled="@isFormDisabled">@L.T("send.fee_slow")</button>
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "med" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeMed" disabled="@isFormDisabled">Normal (200)</button>
+                        @onclick="SetFeeMed" disabled="@isFormDisabled">@L.T("send.fee_normal")</button>
                 <button class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all @(feeLevel == "high" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-400")"
-                        @onclick="SetFeeHigh" disabled="@isFormDisabled">Fast (400)</button>
+                        @onclick="SetFeeHigh" disabled="@isFormDisabled">@L.T("send.fee_fast")</button>
             </div>
-            <input type="number" inputmode="numeric" @bind="customFeeRate" min="1" placeholder="Custom sat/vB" disabled="@isFormDisabled"
+            <input type="number" inputmode="numeric" @bind="customFeeRate" min="1" placeholder="@L.T("send.fee_custom_placeholder")" disabled="@isFormDisabled"
                    class="input" />
         </div>
     }
 
     @* Memo *@
     <div class="flex flex-col gap-1.5 slide-up-delay-3">
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Memo (optional)</label>
-        <input type="text" @bind="memo" @bind:event="oninput" @bind:after="RecalcFee" placeholder="What's this for?" disabled="@isFormDisabled"
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("send.memo")</label>
+        <input type="text" @bind="memo" @bind:event="oninput" @bind:after="RecalcFee" placeholder="@L.T("send.memo_placeholder")" disabled="@isFormDisabled"
                class="input" />
     </div>
 
@@ -393,10 +412,10 @@ else
     @* Fee Display (single mode only — batch has its own summary) *@
     <div class="flex justify-between px-4 py-3 bg-slate-50 dark:bg-dgb-900/50 rounded-xl border border-slate-100 dark:border-dgb-800 slide-up-delay-4">
         <div class="flex items-center gap-1.5">
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Fee</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.fee")</span>
             @if (AppState.IsSimpleMode)
             {
-                <button type="button" @onclick="() => showFeeInfo = true" class="text-slate-400 hover:text-dgb-500 transition-colors" title="What is this?" aria-label="What is this?">
+                <button type="button" @onclick="() => showFeeInfo = true" class="text-slate-400 hover:text-dgb-500 transition-colors" title="@L.T("send.what_is_this")" aria-label="@L.T("send.what_is_this")">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
                     </svg>
@@ -409,17 +428,17 @@ else
 
     <button class="btn-primary slide-up-delay-5 w-full mt-2"
             @onclick="PreviewSend"
-            disabled="@(isFormDisabled || isReviewing || (!isBatchMode && (string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)) || (isBatchMode && batchRecipients.Count < 2))">
+            disabled="@(isFormDisabled || isReviewing || (!isBatchMode && (string.IsNullOrWhiteSpace(destinationAddress) || amount <= 0)) || (isBatchMode && (batchRecipients.Count < 2 || BatchAmountsUnsettled)))">
         @if (isFormDisabled || isReviewing)
         {
             <span class="flex items-center justify-center gap-2">
                 <span class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                @(isReviewing ? "Reviewing..." : "Loading...")
+                @(isReviewing ? L.T("send.reviewing") : L.T("send.loading"))
             </span>
         }
         else
         {
-            <span>Review Transaction</span>
+            <span>@L.T("send.review")</span>
         }
     </button>
 
@@ -434,44 +453,44 @@ else
                             <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
                         </svg>
                     </div>
-                    <h3 class="block-title block-title-sm">Batch Send</h3>
+                    <h3 class="block-title block-title-sm">@L.T("send.batch_info.title")</h3>
                 </div>
 
                 <div class="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed overflow-y-auto overscroll-contain pr-1">
-                    <p>Send DGB to <strong>multiple recipients in a single transaction</strong> — up to 20 addresses at once.</p>
+                    <p>@((MarkupString)L.T("send.batch_info.intro"))</p>
 
                     <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-100 dark:border-green-900/20">
-                        <p class="text-[11px] font-semibold text-green-600 dark:text-green-400 uppercase mb-1.5">Advantages</p>
+                        <p class="text-[11px] font-semibold text-green-600 dark:text-green-400 uppercase mb-1.5">@L.T("send.batch_info.advantages")</p>
                         <ul class="flex flex-col gap-0.5 text-[11px] text-slate-600 dark:text-slate-300">
-                            <li><strong>Lower fees</strong> — one tx costs far less than many separate ones</li>
-                            <li><strong>Faster</strong> — all recipients paid in a single broadcast</li>
-                            <li><strong>Less clutter</strong> — one history entry instead of many</li>
-                            <li><strong>Fewer UTXOs</strong> — better wallet health over time</li>
+                            <li><strong>@L.T("send.batch_info.fees_term")</strong> — @L.T("send.batch_info.fees_desc")</li>
+                            <li><strong>@L.T("send.batch_info.faster_term")</strong> — @L.T("send.batch_info.faster_desc")</li>
+                            <li><strong>@L.T("send.batch_info.clutter_term")</strong> — @L.T("send.batch_info.clutter_desc")</li>
+                            <li><strong>@L.T("send.batch_info.utxo_term")</strong> — @L.T("send.batch_info.utxo_desc")</li>
                         </ul>
                     </div>
 
                     <div class="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-2.5 border border-amber-100 dark:border-amber-900/20">
-                        <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase mb-1.5">Things to know</p>
+                        <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase mb-1.5">@L.T("send.batch_info.know")</p>
                         <ul class="flex flex-col gap-0.5 text-[11px] text-slate-600 dark:text-slate-300">
-                            <li><strong>All or nothing</strong> — if it fails, no one gets paid</li>
-                            <li><strong>Privacy</strong> — all addresses visible in the same tx</li>
-                            <li><strong>Max 20 recipients</strong>, each at least 0.0001 DGB</li>
+                            <li><strong>@L.T("send.batch_info.all_term")</strong> — @L.T("send.batch_info.all_desc")</li>
+                            <li><strong>@L.T("send.batch_info.privacy_term")</strong> — @L.T("send.batch_info.privacy_desc")</li>
+                            <li><strong>@L.T("send.batch_info.max_term")</strong>, @L.T("send.batch_info.max_desc")</li>
                         </ul>
                     </div>
 
                     <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-2.5 border border-slate-100 dark:border-dgb-800">
-                        <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1.5">Real-world scenarios</p>
+                        <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1.5">@L.T("send.batch_info.scenarios")</p>
                         <ul class="flex flex-col gap-0.5 text-[11px] text-slate-600 dark:text-slate-300">
-                            <li><strong>Payroll</strong> — pay your team in one transaction</li>
-                            <li><strong>Donations</strong> — split across multiple charities</li>
-                            <li><strong>Group payments</strong> — bills, contributors, bounties</li>
-                            <li><strong>Consolidation</strong> — distribute from a treasury</li>
+                            <li><strong>@L.T("send.batch_info.payroll_term")</strong> — @L.T("send.batch_info.payroll_desc")</li>
+                            <li><strong>@L.T("send.batch_info.donations_term")</strong> — @L.T("send.batch_info.donations_desc")</li>
+                            <li><strong>@L.T("send.batch_info.group_term")</strong> — @L.T("send.batch_info.group_desc")</li>
+                            <li><strong>@L.T("send.batch_info.consolidation_term")</strong> — @L.T("send.batch_info.consolidation_desc")</li>
                         </ul>
                     </div>
                 </div>
 
                 <button class="btn-primary btn-sm w-full flex-shrink-0"
-                        @onclick="() => showBatchInfo = false">Got it</button>
+                        @onclick="() => showBatchInfo = false">@L.T("send.got_it")</button>
             </div>
         </div>
     }
@@ -487,36 +506,36 @@ else
                             <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
                         </svg>
                     </div>
-                    <h3 class="block-title">What is a Transaction Fee?</h3>
+                    <h3 class="block-title">@L.T("send.fee_info.title")</h3>
                 </div>
 
                 <div class="flex flex-col gap-3 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    <p>Every crypto transaction pays a small fee to the network. Think of it like <strong>postage on a letter</strong> — you pay a little extra so the network delivers your payment.</p>
+                    <p>@((MarkupString)L.T("send.fee_info.intro"))</p>
 
                     <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800">
-                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Real-world comparison</p>
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">@L.T("send.fee_info.comparison")</p>
                         <div class="flex flex-col gap-1.5 text-xs">
-                            <div class="flex justify-between"><span>Bank wire transfer</span><span class="font-semibold">$15 – $45</span></div>
-                            <div class="flex justify-between"><span>PayPal / Venmo</span><span class="font-semibold">1.5% – 3%</span></div>
-                            <div class="flex justify-between"><span>Western Union</span><span class="font-semibold">$5 – $50</span></div>
-                            <div class="flex justify-between text-dgb-500 font-semibold"><span>DigiByte</span><span>~$0.001 or less</span></div>
+                            <div class="flex justify-between"><span>@L.T("send.fee_info.bank_wire")</span><span class="font-semibold">$15 – $45</span></div>
+                            <div class="flex justify-between"><span>@L.T("send.fee_info.paypal")</span><span class="font-semibold">1.5% – 3%</span></div>
+                            <div class="flex justify-between"><span>@L.T("send.fee_info.western_union")</span><span class="font-semibold">$5 – $50</span></div>
+                            <div class="flex justify-between text-dgb-500 font-semibold"><span>DigiByte</span><span>@L.T("send.fee_info.dgb_cost")</span></div>
                         </div>
                     </div>
 
                     <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800">
-                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Speed options</p>
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">@L.T("send.fee_info.speed_options")</p>
                         <div class="flex flex-col gap-1.5 text-xs">
-                            <div class="flex justify-between"><span>Slow (100 sat/vB)</span><span>Cheapest — may take a few blocks</span></div>
-                            <div class="flex justify-between"><span>Normal (200 sat/vB)</span><span>Recommended — ~15 seconds</span></div>
-                            <div class="flex justify-between"><span>Fast (400 sat/vB)</span><span>Priority — next block</span></div>
+                            <div class="flex justify-between"><span>@L.T("send.fee_info.slow")</span><span>@L.T("send.fee_info.slow_desc")</span></div>
+                            <div class="flex justify-between"><span>@L.T("send.fee_info.normal")</span><span>@L.T("send.fee_info.normal_desc")</span></div>
+                            <div class="flex justify-between"><span>@L.T("send.fee_info.fast")</span><span>@L.T("send.fee_info.fast_desc")</span></div>
                         </div>
                     </div>
 
-                    <p class="text-xs text-slate-400 dark:text-slate-500">DigiByte blocks are mined every ~15 seconds, so even "Slow" is fast compared to traditional payments. For most transactions, <strong>Normal</strong> is perfect.</p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">@((MarkupString)L.T("send.fee_info.footer"))</p>
                 </div>
 
                 <button class="btn-primary btn-sm w-full"
-                        @onclick="() => showFeeInfo = false">Got it</button>
+                        @onclick="() => showFeeInfo = false">@L.T("send.got_it")</button>
             </div>
         </div>
     }
@@ -533,10 +552,10 @@ else
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
                         </svg>
                     </div>
-                    <h3 class="block-title block-title-lg">@(isBatchMode ? "Confirm Batch Send" : "Confirm Send")</h3>
+                    <h3 class="block-title block-title-lg">@(isBatchMode ? L.T("send.confirm.title_batch") : L.T("send.confirm.title"))</h3>
                     @if (isBatchMode)
                     {
-                        <span class="text-xs font-semibold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-0.5 rounded-md">@batchRecipients.Count recipients</span>
+                        <span class="text-xs font-semibold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-0.5 rounded-md">@L.T("send.confirm.recipients", batchRecipients.Count)</span>
                     }
                 </div>
 
@@ -563,14 +582,14 @@ else
                             <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                         }
                         <div class="flex justify-between">
-                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Total</span>
+                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.total")</span>
                             <span class="text-sm font-bold text-slate-900 dark:text-white tabular-nums">@BatchTotal.ToString("N8") DGB</span>
                         </div>
                     }
                     else
                     {
                         <div class="flex justify-between items-start">
-                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">To</span>
+                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.to")</span>
                             <div class="text-right">
                                 @if (!string.IsNullOrEmpty(recipientName))
                                 {
@@ -580,19 +599,19 @@ else
                                 else
                                 {
                                     <p class="text-xs font-mono font-medium text-slate-900 dark:text-white max-w-[210px] ml-auto break-words leading-relaxed" aria-label="@destinationAddress">@ChunkAddress(destinationAddress)</p>
-                                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Check the first and last groups against the address you were given.</p>
+                                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">@L.T("send.confirm.check_address")</p>
                                 }
                             </div>
                         </div>
                         <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                         <div class="flex justify-between">
-                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Amount</span>
+                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.amount")</span>
                             <span class="text-sm font-bold text-slate-900 dark:text-white tabular-nums">@amountDgb.ToString("N8") DGB</span>
                         </div>
                     }
                     <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                     <div class="flex justify-between">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Network Fee</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.network_fee")</span>
                         <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">~@estimatedFee.ToString("N4") DGB</span>
                     </div>
                 </div>
@@ -603,7 +622,7 @@ else
                         <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                         </svg>
-                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">Some funds are still unconfirmed (~15s). This is safe on DigiByte.</p>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">@L.T("send.confirm.unconfirmed")</p>
                     </div>
                 }
 
@@ -625,11 +644,11 @@ else
 
                 @* Actions: sliding is the deliberate step for a send that cannot be undone (docs/UI_STYLE.md). *@
                 <div class="flex flex-col gap-2">
-                    <SlideToConfirm @ref="sendSlide" Label="Slide to send" BusyLabel="Sending…"
+                    <SlideToConfirm @ref="sendSlide" Label="@L.T("send.confirm.slide")" BusyLabel="@L.T("send.confirm.slide_busy")"
                                     ActionDescription="@ConfirmDescription" OnConfirmed="ConfirmSend" />
                     <button type="button" class="btn-ghost w-full"
                             @onclick="() => { showConfirm = false; sendError = null; }" disabled="@isSending">
-                        Cancel
+                        @L.T("common.cancel")
                     </button>
                 </div>
             </div>
@@ -683,7 +702,16 @@ else
         public string Name { get; set; } = "";
         public decimal Amount { get; set; }
         public string? Error { get; set; }
+        /// <summary>The amount as typed, kept as text so a comma survives (spec 028).</summary>
+        public string AmountText { get; set; } = "";
+        /// <summary>The reading picked for <see cref="AmountText"/> when it could mean two amounts; cleared by any edit.</summary>
+        public (string Text, decimal Value)? Pick { get; set; }
+        /// <summary>What the typed text turned out to be, when it is not a plain amount (a question or an error to show).</summary>
+        public AmountEntryResult? Entry { get; set; }
     }
+
+    private bool BatchAmountsUnsettled =>
+        batchRecipients.Any(r => r.Entry is { Kind: AmountEntryKind.Ambiguous or AmountEntryKind.Invalid });
 
     // Advanced fee control
     private string feeLevel = "med";
@@ -765,12 +793,33 @@ else
 
     private void OnBatchAmountChanged(int index, ChangeEventArgs e)
     {
-        if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var val))
-            batchRecipients[index].Amount = val;
-        else
-            batchRecipients[index].Amount = 0;
-        batchRecipients[index].Error = null;
+        // Same reading as the main amount (spec 028): a comma or a point, "1.234" asks, never "12,5" as 125.
+        var r = batchRecipients[index];
+        r.AmountText = e.Value?.ToString() ?? "";
+        r.Pick = null;
+        var result = AmountEntry.Parse(r.AmountText, 8, AmountMaxDgb);
+        r.Amount = result.Kind == AmountEntryKind.Value ? result.Amount!.Value : 0;
+        r.Entry = result.Kind is AmountEntryKind.Ambiguous or AmountEntryKind.Invalid ? result : null;
+        r.Error = null;
         RecalcFee();
+    }
+
+    private void PickBatchAmount(int index, decimal value)
+    {
+        var r = batchRecipients[index];
+        r.Pick = (r.AmountText, value);
+        r.Amount = value;
+        r.Entry = null;
+        RecalcFee();
+    }
+
+    /// <summary>A batch amount set by the wallet (from a scan): shown in the chosen style and already settled.</summary>
+    private static void SetBatchAmount(BatchRecipient r, decimal value)
+    {
+        r.Amount = value;
+        r.AmountText = value > 0 ? value.ToString("0.########", System.Globalization.CultureInfo.CurrentCulture) : "";
+        r.Pick = r.AmountText.Length > 0 ? (r.AmountText, value) : null;
+        r.Entry = null;
     }
 
     private void ShowBatchScanner(int index)
@@ -800,6 +849,47 @@ else
     private decimal amountDgb => isAmountInFiat ? (dgbPrice > 0 ? amount / dgbPrice : 0) : amount;
     private decimal amountFiat => isAmountInFiat ? amount : amount * dgbPrice;
 
+    // The amount as typed (spec 028). `amount` holds the value it reads as, 0 when there is none yet.
+    private const decimal AmountMaxDgb = 21_000_000_000m;
+    private string amountText = "";
+    private (string Text, decimal Value)? amountPick;
+    private AmountEntryResult? amountEntry;
+    private int AmountDecimals => isAmountInFiat ? 2 : 8;
+    private decimal AmountMax => isAmountInFiat ? 1_000_000_000_000m : AmountMaxDgb;
+
+    private void OnAmountInput(ChangeEventArgs e)
+    {
+        amountText = e.Value?.ToString() ?? "";
+        amountPick = null; // any edit clears an earlier pick
+        var result = AmountEntry.Parse(amountText, AmountDecimals, AmountMax);
+        amount = result.Kind == AmountEntryKind.Value ? result.Amount!.Value : 0;
+        amountEntry = result.Kind is AmountEntryKind.Ambiguous or AmountEntryKind.Invalid ? result : null;
+        UpdateAmountWarning();
+        RecalcFee();
+    }
+
+    private void PickAmount(decimal value)
+    {
+        amountPick = (amountText, value);
+        amount = value;
+        amountEntry = null;
+        UpdateAmountWarning();
+        RecalcFee();
+    }
+
+    /// <summary>
+    /// An amount set by the wallet (a link, a scan, Max, a share, the unit toggle): written in the chosen style and
+    /// recorded as already settled, so it never asks "which did you mean" until the person edits it (FR-013a).
+    /// </summary>
+    private void SetAmount(decimal value)
+    {
+        amount = value;
+        var format = isAmountInFiat ? "0.##" : "0.########";
+        amountText = value > 0 ? value.ToString(format, System.Globalization.CultureInfo.CurrentCulture) : "";
+        amountPick = amountText.Length > 0 ? (amountText, value) : null;
+        amountEntry = null;
+    }
+
     private string? amountWarning;
     private bool hasUnconfirmedUtxos;
     private SpendingCheckResult? spendingCheck;
@@ -810,9 +900,9 @@ else
         if (amount <= 0 || isFormDisabled)
             amountWarning = null;
         else if (dgb > 0 && dgb < 0.0001m)
-            amountWarning = "Below minimum send amount (0.0001 DGB)";
+            amountWarning = L.T("send.warn.below_minimum");
         else if (!isLoadingBalance && dgb > availableBalance)
-            amountWarning = $"Exceeds available balance ({availableBalance:N4} DGB)";
+            amountWarning = L.T("send.warn.exceeds_balance", availableBalance.ToString("N4"));
         else
             amountWarning = null;
     }
@@ -832,17 +922,12 @@ else
     private void ToggleAmountMode()
     {
         // Convert the current amount to the other unit
-        if (isAmountInFiat && amount > 0)
-        {
-            // Switching from fiat to DGB — convert current fiat to DGB
-            amount = Math.Round(amountDgb, 8);
-        }
-        else if (!isAmountInFiat && amount > 0)
-        {
-            // Switching from DGB to fiat — convert current DGB to fiat
-            amount = Math.Round(amountFiat, 2);
-        }
+        var converted = amount <= 0 ? 0
+            : isAmountInFiat ? Math.Round(amountDgb, 8)   // fiat -> DGB
+            : Math.Round(amountFiat, 2);                  // DGB -> fiat
         isAmountInFiat = !isAmountInFiat;
+        if (converted > 0) SetAmount(converted);
+        else if (amountEntry is not null) OnAmountInput(new ChangeEventArgs { Value = amountText }); // re-check against the new unit
     }
 
     protected override async Task OnInitializedAsync()
@@ -858,8 +943,9 @@ else
         var qName = query["name"];
         if (qName != null && qName.Length <= 64)
             recipientName = qName;
-        if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
-            amount = qtyAmount;
+        // A link amount is digits and one point only: "?amount=1,5" is left empty, never read as 15.
+        if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
+            SetAmount(qtyAmount);
 
         // Detect wallet address type for fee estimation
         if (WalletService.IsUnlocked)
@@ -923,7 +1009,8 @@ else
         recipientName = "";
     }
 
-    private static readonly (string Label, decimal Share)[] AmountShares = [("25%", 0.25m), ("50%", 0.5m), ("75%", 0.75m), ("Max", 1m)];
+    // The share labels stay numbers; only "Max" is a word (spec 028).
+    private (string Label, decimal Share)[] AmountShares => [("25%", 0.25m), ("50%", 0.5m), ("75%", 0.75m), (L.T("send.quick_max"), 1m)];
 
     private void SetAmountShare(decimal share)
     {
@@ -931,7 +1018,7 @@ else
         else
         {
             var dgb = Math.Floor(availableBalance * share * 100_000_000m) / 100_000_000m;
-            amount = isAmountInFiat ? Math.Round(dgb * dgbPrice, 2) : dgb;
+            SetAmount(isAmountInFiat ? Math.Round(dgb * dgbPrice, 2) : dgb);
         }
         UpdateAmountWarning();
         RecalcFee();
@@ -943,9 +1030,9 @@ else
         addressError = null;
         string text;
         try { text = (await JS.InvokeAsync<string>("navigator.clipboard.readText"))?.Trim() ?? ""; }
-        catch { addressError = "The browser did not allow reading the clipboard. Paste into the field instead."; return; }
-        if (text.Length == 0) { addressError = "The clipboard is empty."; return; }
-        if (text.Length > 512) { addressError = "That does not look like an address."; return; }
+        catch { addressError = L.T("send.error.clipboard_blocked"); return; }
+        if (text.Length == 0) { addressError = L.T("send.error.clipboard_empty"); return; }
+        if (text.Length > 512) { addressError = L.T("send.error.not_address"); return; }
         OnQrScanned(text);
     }
 
@@ -955,10 +1042,7 @@ else
 
     private void SetMaxAmount()
     {
-        if (isAmountInFiat)
-            amount = Math.Round(availableBalance * dgbPrice, 2);
-        else
-            amount = availableBalance;
+        SetAmount(isAmountInFiat ? Math.Round(availableBalance * dgbPrice, 2) : availableBalance);
     }
 
     private void SetFeeLow() => SetFee("low", 100);
@@ -988,13 +1072,17 @@ else
             batchRecipients[batchScannerIndex].Name = "";
             batchRecipients[batchScannerIndex].Error = null;
             if (scannedAmount.HasValue)
-                batchRecipients[batchScannerIndex].Amount = scannedAmount.Value;
+                SetBatchAmount(batchRecipients[batchScannerIndex], scannedAmount.Value);
             batchScannerIndex = -1;
         }
         else
         {
             destinationAddress = scannedAddress;
-            if (scannedAmount.HasValue) amount = scannedAmount.Value;
+            if (scannedAmount.HasValue)
+            {
+                isAmountInFiat = false; // a link's amount is in DGB
+                SetAmount(scannedAmount.Value);
+            }
             if (!string.IsNullOrEmpty(scannedMemo)) memo = scannedMemo ?? "";
         }
 
@@ -1035,33 +1123,33 @@ else
                 r.Error = null;
                 if (string.IsNullOrWhiteSpace(r.Address))
                 {
-                    r.Error = "Address is required.";
+                    r.Error = L.T("send.error.address_required");
                     hasErrors = true;
                 }
                 else if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(r.Address))
                 {
-                    r.Error = "Invalid DigiByte address.";
+                    r.Error = L.T("send.error.invalid_address");
                     hasErrors = true;
                 }
                 else if (!seenAddresses.Add(r.Address))
                 {
-                    r.Error = "Duplicate address.";
+                    r.Error = L.T("send.error.duplicate_address");
                     hasErrors = true;
                 }
                 else if (ownAddresses.Contains(r.Address.Trim()))
                 {
-                    r.Error = "Cannot send to your own address.";
+                    r.Error = L.T("send.error.own_address_batch");
                     hasErrors = true;
                 }
 
                 if (r.Amount <= 0)
                 {
-                    r.Error = (r.Error ?? "") + " Amount must be greater than zero.";
+                    r.Error = (r.Error ?? "") + " " + L.T("send.error.amount_zero_batch");
                     hasErrors = true;
                 }
                 else if (r.Amount < 0.0001m)
                 {
-                    r.Error = (r.Error ?? "") + " Below minimum (0.0001 DGB).";
+                    r.Error = (r.Error ?? "") + " " + L.T("send.error.below_minimum_batch");
                     hasErrors = true;
                 }
             }
@@ -1070,7 +1158,7 @@ else
 
             if (BatchTotal + estimatedFee > availableBalance)
             {
-                batchError = $"Insufficient balance. Need ~{(BatchTotal + estimatedFee):N4} DGB but have {availableBalance:N4} DGB.";
+                batchError = L.T("send.error.batch_insufficient", (BatchTotal + estimatedFee).ToString("N4"), availableBalance.ToString("N4"));
                 return;
             }
         }
@@ -1078,29 +1166,29 @@ else
         {
         if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(destinationAddress))
         {
-            addressError = "Invalid DigiByte address.";
+            addressError = L.T("send.error.invalid_address");
             return;
         }
         if (WalletService.GetAllAddresses().Contains(destinationAddress.Trim()))
         {
-            addressError = "You cannot send to your own address.";
+            addressError = L.T("send.error.own_address");
             return;
         }
         if (amountDgb <= 0)
         {
-            amountError = "Please enter an amount greater than zero.";
+            amountError = L.T("send.error.amount_zero");
             return;
         }
         if (amountDgb < 0.0001m)
         {
-            amountError = "Minimum send amount is 0.0001 DGB.";
+            amountError = L.T("send.error.below_minimum");
             return;
         }
         if (amountDgb + estimatedFee > availableBalance)
         {
             amountError = amountDgb > availableBalance
-                ? $"Insufficient balance. You have {availableBalance:N4} DGB available."
-                : $"Insufficient balance for amount + network fee (~{estimatedFee:N4} DGB). You have {availableBalance:N4} DGB available.";
+                ? L.T("send.error.insufficient", availableBalance.ToString("N4"))
+                : L.T("send.error.insufficient_with_fee", estimatedFee.ToString("N4"), availableBalance.ToString("N4"));
             return;
         }
         }
@@ -1168,8 +1256,8 @@ else
 
     // What the slide confirms, for screen readers.
     private string ConfirmDescription => isBatchMode
-        ? $"Send {BatchTotal:N8} DGB to {batchRecipients.Count} recipients"
-        : $"Send {amountDgb:N8} DGB to {(string.IsNullOrEmpty(recipientName) ? destinationAddress : recipientName)}";
+        ? L.T("send.confirm.describe_batch", BatchTotal.ToString("N8"), batchRecipients.Count)
+        : L.T("send.confirm.describe", amountDgb.ToString("N8"), string.IsNullOrEmpty(recipientName) ? destinationAddress : recipientName);
 
     private async Task ConfirmSend()
     {
@@ -1184,7 +1272,7 @@ else
                 var verified = await Biometric.VerifyIdentityAsync();
                 if (!verified)
                 {
-                    sendError = "Biometric verification failed or was cancelled.";
+                    sendError = L.T("send.error.biometric");
                     isSending = false;
                     sendSlide?.Reset();
                     return;
@@ -1210,7 +1298,7 @@ else
             sentTxId = txId;
             // When the light-client gateway carried the send and no peer has confirmed it yet, say so; the wallet keeps watching.
             sentNote = Blockchain is FallbackBlockchainService { LastBroadcast.IsUnconfirmedByPeers: true }
-                ? "Sent to the network. No peer has confirmed it yet; the wallet will keep watching."
+                ? L.T("send.unconfirmed_by_peers")
                 : null;
             showConfirm = false;
             StateHasChanged();
@@ -1222,39 +1310,42 @@ else
         {
             // With node use on and no source reachable, say so plainly instead of showing a raw network error.
             sendError = NodeStatus.View.Visible && NodeStatus.AllSourcesFailed
-                ? "Sending is unavailable until the connection returns. Your funds are safe; try again in a moment."
+                ? L.T("send.unavailable")
                 : MapSendError(ex.Message);
             isSending = false;
             sendSlide?.Reset();
         }
     }
 
-    private static string MapSendError(string message) => message switch
+    private string MapSendError(string message) => message switch
     {
         _ when message.Contains("too-long-mempool-chain", StringComparison.OrdinalIgnoreCase)
-            => "Too many unconfirmed transactions. Please wait for some to confirm before sending again.",
+            => L.T("send.error.mempool_chain"),
         _ when message.Contains("insufficient fee", StringComparison.OrdinalIgnoreCase)
-            => "Transaction fee is too low. Try increasing the fee rate.",
+            => L.T("send.error.fee_too_low"),
         _ when message.Contains("dust", StringComparison.OrdinalIgnoreCase)
-            => "Amount is too small (dust). Please send a larger amount.",
+            => L.T("send.error.dust"),
         _ when message.Contains("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase)
-            => "A conflicting transaction is already in the mempool. Please wait and try again.",
+            => L.T("send.error.mempool_conflict"),
         _ when message.Contains("bad-txns-inputs-missingorspent", StringComparison.OrdinalIgnoreCase)
-            => "Some inputs have already been spent. Pull to refresh your balance and try again.",
+            => L.T("send.error.inputs_spent"),
         _ when message.Contains("Broadcast failed on all backends", StringComparison.OrdinalIgnoreCase)
               || message.Contains("503", StringComparison.OrdinalIgnoreCase)
               || message.Contains("Service Unavailable", StringComparison.OrdinalIgnoreCase)
               || message.Contains("net_http_message_not_success", StringComparison.OrdinalIgnoreCase)
-            => "All blockchain servers are currently unavailable. Please check your connection and try again in a moment.",
+            => L.T("send.error.servers_down"),
         _ when message.Contains("timed out", StringComparison.OrdinalIgnoreCase)
               || message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
-            => "The network is slow to respond. Please try again.",
+            => L.T("send.error.timeout"),
         _ when message.Contains("No such host", StringComparison.OrdinalIgnoreCase)
               || message.Contains("name resolution", StringComparison.OrdinalIgnoreCase)
               || message.Contains("network is unreachable", StringComparison.OrdinalIgnoreCase)
-            => "Couldn't reach the network. Please check your internet connection.",
+            => L.T("send.error.no_network"),
         _ => message
     };
 
     private static string TruncateAddress(string addr) => addr.Length <= 16 ? addr : $"{addr[..8]}...{addr[^8..]}";
+
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 }

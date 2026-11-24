@@ -55,4 +55,7 @@
     [Parameter] public EventCallback OnPrimary { get; set; }
     /// <summary>Not now, or cancel.</summary>
     [Parameter] public EventCallback OnSecondary { get; set; }
+
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 }

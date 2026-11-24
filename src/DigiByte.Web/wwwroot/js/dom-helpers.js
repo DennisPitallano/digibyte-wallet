@@ -1,6 +1,10 @@
 // DOM helper functions called from Blazor via JS interop
 // Replaces inline eval() calls that violate CSP
 window.domHelpers = {
+    // The browser's first preferred language (for example "es-MX"), used once on a first visit to pick the wallet's language.
+    getPreferredLanguage: function () {
+        try { return navigator.language || ''; } catch { return ''; }
+    },
     focusElement: function (id) {
         document.getElementById(id)?.focus();
     },

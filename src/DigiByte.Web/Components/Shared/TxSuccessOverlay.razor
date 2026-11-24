@@ -1,6 +1,7 @@
 @inject IJSRuntime JS
 @inject SoundService Sounds
 @inject BakuService Baku
+@inject LocalizationService L
 @* A send that went out: the same raised card as the first-payment celebration (docs/UI_STYLE.md). The page that shows it
    moves on by itself after a moment, so there is nothing to press. *@
 
@@ -33,12 +34,12 @@
             </div>
         </div>
 
-        <h3 id="tx-success-title" class="celebrate-title">Sent</h3>
+        <h3 id="tx-success-title" class="celebrate-title">@L.T("send.success.title")</h3>
         <div>
             <p class="celebrate-amount @(AmountText.Length > 9 ? "is-long" : "")" data-testid="tx-success-amount">@AmountText <span class="celebrate-unit">DGB</span></p>
             @if (RecipientCount > 1)
             {
-                <p class="celebrate-detail mt-1">to @RecipientCount recipients</p>
+                <p class="celebrate-detail mt-1">@L.T("send.success.recipients", RecipientCount)</p>
             }
         </div>
         @if (!string.IsNullOrEmpty(Note))
@@ -78,10 +79,14 @@
     /// <summary>An extra line under the amount, such as "sent, not yet confirmed by peers".</summary>
     [Parameter] public string? Note { get; set; }
 
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
 
     // Every digit that was sent, without trailing zeros.
-    private string AmountText => Amount.ToString("0.########", Inv);
+    // Screen text: the chosen language's number style (spec 028).
+    private string AmountText => Amount.ToString("0.########", System.Globalization.CultureInfo.CurrentCulture);
 
     // The first and last characters are enough to recognise a transaction; the full ID is in Activity.
     private string ShortTxId => TxId is { Length: > 20 } id ? $"{id[..10]}…{id[^8..]}" : TxId ?? "";

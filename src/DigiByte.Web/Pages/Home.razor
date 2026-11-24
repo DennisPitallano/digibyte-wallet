@@ -20,16 +20,16 @@
 @inject MultisigAttentionState MultisigAttention
 @inject ActiveWalletContext ActiveWalletContext
 
-<PageTitle>DigiByte Wallet — Self-Custodial DGB Wallet</PageTitle>
+<PageTitle>@L.T("app.name") — @L.T("home.page_title")</PageTitle>
 
 <AuthGuard>
     <div class="flex flex-col gap-4" @ontouchstart="OnTouchStart" @ontouchmove="OnTouchMove" @ontouchend="OnTouchEnd">
         @* Pull-to-refresh indicator *@
         @if (pullDistance > 0)
         {
-            <div class="flex justify-center -mb-2 transition-all duration-150" style="height: @(Math.Min(pullDistance / 2, 40))px; opacity: @(Math.Min(pullDistance / 80.0, 1))">
+            <div class="flex justify-center -mb-2 transition-all duration-150" style="height: @(Css.N(Math.Min(pullDistance / 2, 40)))px; opacity: @(Css.N(Math.Min(pullDistance / 80.0, 1)))">
                 <div class="w-6 h-6 border-2 border-dgb-500 border-t-transparent rounded-full @(isRefreshing ? "animate-spin" : "")"
-                     style="transform: rotate(@(pullDistance * 2)deg)"></div>
+                     style="transform: rotate(@(Css.N(pullDistance * 2))deg)"></div>
             </div>
         }
 
@@ -43,7 +43,7 @@
                 <button class="flex items-center gap-1.5 mb-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-dgb-300 dark:hover:border-dgb-400/30 transition-all press-effect"
                         @onclick="() => showWalletPicker = true">
                     <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm" style="background-color: @activeColor;"></div>
-                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">@(WalletService.ActiveWallet?.Name ?? L.T("home.wallet_fallback"))</span>
                     <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                     </svg>
@@ -66,7 +66,7 @@
                     var ni = (activeCardIndex + i) % allWallets.Count;
                     var lc = allWallets[ni].Color ?? "#0066FF";
                     <div class="absolute inset-x-0 top-1 bottom-1 rounded-2xl border border-white/[0.06]"
-                         style="transform: translateX(@(i * 10)px) scale(@(1 - i * 0.04)); background: linear-gradient(135deg, @(lc)18, @(lc)08); z-index: @(5 - i);"></div>
+                         style="transform: translateX(@(i * 10)px) scale(@(Css.N(1 - i * 0.04))); background: linear-gradient(135deg, @(lc)18, @(lc)08); z-index: @(5 - i);"></div>
                 }
             }
             @* Balance Card, drawn as a closed wallet in the wallet's own colour: a stitched body, a strap across the right
@@ -99,14 +99,14 @@
                 </svg>
                 <div class="relative flex flex-col flex-1 w-full min-w-0">
                     <div class="flex items-center gap-2">
-                        <p class="text-xs text-dgb-600 dark:text-dgb-200 font-medium">Total Balance</p>
+                        <p class="text-xs text-dgb-600 dark:text-dgb-200 font-medium">@L.T("wallet.balance")</p>
                         @if (AppState.NetworkMode != "mainnet")
                         {
                             <span class="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-full uppercase">@AppState.NetworkMode</span>
                         }
                         @if (WalletService.ActiveWallet?.WalletType == "xpub")
                         {
-                            <span class="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-500/20 px-1.5 py-0.5 rounded-full uppercase">Watch-Only</span>
+                            <span class="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-500/20 px-1.5 py-0.5 rounded-full uppercase">@L.T("home.watch_only")</span>
                         }
                         @if (isLoadingBalance)
                         {
@@ -115,7 +115,7 @@
                         <OutOfDateTag />
                         <div class="flex-1"></div>
                         <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors"
-                                title="@(hideBalance ? "Show balance" : "Hide balance")" aria-label="@(hideBalance ? "Show balance" : "Hide balance")" aria-pressed="@(hideBalance ? "true" : "false")"
+                                title="@(hideBalance ? L.T("home.balance.show") : L.T("home.balance.hide"))" aria-label="@(hideBalance ? L.T("home.balance.show") : L.T("home.balance.hide"))" aria-pressed="@(hideBalance ? "true" : "false")"
                                 @onclick="ToggleHideBalanceAsync">
                             <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 @if (hideBalance)
@@ -129,13 +129,13 @@
                                 }
                             </svg>
                         </button>
-                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors disabled:opacity-40" title="Refresh" aria-label="Refresh"
+                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors disabled:opacity-40" title="@L.T("dd.refresh")" aria-label="@L.T("dd.refresh")"
                                 @onclick="ManualRefreshAsync" disabled="@isRefreshing">
                             <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300 @(isRefreshing ? "animate-spin" : "")" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M20.015 4.356v4.992" />
                             </svg>
                         </button>
-                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Wallet Info" aria-label="Wallet info"
+                        <button type="button" class="p-1 rounded-lg hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="@L.T("home.info.title")" aria-label="@L.T("home.info.title")"
                                 @onclick="() => showWalletInfo = true">
                             <svg class="w-4 h-4 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
@@ -150,8 +150,8 @@
                     }
                     else if (hideBalance)
                     {
-                        <h1 class="text-3xl font-extrabold mt-0.5 balance-mask" aria-label="Balance hidden">••••••</h1>
-                        <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">Balance hidden</p>
+                        <h1 class="text-3xl font-extrabold mt-0.5 balance-mask" aria-label="@L.T("home.balance.hidden")">••••••</h1>
+                        <p class="text-xs text-dgb-500 dark:text-dgb-300 mt-0.5">@L.T("home.balance.hidden")</p>
                     }
                     else if (AppState.IsSimpleMode)
                     {
@@ -182,7 +182,7 @@
                     @if (!hideBalance && balance.UnconfirmedSatoshis != 0)
                     {
                         <p class="text-xs font-semibold mt-0.5 tabular-nums text-amber-700 dark:text-amber-300" aria-live="polite">
-                            Pending @(balance.UnconfirmedSatoshis > 0 ? "+" : "−")@Math.Abs(balance.UnconfirmedDgb).ToString("N8") DGB
+                            @L.T("home.pending", (balance.UnconfirmedSatoshis > 0 ? "+" : "−") + Math.Abs(balance.UnconfirmedDgb).ToString("N8"))
                         </p>
                     }
 
@@ -191,7 +191,7 @@
                     {
                         var up = market.Change24h >= 0;
                         <a href="/analytics" class="mt-1.5 flex items-center gap-2 w-fit no-underline"
-                           aria-label="DGB price @(up ? "up" : "down") @Math.Abs(market.Change24h).ToString("N2") percent in 24 hours. Open analytics.">
+                           aria-label="@L.T(up ? "home.price.up" : "home.price.down", Math.Abs(market.Change24h).ToString("N2"))">
                             <span class="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full @(up ? "text-green-700 dark:text-green-300 bg-green-500/15" : "text-red-700 dark:text-red-300 bg-red-500/15")">
                                 <span aria-hidden="true">@(up ? "▲" : "▼")</span>@Math.Abs(market.Change24h).ToString("N2")%
                             </span>
@@ -212,16 +212,16 @@
                     {
                         <div class="flex items-end gap-1.5 mt-auto pt-3">
                             <div class="flex-1 min-w-0">
-                                <p class="wallet-card-name truncate">@(WalletService.ActiveWallet?.Name ?? "Wallet")</p>
+                                <p class="wallet-card-name truncate">@(WalletService.ActiveWallet?.Name ?? L.T("home.wallet_fallback"))</p>
                                 <p class="wallet-card-number truncate">@TruncateAddress(receivingAddress)</p>
                             </div>
-                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Copy address" aria-label="Copy address"
+                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="@L.T("home.empty.copy")" aria-label="@L.T("home.empty.copy")"
                                     @onclick="CopyAddress">
                                 <svg class="w-3.5 h-3.5 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
                                 </svg>
                             </button>
-                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="Show QR code" aria-label="Show QR code"
+                            <button type="button" class="p-1 rounded hover:bg-dgb-200/50 dark:hover:bg-white/10 transition-colors" title="@L.T("home.qr.show")" aria-label="@L.T("home.qr.show")"
                                     @onclick="ShowAddressQr">
                                 <svg class="w-3.5 h-3.5 text-dgb-500 dark:text-dgb-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
@@ -233,7 +233,7 @@
                 </div>
                 @* The wallet's strap and its snap. The snap is a real button: pressing it closes (locks) the wallet. *@
                 <span class="wallet-strap" aria-hidden="true"></span>
-                <button type="button" class="wallet-snap" aria-label="Lock wallet" title="Lock wallet" data-testid="wallet-lock"
+                <button type="button" class="wallet-snap" aria-label="@L.T("home.lock")" title="@L.T("home.lock")" data-testid="wallet-lock"
                         @onclick="AppState.LockNow" @onclick:stopPropagation="true">
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" />
@@ -264,7 +264,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
                         </svg>
                     </div>
-                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Send</span>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@L.T("wallet.send")</span>
                 </button>
                 <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnReceive">
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
@@ -272,7 +272,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
                         </svg>
                     </div>
-                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Receive</span>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@L.T("wallet.receive")</span>
                 </button>
                 <button type="button" class="flex flex-col items-center gap-1 group" @onclick="OnContacts">
                     <div class="w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
@@ -280,7 +280,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                         </svg>
                     </div>
-                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Contacts</span>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@L.T("wallet.contacts")</span>
                 </button>
                 <button type="button" class="flex flex-col items-center gap-1 group" data-testid="home-multisig" @onclick="OnMultisig">
                     <div class="relative w-12 h-12 rounded-2xl bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 flex items-center justify-center shadow-sm group-active:scale-90 transition-transform">
@@ -290,7 +290,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
                         </svg>
                     </div>
-                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Multisig</span>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">@L.T("more.item.multisig.label")</span>
                 </button>
             </div>
         </div>
@@ -305,7 +305,7 @@
             @if (quickContacts.Count > 0 && !isWatchOnly)
             {
                 <div class="mt-2 flex items-center gap-3">
-                    <h3 class="section-label leading-tight shrink-0">Quick<br />send</h3>
+                    <h3 class="section-label leading-tight shrink-0">@L.T("home.quick_send.line1")<br />@L.T("home.quick_send.line2")</h3>
                     <div class="flex-1 min-w-0 flex gap-3 overflow-x-auto thin-scrollbar">
                         @foreach (var c in quickContacts)
                         {
@@ -330,7 +330,7 @@
                             </button>
                         }
                     </div>
-                    <button class="text-[11px] text-dgb-500 font-medium shrink-0" @onclick="OnContacts">See all</button>
+                    <button class="text-[11px] text-dgb-500 font-medium shrink-0" @onclick="OnContacts">@L.T("home.see_all")</button>
                 </div>
             }
 
@@ -341,7 +341,7 @@
             @* Transaction Header *@
             <div class="flex items-center justify-between mt-2 mb-2">
                 <div class="flex items-center gap-1.5">
-                    <h3 class="section-label">Transactions</h3>
+                    <h3 class="section-label">@L.T("home.transactions")</h3>
                     @if (transactions.Count > 0)
                     {
                         <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500">(@transactions.Count)</span>
@@ -354,7 +354,7 @@
                     }
                     @if (transactions.Count > 0)
                     {
-                        <button class="text-[11px] text-dgb-500 font-medium" @onclick='() => Nav.NavigateTo("/transactions")'>View all</button>
+                        <button class="text-[11px] text-dgb-500 font-medium" @onclick='() => Nav.NavigateTo("/transactions")'>@L.T("home.view_all")</button>
                     }
                 </div>
             </div>
@@ -392,10 +392,10 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                             </svg>
                         </div>
-                        <p class="text-xs font-medium text-amber-600 dark:text-amber-400">Unable to load data</p>
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Check your connection, then try again</p>
+                        <p class="text-xs font-medium text-amber-600 dark:text-amber-400">@L.T("home.load_failed.title")</p>
+                        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">@L.T("home.load_failed.body")</p>
                         <button type="button" class="btn-primary btn-sm mt-3"
-                                @onclick="ManualRefreshAsync" disabled="@isRefreshing">@(isRefreshing ? "Trying..." : "Try again")</button>
+                                @onclick="ManualRefreshAsync" disabled="@isRefreshing">@(isRefreshing ? L.T("home.trying") : L.T("dd.retry"))</button>
                     </div>
                     @* The address does not depend on the network, so it stays available while the history cannot be read
                        (spec 025, FR-007, FR-008). No mascot line here: nothing is known about this wallet's history yet. *@
@@ -457,7 +457,7 @@
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col gap-3"
                  @onclick:stopPropagation="true">
                 <div class="flex items-center justify-between">
-                    <h3 class="block-title block-title-sm">Wallet Info</h3>
+                    <h3 class="block-title block-title-sm">@L.T("home.info.title")</h3>
                     <button type="button" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-dgb-800 transition-colors"
                             @onclick="() => showWalletInfo = false">
                         <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -470,42 +470,42 @@
                 @if (wallet != null)
                 {
                     <div class="flex flex-col gap-2">
-                        <WalletInfoRow Label="Wallet Type"
-                            Value="@(wallet.WalletType == "privatekey" ? "Private Key (WIF)" : "HD Wallet (BIP84)")"
+                        <WalletInfoRow Label="@L.T("home.info.type")"
+                            Value="@(wallet.WalletType == "privatekey" ? L.T("home.info.type.wif") : L.T("home.info.type.hd"))"
                             Hint="@(wallet.WalletType == "privatekey"
-                                ? "Imported from a single private key. Has one fixed address — like having one bank account number."
-                                : "Hierarchical Deterministic wallet created from a seed phrase. Can generate many addresses from one backup — like having unlimited account numbers from one master key.")" />
+                                ? L.T("home.info.type.wif.hint")
+                                : L.T("home.info.type.hd.hint"))" />
 
                         @if (wallet.WalletType != "privatekey")
                         {
-                            <WalletInfoRow Label="HD Path"
+                            <WalletInfoRow Label="@L.T("home.info.path")"
                                 Value="m/84'/20'/0'"
-                                Hint="The derivation path used to generate your addresses. 84 = BIP84 standard (native SegWit), 20 = DigiByte coin type, 0 = first account. This ensures any BIP84-compatible wallet can restore your addresses from the same seed phrase."
+                                Hint="@L.T("home.info.path.hint")"
                                 Mono="true" />
                         }
 
-                        <WalletInfoRow Label="Address Format"
+                        <WalletInfoRow Label="@L.T("home.info.format")"
                             Value="@(wallet.WalletType == "privatekey" ? "Legacy + SegWit" : "SegWit (Bech32)")"
                             Hint="@(wallet.WalletType == "privatekey"
-                                ? "Your wallet uses both Legacy (D...) and SegWit (dgb1...) addresses. SegWit addresses have lower transaction fees."
-                                : "Uses modern SegWit addresses starting with dgb1. These are more efficient and have lower fees than older Legacy addresses starting with D.")" />
+                                ? L.T("home.info.format.wif.hint")
+                                : L.T("home.info.format.hd.hint"))" />
 
-                        <WalletInfoRow Label="Network"
+                        <WalletInfoRow Label="@L.T("home.info.network")"
                             Value="@AppState.NetworkMode"
-                            Hint="Mainnet is the real DigiByte network where DGB has actual value. Testnet is for developers to test without real money."
+                            Hint="@L.T("home.info.network.hint")"
                             Highlight="true" />
 
                         @if (WalletService.GetFullyCheckedAt() is { } fullyChecked)
                         {
                             var ago = DateTimeOffset.UtcNow - fullyChecked;
-                            <WalletInfoRow Label="Fully checked"
-                                Value="@(ago < TimeSpan.FromMinutes(1) ? "just now" : $"{(int)ago.TotalMinutes} min ago")"
-                                Hint="When every one of this wallet's addresses was last read from the chain. Addresses that can change (with funds, on show, recently handed out) are checked on every refresh; the others at least every 5 minutes. Pull down or tap refresh to check everything now." />
+                            <WalletInfoRow Label="@L.T("home.info.checked")"
+                                Value="@(ago < TimeSpan.FromMinutes(1) ? L.T("home.info.checked.just_now") : L.T("home.info.checked.minutes_ago", (int)ago.TotalMinutes))"
+                                Hint="@L.T("home.info.checked.hint")" />
                         }
 
-                        <WalletInfoRow Label="Security"
-                            Value="Self-Custodial"
-                            Hint="Your keys never leave this device. No company or server holds your funds — only you control your wallet. If you lose your seed phrase or private key, nobody can recover it for you." />
+                        <WalletInfoRow Label="@L.T("home.info.security")"
+                            Value="@L.T("home.info.security.value")"
+                            Hint="@L.T("home.info.security.hint")" />
                     </div>
                 }
             </div>
@@ -518,11 +518,11 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" @onclick="() => showAddressQr = false">
             <div class="scale-in bg-white dark:bg-dgb-900 rounded-2xl shadow-2xl p-5 mx-4 max-w-xs w-full flex flex-col items-center gap-3"
                  @onclick:stopPropagation="true">
-                <h3 class="block-title block-title-sm">Your Receiving Address</h3>
+                <h3 class="block-title block-title-sm">@L.T("home.qr.title")</h3>
                 @if (!string.IsNullOrEmpty(addressQrDataUri))
                 {
                     <div class="qr-frame">
-                        <img src="@addressQrDataUri" alt="QR Code" class="w-48 h-48 rounded-lg" />
+                        <img src="@addressQrDataUri" alt="@L.T("home.qr.alt")" class="w-48 h-48 rounded-lg" />
                         <div class="absolute inset-0 flex items-center justify-center">
                             <div class="bg-white rounded-full p-1.5 shadow-md">
                                 <DigiLogo Size="32" />
@@ -533,9 +533,9 @@
                 <p class="addr-balance text-[11px] font-mono text-slate-500 dark:text-slate-400 text-center break-all leading-relaxed select-all">@receivingAddress</p>
                 <div class="flex gap-2 w-full">
                     <button class="btn-primary btn-sm flex-1"
-                            @onclick="CopyAddress">Copy</button>
+                            @onclick="CopyAddress">@L.T("history.detail.copy")</button>
                     <button class="btn-secondary btn-sm flex-1"
-                            @onclick="() => showAddressQr = false">Close</button>
+                            @onclick="() => showAddressQr = false">@L.T("more.close")</button>
                 </div>
             </div>
         </div>
@@ -550,6 +550,9 @@
 </AuthGuard>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Inject] private AppState AppState { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     private List<Contact> quickContacts = [];

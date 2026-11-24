@@ -11,8 +11,8 @@
         @(State switch
         {
             Phase.Done => BusyLabel,
-            Phase.Holding => "Keep holding…",
-            _ => Armed ? "Activate again to confirm" : Label,
+            Phase.Holding => L.T("send.slide.keep_holding"),
+            _ => Armed ? L.T("send.slide.activate_again") : Label,
         })
     </span>
     <button type="button" class="confirm-slide-thumb" @ref="_thumb"
@@ -41,7 +41,10 @@
     private double _startX;
     private double _travel;        // how far the thumb can move, in px
 
-    protected override string GestureHint => "Slide";
+    protected override string GestureHint => L.T("send.slide.hint");
+
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private string StateClass => State switch
     {

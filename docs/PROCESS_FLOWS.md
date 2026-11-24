@@ -594,7 +594,8 @@ Sections:
   → Display mode (Simple/Advanced) → AppState.DisplayMode
   → Currency selector (USD, EUR, PHP, JPY, etc.) → AppState.Currency
   → Network selector (Mainnet/Testnet/Regtest) → AppState.Network
-  → Language selector (10 locales) → LocalizationService.SetLocale()
+  → Language (English, Español) → LanguagePickerSheet → LocalizationService.SetLocaleAsync()
+    (startup: saved choice → browser language if offered → English; switches live, no reload)
   → "Back Up Seed Phrase" → navigate /backup-seed
   → "Spending Limits" → navigate /settings/spending-limits (hidden for xpub)
   → Links: About, Roadmap, Analytics, Deployment

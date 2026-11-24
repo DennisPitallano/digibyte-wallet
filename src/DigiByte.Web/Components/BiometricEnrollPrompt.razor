@@ -15,7 +15,7 @@
             </svg>
         </div>
 
-        <h3 class="block-title block-title-lg text-center">Enable Biometric Unlock?</h3>
+        <h3 class="block-title block-title-lg text-center">@L.T("biometric.enroll.title")</h3>
         <p class="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">
             @L.T("credential.biometric_enroll_body", CredentialText.Word(L, WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin))
         </p>
@@ -35,17 +35,17 @@
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                         </svg>
-                        Setting up...
+                        @L.T("biometric.enroll.setting_up")
                     </span>
                 }
                 else
                 {
-                    <span>Enable Biometric</span>
+                    <span>@L.T("biometric.enroll.enable")</span>
                 }
             </button>
             <button class="w-full py-3 text-slate-500 dark:text-slate-400 text-sm font-medium hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                     @onclick="DismissAsync" disabled="@isEnrolling">
-                Not Now
+                @L.T("biometric.enroll.not_now")
             </button>
         </div>
     </div>
@@ -59,6 +59,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter, EditorRequired] public string WalletId { get; set; } = "";
     [Parameter, EditorRequired] public string WalletName { get; set; } = "";
     [Parameter, EditorRequired] public byte[] DecryptedSeed { get; set; } = [];
@@ -95,13 +98,13 @@
                     break;
                 default:
                     needsConsent = false;
-                    enrollError = "Biometric setup failed. You can try again from Settings.";
+                    enrollError = L.T("biometric.enroll.failed");
                     break;
             }
         }
         catch
         {
-            enrollError = "Biometric setup was cancelled or failed.";
+            enrollError = L.T("biometric.enroll.cancelled");
         }
         finally
         {

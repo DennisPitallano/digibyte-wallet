@@ -219,7 +219,7 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 | `MockBlockchainService` | Scoped | Demo data (development only) |
 | `AppState` | Singleton | Theme, network, display mode, currency |
 | `ThemeService` | Singleton | Dark/light mode toggle |
-| `LocalizationService` | Singleton | 10-language i18n |
+| `LocalizationService` | Scoped | English and Spanish; text, number style and the saved choice (see Localization) |
 | `NetworkStatusService` | Singleton | Online/offline detection |
 | `NotificationService` | Singleton | Toast notification dispatch |
 | `NfcService` | Scoped | NFC tap-to-pay (Web NFC API) |
@@ -241,6 +241,17 @@ Baku is a static, client-side character; there is no backend and no AI. Spec: `s
 - **Send risk rule**: `DigiByte.Wallet.Services.SendRiskEvaluator` (pure, unit-tested) with `KnownAddressProvider` (saved contacts plus previously-sent addresses, derived from existing history).
 - **Poses**: transparent WebP files in `wwwroot/images/mascot/poses/`, cut from the source sheets by `tools/mascot-slice/slice.py`. The full-size source sheets stay in the repo but are excluded from publish output.
 - **Privacy and CSP**: only a presence mode and tip ids are stored on the device; assets are self-hosted, so the CSP is unchanged.
+
+### Localization (specs/028-spanish-language-option)
+
+- **Languages**: English and Spanish. Translations are flat key → text files in `wwwroot/locales/{code}.json`; `LocalizationService.SupportedLocales` lists exactly the languages that have a file. Any text missing from a language shows in English, never as its key.
+- **Choosing**: Settings → Language opens `LanguagePickerSheet`. At startup the wallet uses the saved choice (`localStorage["dgb-locale"]`), else the browser's first language if it is offered (not saved), else English. A switch only happens once that language's file has loaded; if it can't load, nothing changes and the sheet says so.
+- **Live switch**: `MainLayout` wraps the whole shell in `<CascadingValue Name="Locale">`. Every component that shows translated text declares `[CascadingParameter(Name = "Locale")] public string? Locale` and so re-renders on a switch, keeping what the person typed. No page reload.
+- **Number and date style follow the wallet language, not the browser**: the service sets the default thread culture (`en-US` or `es`), so `ToString("N8")` and similar follow it everywhere. The web project loads only the `icudt_EFIGS.dat` ICU subset (`BlazorIcuDataFileName`), which has both languages; with Blazor's default per-browser subsets a culture other than the browser's is refused at startup.
+- **Machine-read values never use the display style**: payment links, QR codes, navigation query strings, storage and API calls use `InvariantCulture` (`PaymentRequest.ToUri`/`FromUri`, `ScanRouter`, `DonationInfo`). Link amounts accept only digits and one point, so `amount=1,5` is left empty rather than read as 15.
+- **Typed amounts**: `DigiByte.Wallet.Services.AmountEntry` (pure, unit-tested) reads Send, Receive and spending-limit amounts the same way in every language: a comma or a point is the decimal mark, more than one mark is refused, and one mark followed by exactly three digits that could be a thousands mark ("1.234") is returned as ambiguous so the screen asks which was meant (`AmountAmbiguityChoice`). Amounts the wallet fills in itself (a link, a scan, Max) are recorded as already settled.
+- **Adding a language**: add `wwwroot/locales/{code}.json` with every English key, one line in `SupportedLocales`, and check `BlazorIcuDataFileName` covers it. `LocaleFilesTests` enforce key parity, matching placeholders, that every `L.T("…")` key exists, and that the in-scope screens have no fixed English.
+- **Review**: Spanish security and money warnings need a native speaker's approval before release (`specs/028-spanish-language-option/translation-review.md`).
 
 ## Online multisig signing rooms (specs/017-multisig-online-signing)
 

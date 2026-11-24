@@ -8,7 +8,7 @@
 @inject CommonPasswordList CommonList
 @using DigiByte.Wallet.Storage
 
-<PageTitle>Unlock Wallet — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("unlock.page_title")</PageTitle>
 
 <div class="flex flex-col items-center justify-center min-h-[75vh] gap-8">
     <div class="flex flex-col items-center gap-3 float-in">
@@ -16,7 +16,7 @@
             <div class="absolute inset-0 bg-dgb-500/15 rounded-full blur-2xl scale-150 glow-pulse"></div>
             <DigiLogo Size="72" Class="relative" />
         </div>
-        <h2 class="block-title block-title-lg">Welcome back</h2>
+        <h2 class="block-title block-title-lg">@L.T("unlock.welcome")</h2>
         @if (!string.IsNullOrEmpty(walletName))
         {
             @* With more than one wallet the name is the wallet chooser: it opens a sheet, so the list never lengthens this page. *@
@@ -44,7 +44,7 @@
                 </div>
             }
         }
-            <p class="text-sm text-slate-400 dark:text-slate-500">@(credKind == CredentialKind.Pin ? "Enter your 6-digit PIN" : L.T("unlock.passphrase_prompt"))</p>
+            <p class="text-sm text-slate-400 dark:text-slate-500">@(credKind == CredentialKind.Pin ? L.T("unlock.pin_prompt") : L.T("unlock.passphrase_prompt"))</p>
         </div>
 
     @* Baku greets until the user starts typing, then steps aside (never covers the PIN field). *@
@@ -92,7 +92,7 @@
                     </svg>
                 }
             </button>
-            <p class="text-[11px] text-slate-500">Tap to use biometric</p>
+            <p class="text-[11px] text-slate-500">@L.T("unlock.biometric_tap")</p>
         </div>
 
         <div class="flex items-center gap-3 w-full max-w-[280px]">
@@ -117,18 +117,18 @@
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                     </svg>
-                    Unlocking...
+                    @L.T("unlock.unlocking")
                 </span>
             }
             else
             {
-                <span>Unlock</span>
+                <span>@L.T("unlock.unlock")</span>
             }
         </button>
         @* Forgot PIN link *@
         <button class="text-xs text-slate-400 hover:text-dgb-500 font-medium mt-2 transition-colors"
                 @onclick="() => showForgotPin = true">
-            @(credKind == CredentialKind.Pin ? "Forgot PIN?" : L.T("unlock.forgot_passphrase"))
+            @(credKind == CredentialKind.Pin ? L.T("unlock.forgot_pin") : L.T("unlock.forgot_passphrase"))
         </button>
     </div>
 
@@ -137,7 +137,7 @@
     {
         <div class="card w-full max-w-[340px] flex flex-col gap-3 p-4 scale-in">
             <div class="flex items-center justify-between">
-                <h3 class="block-title block-title-sm">Recovery Options</h3>
+                <h3 class="block-title block-title-sm">@L.T("unlock.recovery_options")</h3>
                 <button class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors"
                         @onclick="CancelForgot">
                     <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -169,8 +169,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-red-600 dark:text-red-400">Delete wallet & start over</p>
-                        <p class="text-[11px] text-red-400 dark:text-red-500">This cannot be undone</p>
+                        <p class="text-sm font-semibold text-red-600 dark:text-red-400">@L.T("unlock.delete_title")</p>
+                        <p class="text-[11px] text-red-400 dark:text-red-500">@L.T("unlock.delete_sub")</p>
                     </div>
                 </button>
             }
@@ -178,7 +178,7 @@
             @* Seed phrase input for PIN reset *@
             @if (showSeedInput)
             {
-                <textarea @bind="seedInput" rows="3" placeholder="Enter your 24-word recovery phrase..."
+                <textarea @bind="seedInput" rows="3" placeholder="@L.T("unlock.seed_placeholder")"
                           autocomplete="off" spellcheck="false"
                           class="input resize-none"></textarea>
                 @if (resetError != null)
@@ -195,16 +195,16 @@
                                 class="choice" aria-pressed="@(resetKind == CredentialKind.Passphrase ? "true" : "false")"
                                 @onclick="() => SelectResetKindAsync(CredentialKind.Passphrase)">@L.T("create.credential.passphrase")</button>
                     </div>
-                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@(resetKind == CredentialKind.Pin ? "New PIN" : L.T("recover.new_passphrase"))</p>
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">@(resetKind == CredentialKind.Pin ? L.T("unlock.new_pin") : L.T("recover.new_passphrase"))</p>
                     <CredentialInput @ref="resetPinInput" Kind="resetKind" IsNew="true" ValueChanged="(v) => newPin = v" OnSubmit="ConfirmResetPin" Error="@resetError" />
                 }
                 <div class="flex gap-2">
                     <button class="btn-secondary btn-sm flex-1"
-                            @onclick="CancelForgot">Cancel</button>
+                            @onclick="CancelForgot">@L.T("common.cancel")</button>
                     @if (!showNewPin)
                     {
                         <button class="btn-primary btn-sm flex-1"
-                                @onclick="VerifySeed" disabled="@string.IsNullOrWhiteSpace(seedInput)">Verify</button>
+                                @onclick="VerifySeed" disabled="@string.IsNullOrWhiteSpace(seedInput)">@L.T("unlock.verify")</button>
                     }
                 </div>
             }
@@ -214,16 +214,16 @@
             {
                 <div class="bg-red-50 dark:bg-red-900/10 rounded-xl p-3">
                     <p class="text-xs text-red-600 dark:text-red-400 font-medium leading-relaxed">
-                        This will permanently delete your wallet and all data. If you don't have your recovery phrase, your funds will be lost forever.
+                        @L.T("unlock.delete_warning")
                     </p>
                 </div>
-                <input type="text" @bind="deleteConfirmText" placeholder="Type DELETE to confirm"
+                <input type="text" @bind="deleteConfirmText" placeholder="@L.T("unlock.delete_type_placeholder")"
                        class="w-full px-3 py-2.5 bg-slate-50 dark:bg-dgb-950 border border-red-300 dark:border-red-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none text-center uppercase tracking-widest" />
                 <div class="flex gap-2">
                     <button class="btn-secondary btn-sm flex-1"
-                            @onclick="CancelForgot">Cancel</button>
+                            @onclick="CancelForgot">@L.T("common.cancel")</button>
                     <button class="btn-danger btn-sm flex-1"
-                            @onclick="DeleteWallet" disabled="@(deleteConfirmText?.ToUpper() != "DELETE")">Delete Forever</button>
+                            @onclick="DeleteWallet" disabled="@(deleteConfirmText?.ToUpper() != "DELETE")">@L.T("unlock.delete_forever")</button>
                 </div>
             }
         </div>
@@ -236,22 +236,22 @@
         </button>
     }
     <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500 slide-up-delay-3">
-        <a href="/help" class="hover:text-dgb-500 transition-colors">Help</a>
+        <a href="/help" class="hover:text-dgb-500 transition-colors">@L.T("unlock.link_help")</a>
         <span>·</span>
-        <a href="/about" class="hover:text-dgb-500 transition-colors">About</a>
+        <a href="/about" class="hover:text-dgb-500 transition-colors">@L.T("unlock.link_about")</a>
         <span>·</span>
-        <a href="/roadmap" class="hover:text-dgb-500 transition-colors">Roadmap</a>
+        <a href="/roadmap" class="hover:text-dgb-500 transition-colors">@L.T("more.item.roadmap.label")</a>
         <span>·</span>
-        <a href="/sponsors" class="font-semibold text-rose-500 hover:text-rose-400 transition-colors whitespace-nowrap"><span aria-hidden="true">♥</span> Sponsors</a>
+        <a href="/sponsors" class="font-semibold text-rose-500 hover:text-rose-400 transition-colors whitespace-nowrap"><span aria-hidden="true">♥</span> @L.T("unlock.link_sponsors")</a>
         <span>·</span>
-        <a href="/analytics" class="hover:text-dgb-500 transition-colors">Analytics</a>
+        <a href="/analytics" class="hover:text-dgb-500 transition-colors">@L.T("more.item.analytics.label")</a>
         <span>·</span>
-        <a href="/deployment" class="hover:text-dgb-500 transition-colors">Deployment</a>
+        <a href="/deployment" class="hover:text-dgb-500 transition-colors">@L.T("unlock.link_deployment")</a>
     </div>
 
     <div class="flex flex-col items-center gap-1.5 slide-up-delay-3">
         <VersionBadge />
-        <p class="text-[11px] text-slate-400 dark:text-slate-500">Speed · Security · Scalability</p>
+        <p class="text-[11px] text-slate-400 dark:text-slate-500">@L.T("unlock.tagline")</p>
     </div>
 </div>
 
@@ -275,6 +275,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     /// <summary>
     /// After a successful unlock, go back to the page that asked for it (?returnUrl=/identity?uri=...), else Home.
     /// Only same-site relative paths are followed, so the parameter can't be used as an open redirect.
@@ -456,7 +459,7 @@
                 pinInput?.Clear();
             }
         }
-        catch (Exception ex) { error = $"Error: {ex.Message}"; }
+        catch (Exception ex) { error = L.T("unlock.error", ex.Message); }
         finally { isUnlocking = false; }
     }
 
@@ -648,13 +651,13 @@
     private void VerifySeed()
     {
         resetError = null;
-        if (string.IsNullOrWhiteSpace(seedInput)) { resetError = "Enter your recovery phrase."; return; }
+        if (string.IsNullOrWhiteSpace(seedInput)) { resetError = L.T("unlock.reset_enter_phrase"); return; }
 
         var cleaned = string.Join(' ', seedInput.Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries));
         if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(cleaned)
             && !DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(seedInput.Trim()))
         {
-            resetError = "Invalid recovery phrase or private key.";
+            resetError = L.T("unlock.reset_invalid");
             return;
         }
 
@@ -701,7 +704,7 @@
         }
         else
         {
-            resetError = "Could not verify. Check your recovery phrase.";
+            resetError = L.T("unlock.reset_failed");
             newPin = "";
             resetPinInput?.Clear();
         }
