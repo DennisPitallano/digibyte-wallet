@@ -90,11 +90,21 @@ public static class ScanRouter
     }
 
     // Only a web link: a bare digibyte: request keeps going through the classifier exactly as before.
-    private static PaymentLinkData? PayLink(string data, string? appBaseUri)
+    private static PaymentLinkData? PayLink(string data, string? appBaseUri) =>
+        TryOwnPaymentLink(data, appBaseUri, out var link) ? link : null;
+
+    /// <summary>
+    /// True when <paramref name="data"/> is a valid payment link to this wallet (<c>{appBaseUri}pay#digibyte:…</c>).
+    /// A bare <c>digibyte:</c> request is not a link and returns false; so does a look-alike site's link.
+    /// </summary>
+    public static bool TryOwnPaymentLink(string? data, string? appBaseUri, out PaymentLinkData link)
     {
-        if (string.IsNullOrEmpty(appBaseUri) || !Uri.TryCreate(appBaseUri, UriKind.Absolute, out var app)) return null;
-        if (!data.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !data.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return null;
-        return PaymentLink.TryRead(data, app, null, out var link) ? link : null;
+        link = null!;
+        if (string.IsNullOrEmpty(data) || string.IsNullOrEmpty(appBaseUri) || !Uri.TryCreate(appBaseUri, UriKind.Absolute, out var app)) return false;
+        if (!data.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !data.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!PaymentLink.TryRead(data, app, null, out var read) || read is null) return false;
+        link = read;
+        return true;
     }
 
     // The two room pages and nothing else; the invite code is letters and digits only.

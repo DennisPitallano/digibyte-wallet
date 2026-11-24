@@ -1,6 +1,6 @@
 # Contract: `window.qrScanner` Additions (JS ↔ .NET)
 
-File: `src/DigiByte.Web/wwwroot/js/qrscanner.js`. Existing members (`start`, `stop`, `isSupported`, `decodeImage`) keep their signatures. `decodeImage` stays for compatibility but is no longer used by the panel.
+File: `src/DigiByte.Web/wwwroot/js/qrscanner.js`. Existing members (`start`, `stop`, `isSupported`) keep their signatures. The old `decodeImage` (data-URL decoding) was removed once the panel stopped using it.
 
 | Member | Signature | Returns / calls back | Notes |
 |---|---|---|---|
@@ -12,6 +12,7 @@ File: `src/DigiByte.Web/wwwroot/js/qrscanner.js`. Existing members (`start`, `st
 | `decodeInputFile` | `async (inputEl) => string \| null \| 'notimage' \| 'toolarge'` | | For the existing Upload image `InputFile`. Reads `inputEl.files[0]` in JS. |
 | `startScreen` | `async (dotnetRef) => 'started' \| 'cancelled' \| 'unsupported'` | Later `OnScreenResult(text)` or `OnScreenEnded(reason)` with reason `'stopped' \| 'timeout' \| 'ended'` | `getDisplayMedia({ video: { frameRate: 5 }, audio: false })`. Samples every 250 ms. Scales to at most 1920 px. Stops all tracks before calling back. |
 | `stopScreen` | `() => void` | | Idempotent. Called by Stop, close, Dispose and navigation. |
+| `announce` | `(text) => void` | | Writes to a visually hidden `role=status` region kept on the page, so a result is read out after the panel closes (FR-029). |
 | `_fitWithin` | `(w, h, max) => { w, h }` | | Pure; covered by `qrscanner.test.mjs`. |
 | `_giveUpClock` | `(startMs, nowMs, limitMs = 60000) => boolean` | | Pure; covered by `qrscanner.test.mjs`. |
 

@@ -49,7 +49,7 @@ Invalid always means **no** data is used. Nothing is half filled in.
 
 | Situation | Result |
 |---|---|
-| Invalid or empty fragment | Heading "Not a valid payment link". Text `pay.invalid`. Button **Go to wallet** (→ `/`). |
+| Invalid or empty fragment | Heading "Not a valid payment link". Text `pay.invalid`, or `pay.wrong_network` when the link is valid only on the other DigiByte network. Button **Go to wallet** (→ `/`). |
 | Valid, no wallet on this device | Read-only page: heading `pay.title` ("Payment request"). Network badge when the address is testnet. Address in monospace with **Copy address**. Amount in the active language's number style with **Copy amount**; the copied value uses the invariant point and 8 decimals. Label and message as plain text, never rendered as HTML or links. QR code of the BIP21 text with caption `pay.qr_caption`. Note `pay.any_wallet` ("Pay from any DigiByte wallet."). Button **Set up this wallet** (→ `/welcome`). No send control. |
 | Valid, wallet locked | `PaymentHandoff.Set(link)`, then `NavigateTo("/unlock?returnUrl=%2Fsend", replace: true)` |
 | Valid, wallet unlocked | `PaymentHandoff.Set(link)`, then `NavigateTo("/send", replace: true)` |
@@ -61,7 +61,7 @@ Send calls `PaymentHandoff.Take()` first. When a link is waiting, Send fills in 
 | Screen | Control | Shown when | Copies |
 |---|---|---|---|
 | Receive | **Copy payment link** (`receive.copy_pay_link`) | An amount is set | `PaymentLink.Create(base, request)` |
-| Receive | **Copy** / **Copy link** (existing) | As today | Address, or the `digibyte:` URI |
+| Receive | **Copy** / **Copy digibyte: link** (existing button, relabelled so it cannot be confused with **Copy payment link**) | As today | Address, or the `digibyte:` URI |
 | Request (`/payments`) | **Copy payment link** (`payments.copy_pay_link`) | A request is shown | `PaymentLink.Create(base, request)` |
 | Request | **Copy link** (existing; relabelled `payments.copy_uri`, "Copy digibyte: link") | As today | `digibyte:` URI |
 | Both | **Share** (existing) | Device can share | When an amount is set or a request is shown, shares the payment link (text), falling back to copying it. Otherwise shares the address, as today. |

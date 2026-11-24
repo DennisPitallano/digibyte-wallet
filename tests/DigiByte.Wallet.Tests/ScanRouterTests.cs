@@ -298,6 +298,19 @@ public class ScanRouterTests
     }
 
     [Fact]
+    public void TryOwnPaymentLink_reads_only_this_wallets_web_links()
+    {
+        Assert.True(ScanRouter.TryOwnPaymentLink($"https://dgbwallet.app/pay#digibyte:{Address}?amount=2", App, out var link));
+        Assert.Equal(Address, link.Address);
+        Assert.Equal(2m, link.AmountDgb);
+
+        Assert.False(ScanRouter.TryOwnPaymentLink($"digibyte:{Address}?amount=2", App, out _));
+        Assert.False(ScanRouter.TryOwnPaymentLink($"https://evil.example/pay#digibyte:{Address}", App, out _));
+        Assert.False(ScanRouter.TryOwnPaymentLink($"https://dgbwallet.app/pay#digibyte:{Address}", null, out _));
+        Assert.False(ScanRouter.TryOwnPaymentLink(null, App, out _));
+    }
+
+    [Fact]
     public void A_bare_digibyte_request_still_routes_as_before()
     {
         var route = ScanRouter.Route($"digibyte:{Address}?amount=2", App);

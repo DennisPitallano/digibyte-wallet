@@ -341,6 +341,18 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 ---
 
+## Phase 10: Follow-up fixes after review (2026-11-25)
+
+- [X] T064 Relabel Receive's existing `digibyte:` copy button (`receive.copy_link`) to "Copy digibyte: link" / "Copiar enlace digibyte:" in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`, so it cannot be confused with **Copy payment link**
+- [X] T065 Hand personal-wallet payment links pasted in the menu to Send in memory: `ScanRouter.TryOwnPaymentLink` in `src/DigiByte.Web/Services/ScanRouter.cs`, `PaymentHandoff` use in `src/DigiByte.Web/Layout/NavMenu.razor`, and Send taking a waiting hand-off on `LocationChanged` in `src/DigiByte.Web/Pages/Send.razor` (FR-024)
+- [X] T066 Move the panel's rules into `src/DigiByte.Web/Services/ScanHandOff.cs` with `tests/DigiByte.Wallet.Tests/ScanHandOffTests.cs`; `QrScannerModal.HandOffAsync` only acts on the decision
+- [X] T067 Announce "Code found. Opening…" through `qrScanner.announce`, a live region that outlives the panel (FR-029)
+- [X] T068 Show `pay.wrong_network` on `/pay` when a link is valid only on the other network, in `src/DigiByte.Web/Pages/Pay.razor` and both locale files
+- [X] T069 Update `README.md` (Paste / Scan, payment links, `/pay` route)
+- [X] T070 Remove the unused `payments.copy_link` text and the unused `qrScanner.decodeImage`
+
+---
+
 ## Requirement Coverage
 
 Every functional requirement in [spec.md](spec.md) maps to at least one task.
@@ -371,12 +383,12 @@ Every functional requirement in [spec.md](spec.md) maps to at least one task.
 | FR-021 Send filled in after unlock, hand-off in memory | T038, T039, T040 |
 | FR-022 Read-only page for payers without the wallet | T041, T042 |
 | FR-023 `web+digibyte` handler after `#`, or left out | T045, T047 |
-| FR-024 Only this wallet's own links followed | T034, T036 |
+| FR-024 Only this wallet's own links followed; menu links handed over in memory | T034, T036, T065 |
 | FR-025 Wide-screen order on Receive and Request | T052, T053, T054 |
 | FR-026 Nothing stored, logged or sent; no auto-fill | T014, T016, T062 |
 | FR-027 Field emptied; secrets cleared in the menu | T008, T011, T016, T023 |
 | FR-028 English and Spanish text, parity tests pass | T019, T020, T031, T046, T051, T055, T060, T063 |
-| FR-029 Keyboard and screen-reader use, announced results | T006, T017 |
+| FR-029 Keyboard and screen-reader use, announced results | T006, T017, T067 |
 
 ---
 

@@ -223,6 +223,21 @@ window.qrScanner = {
         if (field) field.value = '';
     },
 
+    // Says something to screen readers from a live region that outlives the panel, which closes at once (FR-029).
+    announce(text) {
+        let region = document.getElementById('qr-announcer');
+        if (!region) {
+            region = document.createElement('div');
+            region.id = 'qr-announcer';
+            region.className = 'sr-only';
+            region.setAttribute('role', 'status');
+            region.setAttribute('aria-live', 'polite');
+            document.body.appendChild(region);
+        }
+        region.textContent = '';
+        setTimeout(() => { region.textContent = text; }, 50);
+    },
+
     focusField(panelEl) {
         const field = panelEl && panelEl.querySelector('textarea');
         if (field) field.focus();
@@ -376,36 +391,6 @@ window.qrScanner = {
         } finally {
             inputEl.value = '';   // choosing the same file again fires a change again
         }
-    },
-
-    async decodeImage(imageDataUrl) {
-        // Load jsQR if not loaded yet (self-hosted)
-        if (!window.jsQR) {
-            await new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = 'js/jsqr.min.js';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        }
-
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                ctx.drawImage(img, 0, 0);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: 'attemptBoth'
-                });
-                resolve(code ? code.data : null);
-            };
-            img.onerror = () => resolve(null);
-            img.src = imageDataUrl;
-        });
     }
+
 };

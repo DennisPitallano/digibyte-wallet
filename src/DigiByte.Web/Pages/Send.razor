@@ -15,6 +15,7 @@
 @inject NodeSourceStatusService NodeStatus
 @inject IJSRuntime JS
 @inject DigiByte.Web.Services.PaymentHandoff PayHandoff
+@implements IDisposable
 
 <PageTitle>@L.T("send.page_title")</PageTitle>
 
@@ -933,25 +934,43 @@ else
         else if (amountEntry is not null) OnAmountInput(new ChangeEventArgs { Value = amountText }); // re-check against the new unit
     }
 
+    // Checked again here with the same rules as the address query; any note stays off the memo.
+    private bool TryTakeHandoff()
+    {
+        if (PayHandoff.Take() is not { } link) return false;
+        if (link.Address.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(link.Address))
+        {
+            destinationAddress = link.Address;
+            if (link.AmountDgb is { } linkAmount && linkAmount > 0 && linkAmount < 21_000_000_000m)
+            {
+                isAmountInFiat = false; // a link's amount is in DGB
+                SetAmount(linkAmount);
+            }
+        }
+        return true;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (!new Uri(e.Location).AbsolutePath.Equals("/send", StringComparison.OrdinalIgnoreCase)) return;
+        _ = InvokeAsync(() =>
+        {
+            if (!TryTakeHandoff()) return;
+            RecalcFee();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
     protected override async Task OnInitializedAsync()
     {
         AppState.ResetLockTimer();
 
-        // A payment link opened on /pay hands its payment over in memory, never in the address (spec 030, FR-021).
-        // It is checked again here with the same rules as the address below; any note stays off the memo.
-        if (PayHandoff.Take() is { } link)
-        {
-            if (link.Address.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(link.Address))
-            {
-                destinationAddress = link.Address;
-                if (link.AmountDgb is { } linkAmount && linkAmount > 0 && linkAmount < 21_000_000_000m)
-                {
-                    isAmountInFiat = false; // a link's amount is in DGB
-                    SetAmount(linkAmount);
-                }
-            }
-        }
-        else
+        // A payment link (opened on /pay, or pasted in the menu) hands its payment over in memory, never in the
+        // address (spec 030, FR-021). A link that arrives while Send is open is taken in OnLocationChanged.
+        Nav.LocationChanged += OnLocationChanged;
+        if (!TryTakeHandoff())
         {
             // Parse query params immediately (no I/O) — with validation
             var uri = new Uri(Nav.Uri);

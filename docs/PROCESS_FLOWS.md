@@ -521,12 +521,14 @@ Every scan button (the menu's middle button and 10 pages) opens QrScannerModal:
 Pictures and screen frames are read in qrscanner.js (jsQR); only the decoded text reaches .NET.
 Scan from screen samples ~4 frames/s and stops on a code, Stop, close, leaving, the browser's own Stop, or 60 s.
 
-HandOffAsync(raw):
+HandOffAsync(raw) acts on ScanHandOff.Decide (tested):
   → PastedCode.Clean (white space, one pair of quotes, ≤ 8,192 chars)
   → Menu only: PastedCode.LooksSecret → clear the field, "cleared and not used", nothing routed
   → Menu only: text ScanRouter cannot open stays in the field with a message
   → Other pages: this wallet's own payment link → its digibyte: request without label/message (FR-011a)
-  → OnScanned(value) → the page's own handler; the menu routes it with ScanRouter
+  → qrScanner.announce("Code found. Opening…") in a live region that outlives the panel
+  → OnScanned(value) → the page's own handler; the menu routes it with ScanRouter, except a personal-wallet
+    payment link, which goes to Send through PaymentHandoff (/send?link=N, N only a counter)
 ```
 
 ### Payment link (`/pay`, spec 030)

@@ -419,50 +419,43 @@
     /// </summary>
     private async Task HandOffAsync(string raw, bool keepOpenIfUnknown)
     {
-        var value = PastedCode.Clean(raw);
-        if (value is null)
+        // The rules live in ScanHandOff so they are tested; this only acts on the decision.
+        var decision = ScanHandOff.Decide(raw, FromMenu, keepOpenIfUnknown, Nav.BaseUri);
+        switch (decision.Outcome)
         {
-            if (PastedCode.IsTooLong(raw))
-            {
-                fieldText = raw;
+            case HandOffOutcome.Nothing:
+                SetStatus("scan.nothing_to_paste");
+                StateHasChanged();
+                return;
+
+            case HandOffOutcome.TooLong:
+                fieldText = decision.Value ?? "";
                 SetStatus("scan.too_long");
-            }
-            else SetStatus("scan.nothing_to_paste");
-            StateHasChanged();
-            return;
+                StateHasChanged();
+                return;
+
+            case HandOffOutcome.SecretCleared:
+                // Never left on screen, never routed (FR-027).
+                await ClearFieldAsync();
+                SetStatus("scan.secret_cleared");
+                StateHasChanged();
+                return;
+
+            case HandOffOutcome.Unknown:
+                // Nothing opens; the text stays to be corrected (User Story 1, scenario 6).
+                fieldText = decision.Value ?? "";
+                SetStatus("scan.unknown");
+                focusField = true;
+                StateHasChanged();
+                return;
         }
 
-        if (FromMenu && PastedCode.LooksSecret(value))
-        {
-            // Never left on screen, never routed (FR-027).
-            await ClearFieldAsync();
-            SetStatus("scan.secret_cleared");
-            StateHasChanged();
-            return;
-        }
-
-        if (FromMenu && keepOpenIfUnknown && ScanRouter.Route(value, Nav.BaseUri).Kind == ScanTarget.Unknown)
-        {
-            // Nothing opens; the text stays to be corrected (User Story 1, scenario 6).
-            fieldText = value;
-            SetStatus("scan.unknown");
-            focusField = true;
-            StateHasChanged();
-            return;
-        }
-
-        // On a page's own scan button, this wallet's payment link becomes the digibyte: request it carries, without
-        // its note, so every page that reads requests accepts it and no note reaches Send's on-chain memo (FR-011a).
-        if (!FromMenu && PaymentLink.TryRead(value, new Uri(Nav.BaseUri), null, out var link)
-            && (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
-        {
-            value = link!.ToBip21(includeNote: false);
-        }
-
-        SetStatus("scan.found_opening");
+        // The panel closes at once, taking its own status line with it, so the result is announced in a live region
+        // that stays on the page (FR-029).
+        try { await JS.InvokeVoidAsync("qrScanner.announce", L.T("scan.found_opening")); } catch (Exception) { }
         await ClearFieldAsync();
         await StopStreamsAsync();
-        await OnScanned.InvokeAsync(value);
+        await OnScanned.InvokeAsync(decision.Value!);
         await CloseAsync();
     }
 

@@ -99,6 +99,10 @@ Tests cover each rule branch, a remembered choice overriding the rule both ways,
 - not menu and `PaymentLink.TryRead` succeeds: the value becomes `link.ToBip21(includeNote: false)` (FR-011a);
 - then `OnScanned(value)`, clear the field, stop any camera or screen stream, and `OnClosed`. Close or Dispose always stops the camera and screen streams and clears `fieldText`.
 
+## ScanHandOff (`DigiByte.Web/Services/ScanHandOff.cs`, static, added after review)
+
+`Decide(raw, fromMenu, keepOpenIfUnknown, appBaseUri) → HandOffDecision(Outcome, Value)` holds the panel's rules so they are unit-tested: `Nothing`, `TooLong` (value kept), `SecretCleared` (menu only), `Unknown` (menu, typed or pasted values only; value kept) or `HandOver` (on other pages, this wallet's payment link becomes `ToBip21(includeNote: false)`). The component only acts on the decision.
+
 ## Scan routing addition (`DigiByte.Web/Services/ScanRouter.cs`)
 
-A new step, after Digi-ID and room invites and before `MultisigSendHelper.ClassifyScan`: if `PaymentLink.TryRead(data, appBaseUri, out var link)` succeeds for a `{appBaseUri}pay#…` URL, return `ScanTarget.Payment` with the URL built as today (personal `/send` or the open shared wallet's `/multisig/{id}/send`). A bare `digibyte:` URI keeps going through `ClassifyScan` exactly as today, so existing behaviour does not change.
+A new step, after Digi-ID and room invites and before `MultisigSendHelper.ClassifyScan`: if `PaymentLink.TryRead(data, appBaseUri, out var link)` succeeds for a `{appBaseUri}pay#…` URL, return `ScanTarget.Payment` with the URL built as today (personal `/send` or the open shared wallet's `/multisig/{id}/send`). A bare `digibyte:` URI keeps going through `ClassifyScan` exactly as today, so existing behaviour does not change. `ScanRouter.TryOwnPaymentLink` exposes the same check; the menu uses it to hand a personal-wallet payment link to Send through `PaymentHandoff` (`/send?link=N`, where N is only a counter) instead of `/send?address=…`. Send takes a waiting hand-off on open and on every navigation to `/send`.

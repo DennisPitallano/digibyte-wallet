@@ -10,6 +10,7 @@
 @inject MultisigWalletService Multisig
 @inject ActiveWalletContext ActiveWallet
 @inject ProposalHandoff Handoff
+@inject PaymentHandoff PayHandoff
 @inject MultisigAttentionState Attention
 @implements IDisposable
 
@@ -405,6 +406,16 @@
     {
         showScanner = false;
         SyncDialogFlag();
+        // This wallet's payment link goes to Send in memory, as from /pay, so its details never reach the address bar
+        // (spec 030, FR-021). The counter only makes the address new when Send is already open; it carries nothing.
+        // Inside a shared wallet the link keeps the shared wallet's own route below.
+        if (!Shared && ScanRouter.TryOwnPaymentLink(data, Nav.BaseUri, out var payLink))
+        {
+            PayHandoff.Set(payLink);
+            Nav.NavigateTo($"/send?link={++scanCount}");
+            return;
+        }
+
         // Inside a shared wallet a payment code starts a payment from that shared wallet (FR-002a).
         var sharedName = Shared ? sharedConfig!.DisplayName : null;
         var route = ScanRouter.Route(data, Nav.BaseUri, Shared ? Context.SharedWalletId : null);

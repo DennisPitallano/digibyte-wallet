@@ -67,14 +67,15 @@
                     @address
                 </p>
                 <div class="flex flex-wrap gap-2 w-full">
-                    <button class="btn-primary btn-sm flex-1"
+                    @* With an amount set, the web payment link is the main action, as on Request (spec 030). *@
+                    <button class="@(requestAmount is not null ? "btn-secondary" : "btn-primary") btn-sm flex-1"
                             @onclick="CopyAddress">
                         @(copied ? L.T("receive.copied") : requestAmount is not null ? L.T("receive.copy_link") : L.T("receive.copy"))
                     </button>
                     @if (requestAmount is not null)
                     {
                         @* A web link that opens Send for the payer, or shows the payment to pay from any wallet (spec 030). *@
-                        <button class="btn-secondary btn-sm flex-1" data-testid="receive-copy-pay-link"
+                        <button class="btn-primary btn-sm flex-1" data-testid="receive-copy-pay-link"
                                 @onclick="CopyPayLink">
                             @(copiedPayLink ? L.T("receive.copied") : L.T("receive.copy_pay_link"))
                         </button>
