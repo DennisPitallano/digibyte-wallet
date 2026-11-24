@@ -86,6 +86,77 @@ public partial class LocaleFilesTests
         Assert.Equal(offered, files);
     }
 
+    // ---------- Translations rendered as raw HTML ----------
+
+    /// <summary>
+    /// Keys a screen renders as raw HTML (MarkupString), to keep a word bold inside a sentence. Their text is not encoded,
+    /// so a translator who drops a tag or adds a stray "&lt;" or "&amp;" breaks the screen. Any other key shows its text as is.
+    /// </summary>
+    private static readonly string[] RawHtmlKeys =
+    [
+        "send.batch_info.intro", "send.fee_info.intro", "send.fee_info.footer",
+        "settings.install.ios.step1", "settings.install.ios.step2", "settings.install.ios.step3",
+        "settings.install.menu.step2", "settings.multisig.hint",
+    ];
+
+    private static readonly string[] AllowedTags = ["<strong>", "</strong>", "<b>", "</b>"];
+
+    [GeneratedRegex(@"</?[A-Za-z][^>]*>")] private static partial Regex Tag();
+
+    [Fact]
+    public void RawHtmlTranslations_HaveTheSameTagsInBothLanguages_AndNothingElseThatIsHtml()
+    {
+        var en = Load("en");
+        var es = Load("es");
+        var problems = new List<string>();
+        foreach (var key in RawHtmlKeys)
+        {
+            foreach (var (lang, text) in new[] { ("en", en[key]), ("es", es[key]) })
+            {
+                var tags = Tag().Matches(text).Select(m => m.Value).ToList();
+                if (tags.Any(t => !AllowedTags.Contains(t))) problems.Add($"{lang} {key}: tag other than <strong>/<b>");
+                var rest = Tag().Replace(text, "");
+                if (rest.Contains('<') || rest.Contains('>') || rest.Contains('&')) problems.Add($"{lang} {key}: a bare <, > or &");
+            }
+            var enTags = Tag().Matches(en[key]).Select(m => m.Value);
+            var esTags = Tag().Matches(es[key]).Select(m => m.Value);
+            if (!enTags.SequenceEqual(esTags)) problems.Add($"{key}: tags differ between en and es");
+        }
+        Assert.True(problems.Count == 0, string.Join("; ", problems));
+    }
+
+    [Fact]
+    public void OnlyRawHtmlKeysContainTags()
+    {
+        // A tag in any other key would show on screen as literal "<strong>" text.
+        var offenders = new[] { ("en", Load("en")), ("es", Load("es")) }
+            .SelectMany(l => l.Item2.Where(kv => !RawHtmlKeys.Contains(kv.Key) && Tag().IsMatch(kv.Value)).Select(kv => $"{l.Item1} {kv.Key}"))
+            .ToList();
+        Assert.True(offenders.Count == 0, $"Tags outside the raw-HTML keys: {string.Join(", ", offenders)}");
+    }
+
+    // ---------- Date patterns kept in the translation files ----------
+
+    [Theory]
+    [InlineData("en", "en-US")]
+    [InlineData("es", "es")]
+    public void DatePatterns_FormatARealDate(string lang, string culture)
+    {
+        var date = new DateTime(2026, 11, 25, 14, 5, 0);
+        var info = System.Globalization.CultureInfo.GetCultureInfo(culture);
+        var problems = new List<string>();
+        foreach (var (key, pattern) in Load(lang).Where(kv => kv.Key.StartsWith("history.format.")))
+        {
+            string text;
+            try { text = date.ToString(pattern, info); }
+            catch (FormatException) { problems.Add($"{key}: not a valid date pattern"); continue; }
+            // A pattern must produce the date: the day of the month always appears, the year when the pattern asks for it.
+            if (!text.Contains("25")) problems.Add($"{key}: '{text}' has no day");
+            if (pattern.Contains("yyyy") && !text.Contains("2026")) problems.Add($"{key}: '{text}' has no year");
+        }
+        Assert.True(problems.Count == 0, string.Join("; ", problems));
+    }
+
     // ---------- SC-003 / FR-008: Spanish has every English entry ----------
 
     [Fact]

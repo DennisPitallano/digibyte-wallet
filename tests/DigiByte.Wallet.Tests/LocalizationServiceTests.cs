@@ -48,6 +48,8 @@ public class LocalizationServiceTests
         public bool StorageThrows { get; set; }
         public bool LanguageThrows { get; set; }
         public CultureInfo? AppliedCulture { get; set; }
+        /// <summary>Every value given to the page's lang attribute, in order.</summary>
+        public List<string> DocumentLanguages { get; } = [];
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
             InvokeAsync<TValue>(identifier, CancellationToken.None, args);
@@ -67,6 +69,9 @@ public class LocalizationServiceTests
                 case "domHelpers.getPreferredLanguage":
                     if (LanguageThrows) throw new JSException("no navigator");
                     return new((TValue)(object?)BrowserLanguage!);
+                case "domHelpers.setDocumentLanguage":
+                    DocumentLanguages.Add((string)args![0]!);
+                    return new(default(TValue)!);
                 default:
                     throw new InvalidOperationException($"Unexpected JS call {identifier}");
             }
@@ -243,5 +248,67 @@ public class LocalizationServiceTests
 
         // An unknown key falls back to itself, so the format string is the key: enough to see the culture used.
         Assert.Equal("1,5", service.T("{0}", 1.5m));
+    }
+
+    // ---------- FR-012: screen readers pronounce the page in the chosen language ----------
+
+    [Fact]
+    public async Task Startup_SetsThePageLanguage()
+    {
+        var (service, browser, _) = Create();
+        browser.Storage["dgb-locale"] = "es";
+
+        await service.InitializeAsync();
+
+        Assert.Equal(["es"], browser.DocumentLanguages);
+    }
+
+    [Fact]
+    public async Task Startup_InEnglish_SetsThePageLanguageToEnglish()
+    {
+        var (service, browser, _) = Create();
+        browser.BrowserLanguage = "de-DE";
+
+        await service.InitializeAsync();
+
+        Assert.Equal(["en"], browser.DocumentLanguages);
+    }
+
+    [Fact]
+    public async Task Switching_SetsThePageLanguage_AndAFailedSwitchDoesNot()
+    {
+        var (service, browser, _) = Create();
+        await service.InitializeAsync();
+
+        Assert.True(await service.SetLocaleAsync("es"));
+        Assert.Equal(["en", "es"], browser.DocumentLanguages);
+
+        Assert.False(await service.SetLocaleAsync("fr"));
+        Assert.Equal(["en", "es"], browser.DocumentLanguages);
+    }
+
+    [Fact]
+    public async Task SettingThePageLanguage_CanFail_WithoutBreakingTheSwitch()
+    {
+        var throwing = new HttpClient(new FakeFiles()) { BaseAddress = new Uri("http://localhost/") };
+        var js = new ThrowingOnLangBrowser();
+        var s = new LocalizationService(throwing, js, _ => { });
+
+        await s.InitializeAsync();
+
+        Assert.True(await s.SetLocaleAsync("es"));
+        Assert.Equal("es", s.CurrentLocale);
+    }
+
+    /// <summary>A browser whose page-language call fails (script not loaded yet).</summary>
+    private sealed class ThrowingOnLangBrowser : IJSRuntime
+    {
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
+            InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+            identifier == "domHelpers.setDocumentLanguage"
+                ? throw new JSException("domHelpers not loaded")
+                : new(default(TValue)!);
     }
 }

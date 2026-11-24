@@ -5,6 +5,10 @@ window.domHelpers = {
     getPreferredLanguage: function () {
         try { return navigator.language || ''; } catch { return ''; }
     },
+    // The page's lang attribute, so screen readers pronounce the text in the wallet's language (spec 028, FR-012).
+    setDocumentLanguage: function (code) {
+        if (typeof code === 'string' && /^[a-z]{2}(-[A-Za-z0-9]+)?$/.test(code)) document.documentElement.lang = code;
+    },
     focusElement: function (id) {
         document.getElementById(id)?.focus();
     },

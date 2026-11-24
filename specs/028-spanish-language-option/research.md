@@ -158,3 +158,9 @@ R3 put the `CascadingValue` around `@Body`. Navigation, banners and toasts live 
 The service sets the default thread culture on purpose. In tests that leaked into other test classes running in parallel (a multisig message showed "2,00000000"). `LocalizationService` has a second constructor that takes the culture-applying action; tests pass a recorder (or a no-op), the app uses the two-argument constructor.
 
 **R11 correction (2026-11-25)**: the existing file uses "billetera" 42 times and "cartera" 11 times, so R11 originally named the wrong word. New text uses "billetera" and "Ingresa". Two existing entries still say "Cartera": `app.name` ("Cartera DigiByte") and `nav.wallet` ("Cartera"); they are left for the native-speaker review to settle, listed in `translation-review.md`.
+
+### R15. Gaps closed after implementation (2026-11-25)
+
+- **Page language**: `index.html` hard-coded `<html lang="en">`, so screen readers read Spanish with English pronunciation (FR-012). `LocalizationService` now sets `document.documentElement.lang` at startup and on every successful switch (`domHelpers.setDocumentLanguage`); a failed switch leaves it alone.
+- **Raw-HTML translations**: eight keys are rendered as raw HTML to keep a bold word inside a sentence. `LocaleFilesTests` now requires the same `<strong>`/`<b>` tags in both languages for those keys, no other markup or bare `<`, `>`, `&` in them, and no tags in any other key.
+- **Date patterns**: the `history.format.*` keys hold .NET date patterns; a test formats a real date with each in both languages.

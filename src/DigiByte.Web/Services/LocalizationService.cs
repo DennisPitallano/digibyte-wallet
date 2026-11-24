@@ -75,6 +75,12 @@ public class LocalizationService
     /// <summary>Picks the language at startup. Never writes storage and never throws.</summary>
     public async Task InitializeAsync()
     {
+        await ChooseAtStartupAsync();
+        await SetDocumentLanguageAsync();
+    }
+
+    private async Task ChooseAtStartupAsync()
+    {
         _english = await TryLoadAsync("en") ?? new();
 
         var saved = await TryJsAsync<string?>("localStorage.getItem", StorageKey);
@@ -89,6 +95,9 @@ public class LocalizationService
         Use("en", _english);
     }
 
+    /// <summary>The page's lang attribute follows the wallet language, so screen readers pronounce it right (FR-012).</summary>
+    private Task SetDocumentLanguageAsync() => TryJsVoidAsync("domHelpers.setDocumentLanguage", _currentLocale);
+
     /// <summary>
     /// Switches to <paramref name="locale"/> once its file has loaded, saves the choice and raises <see cref="OnLocaleChanged"/>.
     /// Returns false, changing nothing, when the language isn't offered or its file can't be loaded.
@@ -100,6 +109,7 @@ public class LocalizationService
 
         // Saving is best effort: with storage blocked the switch still holds for this visit.
         await TryJsVoidAsync("localStorage.setItem", StorageKey, locale);
+        await SetDocumentLanguageAsync();
         OnLocaleChanged?.Invoke();
         return true;
     }
