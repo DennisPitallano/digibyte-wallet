@@ -67,7 +67,7 @@ A person restores a wallet from its recovery phrase, or adds it as watch-only, e
 
 A person knows their addresses were handed out by a shop or deposit page that may have used several thousand of them. On the wider search they enter how many of the wallet's addresses to search, counting from the first, start it, and watch its progress. When it finishes, every paid address among those is part of their wallet.
 
-**Why this priority**: The fixed reach of today's search covers a run of up to 500 unpaid addresses, but not an issuer that left more than that in a row. Letting the person set the distance removes that limit. It depends on nothing in Story 1.
+**Why this priority**: The fixed reach of today's search covers a run of up to 500 unpaid addresses, but not an issuer that left more than that in a row. Letting the person set the distance removes that limit. It delivers its value without Story 1's offer; the two meet only where a finished search records the offer as answered.
 
 **Independent Test**: With a wallet whose only paid address is number 3,000, run the search with its default reach and confirm nothing is found; run it again up to address number 5,000 and confirm the payment appears in the balance and can be spent.
 
@@ -149,7 +149,7 @@ A search across thousands of addresses takes minutes. The person sees how far it
 
 **How far the search looks**
 
-- **FR-009**: The wider search MUST let the person choose how many of the wallet's receive addresses to search, counting from the first. The field MUST read as a count ("Search the first N addresses"), and every message that reports a search's extent MUST use the same count ("searched the first N addresses", "stopped after the first K addresses"). Throughout this document, "search up to address number N" and "reach N" mean the wallet's first N receive addresses.
+- **FR-009**: The wider search MUST let the person choose how many of the wallet's receive addresses to search, counting from the first. The field MUST read as a count ("Search the first N addresses"), and every message that reports a search's extent MUST use the same count ("searched the first N addresses", "stopped after the first K addresses"). Throughout this document, "search up to N", "search up to address number N" and "reach N" mean the wallet's first N receive addresses. Where an example names a single address by number ("a payment at address 3,000", "addresses 60 and 61"), the number is that address's position counting from zero, as an outside issuer's "index" is; such an address is inside a search of the first N when its number is below N.
 - **FR-010**: The default MUST be 500 addresses past the furthest address the wallet already checks or has already searched (whichever is further), up to the maximum. That is the distance the wider search starts with today, and it means the default covers ground not yet searched, except once the maximum has been searched, when the default stays at the maximum. Unlike today's search it does not extend itself when it finds something (FR-012a).
 - **FR-011**: The count accepted MUST be a whole number from 1 to 5,000. Anything else MUST be refused before the search starts, with a message stating that range.
 - **FR-012**: A search of the first N addresses MUST check every one of them that is not in the wallet's normal range and is not already known to be paid. That includes addresses an earlier search found unpaid, addresses the wallet handed out that are not yet paid, and the 20 addresses the wallet watches after its highest paid one. It MUST NOT stop early because a run of unpaid addresses was met, and a payment the wallet could see before a search MUST still be seen after it.
@@ -188,16 +188,16 @@ A search across thousands of addresses takes minutes. The person sees how far it
 ### Key Entities
 
 - **Empty-restore offer**: The message on Home for one wallet. It knows the wallet's origin (created here, restored, added as watch-only, or unknown for seed wallets that predate this feature), whether a completed load found nothing, and whether the person has dismissed it or a wider search has finished for the wallet.
-- **Search reach**: How many of the wallet's receive addresses a wider search covers, counting from the first. Chosen by the person, with a default and a maximum. The furthest count any finished search has covered is remembered per wallet.
+- **Search count** (also written "reach" in this document): How many of the wallet's receive addresses a wider search covers, counting from the first. Chosen by the person, with a default and a maximum. The furthest count any finished search has covered is remembered per wallet.
 - **Search result**: What one run reports: finished, cancelled, failed, refused because the source could not be trusted, or nothing to check; how many addresses it covered; the addresses added; the DGB they hold; whether a payment was found close enough to the end of the range to suggest searching further; and, the first time addresses are added for a wallet, the notice that the key appears to be used elsewhere.
-- **Checked addresses**: The set of receive addresses a wallet looks at on every load: its normal range (the first 20 addresses and every address up to the last paid one the automatic search has found), each individual paid address a wider search found beyond that range, each address the wallet itself has handed out beyond that range, and the 20 addresses after the highest paid one found. It is not one unbroken run. A search can only add to it.
+- **Checked addresses**: The set of receive addresses a wallet looks at on every load: its normal range, which the design documents call the base run (the first 20 addresses and every address up to the last paid one the automatic search has found), each individual paid address a wider search found beyond that range, each address the wallet itself has handed out beyond that range, and the 20 addresses after the highest paid one found. It is not one unbroken run. A search can only add to it.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: A person who restores a wallet whose only payments sit at addresses 60 and 61 sees those funds in their balance within 2 minutes of the wallet finishing its first load, using only what Home shows them, without being told where the Recovery page is.
-- **SC-002**: A payment at any receive address up to number 5,000 can be found and spent from the wallet, however many unpaid addresses come before it.
+- **SC-002**: A payment at any of the wallet's first 5,000 receive addresses can be found and spent from the wallet, however many unpaid addresses come before it.
 - **SC-003**: A search across the full 5,000 addresses finishes within 10 minutes on an ordinary home connection when the data source is responding normally.
 - **SC-004**: A cancelled search stops within 5 seconds.
 - **SC-005**: In every case where a search does not finish (cancelled, connection lost, data source refusing), the person is told it is incomplete and how far it got; in none of them is "nothing found" shown.

@@ -57,7 +57,7 @@ IReadOnlyList<int> GetListedReceiveIndexes()   // ReceiveScanSet.ListedIndexes, 
 
 - Requires an unlocked wallet with further receive addresses; otherwise returns `NothingToCheck`.
 - `upTo` is a count: the search covers indexes `0 .. upTo - 1`. `upTo` outside `1 .. 5000` throws `ArgumentOutOfRangeException` before any lookup. The page validates first; this is the backstop.
-- Control address first (research R7). Reported used: `Untrusted`, nothing saved. Lookup failed: `Failed`, `ReachedUpTo = 0`.
+- When there is something to check, the control address comes before any of the wallet's addresses (research R7). A wallet with no further receive addresses, and a count with nothing left to check, return `NothingToCheck` before it, with no lookup at all. Reported used: `Untrusted`, nothing saved. Lookup failed: `Failed`, `ReachedUpTo = 0`.
 - Then `ReceiveScanSet.SearchTargets(upTo)`, taken once at the start: every index below `upTo` that is not in the base run and not already a paid watched entry, ascending, in batches of 20 (`ReceiveSearchBatchSize`). Tail indexes and unpaid watched entries are looked up, not skipped. After each batch: `MarkPaid` the used indexes, save if anything changed, report progress.
 - Cancel is honoured between batches; with 20 lookups a batch, that is within SC-004's 5 seconds at the slowest rate measured in the wallet. A lookup failure ends the run as `Failed` with `ReachedUpTo` at the end of the last complete batch.
 - Does not throw for cancel, lookup failure or an untrusted source: the outcome carries it. (`OperationCanceledException` is not thrown to the caller.)
@@ -66,7 +66,7 @@ IReadOnlyList<int> GetListedReceiveIndexes()   // ReceiveScanSet.ListedIndexes, 
 - Never checks an index at or above `upTo`, whatever it finds (FR-012a).
 - On `Finished`: `ReceiveSearchedTo = max(ReceiveSearchedTo, upTo)`. `SuggestSearchingFurther` is set when a paid index at or above `upTo - 20` was found and `upTo < 5000`.
 - The first run that adds any index sets `ShowForeignIssuerNotice` and saves `ReceiveSearchNoticeShown`.
-- Replaces `ScanForMissingReceiveFundsAsync` and `ReceiveRecoveryResult`, which are removed in the same change that moves the Recovery page and their tests over (tasks.md T037), so the build is never broken.
+- Replaces `ScanForMissingReceiveFundsAsync` and `ReceiveRecoveryResult`, which are removed in the same change that moves the Recovery page and their tests over (tasks.md T038), so the build is never broken.
 - Until User Story 3 is built, a lookup failure after the control address propagates as an exception; the Recovery page shows the `Failed` message for it.
 
 Changed behaviour of existing members, all identical to today when the wallet has no watched entries:
@@ -125,7 +125,7 @@ event Action? Changed
 
 ### `SearchFurtherOffer.razor` (new)
 
-- Parameters: `WalletId`, `WalletType`.
+- Parameters: `WalletId`, `WalletType`, and `LoadVersion`, an int the page raises each time it finishes a history load. The component asks again whenever any of them changes: the wallet being recorded as empty changes neither of the first two and raises no event, so without `LoadVersion` an offer first asked while the wallet was undecided would never appear.
 - Rendered by Home only in its plain empty state: not while loading, not in the "still looking" state, not in the "unable to load" state.
 - Shows a title, one or two sentences (FR-008), a **Search further** action and a dismiss control with an accessible name.
 - **Search further** navigates to `/recovery?search=receive`. It does not record `searched`; the Recovery page does, when a search finishes (FR-006).
@@ -134,7 +134,7 @@ event Action? Changed
 
 ### `Home.razor`
 
-- Renders `SearchFurtherOffer` above `ReceiveEmptyState` in the plain empty branch. No other change.
+- Renders `SearchFurtherOffer` above `ReceiveEmptyState` in the plain empty branch, passing a counter it raises after each completed history load, once the wallet's first-receive state has been stored. No other change.
 
 ### `Recovery.razor`, "Missing Payments" card
 
@@ -154,6 +154,7 @@ event Action? Changed
 | `NothingToCheck` | the wallet already checks its first K addresses (`AlreadyCheckedUpTo`), so there is nothing new within the first N |
 | `Cancelled` | stopped after covering the first K addresses; the rest were not checked; plus anything added |
 | `Failed` | could not finish; covered the first K addresses; the rest were not checked; plus anything added; never "nothing found" |
+| `Failed`, covered 0 | the search could not start; nothing was checked (FR-023) |
 | `Untrusted` | the data source's answers can't be trusted; nothing was changed |
 
 - When `LeavesUnwatched`: adds that a later payment to an address that was unpaid during this search will not appear until the search is run again (FR-014c).
@@ -173,4 +174,4 @@ event Action? Changed
 
 ## Translation keys (English and Spanish)
 
-`home.search_offer.title`, `home.search_offer.body`, `home.search_offer.action`, `home.search_offer.dismiss`, and under `recovery.receive_search.`: `label`, `explorer_note`, `range_error`, `last_searched`, `start`, `cancel`, `progress`, `finished_found`, `finished_none`, `nothing_to_check`, `cancelled`, `failed`, `untrusted`, `amount_unavailable`, `leaves_unwatched`, `search_further_hint`, `search_further_action`, `foreign_issuer_notice`.
+`home.search_offer.title`, `home.search_offer.body`, `home.search_offer.action`, `home.search_offer.dismiss`, and under `recovery.receive_search.`: `label`, `explorer_note`, `range_error`, `last_searched`, `start`, `cancel`, `progress`, `finished_found`, `finished_none`, `nothing_to_check`, `cancelled`, `failed`, `could_not_start`, `untrusted`, `amount_unavailable`, `leaves_unwatched`, `search_further_hint`, `search_further_action`, `foreign_issuer_notice`.

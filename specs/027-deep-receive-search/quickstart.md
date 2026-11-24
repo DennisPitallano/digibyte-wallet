@@ -5,12 +5,12 @@ How to check the feature works. Details are in [contracts/receive-search.md](con
 ## 1. Automated tests
 
 ```powershell
-dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName~ReceiveScanSet|FullyQualifiedName~ReceiveSearch|FullyQualifiedName~SearchOffer|FullyQualifiedName~ReceiveAddress|FullyQualifiedName~FoundFundsHistory"
+dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName~ReceiveScanSet|FullyQualifiedName~ReceiveSearch|FullyQualifiedName~SearchOffer|FullyQualifiedName~ReceiveAddress|FullyQualifiedName~FoundFundsHistory|FullyQualifiedName~DigiIdFundsRecovery"
 ```
 
 Counts are counts of addresses from the first one: "the first 500" is indexes 0 to 499.
 
-### Found funds are not a first payment (T004, T009, T031, T033)
+### Found funds are not a first payment (T005, T007, T032, T034)
 
 | Scenario | Expected |
 |----------|----------|
@@ -22,7 +22,7 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 | Automatic search's watched pass finds the first paid address | state `History` |
 | A search that finds nothing | an empty wallet stays `Empty` |
 
-### The offer (T006 to T008)
+### The offer (T009 to T011)
 
 | Scenario | Expected |
 |----------|----------|
@@ -33,7 +33,7 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 | Offer answer `Searched` | never goes back to unanswered |
 | Deleting a wallet | its `walletOrigin:` and `searchOffer:` keys are gone; another wallet's stay |
 
-### The checked-address set (T021, T024, T025)
+### The checked-address set (T021, T024 to T026)
 
 | Scenario | Expected |
 |----------|----------|
@@ -51,7 +51,7 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 | Digi-ID sweep of 3 after a find at 3,000 | destinations 3,001 to 3,003 and the new address on show 3,004 are unpaid watched entries; base count still 20; a new address can still be handed out |
 | Unlock with a find at 3,000 | no index from base count + 20 up to 2,999 is looked up |
 
-### The search (T028 to T030)
+### The search (T029 to T031)
 
 | Scenario | Expected |
 |----------|----------|
@@ -74,10 +74,14 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 | History sync in use | no address-summary requests; the sync's snapshot gains nothing |
 | Source reports every address used | `Untrusted`; one lookup (the control); nothing saved |
 | Control lookup fails | `Failed`, covered 0, nothing saved |
+| Balance read for the found addresses fails | still `Finished`; addresses added; amount not available |
+| Single-key wallet | `NothingToCheck`, no lookups |
+| Watch-only wallet | searches like any other |
+| First batch finds a payment, later lookups held | that address is already saved in the stored record |
 | Indexes 100 to 104 all paid, first 105 searched | all five added |
 | Control address | different each search; never one of the wallet's addresses |
 
-### The automatic search's watched pass (T033)
+### The automatic search's watched pass (T034)
 
 | Scenario | Expected |
 |----------|----------|
@@ -91,7 +95,7 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 | Address handed out while the pass is held | still a watched entry afterwards |
 | No watched entries, unlock | the same lookups as before this feature |
 
-### The address list (T035)
+### The address list (T036)
 
 | Scenario | Expected |
 |----------|----------|
@@ -99,7 +103,7 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 | Watched 3,000 and 3,001 paid and 3,002; address on show 3,002 | base run, 3,000, 3,001, 3,002; nothing in between; no tail-only index |
 | Paging | ten at a time by position in that list |
 
-### Stopping and failing (T039, T040)
+### Stopping and failing (T040, T041)
 
 | Scenario | Expected |
 |----------|----------|
@@ -121,7 +125,7 @@ Start the wallet with the `digibyte-web` preview configuration (http://localhost
 
 You need an account key with payments past the automatic search's reach. Any key whose first paid address is the 41st or later will do. A watch-only import is enough for everything except sending.
 
-### A. The offer (Story 1; checked by T019)
+### A. The offer (Story 1; checked by T020)
 
 - **A1.** Import that key as watch-only. Home shows the loading state, then the empty state with the **search further** offer above the address and QR code. It is not shown while Home says it is still looking.
 - **A2.** Create a new wallet. Home shows the empty state with no offer.
@@ -131,7 +135,7 @@ You need an account key with payments past the automatic search's reach. Any key
 - **A5a.** Go online, follow the offer again and let the search finish. Return to Home: the offer is gone, whether or not anything was found.
 - **A6.** When that search has found funds: Home shows the balance and the transactions, and no "Your first DGB" celebration appears on Home, Receive or Activity.
 
-### B. The search (Story 2; checked by T038)
+### B. The search (Story 2; checked by T039)
 
 - **B1.** Open the card (from the offer or from Recovery). The count field is focused and filled in. A note says the search checks up to that many of this wallet's addresses with the public block explorer. Change the number: the note follows it.
 - **B2.** Enter 0, then 5001, then letters: start is disabled and the accepted range (1 to 5,000) is shown.
@@ -144,18 +148,18 @@ You need an account key with payments past the automatic search's reach. Any key
 - **B9.** Search the first 500 on a key with a payment just inside that range's last 20 addresses: the result suggests searching further and its action fills in a larger count without starting.
 - **B10.** Switch to testnet (the source that reports everything as used) and start a search: it refuses, says the answers can't be trusted, and Home is unchanged.
 
-### C. Stopping and failing (Story 3; checked by T043)
+### C. Stopping and failing (Story 3; checked by T044)
 
 - **C1.** Start a search of the first 5,000. A progress line shows how many addresses have been covered out of 5,000 and how many found, and it moves.
 - **C2.** Cancel after a few seconds. Time it: it must stop within 5 seconds (SC-004). The result says how many addresses were covered and that the rest were not checked.
 - **C3.** Start a search of the first 5,000 and go offline partway. The result says it could not finish and how many addresses it covered; it never says nothing was found.
 - **C4.** Start a search and leave the page. Come back: no search is running.
 
-### D. Receive (Story 2; checked by T038)
+### D. Receive (Story 2; checked by T039)
 
 - **D1.** In a wallet where a search found addresses far along, open Receive and generate a new address. It is the one after the highest found. "Your addresses" shows the wallet's checked addresses up to it, not thousands of entries.
 
-### E. Timing and other modes (Polish; T045 to T047)
+### E. Timing and other modes (Polish; T046 to T048)
 
 - **E1.** Time a search of the first 5,000 on mainnet with the pane visible. Target: under 10 minutes (SC-003). Record the figure in the pull request.
 - **E2.** With the light-client gateway as the first source, repeat B4 to B6 and confirm the found funds still show after the next gateway sync (research, open point 1).

@@ -34,7 +34,7 @@ No server, signing-path, secret-storage or network-destination change. The only 
 
 **Constraints**: A search that does not finish never reads as "nothing found"; paid addresses are saved batch by batch; nothing is checked if the control address fails; only one search per wallet; the search must not poison the history sync's snapshot with thousands of unwatched addresses; no new kind of request and no new destination; English and Spanish.
 
-**Scale/Scope**: 2 new pure classes, 1 store and 4 small records in the wallet library; 3 new methods and 8 changed members on `WalletService`; 1 method and 1 record removed; 1 new web service; 1 new component; changes to 6 pages; 22 translation keys in 2 languages; 50 tasks, 16 of them test tasks, plus one test-harness task.
+**Scale/Scope**: 2 new pure classes, 1 store, 3 small records and 3 enums in the wallet library; 3 new methods and 8 changed members on `WalletService`; 1 method and 1 record removed; 1 new web service; 1 new component; changes to 7 pages (the six below and Help); 23 translation keys in 2 languages; 51 tasks, 17 of them test tasks, plus one test-harness task.
 
 ## Constitution Check
 
@@ -79,7 +79,6 @@ src/DigiByte.Wallet/
     ├── ReceiveScanSet.cs              # NEW: pure; which receive indexes are checked (FR-013 to FR-015, FR-025, FR-026)
     ├── SearchOfferRule.cs             # NEW: pure; show the offer? (FR-001 to FR-007)
     ├── SearchOfferStore.cs            # NEW: walletOrigin:{id}, searchOffer:{id}
-    ├── ReceiveAddressList.cs          # WindowStart / NextWindow page through the checked indexes (FR-015b)
     └── WalletService.cs               # SearchReceiveAddressesAsync (replaces ScanForMissingReceiveFundsAsync);
                                        # MarkHasHistoryAsync; GetListedReceiveIndexes; GetAllAddresses, GetAddressKeyMap,
                                        # GenerateNewReceivingAddressAsync, FindUsedReceiveAsync,
@@ -105,8 +104,10 @@ CHANGELOG.md                           # entry under the next unreleased version
 
 tests/DigiByte.Wallet.Tests/
 ├── FoundFundsHistoryTests.cs          # NEW: MarkHasHistoryAsync
-├── ChangeAddressTests.cs              # harness additions to FakeChain and Env (no behaviour change)
-├── ReceiveAddressListTests.cs         # paging over a list of indexes that is not an unbroken run
+├── ChangeAddressTests.cs              # harness additions to FakeChain and InMemoryStorage, and a seeding helper (no behaviour change)
+├── FirstReceiveStoreTests.cs          # its throwing storage becomes a shared class
+├── DigiIdFundsRecoveryTests.cs        # Digi-ID sweep after a far-off find
+├── ReceiveAddressListTests.cs         # guard tests: paging by position over a list with gaps
 ├── ReceiveScanSetTests.cs             # NEW
 ├── ReceiveSearchTests.cs              # NEW: search, control address, cancel, failure, watched pass, hand-out, signing
 ├── SearchOfferRuleTests.cs            # NEW
@@ -120,9 +121,9 @@ tests/DigiByte.Wallet.Tests/
 
 The stories are built in the spec's priority order, which is the order of [tasks.md](tasks.md). Each step leaves the build and the suite green and is independently testable.
 
-1. **Foundation**: `MarkHasHistoryAsync`, the helper that keeps found funds from being celebrated as a first payment. Both stories call it.
-2. **The offer (Story 1)**: store, rule, coordinator, component, Home, origin recording on the three pages, `?search=receive` on the Recovery page, and the helper call in today's search. It uses the wider search as it exists today, so it can ship alone.
-3. **The checked-address set (start of Story 2)**: test-harness additions, `ReceiveScanSet`, the wallet fields, then the wiring into `GetAllAddresses`, `GetAddressKeyMap`, the shared save, hand-out and the Digi-ID sweep. No behaviour change for any existing wallet; the existing suite is the regression test.
+1. **Foundation**: the test-harness additions both stories' tests use, and `MarkHasHistoryAsync`, the helper that keeps found funds from being celebrated as a first payment. Both stories call it.
+2. **The offer (Story 1)**: first the helper call in today's search, which is a fault that exists now; then the offer's rule and store; then the coordinator, origin recording on the three pages, the component, Home, and `?search=receive` on the Recovery page. It uses the wider search as it exists today, so it can ship alone.
+3. **The checked-address set (start of Story 2)**: `ReceiveScanSet`, the wallet fields, then the wiring into `GetAllAddresses`, `GetAddressKeyMap`, the shared save, hand-out and the Digi-ID sweep. No behaviour change for any existing wallet; the existing suite is the regression test.
 4. **The search (rest of Story 2)**: the result types; `SearchReceiveAddressesAsync` with the control address in front and the helper call per batch; the automatic search's watched pass; the Receive list; and last, in one change, the Recovery card moved to the new search with a message for every outcome it can return, the old search's tests moved, and the old search removed.
 5. **Progress, cancel and honest outcomes (Story 3)**: cancel, mid-search failure and lock handling, one search at a time, and the card's progress line, cancel button and remaining messages.
 
@@ -136,8 +137,8 @@ Step 2 is independent of steps 3 to 5; tasks.md lists the three places they meet
 | The checked-address model is wrong again (three drafts failed review) | It is now three independent parts with one invariant each (research R13); T021 tests every row of the five worked examples in data-model.md, which are the sequences that broke the earlier drafts or went untested |
 | A save from another path drops the new fields | `PersistAddressIndexesAsync` copies them; a test saves through an unrelated path and reloads |
 | The explorer limits a 5,000-lookup search | The search ends as `Failed`, keeps what it found, and can be run again; lookups set no cooldown |
-| The gateway's ongoing sync does not watch an added address | Quickstart E2 (tasks.md T046); the mechanism is the one today's wider search uses |
-| The task list is wrong in ways review has not caught (it was rewritten in one pass and that rewrite was not independently reviewed) | Every task leaves the build and the suite green, so a wrong order shows up at the task where it bites; T050 feeds corrections back into the documents |
+| The gateway's ongoing sync does not watch an added address | Quickstart E2 (tasks.md T047); the mechanism is the one today's wider search uses |
+| The task list is wrong in ways review has not caught | It was walked independently against the code twice after its rewrite; the corrections made after the second walk are small and have not been walked again. Each implementation task leaves the build and the suite green, so a wrong order shows up at the task where it bites; T051 feeds corrections back into the documents |
 | A search adds addresses wrongly and there is no undo | Accepted (research R15): the control address stops the realistic cause; the remedy is to remove and restore the wallet, and the spec says so |
 | The offer annoys people who simply have an unfunded wallet from before the feature | Shown once, dismissible, worded not to imply missing funds (FR-008); never for wallets created afterwards |
 

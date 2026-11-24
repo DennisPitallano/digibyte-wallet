@@ -36,4 +36,4 @@
   - The offer appears on Home only, and the search starts when the person presses start, not automatically.
   - The search covers the wallet's first N addresses, with N from 1 to 5,000 (confirmed in clarification).
   - Paid addresses found before a cancel or failure are kept (today a failed search keeps nothing).
-  - SC-003 (5,000 addresses within 10 minutes): measured outside the wallet at about 5.6 minutes; not yet timed inside it (tasks.md T045).
+  - SC-003 (5,000 addresses within 10 minutes): measured outside the wallet at about 5.6 minutes; not yet timed inside it (tasks.md T046).
