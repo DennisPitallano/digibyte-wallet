@@ -142,7 +142,7 @@
                             </svg>
                         </button>
                     </div>
-                    @if ((isLoadingBalance || SearchingAddresses) && balance.ConfirmedSatoshis == 0)
+                    @if ((isLoadingBalance || SearchingAddresses || NothingReadYet) && balance.ConfirmedSatoshis == 0)
                     {
                         @* A zero read before the address search has finished is not a balance yet: keep the placeholder. *@
                         <div class="h-9 w-40 skeleton mt-1 rounded-lg" style="background:rgba(0,102,204,0.1)"></div>
@@ -362,7 +362,7 @@
             @* Transaction List — scrollable *@
             @* Placeholder rows only until the first load has answered. After that an empty wallet keeps showing its address
                while the background check runs, instead of blinking to placeholders every few seconds (spec 025). *@
-            @if (isLoadingTx && transactions.Count == 0 && !txLoadedOnce)
+            @if ((isLoadingTx || !hasCachedData) && transactions.Count == 0 && !txLoadedOnce)
             {
                 @* Skeleton rows while loading *@
                 <div class="flex flex-col gap-1">
@@ -557,6 +557,9 @@
     private bool isLoadingBalance;
     private bool isLoadingTx;
     private bool txLoadedOnce; // a history load has finished (well or badly) for the wallet on show
+    private bool balanceLoadedOnce; // the same for a balance read
+    // Nothing saved and no read finished yet: the zero in <see cref="balance"/> is only its starting value, not a balance.
+    private bool NothingReadYet => !hasCachedData && !balanceLoadedOnce;
     private bool isLoadingPrice;
     private bool hasCachedData; // true = loaded real data from IndexedDB
     private bool fetchFailed; // true = network fetch errored (not just empty)
@@ -930,7 +933,7 @@
                 _ = AnimateBalanceAsync(before, balance.ConfirmedDgb);
         }
         catch { balanceFetchFailed = true; }
-        finally { isLoadingBalance = false; StateHasChanged(); }
+        finally { isLoadingBalance = false; balanceLoadedOnce = true; StateHasChanged(); }
     }
 
     /// <summary>
@@ -1293,7 +1296,7 @@
         transactions = [];
         _announcer.Forget();
         txLoadedOnce = false;
-        balanceUnsettled = txUnsettled = _settledRefetchDone = false;
+        balanceUnsettled = txUnsettled = _settledRefetchDone = balanceLoadedOnce = false;
         receivingAddress = "";
         addressQrDataUri = null;
         hasCachedData = false;
@@ -1353,7 +1356,7 @@
             transactions = [];
             _announcer.Forget();
             txLoadedOnce = false;
-            balanceUnsettled = txUnsettled = _settledRefetchDone = false;
+            balanceUnsettled = txUnsettled = _settledRefetchDone = balanceLoadedOnce = false;
             receivingAddress = "";
             addressQrDataUri = null;
             hasCachedData = false;
