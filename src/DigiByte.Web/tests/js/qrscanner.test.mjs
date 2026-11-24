@@ -1,0 +1,45 @@
+// The pure helpers of the scan panel's browser code (specs/030-desktop-paste-scan).
+// qrscanner.js is a plain browser script that sets window.qrScanner, so it is run here in a small sandbox.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+
+const source = readFileSync(new URL("../../wwwroot/js/qrscanner.js", import.meta.url), "utf8");
+const sandbox = { window: {} };
+vm.createContext(sandbox);
+vm.runInContext(source, sandbox);
+const scanner = sandbox.window.qrScanner;
+
+// ----- _fitWithin: pictures are scaled down before reading, never up -----
+
+test("a picture larger than the limit is scaled so its longer side fits", () => {
+    assert.deepEqual({ ...scanner._fitWithin(4000, 3000, 2048) }, { w: 2048, h: 1536 });
+});
+
+test("a portrait picture is scaled on its height", () => {
+    assert.deepEqual({ ...scanner._fitWithin(3000, 4000, 2048) }, { w: 1536, h: 2048 });
+});
+
+test("a picture within the limit is left as it is", () => {
+    assert.deepEqual({ ...scanner._fitWithin(1000, 800, 2048) }, { w: 1000, h: 800 });
+    assert.deepEqual({ ...scanner._fitWithin(2048, 2048, 2048) }, { w: 2048, h: 2048 });
+});
+
+test("a zero, negative or missing size gives an empty size", () => {
+    assert.deepEqual({ ...scanner._fitWithin(0, 800, 2048) }, { w: 0, h: 0 });
+    assert.deepEqual({ ...scanner._fitWithin(-5, 800, 2048) }, { w: 0, h: 0 });
+    assert.deepEqual({ ...scanner._fitWithin(800, undefined, 2048) }, { w: 0, h: 0 });
+});
+
+// ----- decodeBlob: refusals happen before any reading -----
+
+test("a file that is not an image is refused without reading it", async () => {
+    assert.equal(await scanner.decodeBlob({ type: "text/plain", size: 10 }), "notimage");
+    assert.equal(await scanner.decodeBlob({ type: "", size: 10 }), "notimage");
+    assert.equal(await scanner.decodeBlob(null), "notimage");
+});
+
+test("an image over 10 MB is refused without reading it", async () => {
+    assert.equal(await scanner.decodeBlob({ type: "image/png", size: 10 * 1024 * 1024 + 1 }), "toolarge");
+});

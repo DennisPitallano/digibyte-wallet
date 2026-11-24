@@ -162,7 +162,7 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T025 [P] [US3] Create `src/DigiByte.Web/tests/js/qrscanner.test.mjs` with `node:test` cases for `qrScanner._fitWithin(w, h, max)`:
+- [X] T025 [P] [US3] Create `src/DigiByte.Web/tests/js/qrscanner.test.mjs` with `node:test` cases for `qrScanner._fitWithin(w, h, max)`:
   - 4000×3000 at max 2048 → 2048×1536;
   - 1000×800 is unchanged;
   - a portrait image is scaled on its height;
@@ -172,28 +172,28 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Add `_fitWithin(w, h, max)` and `decodeBlob(blob)` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`:
+- [X] T026 [US3] Add `_fitWithin(w, h, max)` and `decodeBlob(blob)` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`:
   - reject `!blob.type.startsWith('image/')` → `'notimage'`, and `blob.size > 10 * 1024 * 1024` → `'toolarge'`;
   - `createImageBitmap`, then scale so the longer side is ≤ 2048, then canvas, then `jsQR(..., { inversionAttempts: 'attemptBoth' })`;
   - return the text or null;
   - lazy-load `js/jsqr.min.js` as `decodeImage` does.
 
   T025 must then pass.
-- [ ] T027 [US3] Extend `qrScanner.readClipboard()` in `src/DigiByte.Web/wwwroot/js/qrscanner.js` to prefer the first `image/*` clipboard item. Decode it with `decodeBlob`, then return `{kind:'code', text}` or `{kind:'nocode'}`.
-- [ ] T028 [US3] Add `attachPanel(panelEl, dotnetRef)` and `detachPanel(panelEl)` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`:
+- [X] T027 [US3] Extend `qrScanner.readClipboard()` in `src/DigiByte.Web/wwwroot/js/qrscanner.js` to prefer the first `image/*` clipboard item. Decode it with `decodeBlob`, then return `{kind:'code', text}` or `{kind:'nocode'}`.
+- [X] T028 [US3] Add `attachPanel(panelEl, dotnetRef)` and `detachPanel(panelEl)` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`:
   - a `paste` listener intercepts image items anywhere in the panel and leaves text pastes inside the textarea to the field;
   - `dragenter`, `dragover`, `dragleave` and `drop` call `OnDragState(bool)`;
   - a drop decodes the first file with `decodeBlob`;
   - results go to `OnPanelPaste(kind, text)` / `OnPanelDrop(kind, text)` with `kind` ∈ {`code`, `nocode`, `notimage`, `toolarge`}.
-- [ ] T029 [US3] Add `decodeInputFile(inputEl)` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`. Switch the existing **Upload image** in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor` to call it with an `ElementReference`, removing the .NET base64 data-URL path (`OnFileSelected`'s buffer and `Convert.ToBase64String`). Keep `decodeImage` in JS for compatibility.
-- [ ] T030 [US3] In `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`:
+- [X] T029 [US3] Add `decodeInputFile(inputEl)` to `src/DigiByte.Web/wwwroot/js/qrscanner.js`. Switch the existing **Upload image** in `src/DigiByte.Web/Components/Shared/QrScannerModal.razor` to call it with an `ElementReference`, removing the .NET base64 data-URL path (`OnFileSelected`'s buffer and `Convert.ToBase64String`). Keep `decodeImage` in JS for compatibility.
+- [X] T030 [US3] In `src/DigiByte.Web/Components/Shared/QrScannerModal.razor`:
   - add the drop area to the Paste view (contracts/scan-panel-ui.md) with a `dragOver` highlight class;
   - call `attachPanel` after the Paste view renders, and `detachPanel` on view change, close and Dispose;
   - add `[JSInvokable] OnPanelPaste`, `OnPanelDrop` and `OnDragState`;
   - map `code` to `HandOffAsync(text)`, `nocode` to `scan.no_code_found`, `notimage` to `scan.not_image`, and `toolarge` to `scan.image_too_large`;
   - show `scan.decoding` while decoding.
-- [ ] T031 [P] [US3] Add `scan.drop_hint` and `scan.not_image` to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`.
-- [ ] T032 [P] [US3] Drop-area styles in `src/DigiByte.Web/wwwroot/css/app.css`: dashed border, the highlight while dragging, and a visible focus ring.
+- [X] T031 [P] [US3] Add `scan.drop_hint` and `scan.not_image` to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`.
+- [X] T032 [P] [US3] Drop-area styles in `src/DigiByte.Web/wwwroot/css/app.css`: dashed border, the highlight while dragging, and a visible focus ring.
 
 **Checkpoint**: Snip-and-paste and drag-and-drop work alongside text paste.
 
