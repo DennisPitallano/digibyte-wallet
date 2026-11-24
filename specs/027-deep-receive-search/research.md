@@ -85,6 +85,7 @@ The Receive list is the one touchpoint outside the wallet library. It is in scop
 ## R11. Where the offer and the search live in the UI
 
 - **Offer**: a component, `SearchFurtherOffer.razor`, in Home's empty-state branch, above `ReceiveEmptyState`. It is not shown in the "still looking" branch (pull request 109) or the "unable to load" branch, which gives FR-002's "not before a load has completed" for free. A scoped `SearchOfferCoordinator` in the web app answers "show it?" from a pure rule in the library.
+- **When the offer counts as answered** (clarified 2026-11-24): when the person dismisses it, or when a wider search finishes. A search that fails, is cancelled, is refused or has nothing to check leaves it in place, because the person it was for still has an empty wallet and no result. The Recovery page records it, on the `Finished` outcome; with today's search, before Story 2, on the search returning without throwing.
 - **Search**: the existing "Current Wallet — Missing Payments" card in `Recovery.razor` gains the count field, progress as a count of addresses covered, a cancel button and the richer result. The page takes `?search=receive` to open scrolled to that card (FR-004).
 - **Leaving the page**: `Recovery.razor` cancels the search when disposed. Locking clears the wallet's session; the search compares the session it started with before each batch and ends as `Cancelled` (FR-024).
 - **Wording**: new strings go through `LocalizationService` (`L.T`) with keys in `en.json` and `es.json` (FR-028). The card's existing text is hard-coded English; the strings this feature touches are moved to keys, the rest of the page is left.
@@ -111,6 +112,13 @@ The Receive list is the one touchpoint outside the wallet library. It is in scop
 - **Four additions are needed** (tasks.md T020), none changing existing behaviour: a settable lookup limit (`FakeChain` stops a test after 5,000 lookups, and a search of the first 5,000 makes about that many); a record of which addresses were looked up (several tests assert what was and was not asked, not how many); a way to hold lookups after the first N (to stop a search between batches); and a helper to seed the stored wallet record. The last matters most: setting the new fields on the unlocked wallet in memory does not survive a reload, which reads storage, so a test that did only that would fail or pass without proving anything.
 - There is no web test project. Pages and components are checked in the browser with [quickstart.md](quickstart.md), as for specs 025 and 026.
 - `LiveExplorerBenchmarks` (6 tests) fail on `main` because they call an explorer that is offline. They are unrelated and are excluded from this feature's test runs.
+
+## R15. No way to undo a search
+
+- **Decision** (clarified 2026-11-24): an entry marked paid is permanent. No reset action and no automatic re-check that could drop it.
+- **Rationale**: the control address stops the realistic failure, a source that is wrong from the start. A source that struggles partway returns errors, which end the search as incomplete; it does not report unused addresses as used. An automatic re-check that drops entries would turn one bad answer from the explorer into a lost address, and a manual reset is a way for a person to stop seeing real funds. The recovery path that already exists, removing and restoring the wallet, rebuilds the checks from the chain.
+- **Cost accepted**: after a search that wrongly added many addresses, every refresh reads them and the next new address comes after the highest, until the wallet is restored.
+- **Alternatives considered**: a "forget addresses found by search" action limited to entries holding no funds (must never touch addresses the wallet handed out; needs its own confirmation and tests). Dropping entries the explorer later reports as unused (see above).
 
 ## Open points
 

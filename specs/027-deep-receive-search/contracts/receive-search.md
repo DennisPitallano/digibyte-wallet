@@ -128,7 +128,7 @@ event Action? Changed
 - Parameters: `WalletId`, `WalletType`.
 - Rendered by Home only in its plain empty state: not while loading, not in the "still looking" state, not in the "unable to load" state.
 - Shows a title, one or two sentences (FR-008), a **Search further** action and a dismiss control with an accessible name.
-- **Search further** navigates to `/recovery?search=receive`. It does not record `searched`; the Recovery page does, when a search is actually started.
+- **Search further** navigates to `/recovery?search=receive`. It does not record `searched`; the Recovery page does, when a search finishes (FR-006).
 - Dismiss calls `DismissAsync` and hides the component at once.
 - `data-testid="search-further-offer"`.
 
@@ -143,7 +143,7 @@ event Action? Changed
 - A one-line note by the start button: the search checks up to N of this wallet's addresses with the public block explorer, with N following the field. Always shown; no confirmation step (FR-027a).
 - Shows "Furthest search so far: the first N addresses" when `ReceiveSearchedTo > 0`.
 - Every message reports extent as a count ("the first N addresses", "stopped after the first K"). No message shows an address index.
-- Start calls `SearchReceiveAddressesAsync` and, if the offer is unanswered, `MarkSearchedAsync`.
+- Start calls `SearchReceiveAddressesAsync`. When the outcome is `Finished`, and only then, the page calls `MarkSearchedAsync` if the offer is unanswered (FR-006). With today's search, before User Story 2, "finished" means the search returned without throwing.
 - While running: a progress line with how many addresses have been covered out of the count asked for, and how many found so far, and a **Cancel** button. Start is disabled.
 - Result, by outcome:
 

@@ -30,6 +30,7 @@ Counts are counts of addresses from the first one: "the first 500" is indexes 0 
 | Offer store: unreadable answer | reads as dismissed |
 | Offer store: unreadable origin | reads as unknown |
 | Offer store: set origin twice | first value kept |
+| Offer answer `Searched` | never goes back to unanswered |
 | Deleting a wallet | its `walletOrigin:` and `searchOffer:` keys are gone; another wallet's stay |
 
 ### The checked-address set (T021, T024, T025)
@@ -126,7 +127,8 @@ You need an account key with payments past the automatic search's reach. Any key
 - **A2.** Create a new wallet. Home shows the empty state with no offer.
 - **A3.** Back in the watch-only wallet, dismiss the offer. It disappears. Lock, unlock: still gone.
 - **A4.** Import the key again into a clean profile. Follow the offer: the Recovery page opens at the Missing Payments card with the start button focused. Go back to Home without starting: the offer is still there.
-- **A5.** Follow the offer again and start the search. Return to Home: the offer is gone, whether or not anything was found.
+- **A5.** Go offline, follow the offer and start the search: it fails. Return to Home: the offer is still there.
+- **A5a.** Go online, follow the offer again and let the search finish. Return to Home: the offer is gone, whether or not anything was found.
 - **A6.** When that search has found funds: Home shows the balance and the transactions, and no "Your first DGB" celebration appears on Home, Receive or Activity.
 
 ### B. The search (Story 2; checked by T038)

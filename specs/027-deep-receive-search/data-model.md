@@ -18,7 +18,7 @@ Existing fields this feature reads and writes: `NextReceivingIndex` (the address
 **Rules**
 
 - An entry is added to `WatchedReceiveIndexes` in exactly two ways: a search or the automatic search finds an index beyond the base run paid (`Paid = true`); or `GenerateNewReceivingAddressAsync` hands out an index that is not contiguous with the base run (`Paid = false`).
-- `Paid` only ever changes from false to true.
+- `Paid` only ever changes from false to true. There is no action, automatic or manual, that unmarks or removes a paid entry (clarified 2026-11-24): a search cannot be undone short of removing and restoring the wallet.
 - An entry is removed in exactly one way: the base run grows to include its index. There is no other removal, and nothing "moves" between lists.
 - `ReceiveBaseFloor` never decreases.
 - Found funds are never celebrated as a first payment (FR-013a). The wallet's first-receive state (spec 025) and its record are two separate stored values, so they cannot be written in one operation; the order is fixed instead. Before an operation changes the wallet in memory to include a found address (a paid watched entry, or a raised used-count in today's search), it sets the first-receive state to `History` if it is `Empty` or `Undecided`. Only then does it change the wallet and save. A history load that runs in between therefore sees `History`, and never sees found payments on a wallet still recorded as empty.
@@ -177,7 +177,7 @@ Two small non-secret keys per wallet, both removed when the wallet is deleted.
 | Key | Values | Written by |
 |---|---|---|
 | `walletOrigin:{walletId}` | `created`, `restored`, `watch-only`; absent = from before this feature | the Create, Recover and Watch-only import pages, right after the wallet exists |
-| `searchOffer:{walletId}` | `dismissed`, `searched`; absent = not answered | the offer, when dismissed or followed through to a started search |
+| `searchOffer:{walletId}` | `dismissed`, `searched`; absent = not answered | `dismissed` by the offer when the person dismisses it; `searched` by the Recovery page when a wider search **finishes** (not when it starts, and not when it fails, is cancelled, is refused or has nothing to check) |
 
 An unreadable or unknown value is treated as absent for origin and as `dismissed` for the offer, so a storage problem can hide the offer but never make it reappear.
 
