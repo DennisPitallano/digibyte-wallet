@@ -118,7 +118,8 @@
 ### Multi-Language
 - [x] Language setting with English and Spanish; switches without a reload (specs/028-spanish-language-option)
 - [x] Settings, onboarding, unlock, Home, Receive, Send and History translated
-- [ ] Translate the remaining screens (contacts, Digi-ID, DigiDollar extras, multisig, recovery tools, help)
+- [x] Contacts, Digi-ID, DigiDollar, multisig (every page and the signing rooms), Recovery Tools, Manage Wallets, Payments, Help and the version dialog translated
+- [ ] Messages that come straight from shared services or the server (some error details, the boot repair screen) are still English
 - [ ] More languages (each needs a full translation file and a native-speaker review of the warnings)
 
 ### UX Enhancements
