@@ -396,15 +396,31 @@ public class NodeSourceMonitorTests
     [Fact]
     public async Task HealthAndExplorerLookups_RunInParallel()
     {
+        // Each lookup waits for the other to start. Run one after the other, the first would wait until the
+        // monitor's own timeout cancels it and never see the second, so this proves overlap without timing anything.
         var rig = new Rig();
-        rig.Health.Respond = async _ => { await Task.Delay(200); return FakeHealthSource.Ok(); };
-        rig.Explorer.Respond = async _ => { await Task.Delay(200); return 1000; };
+        var healthStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var explorerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool healthSawExplorer = false, explorerSawHealth = false;
+        rig.Health.Respond = async ct =>
+        {
+            healthStarted.TrySetResult();
+            await explorerStarted.Task.WaitAsync(ct);
+            healthSawExplorer = true;
+            return FakeHealthSource.Ok();
+        };
+        rig.Explorer.Respond = async ct =>
+        {
+            explorerStarted.TrySetResult();
+            await healthStarted.Task.WaitAsync(ct);
+            explorerSawHealth = true;
+            return 1000;
+        };
 
-        var started = DateTime.UtcNow;
         await rig.Monitor.CheckAsync();
-        var elapsed = DateTime.UtcNow - started;
 
-        Assert.True(elapsed < TimeSpan.FromMilliseconds(380), $"took {elapsed}");
+        Assert.True(healthSawExplorer, "the health lookup finished without the explorer lookup ever starting");
+        Assert.True(explorerSawHealth, "the explorer lookup finished without the health lookup ever starting");
         Assert.Equal(NodeSourceState.Stabilizing, rig.Monitor.State);
     }
 
