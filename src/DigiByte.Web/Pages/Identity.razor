@@ -6,16 +6,17 @@
 @inject IConfiguration Config
 @inject ISecureStorage Storage
 @inject BakuService Baku
+@inject LocalizationService L
 
-<PageTitle>Digi-ID — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("identity.title") — @L.T("app.name")</PageTitle>
 
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
-        <h2 class="page-title">Digi-ID</h2>
+        <h2 class="page-title">@L.T("identity.title")</h2>
         @{ var idWalletColor = WalletService.ActiveWallet?.Color ?? "#0066FF"; }
         <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
             <div class="w-2 h-2 rounded-full" style="background-color: @idWalletColor;"></div>
-            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? "Wallet")</span>
+            <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate max-w-[100px]">@(WalletService.ActiveWallet?.Name ?? L.T("nav.wallet"))</span>
         </div>
     </div>
 
@@ -23,25 +24,25 @@
 
     @* How it works *@
     <div class="card slide-up-delay-1 p-4 flex flex-col gap-3">
-        <h3 class="block-title block-title-sm">Passwordless Login</h3>
+        <h3 class="block-title block-title-sm">@L.T("identity.description")</h3>
         <div class="flex flex-col gap-2">
             <div class="flex items-start gap-3">
                 <div class="w-7 h-7 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <span class="text-xs font-bold text-dgb-500">1</span>
                 </div>
-                <p class="text-sm text-slate-600 dark:text-slate-400">Website shows a Digi-ID QR code</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">@L.T("identity.step1")</p>
             </div>
             <div class="flex items-start gap-3">
                 <div class="w-7 h-7 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <span class="text-xs font-bold text-dgb-500">2</span>
                 </div>
-                <p class="text-sm text-slate-600 dark:text-slate-400">You scan it with your wallet</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">@L.T("identity.step2")</p>
             </div>
             <div class="flex items-start gap-3">
                 <div class="w-7 h-7 rounded-lg bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <span class="text-xs font-bold text-dgb-500">3</span>
                 </div>
-                <p class="text-sm text-slate-600 dark:text-slate-400">Your wallet signs the challenge &mdash; you're logged in!</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">@L.T("identity.step3")</p>
             </div>
         </div>
     </div>
@@ -54,27 +55,27 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5Z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
             </svg>
-            Scan Digi-ID QR Code
+            @L.T("identity.scan")
         </button>
 
         <div class="flex items-center gap-3">
             <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
-            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium">or paste URI</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium">@L.T("identity.orPaste")</span>
             <div class="flex-1 h-px bg-slate-200 dark:bg-dgb-800"></div>
         </div>
 
         <div class="flex gap-2">
-            <input type="text" @bind="digiIdUri" placeholder="digiid://..."
+            <input type="text" @bind="digiIdUri" placeholder="@L.T("identity.uriPlaceholder")"
                    class="input flex-1 font-mono" />
             <button class="btn-primary btn-sm"
                     @onclick="AuthenticateAsync" disabled="@(string.IsNullOrWhiteSpace(digiIdUri) || isAuthenticating)">
-                @(isAuthenticating ? "..." : "Sign")
+                @(isAuthenticating ? "..." : L.T("identity.sign"))
             </button>
         </div>
 
         @if (parseError != null)
         {
-            <InlineError Message="@parseError" />
+            <InlineError Message="@parseError?.Invoke()" />
         }
     </div>
 
@@ -88,7 +89,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                     </svg>
                 </div>
-                <h3 class="block-title">Authenticate with</h3>
+                <h3 class="block-title">@L.T("identity.authWith")</h3>
             </div>
 
             <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-200/60 dark:border-dgb-800">
@@ -100,8 +101,8 @@
             {
                 <div class="bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-200/60 dark:border-dgb-800 flex flex-col gap-1.5">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Signing address</span>
-                        <CopyValueButton Value="@pendingAddress" Label="signing address" />
+                        <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("identity.signingAddress")</span>
+                        <CopyValueButton Value="@pendingAddress" Label="@L.T("identity.signingAddress.copy")" />
                     </div>
                     <p class="text-xs font-mono text-slate-800 dark:text-slate-200 break-all select-all">@pendingAddress</p>
                 </div>
@@ -115,24 +116,23 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                     </svg>
                     <p class="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                        <b>Insecure connection</b> — This site uses HTTP. Your authentication could be intercepted.
+                        <b>@L.T("identity.insecure.title")</b> — @L.T("identity.insecure.body")
                     </p>
                 </div>
             }
 
             <div class="bg-dgb-50/50 dark:bg-dgb-800/30 rounded-xl p-3">
                 <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed text-center">
-                    This will sign a cryptographic challenge proving you own a DigiByte address.
-                    No funds will be sent. A site-specific key is used — your main wallet keys are never exposed.
+                    @L.T("identity.confirm.note")
                 </p>
             </div>
 
             <div class="flex gap-3">
                 <button class="btn-secondary flex-1"
-                        @onclick="CancelAuth">Cancel</button>
+                        @onclick="CancelAuth">@L.T("common.cancel")</button>
                 <button class="btn-primary flex-1"
                         @onclick="ConfirmAuthAsync">
-                    Approve
+                    @L.T("identity.approve")
                 </button>
             </div>
         </div>
@@ -146,7 +146,7 @@
                 <div class="w-7 h-7 border-[3px] border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
             <div class="flex flex-col items-center gap-1">
-                <p class="text-sm font-bold text-slate-900 dark:text-white">Authenticating…</p>
+                <p class="text-sm font-bold text-slate-900 dark:text-white">@L.T("identity.authenticating")</p>
                 <p class="text-xs text-slate-500 dark:text-slate-400">@pendingRequest?.Domain</p>
             </div>
 
@@ -169,7 +169,7 @@
                     {
                         <div class="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
                     }
-                    <span class="text-xs font-medium @(authStep >= 1 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">Signing challenge with your key…</span>
+                    <span class="text-xs font-medium @(authStep >= 1 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">@L.T("identity.step.signing")</span>
                 </div>
 
                 @* Step 2: Sending *@
@@ -190,7 +190,7 @@
                     {
                         <div class="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
                     }
-                    <span class="text-xs font-medium @(authStep >= 2 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">Sending to @(pendingRequest?.Domain ?? "server")…</span>
+                    <span class="text-xs font-medium @(authStep >= 2 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">@L.T("identity.step.sending", pendingRequest?.Domain ?? L.T("identity.server"))</span>
                 </div>
 
                 @* Step 3: Verifying *@
@@ -211,7 +211,7 @@
                     {
                         <div class="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-dgb-700 flex-shrink-0"></div>
                     }
-                    <span class="text-xs font-medium @(authStep >= 3 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">Verifying server response…</span>
+                    <span class="text-xs font-medium @(authStep >= 3 ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600")">@L.T("identity.step.verifying")</span>
                 </div>
             </div>
         </div>
@@ -227,24 +227,24 @@
                 </svg>
             </div>
             <div class="text-center">
-                <p class="text-base font-bold text-green-700 dark:text-green-400">Authenticated!</p>
-                <p class="text-sm text-green-600 dark:text-green-500 mt-0.5">You're now logged in to <b>@lastAuthDomain</b></p>
+                <p class="text-base font-bold text-green-700 dark:text-green-400">@L.T("identity.success.title")</p>
+                <p class="text-sm text-green-600 dark:text-green-500 mt-0.5">@{ var loggedIn = L.T("identity.success.loggedIn").Split("{0}", 2); }@loggedIn[0]<b>@lastAuthDomain</b>@(loggedIn.Length > 1 ? loggedIn[1] : "")</p>
             </div>
             <div class="w-full bg-green-100/50 dark:bg-green-900/20 rounded-xl px-3 py-2 flex flex-col gap-1">
                 <div class="flex flex-col gap-1">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="text-[11px] text-green-600/70 dark:text-green-500/70">Address used</span>
-                        <CopyValueButton Value="@lastAuthAddress" Label="address" />
+                        <span class="text-[11px] text-green-600/70 dark:text-green-500/70">@L.T("identity.success.addressUsed")</span>
+                        <CopyValueButton Value="@lastAuthAddress" Label="@L.T("identity.success.addressCopy")" />
                     </div>
                     <span class="text-[11px] font-mono text-green-700 dark:text-green-400 break-all select-all">@lastAuthAddress</span>
                     <DigiIdAddressWarning Compact="true" />
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-[11px] text-green-600/70 dark:text-green-500/70">Time</span>
+                    <span class="text-[11px] text-green-600/70 dark:text-green-500/70">@L.T("identity.success.time")</span>
                     <span class="text-[11px] text-green-700 dark:text-green-400">@DateTime.Now.ToString("h:mm:ss tt")</span>
                 </div>
             </div>
-            <button class="text-xs text-green-600 dark:text-green-400 font-medium hover:underline mt-1" @onclick="ResetState">Authenticate another site</button>
+            <button class="text-xs text-green-600 dark:text-green-400 font-medium hover:underline mt-1" @onclick="ResetState">@L.T("identity.success.another")</button>
         </div>
     }
 
@@ -258,20 +258,20 @@
                 </svg>
             </div>
             <div class="text-center">
-                <p class="text-base font-bold text-red-700 dark:text-red-400">Authentication Failed</p>
-                <InlineError Message="@authErrorTitle" />
+                <p class="text-base font-bold text-red-700 dark:text-red-400">@L.T("identity.failed.title")</p>
+                <InlineError Message="@authErrorTitle?.Invoke()" />
             </div>
             @if (authErrorDetail != null)
             {
                 <div class="w-full bg-red-100/50 dark:bg-red-900/20 rounded-xl px-3 py-2.5">
-                    <p class="text-[11px] text-red-600/80 dark:text-red-400/80 leading-relaxed">@authErrorDetail</p>
+                    <p class="text-[11px] text-red-600/80 dark:text-red-400/80 leading-relaxed">@authErrorDetail()</p>
                 </div>
             }
             <div class="flex gap-2 w-full">
                 <button class="btn-secondary btn-sm flex-1"
-                        @onclick="ResetState">Dismiss</button>
+                        @onclick="ResetState">@L.T("identity.dismiss")</button>
                 <button class="btn-primary btn-sm flex-1"
-                        @onclick="RetryAuth">Try Again</button>
+                        @onclick="RetryAuth">@L.T("identity.recover.retry")</button>
             </div>
         </div>
     }
@@ -281,9 +281,9 @@
     {
         <div class="slide-up-delay-3">
             <div class="flex items-center justify-between mb-2">
-                <h3 class="section-label">Login History</h3>
+                <h3 class="section-label">@L.T("identity.history.title")</h3>
                 <button class="text-[11px] text-red-400 hover:text-red-500 font-medium transition-colors press-effect"
-                        @onclick="ClearHistoryAsync">Clear all</button>
+                        @onclick="ClearHistoryAsync">@L.T("identity.history.clear")</button>
             </div>
             <div class="flex flex-col gap-1.5">
                 @for (var i = 0; i < authHistory.Count; i++)
@@ -291,7 +291,7 @@
                     var e = authHistory[i];
                     var rowKey = i;
                     <button type="button" @key="e" @ref="rowRefs[rowKey]" @onclick="() => OpenDetails(e, rowKey)"
-                            aria-label="View details for @e.Domain"
+                            aria-label="@L.T("identity.history.details", e.Domain)"
                             class="w-full text-left flex items-center gap-3 p-3 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-dgb-500 transition-colors">
                         <div class="w-8 h-8 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
                             <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -321,20 +321,24 @@
 <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private enum AuthResult { None, Success, Failed }
 
     private const string HistoryStorageKey = DigiIdLoginRecord.HistoryStorageKey;
     private const int MaxHistoryEntries = 50;
 
     private string digiIdUri = "";
-    private string? parseError;
+    // Messages are kept as text producers, so they follow a language switch while shown.
+    private Func<string>? parseError;
     private bool isAuthenticating;
     private int authStep; // 0=idle, 1=signing, 2=sending, 3=verifying
     private AuthResult authResult = AuthResult.None;
     private string? lastAuthDomain;
     private string? lastAuthAddress;
-    private string? authErrorTitle;
-    private string? authErrorDetail;
+    private Func<string>? authErrorTitle;
+    private Func<string>? authErrorDetail;
     private bool showScanner;
     private DigiByte.Crypto.DigiId.DigiIdRequest? pendingRequest;
     private List<DigiIdLoginRecord> authHistory = [];
@@ -450,7 +454,7 @@
         var request = DigiByte.Crypto.DigiId.DigiIdService.ParseUri(digiIdUri.Trim());
         if (request == null)
         {
-            parseError = "Invalid Digi-ID URI. Expected format: digiid://...";
+            parseError = () => L.T("identity.error.invalidUri");
             return;
         }
 
@@ -580,32 +584,35 @@
                 var proxyReason = ReadProxyReason(body);
                 if (proxyReason is not null)
                 {
-                    authErrorTitle = "Couldn't reach the site securely";
-                    authErrorDetail = proxyReason switch
+                    authErrorTitle = () => L.T("identity.error.proxy.title");
+                    var proxyKey = proxyReason switch
                     {
-                        "must use https" => "The site must use https for Digi-ID. Nothing was sent.",
-                        "site unreachable" => "The site didn't respond. Try again in a moment.",
-                        "rate limited" => "Too many sign-in attempts. Wait a minute and try again.",
-                        "bad signature" => "The sign-in could not be verified. Try scanning a fresh QR code.",
-                        _ => "The request was not sent because the site's address is not allowed or the request was invalid.",
+                        "must use https" => "identity.error.proxy.https",
+                        "site unreachable" => "identity.error.proxy.unreachable",
+                        "rate limited" => "identity.error.proxy.rateLimited",
+                        "bad signature" => "identity.error.proxy.badSignature",
+                        _ => "identity.error.proxy.other",
                     };
+                    authErrorDetail = () => L.T(proxyKey);
                     authResult = AuthResult.Failed;
                     return;
                 }
 
+                var domain = pendingRequest.Domain;
                 authErrorTitle = statusCode switch
                 {
-                    401 or 403 => $"{pendingRequest.Domain} rejected the signature",
-                    404 => $"Authentication endpoint not found on {pendingRequest.Domain}",
-                    >= 500 => $"{pendingRequest.Domain} is experiencing server issues",
-                    _ => $"{pendingRequest.Domain} returned an error ({statusCode})"
+                    401 or 403 => () => L.T("identity.error.rejected.title", domain),
+                    404 => () => L.T("identity.error.notFound.title", domain),
+                    >= 500 => () => L.T("identity.error.server.title", domain),
+                    _ => () => L.T("identity.error.status.title", domain, statusCode)
                 };
                 authErrorDetail = statusCode switch
                 {
-                    401 or 403 => "The server did not accept the cryptographic signature. This may mean the site doesn't recognize your Digi-ID address or the challenge has expired. Try scanning a fresh QR code.",
-                    404 => "The callback URL returned 404. The site may have changed its Digi-ID integration or the QR code may be outdated.",
-                    >= 500 => $"The server returned a {statusCode} error. This is a problem on their end — try again in a few minutes.",
-                    _ => !string.IsNullOrWhiteSpace(body) ? body : null
+                    401 or 403 => () => L.T("identity.error.rejected.detail"),
+                    404 => () => L.T("identity.error.notFound.detail"),
+                    >= 500 => () => L.T("identity.error.server.detail", statusCode),
+                    // The site's own reply is shown as it came.
+                    _ => !string.IsNullOrWhiteSpace(body) ? () => body : null
                 };
 
                 authResult = AuthResult.Failed;
@@ -640,20 +647,23 @@
         }
         catch (HttpRequestException)
         {
-            authErrorTitle = $"Could not reach {pendingRequest?.Domain ?? "server"}";
-            authErrorDetail = "The authentication server is unreachable. This could be a network issue on your end, or the server may be down. Check your internet connection and try again.";
+            var unreachable = pendingRequest?.Domain;
+            authErrorTitle = () => L.T("identity.error.unreachable.title", unreachable ?? L.T("identity.server"));
+            authErrorDetail = () => L.T("identity.error.unreachable.detail");
             authResult = AuthResult.Failed;
         }
         catch (InvalidOperationException ex)
         {
-            authErrorTitle = "Wallet error";
-            authErrorDetail = ex.Message;
+            authErrorTitle = () => L.T("identity.error.wallet");
+            var message = ex.Message; // written by the wallet service
+            authErrorDetail = () => message;
             authResult = AuthResult.Failed;
         }
         catch (Exception ex)
         {
-            authErrorTitle = "Unexpected error";
-            authErrorDetail = ex.Message;
+            authErrorTitle = () => L.T("identity.error.unexpected");
+            var message = ex.Message;
+            authErrorDetail = () => message;
             authResult = AuthResult.Failed;
         }
         finally
@@ -669,13 +679,13 @@
         return $"{address[..8]}…{address[^6..]}";
     }
 
-    private static string FormatRelativeTime(DateTime utcTime)
+    private string FormatRelativeTime(DateTime utcTime)
     {
         var diff = DateTime.UtcNow - utcTime;
-        if (diff.TotalMinutes < 1) return "just now";
-        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m ago";
-        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h ago";
-        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        if (diff.TotalMinutes < 1) return L.T("identity.time.justNow");
+        if (diff.TotalHours < 1) return L.T("identity.time.minutes", (int)diff.TotalMinutes);
+        if (diff.TotalDays < 1) return L.T("identity.time.hours", (int)diff.TotalHours);
+        if (diff.TotalDays < 7) return L.T("identity.time.days", (int)diff.TotalDays);
         return utcTime.ToLocalTime().ToString("MMM d");
     }
 }

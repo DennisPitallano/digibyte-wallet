@@ -10,6 +10,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         Dd.Changed += OnChanged;
