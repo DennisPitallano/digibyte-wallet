@@ -6,7 +6,31 @@ using NBitcoin;
 namespace DigiByte.Wallet.Services;
 
 /// <summary>The result of checking a payment destination.</summary>
-public sealed record DestinationCheck(bool Ok, string? Error, bool IsOwnAddress);
+public sealed record DestinationCheck(bool Ok, string? Error, bool IsOwnAddress)
+{
+    /// <summary>Why the destination was refused, so a screen can word it in the user's language. <see cref="Error"/> stays English.</summary>
+    public DestinationProblem Problem { get; init; }
+}
+
+/// <summary>Why a destination check failed.</summary>
+public enum DestinationProblem
+{
+    None,
+    Missing,
+    WrongNetwork,
+    Invalid,
+}
+
+/// <summary>Why a send estimate failed.</summary>
+public enum SendProblem
+{
+    None,
+    NoFunds,
+    FeeNotCovered,
+    NoAmount,
+    BelowMinimum,
+    OverSpendable,
+}
 
 /// <summary>What a scanned QR code or pasted text turned out to be.</summary>
 public enum ScanKind
@@ -33,6 +57,9 @@ public sealed record SendEstimate(
 {
     public bool Ok => Error is null;
 
+    /// <summary>Why the estimate failed, so a screen can word it in the user's language. <see cref="Error"/> stays English.</summary>
+    public SendProblem Problem { get; init; }
+
     /// <summary>What stays in the multisig after this payment (change, or 0 when everything is sent).</summary>
     public long RemainingSatoshis => SpendableSatoshis - AmountSatoshis - FeeSatoshis;
 }
@@ -57,14 +84,18 @@ public static class MultisigSendHelper
     {
         var trimmed = address?.Trim() ?? "";
         if (trimmed.Length == 0)
-            return new DestinationCheck(false, "Enter a destination address.", false);
+            return new DestinationCheck(false, "Enter a destination address.", false) { Problem = DestinationProblem.Missing };
 
         if (!AddressValidator.IsValid(trimmed, network))
         {
-            var error = AddressValidator.IsValid(trimmed)
+            var otherNetwork = AddressValidator.IsValid(trimmed);
+            var error = otherNetwork
                 ? "This address is for a different network."
                 : "This is not a valid DigiByte address.";
-            return new DestinationCheck(false, error, false);
+            return new DestinationCheck(false, error, false)
+            {
+                Problem = otherNetwork ? DestinationProblem.WrongNetwork : DestinationProblem.Invalid,
+            };
         }
 
         var isOwn = !string.IsNullOrWhiteSpace(ownAddress)
@@ -148,19 +179,19 @@ public static class MultisigSendHelper
         var maxFee = coins.Count == 0 ? 0 : FeeFor(coins.Count, false);
         var maxSendable = Math.Max(0, spendable - maxFee);
 
-        SendEstimate Fail(string error, long amount = 0) =>
-            new([], amount, 0, 0, spendable, maxSendable, error);
+        SendEstimate Fail(string error, SendProblem problem, long amount = 0) =>
+            new([], amount, 0, 0, spendable, maxSendable, error) { Problem = problem };
 
         if (spendable == 0)
-            return Fail("There are no spendable funds in this multisig yet.");
+            return Fail("There are no spendable funds in this multisig yet.", SendProblem.NoFunds);
 
         var amount = max ? maxSendable : amountSatoshis;
         if (amount <= 0)
-            return Fail(max ? "The balance does not cover the network fee." : "Enter an amount.", amount);
+            return Fail(max ? "The balance does not cover the network fee." : "Enter an amount.", max ? SendProblem.FeeNotCovered : SendProblem.NoAmount, amount);
         if (amount < DustThresholdSatoshis)
-            return Fail($"The amount is below the minimum of {DustThresholdSatoshis / 100_000_000m:0.########} DGB.", amount);
+            return Fail($"The amount is below the minimum of {DustThresholdSatoshis / 100_000_000m:0.########} DGB.", SendProblem.BelowMinimum, amount);
         if (amount > maxSendable)
-            return Fail($"The amount is more than the spendable balance of {spendable / 100_000_000m:N8} DGB (the network fee comes out of it).", amount);
+            return Fail($"The amount is more than the spendable balance of {spendable / 100_000_000m:N8} DGB (the network fee comes out of it).", SendProblem.OverSpendable, amount);
 
         var selected = new List<UtxoInfo>();
         long sum = 0;
@@ -179,7 +210,7 @@ public static class MultisigSendHelper
         // No usable change: whatever is left over goes to the fee, as long as it still covers the no-change fee.
         var feeNoChange = FeeFor(selected.Count, false);
         if (sum - amount < feeNoChange)
-            return Fail($"The amount is more than the spendable balance of {spendable / 100_000_000m:N8} DGB (the network fee comes out of it).", amount);
+            return Fail($"The amount is more than the spendable balance of {spendable / 100_000_000m:N8} DGB (the network fee comes out of it).", SendProblem.OverSpendable, amount);
 
         return new SendEstimate(selected, amount, sum - amount, 0, spendable, maxSendable, null);
     }
