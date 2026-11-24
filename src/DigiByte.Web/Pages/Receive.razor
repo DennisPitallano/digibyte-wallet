@@ -660,31 +660,18 @@
             if (shownCount > 0)
                 await ShowWindowAsync(Math.Min(shownCount + 1, GeneratedCount));
         }
+        catch (ReceiveAddressException ex)
+        {
+            generateError = L.T(LocaleReasonKeys.For(ex.Reason), WalletService.ReceiveGapLimit);
+        }
         catch (InvalidOperationException ex)
         {
-            generateError = GenerateErrorText(ex.Message);
+            generateError = ex.Message;
         }
         finally
         {
             isGenerating = false;
         }
-    }
-
-    /// <summary>
-    /// The wallet service words its "cannot hand out a new address" reasons in English; show the translated sentence for
-    /// each known reason, and the service's own text for anything else.
-    /// </summary>
-    private string GenerateErrorText(string message)
-    {
-        if (message.StartsWith("This wallet has a single address", StringComparison.Ordinal))
-            return L.T("receive.error.single_address");
-        if (message.StartsWith("Could not save the new address", StringComparison.Ordinal))
-            return L.T("receive.error.save_failed");
-        if (message.Contains("restoring from your seed", StringComparison.Ordinal))
-            return L.T("receive.error.too_many_unused.seed", WalletService.ReceiveGapLimit);
-        if (message.Contains("past the last one that was paid", StringComparison.Ordinal))
-            return L.T("receive.error.too_many_unused.paid", WalletService.ReceiveGapLimit);
-        return message;
     }
 
     private async Task LoadLabel()

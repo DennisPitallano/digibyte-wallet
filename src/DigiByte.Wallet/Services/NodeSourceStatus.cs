@@ -14,6 +14,17 @@ public enum NodeSourceDot
     Red,
 }
 
+/// <summary>Which banner the wallet shows, so a screen can pick its translation without reading the English.</summary>
+public enum NodeBanner
+{
+    /// <summary>No banner.</summary>
+    None,
+    /// <summary>The wallet team's node was in use and the wallet fell back to public explorers.</summary>
+    NodeFallback,
+    /// <summary>No data source is reachable.</summary>
+    Unreachable,
+}
+
 public enum NodeBadgeTone
 {
     Good,
@@ -31,7 +42,8 @@ public sealed record NodeSourceStatusView(
     string Detail,
     string? PrivacyLine,
     bool ShowBanner,
-    string? BannerText);
+    string? BannerText,
+    NodeBanner Banner = NodeBanner.None);
 
 /// <summary>
 /// Turns the monitor state into the wording of specs/005-wallet-own-node-source/contracts/status-ui.md. Pure, so the copy and the
@@ -60,7 +72,8 @@ public static class NodeSourceStatus
                 "No data source is reachable. Showing your last known balance, which may be out of date.",
                 null,
                 true,
-                "Can't reach the blockchain right now. Showing your last known balance, which may be out of date. Sending is unavailable until the connection returns.");
+                "Can't reach the blockchain right now. Showing your last known balance, which may be out of date. Sending is unavailable until the connection returns.",
+                NodeBanner.Unreachable);
         }
 
         if (state == NodeSourceState.Active)
@@ -87,7 +100,8 @@ public static class NodeSourceStatus
         {
             return new NodeSourceStatusView(
                 true, NodeSourceDot.Amber, detail, null, true,
-                "The wallet team's node is unavailable. Using public explorers instead.");
+                "The wallet team's node is unavailable. Using public explorers instead.",
+                NodeBanner.NodeFallback);
         }
 
         return new NodeSourceStatusView(true, NodeSourceDot.Neutral, detail, null, false, null);

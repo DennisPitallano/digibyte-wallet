@@ -28,19 +28,29 @@ public class UpdateAdviceTests
     public void LockedElsewhere_IsAsked(string? path) =>
         Assert.False(UpdateAdvice.ApplyWithoutAsking(path, walletUnlocked: false));
 
+    [Theory]
+    [InlineData("ready", UpdateCheckResult.Ready)]
+    [InlineData("downloading", UpdateCheckResult.Downloading)]
+    [InlineData("failed", UpdateCheckResult.Failed)]
+    [InlineData("none", UpdateCheckResult.UpToDate)]
+    [InlineData(null, UpdateCheckResult.UpToDate)]
+    [InlineData("something-else", UpdateCheckResult.UpToDate)]
+    public void EachAnswerFromThePageScript_HasItsResult(string? status, UpdateCheckResult expected) =>
+        Assert.Equal(expected, UpdateAdvice.ResultOf(status));
+
     [Fact]
     public void OnlyAReadyUpdate_SaysItIsReloading()
     {
-        Assert.Contains("Reloading", UpdateAdvice.Message("ready"));
+        var en = LocaleReasonKeysTests.English;
+        Assert.Contains("Reloading", en[LocaleReasonKeys.For(UpdateCheckResult.Ready)]);
         foreach (var status in new[] { "none", "downloading", "failed", null, "something-else" })
-            Assert.DoesNotContain("Reloading", UpdateAdvice.Message(status));
+            Assert.DoesNotContain("Reloading", en[LocaleReasonKeys.For(UpdateAdvice.ResultOf(status))]);
     }
 
     [Fact]
-    public void EachStatus_HasItsOwnMessage()
+    public void EachResult_HasItsOwnMessage()
     {
-        var messages = new[] { "none", "ready", "downloading", "failed" }.Select(UpdateAdvice.Message).ToList();
-        Assert.Equal(4, messages.Distinct().Count());
-        Assert.Equal(UpdateAdvice.Message("none"), UpdateAdvice.Message(null));
+        var keys = Enum.GetValues<UpdateCheckResult>().Select(LocaleReasonKeys.For).ToList();
+        Assert.Equal(keys.Count, keys.Distinct().Count());
     }
 }

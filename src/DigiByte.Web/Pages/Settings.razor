@@ -749,14 +749,8 @@
     private string ShareIconMarkup() =>
         $"<svg class=\"inline w-4 h-4 -mt-0.5 text-dgb-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"2\" stroke=\"currentColor\" aria-label=\"{System.Net.WebUtility.HtmlEncode(L.T("settings.install.ios.share"))}\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15\" /></svg>";
 
-    /// <summary>What "Check for Updates" tells the user for each answer from the page script (same cases as UpdateAdvice.Message).</summary>
-    private string UpdateText(string? status) => status switch
-    {
-        "ready" => L.T("settings.update.ready"),
-        "downloading" => L.T("settings.update.downloading"),
-        "failed" => L.T("settings.update.failed"),
-        _ => L.T("settings.update.none"),
-    };
+    /// <summary>What "Check for Updates" tells the user for each answer from the page script.</summary>
+    private string UpdateText(string? status) => L.T(LocaleReasonKeys.For(UpdateAdvice.ResultOf(status)));
 
     private async Task CopyMultisigPublicKey()
     {
