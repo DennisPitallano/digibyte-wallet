@@ -10,6 +10,7 @@
 @inject ShellChrome Chrome
 @inject IJSRuntime JS
 @inject LocalizationService L
+@inject ContactService Contacts
 
 @using DigiByte.Crypto.Networks
 
@@ -232,7 +233,7 @@
                 {
                     <StickyAction DisabledReason="@ConnectionReason">
                         <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-2xl flex flex-col gap-3" role="alertdialog" aria-label="@L.T("ms.signing.confirm_aria")">
-                            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@L.T("ms.signing.confirm_question", MultisigFormat.Dgb(facts.AmountSat), MultisigFormat.Short(facts.DestinationAddress))</p>
+                            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@L.T("ms.signing.confirm_question", MultisigFormat.Dgb(facts.AmountSat), facts.Recipients.Count > 1 ? L.T("send.confirm.recipients", facts.Recipients.Count) : MultisigFormat.Short(facts.DestinationAddress))</p>
                             <div class="flex gap-2">
                                 <button type="button" class="btn-primary btn-sm flex-1" data-testid="room-confirm-sign"
                                         disabled="@(busy || Room.IsReconnecting)" @onclick="ConfirmSignAsync">@(busy ? L.T("ms.signing.signing") : L.T("ms.signing.confirm_sign"))</button>
@@ -384,8 +385,12 @@
         : Headline.Action == PrimaryAction.Broadcast && ClaimedByOther ? L.T("ms.signing.broadcasting_by", NameOf(claimHolder!))
         : busy ? L.T("ms.signing.signing") : null;
 
+    // Every recipient, read from the room's PSBT (never from the room), with warnings; names only from this device's contacts.
     private PaymentSummaryModel Summary => PaymentSummaryBuilder.Build(
-        facts!.AmountSat, facts.FeeSat, facts.DestinationAddress, facts.Memo, facts.ChangeSat > 0 ? facts.ChangeSat : null);
+        facts!.Recipients, facts.FeeSat, facts.Memo, facts.ChangeSat > 0 ? facts.ChangeSat : null, facts.Warnings,
+        a => contactNames.TryGetValue(a.Trim(), out var name) ? name : null);
+
+    private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
 
     private IReadOnlyList<SignerCardModel> Cards => SignerCards.Build(
         view!.CoSignerKeys.Select(SignerInputFor).ToList(), Room.MyKey, presence.IsOnline);
@@ -435,6 +440,15 @@
     protected override async Task OnInitializedAsync()
     {
         if (!WalletService.IsUnlocked) return;
+
+        try
+        {
+            contactNames = (await Contacts.GetAllAsync())
+                .Where(c => !string.IsNullOrWhiteSpace(c.Address) && !string.IsNullOrWhiteSpace(c.Name))
+                .GroupBy(c => c.Address.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
+        }
+        catch { /* names are optional */ }
 
         // Opened from a payment's screen or its card: the room is already there.
         if (Room.Current is { } current && (code.Length == 0 || current.InviteCode == code))

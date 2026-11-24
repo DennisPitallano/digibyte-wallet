@@ -8,7 +8,17 @@ public sealed record ProposalFacts
 {
     public string UnsignedTxId { get; init; } = "";
     public IReadOnlyList<(OutPoint OutPoint, long ValueSat)> Inputs { get; init; } = [];
+
+    /// <summary>Every payment line in transaction order: outputs that are neither change (back to the multisig) nor the memo.</summary>
+    public IReadOnlyList<ProposalRecipient> Recipients { get; init; } = [];
+
+    /// <summary>Lines that break this wallet's creation rules (specs/029, FR-013a). They are shown before signing and never block it.</summary>
+    public IReadOnlyList<ProposalWarning> Warnings { get; init; } = [];
+
+    /// <summary>The first recipient's address.</summary>
     public string DestinationAddress { get; init; } = "";
+
+    /// <summary>The total paid to all recipients.</summary>
     public long AmountSat { get; init; }
     public long ChangeSat { get; init; }
     public long FeeSat { get; init; }
@@ -20,8 +30,8 @@ public sealed record ProposalFacts
 /// <summary>
 /// Reads destination, amount, change, fee and memo from a multisig PSBT, checked against the local multisig
 /// (specs/017-multisig-online-signing, research R5). Nothing a signing room says about a payment is trusted: what is shown
-/// and signed comes from here. Supports the shape the wallet's Send page creates: one recipient, optional change back to the
-/// multisig, optional memo.
+/// and signed comes from here. Supports the shape the wallet's Send page creates: one or more recipients, optional change
+/// back to the multisig, optional memo (specs/029-multisig-multiple-recipients).
 /// </summary>
 public static class MultisigProposalReader
 {
@@ -83,21 +93,27 @@ public static class MultisigProposalReader
                 external.Add(output);
         }
 
-        string destination = "";
-        long amount = 0;
+        var recipients = new List<ProposalRecipient>(external.Count);
+        var warnings = new List<ProposalWarning>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (external.Count == 0)
             problems.Add("This payment has no recipient.");
-        else if (external.Count > 1)
-            problems.Add("This payment pays more than one recipient, which online signing does not support.");
-        else
+        if (external.Count > MultisigSendHelper.MaxRecipients)
+            warnings.Add(new ProposalWarning(ProposalWarningKind.TooManyRecipients, null));
+        foreach (var output in external)
         {
-            amount = external[0].Value.Satoshi;
-            var address = external[0].ScriptPubKey.GetDestinationAddress(network);
+            var index = recipients.Count;
+            var address = output.ScriptPubKey.GetDestinationAddress(network)?.ToString();
             if (address is null)
                 problems.Add("The recipient's address can't be read on this network.");
-            else
-                destination = address.ToString();
+            recipients.Add(new ProposalRecipient(address ?? "", output.Value.Satoshi));
+            if (output.Value.Satoshi < MultisigSendHelper.DustThresholdSatoshis)
+                warnings.Add(new ProposalWarning(ProposalWarningKind.RecipientBelowMinimum, index));
+            if (address is not null && !seen.Add(address))
+                warnings.Add(new ProposalWarning(ProposalWarningKind.RecipientRepeated, index));
         }
+        var destination = recipients.Count > 0 ? recipients[0].Address : "";
+        var amount = recipients.Sum(r => r.AmountSatoshis);
 
         var fee = totalIn - totalOut;
         if (!missingAmount && fee <= 0)
@@ -107,6 +123,8 @@ public static class MultisigProposalReader
         {
             UnsignedTxId = tx.GetHash().ToString(),
             Inputs = inputs,
+            Recipients = recipients,
+            Warnings = warnings,
             DestinationAddress = destination,
             AmountSat = amount,
             ChangeSat = change,

@@ -7,7 +7,7 @@
 
 <div class="flex flex-col gap-1.5">
     <div class="flex items-center justify-between">
-        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-recipient">@L.T("send.recipient")</label>
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="@InputId">@(Label ?? L.T("send.recipient"))</label>
         @if (string.IsNullOrEmpty(contactName))
         {
             <button type="button" class="flex items-center gap-1 min-h-[32px] text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors" @onclick="Paste">
@@ -39,7 +39,7 @@
     else
     {
         <div class="flex gap-1.5">
-            <input id="ms-recipient" type="text" value="@Address" @oninput="OnInput"
+            <input id="@InputId" type="text" value="@Address" @oninput="OnInput"
                    placeholder="@L.T("send.recipient_placeholder")"
                    autocomplete="off" spellcheck="false" aria-invalid="@(!string.IsNullOrEmpty(Error))"
                    class="flex-1 min-w-0 px-4 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:border-dgb-500 focus:ring-2 focus:ring-dgb-500/20 transition-all" />
@@ -102,6 +102,12 @@
     /// <summary>Inline validation message for the current address, if any.</summary>
     [Parameter] public string? Error { get; set; }
     [Parameter] public bool IsOwnAddress { get; set; }
+
+    /// <summary>The field's label; null says "Recipient". A payment to several recipients numbers each row.</summary>
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>The address box's id, unique on the page when several recipient fields are shown.</summary>
+    [Parameter] public string InputId { get; set; } = "ms-recipient";
 
     /// <summary>Raised when a scanned or pasted payment link carries an amount or label to prefill.</summary>
     [Parameter] public EventCallback<ScanResult> OnPaymentLink { get; set; }

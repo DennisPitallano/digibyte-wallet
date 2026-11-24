@@ -117,6 +117,25 @@ public class CoSigner
     public bool IsLocal { get; set; }
 }
 
+/// <summary>One payment line of a multisig proposal: who is paid and how much. Never carries a name.</summary>
+public sealed record ProposalRecipient(string Address, long AmountSatoshis);
+
+/// <summary>Why a line of a received payment breaks the rules this wallet uses when it creates one. Shown, never blocking.</summary>
+public enum ProposalWarningKind
+{
+    /// <summary>A recipient is paid less than <c>MultisigSendHelper.DustThresholdSatoshis</c>.</summary>
+    RecipientBelowMinimum,
+
+    /// <summary>A recipient's address is already paid by an earlier line.</summary>
+    RecipientRepeated,
+
+    /// <summary>The payment has more than <c>MultisigSendHelper.MaxRecipients</c> recipients.</summary>
+    TooManyRecipients,
+}
+
+/// <summary>One warning about a received payment; <see cref="RecipientIndex"/> is null for one about the whole payment.</summary>
+public sealed record ProposalWarning(ProposalWarningKind Kind, int? RecipientIndex);
+
 /// <summary>
 /// A pending multisig transaction awaiting co-signer signatures.
 /// </summary>
@@ -135,9 +154,27 @@ public class PendingMultisigTransaction
     /// </summary>
     public string? Description { get; set; }
 
+    /// <summary>The first recipient's address (the only one for a single-recipient proposal).</summary>
     public required string DestinationAddress { get; init; }
+
+    /// <summary>The total paid to all recipients (change and fee excluded).</summary>
     public required long AmountSatoshis { get; init; }
     public required long FeeSatoshis { get; init; }
+
+    /// <summary>
+    /// Every payment line, in transaction order (specs/029-multisig-multiple-recipients). Empty on proposals saved before
+    /// this field existed; use <see cref="AllRecipients"/>, which falls back to <see cref="DestinationAddress"/> and
+    /// <see cref="AmountSatoshis"/>. Recipient names are never stored here.
+    /// </summary>
+    public List<ProposalRecipient> Recipients { get; init; } = [];
+
+    /// <summary><see cref="Recipients"/>, or the single line of a proposal saved before it existed.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<ProposalRecipient> AllRecipients =>
+        Recipients.Count > 0 ? Recipients : [new ProposalRecipient(DestinationAddress, AmountSatoshis)];
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int RecipientCount => AllRecipients.Count;
 
     /// <summary>
     /// Public key hex values of co-signers who have signed.

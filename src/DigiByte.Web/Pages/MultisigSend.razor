@@ -7,6 +7,7 @@
 @inject AppState AppState
 @inject NavigationManager Nav
 @inject LocalizationService L
+@inject ContactService Contacts
 
 <PageTitle>@L.T("ms.send.page_title")</PageTitle>
 
@@ -36,6 +37,46 @@ else
 
         @if (step != Step.Done)
         {
+            @* Multiple recipients toggle, like the Send page's (specs/029-multisig-multiple-recipients) *@
+            <div class="flex items-center justify-between slide-up">
+                <div class="flex items-center gap-1.5">
+                    <button type="button" class="choice" aria-pressed="@(batchMode ? "true" : "false")" @onclick="ToggleBatchMode" data-testid="batch-toggle">
+                        <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                        </svg>
+                        @L.T("send.batch.toggle")
+                    </button>
+                    <button type="button" @onclick="() => showBatchInfo = true"
+                            class="w-6 h-6 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-dgb-700 transition-all flex-shrink-0"
+                            title="@L.T("send.batch.what_is")" aria-label="@L.T("send.batch.what_is")">
+                        <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                        </svg>
+                    </button>
+                </div>
+                @if (batchMode)
+                {
+                    <span class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.batch.count", rows.Count)</span>
+                }
+            </div>
+
+            @if (batchMode)
+            {
+                <div class="slide-up-delay-1">
+                    <RecipientRows @ref="rowsRef" Rows="rows" RowsChanged="OnRowsChanged" OnScanRequested="OpenScannerForRow" />
+                </div>
+                @if (utxosFailed)
+                {
+                    <p class="flex items-center gap-1 text-xs text-amber-500">@L.T("ms.send.funds_failed") <button type="button" class="min-h-[32px] px-1 font-semibold text-dgb-500" @onclick="LoadUtxos">@L.T("ms.send.retry")</button></p>
+                }
+                else if (utxos is not null)
+                {
+                    <p class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.available", (Spendable / 100_000_000m).ToString("N4")) · @L.T("send.minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m)</p>
+                }
+                @if (!string.IsNullOrEmpty(batchError)) { <InlineError Message="@batchError" /> }
+            }
+            else
+            {
             @* Recipient: type, paste, scan or pick a contact, like the Send page *@
             <div class="slide-up-delay-1">
                 <RecipientInput @ref="recipient" Address="@destination" AddressChanged="OnAddressChanged" Error="@destinationError"
@@ -92,6 +133,7 @@ else
                 <p class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m)</p>
                 @if (!string.IsNullOrEmpty(amountError)) { <InlineError Message="@amountError" /> }
             </div>
+            }
 
             @* Advanced mode: fee control, like the Send page *@
             @if (!AppState.IsSimpleMode)
@@ -117,10 +159,24 @@ else
 
             @* Fee display *@
             <div class="flex flex-col gap-1.5 px-4 py-3 bg-slate-50 dark:bg-dgb-900/50 rounded-xl border border-slate-100 dark:border-dgb-800 slide-up-delay-4" aria-live="polite">
+                @if (batchMode)
+                {
+                    <div class="flex justify-between">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.batch.total_amount")</span>
+                        <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold tabular-nums">@(estimate is { Ok: true } ? MultisigFormat.Dgb(estimate.AmountSatoshis) + " DGB" : "—")</span>
+                    </div>
+                }
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.fee")</span>
                     <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold tabular-nums">@(estimate is { Ok: true } ? "~" + MultisigFormat.Dgb(estimate.FeeSatoshis) + " DGB" : "—")</span>
                 </div>
+                @if (batchMode)
+                {
+                    <div class="flex justify-between">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.batch.grand_total")</span>
+                        <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold tabular-nums">@(estimate is { Ok: true } ? MultisigFormat.Dgb(estimate.AmountSatoshis + estimate.FeeSatoshis) + " DGB" : "—")</span>
+                    </div>
+                }
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("ms.send.left")</span>
                     <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold tabular-nums">@(estimate is { Ok: true } ? MultisigFormat.Dgb(estimate.RemainingSatoshis) + " DGB" : "—")</span>
@@ -155,10 +211,21 @@ else
             </div>
 
             <div class="bg-slate-50 dark:bg-dgb-950 rounded-2xl p-4 flex flex-col gap-3 slide-up-delay-1">
+                @if (created.RecipientCount > 1)
+                {
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.to")</span>
+                        <span class="text-xs font-semibold text-dgb-500">@RecipientsText(created.RecipientCount)</span>
+                    </div>
+                    <RecipientLines Lines="created.AllRecipients" NameFor="ContactNameFor" />
+                }
+                else
+                {
                 <div class="flex justify-between items-start">
                     <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.to")</span>
                     <p class="text-[11px] font-mono text-slate-900 dark:text-white max-w-[210px] text-right break-words leading-relaxed">@MultisigFormat.Chunk(created.DestinationAddress)</p>
                 </div>
+                }
                 <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                 <div class="flex justify-between">
                     <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.amount")</span>
@@ -171,6 +238,12 @@ else
                 </div>
             </div>
 
+            @if (created.RecipientCount > 1)
+            {
+                <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl" data-testid="update-notice">
+                    <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">@L.T("ms.send.batch.update_notice")</p>
+                </div>
+            }
             @if (!string.IsNullOrEmpty(message))
             {
                 <p class="text-xs text-green-600 dark:text-green-400 font-medium text-center" role="status">@message</p>
@@ -212,7 +285,18 @@ else
                     <span class="text-xs font-semibold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-0.5 rounded-md">@L.T("ms.send.confirm.signatures", config.RequiredSignatures, config.TotalSigners)</span>
                 </div>
 
-                <div class="bg-slate-50 dark:bg-dgb-950 rounded-2xl p-4 flex flex-col gap-3">
+                <div class="bg-slate-50 dark:bg-dgb-950 rounded-2xl p-4 flex flex-col gap-3 @(batchMode ? "max-h-[45vh] overflow-y-auto" : "")">
+                    @if (batchMode)
+                    {
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.to")</span>
+                            <span class="text-xs font-semibold text-dgb-500">@RecipientsText(rows.Count)</span>
+                        </div>
+                        <RecipientLines Lines="BatchLines()" NameFor="ContactNameFor" />
+                        <p class="text-[11px] text-slate-400 dark:text-slate-500">@L.T("send.confirm.check_address")</p>
+                    }
+                    else
+                    {
                     <div class="flex justify-between items-start">
                         <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.to")</span>
                         <div class="text-right">
@@ -220,9 +304,10 @@ else
                             <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">@L.T("send.confirm.check_address")</p>
                         </div>
                     </div>
+                    }
                     <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                     <div class="flex justify-between">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.amount")</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@(batchMode ? L.T("send.batch.total_amount") : L.T("send.amount"))</span>
                         <span class="text-sm font-bold text-slate-900 dark:text-white tabular-nums">@MultisigFormat.Dgb(estimate.AmountSatoshis) DGB</span>
                     </div>
                     <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
@@ -235,6 +320,11 @@ else
                         <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.total")</span>
                         <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">@MultisigFormat.Dgb(estimate.AmountSatoshis + estimate.FeeSatoshis) DGB</span>
                     </div>
+                    <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
+                    <div class="flex justify-between">
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("ms.send.left")</span>
+                        <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">@MultisigFormat.Dgb(estimate.RemainingSatoshis) DGB</span>
+                    </div>
                     @if (!string.IsNullOrWhiteSpace(memo))
                     {
                         <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
@@ -245,7 +335,7 @@ else
                     }
                 </div>
 
-                @if (destCheck?.IsOwnAddress == true)
+                @if (!batchMode && destCheck?.IsOwnAddress == true)
                 {
                     <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl">
                         <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">@L.T("ms.send.own_address")</p>
@@ -281,6 +371,34 @@ else
             </div>
         </div>
     }
+}
+@if (showBatchInfo)
+{
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="@L.T("send.batch_info.title")" @onclick="() => showBatchInfo = false">
+        <div class="modal-card flex flex-col gap-3 max-w-sm max-h-[80vh]" @onclick:stopPropagation="true">
+            <h3 class="block-title block-title-sm">@L.T("send.batch_info.title")</h3>
+            <div class="flex flex-col gap-2.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed overflow-y-auto overscroll-contain pr-1">
+                <p>@L.T("ms.send.batch.info_intro")</p>
+                <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-2.5 border border-green-100 dark:border-green-900/20">
+                    <p class="text-[11px] font-semibold text-green-600 dark:text-green-400 uppercase mb-1.5">@L.T("send.batch_info.advantages")</p>
+                    <ul class="flex flex-col gap-0.5 text-[11px]">
+                        <li><strong>@L.T("send.batch_info.fees_term")</strong> — @L.T("send.batch_info.fees_desc")</li>
+                        <li><strong>@L.T("ms.send.batch.one_round_term")</strong> — @L.T("ms.send.batch.one_round_desc")</li>
+                    </ul>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-2.5 border border-amber-100 dark:border-amber-900/20">
+                    <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase mb-1.5">@L.T("send.batch_info.know")</p>
+                    <ul class="flex flex-col gap-0.5 text-[11px]">
+                        <li><strong>@L.T("send.batch_info.all_term")</strong> — @L.T("send.batch_info.all_desc")</li>
+                        <li><strong>@L.T("send.batch_info.privacy_term")</strong> — @L.T("send.batch_info.privacy_desc")</li>
+                        <li><strong>@L.T("send.batch_info.max_term")</strong>, @L.T("ms.send.batch.max_desc")</li>
+                        <li>@L.T("ms.send.batch.update_notice")</li>
+                    </ul>
+                </div>
+            </div>
+            <button class="btn-primary btn-sm w-full flex-shrink-0" @onclick="() => showBatchInfo = false">@L.T("send.got_it")</button>
+        </div>
+    </div>
 }
 @* The scanner is a full-screen overlay: it lives at the page root, outside the animated form blocks. *@
 <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="@(() => showScanner = false)" />
@@ -329,10 +447,23 @@ else
     private string? error;
     private string? message;
     private PendingMultisigTransaction? created;
+
+    // Several recipients (specs/029-multisig-multiple-recipients). Rows stay while the page is open, even with the mode off.
+    private bool batchMode;
+    private bool showBatchInfo;
+    private List<RecipientRows.Row> rows = [new(), new()];
+    private RecipientRows? rowsRef;
+    private int scannerRowIndex = -1;
+    private string? batchError;
+    private bool batchRowsOk;
+    private List<long> batchAmounts = [];
+    private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
     private string submissionToken = Guid.NewGuid().ToString("N");
 
     private long Spendable => utxos?.Sum(u => u.AmountSatoshis) ?? 0;
-    private bool CanContinue => destCheck?.Ok == true && estimate is { Ok: true } && utxos is not null;
+    private bool CanContinue => batchMode
+        ? batchRowsOk && rows.Count >= RecipientRows.MinRows && estimate is { Ok: true } && utxos is not null
+        : destCheck?.Ok == true && estimate is { Ok: true } && utxos is not null;
     private bool IsShareActive(decimal share) => useMax ? share == 1m : shareUsed == share;
 
     // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
@@ -364,6 +495,7 @@ else
         {
             ApplyQueryPrefill();   // LoadUtxos ends with Recalculate, which checks what was filled in
             _ = LoadPrice();
+            _ = LoadContactNames();
             await LoadUtxos();
         }
     }
@@ -397,6 +529,44 @@ else
         Nav.NavigateTo(url);
     }
 
+    // Names shown next to addresses come only from this device's contacts (FR-011a).
+    private async Task LoadContactNames()
+    {
+        try
+        {
+            contactNames = (await Contacts.GetAllAsync())
+                .Where(c => !string.IsNullOrWhiteSpace(c.Address) && !string.IsNullOrWhiteSpace(c.Name))
+                .GroupBy(c => c.Address.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
+        }
+        catch { contactNames = new(StringComparer.OrdinalIgnoreCase); }
+        StateHasChanged();
+    }
+
+    private string? ContactNameFor(string address) => contactNames.TryGetValue(address.Trim(), out var name) ? name : null;
+
+    private string RecipientsText(int count) =>
+        count == 1 ? L.T("ms.send.batch.to_n.one", count) : L.T("ms.send.batch.to_n.other", count);
+
+    private IReadOnlyList<ProposalRecipient> BatchLines() =>
+        rows.Select((r, i) => new ProposalRecipient(r.Address.Trim(), i < batchAmounts.Count ? batchAmounts[i] : 0)).ToList();
+
+    private void ToggleBatchMode()
+    {
+        batchMode = !batchMode;
+        if (rows.Count < RecipientRows.MinRows)
+            while (rows.Count < RecipientRows.MinRows) rows.Add(new());
+        Recalculate();
+    }
+
+    private void OnRowsChanged() => Recalculate();
+
+    private void OpenScannerForRow(int index)
+    {
+        scannerRowIndex = index;
+        showScanner = true;
+    }
+
     private async Task LoadPrice()
     {
         try { dgbPrice = await Blockchain.GetDgbPriceAsync(AppState.FiatCurrency); }
@@ -421,6 +591,14 @@ else
     private async Task OnQrScanned(string data)
     {
         showScanner = false;
+        var row = scannerRowIndex;
+        scannerRowIndex = -1;
+        if (batchMode)
+        {
+            // Only the row whose Scan button was tapped is filled.
+            if (rowsRef is not null && row >= 0) await rowsRef.ApplyScannedAsync(row, data);
+            return;
+        }
         if (recipient is not null) await recipient.ApplyScannedAsync(data);
     }
 
@@ -501,6 +679,12 @@ else
 
     private void Recalculate()
     {
+        if (batchMode)
+        {
+            RecalculateBatch();
+            return;
+        }
+
         // Destination: only complain once something has been entered.
         destCheck = string.IsNullOrWhiteSpace(destination) ? null : MultisigSendHelper.ValidateDestination(destination, MultisigService.ActiveNetwork, config?.Address);
         destinationError = destCheck is { Ok: false } ? DestinationMessage(destCheck) : null;
@@ -526,6 +710,61 @@ else
             amountError = EstimateMessage(estimate);
         else if (useMax)
             amountText = (estimate.AmountSatoshis / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    // Checks every row (ValidateRecipients), then estimates the whole payment once every row is fine. A row's message
+    // appears only once that row has something in the field it is about.
+    private void RecalculateBatch()
+    {
+        batchError = null;
+        estimate = null;
+        batchRowsOk = false;
+        batchAmounts = [];
+        var parseErrors = new string?[rows.Count];
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            long sats = 0;
+            if (!string.IsNullOrWhiteSpace(row.AmountText) && !TryParseAmount(row.AmountText, out sats, out parseErrors[i]))
+                sats = 0;
+            batchAmounts.Add(sats);
+        }
+
+        var problems = MultisigSendHelper.ValidateRecipients(
+            rows.Select((r, i) => (r.Address.Trim(), batchAmounts[i])).ToList(), MultisigService.ActiveNetwork, config?.Address);
+
+        var allOk = true;
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            var problem = problems[i];
+            var hasAddress = !string.IsNullOrWhiteSpace(row.Address);
+            var hasAmount = !string.IsNullOrWhiteSpace(row.AmountText);
+            row.AddressError = hasAddress ? problem switch
+            {
+                RecipientProblem.WrongNetwork => L.T("ms.send.error.wrong_network"),
+                RecipientProblem.InvalidAddress => L.T("ms.send.error.invalid_address"),
+                RecipientProblem.Repeated => L.T("ms.send.batch.error.repeated"),
+                RecipientProblem.OwnAddress => L.T("ms.send.batch.error.own_address"),
+                _ => null,
+            } : null;
+            // The amount is checked on its own, so a row with an address problem still says when its amount is too small.
+            row.AmountError = parseErrors[i] ?? (!hasAmount ? null
+                : batchAmounts[i] <= 0 ? L.T("ms.send.error.no_amount")
+                : batchAmounts[i] < MultisigSendHelper.DustThresholdSatoshis ? L.T("ms.send.error.below_minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m)
+                : null);
+            if (problem is not null || parseErrors[i] is not null) allOk = false;
+        }
+        batchRowsOk = allOk;
+
+        if (!allOk || config is null || utxos is null) return;
+
+        var memoBytes = string.IsNullOrWhiteSpace(memo) ? 0 : System.Text.Encoding.UTF8.GetByteCount(memo);
+        estimate = MultisigSendHelper.EstimateSend(utxos, feeRate, batchAmounts, config.RequiredSignatures, config.TotalSigners, config.AddressType, memoBytes);
+        if (!estimate.Ok)
+            batchError = estimate.Problem == SendProblem.OverSpendable
+                ? L.T("ms.send.batch.short", MultisigFormat.Dgb(estimate.ShortfallSatoshis))
+                : EstimateMessage(estimate);
     }
 
     private bool TryParseAmount(string text, out long satoshis, out string? error)
@@ -584,9 +823,17 @@ else
 
         try
         {
-            var amountDgb = estimate.AmountSatoshis / 100_000_000m;
-            created = await MultisigService.CreateSpendingPSBTAsync(
-                config!, destination.Trim(), amountDgb, feeRate, memo, submissionToken);
+            if (batchMode)
+            {
+                var recipients = rows.Select((r, i) => (r.Address.Trim(), batchAmounts[i] / 100_000_000m)).ToList();
+                created = await MultisigService.CreateSpendingPSBTAsync(config!, recipients, feeRate, memo, submissionToken);
+            }
+            else
+            {
+                var amountDgb = estimate.AmountSatoshis / 100_000_000m;
+                created = await MultisigService.CreateSpendingPSBTAsync(
+                    config!, destination.Trim(), amountDgb, feeRate, memo, submissionToken);
+            }
             step = Step.Done;
         }
         catch (Exception ex)

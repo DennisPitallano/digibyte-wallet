@@ -778,6 +778,21 @@ User types, pastes, scans (address or digibyte: link) or picks a contact; amount
     3. Create PendingMultisigTransaction (with UnsignedTxId) → persist to IndexedDB
     4. Return PSBT base64 for sharing with co-signers; the same submissionToken never creates a second proposal
 
+Several recipients (Multiple Recipients toggle; specs/029-multisig-multiple-recipients):
+  → RecipientRows: 2 to 20 rows (address + amount each; paste, scan or contact fills only its own row); no Max/quick shares
+  → MultisigSendHelper.ValidateRecipients per row (network, checksum, repeated address, the multisig's own address,
+    0.001 DGB minimum) → EstimateSend(amounts) prices every output; over the balance says how much is short
+  → Review lists every recipient → CreateSpendingPSBTAsync(config, [(address, amount), ...], feeRate, memo, token)
+    → MultisigService.CreateMultisigPSBTWithFee(redeemScript, coins, payments, change, fee, dust): payments in the order
+      entered, then the memo, then change → PendingMultisigTransaction.Recipients (DestinationAddress = first,
+      AmountSatoshis = total; records saved before this read as one recipient)
+  → Done screen notes that co-signers need an up-to-date wallet to open a payment to several recipients
+  → Co-signers: MultisigProposalReader returns every recipient in order plus non-blocking warnings (below 0.001 DGB,
+    an address paid twice, more than 20 recipients) for proposals made elsewhere; CheckProposalMatches compares every
+    saved line in order. PaymentSummary lists each line (names only from that device's contacts) and the change.
+  → Share: the QR code is shown only up to QrCapacity.MaxProposalChars (2,200); larger proposals use Copy, Save as
+    file or a signing room
+
 Signing flow:
   → User signs: MultisigWalletService.SignPendingTransactionAsync(walletId, txId)
     1. WalletService.GetPrivateKeyForMultisig() → get signing key

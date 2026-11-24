@@ -87,6 +87,11 @@ public sealed record SignerCardModel(
 
 public sealed record RoomHeadline(string Title, string? Detail, UxTone Tone, PrimaryAction Action, string? ActionLabel);
 
+/// <param name="AmountSat">The total paid to all recipients.</param>
+/// <param name="RecipientAddress">The first recipient's address (the only one for a single-recipient payment).</param>
+/// <param name="Recipients">Every payment line in transaction order (specs/029-multisig-multiple-recipients).</param>
+/// <param name="TooManyRecipients">The payment pays more recipients than this wallet would create (a warning, never blocking).</param>
+/// <param name="ChangeSat">Change returning to the wallet, or null when unknown or none.</param>
 public sealed record PaymentSummaryModel(
     long AmountSat,
     string RecipientAddress,
@@ -94,7 +99,18 @@ public sealed record PaymentSummaryModel(
     long FeeSat,
     long TotalOutSat,
     string? Memo,
-    string? ChangeNote);
+    string? ChangeNote,
+    IReadOnlyList<PaymentSummaryRecipient> Recipients,
+    bool TooManyRecipients,
+    long? ChangeSat);
+
+/// <summary>One recipient line of a payment summary. <see cref="ContactName"/> comes only from this device's contacts.</summary>
+public sealed record PaymentSummaryRecipient(
+    string Address,
+    string Grouped,
+    long AmountSat,
+    string? ContactName,
+    IReadOnlyList<ProposalWarningKind> Warnings);
 
 public sealed record AttentionCount(string WalletId, int NeedsSignature);
 

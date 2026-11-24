@@ -9,6 +9,7 @@
 @inject SigningRoomClient Room
 @inject MultisigAttentionState Attention
 @inject LocalizationService L
+@inject ContactService Contacts
 @implements IDisposable
 
 @*
@@ -131,7 +132,7 @@
 
         @* The payment, in full: read from the saved proposal, the same summary the signing room shows *@
         <PaymentSummary ShowCheckCue="mine && !coinsSpent"
-                        Summary="PaymentSummaryBuilder.Build(tx.AmountSatoshis, tx.FeeSatoshis, tx.DestinationAddress, tx.Memo, null)">
+                        Summary="Summary">
             <Details>
                 @if (!string.IsNullOrEmpty(tx.UnsignedTxId))
                 {
@@ -160,7 +161,7 @@
                 @* Confirm signing: restates amount and recipient (spec 018, FR-007) *@
                 <StickyAction>
                     <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-2xl flex flex-col gap-3" role="alertdialog" aria-label="@L.T("ms.pendingDetail.sign.confirm.aria")">
-                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@L.T("ms.pendingDetail.sign.confirm.title", MultisigFormat.Dgb(tx.AmountSatoshis), MultisigFormat.Short(tx.DestinationAddress))</p>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@L.T("ms.pendingDetail.sign.confirm.title", MultisigFormat.Dgb(tx.AmountSatoshis), RecipientText)</p>
                         <div class="flex gap-2">
                             <button type="button" class="btn-primary btn-sm flex-1" disabled="@isSigning" data-testid="confirm-sign" @onclick="ConfirmSign">
                                 @(isSigning ? L.T("ms.pendingDetail.sign.busy") : L.T("ms.pendingDetail.sign.confirm.button"))
@@ -268,7 +269,7 @@
                             <button type="button" class="btn-primary btn-sm" @onclick="CopyPsbt">@L.T("ms.pendingDetail.share.copy")</button>
                             <button type="button" class="btn-secondary btn-sm" @onclick="DownloadPsbt">@L.T("ms.pendingDetail.share.save")</button>
                         </div>
-                        @if (tx.PsbtBase64.Length <= 2200)
+                        @if (QrCapacity.FitsProposal(tx.PsbtBase64))
                         {
                             <div class="flex justify-center pt-1"><QrImage Payload="@tx.PsbtBase64" Alt="@L.T("ms.pendingDetail.share.qr_alt")" /></div>
                         }
@@ -406,6 +407,45 @@
     private string? importNotice;
 
     private string ListHref => $"/multisig/{WalletId}/pending";
+
+    // The summary lists every recipient (specs/029-multisig-multiple-recipients): lines from the saved proposal, warnings
+    // and change read from its PSBT, names only from this device's contacts. Rebuilt when the proposal's PSBT changes.
+    private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
+    private string? summaryFor;
+    private PaymentSummaryModel? summary;
+    private PaymentSummaryModel Summary
+    {
+        get
+        {
+            var key = tx!.PsbtBase64 + "|" + contactNames.Count;
+            if (summary is null || summaryFor != key)
+            {
+                var facts = MultisigProposalReader.Read(tx.PsbtBase64, config!, MultisigService.ActiveNetwork);
+                var ok = facts.Problems.Count == 0;
+                summary = PaymentSummaryBuilder.Build(tx.AllRecipients, tx.FeeSatoshis, tx.Memo,
+                    ok ? facts.ChangeSat : null, ok ? facts.Warnings : null,
+                    a => contactNames.TryGetValue(a.Trim(), out var name) ? name : null);
+                summaryFor = key;
+            }
+            return summary;
+        }
+    }
+
+    private string RecipientText => tx!.RecipientCount > 1
+        ? L.T("send.confirm.recipients", tx.RecipientCount)
+        : MultisigFormat.Short(tx.DestinationAddress);
+
+    private async Task LoadContactNamesAsync()
+    {
+        try
+        {
+            contactNames = (await Contacts.GetAllAsync())
+                .Where(c => !string.IsNullOrWhiteSpace(c.Address) && !string.IsNullOrWhiteSpace(c.Name))
+                .GroupBy(c => c.Address.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
+        }
+        catch { contactNames = new(StringComparer.OrdinalIgnoreCase); }
+    }
     private string? LocalKey => config?.CoSigners.FirstOrDefault(c => c.IsLocal)?.PublicKeyHex;
     private bool LiveRoom => tx is not null && !string.IsNullOrEmpty(tx.UnsignedTxId) && Room.Current?.UnsignedTxId == tx.UnsignedTxId;
     private MultisigState State => PendingStateClassifier.Classify(tx!, LocalKey, LiveRoom);
@@ -429,6 +469,8 @@
         isLoading = true;
         config = null;
         tx = null;
+        summary = null;
+        if (contactNames.Count == 0) await LoadContactNamesAsync();
         coinsSpent = false;
         signConfirm = confirmCancel = shareOpen = importOpen = onlineOpen = false;
         try

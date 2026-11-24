@@ -529,4 +529,104 @@ public class MultisigServiceTests
         var tx = _sut.FinalizePSBT(combined);
         Assert.NotEmpty(tx.ToBytes());
     }
+
+    // ─── CreateMultisigPSBTWithFee with several payments (specs/029-multisig-multiple-recipients) ───
+
+    [Fact]
+    public void WithFee_SeveralPayments_AreWrittenInOrder_ThenMemo_ThenChange()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(1_000_000_000);
+        var d1 = Destination();
+        var d2 = Destination();
+        var d3 = Destination();
+
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins,
+            [(d1, Money.Satoshis(100_000_000)), (d2, Money.Satoshis(200_000)), (d3, Money.Satoshis(50_000_000))],
+            address, 5_000, 100_000, "rent");
+
+        var outputs = psbt.GetGlobalTransaction().Outputs;
+        Assert.Equal(5, outputs.Count);
+        Assert.Equal(d1.ScriptPubKey, outputs[0].ScriptPubKey);
+        Assert.Equal(100_000_000, outputs[0].Value.Satoshi);
+        Assert.Equal(d2.ScriptPubKey, outputs[1].ScriptPubKey);
+        Assert.Equal(200_000, outputs[1].Value.Satoshi);
+        Assert.Equal(d3.ScriptPubKey, outputs[2].ScriptPubKey);
+        Assert.Equal(50_000_000, outputs[2].Value.Satoshi);
+        Assert.True(TxNullDataTemplate.Instance.CheckScriptPubKey(outputs[3].ScriptPubKey));
+        Assert.Equal(address.ScriptPubKey, outputs[4].ScriptPubKey);
+        Assert.Equal(1_000_000_000 - 150_200_000 - 5_000, outputs[4].Value.Satoshi);
+        Assert.Equal(5_000, psbt.GetFee().Satoshi);
+    }
+
+    [Fact]
+    public void WithFee_SeveralPayments_ChangeBelowTheDustThreshold_IsLeftInTheFee()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(300_000_000);
+
+        // 300,000,000 − 150,000,000 − 149,950,000 − 5,000 = 45,000 left over: below 100,000, so no change output.
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins,
+            [(Destination(), Money.Satoshis(150_000_000)), (Destination(), Money.Satoshis(149_950_000))],
+            address, 5_000, 100_000);
+
+        Assert.Equal(2, psbt.GetGlobalTransaction().Outputs.Count);
+        Assert.Equal(50_000, psbt.GetFee().Satoshi);
+    }
+
+    [Fact]
+    public void WithFee_SeveralPayments_ThatTheCoinsDoNotCover_Throw()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(200_000_000);
+
+        Assert.Throws<InvalidOperationException>(() => _sut.CreateMultisigPSBTWithFee(redeem, coins,
+            [(Destination(), Money.Satoshis(100_000_000)), (Destination(), Money.Satoshis(100_000_000))],
+            address, 5_000, 100_000));
+    }
+
+    [Fact]
+    public void WithFee_NoPayments_OrANonPositiveAmount_Throw()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(1_000_000_000);
+
+        Assert.Throws<ArgumentException>(() => _sut.CreateMultisigPSBTWithFee(redeem, coins,
+            Array.Empty<(BitcoinAddress, Money)>(), address, 5_000, 100_000));
+        Assert.Throws<ArgumentException>(() => _sut.CreateMultisigPSBTWithFee(redeem, coins,
+            [(Destination(), Money.Satoshis(100_000_000)), (Destination(), Money.Zero)], address, 5_000, 100_000));
+        Assert.Throws<ArgumentException>(() => _sut.CreateMultisigPSBTWithFee(redeem, coins,
+            [(Destination(), Money.Satoshis(-1))], address, 5_000, 100_000));
+    }
+
+    [Fact]
+    public void WithFee_SinglePaymentOverload_BuildsTheSameTransactionAsBefore()
+    {
+        var (redeem, address, coins, _) = FundedMultisig(600_000_000, 500_000_000);
+        var destination = Destination();
+
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins, destination, Money.Satoshis(100_000_000), address, 5_000, 100_000, "memo");
+
+        // The transaction the single-payment builder has always made: inputs in order, payment, memo, change.
+        var expected = DigiByteNetwork.Mainnet.CreateTransaction();
+        foreach (var coin in coins) expected.Inputs.Add(new TxIn(coin.Outpoint));
+        expected.Outputs.Add(Money.Satoshis(100_000_000), destination.ScriptPubKey);
+        expected.Outputs.Add(Money.Zero, TxNullDataTemplate.Instance.GenerateScriptPubKey(System.Text.Encoding.UTF8.GetBytes("memo")));
+        expected.Outputs.Add(Money.Satoshis(1_100_000_000 - 100_000_000 - 5_000), address.ScriptPubKey);
+
+        Assert.Equal(expected.GetHash(), psbt.GetGlobalTransaction().GetHash());
+    }
+
+    [Fact]
+    public void WithFee_SeveralPayments_CanBeSignedByTwoCoSigners_AndFinalized()
+    {
+        var (redeem, address, coins, keys) = FundedMultisig(1_000_000_000);
+        var psbt = _sut.CreateMultisigPSBTWithFee(redeem, coins,
+            [(Destination(), Money.Satoshis(100_000_000)), (Destination(), Money.Satoshis(200_000_000))], address, 5_000, 100_000);
+
+        var a = _sut.DeserializePSBT(MultisigService.SerializePSBT(psbt));
+        var b = _sut.DeserializePSBT(MultisigService.SerializePSBT(psbt));
+        _sut.SignPSBT(a, keys[0]);
+        _sut.SignPSBT(b, keys[2]);
+        var combined = _sut.CombinePSBTs([a, b]);
+
+        Assert.True(_sut.CanFinalize(combined, 2));
+        Assert.Equal(3, _sut.FinalizePSBT(combined).Outputs.Count);
+    }
 }

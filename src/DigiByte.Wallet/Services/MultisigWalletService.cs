@@ -256,40 +256,80 @@ public class MultisigWalletService
         decimal amountDgb,
         int feeRateSatPerVByte = DefaultFeeRateSatPerVByte,
         string? memo = null,
+        string? submissionToken = null) =>
+        CreateSpendingPSBTAsync(config, [(destinationAddress, amountDgb)], feeRateSatPerVByte, memo, submissionToken);
+
+    /// <summary>
+    /// Creates one spending PSBT that pays every one of <paramref name="recipients"/>, in the order given
+    /// (specs/029-multisig-multiple-recipients). The coins, fee and change are the ones
+    /// <see cref="MultisigSendHelper.EstimateSend(IReadOnlyList{UtxoInfo}, int, IReadOnlyList{long}, int, int, string, int)"/>
+    /// shows the user. Refuses an empty list, more than <see cref="MultisigSendHelper.MaxRecipients"/> recipients, and any
+    /// row <see cref="MultisigSendHelper.ValidateRecipients"/> flags. Repeating a call with the same
+    /// <paramref name="submissionToken"/> returns the proposal created the first time instead of making a second one.
+    /// </summary>
+    public Task<PendingMultisigTransaction> CreateSpendingPSBTAsync(
+        MultisigWalletConfig config,
+        IReadOnlyList<(string Address, decimal AmountDgb)> recipients,
+        int feeRateSatPerVByte = DefaultFeeRateSatPerVByte,
+        string? memo = null,
         string? submissionToken = null)
     {
         if (string.IsNullOrEmpty(submissionToken))
-            return CreateProposalCoreAsync(config, destinationAddress, amountDgb, feeRateSatPerVByte, memo);
+            return CreateProposalCoreAsync(config, recipients, feeRateSatPerVByte, memo);
 
         return _submissions.GetOrAdd(
             config.WalletId + ":" + submissionToken,
             _ => new Lazy<Task<PendingMultisigTransaction>>(
-                () => CreateProposalCoreAsync(config, destinationAddress, amountDgb, feeRateSatPerVByte, memo))).Value;
+                () => CreateProposalCoreAsync(config, recipients, feeRateSatPerVByte, memo))).Value;
     }
 
     private async Task<PendingMultisigTransaction> CreateProposalCoreAsync(
-        MultisigWalletConfig config, string destinationAddress, decimal amountDgb, int feeRate, string? memo)
+        MultisigWalletConfig config, IReadOnlyList<(string Address, decimal AmountDgb)> recipients, int feeRate, string? memo)
     {
+        if (recipients.Count == 0)
+            throw new ArgumentException("Add at least one recipient.", nameof(recipients));
+        if (recipients.Count > MultisigSendHelper.MaxRecipients)
+            throw new ArgumentException($"A payment can have at most {MultisigSendHelper.MaxRecipients} recipients.", nameof(recipients));
+
         var network = CurrentNetwork;
-        var check = MultisigSendHelper.ValidateDestination(destinationAddress, network, config.Address);
-        if (!check.Ok)
-            throw new ArgumentException(check.Error, nameof(destinationAddress));
-        if (decimal.Round(amountDgb, 8) != amountDgb)
-            throw new ArgumentException("An amount can have at most 8 decimal places.", nameof(amountDgb));
+        var lines = new List<ProposalRecipient>(recipients.Count);
+        foreach (var (address, amountDgb) in recipients)
+        {
+            if (decimal.Round(amountDgb, 8) != amountDgb)
+                throw new ArgumentException("An amount can have at most 8 decimal places.", nameof(recipients));
+            lines.Add(new ProposalRecipient((address ?? "").Trim(), (long)(amountDgb * 100_000_000m)));
+        }
 
-        var amountSat = (long)(amountDgb * 100_000_000m);
+        var problems = MultisigSendHelper.ValidateRecipients(
+            lines.Select(l => (l.Address, l.AmountSatoshis)).ToList(), network, config.Address);
+        for (var i = 0; i < problems.Count; i++)
+        {
+            if (problems[i] is not { } problem) continue;
+            if (recipients.Count == 1 && problem is RecipientProblem.AddressMissing or RecipientProblem.WrongNetwork or RecipientProblem.InvalidAddress)
+                throw new ArgumentException(MultisigSendHelper.ValidateDestination(lines[i].Address, network, config.Address).Error, "destinationAddress");
+            if (problem is RecipientProblem.NoAmount or RecipientProblem.BelowMinimum)
+                continue;   // the estimate below refuses these with its usual message
+            if (recipients.Count == 1 && problem is RecipientProblem.OwnAddress)
+                continue;   // a single payment back to the multisig stays allowed, as before (the page warns about it)
+            throw new ArgumentException(RecipientMessage(problem, i), nameof(recipients));
+        }
+
         var memoBytes = string.IsNullOrWhiteSpace(memo) ? 0 : System.Text.Encoding.UTF8.GetByteCount(memo);
-
         var utxos = await _blockchain.GetUtxosAsync(config.Address);
         var estimate = MultisigSendHelper.EstimateSend(
-            utxos, feeRate, amountSat, config.RequiredSignatures, config.TotalSigners, config.AddressType, memoBytes);
+            utxos, feeRate, lines.Select(l => l.AmountSatoshis).ToList(),
+            config.RequiredSignatures, config.TotalSigners, config.AddressType, memoBytes);
         if (!estimate.Ok)
+        {
+            if (recipients.Count > 1 && estimate.Problem is SendProblem.NoAmount or SendProblem.BelowMinimum)
+                throw new ArgumentException(estimate.Error, nameof(recipients));
             throw new InvalidOperationException(estimate.Error);
+        }
 
         var service = new MultisigService(network);
         var redeemScript = new Script(Convert.FromHexString(config.RedeemScriptHex));
         var multisigAddress = BitcoinAddress.Create(config.Address, network);
-        var destination = BitcoinAddress.Create(destinationAddress.Trim(), network);
+        var payments = lines.Select(l => (BitcoinAddress.Create(l.Address, network), Money.Satoshis(l.AmountSatoshis))).ToList();
 
         // Every coin sits at the multisig address, so its script is the address's script (explorers often omit it).
         var coins = estimate.Inputs.Select(u => new Coin(
@@ -299,7 +339,7 @@ public class MultisigWalletService
             multisigAddress.ScriptPubKey)).ToList();
 
         var psbt = service.CreateMultisigPSBTWithFee(
-            redeemScript, coins, destination, Money.Satoshis(amountSat), multisigAddress,
+            redeemScript, coins, payments, multisigAddress,
             estimate.FeeSatoshis, MultisigSendHelper.DustThresholdSatoshis, memo);
 
         var pending = new PendingMultisigTransaction
@@ -307,18 +347,38 @@ public class MultisigWalletService
             Id = Guid.NewGuid().ToString("N"),
             WalletId = config.WalletId,
             PsbtBase64 = MultisigService.SerializePSBT(psbt),
-            Description = $"Send {amountDgb:F8} DGB to {Shorten(destinationAddress.Trim())}",
-            DestinationAddress = destinationAddress.Trim(),
-            AmountSatoshis = amountSat,
+            Description = DescribePayment(lines),
+            DestinationAddress = lines[0].Address,
+            AmountSatoshis = estimate.AmountSatoshis,
             FeeSatoshis = estimate.FeeSatoshis,
             RequiredSignatures = config.RequiredSignatures,
             UnsignedTxId = psbt.GetGlobalTransaction().GetHash().ToString(),
             Memo = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim(),
+            Recipients = lines,
         };
 
         await SavePendingTransactionAsync(pending);
         return pending;
     }
+
+    /// <summary>The stored English description of a payment: the short address for one recipient, the count for several.</summary>
+    private static string DescribePayment(IReadOnlyList<ProposalRecipient> lines)
+    {
+        var total = lines.Sum(l => l.AmountSatoshis) / 100_000_000m;
+        return lines.Count == 1
+            ? $"Send {total:F8} DGB to {Shorten(lines[0].Address)}"
+            : $"Send {total:F8} DGB to {lines.Count} recipients";
+    }
+
+    private static string RecipientMessage(RecipientProblem problem, int index) => problem switch
+    {
+        RecipientProblem.AddressMissing => $"Recipient {index + 1}: enter a destination address.",
+        RecipientProblem.WrongNetwork => $"Recipient {index + 1}: this address is for a different network.",
+        RecipientProblem.InvalidAddress => $"Recipient {index + 1}: this is not a valid DigiByte address.",
+        RecipientProblem.Repeated => $"Recipient {index + 1}: this address is already a recipient of this payment.",
+        RecipientProblem.OwnAddress => $"Recipient {index + 1}: this is the shared wallet's own address.",
+        _ => $"Recipient {index + 1} can't be paid.",
+    };
 
     private static string Shorten(string address) => address.Length <= 12 ? address : address[..12] + "...";
 
@@ -681,9 +741,10 @@ public class MultisigWalletService
             Id = Guid.NewGuid().ToString("N"),
             WalletId = config.WalletId,
             PsbtBase64 = MultisigService.SerializePSBT(unsigned),
-            Description = $"Send {facts.AmountSat / 100_000_000m:F8} DGB to {Shorten(facts.DestinationAddress)}",
+            Description = DescribePayment(facts.Recipients),
             DestinationAddress = facts.DestinationAddress,
             AmountSatoshis = facts.AmountSat,
+            Recipients = [.. facts.Recipients],
             FeeSatoshis = facts.FeeSat,
             RequiredSignatures = config.RequiredSignatures,
             UnsignedTxId = facts.UnsignedTxId,
@@ -708,7 +769,7 @@ public class MultisigWalletService
 
     /// <summary>
     /// Null when <paramref name="psbtBase64"/> is the same payment as <paramref name="pending"/> and the local copy's saved
-    /// recipient, amount and fee match what its transaction really does; otherwise a plain-language reason (FR-005).
+    /// recipients (in order), amounts and fee match what its transaction really does; otherwise a plain-language reason (FR-005).
     /// </summary>
     public string? CheckProposalMatches(PendingMultisigTransaction pending, MultisigWalletConfig config, string psbtBase64)
     {
@@ -724,10 +785,14 @@ public class MultisigWalletService
         if (!string.Equals(room.UnsignedTxId, expected, StringComparison.OrdinalIgnoreCase))
             return "The room's payment is a different transaction from the one on this device.";
 
-        if (!string.Equals(room.DestinationAddress, pending.DestinationAddress, StringComparison.Ordinal)
-            || room.AmountSat != pending.AmountSatoshis
-            || room.FeeSat != pending.FeeSatoshis)
-            return "This device's saved recipient, amount or fee does not match the payment itself.";
+        // Every saved line must be the transaction's line at the same position (specs/029-multisig-multiple-recipients).
+        var saved = pending.AllRecipients;
+        var sameLines = saved.Count == room.Recipients.Count
+            && saved.Zip(room.Recipients).All(pair =>
+                string.Equals(pair.First.Address, pair.Second.Address, StringComparison.Ordinal)
+                && pair.First.AmountSatoshis == pair.Second.AmountSatoshis);
+        if (!sameLines || room.FeeSat != pending.FeeSatoshis)
+            return "This device's saved recipients, amounts or fee do not match the payment itself.";
         return null;
     }
 

@@ -59,7 +59,7 @@
         {
             <div class="p-3 bg-white dark:bg-dgb-900 border border-amber-300 dark:border-amber-700/50 rounded-xl flex flex-col gap-2" role="alertdialog" aria-label="@L.T("ms.pending.restore.aria")">
                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@L.T("ms.pending.restore.title")</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.pending.restore.body", MultisigFormat.Dgb(cancelledPrompt.AmountSatoshis), MultisigFormat.Short(cancelledPrompt.DestinationAddress))</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.pending.restore.body", MultisigFormat.Dgb(cancelledPrompt.AmountSatoshis), cancelledPrompt.RecipientCount > 1 ? L.T("send.confirm.recipients", cancelledPrompt.RecipientCount) : MultisigFormat.Short(cancelledPrompt.DestinationAddress))</p>
                 <div class="flex gap-2">
                     <button type="button" class="btn-primary btn-sm" @onclick="RestoreCancelledProposal">@L.T("ms.pending.restore.confirm")</button>
                     <button type="button" class="btn-ghost btn-sm" @onclick="() => cancelledPrompt = null">@L.T("ms.pending.restore.keep")</button>
@@ -89,7 +89,7 @@
                 <p class="flex-1 min-w-0 text-sm text-slate-700 dark:text-slate-200">
                     <span class="font-semibold">@(L.T(justReceivedLabel)):</span>
                     <span class="tabular-nums">@MultisigFormat.Dgb(received.AmountSatoshis) DGB</span>
-                    @L.T("ms.pending.received.to") <span class="font-mono text-xs">@MultisigFormat.Short(received.DestinationAddress)</span>
+                    @L.T("ms.pending.received.to") @if (received.RecipientCount > 1) { <span>@L.T("send.confirm.recipients", received.RecipientCount)</span> } else { <span class="font-mono text-xs">@MultisigFormat.Short(received.DestinationAddress)</span> }
                 </p>
                 <button type="button" class="btn-primary btn-sm shrink-0" data-testid="pending-review-received" @onclick="() => OpenPayment(received)">@L.T("dd.send.continue")</button>
                 <button type="button" class="icon-btn shrink-0" aria-label="@L.T("home.search_offer.dismiss")" @onclick="() => justReceived = null">

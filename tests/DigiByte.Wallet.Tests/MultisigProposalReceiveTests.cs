@@ -382,4 +382,92 @@ public class MultisigProposalReceiveTests
 
         Assert.Empty(await a.Sut.GetSpentInputIdsAsync(a.Config, inputs));
     }
+
+    // ─── Several recipients (specs/029-multisig-multiple-recipients, T017) ───
+
+    private static async Task<(Device A, Device B, Key[] Keys, PendingMultisigTransaction Proposal)> TwoDevicesSeveralRecipientsAsync()
+    {
+        var keys = Keys();
+        var utxos = Utxos();
+        var a = await DeviceAsync(keys, 0, utxos: utxos);
+        var b = await DeviceAsync(keys, 1, owner: "wallet-b", utxos: utxos);
+        var proposal = await a.Sut.CreateSpendingPSBTAsync(a.Config, [(Destination(), 1m), (Destination(), 0.5m), (Destination(), 0.25m)], 10, "payroll");
+        return (a, b, keys, proposal);
+    }
+
+    private static PendingMultisigTransaction CopyWith(PendingMultisigTransaction p, List<ProposalRecipient> recipients, long? fee = null) => new()
+    {
+        Id = p.Id,
+        WalletId = p.WalletId,
+        PsbtBase64 = p.PsbtBase64,
+        DestinationAddress = recipients[0].Address,
+        AmountSatoshis = recipients.Sum(r => r.AmountSatoshis),
+        FeeSatoshis = fee ?? p.FeeSatoshis,
+        RequiredSignatures = p.RequiredSignatures,
+        UnsignedTxId = p.UnsignedTxId,
+        Recipients = recipients,
+    };
+
+    [Fact]
+    public async Task Receiving_a_payment_to_several_recipients_saves_every_line_from_the_psbt()
+    {
+        var (_, b, _, proposal) = await TwoDevicesSeveralRecipientsAsync();
+
+        var result = await b.Sut.ReceiveProposalAsync(b.Config, proposal.PsbtBase64);
+
+        Assert.Equal(ProposalReceiveOutcome.Added, result.Outcome);
+        var saved = Assert.Single(await b.Sut.GetPendingTransactionsAsync(b.Config.WalletId));
+        Assert.Equal(proposal.Recipients, saved.Recipients);
+        Assert.Equal(proposal.Recipients[0].Address, saved.DestinationAddress);
+        Assert.Equal(175_000_000, saved.AmountSatoshis);
+        Assert.Equal("Send 1.75000000 DGB to 3 recipients", saved.Description);
+    }
+
+    [Fact]
+    public async Task A_saved_copy_whose_recipients_were_reordered_or_changed_is_refused()
+    {
+        var (a, _, _, proposal) = await TwoDevicesSeveralRecipientsAsync();
+        var lines = proposal.Recipients;
+        const string reason = "This device's saved recipients, amounts or fee do not match the payment itself.";
+
+        Assert.Null(a.Sut.CheckProposalMatches(proposal, a.Config, proposal.PsbtBase64));
+        Assert.Equal(reason, a.Sut.CheckProposalMatches(CopyWith(proposal, [lines[1], lines[0], lines[2]]), a.Config, proposal.PsbtBase64));
+        Assert.Equal(reason, a.Sut.CheckProposalMatches(CopyWith(proposal, [lines[0], lines[1], lines[2] with { AmountSatoshis = 26_000_000 }]), a.Config, proposal.PsbtBase64));
+        Assert.Equal(reason, a.Sut.CheckProposalMatches(CopyWith(proposal, [lines[0], lines[1]]), a.Config, proposal.PsbtBase64));
+        Assert.Equal(reason, a.Sut.CheckProposalMatches(CopyWith(proposal, [.. lines], fee: proposal.FeeSatoshis + 1), a.Config, proposal.PsbtBase64));
+    }
+
+    [Fact]
+    public async Task A_legacy_single_recipient_record_still_matches_its_psbt()
+    {
+        var (a, _, _, proposal) = await TwoDevicesAsync();
+        var legacy = new PendingMultisigTransaction
+        {
+            Id = proposal.Id,
+            WalletId = proposal.WalletId,
+            PsbtBase64 = proposal.PsbtBase64,
+            DestinationAddress = proposal.DestinationAddress,
+            AmountSatoshis = proposal.AmountSatoshis,
+            FeeSatoshis = proposal.FeeSatoshis,
+            RequiredSignatures = proposal.RequiredSignatures,
+            UnsignedTxId = proposal.UnsignedTxId,
+        };
+
+        Assert.Empty(legacy.Recipients);
+        Assert.Null(a.Sut.CheckProposalMatches(legacy, a.Config, proposal.PsbtBase64));
+    }
+
+    [Fact]
+    public async Task Signatures_merge_into_a_payment_to_several_recipients()
+    {
+        var (_, b, keys, proposal) = await TwoDevicesSeveralRecipientsAsync();
+        await b.Sut.ReceiveProposalAsync(b.Config, proposal.PsbtBase64);
+
+        var first = await b.Sut.ReceiveProposalAsync(b.Config, SignedCopy(proposal.PsbtBase64, keys[0]));
+        var second = await b.Sut.ReceiveProposalAsync(b.Config, SignedCopy(proposal.PsbtBase64, keys[2]));
+
+        Assert.Equal(ProposalReceiveOutcome.Merged, first.Outcome);
+        Assert.Equal(2, second.Pending.SignatureCount);
+        Assert.Equal(PendingTxStatus.ReadyToFinalize, second.Pending.Status);
+    }
 }

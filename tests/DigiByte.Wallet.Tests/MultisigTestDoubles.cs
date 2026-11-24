@@ -90,9 +90,13 @@ internal sealed class MultisigFakeChain : IBlockchainService
 
     public Task<List<UtxoInfo>> GetUtxosAsync(IEnumerable<string> addresses) => GetUtxosAsync("");
 
+    /// <summary>Hex of the last transaction handed to <see cref="BroadcastTransactionAsync"/>, or null.</summary>
+    public string? LastBroadcastHex { get; private set; }
+
     public async Task<string> BroadcastTransactionAsync(byte[] rawTransaction)
     {
         BroadcastCalls++;
+        LastBroadcastHex = Convert.ToHexString(rawTransaction);
         if (BroadcastDelay > TimeSpan.Zero) await Task.Delay(BroadcastDelay);
         if (BroadcastFailure is not null) throw BroadcastFailure;
         return BroadcastResult;

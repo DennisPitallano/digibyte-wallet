@@ -342,4 +342,102 @@ public class MultisigSendValidationTests
         var third = await sut.CreateSpendingPSBTAsync(config, dest, 1m, 20, null, "token-2");
         Assert.NotEqual(results[0].Id, third.Id);
     }
+
+    // ─── Several recipients (specs/029-multisig-multiple-recipients) ───
+
+    [Fact]
+    public void ValidateRecipients_FlagsEachProblemOnItsOwnRow()
+    {
+        var own = MainnetSegwit();
+        var good = MainnetSegwit();
+        var repeated = MainnetSegwit();
+        var rows = new List<(string, long)>
+        {
+            (good, 200_000),                                  // 0 fine
+            ("", 200_000),                                    // 1 missing
+            (TestnetSegwit(), 200_000),                       // 2 wrong network
+            ("dgb1notanaddress", 200_000),                    // 3 invalid
+            (repeated, 200_000),                              // 4 fine (first time)
+            (repeated.ToUpperInvariant(), 200_000),           // 5 repeated (letter case ignored)
+            (own, 200_000),                                   // 6 the shared wallet's own address
+            (MainnetSegwit(), 0),                             // 7 no amount
+            (MainnetSegwit(), MultisigSendHelper.DustThresholdSatoshis - 1), // 8 below the minimum
+            (MainnetSegwit(), MultisigSendHelper.DustThresholdSatoshis),     // 9 fine (at the minimum)
+        };
+
+        var problems = MultisigSendHelper.ValidateRecipients(rows, DigiByteNetwork.Mainnet, own);
+
+        Assert.Equal(
+            new RecipientProblem?[]
+            {
+                null, RecipientProblem.AddressMissing, RecipientProblem.WrongNetwork, RecipientProblem.InvalidAddress,
+                null, RecipientProblem.Repeated, RecipientProblem.OwnAddress, RecipientProblem.NoAmount,
+                RecipientProblem.BelowMinimum, null,
+            },
+            problems);
+    }
+
+    [Fact]
+    public void EstimateVBytes_EachExtraPaymentOutput_Adds43Bytes()
+    {
+        var one = MultisigSendHelper.EstimateVBytes(1, 2, 3, "p2sh-p2wsh", true);
+        var three = MultisigSendHelper.EstimateVBytes(1, 2, 3, "p2sh-p2wsh", true, paymentOutputs: 3);
+
+        Assert.Equal(2 * 43, three - one);
+    }
+
+    [Fact]
+    public void EstimateSend_SeveralAmounts_AddsThemUp_AndPricesEveryOutput()
+    {
+        var utxos = new List<UtxoInfo> { Utxo(1_000_000_000) };
+
+        var estimate = MultisigSendHelper.EstimateSend(utxos, 20, [100_000_000, 50_000_000, 20_000_000], 2, 3, "p2sh-p2wsh");
+
+        Assert.True(estimate.Ok);
+        Assert.Equal(170_000_000, estimate.AmountSatoshis);
+        Assert.Equal(3, estimate.RecipientCount);
+        Assert.Equal(MultisigSendHelper.EstimateVBytes(1, 2, 3, "p2sh-p2wsh", true, paymentOutputs: 3) * 20L, estimate.FeeSatoshis);
+        Assert.Equal(1_000_000_000 - 170_000_000 - estimate.FeeSatoshis, estimate.ChangeSatoshis);
+        Assert.Equal(0, estimate.ShortfallSatoshis);
+    }
+
+    [Fact]
+    public void EstimateSend_SeveralAmounts_PointsAtTheRowThatIsBelowTheMinimumOrEmpty()
+    {
+        var utxos = new List<UtxoInfo> { Utxo(1_000_000_000) };
+
+        var below = MultisigSendHelper.EstimateSend(utxos, 20, [100_000_000, MultisigSendHelper.DustThresholdSatoshis - 1], 2, 3, "p2sh-p2wsh");
+        var empty = MultisigSendHelper.EstimateSend(utxos, 20, [100_000_000, 200_000_000, 0], 2, 3, "p2sh-p2wsh");
+
+        Assert.Equal(SendProblem.BelowMinimum, below.Problem);
+        Assert.Equal(1, below.ProblemIndex);
+        Assert.Equal(SendProblem.NoAmount, empty.Problem);
+        Assert.Equal(2, empty.ProblemIndex);
+    }
+
+    [Fact]
+    public void EstimateSend_SeveralAmounts_OverTheBalance_SaysByHowMuch()
+    {
+        var utxos = new List<UtxoInfo> { Utxo(200_000_000) };
+
+        var estimate = MultisigSendHelper.EstimateSend(utxos, 20, [150_000_000, 100_000_000], 2, 3, "p2sh-p2wsh");
+
+        Assert.Equal(SendProblem.OverSpendable, estimate.Problem);
+        var fee = MultisigSendHelper.EstimateVBytes(1, 2, 3, "p2sh-p2wsh", false, paymentOutputs: 2) * 20L;
+        Assert.Equal(250_000_000 + fee - 200_000_000, estimate.ShortfallSatoshis);
+    }
+
+    [Fact]
+    public void EstimateSend_SingleAmount_IsUnchangedByTheListOverload()
+    {
+        var utxos = new List<UtxoInfo> { Utxo(600_000_000), Utxo(400_000_000) };
+
+        var single = MultisigSendHelper.EstimateSend(utxos, 20, 700_000_000, 2, 3, "p2sh-p2wsh");
+        var list = MultisigSendHelper.EstimateSend(utxos, 20, [700_000_000L], 2, 3, "p2sh-p2wsh");
+
+        Assert.Equal(single.FeeSatoshis, list.FeeSatoshis);
+        Assert.Equal(single.ChangeSatoshis, list.ChangeSatoshis);
+        Assert.Equal(single.Inputs.Count, list.Inputs.Count);
+        Assert.Equal(1, single.RecipientCount);
+    }
 }
