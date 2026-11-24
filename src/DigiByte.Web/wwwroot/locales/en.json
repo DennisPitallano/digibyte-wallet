@@ -112,7 +112,6 @@
   "remittance.savings": "Save {0} by sending with DigiByte",
   "remittance.register": "Register Your Username",
   "create.phrase_title": "Your Recovery Phrase",
-  "create.phrase_warning": "Write these 24 words down and store them safely. They are the only way to recover your wallet.",
   "create.written": "I've Written It Down",
   "create.confirm_title": "Confirm Recovery Phrase",
   "create.set_pin": "Set Your PIN",

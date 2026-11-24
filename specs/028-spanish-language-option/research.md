@@ -164,3 +164,9 @@ The service sets the default thread culture on purpose. In tests that leaked int
 - **Page language**: `index.html` hard-coded `<html lang="en">`, so screen readers read Spanish with English pronunciation (FR-012). `LocalizationService` now sets `document.documentElement.lang` at startup and on every successful switch (`domHelpers.setDocumentLanguage`); a failed switch leaves it alone.
 - **Raw-HTML translations**: eight keys are rendered as raw HTML to keep a bold word inside a sentence. `LocaleFilesTests` now requires the same `<strong>`/`<b>` tags in both languages for those keys, no other markup or bare `<`, `>`, `&` in them, and no tags in any other key.
 - **Date patterns**: the `history.format.*` keys hold .NET date patterns; a test formats a real date with each in both languages.
+
+### R16. First-load size of the translation files (measured 2026-11-25)
+
+- **Measured**: production (`dgbwallet.app`) serves `locales/*.json` gzip-compressed (`Content-Encoding: gzip`, 7,790 bytes for today's `en.json`), with `Cache-Control: no-cache`, and the service worker caches them for offline use.
+- **With this feature**: `en.json` is 52.7 KB gzipped (was 7.8 KB) and `es.json` 56.6 KB. `Program.cs` awaits `LocalizationService.InitializeAsync()` before the app starts, and it always loads English as the fallback. So a first visit downloads about 53 KB more before the first screen in English, and about 110 KB more in Spanish. The plan's target (the language file in under 1 s on 3G, quickstart §6 row 6 "under ~60 KB") holds for each file on its own, not for the two together.
+- **Open decision (T061)**: accept it (cached after the first visit), or stop blocking startup on the English fallback (load it after the first render, or only when a Spanish key is missing), or split the files per screen. No change made yet.

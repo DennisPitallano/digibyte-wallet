@@ -209,7 +209,7 @@ Each task applies the conventions above to the files listed. Each moves every vi
 - [X] T044 [P] [US2] Translate `src/DigiByte.Web/Components/Shared/TransactionRow.razor`, `src/DigiByte.Web/Components/Shared/TransactionDetailModal.razor` and `src/DigiByte.Web/Components/Shared/ConfirmationBadge.razor` (`history.*`), including "Sent", "Received", "Pending" and the confirmations text with plural keys.
 - [X] T045 [P] [US2] Translate the layout chrome the in-scope screens sit in: `src/DigiByte.Web/Layout/NavMenu.razor`, the labels in `src/DigiByte.Web/Layout/MoreMenu.cs` and `NavIcons.cs` that are shown to people, `src/DigiByte.Web/Components/Shared/PageHeader.razor`, `OfflineBanner.razor`, `NodeDegradedBanner.razor` and `ToastContainer.razor` (`nav.*`, `banner.*`; reuse the existing `nav.*` keys). Layout components re-render through `MainLayout`; components inside `@Body` need the `Locale` parameter.
 - [X] T046 [US2] Fill every key in `en.json` that is still missing from `src/DigiByte.Web/wwwroot/locales/es.json`, including any of the original 22 not covered above (`contacts.*`, `payments.*`, `identity.description`, `identity.scan`, `remittance.*`). Follow the style in research R11.
-- [ ] T047 [US2] Review the Spanish screens at 375 px width (quickstart §6 row 3). Where a Spanish label overflows, let it wrap or shorten the Spanish text; never shrink touch targets.
+- [ ] T047 [US2] Review the Spanish screens at 375 px width, including the FR-009a screens (T058) (quickstart §6 row 3). Where a Spanish label overflows, let it wrap or shorten the Spanish text; never shrink touch targets.
 - [X] T048 [US2] Add a source-scan test to `tests/DigiByte.Wallet.Tests/LocaleFilesTests.cs` for SC-002. For each in-scope file from T031–T045:
   - Strip `@code { … }` blocks, Razor `@…` expressions, comments, `<svg>…</svg>` and `<path …>`.
   - Fail on any remaining text node or `placeholder=`/`title=`/`aria-label=` value that holds two or more consecutive letters [A-Za-z] and isn't on an allow-list (`DigiByte`, `DGB`, `DigiDollar`, `Digi-ID`, `BIP21`, `sat/vB`, `QR`, `PIN`, `ID`).
@@ -232,6 +232,17 @@ Each task applies the conventions above to the files listed. Each moves every vi
 - [X] T052 [US3] In the running app, open Settings → Language and check the sheet lists exactly English and Español, with no other language anywhere in the app's language UI (US3 acceptance 1).
 
 **Checkpoint**: The picker shows English and Español only.
+
+---
+
+## Phase 7: Scope widened during implementation (2026-11-25)
+
+**Purpose**: Record work merged into the same pull request after the original plan (spec FR-009a, FR-009b; constitution: scope changes go back into the artifacts).
+
+- [X] T058 Translate contacts, Digi-ID, the DigiDollar screens, multisig (wallets, create, import, detail, activity, pending payments, send, the guide and both signing rooms), recovery tools, wallet management, payments, help and the version dialog (FR-009a): every file added to `InScopeFiles` in `tests/DigiByte.Wallet.Tests/LocaleFilesTests.cs`, new warnings added to `translation-review.md`, shared copy button and Digi-ID dates included. Multisig Send keeps its point-only amount rule (spec Assumptions).
+- [X] T059 Translate wallet-service messages by reason (FR-009b): `ReceiveAddressException`, the `NodeBanner` state, `UpdateAdvice.ResultOf`, and `LocaleReasonKeys` with `LocaleReasonKeysTests`.
+- [ ] T060 Check the FR-009a screens in the browser in Spanish, as T050 does for the first screens (needs an unlocked wallet; multisig screens need a multisig).
+- [ ] T061 Decide whether startup should stop waiting for the English fallback file. Measured already (research R16): production gzips the files; a first visit now loads about 53 KB more before the first screen in English and about 110 KB more in Spanish.
 
 ---
 

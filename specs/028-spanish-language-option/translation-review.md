@@ -13,7 +13,6 @@ How to review:
 | identity.addrWarning.title | Not for receiving payments | No sirve para recibir pagos | | |
 | identity.addrWarning.body | This is an identity address, used only to sign in to this site. The wallet does not watch it, so any funds sent here will not show in your balance. Never use it to receive payments. | Esta es una dirección de identidad, usada solo para iniciar sesión en este sitio. La cartera no la vigila, así que los fondos enviados aquí no aparecerán en tu saldo. Nunca la uses para recibir pagos. | | |
 | identity.addrWarning.link | Sent funds here by mistake? Recover them | ¿Enviaste fondos aquí por error? Recupéralos | | |
-| create.phrase_warning | Write these 24 words down and store them safely. They are the only way to recover your wallet. | Anota estas 24 palabras y guárdalas en un lugar seguro. Son la única forma de recuperar tu billetera. | | |
 | amount.ambiguous.choice | {0} DGB | {0} DGB | | |
 | amount.ambiguous.question | Did you mean: | ¿Quisiste decir: | | |
 | backup.never_share | {0} these words with anyone. Anyone with this phrase can steal your funds. | {0} estas palabras con nadie. Cualquiera que tenga esta frase puede robar tus fondos. | | |
@@ -302,4 +301,4 @@ How to review:
 
 When every row is approved: add "The Spanish recovery-phrase, PIN and send warnings were reviewed by a native speaker." to the **Spanish** entry under Unreleased in `CHANGELOG.md`, then mark T055 done in `tasks.md`.
 
-**Wording to settle**: new text uses "billetera" (the word the file already used 42 times). Two older entries still say "Cartera": `app.name` = "Cartera DigiByte" and `nav.wallet` = "Cartera". Pick one word for the whole app and change those two if needed.
+**Wording to settle**: new text uses "billetera" (about 414 uses). Fourteen older uses still say "cartera" and need one decision for the whole app: `app.name` ("Cartera DigiByte"), `nav.wallet` ("Cartera"), the Welcome buttons `welcome.create` / `welcome.recover` ("Crear Nueva Cartera", "Recuperar Cartera Existente"; also Title Case), the Digi-ID texts `identity.addrWarning.body` and `identity.recover.*`, and `help.getting_started.2.a`, which quotes the Welcome button by name: change it together with the button.

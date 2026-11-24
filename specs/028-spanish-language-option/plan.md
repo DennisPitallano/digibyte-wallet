@@ -44,8 +44,8 @@ Together these fix four bugs that are already live: comma payment links written 
 **Scale/Scope**:
 
 - **Languages**: 2 (en, es).
-- **In-scope screens**: about 11 (Settings, Welcome, CreateWallet, BackupSeed, RecoverWallet, Unlock and the unlock sheet, Home, Receive, Send, Transactions, the language sheet) plus their sub-components.
-- **Text to move into keys**: an estimated 400–600 strings, mostly from Settings, Home, Send and Receive.
+- **In-scope screens**: about 11 at first (Settings, Welcome, CreateWallet, BackupSeed, RecoverWallet, Unlock and the unlock sheet, Home, Receive, Send, Transactions, the language sheet) plus their sub-components. Widened during implementation (spec FR-009a) to contacts, Digi-ID, the DigiDollar screens, multisig (wallets, create, import, detail, activity, pending payments, send, the guide and both signing rooms), recovery tools, wallet management, payments, help and the version dialog.
+- **Text to move into keys**: estimated 400–600 for the first screens (actual about 640); about 1,940 new entries in all once the scope was widened. `en.json` went from 7.8 KB to 52.7 KB gzipped and is loaded at startup as the fallback, so first-load size needs watching (see research R16).
 - **Amount inputs**: 6 (Send single, Send batch, Receive request, and the daily, weekly and monthly spending limits).
 
 ## Constitution Check
@@ -104,6 +104,8 @@ src/DigiByte.Web/
 ├── Pages/{Welcome,CreateWallet,BackupSeed,RecoverWallet,Unlock,Home,Receive,Send,Transactions}.razor  # translate; Send/Receive use AmountEntry
 ├── Pages/SpendingLimits.razor              # AmountEntry for the three limits (fixes "12,5" → 125)
 ├── Services/AmountEntryText.cs             # added in implementation: translated message for a parse error
+├── Services/LocaleReasonKeys.cs            # added with FR-009b: every service reason → translation key
+├── (DigiByte.Wallet) Services/ReceiveAddressException.cs, NodeSourceStatus.cs, WalletService.cs  # FR-009b: reasons instead of English text
 ├── Services/Css.cs                         # added in implementation: invariant numbers for inline CSS (research R5 follow-up)
 ├── Components/Shared/ConfirmGestureBase.cs # added in implementation: slider screen-reader text translated at the source
 ├── DigiByte.Web.csproj                     # added in implementation: BlazorIcuDataFileName = icudt_EFIGS.dat (research R12)

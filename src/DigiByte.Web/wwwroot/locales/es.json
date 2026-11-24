@@ -522,7 +522,6 @@
   "create.color_label": "Color de la billetera",
   "create.continue": "Continuar",
   "create.phrase_title": "Tu frase de recuperación",
-  "create.phrase_warning": "Anota estas 24 palabras y guárdalas en un lugar seguro. Son la única forma de recuperar tu billetera.",
   "create.written": "Ya las anoté",
   "create.confirm_title": "Confirma tu frase de recuperación",
   "create.confirm_prompt": "Ingresa la palabra {0} de tu frase de recuperación",
