@@ -226,6 +226,46 @@ public class MultisigModelsTests
     }
 
     [Fact]
+    public void OldPendingJson_WithoutRecipients_ReadsAsOneRecipient()
+    {
+        const string oldJson = """
+        {"Id":"p1","WalletId":"w1","PsbtBase64":"cHNidA==","DestinationAddress":"D1",
+         "AmountSatoshis":100,"FeeSatoshis":10,"RequiredSignatures":2,"SignedBy":[],
+         "CreatedAt":"2026-01-01T00:00:00Z","Status":0}
+        """;
+
+        var tx = System.Text.Json.JsonSerializer.Deserialize<PendingMultisigTransaction>(oldJson)!;
+
+        Assert.Empty(tx.Recipients);
+        Assert.Equal([new ProposalRecipient("D1", 100)], tx.AllRecipients);
+        Assert.Equal(1, tx.RecipientCount);
+    }
+
+    [Fact]
+    public void PendingWithSeveralRecipients_RoundTripsThroughJson()
+    {
+        var tx = new PendingMultisigTransaction
+        {
+            Id = "p2",
+            WalletId = "w1",
+            PsbtBase64 = "cHNidA==",
+            DestinationAddress = "D1",
+            AmountSatoshis = 600,
+            FeeSatoshis = 10,
+            RequiredSignatures = 2,
+            Recipients = [new("D1", 100), new("D2", 200), new("D3", 300)],
+        };
+
+        var back = System.Text.Json.JsonSerializer.Deserialize<PendingMultisigTransaction>(
+            System.Text.Json.JsonSerializer.Serialize(tx))!;
+
+        Assert.Equal(tx.Recipients, back.Recipients);
+        Assert.Equal(tx.Recipients, back.AllRecipients);
+        Assert.Equal(3, back.RecipientCount);
+        Assert.Equal(600, back.AmountSatoshis);
+    }
+
+    [Fact]
     public void OldDraftJson_WithoutOwner_StillLoads_WithEmptyOwner()
     {
         const string oldJson = """{"Id":"d1","Name":"Draft","RequiredSignatures":2,"TotalSigners":3,"OwnPublicKeyHex":"02aa","CoSigners":[]}""";

@@ -172,6 +172,57 @@ public class MultisigActivityBuilderTests
         Assert.Equal(Alice, entry.Counterparty);
         Assert.Equal(1, entry.MoreCount);
     }
+
+    // ─── Several recipients (specs/029-multisig-multiple-recipients) ───
+
+    private const string Carol = "dgb1qcarol";
+
+    [Fact]
+    public void A_proposal_to_three_recipients_lists_each_and_counts_the_others()
+    {
+        var p = new PendingMultisigTransaction
+        {
+            Id = "p3",
+            WalletId = "ms",
+            PsbtBase64 = "x",
+            DestinationAddress = Alice,
+            AmountSatoshis = 175_000_000,
+            FeeSatoshis = 1_000,
+            RequiredSignatures = 2,
+            CreatedAt = Day1,
+            Recipients = [new(Alice, 100_000_000), new(Bob, 50_000_000), new(Carol, 25_000_000)],
+        };
+
+        var entry = Assert.Single(MultisigActivityBuilder.Build(Me, [], [p]));
+
+        Assert.Equal(Alice, entry.Counterparty);
+        Assert.Equal(2, entry.MoreCount);
+        Assert.Equal(175_000_000, entry.AmountSatoshis);
+        Assert.Equal(p.Recipients, entry.Recipients);
+    }
+
+    [Fact]
+    public void A_legacy_single_recipient_proposal_has_one_line_and_no_more_count()
+    {
+        var entry = Assert.Single(MultisigActivityBuilder.Build(Me, [], [Proposal("p1", PendingTxStatus.AwaitingSignatures, Day1)]));
+
+        Assert.Equal(0, entry.MoreCount);
+        Assert.Equal([new ProposalRecipient(Alice, 100_000_000)], entry.Recipients);
+    }
+
+    [Fact]
+    public void A_sent_transaction_to_three_recipients_lists_them_without_change_and_a_received_one_lists_none()
+    {
+        var sent = Tx("tx3", Day1, 5, 2_000, [(Me, 1_000_000_000)],
+            [(Alice, 100_000_000), (Bob, 50_000_000), (Carol, 25_000_000), (Me, 824_998_000)]);
+        var received = Tx("rx3", Day1.AddHours(1), 5, 500, [(Alice, 500_000_000)], [(Me, 300_000_000), (Alice, 199_999_500)]);
+
+        var entries = MultisigActivityBuilder.Build(Me, [sent, received], []);
+
+        var sentEntry = entries.Single(e => e.TxId == "tx3");
+        Assert.Equal([new ProposalRecipient(Alice, 100_000_000), new(Bob, 50_000_000), new(Carol, 25_000_000)], sentEntry.Recipients);
+        Assert.Empty(entries.Single(e => e.TxId == "rx3").Recipients);
+    }
 }
 
 /// <summary>The service side of Activity: paging, "Load more", and the offline fallback (spec 016, US6).</summary>

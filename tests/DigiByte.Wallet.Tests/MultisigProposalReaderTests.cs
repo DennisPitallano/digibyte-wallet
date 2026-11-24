@@ -79,25 +79,85 @@ public class MultisigProposalReaderTests
         Assert.Contains(facts.Problems, p => p.Contains("amount"));
     }
 
-    [Fact]
-    public async Task Two_external_outputs_are_a_problem()
+    /// <summary>A PSBT spending one 10 DGB coin of the multisig and paying <paramref name="outputs"/> as given.</summary>
+    private static string PsbtPaying(Rig rig, params (Script Script, long Sat)[] outputs)
     {
-        var rig = await ArrangeAsync();
-        var service = new MultisigService(Net);
         var redeem = new Script(Convert.FromHexString(rig.Config.RedeemScriptHex));
         var address = BitcoinAddress.Create(rig.Config.Address, Net);
         var coin = new Coin(RandomUtils.GetUInt256(), 0, Money.Coins(10), address.ScriptPubKey);
         var tx = Net.CreateTransaction();
         tx.Inputs.Add(new TxIn(coin.Outpoint));
-        tx.Outputs.Add(Money.Coins(1), BitcoinAddress.Create(Destination(), Net));
-        tx.Outputs.Add(Money.Coins(1), BitcoinAddress.Create(Destination(), Net));
+        foreach (var (script, sat) in outputs) tx.Outputs.Add(Money.Satoshis(sat), script);
         var psbt = PSBT.FromTransaction(tx, Net);
         psbt.AddCoins(coin.ToScriptCoin(redeem));
+        return psbt.ToBase64();
+    }
 
-        var facts = MultisigProposalReader.Read(psbt.ToBase64(), rig.Config, Net);
+    private static Script To(string address) => BitcoinAddress.Create(address, Net).ScriptPubKey;
 
-        Assert.Contains(facts.Problems, p => p.Contains("more than one recipient"));
-        _ = service;
+    // ─── Several recipients (specs/029-multisig-multiple-recipients) ───
+
+    [Fact]
+    public async Task Several_recipients_are_read_in_order_without_change_or_memo()
+    {
+        var rig = await ArrangeAsync();
+        var (a, b, c) = (Destination(), Destination(), Destination());
+        var memo = TxNullDataTemplate.Instance.GenerateScriptPubKey(System.Text.Encoding.UTF8.GetBytes("payroll"));
+
+        var facts = MultisigProposalReader.Read(PsbtPaying(rig,
+            (To(a), 100_000_000), (To(b), 200_000_000), (memo, 0), (To(c), 50_000_000), (To(rig.Config.Address), 600_000_000)),
+            rig.Config, Net);
+
+        Assert.Empty(facts.Problems);
+        Assert.Empty(facts.Warnings);
+        Assert.Equal([new ProposalRecipient(a, 100_000_000), new(b, 200_000_000), new(c, 50_000_000)], facts.Recipients);
+        Assert.Equal(a, facts.DestinationAddress);
+        Assert.Equal(350_000_000, facts.AmountSat);
+        Assert.Equal(600_000_000, facts.ChangeSat);
+        Assert.Equal("payroll", facts.Memo);
+        Assert.Equal(1_000_000_000 - 350_000_000 - 600_000_000, facts.FeeSat);
+    }
+
+    [Fact]
+    public async Task Rule_breaking_lines_are_warnings_never_problems()
+    {
+        var rig = await ArrangeAsync();
+        var (a, b) = (Destination(), Destination());
+
+        var facts = MultisigProposalReader.Read(PsbtPaying(rig,
+            (To(a), 100_000_000), (To(b), 50_000), (To(a), 200_000_000)), rig.Config, Net);
+
+        Assert.Empty(facts.Problems);
+        Assert.Equal(3, facts.Recipients.Count);
+        Assert.Equal(
+            [new ProposalWarning(ProposalWarningKind.RecipientBelowMinimum, 1), new ProposalWarning(ProposalWarningKind.RecipientRepeated, 2)],
+            facts.Warnings);
+    }
+
+    [Fact]
+    public async Task More_than_twenty_recipients_is_a_warning()
+    {
+        var rig = await ArrangeAsync();
+        var outputs = Enumerable.Range(0, 21).Select(_ => (To(Destination()), 1_000_000L)).ToArray();
+
+        var facts = MultisigProposalReader.Read(PsbtPaying(rig, outputs), rig.Config, Net);
+
+        Assert.Empty(facts.Problems);
+        Assert.Equal(21, facts.Recipients.Count);
+        Assert.Equal([new ProposalWarning(ProposalWarningKind.TooManyRecipients, null)], facts.Warnings);
+    }
+
+    [Fact]
+    public async Task No_recipient_and_an_unreadable_recipient_are_still_problems()
+    {
+        var rig = await ArrangeAsync();
+
+        var onlyChange = MultisigProposalReader.Read(PsbtPaying(rig, (To(rig.Config.Address), 900_000_000)), rig.Config, Net);
+        var unreadable = MultisigProposalReader.Read(PsbtPaying(rig,
+            (To(Destination()), 100_000_000), (new Script(OpcodeType.OP_TRUE), 100_000_000)), rig.Config, Net);
+
+        Assert.Contains(onlyChange.Problems, p => p.Contains("no recipient"));
+        Assert.Contains(unreadable.Problems, p => p.Contains("can't be read"));
     }
 
     [Fact]

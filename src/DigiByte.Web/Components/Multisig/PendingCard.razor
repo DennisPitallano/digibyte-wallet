@@ -50,7 +50,7 @@
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">DGB</span>
         </span>
         <span class="block mt-0.5 text-xs text-slate-600 dark:text-slate-400">
-            @L.T("ms.ui.pendingCard.to") <span class="font-mono">@MultisigFormat.Short(Pending.DestinationAddress)</span>
+            @L.T("ms.ui.pendingCard.to") @if (Pending.RecipientCount > 1) { <span>@L.T("send.confirm.recipients", Pending.RecipientCount)</span> } else { <span class="font-mono">@MultisigFormat.Short(Pending.DestinationAddress)</span> }
         </span>
         @if (!string.IsNullOrWhiteSpace(Pending.Memo))
         {
@@ -113,7 +113,8 @@
         || Pending.Status is PendingTxStatus.ReadyToFinalize or PendingTxStatus.Failed;
 
     private string OpenLabel => L.T("ms.ui.pendingCard.open_aria",
-        MultisigFormat.Dgb(Pending.AmountSatoshis), MultisigFormat.Short(Pending.DestinationAddress),
+        MultisigFormat.Dgb(Pending.AmountSatoshis),
+        Pending.RecipientCount > 1 ? L.T("send.confirm.recipients", Pending.RecipientCount) : MultisigFormat.Short(Pending.DestinationAddress),
         CoinsSpent ? L.T("ms.ui.pendingCard.cant_go") : L.T(StatusBadge.StateKey(State)));
 
     // The button's words come from what it does, so they follow the wallet's language; an action this card does not

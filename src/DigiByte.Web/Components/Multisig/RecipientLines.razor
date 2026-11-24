@@ -1,0 +1,26 @@
+@* A numbered list of a payment's recipients, as on the review and "proposal created" cards
+   (specs/029-multisig-multiple-recipients). A name shows only when this device's contacts know the address. *@
+@inject LocalizationService L
+
+<ol class="flex flex-col gap-2" aria-label="@L.T("ms.send.batch.list_aria")">
+    @for (var i = 0; i < Lines.Count; i++)
+    {
+        var line = Lines[i];
+        var name = NameFor?.Invoke(line.Address);
+        <li class="flex justify-between items-start gap-3">
+            <div class="min-w-0">
+                <p class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">@L.T("send.batch.recipient_n", i + 1)@(name is null ? "" : " · " + name)</p>
+                <p class="text-[11px] font-mono text-slate-900 dark:text-white break-words leading-relaxed" aria-label="@line.Address">@MultisigFormat.Chunk(line.Address)</p>
+            </div>
+            <span class="text-xs font-bold text-slate-900 dark:text-white tabular-nums whitespace-nowrap">@MultisigFormat.Dgb(line.AmountSatoshis) DGB</span>
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ProposalRecipient> Lines { get; set; } = [];
+
+    /// <summary>The contact name this device has for an address, or null.</summary>
+    [Parameter] public Func<string, string?>? NameFor { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+}

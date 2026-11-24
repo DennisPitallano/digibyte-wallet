@@ -348,4 +348,182 @@ public class MultisigWalletServiceTests
 
         Assert.StartsWith("dgbt1", config.Address);
     }
+
+    // ─── Proposals paying several recipients (specs/029-multisig-multiple-recipients) ───
+
+    private static string MainnetAddress() => new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, DigiByteNetwork.Mainnet).ToString();
+
+    private static async Task<(MultisigWalletService Sut, MultisigWalletConfig Config, Key[] Keys, MultisigFakeChain Chain)> FundedTwoOfThreeAsync(long amount = 1_000_000_000)
+    {
+        var keys = GenerateKeys(3);
+        var chain = new MultisigFakeChain(utxos:
+        [
+            new UtxoInfo { TxId = RandomUtils.GetUInt256().ToString(), OutputIndex = 0, AmountSatoshis = amount, ScriptPubKey = "", Confirmations = 10 },
+        ]);
+        var sut = CreateService(blockchain: chain);
+        var config = await sut.CreateMultisigWalletAsync("Treasury", 2,
+            keys.Select((k, i) => new CoSigner { Name = $"S{i}", PublicKeyHex = k.PubKey.ToHex(), IsLocal = i == 0 }).ToList(),
+            ownerWalletId: Owner);
+        return (sut, config, keys, chain);
+    }
+
+    [Fact]
+    public async Task CreateSpending_SeveralRecipients_SavesOneProposalPayingEachInOrder()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        var (a, b, c) = (MainnetAddress(), MainnetAddress(), MainnetAddress());
+
+        var proposal = await sut.CreateSpendingPSBTAsync(config, [(a, 1m), (b, 0.5m), (c, 0.25m)], 10, "payroll");
+
+        Assert.Equal([new ProposalRecipient(a, 100_000_000), new(b, 50_000_000), new(c, 25_000_000)], proposal.Recipients);
+        Assert.Equal(a, proposal.DestinationAddress);
+        Assert.Equal(175_000_000, proposal.AmountSatoshis);
+        Assert.Equal("Send 1.75000000 DGB to 3 recipients", proposal.Description);
+
+        var outputs = PSBT.Parse(proposal.PsbtBase64, DigiByteNetwork.Mainnet).GetGlobalTransaction().Outputs;
+        Assert.Equal(a, outputs[0].ScriptPubKey.GetDestinationAddress(DigiByteNetwork.Mainnet)!.ToString());
+        Assert.Equal(b, outputs[1].ScriptPubKey.GetDestinationAddress(DigiByteNetwork.Mainnet)!.ToString());
+        Assert.Equal(c, outputs[2].ScriptPubKey.GetDestinationAddress(DigiByteNetwork.Mainnet)!.ToString());
+        Assert.Single(await sut.GetPendingTransactionsAsync(config.WalletId));
+    }
+
+    [Fact]
+    public async Task CreateSpending_SeveralRecipients_RefusesBadInput()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        var repeated = MainnetAddress();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateSpendingPSBTAsync(config, Array.Empty<(string, decimal)>(), 10));
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateSpendingPSBTAsync(config,
+            Enumerable.Range(0, 21).Select(_ => (MainnetAddress(), 0.01m)).ToList(), 10));
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateSpendingPSBTAsync(config, [(repeated, 1m), (repeated, 1m)], 10));
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateSpendingPSBTAsync(config, [(MainnetAddress(), 1m), (config.Address, 1m)], 10));
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateSpendingPSBTAsync(config, [(MainnetAddress(), 1m), (MainnetAddress(), 0.0009m)], 10));
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateSpendingPSBTAsync(config, [(MainnetAddress(), 1m), (MainnetAddress(), 0.123456789m)], 10));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sut.CreateSpendingPSBTAsync(config, [(MainnetAddress(), 6m), (MainnetAddress(), 5m)], 10));
+        Assert.Empty(await sut.GetPendingTransactionsAsync(config.WalletId));
+    }
+
+    [Fact]
+    public async Task CreateSpending_SeveralRecipients_SameSubmissionToken_ReturnsTheFirstProposal()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        List<(string, decimal)> recipients = [(MainnetAddress(), 1m), (MainnetAddress(), 2m)];
+
+        var first = await sut.CreateSpendingPSBTAsync(config, recipients, 10, submissionToken: "tap-1");
+        var again = await sut.CreateSpendingPSBTAsync(config, recipients, 10, submissionToken: "tap-1");
+
+        Assert.Equal(first.Id, again.Id);
+        Assert.Single(await sut.GetPendingTransactionsAsync(config.WalletId));
+    }
+
+    [Fact]
+    public async Task CreateSpending_OneRecipient_SavesTheSameProposalAsBefore()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        var dest = MainnetAddress();
+
+        var proposal = await sut.CreateSpendingPSBTAsync(config, dest, 1m, 10);
+
+        Assert.Equal(dest, proposal.DestinationAddress);
+        Assert.Equal(100_000_000, proposal.AmountSatoshis);
+        Assert.Equal($"Send 1.00000000 DGB to {dest[..12]}...", proposal.Description);
+        Assert.Equal([new ProposalRecipient(dest, 100_000_000)], proposal.AllRecipients);
+        Assert.Equal(2, PSBT.Parse(proposal.PsbtBase64, DigiByteNetwork.Mainnet).GetGlobalTransaction().Outputs.Count);
+    }
+
+    [Fact]
+    public async Task A_received_payment_to_three_recipients_signed_by_two_co_signers_broadcasts_every_output()
+    {
+        var (sut, config, keys, chain) = await FundedTwoOfThreeAsync();
+        var network = DigiByteNetwork.Mainnet;
+        var (a, b, c) = (MainnetAddress(), MainnetAddress(), MainnetAddress());
+
+        // Built with the Crypto builder and received like a co-signer's copy, so this doesn't depend on creating it here.
+        var multisig = BitcoinAddress.Create(config.Address, network);
+        var coin = new Coin(uint256.Parse(chain.Utxos[0].TxId), 0, Money.Satoshis(1_000_000_000), multisig.ScriptPubKey);
+        var psbt = new MultisigService(network).CreateMultisigPSBTWithFee(
+            new Script(Convert.FromHexString(config.RedeemScriptHex)), [coin],
+            [(BitcoinAddress.Create(a, network), Money.Satoshis(100_000_000)),
+             (BitcoinAddress.Create(b, network), Money.Satoshis(50_000_000)),
+             (BitcoinAddress.Create(c, network), Money.Satoshis(25_000_000))],
+            multisig, 20_000, MultisigSendHelper.DustThresholdSatoshis);
+        var received = (await sut.ReceiveProposalAsync(config, psbt.ToBase64())).Pending;
+
+        var signed = await sut.SignPendingTransactionAsync(received, keys[0]);
+        signed = await sut.SignPendingTransactionAsync(signed, keys[2]);
+        var txId = await sut.FinalizeAndBroadcastAsync(signed);
+
+        var tx = Transaction.Parse(chain.LastBroadcastHex!, network);
+        Assert.False(string.IsNullOrEmpty(txId));
+        Assert.Equal(4, tx.Outputs.Count);
+        Assert.Equal(100_000_000, tx.Outputs[0].Value.Satoshi);
+        Assert.Equal(a, tx.Outputs[0].ScriptPubKey.GetDestinationAddress(network)!.ToString());
+        Assert.Equal(50_000_000, tx.Outputs[1].Value.Satoshi);
+        Assert.Equal(b, tx.Outputs[1].ScriptPubKey.GetDestinationAddress(network)!.ToString());
+        Assert.Equal(25_000_000, tx.Outputs[2].Value.Satoshi);
+        Assert.Equal(c, tx.Outputs[2].ScriptPubKey.GetDestinationAddress(network)!.ToString());
+        Assert.Equal(multisig.ScriptPubKey, tx.Outputs[3].ScriptPubKey);
+        Assert.Equal(1_000_000_000 - 175_000_000 - 20_000, tx.Outputs[3].Value.Satoshi);
+
+        var saved = Assert.Single(await sut.GetPendingTransactionsAsync(config.WalletId));
+        Assert.Equal(PendingTxStatus.Broadcast, saved.Status);
+    }
+
+    [Fact]
+    public async Task A_recipient_typed_in_capitals_is_saved_in_standard_form_and_still_matches_its_payment()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        var typed = MainnetAddress();
+        var other = MainnetAddress();
+
+        var several = await sut.CreateSpendingPSBTAsync(config, [(typed.ToUpperInvariant(), 1m), (other, 0.5m)], 10);
+        var single = await sut.CreateSpendingPSBTAsync(config, " " + other.ToUpperInvariant() + " ", 0.25m, 10);
+
+        Assert.Equal(typed, several.Recipients[0].Address);
+        Assert.Equal(typed, several.DestinationAddress);
+        Assert.Null(sut.CheckProposalMatches(several, config, several.PsbtBase64));
+        Assert.Equal(other, single.DestinationAddress);
+        Assert.Null(sut.CheckProposalMatches(single, config, single.PsbtBase64));
+    }
+
+    [Fact]
+    public async Task A_proposal_saved_earlier_with_a_capitals_address_still_matches_its_payment()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        var a = MainnetAddress();
+        var b = MainnetAddress();
+        var made = await sut.CreateSpendingPSBTAsync(config, [(a, 1m), (b, 0.5m)], 10);
+
+        // As saved before addresses were stored in standard form: the first line kept the capitals it was typed with.
+        var legacy = new PendingMultisigTransaction
+        {
+            Id = made.Id,
+            WalletId = made.WalletId,
+            PsbtBase64 = made.PsbtBase64,
+            DestinationAddress = a.ToUpperInvariant(),
+            AmountSatoshis = made.AmountSatoshis,
+            FeeSatoshis = made.FeeSatoshis,
+            RequiredSignatures = made.RequiredSignatures,
+            UnsignedTxId = made.UnsignedTxId,
+            Recipients = [new(a.ToUpperInvariant(), 100_000_000), new(b, 50_000_000)],
+        };
+
+        Assert.Null(sut.CheckProposalMatches(legacy, config, made.PsbtBase64));
+        Assert.NotNull(sut.CheckProposalMatches(
+            CopyOf(legacy, [new(MainnetAddress().ToUpperInvariant(), 100_000_000), new(b, 50_000_000)]), config, made.PsbtBase64));
+    }
+
+    private static PendingMultisigTransaction CopyOf(PendingMultisigTransaction p, List<ProposalRecipient> recipients) => new()
+    {
+        Id = p.Id,
+        WalletId = p.WalletId,
+        PsbtBase64 = p.PsbtBase64,
+        DestinationAddress = recipients[0].Address,
+        AmountSatoshis = p.AmountSatoshis,
+        FeeSatoshis = p.FeeSatoshis,
+        RequiredSignatures = p.RequiredSignatures,
+        UnsignedTxId = p.UnsignedTxId,
+        Recipients = recipients,
+    };
 }

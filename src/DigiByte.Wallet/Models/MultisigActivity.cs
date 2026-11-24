@@ -36,6 +36,12 @@ public class ActivityEntry
 
     /// <summary>How many further counterparties there are beyond <see cref="Counterparty"/>.</summary>
     public int MoreCount { get; init; }
+
+    /// <summary>
+    /// Every payment line (address and amount) for a proposal or a sent transaction, in transaction order; empty for one
+    /// received. The activity detail lists them when there are two or more (specs/029-multisig-multiple-recipients).
+    /// </summary>
+    public IReadOnlyList<ProposalRecipient> Recipients { get; init; } = [];
     public string? Memo { get; init; }
     public required DateTime Timestamp { get; init; }
     public int? Confirmations { get; init; }

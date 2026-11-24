@@ -45,6 +45,7 @@
 - [x] Sign PSBTs made elsewhere (Advanced mode): review, sign this wallet's inputs, export, broadcast when complete
 - [ ] Verify other participants' amounts in shared PSBTs (PSBT signing, Story 4)
 - [x] Import multisig wallet via redeem script (watch-only or signing)
+- [x] Pay several recipients (2 to 20) from one shared-wallet proposal; co-signers see and sign every line at once (specs/029)
 - [x] 6 multisig UI pages (list, create wizard, import, detail, send, pending)
 - [x] 52 unit tests (MultisigService, MultisigWalletService, MultisigModels)
 

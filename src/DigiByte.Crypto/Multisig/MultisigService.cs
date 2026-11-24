@@ -103,13 +103,34 @@ public class MultisigService
         BitcoinAddress changeAddress,
         long feeSatoshis,
         long dustThresholdSatoshis,
+        string? memo = null) =>
+        CreateMultisigPSBTWithFee(redeemScript, coins, [(destination, amount)], changeAddress, feeSatoshis, dustThresholdSatoshis, memo);
+
+    /// <summary>
+    /// Creates a PSBT that spends exactly <paramref name="coins"/>, pays every one of <paramref name="payments"/> and pays
+    /// exactly <paramref name="feeSatoshis"/> (specs/029-multisig-multiple-recipients). Outputs are written in this order:
+    /// each payment as given, then the memo, then change. Change below <paramref name="dustThresholdSatoshis"/> is not sent
+    /// back; it is left in the fee. Nothing is signed.
+    /// </summary>
+    public PSBT CreateMultisigPSBTWithFee(
+        Script redeemScript,
+        IReadOnlyList<Coin> coins,
+        IReadOnlyList<(BitcoinAddress Destination, Money Amount)> payments,
+        BitcoinAddress changeAddress,
+        long feeSatoshis,
+        long dustThresholdSatoshis,
         string? memo = null)
     {
         if (coins.Count == 0)
             throw new ArgumentException("At least one coin is required.", nameof(coins));
+        if (payments.Count == 0)
+            throw new ArgumentException("At least one payment is required.", nameof(payments));
+        if (payments.Any(p => p.Amount.Satoshi <= 0))
+            throw new ArgumentException("Every payment must be for more than zero.", nameof(payments));
 
         var totalIn = coins.Sum(c => c.Amount.Satoshi);
-        var change = totalIn - amount.Satoshi - feeSatoshis;
+        var totalOut = payments.Sum(p => p.Amount.Satoshi);
+        var change = totalIn - totalOut - feeSatoshis;
         if (change < 0)
             throw new InvalidOperationException("The selected coins do not cover the amount and fee.");
 
@@ -117,7 +138,8 @@ public class MultisigService
         foreach (var coin in coins)
             tx.Inputs.Add(new TxIn(coin.Outpoint));
 
-        tx.Outputs.Add(amount, destination.ScriptPubKey);
+        foreach (var (destination, amount) in payments)
+            tx.Outputs.Add(amount, destination.ScriptPubKey);
 
         if (!string.IsNullOrWhiteSpace(memo))
         {

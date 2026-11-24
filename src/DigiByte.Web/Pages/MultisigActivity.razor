@@ -62,7 +62,25 @@ else
                     {
                         <div><dt class="text-slate-400">@L.T("dd.confirm.fee")</dt><dd class="text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(e.FeeSatoshis.Value) DGB</dd></div>
                     }
-                    @if (!string.IsNullOrEmpty(e.Counterparty))
+                    @if (e.Recipients.Count > 1)
+                    {
+                        @* Every recipient of a payment to several (specs/029-multisig-multiple-recipients) *@
+                        <div>
+                            <dt class="text-slate-400">@L.T("history.detail.to") · @L.T("send.confirm.recipients", e.Recipients.Count)</dt>
+                            <dd>
+                                <ol class="flex flex-col gap-1.5 mt-1" data-testid="activity-recipients">
+                                    @foreach (var line in e.Recipients)
+                                    {
+                                        <li class="flex items-start justify-between gap-3">
+                                            <span class="font-mono break-all text-slate-800 dark:text-slate-100 select-all">@line.Address</span>
+                                            <span class="tabular-nums whitespace-nowrap text-slate-800 dark:text-slate-100">@MultisigFormat.Dgb(line.AmountSatoshis) DGB</span>
+                                        </li>
+                                    }
+                                </ol>
+                            </dd>
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(e.Counterparty))
                     {
                         <div>
                             <dt class="text-slate-400">@(e.Direction == ActivityDirection.In ? L.T("history.detail.from") : L.T("history.detail.to"))@(e.MoreCount > 0 ? " " + L.T("ms.activity.more", e.MoreCount) : "")</dt>
