@@ -342,6 +342,8 @@
   "home.empty.copy_failed": "Couldn't copy. Select the address to copy it yourself.",
   "home.empty.receive_link": "Open Receive",
   "home.empty.qr_alt": "QR code for your receiving address",
+  "home.searching.title": "Still looking for your payments",
+  "home.searching.body": "Checking this wallet's addresses. Your balance appears here as soon as that finishes.",
   "activity.empty.receive": "Receive",
   "firstreceive.title": "Your first DGB",
   "firstreceive.received": "{0} DGB received",

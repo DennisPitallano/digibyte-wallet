@@ -59,6 +59,9 @@ public sealed class WalletHistorySync
         public readonly SemaphoreSlim WriteLock = new(1, 1);
         public readonly HashSet<string> CompletedThisSession = new();
         public Task<SyncResult>? Running;
+
+        /// <summary>The addresses <see cref="Running"/> was started for. A caller asking about others must not share it.</summary>
+        public HashSet<string>? RunningAddresses;
         public FullResyncState Resync;
         public DateTimeOffset ResyncRetryAfter;
         public CancellationTokenSource? ResyncCts;
@@ -304,12 +307,33 @@ public sealed class WalletHistorySync
         lock (_gate)
         {
             var state = State(walletId, network);
+            var wanted = addresses.Distinct().ToList();
             if (state.Running is { IsCompleted: false } running)
-                return running;
-            var task = RunRefreshAsync(walletId, network, state, addresses.Distinct().ToList(), hints, ct);
+            {
+                if (state.RunningAddresses is { } covered && wanted.All(covered.Contains))
+                    return running;
+
+                // The run in flight started for fewer addresses: the wallet has found more since. Its result leaves those
+                // out (a zero balance, on a restored wallet), so this caller gets a run of its own once that one ends.
+                return RefreshAfterAsync(running, walletId, network, wanted, hints, ct);
+            }
+
+            state.RunningAddresses = wanted.ToHashSet();
+            var task = RunRefreshAsync(walletId, network, state, wanted, hints, ct);
             state.Running = task;
             return task;
         }
+    }
+
+    /// <summary>
+    /// Waits for <paramref name="running"/> to end, whatever its outcome, then refreshes for <paramref name="addresses"/>.
+    /// Callers that queue up behind the same run share the one that follows, through <see cref="RefreshAsync"/>.
+    /// </summary>
+    private async Task<SyncResult> RefreshAfterAsync(Task running, string walletId, string network, IReadOnlyList<string> addresses,
+        HotAddressHints? hints, CancellationToken ct)
+    {
+        try { await running; } catch { /* that run's own callers see its failure */ }
+        return await RefreshAsync(walletId, network, addresses, hints, ct);
     }
 
     private sealed record Fetched(
