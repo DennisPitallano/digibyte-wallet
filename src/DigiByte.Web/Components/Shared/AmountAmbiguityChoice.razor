@@ -1,0 +1,39 @@
+@* "Did you mean 1.234 or 1,234?" — shown under an amount field when the typed text could mean either (spec 028, FR-013a).
+   Nothing is assumed: the field stays unusable until one reading is picked. *@
+@using System.Globalization
+@inject LocalizationService L
+
+<div class="flex flex-col gap-1.5 rounded-xl border border-amber-300/70 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-2.5"
+     role="group" aria-label="@L.T("amount.ambiguous.question")">
+    <p class="text-xs font-semibold text-amber-700 dark:text-amber-300">@L.T("amount.ambiguous.question")</p>
+    <div class="flex gap-2">
+        @foreach (var value in Readings)
+        {
+            var v = value;
+            <button type="button" class="btn-secondary btn-sm flex-1 tabular-nums" @onclick="() => OnPicked.InvokeAsync(v)">
+                @Choice(v)
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public decimal AsDecimal { get; set; }
+    [Parameter, EditorRequired] public decimal AsThousands { get; set; }
+    /// <summary>The unit after each number: "DGB", or the fiat currency code when the field is in fiat.</summary>
+    [Parameter] public string Unit { get; set; } = "DGB";
+    [Parameter] public EventCallback<decimal> OnPicked { get; set; }
+
+    /// <summary>Re-render when the language changes, so the readings switch style (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    // The larger reading first: it is the one a person who typed a thousands mark meant.
+    private IEnumerable<decimal> Readings => [Math.Max(AsDecimal, AsThousands), Math.Min(AsDecimal, AsThousands)];
+
+    // Grouped, so the two readings look different at a glance ("1.234" vs "1,234" in Spanish; "1,234" vs "1.234" in English).
+    private string Choice(decimal value)
+    {
+        var number = value.ToString("#,##0.########", CultureInfo.CurrentCulture);
+        return Unit == "DGB" ? L.T("amount.ambiguous.choice", number) : $"{number} {Unit}";
+    }
+}

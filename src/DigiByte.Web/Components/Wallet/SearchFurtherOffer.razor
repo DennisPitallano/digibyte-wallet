@@ -26,6 +26,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter] public string? WalletId { get; set; }
 
     /// <summary>The wallet's type ("hd", "xpub", ...): only wallets with further addresses to search get the offer.</summary>

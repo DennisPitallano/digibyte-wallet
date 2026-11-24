@@ -1,0 +1,134 @@
+@* Bottom sheet for choosing the wallet's language (spec 028; contracts/language-picker-ui.md). Same look as the currency sheet. *@
+@inject LocalizationService L
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-[60] flex items-end justify-center" @onclick="Close" @onkeydown="OnKeyDown">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+        <div class="relative w-full max-w-[480px] bg-white dark:bg-dgb-950 rounded-t-3xl shadow-2xl mb-[72px] flex flex-col scale-in"
+             role="dialog" aria-modal="true" aria-labelledby="language-sheet-title" @onclick:stopPropagation="true">
+            <div class="flex justify-center pt-3 pb-1 shrink-0">
+                <div class="w-10 h-1 rounded-full bg-slate-300 dark:bg-dgb-700"></div>
+            </div>
+
+            <div class="flex items-center justify-between px-5 pb-3 shrink-0">
+                <h3 id="language-sheet-title" class="block-title">@L.T("language.title")</h3>
+                <button class="icon-btn icon-btn-sm" aria-label="@L.T("language.close")" @onclick="Close">
+                    <svg class="w-4 h-4 text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="px-4 pb-4 flex flex-col gap-3">
+                <ul role="radiogroup" aria-labelledby="language-sheet-title"
+                    class="flex flex-col divide-y divide-slate-100 dark:divide-dgb-800 bg-white dark:bg-dgb-900 rounded-2xl border border-slate-200/80 dark:border-dgb-800 overflow-hidden">
+                    @for (var i = 0; i < codes.Length; i++)
+                    {
+                        var index = i;
+                        var tag = codes[i];
+                        var selected = tag == L.CurrentLocale;
+                        <li>
+                            @* lang= so a screen reader says each name in its own language. *@
+                            <button type="button" role="radio" aria-checked="@(selected ? "true" : "false")" lang="@tag"
+                                    tabindex="@(selected ? "0" : "-1")" disabled="@(loading is not null)"
+                                    @ref="items[index]" @onclick="() => Pick(tag)" @onkeydown="e => OnItemKeyDown(e, index)"
+                                    class="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-slate-50 dark:hover:bg-dgb-800/60 transition-colors disabled:opacity-60 @(selected ? "bg-dgb-50/60 dark:bg-dgb-800/50" : "")">
+                                <span class="min-w-0 flex-1 text-sm font-semibold text-slate-900 dark:text-white">@LocalizationService.SupportedLocales[tag]</span>
+                                @if (loading == tag)
+                                {
+                                    <span class="w-4 h-4 rounded-full border-2 border-dgb-500 border-t-transparent animate-spin shrink-0" aria-hidden="true"></span>
+                                }
+                                else if (selected)
+                                {
+                                    <svg class="w-4 h-4 text-dgb-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+
+                @if (error is not null)
+                {
+                    <p class="text-xs text-red-500 px-1" role="alert">@error</p>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private readonly string[] codes = LocalizationService.SupportedLocales.Keys.ToArray();
+    private readonly ElementReference[] items = new ElementReference[LocalizationService.SupportedLocales.Count];
+    private string? loading;
+    private string? error;
+    private bool wasOpen;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // When the sheet opens, put focus on the language in use, so keyboard and screen-reader users start there.
+        if (IsOpen && !wasOpen)
+        {
+            wasOpen = true;
+            var current = Array.IndexOf(codes, L.CurrentLocale);
+            try { await items[Math.Max(current, 0)].FocusAsync(); } catch { /* element gone */ }
+        }
+        else if (!IsOpen)
+        {
+            wasOpen = false;
+        }
+    }
+
+    private async Task Pick(string code)
+    {
+        if (loading is not null) return;
+        error = null;
+        if (code == L.CurrentLocale)
+        {
+            await Close();
+            return;
+        }
+
+        loading = code;
+        var switched = await L.SetLocaleAsync(code);
+        loading = null;
+        if (switched)
+        {
+            await OnClosed.InvokeAsync();
+        }
+        else
+        {
+            error = L.T("language.loadFailed", LocalizationService.SupportedLocales[code]);
+        }
+    }
+
+    private async Task Close()
+    {
+        if (loading is not null) return;
+        error = null;
+        await OnClosed.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Close();
+    }
+
+    private async Task OnItemKeyDown(KeyboardEventArgs e, int index)
+    {
+        var next = e.Key switch
+        {
+            "ArrowDown" or "ArrowRight" => (index + 1) % codes.Length,
+            "ArrowUp" or "ArrowLeft" => (index - 1 + codes.Length) % codes.Length,
+            _ => -1,
+        };
+        if (next >= 0)
+        {
+            try { await items[next].FocusAsync(); } catch { /* element gone */ }
+        }
+    }
+}

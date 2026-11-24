@@ -9,13 +9,17 @@
 @inject SoundService Sounds
 @inject WalletSnapshotCache Snapshots
 @inject ShellChrome Chrome
+@inject LocalizationService L
 
+@* Every component that shows translated text takes this value, so it re-renders when the language changes
+   without a page reload (spec 028). It wraps the whole shell, so navigation and banners switch too. *@
+<CascadingValue Name="Locale" Value="L.CurrentLocale">
 <ToastContainer />
 <BakuWarningDialog />
 <PwaInstallBanner />
 <PwaUpdateBanner />
 
-<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-dgb-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold">Skip to content</a>
+<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-dgb-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold">@L.T("layout.skip_to_content")</a>
 <div class="flex flex-col h-dvh max-w-[480px] mx-auto relative bg-slate-50 dark:bg-dgb-950">
     <NodeSourceIndicator />
     <main id="main-content" class="flex-1 overflow-y-auto px-4 pt-4 safe-area-top @(ShowNav ? (InSharedWallet ? "main-with-nav main-with-shared-nav" : "main-with-nav") : "pb-4") scroll-smooth thin-scrollbar"
@@ -130,6 +134,7 @@
         </div>
     </div>
 }
+</CascadingValue>
 
 @code {
     private static readonly string[] HiddenNavPaths = ["/welcome", "/create-wallet", "/recover-wallet", "/unlock", "/about", "/roadmap", "/sponsors", "/analytics", "/deployment", "/help", "/help/multisig", "/multisig/room", "/recovery"];
@@ -199,7 +204,11 @@
         Chrome.Changed += OnChromeChanged;
         AppState.OnAutoLocked += OnAutoLocked;
         VersionBadge.OnShowModal += OnShowVersionInfo;
+        L.OnLocaleChanged += OnLocaleChanged;
     }
+
+    // The language changed: re-render the shell and pass the new code down, without reloading the page.
+    private void OnLocaleChanged() => InvokeAsync(StateHasChanged);
 
     private void OnShowVersionInfo()
     {
@@ -235,5 +244,6 @@
         Chrome.Changed -= OnChromeChanged;
         AppState.OnAutoLocked -= OnAutoLocked;
         VersionBadge.OnShowModal -= OnShowVersionInfo;
+        L.OnLocaleChanged -= OnLocaleChanged;
     }
 }

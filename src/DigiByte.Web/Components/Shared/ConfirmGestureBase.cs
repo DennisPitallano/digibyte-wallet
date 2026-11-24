@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using DigiByte.Web.Services;
 
 namespace DigiByte.Web.Components.Shared;
 
@@ -15,6 +16,9 @@ namespace DigiByte.Web.Components.Shared;
 /// </summary>
 public abstract class ConfirmGestureBase : ComponentBase, IDisposable
 {
+    /// <summary>Screen-reader text is in the wallet's language (spec 028).</summary>
+    [Inject] protected LocalizationService L { get; set; } = default!;
+
     protected enum Phase { Idle, Dragging, Holding, Done }
 
     /// <summary>Visible text while idle, for example "Slide to send".</summary>
@@ -48,8 +52,7 @@ public abstract class ConfirmGestureBase : ComponentBase, IDisposable
     /// <summary>The words that describe the gesture, used in the accessible name ("Slide", "Press and hold").</summary>
     protected abstract string GestureHint { get; }
 
-    protected string AccessibleName =>
-        $"{ActionDescription ?? Label}. {GestureHint}, or hold Enter, to confirm. This cannot be undone.";
+    protected string AccessibleName => L.T("send.slide.accessible", ActionDescription ?? Label);
 
     /// <summary>Returns the control to idle so it can be used again (for example after a failed send).</summary>
     public void Reset()
@@ -92,7 +95,7 @@ public abstract class ConfirmGestureBase : ComponentBase, IDisposable
         _armCts?.Cancel();
         Armed = false;
         State = Phase.Done;
-        Announcement = $"Confirmed. {BusyLabel}";
+        Announcement = L.T("send.slide.announce_confirmed", BusyLabel);
         StateHasChanged();
         await OnConfirmed.InvokeAsync();
     }
@@ -135,7 +138,7 @@ public abstract class ConfirmGestureBase : ComponentBase, IDisposable
         }
 
         Armed = true;
-        Announcement = "Activate again within five seconds to confirm.";
+        Announcement = L.T("send.slide.announce_armed");
         _armCts?.Cancel();
         _armCts = new CancellationTokenSource();
         var token = _armCts.Token;
@@ -145,7 +148,7 @@ public abstract class ConfirmGestureBase : ComponentBase, IDisposable
         if (State == Phase.Idle)
         {
             Armed = false;
-            Announcement = "Not confirmed.";
+            Announcement = L.T("send.slide.announce_cancelled");
             StateHasChanged();
         }
     }

@@ -18,7 +18,8 @@ public class PaymentRequest
     {
         var uri = $"digibyte:{Address}";
         var queryParams = new List<string>();
-        if (AmountDgb.HasValue) queryParams.Add($"amount={AmountDgb.Value:F8}");
+        // Other wallets read this link: the amount always uses a point, whatever language this wallet shows.
+        if (AmountDgb.HasValue) queryParams.Add("amount=" + AmountDgb.Value.ToString("F8", System.Globalization.CultureInfo.InvariantCulture));
         if (!string.IsNullOrEmpty(Label)) queryParams.Add($"label={Uri.EscapeDataString(Label)}");
         if (!string.IsNullOrEmpty(Message)) queryParams.Add($"message={Uri.EscapeDataString(Message)}");
         if (queryParams.Count > 0) uri += "?" + string.Join("&", queryParams);
@@ -55,7 +56,8 @@ public class PaymentRequest
                 switch (key)
                 {
                     case "amount":
-                        if (decimal.TryParse(value, System.Globalization.NumberStyles.Any,
+                        // Only digits and one point: "1,5" is not a valid link amount and must never read as 15.
+                        if (decimal.TryParse(value, System.Globalization.NumberStyles.AllowDecimalPoint,
                             System.Globalization.CultureInfo.InvariantCulture, out var amt))
                             request.AmountDgb = amt;
                         break;

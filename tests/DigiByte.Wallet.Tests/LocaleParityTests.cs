@@ -221,7 +221,8 @@ public class LocaleParityTests
     private static async Task<LocalizationService> LocalizerAsync(string locale)
     {
         var http = new HttpClient(new LocaleFiles(LocalesDirectory())) { BaseAddress = new Uri("http://localhost/") };
-        var l = new LocalizationService(http, new NullJs());
+        // Text only: a no-op culture applier keeps this from changing the number style other tests see (spec 028).
+        var l = new LocalizationService(http, new NullJs(), _ => { });
         await l.SetLocaleAsync(locale);
         return l;
     }

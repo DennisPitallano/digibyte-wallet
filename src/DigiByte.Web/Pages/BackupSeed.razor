@@ -7,7 +7,7 @@
 @inject ILogger<BackupSeed> Logger
 @inject BakuService Baku
 
-<PageTitle>Backup Seed Phrase — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("backup.page_title") — @L.T("app.name")</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col gap-5">
@@ -21,7 +21,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                     </svg>
                 </div>
-                <h2 class="block-title block-title-lg">Verify Your Identity</h2>
+                <h2 class="block-title block-title-lg">@L.T("backup.verify_title")</h2>
                 <p class="text-sm text-slate-500 dark:text-slate-400 text-center">@L.T("credential.enter_to_view_phrase", CredentialText.Word(L, credKind))</p>
             </div>
 
@@ -29,7 +29,7 @@
                 <CredentialInput Kind="credKind" @ref="pinInput" ValueChanged="(v) => pin = v" OnSubmit="VerifyPin" Error="@error" />
                 <button class="btn-primary w-full max-w-[280px]"
                         @onclick="VerifyPin" disabled="@(isVerifying || !Ready(pin))">
-                    @(isVerifying ? "Verifying..." : "Continue")
+                    @(isVerifying ? L.T("backup.verifying") : L.T("create.continue"))
                 </button>
             </div>
         </div>
@@ -39,13 +39,13 @@
         @* Step 2: Show seed phrase *@
         <BakuMessage MessageId="backup.why" />
         <div class="slide-up">
-            <h2 class="page-title">Your Recovery Phrase</h2>
+            <h2 class="page-title">@L.T("create.phrase_title")</h2>
             @if (!string.IsNullOrEmpty(walletName))
             {
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">For wallet: <strong>@walletName</strong></p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@Before("backup.for_wallet")<strong>@walletName</strong>@After("backup.for_wallet")</p>
             }
             <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 leading-relaxed bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
-                <strong>Never share</strong> these words with anyone. Anyone with this phrase can steal your funds.
+                @Before("backup.never_share")<strong>@L.T("backup.never_share_lead")</strong>@After("backup.never_share")
             </p>
         </div>
 
@@ -62,13 +62,20 @@
 
         <button class="btn-primary w-full slide-up-delay-2"
                 @onclick="GoBack">
-            Done
+            @L.T("backup.done_button")
         </button>
     }
 </div>
 </AuthGuard>
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    // The text before and after {0} in a translated sentence, so the highlighted part can sit wherever the language puts it.
+    private string Before(string key) { var t = L.T(key); var i = t.IndexOf("{0}", StringComparison.Ordinal); return i < 0 ? t : t[..i]; }
+    private string After(string key) { var t = L.T(key); var i = t.IndexOf("{0}", StringComparison.Ordinal); return i < 0 ? "" : t[(i + 3)..]; }
+
     // The wallet's credential type decides which input is shown (PIN boxes or a passphrase field).
     private CredentialKind credKind => WalletService.ActiveWallet?.Kind ?? CredentialKind.Pin;
     /// <summary>What to tell the user after a failed check: a wrong credential, or the real reason (out of memory, newer format).</summary>
@@ -97,7 +104,7 @@
         try
         {
             var walletId = !string.IsNullOrEmpty(WalletId) ? WalletId : await WalletService.GetActiveWalletIdAsync();
-            if (walletId == null) { error = "No wallet found"; return; }
+            if (walletId == null) { error = L.T("backup.no_wallet"); return; }
 
             // Try to unlock with the PIN to verify it's correct
             var success = await WalletService.UnlockWalletAsync(walletId, pin);
@@ -129,7 +136,7 @@
             var words = await WalletService.GetSeedPhraseAsync(walletId, pin);
             if (words == null || words.Length == 0)
             {
-                error = "Failed to retrieve seed phrase";
+                error = L.T("backup.retrieve_failed");
                 return;
             }
 

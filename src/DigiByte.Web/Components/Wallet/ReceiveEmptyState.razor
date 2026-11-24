@@ -41,6 +41,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     /// <summary>The wallet's current receiving address: the same one the balance card and the Receive page show.</summary>
     [Parameter] public string? Address { get; set; }
 

@@ -87,6 +87,9 @@ else if (vis.Visible)
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     /// <summary>The user's DGB balance in satoshis; shown as a USD value at the oracle price while the price is available (FR-021).</summary>
     [Parameter] public long DgbSatoshis { get; set; }
 

@@ -103,6 +103,9 @@
     private string current = "", next = "", confirm = "";
     private CredentialInput? currentInput, newInput, confirmInput;
 
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     protected override async Task OnInitializedAsync() => await RefreshAsync();
 
     private async Task RefreshAsync()

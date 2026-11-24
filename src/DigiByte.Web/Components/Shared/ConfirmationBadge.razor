@@ -1,3 +1,5 @@
+@inject LocalizationService L
+
 @if (Expanded)
 {
     @* Extended view for the detail modal *@
@@ -5,12 +7,12 @@
 
         @* Status label row *@
         <div class="flex items-center justify-between text-xs">
-            <span class="text-slate-400 dark:text-slate-500">Status</span>
+            <span class="text-slate-400 dark:text-slate-500">@L.T("history.status")</span>
             @if (Confirmations == 0)
             {
                 <span class="flex items-center gap-1.5 font-medium text-amber-500">
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                    Pending
+                    @L.T("history.pending")
                 </span>
             }
             else if (Confirmations >= 6)
@@ -19,12 +21,12 @@
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                     </svg>
-                    Confirmed
+                    @L.T("history.confirmed")
                 </span>
             }
             else
             {
-                <span class="font-medium text-dgb-500">@Confirmations / 6 confirmations</span>
+                <span class="font-medium text-dgb-500">@L.T("history.confirmations.progress", Confirmations)</span>
             }
         </div>
 
@@ -78,7 +80,7 @@
                 <svg class="w-3 h-3 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
-                <span class="text-[11px] text-green-600 dark:text-green-400 font-medium">Settled on the DigiByte blockchain</span>
+                <span class="text-[11px] text-green-600 dark:text-green-400 font-medium">@L.T("history.settled")</span>
             </div>
         }
         else
@@ -89,12 +91,12 @@
                 </svg>
                 @if (Confirmations == 0)
                 {
-                    <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-medium">DigiByte blocks every ~15 seconds</span>
+                    <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-medium">@L.T("history.block_time")</span>
                 }
                 else
                 {
                     <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-medium">
-                        @(6 - Confirmations) more · ~@((6 - Confirmations) * 15)s at DGB's 15s block time
+                        @L.T("history.blocks_left", 6 - Confirmations, (6 - Confirmations) * 15)
                     </span>
                 }
             </div>
@@ -108,7 +110,7 @@ else
     {
         <span class="text-[11px] font-semibold text-amber-500 flex items-center gap-0.5">
             <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0"></span>
-            Pending
+            @L.T("history.pending")
         </span>
     }
     else if (Confirmations >= 6)
@@ -117,13 +119,13 @@ else
             <svg class="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-            Confirmed
+            @L.T("history.confirmed")
         </span>
     }
     else
     {
         <div class="flex flex-col items-end gap-0.5">
-            <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-semibold">@Confirmations / 6 conf</span>
+            <span class="text-[11px] text-dgb-500 dark:text-dgb-400 font-semibold">@L.T("history.confirmations.short", Confirmations)</span>
             @* Small block squares instead of pill dots *@
             <div class="flex gap-0.5 items-center">
                 @for (int i = 1; i <= 6; i++)
@@ -143,6 +145,9 @@ else
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter] public int Confirmations { get; set; }
 
     /// <summary>
@@ -151,16 +156,13 @@ else
     /// </summary>
     [Parameter] public DigiByte.Wallet.Models.TransactionVerificationState? Verification { get; set; }
 
-    private const string CheckedHint =
-        "Checked: this wallet matched the transaction to block headers it checked itself. It is not protection against a dishonest data source.";
-
     private (string Label, string Css, string Hint)? Tag => Verification switch
     {
-        DigiByte.Wallet.Models.TransactionVerificationState.Checked => ("Checked", "text-green-600 dark:text-green-400", CheckedHint),
-        DigiByte.Wallet.Models.TransactionVerificationState.Verified => ("Verified", "text-green-600 dark:text-green-400", "Verified: block headers and their proof of work were checked by this wallet."),
-        DigiByte.Wallet.Models.TransactionVerificationState.Unchecked => ("Unchecked", "text-slate-400 dark:text-slate-500", "Unchecked: this transaction came from a public explorer and has not been matched to block headers yet."),
-        DigiByte.Wallet.Models.TransactionVerificationState.Disputed => ("Disputed", "text-amber-600 dark:text-amber-400", "Disputed: the data sources disagree about this transaction. It is not counted as spendable until that is resolved."),
-        DigiByte.Wallet.Models.TransactionVerificationState.Rejected => ("Rejected", "text-red-500", "Rejected: the proof for this transaction did not match the block headers this wallet checked."),
+        DigiByte.Wallet.Models.TransactionVerificationState.Checked => (L.T("history.verify.checked"), "text-green-600 dark:text-green-400", L.T("history.verify.checked.hint")),
+        DigiByte.Wallet.Models.TransactionVerificationState.Verified => (L.T("history.verify.verified"), "text-green-600 dark:text-green-400", L.T("history.verify.verified.hint")),
+        DigiByte.Wallet.Models.TransactionVerificationState.Unchecked => (L.T("history.verify.unchecked"), "text-slate-400 dark:text-slate-500", L.T("history.verify.unchecked.hint")),
+        DigiByte.Wallet.Models.TransactionVerificationState.Disputed => (L.T("history.verify.disputed"), "text-amber-600 dark:text-amber-400", L.T("history.verify.disputed.hint")),
+        DigiByte.Wallet.Models.TransactionVerificationState.Rejected => (L.T("history.verify.rejected"), "text-red-500", L.T("history.verify.rejected.hint")),
         _ => null,
     };
 

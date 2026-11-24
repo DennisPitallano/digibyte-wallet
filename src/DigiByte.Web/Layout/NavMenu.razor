@@ -166,6 +166,9 @@
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     // Column positions in the bar. Scan sits in the middle column (2) and is never "the current page".
     private const int WalletIndex = 0, ActivityIndex = 1, RequestIndex = 3, MoreIndex = 4;
     private const string MoreSheetId = "more-sheet";
