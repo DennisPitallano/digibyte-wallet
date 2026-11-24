@@ -721,6 +721,7 @@
   "scan.no_code_found": "No se encontró ningún código QR en la imagen",
   "scan.read_failed": "No se pudo leer la imagen: {0}",
   "scan.camera_failed": "No se pudo usar la cámara: {0}",
+  "receive.qr_for_phone": "Escanéalo con tu teléfono",
   "scan.from_screen": "Escanear desde la pantalla",
   "scan.screen_looking": "Buscando un código QR en la pestaña o ventana que compartiste…",
   "scan.screen_stop": "Dejar de compartir",

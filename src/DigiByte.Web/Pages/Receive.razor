@@ -45,25 +45,18 @@
 
     @if (address != null)
     {
-        <div class="card scale-in p-6 flex flex-col items-center gap-4 w-full card-hover">
-            <div class="qr-frame">
-                <img src="@qrDataUrl" alt="@L.T("receive.qr_alt")" class="w-48 h-48 rounded-lg" />
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="bg-white rounded-full p-1.5 shadow-md">
-                        <DigiLogo Size="32" />
-                    </div>
-                </div>
-            </div>
+        @* Wide screens lead with the address and its buttons; the QR code follows, smaller (spec 030, FR-025).
+           Phones keep the QR code on top through CSS order. *@
+        <div class="card scale-in p-6 receive-main w-full card-hover">
+            <div class="receive-main-details w-full flex flex-col items-center gap-3 fade-in-delay-2">
+                @* Reusing an address links payments together. Shown only when the address on show is known to be used; never blocks copy or share. *@
+                @if (onShowUsed)
+                {
+                    <p class="w-full text-center text-[11px] leading-snug text-amber-600 dark:text-amber-400" role="note">
+                        @L.T("receive.used_warning")
+                    </p>
+                }
 
-            @* Reusing an address links payments together. Shown only when the address on show is known to be used; never blocks copy or share. *@
-            @if (onShowUsed)
-            {
-                <p class="w-full text-center text-[11px] leading-snug text-amber-600 dark:text-amber-400" role="note">
-                    @L.T("receive.used_warning")
-                </p>
-            }
-
-            <div class="w-full flex flex-col items-center gap-3 fade-in-delay-2">
                 @if (requestAmount is not null)
                 {
                     <p class="text-lg font-bold tabular-nums text-slate-900 dark:text-white" aria-live="polite">
@@ -96,6 +89,17 @@
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                     @L.T("dd.receive.download")
                 </button>
+            </div>
+            <div class="receive-main-qr">
+                <div class="qr-frame">
+                    <img src="@qrDataUrl" alt="@L.T("receive.qr_alt")" class="w-48 h-48 rounded-lg" />
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="bg-white rounded-full p-1.5 shadow-md">
+                            <DigiLogo Size="32" />
+                        </div>
+                    </div>
+                </div>
+                <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
             </div>
         </div>
 

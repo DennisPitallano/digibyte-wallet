@@ -316,13 +316,13 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 **Independent Test**: Quickstart Q-18 and P-3.
 
-- [ ] T052 [US6] In `src/DigiByte.Web/Pages/Receive.razor`, move the address block (address text, Copy, Copy payment link, Share, Download) before the `qr-frame` block in the DOM. Wrap both in a container with class `receive-main`, and add the caption `receive.qr_for_phone` under the QR image.
-- [ ] T053 [US6] In `src/DigiByte.Web/Pages/Payments.razor`, wrap the active request card's details and QR code in a `receive-main` container, with the details first in the DOM, and add the same caption under the QR code.
-- [ ] T054 [P] [US6] In `src/DigiByte.Web/wwwroot/css/app.css`:
+- [X] T052 [US6] In `src/DigiByte.Web/Pages/Receive.razor`, move the address block (address text, Copy, Copy payment link, Share, Download) before the `qr-frame` block in the DOM. Wrap both in a container with class `receive-main`, and add the caption `receive.qr_for_phone` under the QR image.
+- [X] T053 [US6] In `src/DigiByte.Web/Pages/Payments.razor`, wrap the active request card's details and QR code in a `receive-main` container, with the details first in the DOM, and add the same caption under the QR code.
+- [X] T054 [P] [US6] In `src/DigiByte.Web/wwwroot/css/app.css`:
   - `.receive-main`: below 1024 px, a single column with the QR block at `order: -1`, so phones look as they do today;
   - inside `@media (min-width: 1024px)`: a two-column grid with details left and the QR code right at `w-36`;
   - hide `receive.qr_for_phone` below 1024 px.
-- [ ] T055 [P] [US6] Add the English and Spanish text for `receive.qr_for_phone` to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`.
+- [X] T055 [P] [US6] Add the English and Spanish text for `receive.qr_for_phone` to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`.
 
 **Checkpoint**: All six stories are done.
 

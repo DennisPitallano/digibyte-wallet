@@ -725,6 +725,7 @@
   "scan.no_code_found": "No QR code found in image",
   "scan.read_failed": "Failed to read image: {0}",
   "scan.camera_failed": "Couldn't use the camera: {0}",
+  "receive.qr_for_phone": "Scan with your phone",
   "scan.from_screen": "Scan from screen",
   "scan.screen_looking": "Looking for a QR code on the tab or window you shared…",
   "scan.screen_stop": "Stop sharing",

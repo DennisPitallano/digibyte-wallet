@@ -157,3 +157,5 @@ Below 1024 px the phone look stays as it is (FR-025).
 **Rationale**: One markup tree serves both layouts, so tests and phone behaviour are untouched. On Receive the address block moves before the QR code in the DOM, so wide screens show and read address-first. Below 1024 px CSS `order` puts the QR code back on top, so phones look the same as today. On phones, screen readers then read the address before the QR image, which helps more than it hurts.
 
 **Alternatives considered**: A separate desktop component would duplicate every Receive state (used-address warning, amount, address list).
+
+**Implementation note (2026-11-25)**: The app column is at most 480px wide even on desktop (`MainLayout.razor`), so a two-column grid would cramp the address and buttons. Wide screens therefore keep one column: address, amount and buttons first, then a smaller QR code (9rem) with the caption. Phones still show the QR code on top through CSS `order`. This meets FR-025 as written.
