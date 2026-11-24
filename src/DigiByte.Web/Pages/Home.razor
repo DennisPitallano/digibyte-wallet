@@ -6,6 +6,7 @@
 @inject ContactService ContactService
 @inject AddressLabelService LabelService
 @inject WalletService WalletService
+@inject LocalizationService L
 @inject NetworkStatusService Network
 @inject MemoryCacheService Cache
 @inject IBlockchainService Blockchain
@@ -141,8 +142,9 @@
                             </svg>
                         </button>
                     </div>
-                    @if (isLoadingBalance && balance.ConfirmedSatoshis == 0)
+                    @if ((isLoadingBalance || SearchingAddresses) && balance.ConfirmedSatoshis == 0)
                     {
+                        @* A zero read before the address search has finished is not a balance yet: keep the placeholder. *@
                         <div class="h-9 w-40 skeleton mt-1 rounded-lg" style="background:rgba(0,102,204,0.1)"></div>
                         <div class="h-4 w-24 skeleton mt-1.5 rounded" style="background:rgba(0,102,204,0.08)"></div>
                     }
@@ -399,6 +401,20 @@
                        (spec 025, FR-007, FR-008). No mascot line here: nothing is known about this wallet's history yet. *@
                     <ReceiveEmptyState Address="@receivingAddress" Class="mt-3" />
                 }
+                else if (SearchingAddresses)
+                {
+                    @* The list is empty only as far as the addresses checked so far: say so instead of "nothing yet". The
+                       address stays on show, as it does not depend on the search (spec 025, FR-007). *@
+                    <div class="bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4 mb-3 flex items-start gap-3"
+                         role="status" data-testid="home-searching-addresses">
+                        <div class="w-4 h-4 mt-0.5 shrink-0 border-2 border-dgb-500 dark:border-dgb-300 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
+                        <div>
+                            <p class="text-xs font-semibold text-slate-900 dark:text-white">@L.T("home.searching.title")</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">@L.T("home.searching.body")</p>
+                        </div>
+                    </div>
+                    <ReceiveEmptyState Address="@receivingAddress" />
+                }
                 else
                 {
                     @* Nothing here yet: the address to share is the next step (spec 025, FR-003). The mascot's message is the
@@ -546,6 +562,12 @@
     private bool fetchFailed; // true = network fetch errored (not just empty)
     private bool balanceFetchFailed;
     private bool txFetchFailed;
+    // The last balance / history read was taken before the wallet had finished finding its used addresses. Such a read
+    // covers only the addresses known then, so a zero or an empty list is not shown as fact and is not saved.
+    private bool balanceUnsettled;
+    private bool txUnsettled;
+    private bool _settledRefetchDone;
+    private bool SearchingAddresses => balanceUnsettled || txUnsettled;
     private string receivingAddress = "";
     private bool showAddressQr;
     private string? addressQrDataUri;
@@ -610,6 +632,7 @@
         _refreshLoop = new AutoRefreshLoop(JS);
         _announcer = new IncomingPaymentAnnouncer(Notifications, JS, Sounds);
         FirstReceive.Changed += OnFirstReceiveChanged;
+        WalletService.AddressSearchFinished += OnAddressSearchFinished;
 
         // Fire all I/O in parallel — UI renders immediately with skeleton states
         var contactsTask = ContactService.GetAllWithWalletsAsync(WalletService);
@@ -680,6 +703,7 @@
         }
         // Stop background auto-refresh poller
         FirstReceive.Changed -= OnFirstReceiveChanged;
+        WalletService.AddressSearchFinished -= OnAddressSearchFinished;
         if (_refreshLoop is not null) await _refreshLoop.StopAsync();
         // Restore page scroll when leaving this page
         try { await JS.InvokeVoidAsync("domHelpers.restoreScroll"); }
@@ -708,6 +732,17 @@
         _refreshLoop.Start(() => InvokeAsync(FetchAndCacheAsync), () => _isFetching);
 
     private void OnFirstReceiveChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// The wallet has finished finding its used addresses. If what is on screen was read before that (or the read failed
+    /// while the search was competing with it), read again now instead of waiting for the next background check, which can
+    /// be a minute away. A read still running is followed up by <see cref="FetchAndCacheAsync"/> itself.
+    /// </summary>
+    private void OnAddressSearchFinished(string walletId) => _ = InvokeAsync(() =>
+    {
+        if (walletId != ActiveWalletId || _isFetching) return Task.CompletedTask;
+        return SearchingAddresses || balanceFetchFailed || txFetchFailed ? FetchAndCacheAsync() : Task.CompletedTask;
+    });
 
     /// <summary>Compute a cheap fingerprint of the current visible state to
     /// detect whether a fetch surfaced anything new.</summary>
@@ -849,7 +884,9 @@
         fetchFailed = balanceFetchFailed && txFetchFailed;
 
         // Cache whatever we got (even zeros — a 0 balance is valid data)
-        if (!fetchFailed)
+        // Not when it was read before the address search finished: that zero is not known to be true, and saved it would
+        // be shown as the balance on the next start.
+        if (!fetchFailed && !SearchingAddresses)
             await SaveToCacheAsync();
 
         // Update poller backoff based on whether anything actually changed.
@@ -857,7 +894,17 @@
 
         StateHasChanged();
         }
-        finally { _isFetching = false; }
+        finally
+        {
+            _isFetching = false;
+            // The search finished while this read was running: what it returned is already out of date.
+            if (ActiveWalletId == walletIdAtStart && WalletService.IsUnlocked && WalletService.AddressesSettled
+                && (SearchingAddresses || balanceFetchFailed || txFetchFailed) && !_settledRefetchDone)
+            {
+                _settledRefetchDone = true; // Once per wallet: a read that keeps failing is left to the background check.
+                _ = InvokeAsync(FetchAndCacheAsync);
+            }
+        }
     }
 
     /// <summary>Persist balance, txs, and price to IndexedDB + update timestamp.</summary>
@@ -869,12 +916,16 @@
     private async Task LoadBalanceAsync()
     {
         isLoadingBalance = true;
+        // Show the placeholder now. Without this the first load of a wallet with nothing saved keeps showing the initial
+        // zero until the read returns, because nothing else renders between setting the flag and the result.
+        StateHasChanged();
         try
         {
             // Keyed on the confirmed figure, so a pending payment that is dropped never moves the main balance (FR-016).
             var before = balance.ConfirmedDgb;
             var hadData = hasCachedData || before > 0;
             balance = await WithTimeout(WalletService.GetBalanceAsync());
+            balanceUnsettled = !balance.AddressesSettled;
             if (hadData && !hideBalance && balance.ConfirmedDgb != before)
                 _ = AnimateBalanceAsync(before, balance.ConfirmedDgb);
         }
@@ -913,12 +964,14 @@
     private async Task LoadTransactionsAsync()
     {
         isLoadingTx = true;
+        StateHasChanged(); // As in LoadBalanceAsync: the list's placeholder must be on screen while this runs.
         try
         {
             var walletId = ActiveWalletId;
             // The load reports its own completeness: with Receive also checking, loads can overlap (spec 025, FR-015).
             var load = await WithTimeout(WalletService.LoadTransactionHistoryAsync());
             transactions = load.Transactions;
+            txUnsettled = !load.AddressesSettled;
             await LoadWalletAddressLabelsAsync();
             if (ActiveWalletId == walletId)
             {
@@ -1240,6 +1293,7 @@
         transactions = [];
         _announcer.Forget();
         txLoadedOnce = false;
+        balanceUnsettled = txUnsettled = _settledRefetchDone = false;
         receivingAddress = "";
         addressQrDataUri = null;
         hasCachedData = false;
@@ -1299,6 +1353,7 @@
             transactions = [];
             _announcer.Forget();
             txLoadedOnce = false;
+            balanceUnsettled = txUnsettled = _settledRefetchDone = false;
             receivingAddress = "";
             addressQrDataUri = null;
             hasCachedData = false;

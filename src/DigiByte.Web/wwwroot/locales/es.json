@@ -320,6 +320,8 @@
   "home.empty.copy_failed": "No se pudo copiar. Selecciona la dirección para copiarla.",
   "home.empty.receive_link": "Abrir Recibir",
   "home.empty.qr_alt": "Código QR de tu dirección para recibir",
+  "home.searching.title": "Seguimos buscando tus pagos",
+  "home.searching.body": "Estamos revisando las direcciones de esta billetera. Tu saldo aparecerá aquí en cuanto termine.",
   "activity.empty.receive": "Recibir",
   "firstreceive.title": "Tu primer DGB",
   "firstreceive.received": "{0} DGB recibidos",

@@ -757,6 +757,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         EnsureUnlocked();
         await WaitForAddressDiscoveryAsync(AddressDiscoveryWait);
 
+        // Read with the addresses: a search that ends during the read below must not make this balance look complete.
+        var addressesSettled = AddressesSettled;
         var addresses = GetAllAddresses();
         if (ChangeOnlySync)
         {
@@ -768,6 +770,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                     ConfirmedSatoshis = result.ConfirmedSatoshis,
                     UnconfirmedSatoshis = result.PendingSatoshis,
                     FiatCurrency = ActiveWallet!.FiatCurrency,
+                    AddressesSettled = addressesSettled,
                 };
             }
             catch (SummaryUnavailableException)
@@ -782,6 +785,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         {
             ConfirmedSatoshis = totalSatoshis,
             FiatCurrency = ActiveWallet!.FiatCurrency,
+            AddressesSettled = addressesSettled,
         };
     }
 
@@ -1167,10 +1171,49 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         if (session.AddressDiscovery is null)
         {
             if (DateTime.UtcNow < session.AddressDiscoveryRetryAfter) return;
-            session.AddressDiscovery = RunAddressDiscoveryAsync(session);
+            var search = RunAddressDiscoveryAsync(session);
+            session.AddressDiscovery = search;
+            _ = AnnounceAddressSearchAsync(session, search);
         }
 
         await Task.WhenAny(session.AddressDiscovery, Task.Delay(limit));
+    }
+
+    /// <summary>
+    /// Raised with the wallet's id when its search for used addresses has finished and <see cref="AddressesSettled"/> is true
+    /// for it. A balance or history read taken earlier covered only the addresses known then, so a page showing one reads
+    /// again. Not raised when the search fails.
+    /// </summary>
+    public event Action<string>? AddressSearchFinished;
+
+    /// <summary>
+    /// Whether the active wallet has finished finding which of its addresses have been used. Until then a zero balance or an
+    /// empty history does not prove the wallet is empty: on a restored wallet the funds may be on addresses the search has
+    /// not reached yet.
+    /// </summary>
+    public bool AddressesSettled => IsSettled(ActiveSession);
+
+    /// <summary>
+    /// A wallet with no HD key (a private key) has fixed addresses and nothing to find. A failed search clears its task, so
+    /// "completed successfully" is false for running, not started and failed alike.
+    /// </summary>
+    private static bool IsSettled(UnlockedWalletSession? session) =>
+        session is null || session.Hd is null || session.AddressDiscovery is { IsCompletedSuccessfully: true };
+
+    /// <summary>Raises <see cref="AddressSearchFinished"/> once <paramref name="search"/> has ended, unless it failed.</summary>
+    private async Task AnnounceAddressSearchAsync(UnlockedWalletSession session, Task search)
+    {
+        await search; // Never faults.
+        if (!ReferenceEquals(session.AddressDiscovery, search)) return; // It failed and was cleared, or the wallet was locked.
+
+        try
+        {
+            AddressSearchFinished?.Invoke(session.Info.Id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Wallet] A listener for the finished address search failed: {ex.GetType().Name}");
+        }
     }
 
     private async Task RunAddressDiscoveryAsync(UnlockedWalletSession session)
@@ -1634,11 +1677,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
 
         // Completeness belongs to this call (kept in locals), so overlapping loads cannot be mistaken for each other.
         var incomplete = false;
-        // A wallet with no HD key (a private key) has one fixed address and nothing to discover. A failed discovery clears
-        // its task, so "completed successfully" is false for running, not started and failed alike.
-        var addressesSettled = ActiveSession is not { } loadSession
-            || loadSession.Hd is null
-            || loadSession.AddressDiscovery is { IsCompletedSuccessfully: true };
+        var addressesSettled = AddressesSettled;
 
         // Always return locally tracked transactions (works on all networks)
         var localTxs = await _txTracker.GetAllAsync();

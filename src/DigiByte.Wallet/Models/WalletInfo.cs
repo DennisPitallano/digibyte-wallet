@@ -87,6 +87,13 @@ public class WalletBalance
     public decimal FiatValue { get; set; }
     public string FiatCurrency { get; set; } = "USD";
 
+    /// <summary>
+    /// False when this balance was read before the wallet had finished finding its used addresses. It then covers only the
+    /// addresses known at the time, so a zero does not prove the wallet is empty. Not saved with the balance.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool AddressesSettled { get; set; } = true;
+
     public decimal ConfirmedDgb => ConfirmedSatoshis / 100_000_000m;
     public decimal UnconfirmedDgb => UnconfirmedSatoshis / 100_000_000m;
 
