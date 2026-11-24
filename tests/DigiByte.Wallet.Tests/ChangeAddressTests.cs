@@ -369,16 +369,43 @@ public class ChangeAddressTests
         /// <summary>When set, writes to keys that start with this prefix fail (a test of what happens when storage refuses a write).</summary>
         public string? FailWritesWithPrefix { get; set; }
 
+        private TaskCompletionSource _walletInfoWriteHold = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>
+        /// While set, a wallet-record write waits for <see cref="ReleaseWalletInfoWrites"/>. <see cref="FailWalletInfoWrites"/> is
+        /// read when the write is released, so a test can change something while the save is pending and then fail or pass it.
+        /// </summary>
+        public bool HoldWalletInfoWrites { get; set; }
+
+        /// <summary>Lets held wallet-record writes go on, and stops holding new ones.</summary>
+        public void ReleaseWalletInfoWrites()
+        {
+            HoldWalletInfoWrites = false;
+            _walletInfoWriteHold.TrySetResult();
+            _walletInfoWriteHold = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
         public Task<string?> GetAsync(string key) => Task.FromResult(_store.TryGetValue(key, out var v) ? v : null);
 
         public Task SetAsync(string key, string value)
         {
             if (FailWritesWithPrefix is not null && key.StartsWith(FailWritesWithPrefix, StringComparison.Ordinal))
                 throw new IOException("storage refused the write");
-            if (FailWalletInfoWrites && value.Contains("NextChangeIndex"))
+            var isWalletInfo = value.Contains("NextChangeIndex");
+            if (HoldWalletInfoWrites && isWalletInfo)
+                return HeldSetAsync(key, value, _walletInfoWriteHold.Task);
+            if (FailWalletInfoWrites && isWalletInfo)
                 throw new IOException("storage is full");
             _store[key] = value;
             return Task.CompletedTask;
+        }
+
+        private async Task HeldSetAsync(string key, string value, Task hold)
+        {
+            await hold;
+            if (FailWalletInfoWrites)
+                throw new IOException("storage is full");
+            _store[key] = value;
         }
 
         public Task RemoveAsync(string key) { _store.Remove(key); return Task.CompletedTask; }
@@ -386,6 +413,31 @@ public class ChangeAddressTests
         public Task ClearAsync() { _store.Clear(); return Task.CompletedTask; }
         public Task<List<string>> GetKeysWithPrefixAsync(string prefix) =>
             Task.FromResult(_store.Keys.Where(k => k.StartsWith(prefix)).ToList());
+    }
+
+    /// <summary>
+    /// Changes the stored wallet record, as if an earlier session had saved it that way. Setting a field on the unlocked wallet
+    /// in memory is not enough for a test that reloads: a reload reads storage.
+    /// </summary>
+    internal static async Task SeedWalletInfoAsync(InMemoryStorage storage, string walletId, Action<WalletInfo> change)
+    {
+        var store = new WalletKeyStore(storage);
+        var json = await store.GetWalletInfoAsync(walletId)
+            ?? throw new InvalidOperationException($"No stored wallet record for {walletId}.");
+        var info = JsonSerializer.Deserialize<WalletInfo>(json)!;
+        change(info);
+        await store.SaveWalletInfoAsync(walletId, JsonSerializer.Serialize(info));
+    }
+
+    /// <summary>Storage that fails every call, for tests of unreadable stored values.</summary>
+    internal sealed class ThrowingStorage : ISecureStorage
+    {
+        public Task<string?> GetAsync(string key) => throw new InvalidOperationException("storage is unavailable");
+        public Task SetAsync(string key, string value) => throw new InvalidOperationException("storage is unavailable");
+        public Task RemoveAsync(string key) => throw new InvalidOperationException("storage is unavailable");
+        public Task<bool> ContainsKeyAsync(string key) => throw new InvalidOperationException("storage is unavailable");
+        public Task ClearAsync() => throw new InvalidOperationException("storage is unavailable");
+        public Task<List<string>> GetKeysWithPrefixAsync(string prefix) => throw new InvalidOperationException("storage is unavailable");
     }
 
     internal sealed class PassThroughCrypto : LegacyCryptoBase
@@ -401,7 +453,11 @@ public class ChangeAddressTests
 
         private readonly List<Output> _unspent = [];
         private readonly HashSet<string> _everUsed = [];
+        private readonly List<(string TxId, string Address, long Sats)> _creditLog = [];
         private int _credits;
+        private int _historyCalls;
+        private int? _holdAfterLookups;
+        private TaskCompletionSource _lookupHold = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public long TotalFees { get; private set; }
         public Transaction? LastBroadcast { get; private set; }
@@ -410,16 +466,57 @@ public class ChangeAddressTests
         public bool HistoryDown { get; set; }
         public int HistoryLookups { get; private set; }
 
+        /// <summary>The fuse on <see cref="HistoryLookups"/>. Raise it for a test that really makes thousands of lookups.</summary>
+        public int MaxHistoryLookups { get; set; } = 5000;
+
+        /// <summary>Every address passed to <see cref="HasAddressHistoryAsync"/>, in order.</summary>
+        public List<string> HistoryAddresses { get; } = [];
+
         /// <summary>While set, discovery's lookups wait for this task, to imitate a slow explorer.</summary>
         public Task? HistoryGate { get; set; }
+
+        /// <summary>
+        /// When set, <see cref="HasAddressHistoryAsync"/> calls after the first N made from now on wait for <see cref="Release"/>.
+        /// Only those calls are counted, not transaction reads. <see cref="HistoryDown"/> is checked after the wait, so a test
+        /// can hold lookups, switch the explorer off and release, and the held lookups fail.
+        /// </summary>
+        public int? HoldAfterLookups
+        {
+            get => _holdAfterLookups;
+            set { _holdAfterLookups = value; _historyCalls = 0; }
+        }
+
+        /// <summary>Lets held lookups go on, and stops holding new ones.</summary>
+        public void Release()
+        {
+            _holdAfterLookups = null;
+            _lookupHold.TrySetResult();
+            _lookupHold = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        /// <summary>
+        /// When true, <see cref="GetAddressTransactionsAsync"/> returns one transaction per credit, with the credited address and
+        /// amount as its output. Off, it returns a transaction with no inputs or outputs, which the wallet's history discards:
+        /// a test that asserts anything about history must turn this on.
+        /// </summary>
+        public bool DetailedHistory { get; set; }
+
+        /// <summary>When true, the batch balance read fails (<see cref="HistoryDown"/> does not affect balance reads).</summary>
+        public bool BalanceDown { get; set; }
 
         public async Task<bool> HasAddressHistoryAsync(string address)
         {
             if (HistoryGate is { } gate) await gate;
-            HistoryLookups++;
+            if (_holdAfterLookups is { } holdAfter && ++_historyCalls > holdAfter) await _lookupHold.Task;
+            // Held lookups resume on several threads at once: the log must not lose entries.
+            lock (HistoryAddresses)
+            {
+                HistoryLookups++;
+                HistoryAddresses.Add(address);
+            }
             if (HistoryDown) throw new HttpRequestException("explorer is down");
             // A fuse, so an endless search fails this test instead of hanging the test run.
-            if (HistoryLookups > 5000) throw new InvalidOperationException("Too many history lookups.");
+            if (HistoryLookups > MaxHistoryLookups) throw new InvalidOperationException("Too many history lookups.");
             return EveryAddressHasHistory || _everUsed.Contains(address);
         }
 
@@ -429,6 +526,7 @@ public class ChangeAddressTests
             var script = BitcoinAddress.Create(address, Network).ScriptPubKey.ToHex();
             _unspent.Add(new Output(txid, 0, address, sats, script));
             _everUsed.Add(address);
+            _creditLog.Add((txid, address, sats));
         }
 
         public int UnspentOutputsOwnedBy(string address) => _unspent.Count(o => o.Address == address);
@@ -438,6 +536,7 @@ public class ChangeAddressTests
 
         public Task<long> GetBalanceAsync(IEnumerable<string> addresses)
         {
+            if (BalanceDown) throw new HttpRequestException("explorer is down");
             var set = addresses.ToHashSet();
             return Task.FromResult(_unspent.Where(o => set.Contains(o.Address)).Sum(o => o.Sats));
         }
@@ -489,7 +588,13 @@ public class ChangeAddressTests
             HistoryLookups++;
             if (HistoryDown) throw new HttpRequestException("explorer is down");
             // A fuse, so an endless search fails this test instead of hanging the test run.
-            if (HistoryLookups > 5000) throw new InvalidOperationException("Too many history lookups.");
+            if (HistoryLookups > MaxHistoryLookups) throw new InvalidOperationException("Too many history lookups.");
+            if (DetailedHistory)
+                return Task.FromResult(_creditLog.Where(c => c.Address == address).Select(c => new TransactionInfo
+                {
+                    TxId = c.TxId, Confirmations = 6, Timestamp = DateTime.UtcNow, FeeSatoshis = 0, Inputs = [],
+                    Outputs = [new TxOutput { Address = c.Address, AmountSatoshis = c.Sats, Index = 0 }],
+                }).ToList());
             var txs = new List<TransactionInfo>();
             if (EveryAddressHasHistory || _everUsed.Contains(address))
                 txs.Add(new TransactionInfo

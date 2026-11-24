@@ -88,6 +88,9 @@ builder.Services.AddScoped<DigiByte.Web.Services.WalletSnapshotCache>();
 // per-device "first session ended" marker the install banner and sponsors strip wait for.
 builder.Services.AddScoped(sp => new FirstReceiveStore(sp.GetRequiredService<ISecureStorage>()));
 builder.Services.AddScoped<DigiByte.Web.Services.FirstReceiveCoordinator>();
+// "Search further" offer (spec 027): how each wallet came to be on this device and whether its offer was answered.
+builder.Services.AddScoped(sp => new SearchOfferStore(sp.GetRequiredService<ISecureStorage>()));
+builder.Services.AddScoped<DigiByte.Web.Services.SearchOfferCoordinator>();
 builder.Services.AddScoped<DigiByte.Web.Services.InstallAppState>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();

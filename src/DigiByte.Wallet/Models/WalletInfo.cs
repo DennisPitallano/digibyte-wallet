@@ -17,6 +17,24 @@ public class WalletInfo
     public int UsedReceivingCount { get; set; }
 
     /// <summary>
+    /// A lower bound on the run of addresses checked from the first one. Set when the address on show first moves past that
+    /// run, so the addresses handed out before then stay checked (spec 027). Only ever rises.
+    /// </summary>
+    public int ReceiveBaseFloor { get; set; }
+
+    /// <summary>
+    /// Receive indexes beyond that run which the wallet checks one by one: found paid by a search, or handed out by this
+    /// wallet (spec 027). Ascending by <c>Index</c>, no duplicate <c>Index</c>.
+    /// </summary>
+    public List<DigiByte.Wallet.Services.WatchedReceiveIndex> WatchedReceiveIndexes { get; set; } = [];
+
+    /// <summary>The largest count, from the first address, that a finished wider search has covered (spec 027). Only ever rises.</summary>
+    public int ReceiveSearchedTo { get; set; }
+
+    /// <summary>The "this key seems to be in use somewhere else" notice has been shown for this wallet (spec 027).</summary>
+    public bool ReceiveSearchNoticeShown { get; set; }
+
+    /// <summary>
     /// "hd" for BIP39/BIP84 mnemonic wallets, "privatekey" for single WIF key import, "xpub" for watch-only.
     /// </summary>
     public string WalletType { get; set; } = "hd";

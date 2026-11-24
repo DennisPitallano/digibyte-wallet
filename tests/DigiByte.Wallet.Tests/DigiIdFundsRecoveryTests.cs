@@ -1209,6 +1209,80 @@ public class DigiIdFundsRecoveryTests
         public void Report(DigiIdSweepRecord value) => report(value);
     }
 
+    // ─── A sweep after a far-off find (spec 027, data-model.md worked example E) ───
+
+    /// <summary>Like <see cref="FundSitesAsync"/>, for a wallet whose stored record already has watched receive addresses.</summary>
+    private static async Task<Funded> FundSitesWithWatchedAsync(int count, params WatchedReceiveIndex[] watched)
+    {
+        var env = new DigiIdEnv();
+        var walletId = (await env.CreateUnlockedHdAsync()).ActiveWallet!.Id;
+        await ChangeAddressTests.SeedWalletInfoAsync(env.Storage, walletId, i => i.WatchedReceiveIndexes = [.. watched]);
+        var service = env.NewService();
+        Assert.True(await service.UnlockWalletAsync(walletId, DigiIdEnv.Pin));
+
+        var sites = Enumerable.Range(1, count).Select(i => $"site{i}.example").ToArray();
+        var utxos = new Dictionary<string, List<DigiIdFakeChain.FakeUtxo>>();
+        foreach (var site in sites)
+        {
+            var address = env.DigiIdAddress(site);
+            utxos[address] = [env.Chain.AddUtxo(address, 5_000_000)];
+        }
+        return new Funded(env, service, walletId, sites, await service.ScanDigiIdFundsAsync(sites), utxos);
+    }
+
+    [Fact]
+    public async Task Sweep_AfterAFarOffFind_UsesAddressesPastIt_AndKeepsThemChecked()
+    {
+        var f = await FundSitesWithWatchedAsync(3, new WatchedReceiveIndex(3000, true));
+        var checkedBefore = f.Service.GetAllAddresses().Count;
+
+        var plan = await f.Service.PlanDigiIdSweepAsync(f.Findings);
+        await f.Service.ExecuteDigiIdSweepAsync(plan);
+
+        Assert.Equal([3001, 3002, 3003], plan.Items.Select(i => i.DestinationIndex).Order());
+        var stored = (await f.Service.GetWalletAsync(f.WalletId))!;
+        Assert.Equal(3004, stored.NextReceivingIndex);
+        Assert.Equal(20, stored.ReceiveBaseFloor);
+        Assert.Equal(
+            [new(3000, true), new(3001, false), new(3002, false), new(3003, false), new(3004, false)],
+            stored.WatchedReceiveIndexes);
+        // The destinations were already in the tail after 3,000: the wallet does not start checking thousands of addresses.
+        Assert.Equal(checkedBefore, f.Service.GetAllAddresses().Count);
+        Assert.Contains(f.Env.ReceiveAddress(3002), f.Service.GetAllAddresses());
+
+        Assert.Equal(3005, (await f.Service.GenerateNewReceivingAddressAsync()).Index);
+    }
+
+    [Fact]
+    public async Task Sweep_AfterAFarOffFind_ThatCannotBeSaved_UndoesItsOwnChanges()
+    {
+        var f = await FundSitesWithWatchedAsync(3, new WatchedReceiveIndex(3000, true));
+        var plan = await f.Service.PlanDigiIdSweepAsync(f.Findings);
+        f.Env.Storage.FailWalletInfoWrites = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.Service.ExecuteDigiIdSweepAsync(plan));
+
+        var info = f.Service.ActiveWallet!;
+        Assert.Equal(0, info.NextReceivingIndex);
+        Assert.Equal(0, info.ReceiveBaseFloor);
+        Assert.Equal([new(3000, true)], info.WatchedReceiveIndexes);
+        Assert.Empty(f.Env.Chain.Broadcasts);
+    }
+
+    [Fact]
+    public async Task Plan_AfterAFarOffFind_CountsRoomFromTheHighestFound()
+    {
+        var f = await FundSitesWithWatchedAsync(12, new WatchedReceiveIndex(3000, true));
+        for (var i = 0; i < 15; i++) await f.Service.GenerateNewReceivingAddressAsync(); // 3,001 to 3,015 handed out, unpaid
+
+        var plan = await f.Service.PlanDigiIdSweepAsync(f.Findings);
+
+        // 20 unpaid addresses may be out past 3,000. 15 are, and one must be left to show afterwards: room for 4.
+        Assert.Equal(4, plan.Items.Count);
+        Assert.Equal(8, plan.Remaining);
+        Assert.Equal(3016, plan.Items.Min(i => i.DestinationIndex));
+    }
+
     private sealed class SyncProgress(Action<int> report) : IProgress<int>
     {
         public void Report(int value) => report(value);

@@ -34,6 +34,20 @@
 2. Choose **"Reset PIN with recovery phrase"**
 3. Enter your 24 words → set a new PIN → you're back in
 
+### A Restored Wallet Looks Empty, or a Payment Is Missing
+The wallet looks 20 addresses past the last one that was paid. If the same recovery phrase or account key also hands out
+addresses somewhere else (a shop, a deposit page that gives every order its own address), a payment can sit further along.
+1. On Home, an empty wallet that was restored or added as watch-only shows **"Expecting funds in this wallet?"** → tap
+   **Search further** (or open **More → Settings → Recovery Tools → Current Wallet — Missing Payments**)
+2. Choose how many addresses to search, counted from the first one (up to 5,000) → **Search**
+3. Watch the progress, or **Cancel**: what was found so far is kept
+4. Anything found joins your balance. Nothing has to be moved, and it can be spent like any other funds
+
+Good to know: the search asks the public block explorer about each address, whichever source your wallet normally uses.
+Addresses the search adds stay in the wallet: a search cannot be undone, short of removing the wallet from the device
+and restoring it. Addresses that were unpaid during the search are not watched afterwards, so search again if you
+expect a later payment to one of them.
+
 ---
 
 ## Blockchain Backend Flows
@@ -396,6 +410,46 @@ Your addresses (HD only, folded on every visit, spec 012):
 
 WIF wallets: fixed Legacy + SegWit addresses (no "generate new", no list)
 HD wallets: can generate unlimited addresses from derivation path
+
+After a wider search has found addresses far along (spec 027):
+  → GenerateNewAddress() hands out the index after the highest found one, and records it as a watched address
+  → "Your addresses" lists WalletService.GetListedReceiveIndexes(): the run from the first address plus the watched
+    addresses up to the one on show, not every index in between. Paging is by position in that list
+```
+
+### Recovery — Missing Payments (`/recovery`, spec 027)
+```
+Which receive addresses a wallet checks (ReceiveScanSet, pure, in DigiByte.Wallet):
+  → a base run from the first address: max(20, UsedReceivingCount, ReceiveBaseFloor, address on show + 1)
+  → watched indexes beyond it (WalletInfo.WatchedReceiveIndexes): found paid by a search, or handed out since
+  → a tail: the 20 indexes after the highest paid watched index
+  → With nothing watched this is the range the wallet always checked
+
+Home offer (SearchFurtherOffer, SearchOfferRule):
+  → shown in Home's plain empty state when the wallet is hd or xpub, was not created on this device
+    (walletOrigin:<walletId>), a completed load recorded it as empty (FirstReceiveState.Empty) and the offer is
+    unanswered (searchOffer:<walletId>)
+  → "Search further" → /recovery?search=receive (focus on the count field); "Dismiss" → never shown again
+  → answered as "searched" only when a search finishes
+
+Search (WalletService.SearchReceiveAddressesAsync(upTo)):
+  → upTo is a count from the first address, 1 to 5,000; default = 500 past what is already covered
+  → control address first (a key made and thrown away): reported used → Untrusted, nothing changed;
+    lookup failed → Failed, nothing checked
+  → every index below upTo that is not in the base run and not already a paid watched index, in batches of 20,
+    10 lookups in flight, straight to IBlockchainService.HasAddressHistoryAsync (the public explorer chain,
+    not the history sync and not the gateway)
+  → per batch with finds: FirstReceiveStore → History (so found funds are never celebrated as a first payment),
+    then the indexes become paid watched entries and the wallet record is saved; progress is reported
+  → Cancel and wallet lock are honoured between batches → Cancelled; a failed lookup → Failed; both report the
+    count covered and keep what was found. Only Finished raises WalletInfo.ReceiveSearchedTo
+  → one search per wallet at a time; leaving the page cancels it
+
+After a find:
+  → balance, history and sending read the checked set, so found funds are spendable with nothing to sweep
+  → each unlock, after the usual search: every unpaid watched index is looked up, then a walk from the highest paid
+    one until 20 in a row are unused (capped at 500 lookups; if the cap is hit nothing from that pass is applied)
+  → a paid mark is never removed. There is no undo other than removing and restoring the wallet
 ```
 
 ### Contacts (`/contacts`)

@@ -4,6 +4,17 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **Find payments further along than the wallet normally looks** — A wallet looks 20 addresses past the last one that was paid. When the same recovery phrase or account key also hands out addresses somewhere else (a shop, a deposit page that gives every order its own address), a payment can sit beyond that. **Recovery Tools → Current Wallet — Missing Payments** now lets you choose how many addresses to search, counted from the first one, up to 5,000. Anything found joins the balance and can be spent, with nothing to move. The search shows how many addresses it has covered and how many it found, and can be cancelled; a search that is cancelled or fails says how far it got and keeps what it found, and never reports "nothing found" unless it finished. Security-relevant: the search asks the public block explorer about each address it checks, whichever source the wallet normally uses, and the card says how many before it starts. It first looks up an address nobody can have used, and changes nothing if the explorer reports that one as used. Addresses a search adds stay in the wallet: there is no undo other than removing the wallet from the device and restoring it.
+- **An empty restored wallet offers to search further** — On Home, a wallet that was restored or added as watch-only and whose first complete load found nothing shows "Expecting funds in this wallet?" with **Search further** and **Dismiss**. It is not shown to a wallet created on the device, goes away for good when dismissed, and goes away once a search has finished.
+
+### Changed
+- **After a find, new addresses continue from it** — **Generate new address** gives the address after the highest one found, and the limit of 20 unused addresses in a row is counted from there. The first time a search adds addresses, the wallet says once that the key seems to be in use somewhere else. At each unlock the wallet also checks the 20 addresses after the highest one found, so later payments there appear without another search.
+- **"Your addresses" on Receive lists the addresses the wallet checks** — After a far-off find it shows the first addresses, the found ones and those handed out since, not thousands of entries in between. For a wallet that has not used the search the list is unchanged.
+
+### Fixed
+- **Funds found by a search are not celebrated as a first payment** — A wallet recorded as empty that then found old payments through the search could show the "Your first DGB" celebration for them. The wallet now records that it has history before it adds what a search found.
+
 ## [0.9.0] - 2026-11-23
 
 Multisig is easier to find your way around. While a multisig is open the menu belongs to it, every page says which multisig you are in and which wallet it belongs to, Pending puts what needs you first, each payment has a screen of its own, and the signing room is built around the next step. How payments are signed, checked and broadcast is unchanged, and nothing new is stored except which multisig you used last. Also in this release: a shorter Unlock screen with several wallets, and "Update available" shows again instead of the app reloading on its own.

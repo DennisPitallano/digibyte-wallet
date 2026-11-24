@@ -3,6 +3,9 @@
 @inject WalletService WalletService
 @inject NotificationService Notify
 @inject IJSRuntime JS
+@inject SearchOfferCoordinator SearchOffer
+@inject LocalizationService L
+@implements IDisposable
 
 <PageTitle>Recovery Tools — DigiByte Wallet</PageTitle>
 
@@ -167,43 +170,92 @@
     @* Current Wallet — receive addresses past the normal search (seed and watch-only wallets) *@
     @if (hasDerivedAddresses)
     {
-        <div class="card slide-up-delay-1 p-4">
+        <div id="receive-search" class="card slide-up-delay-1 p-4">
             <p class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Current Wallet — Missing Payments</p>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
                 Paid an address from "Generate new address" but the money isn't showing? Search further along this wallet's addresses. Anything found joins your balance, with nothing to move.
             </p>
 
-            @if (receiveScanResult is { } found)
+            <label for="receive-search-upto" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                @L.T("recovery.receive_search.label")
+            </label>
+            <input id="receive-search-upto" data-testid="receive-search-upto" type="number" inputmode="numeric"
+                   min="1" max="@WalletService.MaxReceiveSearch" step="1"
+                   class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-dgb-700 bg-white dark:bg-dgb-900 text-sm text-slate-900 dark:text-white"
+                   value="@receiveSearchInput" @oninput="OnReceiveSearchInput" disabled="@isReceiveScanning"
+                   aria-describedby="receive-search-note" aria-invalid="@(ReceiveSearchUpTo is null ? "true" : "false")" />
+            @if (ReceiveSearchUpTo is null)
             {
-                <div class="bg-slate-50 dark:bg-dgb-800/30 rounded-xl p-3 text-center mb-2">
-                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                        @if (found.AddressesAdded == 0)
-                        {
-                            <span>No more paid addresses found.</span>
-                        }
-                        else
-                        {
-                            <span>Your wallet now also checks @found.AddressesAdded more address@(found.AddressesAdded != 1 ? "es" : ""), holding @((found.Satoshis / 100_000_000m).ToString("N8")) DGB.</span>
-                        }
-                    </p>
+                <InlineError Message="@L.T("recovery.receive_search.range_error")" />
+            }
+            @if (WalletService.ReceiveSearchedTo > 0)
+            {
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    @L.T("recovery.receive_search.last_searched", Count(WalletService.ReceiveSearchedTo))
+                </p>
+            }
+            @* Always on show, and it follows the field: the search asks the public block explorer about this many addresses. *@
+            <p id="receive-search-note" data-testid="receive-search-explorer-note" class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 mb-3">
+                @L.T("recovery.receive_search.explorer_note", Count(ReceiveSearchUpTo ?? WalletService.MaxReceiveSearch))
+            </p>
+
+            @if (receiveSearchMessage is not null)
+            {
+                <div data-testid="receive-search-result" role="status" class="mb-2">
+                    @if (receiveSearchIsProblem)
+                    {
+                        <InlineError Message="@receiveSearchMessage" />
+                    }
+                    else
+                    {
+                        <div class="bg-slate-50 dark:bg-dgb-800/30 rounded-xl p-3 text-center">
+                            <p class="text-xs text-slate-600 dark:text-slate-300">@receiveSearchMessage</p>
+                        </div>
+                    }
+                    @if (receiveSearchAdded is not null)
+                    {
+                        @* A search that stopped or failed still keeps what it found: say so. *@
+                        <p class="text-xs text-slate-600 dark:text-slate-300 mt-2">@receiveSearchAdded</p>
+                    }
+                    @if (receiveSearchResult is { ShowForeignIssuerNotice: true })
+                    {
+                        <p class="text-[11px] text-amber-700 dark:text-amber-400 mt-2">@L.T("recovery.receive_search.foreign_issuer_notice")</p>
+                    }
+                    @if (receiveSearchResult is { Outcome: ReceiveSearchOutcome.Finished, LeavesUnwatched: true })
+                    {
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2">@L.T("recovery.receive_search.leaves_unwatched")</p>
+                    }
+                    @if (receiveSearchResult is { SuggestSearchingFurther: true } near)
+                    {
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2">@L.T("recovery.receive_search.search_further_hint")</p>
+                        <button type="button" class="btn-secondary btn-sm w-full mt-1" data-testid="receive-search-further"
+                                @onclick="() => FillSearchFurther(near.RequestedUpTo)">
+                            @L.T("recovery.receive_search.search_further_action")
+                        </button>
+                    }
                 </div>
             }
 
-            <button class="btn-primary btn-sm w-full"
-                    @onclick="ScanMissingReceiveFunds" disabled="@isReceiveScanning">
+            <button id="receive-search-start" data-testid="receive-search-start" class="btn-primary btn-sm w-full"
+                    @onclick="SearchReceiveAddresses" disabled="@(isReceiveScanning || ReceiveSearchUpTo is null)">
                 @if (isReceiveScanning)
                 {
                     <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Searching… @receiveScanProgress%</span>
                 }
-                else
-                {
-                    <span>Search for Missing Payments</span>
-                }
+                <span>@L.T("recovery.receive_search.start")</span>
             </button>
-            @if (receiveScanError != null)
+            @if (isReceiveScanning)
             {
-                <InlineError Message="@receiveScanError" />
+                <button type="button" class="btn-secondary btn-sm w-full mt-2" data-testid="receive-search-cancel"
+                        @onclick="CancelReceiveSearch" disabled="@(receiveSearchCancel?.IsCancellationRequested ?? true)">
+                    @L.T("recovery.receive_search.cancel")
+                </button>
+            }
+            @if (isReceiveScanning && receiveSearchProgress is { } running)
+            {
+                <p data-testid="receive-search-progress" role="status" class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">
+                    @L.T("recovery.receive_search.progress", Count(running.CheckedUpTo), Count(running.RequestedUpTo), Count(running.FoundSoFar))
+                </p>
             }
         </div>
     }
@@ -424,9 +476,52 @@
     // Current wallet receive address search state
     private bool hasDerivedAddresses;
     private bool isReceiveScanning;
-    private int receiveScanProgress;
-    private string? receiveScanError;
-    private ReceiveRecoveryResult? receiveScanResult;
+    private string receiveSearchInput = "";
+    private ReceiveSearchResult? receiveSearchResult;
+    private ReceiveSearchProgress? receiveSearchProgress;
+    private string? receiveSearchMessage;
+    private string? receiveSearchAdded;
+    private CancellationTokenSource? receiveSearchCancel;
+    private bool disposed;
+
+    /// <summary>Asks the running search to stop. It stops between batches, within a few seconds.</summary>
+    private void CancelReceiveSearch() => receiveSearchCancel?.Cancel();
+
+    /// <summary>Leaving the page stops a running search (spec 027, FR-024). What it had found is already saved.</summary>
+    public void Dispose()
+    {
+        disposed = true;
+        receiveSearchCancel?.Cancel();
+    }
+    // A failed, refused or untrusted search is shown as a problem, never in the calm style of "nothing found".
+    private bool receiveSearchIsProblem;
+
+    /// <summary>The count in the field when it is a whole number from 1 to 5,000; otherwise null and the search cannot start.</summary>
+    private int? ReceiveSearchUpTo =>
+        int.TryParse(receiveSearchInput, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n)
+        && n >= 1 && n <= WalletService.MaxReceiveSearch ? n : null;
+
+    private static string Count(int value) => value.ToString("N0");
+
+    private void OnReceiveSearchInput(ChangeEventArgs e) => receiveSearchInput = e.Value?.ToString()?.Trim() ?? "";
+
+    /// <summary>Puts a count 500 further on in the field. It does not start the search: the person decides (spec 027, FR-012a).</summary>
+    private void FillSearchFurther(int from) =>
+        receiveSearchInput = Math.Min(WalletService.MaxReceiveSearch, from + 500).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>"receive" when the person came from Home's "search further" offer: the search card is brought into view (spec 027, FR-004).</summary>
+    [SupplyParameterFromQuery(Name = "search")] public string? Search { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || Search != "receive" || !hasDerivedAddresses) return;
+        try
+        {
+            await JS.InvokeVoidAsync("domHelpers.scrollToElement", "receive-search");
+            await JS.InvokeVoidAsync("domHelpers.focusElement", "receive-search-upto");
+        }
+        catch { /* The card is on the page either way. */ }
+    }
 
     protected override void OnInitialized()
     {
@@ -434,36 +529,77 @@
             && WalletService.ActiveWallet?.WalletType == "hd";
         hasDerivedAddresses = WalletService.IsUnlocked
             && WalletService.ActiveWallet?.WalletType is "hd" or "xpub";
+        if (hasDerivedAddresses)
+            receiveSearchInput = WalletService.DefaultReceiveSearchUpTo.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private async Task ScanMissingReceiveFunds()
+    private async Task SearchReceiveAddresses()
     {
+        if (isReceiveScanning || ReceiveSearchUpTo is not { } upTo) return;
         isReceiveScanning = true;
-        receiveScanProgress = 0;
-        receiveScanError = null;
-        receiveScanResult = null;
+        receiveSearchResult = null;
+        receiveSearchProgress = null;
+        receiveSearchMessage = null;
+        receiveSearchAdded = null;
+        receiveSearchIsProblem = false;
+        receiveSearchCancel = new CancellationTokenSource();
         StateHasChanged();
 
-        var progress = new Progress<int>(pct =>
+        var progress = new Progress<ReceiveSearchProgress>(update =>
         {
-            receiveScanProgress = pct;
-            InvokeAsync(StateHasChanged);
+            receiveSearchProgress = update;
+            if (!disposed) InvokeAsync(StateHasChanged);
         });
 
+        // The wallet the search is for: the offer is answered for that one, whichever is active when it returns.
+        var walletId = WalletService.ActiveWallet?.Id;
         try
         {
-            receiveScanResult = await WalletService.ScanForMissingReceiveFundsAsync(progress: progress);
+            var result = await WalletService.SearchReceiveAddressesAsync(upTo, progress, receiveSearchCancel.Token);
+            receiveSearchResult = result;
+            (receiveSearchMessage, receiveSearchIsProblem) = Describe(result);
+            if (result.Outcome is ReceiveSearchOutcome.Cancelled or ReceiveSearchOutcome.Failed && result.AddedIndexes.Count > 0)
+                receiveSearchAdded = FoundText(result);
+            // Only a search that finished answers Home's offer: not one that failed, was refused or had nothing to check
+            // (spec 027, FR-006).
+            if (result.Outcome == ReceiveSearchOutcome.Finished)
+                await SearchOffer.MarkSearchedAsync(walletId);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            receiveScanError = $"The search could not finish, so there may be more to find. Try again later. ({ex.Message})";
+            // A lookup failed part way. Say how far it got, and never that nothing was found.
+            var covered = receiveSearchProgress?.CheckedUpTo ?? 0;
+            receiveSearchMessage = covered > 0
+                ? L.T("recovery.receive_search.failed", Count(covered))
+                : L.T("recovery.receive_search.could_not_start");
+            receiveSearchIsProblem = true;
         }
         finally
         {
             isReceiveScanning = false;
-            StateHasChanged();
+            if (!disposed) StateHasChanged();
         }
     }
+
+    /// <summary>"Searched the first N addresses. M added (amount)."</summary>
+    private string FoundText(ReceiveSearchResult result) => L.T("recovery.receive_search.finished_found",
+        Count(result.ReachedUpTo), Count(result.AddedIndexes.Count),
+        result.AddedSatoshis is { } satoshis
+            ? $"{(satoshis / 100_000_000m).ToString("N8")} DGB"
+            : L.T("recovery.receive_search.amount_unavailable"));
+
+    /// <summary>What to say for each way a search can end. Extents are counts ("the first N addresses"), never an address index.</summary>
+    private (string Message, bool IsProblem) Describe(ReceiveSearchResult result) => result.Outcome switch
+    {
+        ReceiveSearchOutcome.Finished when result.AddedIndexes.Count > 0 => (FoundText(result), false),
+        ReceiveSearchOutcome.Finished => (L.T("recovery.receive_search.finished_none", Count(result.ReachedUpTo)), false),
+        ReceiveSearchOutcome.NothingToCheck => (L.T("recovery.receive_search.nothing_to_check", Count(result.AlreadyCheckedUpTo)), false),
+        ReceiveSearchOutcome.Untrusted => (L.T("recovery.receive_search.untrusted"), true),
+        ReceiveSearchOutcome.Cancelled => (L.T("recovery.receive_search.cancelled", Count(result.ReachedUpTo)), true),
+        _ => (result.ReachedUpTo > 0
+            ? L.T("recovery.receive_search.failed", Count(result.ReachedUpTo))
+            : L.T("recovery.receive_search.could_not_start"), true),
+    };
 
     private void SwitchMode(InputMode mode)
     {
