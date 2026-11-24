@@ -12,12 +12,12 @@
 
 ### Receiving DigiByte
 1. Open the app → tap **"Receive"**
-2. Show the QR code to the sender, or copy the address
+2. Show the QR code to the sender, or copy the address. To ask for an amount by chat or email, set the amount and tap **Copy payment link**: the link opens Send for someone with this wallet, or shows the address and amount to anyone else
 3. Choose **Legacy** (D...) or **SegWit** (dgb1...) format
 4. Wait for the sender to send — it confirms in ~15 seconds
 
 ### Sending DigiByte
-1. Tap **"Send"** → enter the recipient's address (or scan QR, or pick a contact)
+1. Tap **"Send"** → enter the recipient's address (or paste or scan a code, or pick a contact). On a computer, **Paste / Scan** in the menu takes a copied address, a payment link, a screenshot of a QR code, or a QR code shown in another tab
 2. Enter the amount (tap the currency badge to switch between USD and DGB)
 3. Tap **"Review Transaction"** → confirm the details
 4. The app builds and signs the transaction in your browser, then broadcasts it
@@ -392,8 +392,12 @@ Address format toggle:
 
 Actions:
   → CopyAddress() → JS interop clipboard.writeText()
-  → ShareAddress() → navigator.share() native API
+  → CopyPayLink() (amount set) → PaymentLink.Create(base, request) = {base}pay#digibyte:… (spec 030)
+  → ShareAddress() → navigator.share() native API; with an amount set it shares the payment link
   → GenerateNewAddress() → HD only: increment address index
+
+Layout (spec 030): the address block comes first in the markup. Phones show the QR code on top (CSS order); at
+≥1024px the address and buttons lead and the QR code follows, smaller, captioned "Scan with your phone".
 
 Your addresses (HD only, folded on every visit, spec 012):
   → "Your addresses (N)" row; first open derives the newest 10 via GetReceivingAddressesAsync(count, startIndex),
@@ -493,14 +497,50 @@ Create payment request:
     4. GenerateQr(uri) → QRCoder PNG
 
 View request:
-  → QR code display
+  → Request details and buttons first; QR code under them (smaller on wide screens, spec 030)
   → URI display (monospace)
-  → CopyUri() → clipboard
-  → ShareUri() → navigator.share()
+  → CopyPayLink() → PaymentLink.Create(base, request) = {base}pay#digibyte:… → clipboard
+  → ShareUri() → navigator.share() with the payment link; falls back to copying it
+  → CopyUri() → the digibyte: request itself (for other wallets) → clipboard
 
 History:
   → List of past payment requests with label, amount, date
   → Click to expand/view QR
+```
+
+### Scan panel — paste, drop or scan (`QrScannerModal`, spec 030)
+```
+Every scan button (the menu's middle button and 10 pages) opens QrScannerModal:
+  → qrScanner.deviceFacts(): pointer type, camera present, screen sharing and clipboard support (no prompt)
+  → ScanInputMode.Decide(facts, remembered): remembered choice (localStorage dgb-scan-mode) wins; else paste first
+    on a mouse/trackpad or no-camera device, camera first on a touch device
+  → Paste view: field (Enter or paste submits), Paste from clipboard, picture paste and drag-and-drop, Upload image,
+    Scan from screen (where getDisplayMedia exists), Use camera
+  → Camera view: as before, plus Paste instead
+
+Pictures and screen frames are read in qrscanner.js (jsQR); only the decoded text reaches .NET.
+Scan from screen samples ~4 frames/s and stops on a code, Stop, close, leaving, the browser's own Stop, or 60 s.
+
+HandOffAsync(raw):
+  → PastedCode.Clean (white space, one pair of quotes, ≤ 8,192 chars)
+  → Menu only: PastedCode.LooksSecret → clear the field, "cleared and not used", nothing routed
+  → Menu only: text ScanRouter cannot open stays in the field with a message
+  → Other pages: this wallet's own payment link → its digibyte: request without label/message (FR-011a)
+  → OnScanned(value) → the page's own handler; the menu routes it with ScanRouter
+```
+
+### Payment link (`/pay`, spec 030)
+```
+Link: {base}pay#digibyte:ADDRESS?amount=X&label=Y&message=Z (the request is after #: never sent to the host)
+Installed app: web+digibyte: links open /pay#%s (manifest protocol_handlers)
+
+OnInitializedAsync() (no AuthGuard), and again on every # change:
+  → PaymentLink.TryRead(fragment, base, network): own host/port/path only; address valid for the network;
+    0 < amount < 21,000,000,000, ≤ 8 decimals, point only; label/message ≤ 256 chars, control characters removed
+  → Invalid → "Not a valid payment link", nothing filled in
+  → No wallet on the device → read-only page: amount, address, note, QR code, Copy address/amount, Set up this wallet
+  → Wallet → PaymentHandoff.Set(link) (memory only) → /send, or /unlock?returnUrl=%2Fsend when locked
+     → Send.OnInitializedAsync takes the hand-off before reading its query; the note never reaches the memo
 ```
 
 ### Identity — Digi-ID (`/identity`)

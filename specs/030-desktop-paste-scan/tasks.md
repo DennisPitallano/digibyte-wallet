@@ -330,13 +330,13 @@ description: "Task list for spec 030: paste, drop and link instead of scan on de
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T056 [P] Update `docs/PROCESS_FLOWS.md` with the scan flow (paste, camera or screen, then routing) and the payment-link flow (`/pay` states).
-- [ ] T057 [P] Update `docs/ARCHITECTURE.md`: the `/pay` route, the `web+digibyte` handler, and `PastedCode`/`PaymentLink`/`ScanInputMode` in `DigiByte.Wallet`.
-- [ ] T058 [P] Update the Help answers that say to scan or copy the BIP21 URI (for example `help.contacts_payments.2.a` in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`) to mention **Paste / Scan** and **Copy payment link**.
-- [ ] T059 [P] Add a `CHANGELOG.md` entry under Unreleased: "Paste / Scan on desktop, QR from screenshot or drop, scan from screen, and payment links".
-- [ ] T060 Run `dotnet build DigiByte.slnx`, `dotnet test tests/DigiByte.Wallet.Tests` and `npm test --prefix src/DigiByte.Web`. Fix any locale parity failure (FR-028, SC-008).
+- [X] T056 [P] Update `docs/PROCESS_FLOWS.md` with the scan flow (paste, camera or screen, then routing) and the payment-link flow (`/pay` states).
+- [X] T057 [P] Update `docs/ARCHITECTURE.md`: the `/pay` route, the `web+digibyte` handler, and `PastedCode`/`PaymentLink`/`ScanInputMode` in `DigiByte.Wallet`.
+- [X] T058 [P] Update the Help answers that say to scan or copy the BIP21 URI (for example `help.contacts_payments.2.a` in `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`) to mention **Paste / Scan** and **Copy payment link**.
+- [X] T059 [P] Add a `CHANGELOG.md` entry under Unreleased: "Paste / Scan on desktop, QR from screenshot or drop, scan from screen, and payment links".
+- [X] T060 Run `dotnet build DigiByte.slnx`, `dotnet test tests/DigiByte.Wallet.Tests` and `npm test --prefix src/DigiByte.Web`. Fix any locale parity failure (FR-028, SC-008).
 - [ ] T061 Run every check in `specs/030-desktop-paste-scan/quickstart.md` (Q-1 to Q-21 including Q-14a, P-1 to P-4) in Chrome or Edge, Firefox and, if available, Safari, plus a phone. Record results and any browser gaps in the PR description.
-- [ ] T062 Privacy pass (SC-007): with DevTools Network open, repeat Q-2, Q-9, Q-11 and Q-14. Confirm no request carries pasted text, image data, screen data, or a query on `/pay`. Search the new code for `console.log` or `console.error` of values, and remove any.
+- [X] T062 Privacy pass (SC-007): with DevTools Network open, repeat Q-2, Q-9, Q-11 and Q-14. Confirm no request carries pasted text, image data, screen data, or a query on `/pay`. Search the new code for `console.log` or `console.error` of values, and remove any.
 - [ ] T063 Send `scan.secret_cleared`, `pay.any_wallet` and any other money or security text to the native Spanish reviewer, per spec 028. Apply the corrections in `src/DigiByte.Web/wwwroot/locales/es.json`.
 
 ---
