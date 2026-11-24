@@ -29,7 +29,7 @@ else
     var myWatchOnly = !config.CoSigners.Any(c => c.IsLocal);
     <PullToRefresh OnRefresh="PullRefresh">
     <div class="flex flex-col gap-3">
-        <PageHeader BackLabel="Multisig" BackHref="/multisig">
+        <PageHeader BackLabel="@L.T("more.item.multisig.label")" BackHref="/multisig">
             <TitleContent>
                 <button type="button" class="flex items-center gap-1.5 max-w-full min-h-[32px] text-left group" aria-label="@L.T("ms.wallets.rename_multisig")" @onclick="() => renameOpen = true">
                     <h2 class="page-title truncate">@config.DisplayName</h2>
