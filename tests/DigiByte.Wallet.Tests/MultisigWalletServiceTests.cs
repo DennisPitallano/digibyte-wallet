@@ -469,4 +469,21 @@ public class MultisigWalletServiceTests
         var saved = Assert.Single(await sut.GetPendingTransactionsAsync(config.WalletId));
         Assert.Equal(PendingTxStatus.Broadcast, saved.Status);
     }
+
+    [Fact]
+    public async Task A_recipient_typed_in_capitals_is_saved_in_standard_form_and_still_matches_its_payment()
+    {
+        var (sut, config, _, _) = await FundedTwoOfThreeAsync();
+        var typed = MainnetAddress();
+        var other = MainnetAddress();
+
+        var several = await sut.CreateSpendingPSBTAsync(config, [(typed.ToUpperInvariant(), 1m), (other, 0.5m)], 10);
+        var single = await sut.CreateSpendingPSBTAsync(config, " " + other.ToUpperInvariant() + " ", 0.25m, 10);
+
+        Assert.Equal(typed, several.Recipients[0].Address);
+        Assert.Equal(typed, several.DestinationAddress);
+        Assert.Null(sut.CheckProposalMatches(several, config, several.PsbtBase64));
+        Assert.Equal(other, single.DestinationAddress);
+        Assert.Null(sut.CheckProposalMatches(single, config, single.PsbtBase64));
+    }
 }

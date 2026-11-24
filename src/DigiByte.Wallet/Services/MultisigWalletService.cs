@@ -314,6 +314,10 @@ public class MultisigWalletService
             throw new ArgumentException(RecipientMessage(problem, i), nameof(recipients));
         }
 
+        // Save each address the way the transaction itself spells it (a bech32 address typed in capitals reads back in lower
+        // case), so the saved lines keep matching the payment when signed copies come back (CheckProposalMatches).
+        lines = lines.Select(l => l with { Address = BitcoinAddress.Create(l.Address, network).ToString() }).ToList();
+
         var memoBytes = string.IsNullOrWhiteSpace(memo) ? 0 : System.Text.Encoding.UTF8.GetByteCount(memo);
         var utxos = await _blockchain.GetUtxosAsync(config.Address);
         var estimate = MultisigSendHelper.EstimateSend(

@@ -2003,8 +2003,6 @@
   "ms.send.confirm.signatures": "{0} de {1} firmas",
   "ms.send.own_address": "Estás enviando a la propia dirección de esta billetera compartida.",
   "ms.send.create": "Crear propuesta",
-  "ms.send.error.amount_invalid": "Ingresa una cantidad válida, por ejemplo 1.5.",
-  "ms.send.error.amount_decimals": "Una cantidad puede tener como máximo 8 decimales.",
   "ms.send.error.address_missing": "Ingresa una dirección de destino.",
   "ms.send.error.wrong_network": "Esta dirección es de otra red.",
   "ms.send.error.invalid_address": "Esta no es una dirección DigiByte válida.",

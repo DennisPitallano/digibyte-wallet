@@ -2003,8 +2003,6 @@
   "ms.send.confirm.signatures": "{0} of {1} signatures",
   "ms.send.own_address": "You're sending to this multisig's own address.",
   "ms.send.create": "Create Proposal",
-  "ms.send.error.amount_invalid": "Enter a valid amount, for example 1.5.",
-  "ms.send.error.amount_decimals": "An amount can have at most 8 decimal places.",
   "ms.send.error.address_missing": "Enter a destination address.",
   "ms.send.error.wrong_network": "This address is for a different network.",
   "ms.send.error.invalid_address": "This is not a valid DigiByte address.",
