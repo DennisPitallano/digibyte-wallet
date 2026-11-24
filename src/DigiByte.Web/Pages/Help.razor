@@ -1,23 +1,24 @@
 @page "/help"
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject LocalizationService L
 
-<PageTitle>Help Center — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("help.page_title")</PageTitle>
 
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between -mb-2">
         <button type="button" class="back-btn" @onclick="GoBack">
             <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-            <span>Back</span>
+            <span>@L.T("nav.back")</span>
         </button>
         <a href="/" class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.5 1.5 0 0 1 2.121 0L22.28 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
-            Home
+            @L.T("help.home")
         </a>
     </div>
     <div class="slide-up">
-        <h2 class="page-title">Help Center</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Tutorials, how-tos, and support for DigiByte Wallet.</p>
+        <h2 class="page-title">@L.T("help.title")</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">@L.T("help.intro_text")</p>
     </div>
 
     <BakuMessage MessageId="help.intro" />
@@ -28,7 +29,7 @@
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
             </svg>
-            <input type="text" @bind="searchQuery" @bind:event="oninput" placeholder="Search help topics..."
+            <input type="text" @bind="searchQuery" @bind:event="oninput" placeholder="@L.T("help.search_placeholder")"
                    class="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-dgb-500/30 focus:border-dgb-500 transition-all" />
         </div>
     </div>
@@ -67,7 +68,7 @@
                             {
                                 <div>
                                     <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">@qa.Question</p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">@((MarkupString)qa.Answer)</p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">@Rendered(qa.Answer)</p>
                                 </div>
                             }
                         </div>
@@ -79,35 +80,35 @@
 
     @* Report Issue / Suggest Feature *@
     <div class="slide-up-delay-3 mt-2">
-        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">Feedback & Support</p>
+        <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("help.feedback.title")</p>
 
         <div class="card p-4 flex flex-col gap-3">
             <div class="flex gap-2">
                 <button class="flex-1 py-2 text-xs font-semibold rounded-xl transition-colors @(feedbackType == "bug" ? "bg-red-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300") press-effect"
                         @onclick='() => feedbackType = "bug"'>
-                    Report Bug
+                    @L.T("help.feedback.report_bug")
                 </button>
                 <button class="flex-1 py-2 text-xs font-semibold rounded-xl transition-colors @(feedbackType == "feature" ? "bg-dgb-500 text-white" : "bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300") press-effect"
                         @onclick='() => feedbackType = "feature"'>
-                    Suggest Feature
+                    @L.T("help.feedback.suggest")
                 </button>
             </div>
 
-            <input type="text" @bind="feedbackTitle" placeholder="@(feedbackType == "bug" ? "What went wrong?" : "What would you like to see?")"
+            <input type="text" @bind="feedbackTitle" placeholder="@(feedbackType == "bug" ? L.T("help.feedback.bug_placeholder") : L.T("help.feedback.feature_placeholder"))"
                    class="input" />
 
-            <textarea @bind="feedbackBody" rows="3" placeholder="Describe in detail..."
+            <textarea @bind="feedbackBody" rows="3" placeholder="@L.T("help.feedback.body_placeholder")"
                       class="input resize-none"></textarea>
 
             <button class="btn-primary btn-sm w-full"
                     disabled="@(string.IsNullOrWhiteSpace(feedbackTitle))"
                     @onclick="SubmitFeedback">
-                Open on GitHub
+                @L.T("help.feedback.open")
             </button>
 
             <a href="https://github.com/DennisPitallano/digibyte-wallet/issues" target="_blank" rel="noopener"
                class="text-center text-[11px] text-dgb-500 hover:text-dgb-600 font-medium transition-colors">
-                Or browse existing issues on GitHub &rarr;
+                @L.T("help.feedback.browse") &rarr;
             </a>
         </div>
     </div>
@@ -116,6 +117,8 @@
 </div>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private string searchQuery = "";
     private string feedbackType = "bug";
     private string feedbackTitle = "";
@@ -162,242 +165,295 @@
                     i.Question.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
                     i.Answer.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)));
 
+    /// <summary>
+    /// An answer is kept in the translation files as plain text with a little markup, never raw HTML: **bold**, `code`,
+    /// [link](/path or https://…), lines starting with "- " (bullets) or "1. " (numbered steps), and line breaks.
+    /// Everything else is encoded, so a translation can't break the page.
+    /// </summary>
+    private static MarkupString Rendered(string text)
+    {
+        var html = new System.Text.StringBuilder();
+        string? list = null;   // "ul" or "ol" while inside a list
+        var afterText = false; // the previous line was text, so the next one starts after a line break
+        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+        {
+            var bullet = line.StartsWith("- ", StringComparison.Ordinal);
+            var step = System.Text.RegularExpressions.Regex.Match(line, @"^\d+\. ");
+            var kind = bullet ? "ul" : step.Success ? "ol" : null;
+            if (kind != list && list is not null) { html.Append("</").Append(list).Append('>'); list = null; }
+            if (kind is not null)
+            {
+                if (list is null)
+                {
+                    html.Append('<').Append(kind).Append(kind == "ul"
+                        ? " class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'>"
+                        : " class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'>");
+                    list = kind;
+                }
+                html.Append("<li>").Append(Inline(line[(bullet ? 2 : step.Length)..])).Append("</li>");
+                afterText = false;
+                continue;
+            }
+            if (afterText) html.Append("<br/>");
+            html.Append(Inline(line));
+            afterText = true;
+        }
+        if (list is not null) html.Append("</").Append(list).Append('>');
+        return new MarkupString(html.ToString());
+    }
+
+    private static string Inline(string text)
+    {
+        var s = System.Net.WebUtility.HtmlEncode(text);
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\*\*(.+?)\*\*", "<b>$1</b>");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"`(.+?)`", "<code>$1</code>");
+        return System.Text.RegularExpressions.Regex.Replace(s, @"\[([^\]]+)\]\(((?:/|https://)[^)\s]*)\)", m =>
+        {
+            var href = m.Groups[2].Value;
+            var external = href.StartsWith("https://", StringComparison.Ordinal);
+            var color = href.StartsWith("/help/multisig", StringComparison.Ordinal) ? "text-purple-500"
+                : href.StartsWith("/identity", StringComparison.Ordinal) ? "text-blue-500" : "text-dgb-500";
+            return $"<a href='{href}'{(external ? " target='_blank' rel='noopener'" : "")} class='{color} underline'>{m.Groups[1].Value}</a>";
+        });
+    }
+
     private record QA(string Question, string Answer);
     private record HelpSection(string Id, string Title, string Subtitle, string IconBg, string IconSvg, QA[] Items);
 
-    private HelpSection[] sections = [
-        new("getting-started", "Getting Started", "Install, create wallet, set PIN", "bg-green-50 dark:bg-green-900/20",
+    // Built on each use, so it follows the chosen language.
+    private HelpSection[] sections => [
+        new("getting-started", L.T("help.getting_started.title"), L.T("help.getting_started.subtitle"), "bg-green-50 dark:bg-green-900/20",
             "<svg class=\"w-5 h-5 text-green-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z\" /></svg>",
             [
-                new("How do I install the wallet?", "Visit <b>dgbwallet.app</b> in your browser. On Chrome/Edge, tap the install banner or use the browser menu → \"Install app\". On iOS Safari, tap Share → \"Add to Home Screen\". For step-by-step tutorials per device, see the <b>Install as App (PWA)</b> section below."),
-                new("How do I create a new wallet?", "Tap <b>Create New Wallet</b> on the welcome screen. The app generates 24 secret words (your recovery phrase). Write them down on paper — this is your only backup. Confirm 3 random words, then set a 6-digit PIN."),
-                new("What is a recovery phrase?", "A 24-word BIP39 mnemonic that can restore your wallet on any compatible app. <b>Never share it</b> with anyone. If you lose it and forget your PIN, your funds are permanently lost."),
-                new("What does the PIN do?", "The 6-digit PIN encrypts your wallet data with AES-256-GCM. You need it to unlock the app and authorize transactions. After 3 wrong attempts, there's an exponential lockout (15s → 30s → 60s → 120s)."),
-                new("How do I recover a wallet from a seed phrase?", "Tap <b>Recover Existing Wallet</b> on the welcome screen. You have two input modes:<br/><b>Paste All</b> — paste your entire phrase into a single text area (accepts space, comma, or newline-separated words).<br/><b>Word by Word</b> — enter each word in a numbered grid with BIP39 auto-suggest. As you type, matching words appear in a dropdown — use arrow keys and Enter to select. Toggle between 12 and 24 words. Both modes support a show/hide toggle to mask your phrase for privacy."),
+                new(L.T("help.getting_started.1.q"), L.T("help.getting_started.1.a")),
+                new(L.T("help.getting_started.2.q"), L.T("help.getting_started.2.a")),
+                new(L.T("help.getting_started.3.q"), L.T("help.getting_started.3.a")),
+                new(L.T("help.getting_started.4.q"), L.T("help.getting_started.4.a")),
+                new(L.T("help.getting_started.5.q"), L.T("help.getting_started.5.a")),
             ]),
 
-        new("getting-around", "Getting Around", "The menu, Scan, More, sounds and what changed", "bg-dgb-50 dark:bg-dgb-800",
+        new("getting-around", L.T("help.getting_around.title"), L.T("help.getting_around.subtitle"), "bg-dgb-50 dark:bg-dgb-800",
             "<svg class=\"w-5 h-5 text-dgb-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z\" /></svg>",
             [
-                new("What are the five buttons in the menu?", "<b>Wallet</b> is your balance and recent payments. <b>Activity</b> is the full list of transactions. <b>Scan</b> (the round button in the middle) opens the camera. <b>Request</b> creates a payment request with an amount. <b>More</b> lists everything else. On a wide screen the same five sit in a rail on the left side of the app instead of along the bottom."),
-                new("Where did Digi-ID and Settings go?", "Both are under <b>More</b>, as the first two rows. They used to be tabs of their own; nothing about them changed except where you open them. To sign in with Digi-ID you do not need to open the page first: tap <b>Scan</b> and scan the website's code."),
-                new("What is in More?", "<b>Digi-ID</b>, <b>Settings</b>, <b>Multisig</b>, <b>Contacts</b>, <b>Consolidate</b>, <b>Analytics</b>, <b>P2P Exchange</b>, <b>Donate</b> and <b>Roadmap</b>. The More button is highlighted while you are on any of those pages, and the list marks the one you are on."),
-                new("What can the Scan button read?", "<ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li>A <b>DigiByte address</b> or <b>payment request</b>: opens Send with it filled in. Nothing is sent until you review and slide to send. While a multisig is open, it opens that multisig's Send instead, so the payment starts from the multisig.</li><li>A <b>Digi-ID login</b>: opens Digi-ID, which shows the website and asks before signing in.</li><li>A <b>multisig proposal</b> from a co-signer: opens the multisig it spends from and adds it to Pending.</li><li>A <b>multisig redeem script</b>: opens Import multisig with the script filled in.</li><li>A <b>multisig room invite</b> made by this wallet: opens the room.</li></ul>Any other code, including a link to another website, opens nothing and you are told so."),
-                new("Is the Scan button the same as the scan icon inside Send or Contacts?", "No. A scan icon inside a page fills in <b>that page's own field</b>: the recipient on Send, the address of a new contact, the recipient of a multisig payment. The <b>Scan</b> button in the menu is for when you have a code and want the wallet to open the right page for it."),
-                new("Why is Request not called Pay any more?", "Because that page creates a <b>request to be paid</b>: an amount, a label and a QR code for the sender. To pay someone, use <b>Send</b> on Home or scan their code. To simply show your address, use <b>Receive</b> on Home."),
-                new("What happens when I receive my first payment?", "A new wallet shows your receiving address, its QR code and a <b>Copy address</b> button on Home until something arrives. The first payment is shown once on a card with the amount, marked <b>On its way</b> until the network confirms it. The Receive page also checks for incoming payments by itself while it is open."),
-                new("Can the wallet play a sound when I receive or send?", "Yes, if you turn it on: <b>More</b> → <b>Settings</b> → <b>Sounds</b>. It is off by default. One short chime plays when a payment arrives and a different one when a send goes out. The on-screen notice always shows as well, so nothing is missed with sound off."),
-                new("Why do I slide to send instead of tapping a button?", "A send cannot be undone, so the last step is a deliberate one that a stray tap cannot trigger. Drag the handle to the end; letting go early cancels. With a keyboard, move to the control and hold Enter or Space."),
+                new(L.T("help.getting_around.1.q"), L.T("help.getting_around.1.a")),
+                new(L.T("help.getting_around.2.q"), L.T("help.getting_around.2.a")),
+                new(L.T("help.getting_around.3.q"), L.T("help.getting_around.3.a")),
+                new(L.T("help.getting_around.4.q"), L.T("help.getting_around.4.a")),
+                new(L.T("help.getting_around.5.q"), L.T("help.getting_around.5.a")),
+                new(L.T("help.getting_around.6.q"), L.T("help.getting_around.6.a")),
+                new(L.T("help.getting_around.7.q"), L.T("help.getting_around.7.a")),
+                new(L.T("help.getting_around.8.q"), L.T("help.getting_around.8.a")),
+                new(L.T("help.getting_around.9.q"), L.T("help.getting_around.9.a")),
             ]),
 
-        new("install-pwa", "Install as App (PWA)", "Android, iOS, Windows, macOS, Linux install guides", "bg-sky-50 dark:bg-sky-900/20",
+        new("install-pwa", L.T("help.install_pwa.title"), L.T("help.install_pwa.subtitle"), "bg-sky-50 dark:bg-sky-900/20",
             "<svg class=\"w-5 h-5 text-sky-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3\" /></svg>",
             [
-                new("What is a PWA and why install it?", "DigiByte Wallet is a <b>Progressive Web App</b> — a website that installs like a native app. Benefits:<ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Home-screen icon</b> and standalone window (no browser bar)</li><li><b>Offline support</b> — the app shell loads without internet</li><li><b>Faster launches</b> than opening the browser each time</li><li><b>No app store</b> — no review delays, no tracking, no commission</li><li><b>Auto-updates</b> silently in the background</li></ul>Your wallet data stays in the same browser origin — installing does not move or duplicate your keys."),
+                new(L.T("help.install_pwa.1.q"), L.T("help.install_pwa.1.a")),
 
-                new("Android — Chrome, Edge or Brave", "<b>Step by step:</b><ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Chrome (or Edge/Brave).</li><li>Wait a few seconds — an <b>Install App</b> banner usually appears at the bottom of the screen. Tap it.</li><li>If no banner appears, tap the <b>⋮ menu</b> (top-right) → <b>Install app</b> (or <b>Add to Home screen</b>).</li><li>Confirm <b>Install</b> in the dialog.</li><li>The DigiByte icon appears in your app drawer and home screen. Open it — the app launches full-screen with no browser UI.</li></ol>"),
+                new(L.T("help.install_pwa.2.q"), L.T("help.install_pwa.2.a")),
 
-                new("Android — Samsung Internet & Firefox", "<b>Samsung Internet:</b> Tap the <b>☰ menu</b> → <b>Add page to</b> → <b>Home screen</b>. Choose <b>Add</b> when prompted.<br/><br/><b>Firefox for Android:</b> Tap the <b>⋮ menu</b> → <b>Install</b> (if available). Firefox's PWA support is limited — Chrome/Edge/Brave give the best experience."),
+                new(L.T("help.install_pwa.3.q"), L.T("help.install_pwa.3.a")),
 
-                new("iPhone & iPad — Safari", "On iOS and iPadOS, PWAs <b>must be installed from Safari</b> (Chrome and Firefox on iOS cannot install web apps).<ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an up-arrow) in the bottom toolbar — or top-right on iPad.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Edit the name if you like, then tap <b>Add</b> (top-right).</li><li>The DigiByte icon appears on your home screen. Tap it to launch — the app opens full-screen.</li></ol><b>Note:</b> On iOS 16.4+, installed PWAs get their own storage, notifications, and badge support."),
+                new(L.T("help.install_pwa.4.q"), L.T("help.install_pwa.4.a")),
 
-                new("Windows — Edge or Chrome", "<ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Microsoft Edge or Google Chrome.</li><li>Look for the <b>install icon</b> (a monitor with a down-arrow, or a ⊕ symbol) on the right side of the address bar. Click it.</li><li>Alternatively: <b>Edge</b> — menu (…) → <b>Apps</b> → <b>Install this site as an app</b>. <b>Chrome</b> — menu (⋮) → <b>Cast, save and share</b> → <b>Install page as app</b>.</li><li>Click <b>Install</b> in the confirmation dialog.</li><li>The app pins to your Start menu and (optionally) taskbar. Launch it like any other Windows app.</li></ol>"),
+                new(L.T("help.install_pwa.5.q"), L.T("help.install_pwa.5.a")),
 
-                new("macOS — Safari, Chrome or Edge", "<b>Safari 17+ (macOS Sonoma or newer):</b><ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Safari.</li><li>From the menu bar: <b>File</b> → <b>Add to Dock</b>.</li><li>Edit the name, then click <b>Add</b>. The app appears in your Dock and Launchpad.</li></ol><b>Chrome or Edge:</b><ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Click the <b>install icon</b> in the address bar, or use the menu → <b>Cast, save and share</b> → <b>Install page as app</b>.</li><li>Click <b>Install</b>. The app is added to your Applications folder.</li></ol>"),
+                new(L.T("help.install_pwa.6.q"), L.T("help.install_pwa.6.a")),
 
-                new("Linux — Chrome, Edge or Brave", "<ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Open <b>dgbwallet.app</b> in Chrome, Edge, Brave, or Vivaldi.</li><li>Click the <b>install icon</b> in the address bar, or use the menu → <b>Install DigiByte Wallet…</b></li><li>Confirm <b>Install</b>. A <code>.desktop</code> entry is created in your applications menu (GNOME Activities, KDE launcher, etc.).</li><li>Pin it to your dock/taskbar for quick access.</li></ol><b>Firefox on Linux</b> does not currently support PWA installation — use a Chromium-based browser for the full experience."),
+                new(L.T("help.install_pwa.7.q"), L.T("help.install_pwa.7.a")),
 
-                new("ChromeOS — Chrome", "On a Chromebook, install the same way as Windows: click the <b>install icon</b> in the address bar, or go to menu (⋮) → <b>Cast, save and share</b> → <b>Install page as app</b>. The wallet launches like any ChromeOS app and appears in your launcher."),
+                new(L.T("help.install_pwa.8.q"), L.T("help.install_pwa.8.a")),
 
-                new("How do I update the installed app?", "Updates are <b>automatic</b>. The service worker checks for new versions in the background. When a new version is ready, a banner appears inside the app asking you to reload — tap <b>Update</b> and the latest version loads immediately. You never need to reinstall."),
+                new(L.T("help.install_pwa.9.q"), L.T("help.install_pwa.9.a")),
 
-                new("Does installing create a copy of my wallet?", "No. A PWA runs from the same browser origin as the website, so your <b>seed phrase, PIN, contacts, and transaction history stay in the same IndexedDB storage</b>. Whether you open dgbwallet.app in your browser or through the installed icon, you see the same wallet. Uninstalling the PWA does not delete your wallet data unless you also clear site data for the origin."),
+                new(L.T("help.install_pwa.10.q"), L.T("help.install_pwa.10.a")),
 
-                new("How do I uninstall the PWA?", "<b>Android:</b> long-press the icon → <b>Uninstall</b> (or drag to the trash).<br/><b>iOS/iPadOS:</b> long-press the icon → <b>Remove App</b> → <b>Delete from Home Screen</b>.<br/><b>Windows:</b> Start menu → right-click the app → <b>Uninstall</b>. Or in Edge/Chrome: <code>edge://apps</code> / <code>chrome://apps</code> → right-click → <b>Uninstall</b>.<br/><b>macOS:</b> drag from Applications or the Dock to the Trash.<br/><b>Linux:</b> menu (⋮) inside the app → <b>Uninstall DigiByte Wallet</b>, or remove the <code>.desktop</code> file.<br/><br/><b>Tip:</b> uninstalling removes the shortcut, not your wallet. Your seed phrase is still encrypted in browser storage. To fully remove wallet data, also delete the wallet from Settings or clear site data for dgbwallet.app."),
+                new(L.T("help.install_pwa.11.q"), L.T("help.install_pwa.11.a")),
 
-                new("The install button or banner isn't showing — why?", "<b>Common causes:</b><ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Already installed</b> — if the app is already installed on this device/browser, the install prompt is hidden. Check your app list.</li><li><b>Unsupported browser</b> — Firefox (desktop), Chrome on iOS, and some in-app browsers (Facebook, Instagram) cannot install PWAs. Use Safari on iOS, or Chrome/Edge/Brave elsewhere.</li><li><b>Not using HTTPS</b> — if you're running locally on plain <code>http://</code>, the browser blocks installation. The production site (<code>dgbwallet.app</code>) is fully HTTPS.</li><li><b>Dismissed recently</b> — Chrome hides the banner for a cooldown period after you dismiss it. Use the browser menu → <b>Install app</b> instead.</li><li><b>Engagement heuristics</b> — some browsers require a few seconds of interaction before showing the banner. Scroll or tap something, then check the menu.</li></ul>"),
+                new(L.T("help.install_pwa.12.q"), L.T("help.install_pwa.12.a")),
 
-                new("Can I install on a work/managed device?", "Some corporate MDM (Mobile Device Management) policies block PWA installation or home-screen icons. If the install option is missing and your device is enrolled in a work profile, contact your IT admin. You can still use the wallet as a regular website in the browser."),
-                new("The wallet is stuck loading, shows \"An unhandled error has occurred\" or just says \"Offline\" — what do I do?", "<b>Your funds are safe</b> — this is a problem loading the app files, not your wallet. Try these in order:<ol class='mt-1 ml-2 list-decimal list-inside flex flex-col gap-1'><li>Check your connection. Turn off any VPN or data-saver mode, then <b>reload</b> the page.</li><li>If the page offers <b>Repair app files</b>, tap it. This clears only the downloaded app files and keeps your wallet.</li><li><b>Close other tabs and apps</b> to free memory (very important on phones with many tabs open), then reopen <b>dgbwallet.app</b>.</li><li>Fully <b>close and reopen</b> your browser, or try a different browser (Chrome, Firefox, Safari) or the installed app.</li><li><b>Update your browser</b> to the latest version.</li><li>Still stuck? In Chrome: Settings → Site settings → All sites → dgbwallet.app, but only clear <b>cached images and files</b>. Do <b>not</b> remove cookies and site data.</li></ol><b>Warning:</b> \"Clear site data\", \"Clear &amp; reset\" or clearing cookies and site data for dgbwallet.app <b>erases the wallet stored in this browser</b>. Only do that if you have your 24-word recovery phrase written down, because you will need it to restore your wallet. Still need help? Contact support with your device, browser, and what you see on screen."),
+                new(L.T("help.install_pwa.13.q"), L.T("help.install_pwa.13.a")),
+                new(L.T("help.install_pwa.14.q"), L.T("help.install_pwa.14.a")),
             ]),
 
-        new("sending-receiving", "Sending & Receiving", "Send DGB, batch send, receive, QR codes, fees", "bg-dgb-50 dark:bg-dgb-900/30",
+        new("sending-receiving", L.T("help.sending_receiving.title"), L.T("help.sending_receiving.subtitle"), "bg-dgb-50 dark:bg-dgb-900/30",
             "<svg class=\"w-5 h-5 text-dgb-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5\" /></svg>",
             [
-                new("How do I send DigiByte?", "Tap <b>Send</b> → enter the recipient's address (or scan a QR code, or pick a contact). Enter the amount — tap the currency badge to switch between DGB and fiat. Tap <b>Review</b>, check the details, then drag <b>Slide to send</b> to the end (or hold Enter on a keyboard). The transaction is signed locally and broadcast to the network."),
-                new("What is Batch Send?", "Batch Send lets you send DGB to <b>up to 20 recipients in a single transaction</b>. On the Send page, tap <b>Multiple Recipients</b> to switch to batch mode. Add addresses and amounts for each recipient, then review and confirm. All payments are combined into one transaction."),
-                new("What are the benefits of Batch Send?", "<b>Lower fees</b> — one transaction with 10 outputs costs far less than 10 separate transactions (you pay for only one set of inputs and overhead). <b>Faster</b> — all recipients are paid in one broadcast instead of waiting for each to confirm. <b>Simpler</b> — manage payroll, donations, or group payments from a single screen with no copy-paste repetition."),
-                new("When should I use Batch Send?", "<b>Payroll &amp; freelancer payments</b> — pay your entire team or multiple contractors in a single transaction instead of sending one by one. <b>Donations &amp; tips</b> — split a donation across several causes or tip multiple content creators at once. <b>Group payments</b> — splitting a dinner bill, collecting dues, or sending holiday gifts to friends and family. <b>Treasury distribution</b> — DAOs, clubs, or small businesses distributing funds to members or shareholders. <b>Consolidation</b> — moving funds to your own addresses (e.g. cold storage split) in one go."),
-                new("Are there limits on Batch Send?", "Maximum <b>20 recipients</b> per transaction. Each recipient must receive at least <b>0.0001 DGB</b>. Duplicate addresses are not allowed. Your total (all amounts + fee) must not exceed your balance."),
-                new("How do I receive DigiByte?", "Tap <b>Receive</b> → show the QR code to the sender, or copy your address. Toggle between <b>Legacy</b> (D...) and <b>SegWit</b> (dgb1...) formats. SegWit addresses have lower fees. Open <b>Your addresses</b> to see every address you have generated, switch to an older one, give it a name, or see whether it has been used."),
-                new("What are fee rates?", "Fees are measured in sat/vB (satoshis per virtual byte). Choose <b>Low</b> (100), <b>Normal</b> (200), or <b>Fast</b> (400). Higher fees get confirmed faster. In Advanced mode, you can set a custom fee rate."),
-                new("Why did my transaction fail?", "Common reasons: insufficient balance (amount + fee exceeds balance), network congestion, or too many unconfirmed UTXOs (too-long-mempool-chain). Wait for pending transactions to confirm and try again."),
-                new("How do I get a PDF receipt?", "Tap any transaction on the Home page to open the detail modal, then tap <b>PDF Receipt</b>. This generates a downloadable PDF via <a href='https://blockchair.com' target='_blank' class='text-dgb-500 underline'>Blockchair</a>, a third-party blockchain explorer. The PDF includes the transaction ID, amounts, addresses, confirmations, and timestamp."),
-                new("How do I track transaction confirmations?", "Each transaction on the Home page shows a live <b>confirmation badge</b>. Pending transactions pulse amber with a dot-bar showing progress toward 6 confirmations (e.g. <b>3 / 6 conf</b>). Once confirmed, the badge turns green. Tap any transaction to open the detail modal — it shows a full 6-step progress bar with a callout explaining DigiByte's ~15-second block time. The wallet polls every 15 seconds automatically while any transactions are pending."),
+                new(L.T("help.sending_receiving.1.q"), L.T("help.sending_receiving.1.a")),
+                new(L.T("help.sending_receiving.2.q"), L.T("help.sending_receiving.2.a")),
+                new(L.T("help.sending_receiving.3.q"), L.T("help.sending_receiving.3.a")),
+                new(L.T("help.sending_receiving.4.q"), L.T("help.sending_receiving.4.a")),
+                new(L.T("help.sending_receiving.5.q"), L.T("help.sending_receiving.5.a")),
+                new(L.T("help.sending_receiving.6.q"), L.T("help.sending_receiving.6.a")),
+                new(L.T("help.sending_receiving.7.q"), L.T("help.sending_receiving.7.a")),
+                new(L.T("help.sending_receiving.8.q"), L.T("help.sending_receiving.8.a")),
+                new(L.T("help.sending_receiving.9.q"), L.T("help.sending_receiving.9.a")),
+                new(L.T("help.sending_receiving.10.q"), L.T("help.sending_receiving.10.a")),
             ]),
 
-        new("contacts-payments", "Contacts & Payments", "Address book, BIP21 payment requests", "bg-indigo-50 dark:bg-indigo-900/20",
+        new("contacts-payments", L.T("help.contacts_payments.title"), L.T("help.contacts_payments.subtitle"), "bg-indigo-50 dark:bg-indigo-900/20",
             "<svg class=\"w-5 h-5 text-indigo-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z\" /></svg>",
             [
-                new("How do I add a contact?", "Go to <b>More</b> → <b>Contacts</b> (or <b>Contacts</b> on Home) → tap <b>+</b>. Enter a name and DGB address (or scan a QR code). You can also add contacts directly from the transaction detail modal."),
-                new("How do I create a payment request?", "Tap <b>Request</b> in the menu. With no requests yet, the form opens straight away; otherwise tap <b>+</b>. Set the amount, label, and message. A BIP21 URI and QR code are generated. Share the QR or copy the URI for the sender to scan."),
-                new("What is a BIP21 URI?", "A standard format: <code>digibyte:ADDRESS?amount=X&amp;label=Y</code>. When scanned, it auto-fills the send form with the address, amount, and label."),
+                new(L.T("help.contacts_payments.1.q"), L.T("help.contacts_payments.1.a")),
+                new(L.T("help.contacts_payments.2.q"), L.T("help.contacts_payments.2.a")),
+                new(L.T("help.contacts_payments.3.q"), L.T("help.contacts_payments.3.a")),
             ]),
 
-        new("security-backup", "Security & Backup", "Seed phrase, PIN reset, delete wallet", "bg-amber-50 dark:bg-amber-900/20",
+        new("security-backup", L.T("help.security_backup.title"), L.T("help.security_backup.subtitle"), "bg-amber-50 dark:bg-amber-900/20",
             "<svg class=\"w-5 h-5 text-amber-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z\" /></svg>",
             [
-                new("How do I back up my seed phrase?", "Go to <b>More</b> → <b>Settings</b> → <b>Back Up Seed Phrase</b>. Enter your PIN to reveal the 24 words. Write them on paper and store in a secure location. <b>Never take a screenshot or store digitally.</b>"),
-                new("I forgot my PIN — what do I do?", "On the unlock screen, tap <b>Forgot PIN?</b> → <b>Reset PIN with recovery phrase</b>. Enter your 24 words and set a new PIN. If you've lost both your PIN and seed phrase, the wallet cannot be recovered."),
-                new("How do I delete my wallet?", "Go to <b>More</b> → <b>Settings</b> → <b>Delete Wallet</b> → enter your PIN to confirm. This permanently removes all wallet data from the device. Make sure you've backed up your seed phrase first. <b>If you have multisig wallets, back up their redeem scripts too</b> — your seed phrase alone cannot restore them."),
-                new("Is my data encrypted?", "Yes. Your seed phrase and private keys are encrypted with <b>AES-256-GCM</b>, using a key derived from your PIN via PBKDF2. Encrypted data is stored in the browser's IndexedDB. Keys are never sent to any server."),
-                new("Who can see the addresses I look up?", "The wallet looks up balances and transactions on public block explorers. When the wallet team's own DigiByte node is switched on and ready, the wallet may use it for sending, fees and transaction details, and as a backup for balances. In that case the wallet team's servers, instead of a third-party explorer, see the <b>public</b> transactions and addresses involved. Your seed phrase, PIN and private keys never leave your device, and the node only ever receives signed transactions. Tap the small <b>data source</b> dot at the top of the screen (shown only when the own node is switched on) to see which source is in use."),
+                new(L.T("help.security_backup.1.q"), L.T("help.security_backup.1.a")),
+                new(L.T("help.security_backup.2.q"), L.T("help.security_backup.2.a")),
+                new(L.T("help.security_backup.3.q"), L.T("help.security_backup.3.a")),
+                new(L.T("help.security_backup.4.q"), L.T("help.security_backup.4.a")),
+                new(L.T("help.security_backup.5.q"), L.T("help.security_backup.5.a")),
             ]),
 
-        new("spending-limits", "Spending Limits", "Daily, weekly & monthly send limits", "bg-red-50 dark:bg-red-900/20",
+        new("spending-limits", L.T("help.spending_limits.title"), L.T("help.spending_limits.subtitle"), "bg-red-50 dark:bg-red-900/20",
             "<svg class=\"w-5 h-5 text-red-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285ZM12 15.75h.007v.008H12v-.008Z\" /></svg>",
             [
-                new("How do I set up spending limits?", "Go to <b>More</b> → <b>Settings</b> → <b>Spending Limits</b>. Enter your PIN to access the controls. Toggle <b>Enable Spending Limits</b>, then set Daily (24h), Weekly (7d), and/or Monthly (30d) limits in DGB. Changes auto-save instantly."),
-                new("What happens when I approach or exceed a limit?", "When your total sends reach the <b>alert threshold</b> (default 80%) of any limit, an amber warning appears on the send review screen. If <b>Block Sends</b> is enabled, the transaction is blocked entirely when you exceed the limit. If Block Sends is off, you see a warning but can still proceed."),
-                new("Can I set different limits for each wallet?", "Yes. Spending limits are <b>per-wallet</b> — each wallet has independent daily, weekly, and monthly limits. Watch-only (xpub) wallets don't show spending limits since they can't send."),
-                new("What counts toward my spending limit?", "All <b>sent transactions</b> within the rolling time window (24 hours, 7 days, or 30 days from now) are totalled. Received transactions are not counted. The limit is checked against DGB amounts, not fiat values."),
+                new(L.T("help.spending_limits.1.q"), L.T("help.spending_limits.1.a")),
+                new(L.T("help.spending_limits.2.q"), L.T("help.spending_limits.2.a")),
+                new(L.T("help.spending_limits.3.q"), L.T("help.spending_limits.3.a")),
+                new(L.T("help.spending_limits.4.q"), L.T("help.spending_limits.4.a")),
             ]),
 
-        new("biometric", "Biometric Unlock & Send Confirmation", "Fingerprint/face unlock, confirm sends, security model", "bg-emerald-50 dark:bg-emerald-900/20",
+        new("biometric", L.T("help.biometric.title"), L.T("help.biometric.subtitle"), "bg-emerald-50 dark:bg-emerald-900/20",
             "<svg class=\"w-5 h-5 text-emerald-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a48.667 48.667 0 0 0-1.418 8.773 7.498 7.498 0 0 1-1.332-5.023A7.5 7.5 0 0 1 7.864 4.243ZM14.25 14.25a2.25 2.25 0 0 0-4.5 0v.75a2.25 2.25 0 0 0 4.5 0v-.75Zm-2.25-6.75a4.5 4.5 0 0 0-4.5 4.5v.75a4.5 4.5 0 0 0 9 0v-.75a4.5 4.5 0 0 0-4.5-4.5Z\" /></svg>",
             [
-                new("What is biometric unlock?", "Biometric unlock lets you use your device's <b>fingerprint sensor or face recognition</b> instead of typing your 6-digit PIN. It uses the <b>WebAuthn</b> standard supported by modern browsers and devices. A single biometric setup covers <b>all your wallets</b> — no need to enroll each one separately. Your PIN still works as a backup."),
-                new("How do I enable biometric unlock?", "After your first successful PIN unlock, a prompt asks \"<b>Enable Biometric Unlock?</b>\" Tap <b>Enable Biometric</b> and authenticate with your fingerprint/face. You can also enable it later from <b>Settings</b> → <b>Biometric Unlock</b> toggle (requires PIN verification)."),
-                new("How does biometric unlock keep my wallet secure?", "When you enroll, the app creates a <b>WebAuthn credential</b> tied to your device's biometric sensor and generates a random <b>AES-256 encryption key</b>. Each wallet's seed is encrypted with this key and stored in IndexedDB. To unlock, you must pass a biometric assertion (fingerprint/face) before the app decrypts. The encryption key is <b>origin-bound</b> — only this website on this device can access it."),
-                new("What is 'Confirm Sends with Biometric'?", "An optional setting (under <b>More</b> → <b>Settings</b> → <b>Confirm Sends</b>) that adds a biometric check before every transaction. When enabled, completing \"<b>Slide to send</b>\" triggers a fingerprint/face prompt — if you cancel or fail, the send is blocked. This prevents unauthorized sends if someone gains access to your unlocked wallet."),
-                new("When should I enable 'Confirm Sends'?", "<b>Real-life scenarios where this helps:</b><ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Shared device:</b> You share a tablet with family — confirm-send ensures only you can authorize transactions, even if the wallet is unlocked.</li><li><b>Large transactions:</b> You're sending a significant amount and want a second layer of confirmation beyond the review screen.</li><li><b>Business use:</b> You manage a team treasury from your phone — biometric confirmation adds accountability to every outgoing payment.</li><li><b>Child safety:</b> Your child uses the device — they can view balances but can't send funds without your fingerprint.</li><li><b>Auto-lock timeout:</b> If your auto-lock is set to a long interval (e.g., 30 minutes), confirm-send protects during that window.</li></ul>"),
-                new("Is biometric shared across wallets?", "Yes. A single biometric enrollment works for <b>all your wallets</b>. When you enable biometric and unlock another wallet with its PIN for the first time, that wallet's seed is automatically added to biometric unlock. Disabling biometric removes it for all wallets."),
-                new("What if biometric fails?", "If your fingerprint/face isn't recognized or the platform authenticator is unavailable, the wallet falls back to <b>PIN entry</b>. Biometric is a convenience layer — your PIN always works."),
-                new("What devices support biometric unlock?", "Any device with a <b>platform authenticator</b> (built-in fingerprint scanner or face recognition) and a browser supporting <b>WebAuthn</b>. This includes most modern Android devices (Chrome), Windows Hello (Edge/Chrome), macOS Touch ID (Safari/Chrome), and iOS (Safari). You can use any authenticator your browser offers — Google Password Manager, Windows Hello, or native fingerprint/face."),
-                new("Can someone bypass biometric with my PIN?", "Yes — that's by design. Your PIN is the primary authentication method; biometric is a faster alternative. If you're concerned about PIN security, choose a non-obvious PIN and consider enabling <b>Confirm Sends with Biometric</b> as an additional layer for outgoing transactions."),
-                new("What happens to biometric when I delete my wallet?", "All biometric data (credential, encrypted keys, preferences) is <b>permanently removed</b> when you delete a wallet. If you restore the wallet from your seed phrase, you'll need to re-enroll biometric from <b>More</b> → <b>Settings</b>."),
+                new(L.T("help.biometric.1.q"), L.T("help.biometric.1.a")),
+                new(L.T("help.biometric.2.q"), L.T("help.biometric.2.a")),
+                new(L.T("help.biometric.3.q"), L.T("help.biometric.3.a")),
+                new(L.T("help.biometric.4.q"), L.T("help.biometric.4.a")),
+                new(L.T("help.biometric.5.q"), L.T("help.biometric.5.a")),
+                new(L.T("help.biometric.6.q"), L.T("help.biometric.6.a")),
+                new(L.T("help.biometric.7.q"), L.T("help.biometric.7.a")),
+                new(L.T("help.biometric.8.q"), L.T("help.biometric.8.a")),
+                new(L.T("help.biometric.9.q"), L.T("help.biometric.9.a")),
+                new(L.T("help.biometric.10.q"), L.T("help.biometric.10.a")),
             ]),
 
-        new("watch-only", "Watch-Only Wallets", "Import xpub, view balances", "bg-cyan-50 dark:bg-cyan-900/20",
+        new("watch-only", L.T("help.watch_only.title"), L.T("help.watch_only.subtitle"), "bg-cyan-50 dark:bg-cyan-900/20",
             "<svg class=\"w-5 h-5 text-cyan-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z\" /><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z\" /></svg>",
             [
-                new("What is a watch-only wallet?", "A wallet created from an extended public key (xpub) that can view balances and transaction history but <b>cannot sign or send</b> transactions. Useful for monitoring cold storage."),
-                new("How do I create a watch-only wallet?", "On the welcome screen, choose <b>Recover</b> → paste your <b>xpub</b> key. The wallet derives addresses from the xpub and tracks balances from the blockchain."),
-                new("Can I send from a watch-only wallet?", "No. Watch-only wallets don't have private keys, so they cannot sign transactions. You'll need the full wallet (with seed phrase or private key) to send funds."),
+                new(L.T("help.watch_only.1.q"), L.T("help.watch_only.1.a")),
+                new(L.T("help.watch_only.2.q"), L.T("help.watch_only.2.a")),
+                new(L.T("help.watch_only.3.q"), L.T("help.watch_only.3.a")),
             ]),
 
-        new("multisig", "Multisig Wallets", "M-of-N wallets, PSBT signing, real-time rooms", "bg-purple-50 dark:bg-purple-900/20",
+        new("multisig", L.T("help.multisig.title"), L.T("help.multisig.subtitle"), "bg-purple-50 dark:bg-purple-900/20",
             "<svg class=\"w-5 h-5 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z\" /></svg>",
             [
-                new("What is a multisig wallet?", "A wallet that requires <b>M-of-N</b> signatures to spend funds. For example, a 2-of-3 multisig needs 2 out of 3 co-signers to approve a transaction. This adds an extra layer of security — no single key can move funds alone."),
-                new("How do I create a multisig wallet?", "Go to <b>More</b> → <b>Multisig</b> → <b>Create</b>. Choose the threshold (e.g., 2-of-3). Your public key is auto-added. Add other co-signers by pasting their compressed public key (hex); they can copy it from <b>More → Settings → Copy my public key</b>. Everyone doesn't need to be online at once: if you're still waiting on someone's key, tap <b>Save draft and finish later</b>, then <b>Continue</b> the draft from the Multisig page when the keys arrive. Once the wallet is created, share the redeem script or backup file for the others to import. Review and confirm to create the wallet."),
-                new("How do I send from a multisig wallet?", "Open your multisig wallet → <b>Send</b>. Enter the destination and amount. A <b>PSBT</b> (Partially Signed Transaction) is created. Sign it with your key, then open it under <b>Pending</b> to get the other signatures: share it with co-signers, or sign together online. Once enough signatures are collected, slide to broadcast on the payment's own screen."),
-                new("Why can't I see my multisig after switching wallets?", "Each multisig belongs to the wallet that created or imported it (or holds one of its keys), so it only shows under that wallet. Switch back to the owning wallet to see it. Multisigs saved before this change that no wallet could be matched to appear under <b>Unassigned multisigs</b> on the Multisig page, where you can <b>Claim</b> them."),
-                new("Can I rename a multisig or a co-signer?", "Yes. Tap the name at the top of the multisig (or the pencil icon in the list) to rename it. Open <b>Co-signers</b> and tap a co-signer to edit their label. Names are only labels on your device: they never change the address, the redeem script, or the keys, and they aren't shared with co-signers."),
-                new("How do I check a co-signer's full public key?", "Open the multisig → <b>Co-signers</b> → tap the co-signer. The full key is shown in readable groups with <b>Copy key</b> and a QR code, so you can compare it with what they sent you."),
-                new("How do I pay from a multisig by scanning or pasting?", "Open the multisig → <b>Send</b>. Paste an address, scan a QR code or payment link, or pick a contact. Tap <b>MAX</b> to send everything. You'll see the network fee and what stays in the multisig, then a review screen, before the proposal is created. Then <b>Sign now</b> and <b>Share</b> it with your co-signers."),
-                new("Can co-signers sign together online?", "Yes. Open the multisig → <b>Pending</b> → tap the payment → <b>Sign together online</b>, choose how long the room stays open (30 minutes by default) and tap <b>Open room</b>. Share the 6-character code or link; co-signers open it in their own wallet, check the payment and tap <b>Sign</b>. Everyone sees signatures arrive live, and anyone can tap <b>Broadcast</b> once there are enough. Only co-signers can join (watch-only copies can't). Keys never leave your device, and if the room ends or the service is down, every signature stays saved and <b>Share with co-signers</b> / <b>Add a signed copy</b> on the payment's screen still work."),
-                new("Where do I see what my multisig received and sent?", "Open the multisig and tap <b>Activity</b> in the menu (or <b>View all</b> under Recent activity). It lists received and sent payments and proposals, newest first, with filters and <b>Load more</b>. Tap an entry for the full transaction ID and an explorer link."),
-                new("Where did the menu go when I opened a multisig?", "It is still there, pointed at the multisig: <b>Overview</b>, <b>Activity</b>, <b>Scan</b>, <b>Pending</b> and <b>More</b> all act on the multisig you are in, and a small tab on the menu shows its name. To go back to your own wallet, tap that tab (or the line under the page title that says which wallet the multisig is in) and choose <b>Back to</b> your wallet."),
-                new("How do I sign a payment a co-signer sent me?", "Open the multisig → <b>Pending</b> → <b>Add a proposal</b>, then scan its QR code, paste it or choose the file. It appears under <b>Needs you</b>. Tap it to see the full payment, then <b>Sign this payment</b>. Nothing is signed or broadcast from the list itself."),
-                new("What does the number on More or on Pending mean?", "It counts multisig payments that need <b>you</b>: your signature, a payment that has all its signatures and is ready to broadcast, or a broadcast that failed and can be retried. It is worked out on your device from the payments saved there. A payment that can no longer go through is not counted once the app has noticed, which happens when you open Pending."),
-                new("What does \"Can't go through\" mean on a pending multisig payment?", "Some of the coins the payment was going to spend have <b>already been spent</b>, for example by another payment from the same multisig. It can no longer be signed or broadcast, so the only thing left to do is <b>cancel</b> it. It is listed apart from the payments that need you and is not counted."),
-                new("What does Cancel do on a pending multisig payment?", "Cancel is on the payment's own screen and only affects <b>this device</b>. Co-signers who already have a copy of the proposal could still sign and broadcast it. This device will not broadcast a cancelled proposal."),
-                new("What is a PSBT?", "A <b>Partially Signed Transaction</b> (BIP174) — a standard format originally from Bitcoin, also used by DigiByte, for passing unsigned or partially signed transactions between co-signers. Each signer adds their signature to the PSBT, and when the threshold is met, it can be finalized into a complete transaction."),
-                new("How do I import an existing multisig wallet?", "Go to <b>More</b> → <b>Multisig</b> → <b>Import</b> and paste the redeem script (hex), or tap <b>Scan</b> in the menu and scan the QR code from the multisig's <b>Redeem script & backup</b> panel: Import opens with the script filled in. The wallet detects the threshold, co-signers, and whether your key is among them. If your key is found, you can sign transactions; otherwise, it's imported as watch-only."),
-                new("How do co-signers exchange PSBTs?", "After creating a PSBT, copy the base64-encoded string and share it with co-signers (via secure messaging, email, etc.). Co-signers paste the signed PSBT back into the <b>Pending Transactions</b> page. Signatures are combined automatically."),
-                new("What is a Multisig Room?", "A real-time collaborative room where co-signers join together to create a multisig wallet. One person creates the room and gets a <b>6-character invite code</b>. Others join using the code — everyone's public key is shared automatically via SignalR. When all participants are ready, the wallet is created simultaneously on all devices."),
-                new("How do I create a multisig wallet in real-time?", "Go to <b>More</b> → <b>Multisig</b> → <b>Create</b> → <b>Create Together in Real-Time</b>. Create a room, set the wallet name and M-of-N threshold, then share the invite code with your co-signers. Once everyone joins and taps <b>Ready</b>, the wallet is created on all devices at once — no need to manually exchange public keys."),
-                new("What happens to my multisig if I delete and recover my wallet?", "<b>Multisig wallets are NOT recovered by your seed phrase.</b> Your 24-word mnemonic only restores your personal HD wallet. Multisig configurations (redeem script, co-signer keys, threshold) are stored locally and wiped when you delete the wallet. <b>Always back up the redeem script</b> — you can download it from the multisig wallet detail page. To restore: go to <b>Multisig → Import</b> and paste the redeem script."),
-                new("Can I sign a PSBT made by another wallet?", "Yes. In <b>Advanced</b> mode, go to <b>More</b> → <b>Settings</b> → <b>Sign a PSBT</b>. Paste the PSBT as base64 text or upload a <b>.psbt</b> file. The wallet shows what leaves your wallet, every output with its full address, and the fee, then signs only the inputs that belong to your wallet after you confirm with biometrics or your PIN. Copy or download the result to pass it on, or broadcast it when it is complete. It refuses PSBTs it can't check safely, such as Taproot or DigiDollar transactions."),
-                new("Where can I learn more?", "Read our <a href='/help/multisig' class='text-purple-500 underline'>complete Multisig Guide</a> — it includes visual flowcharts, real-world scenarios, step-by-step walkthroughs for beginners, and technical details for developers."),
+                new(L.T("help.multisig.1.q"), L.T("help.multisig.1.a")),
+                new(L.T("help.multisig.2.q"), L.T("help.multisig.2.a")),
+                new(L.T("help.multisig.3.q"), L.T("help.multisig.3.a")),
+                new(L.T("help.multisig.4.q"), L.T("help.multisig.4.a")),
+                new(L.T("help.multisig.5.q"), L.T("help.multisig.5.a")),
+                new(L.T("help.multisig.6.q"), L.T("help.multisig.6.a")),
+                new(L.T("help.multisig.7.q"), L.T("help.multisig.7.a")),
+                new(L.T("help.multisig.8.q"), L.T("help.multisig.8.a")),
+                new(L.T("help.multisig.9.q"), L.T("help.multisig.9.a")),
+                new(L.T("help.multisig.10.q"), L.T("help.multisig.10.a")),
+                new(L.T("help.multisig.11.q"), L.T("help.multisig.11.a")),
+                new(L.T("help.multisig.12.q"), L.T("help.multisig.12.a")),
+                new(L.T("help.multisig.13.q"), L.T("help.multisig.13.a")),
+                new(L.T("help.multisig.14.q"), L.T("help.multisig.14.a")),
+                new(L.T("help.multisig.15.q"), L.T("help.multisig.15.a")),
+                new(L.T("help.multisig.16.q"), L.T("help.multisig.16.a")),
+                new(L.T("help.multisig.17.q"), L.T("help.multisig.17.a")),
+                new(L.T("help.multisig.18.q"), L.T("help.multisig.18.a")),
+                new(L.T("help.multisig.19.q"), L.T("help.multisig.19.a")),
+                new(L.T("help.multisig.20.q"), L.T("help.multisig.20.a")),
+                new(L.T("help.multisig.21.q"), L.T("help.multisig.21.a")),
+                new(L.T("help.multisig.22.q"), L.T("help.multisig.22.a")),
             ]),
 
-        new("recovery", "Recovery Tools", "Sweep old paths, external seeds, WIF keys", "bg-cyan-50 dark:bg-cyan-900/20",
+        new("recovery", L.T("help.recovery.title"), L.T("help.recovery.subtitle"), "bg-cyan-50 dark:bg-cyan-900/20",
             "<svg class=\"w-5 h-5 text-cyan-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3\" /></svg>",
             [
-                new("What are Recovery Tools?", "A permanent utility page (More → Settings → Recovery Tools) for sweeping funds from old derivation paths, another wallet's seed phrase, or a standalone private key (WIF). It scans the blockchain for any balance and lets you move everything into your current wallet in one transaction."),
-                new("When should I use Recovery Tools?", "<b>Real-life scenarios:</b><ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Wallet upgrade:</b> You used an older DGB wallet that generated addresses on BIP44 or BIP49 paths — Recovery Tools finds and sweeps those funds.</li><li><b>Paper backup import:</b> You have a 24-word seed phrase written on paper from an old wallet or a friend's wallet and want to move the funds here.</li><li><b>Private key sweep:</b> Someone sent you a WIF private key (e.g., from a paper wallet, a giveaway, or a DigiSweep card) and you want to claim the funds.</li><li><b>Multi-wallet consolidation:</b> You have DGB spread across multiple seed phrases and want to consolidate everything into one wallet.</li><li><b>Post-migration cleanup:</b> After the v0.3.1 BIP84 migration, your old BIP44 addresses may still hold funds — this tool finds and moves them.</li></ul>"),
-                new("How does 'Current Wallet — Old Paths' work?", "If you have an HD wallet, this scans your current seed's old derivation paths (<b>BIP44</b> and <b>BIP49</b>) without needing to re-enter your seed phrase. It checks all three address types (Legacy, SegWit-P2SH, SegWit) for each key to catch funds regardless of how the addresses were originally generated. If funds are found, tap <b>Move to Wallet</b> to sweep them to your current BIP84 address."),
-                new("I restored my wallet and it looks empty, or a payment is missing — what do I do?", "The wallet looks <b>20 addresses past the last one that was paid</b>. If the same recovery phrase or account key also hands out addresses somewhere else (a shop, or a deposit page that gives every order its own address), a payment can sit further along. Open <b>More → Settings → Recovery Tools → Current Wallet — Missing Payments</b>, or tap <b>Search further</b> on Home when an empty restored or watch-only wallet offers it. Choose how many addresses to search, counted from the first one (up to <b>5,000</b>), and tap <b>Search</b>. Anything found joins your balance and can be spent, with nothing to move."),
-                new("What should I know before I search further?", "<ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>It asks the public block explorer</b> about each address it checks, whichever source your wallet normally uses. The card shows how many addresses that is before you start.</li><li><b>You can cancel.</b> The search stops within a few seconds, says how many addresses it covered, and keeps what it had found. A search that fails says so; it never reports \"nothing found\" unless it finished.</li><li><b>Found addresses stay.</b> A search cannot be undone, short of removing the wallet from this device and restoring it.</li><li><b>Unpaid addresses are not watched afterwards.</b> If a payment arrives later on an address that was unpaid during the search, search again.</li><li><b>New addresses continue from there.</b> After a find, <b>Generate new address</b> gives the address after the highest one found, and the wallet tells you once that the key seems to be in use somewhere else: addresses you make here may be handed out there too.</li></ul>"),
-                new("How does 'External Sweep' work?", "Enter a <b>seed phrase</b> (12 or 24 words) or a <b>WIF private key</b>. For seed phrases, the tool scans BIP44, BIP49, and BIP84 paths across all address types. For WIF keys, it checks Legacy, SegWit-P2SH, and SegWit encodings. Found funds can be swept to your current wallet in one tap."),
-                new("Is it safe to enter another seed phrase?", "Yes. The seed phrase or private key is used <b>only in memory</b> for address derivation and transaction signing. It is <b>never stored</b> — not in IndexedDB, not in local storage, not sent to any server. Close the page when you're done for maximum safety."),
-                new("What does the progress bar show?", "During a scan, the progress bar shows the percentage completion and the current derivation path being checked (e.g., \"BIP44 · Legacy · m/44'/20'/0'/0\" or \"BIP49 · SegWit-P2SH\"). This helps you understand which paths have been scanned and how much remains."),
-                new("Can I scan the same seed again?", "Yes. After a scan completes (whether funds are found or not), you can tap <b>Scan again</b> to re-run the scan. This is useful if you've received funds on old addresses since the last scan."),
-                new("What if someone gave me a paper wallet or DigiSweep card?", "Switch to the <b>Private Key (WIF)</b> tab, enter the key (starts with K, L, or 5), and tap <b>Scan for Funds</b>. If the key has a balance on any address type, you'll see it and can sweep it to your wallet. This is the fastest way to claim funds from paper wallets, promotional giveaways, or physical DGB cards."),
+                new(L.T("help.recovery.1.q"), L.T("help.recovery.1.a")),
+                new(L.T("help.recovery.2.q"), L.T("help.recovery.2.a")),
+                new(L.T("help.recovery.3.q"), L.T("help.recovery.3.a")),
+                new(L.T("help.recovery.4.q"), L.T("help.recovery.4.a")),
+                new(L.T("help.recovery.5.q"), L.T("help.recovery.5.a")),
+                new(L.T("help.recovery.6.q"), L.T("help.recovery.6.a")),
+                new(L.T("help.recovery.7.q"), L.T("help.recovery.7.a")),
+                new(L.T("help.recovery.8.q"), L.T("help.recovery.8.a")),
+                new(L.T("help.recovery.9.q"), L.T("help.recovery.9.a")),
+                new(L.T("help.recovery.10.q"), L.T("help.recovery.10.a")),
             ]),
 
-        new("digi-id", "Digi-ID", "Passwordless authentication, signing flow, troubleshooting", "bg-blue-50 dark:bg-blue-900/20",
+        new("digi-id", L.T("help.digi_id.title"), L.T("help.digi_id.subtitle"), "bg-blue-50 dark:bg-blue-900/20",
             "<svg class=\"w-5 h-5 text-blue-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33\" /></svg>",
             [
-                new("What is Digi-ID?", "A passwordless authentication protocol for DigiByte. Websites show a <code>digiid://</code> QR code — you scan it with your wallet, approve the domain, and the wallet signs a cryptographic challenge. No passwords needed."),
-                new("How do I use Digi-ID?", "Tap <b>Scan</b> in the menu and scan the Digi-ID QR code from a website. To paste a <code>digiid://</code> link instead, go to <b>More</b> → <b>Digi-ID</b>. Review the domain and callback URL, then tap <b>Approve</b>. You'll see a 3-step progress animation (signing → sending → verifying) and a success confirmation with the address used."),
-                new("Is Digi-ID safe?", "Yes. Each website gets a unique derived key (path <code>m/13'/siteIndex'/0'/0</code>). Your main wallet keys are never exposed. Only a cryptographic signature is sent — no private data leaves your device. The confirmation panel explains this before you approve. The address that identifies you is for <b>signing in only</b> — never use it to receive payments (see the next question)."),
-                new("Can I receive funds to my Digi-ID address?", "<b>No.</b> A Digi-ID address looks like any DigiByte address, but it is an <b>identity address</b> for signing in to one website. The wallet does <b>not watch it</b>, so DGB sent there will not show in your balance. If DGB was sent to one by mistake it is not lost: it can still be moved with your seed phrase. Open the <b>ID</b> tab and use <a href='/identity#recover-funds' class='text-blue-500 underline'>Recover funds</a>: it checks the sites in your login history plus any website name you type in (useful after restoring a wallet, when the history is empty), shows the fee, and moves the funds to fresh addresses in your wallet. Each address is checked and swept separately, so your sites are never linked to each other. <b>Never send DigiDollar or other tokens to a Digi-ID address.</b> Recover funds moves only ordinary DGB, and it can only recognise other kinds of output when the network describes them."),
-                new("What happens during signing?", "Three steps happen in sequence: <b>1)</b> Your wallet derives a site-specific private key and signs the challenge URI with a compact recoverable signature. <b>2)</b> The signed response is sent to the website's callback server (via our API proxy to avoid browser CORS issues). <b>3)</b> The server verifies the signature and logs you in."),
-                new("What does 'rejected the signature' mean?", "The website's server could not verify the cryptographic signature. This usually means the QR code or URI has <b>expired</b> — most Digi-ID challenges are valid for only a few minutes. Scan a <b>fresh QR code</b> from the website and try again."),
-                new("What does 'Could not reach server' mean?", "The authentication server is unreachable. This could be a <b>network issue</b> on your end, or the website's server may be down. Check your internet connection and try again. If the problem persists, the website may be experiencing downtime."),
-                new("Can I retry a failed authentication?", "Yes. When authentication fails, tap <b>Try Again</b> to re-sign and resend without needing to re-scan the QR code. If the challenge has expired, you'll need to scan a new one from the website."),
-                new("Which sites support Digi-ID?", "Any website that implements the Digi-ID protocol. Examples include <b>DigiScope</b> (<code>digiscope.me</code>) and other DigiByte community services. Look for a \"Login with Digi-ID\" button or QR code on supported sites."),
-                new("Where can I see my Digi-ID login history?", "After a successful authentication, the login is saved to your login history — visible at the bottom of the <b>Digi-ID</b> page (<b>More</b> → <b>Digi-ID</b>). Each entry shows the <b>domain</b>, the <b>address</b> used (truncated), and a <b>relative timestamp</b> (e.g. \"5m ago\", \"3h ago\"). Tap any entry to see the full date. History is saved to IndexedDB and persists across sessions (up to 50 entries)."),
-                new("How do I clear my Digi-ID history?", "Go to <b>More</b> → <b>Digi-ID</b>, scroll to the bottom and tap <b>Clear all</b> in the login history panel. This removes all saved entries from IndexedDB and cannot be undone."),
+                new(L.T("help.digi_id.1.q"), L.T("help.digi_id.1.a")),
+                new(L.T("help.digi_id.2.q"), L.T("help.digi_id.2.a")),
+                new(L.T("help.digi_id.3.q"), L.T("help.digi_id.3.a")),
+                new(L.T("help.digi_id.4.q"), L.T("help.digi_id.4.a")),
+                new(L.T("help.digi_id.5.q"), L.T("help.digi_id.5.a")),
+                new(L.T("help.digi_id.6.q"), L.T("help.digi_id.6.a")),
+                new(L.T("help.digi_id.7.q"), L.T("help.digi_id.7.a")),
+                new(L.T("help.digi_id.8.q"), L.T("help.digi_id.8.a")),
+                new(L.T("help.digi_id.9.q"), L.T("help.digi_id.9.a")),
+                new(L.T("help.digi_id.10.q"), L.T("help.digi_id.10.a")),
+                new(L.T("help.digi_id.11.q"), L.T("help.digi_id.11.a")),
             ]),
 
-        new("consolidation", "UTXO Consolidation", "Merge UTXOs, fee breakdown, future savings", "bg-teal-50 dark:bg-teal-900/20",
+        new("consolidation", L.T("help.consolidation.title"), L.T("help.consolidation.subtitle"), "bg-teal-50 dark:bg-teal-900/20",
             "<svg class=\"w-5 h-5 text-teal-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5\" /></svg>",
             [
-                new("What is UTXO consolidation?", "Every time you receive DGB, a new <b>UTXO</b> (Unspent Transaction Output) is created. Over time, your wallet accumulates many small UTXOs. When you spend, the wallet must include each UTXO as an input — and each input adds ~68 vBytes to the transaction size, increasing the fee. <b>Consolidation merges all your UTXOs into a single one</b>, so future sends only need 1 input instead of many."),
-                new("How do I consolidate?", "Go to <b>More</b> → <b>Consolidate</b>, or <b>More</b> → <b>Settings</b> → <b>Consolidate UTXOs</b>. The page scans your wallet, shows all UTXOs, and lets you merge them: drag <b>Slide to consolidate</b> to confirm."),
-                new("What does the fee breakdown show?", "Before consolidating, the page shows a detailed <b>Fee Breakdown</b> card:<ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Inputs</b> — how many UTXOs will be merged into 1 output</li><li><b>Estimated tx size</b> — total virtual bytes (10 overhead + 68 per input + 31 per output)</li><li><b>Fee rate</b> — your selected rate in sat/vB (Low 100, Normal 200, Fast 500)</li><li><b>Total fee</b> — in both satoshis and DGB</li><li><b>Balance</b> — your current total</li><li><b>You'll receive</b> — balance minus fee (what ends up in your consolidated UTXO)</li></ul>All values update live when you change the fee rate."),
-                new("What are the future fee savings?", "Below the fee breakdown, a <b>Future Send Savings</b> card estimates how much cheaper your next send will be after consolidation. It compares:<br/><b>Before:</b> a send using all N UTXOs as inputs (N × 68 vB + 2 outputs + overhead)<br/><b>After:</b> a send using just 1 input (68 vB + 2 outputs + overhead)<br/>The savings are shown in sats and as a percentage reduction. For example, consolidating 50 UTXOs at 200 sat/vB saves ~6,664 sats per future send (~97% reduction)."),
-                new("When should I consolidate?", "<b>Best times to consolidate:</b><ul class='mt-1 ml-2 list-disc list-inside flex flex-col gap-1'><li><b>Many small UTXOs</b> — if you've received lots of small payments (mining payouts, faucet drips, tips)</li><li><b>Low fee periods</b> — consolidation is a non-urgent tx, so pick the Low fee rate to save costs</li><li><b>Before a large send</b> — consolidate first so your send only needs 1 input, minimizing the fee</li><li><b>Dust cleanup</b> — the page highlights UTXOs under 0.001 DGB as dust</li></ul>"),
-                new("What does the success screen show?", "After consolidation completes, you see a success card with the transaction ID, the <b>fee paid</b> in DGB, and the <b>net amount received</b> in your new single UTXO."),
-                new("Can I consolidate a watch-only wallet?", "No. Consolidation requires private keys to sign the transaction. Watch-only (xpub) wallets show a message explaining this."),
-                new("What are fee rate options?", "Three presets: <b>Low</b> (100 sat/vB) — cheapest, may take longer to confirm. <b>Normal</b> (200 sat/vB) — balanced speed and cost. <b>Fast</b> (500 sat/vB) — highest priority. Since consolidation isn't time-sensitive, Low is usually the best choice."),
+                new(L.T("help.consolidation.1.q"), L.T("help.consolidation.1.a")),
+                new(L.T("help.consolidation.2.q"), L.T("help.consolidation.2.a")),
+                new(L.T("help.consolidation.3.q"), L.T("help.consolidation.3.a")),
+                new(L.T("help.consolidation.4.q"), L.T("help.consolidation.4.a")),
+                new(L.T("help.consolidation.5.q"), L.T("help.consolidation.5.a")),
+                new(L.T("help.consolidation.6.q"), L.T("help.consolidation.6.a")),
+                new(L.T("help.consolidation.7.q"), L.T("help.consolidation.7.a")),
+                new(L.T("help.consolidation.8.q"), L.T("help.consolidation.8.a")),
             ]),
 
-        new("analytics", "Analytics & Market Data", "Price, market cap, network stats", "bg-purple-50 dark:bg-purple-900/20",
+        new("analytics", L.T("help.analytics.title"), L.T("help.analytics.subtitle"), "bg-purple-50 dark:bg-purple-900/20",
             "<svg class=\"w-5 h-5 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z\" /></svg>",
             [
-                new("Where can I see the DGB price?", "Go to <b>More</b> → <b>Analytics</b>. The page shows the current DGB price in your selected fiat currency, 24h change, market cap, volume, and a 7-day sparkline chart."),
-                new("Where does the price data come from?", "Prices are fetched from the CoinGecko API via a server-side proxy (to avoid browser CORS and rate limits). Data is cached for 60 seconds."),
+                new(L.T("help.analytics.1.q"), L.T("help.analytics.1.a")),
+                new(L.T("help.analytics.2.q"), L.T("help.analytics.2.a")),
             ]),
 
-        new("p2p", "P2P Marketplace", "Peer-to-peer trading (coming soon)", "bg-orange-50 dark:bg-orange-900/20",
+        new("p2p", L.T("help.p2p.title"), L.T("help.p2p.subtitle"), "bg-orange-50 dark:bg-orange-900/20",
             "<svg class=\"w-5 h-5 text-orange-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z\" /></svg>",
             [
-                new("What is the P2P Marketplace?", "A planned feature for buying and selling DGB directly with other users — no centralized exchange needed. It will include order matching, real-time trade chat via SignalR, and multisig escrow for safe trades."),
-                new("When will it be available?", "The P2P Marketplace is planned for Q2 2026. Check the <b>Roadmap</b> page for the latest status."),
+                new(L.T("help.p2p.1.q"), L.T("help.p2p.1.a")),
+                new(L.T("help.p2p.2.q"), L.T("help.p2p.2.a")),
             ]),
 
-        new("remittance", "Remittance", "Send by username, fee comparison", "bg-emerald-50 dark:bg-emerald-900/20",
+        new("remittance", L.T("help.remittance.title"), L.T("help.remittance.subtitle"), "bg-emerald-50 dark:bg-emerald-900/20",
             "<svg class=\"w-5 h-5 text-emerald-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418\" /></svg>",
             [
-                new("How does remittance work?", "Go to the <b>Remittance</b> page, enter a dollar amount, and see a fee comparison between DigiByte and traditional services (Western Union, Wise, Remitly). DGB transfers settle in ~15 seconds with near-zero fees."),
-                new("Do I need a username to receive remittances?", "The directory lookup feature (send by username) is a planned enhancement. Currently, you share your DGB address directly with the sender."),
+                new(L.T("help.remittance.1.q"), L.T("help.remittance.1.a")),
+                new(L.T("help.remittance.2.q"), L.T("help.remittance.2.a")),
             ]),
 
-        new("settings", "Settings & Customization", "Theme, network, currency, display mode", "bg-slate-100 dark:bg-dgb-800",
+        new("settings", L.T("help.settings.title"), L.T("help.settings.subtitle"), "bg-slate-100 dark:bg-dgb-800",
             "<svg class=\"w-5 h-5 text-slate-500 dark:text-slate-400\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z\" /><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z\" /></svg>",
             [
-                new("How do I change the theme?", "Go to <b>More</b> → <b>Settings</b> → toggle <b>Appearance</b> between Light and Dark mode. The app uses official DigiByte branding colors."),
-                new("How do I switch networks?", "Go to <b>More</b> → <b>Settings</b> → <b>Network</b> → select <b>Mainnet</b>, <b>Testnet</b>, or <b>Regtest</b>. Mainnet uses real DGB. Testnet and Regtest use test coins. Your wallet data is separate per network."),
-                new("What is Simple vs Advanced mode?", "<b>Simple</b> hides technical details (fee rate selector, raw addresses). <b>Advanced</b> shows everything including custom fee input, full address formats, and developer-oriented info."),
-                new("How do I change the fiat currency?", "Go to <b>More</b> → <b>Settings</b> → <b>Currency</b> → choose from more than 50 currencies, grouped by region (including many in Asia and Africa). Prices update automatically across the app."),
-                new("How do I manage multiple wallets?", "Go to <b>More</b> → <b>Settings</b> → <b>Manage Wallets</b>. You can create up to <b>10 wallets</b> (HD, WIF, or Watch-Only). Each wallet has its own PIN, color, balance, and transaction history. Tap <b>Add New Wallet</b> to create or import additional wallets."),
-                new("How do I switch between wallets?", "<b>Swipe left/right</b> on the balance card on the Home page to switch wallets instantly. You can also tap the <b>wallet name pill</b> at the top to open the wallet picker, or go to <b>More</b> → <b>Settings</b> → <b>Manage Wallets</b>. Only unlocked wallets switch instantly; locked wallets prompt for their PIN."),
-                new("How do I change my wallet's color?", "Go to <b>More</b> → <b>Settings</b> → <b>Manage Wallets</b> → tap the <b>color circle</b> button on any wallet card. Choose from 10 colors. The color appears on the Home page balance card, wallet picker, and unlock screen."),
-                new("How do I rename a wallet?", "Go to <b>More</b> → <b>Settings</b> → <b>Manage Wallets</b> → tap <b>Rename</b> on the wallet card. Enter the new name (max 30 characters) and tap <b>Save</b>."),
+                new(L.T("help.settings.1.q"), L.T("help.settings.1.a")),
+                new(L.T("help.settings.2.q"), L.T("help.settings.2.a")),
+                new(L.T("help.settings.3.q"), L.T("help.settings.3.a")),
+                new(L.T("help.settings.4.q"), L.T("help.settings.4.a")),
+                new(L.T("help.settings.5.q"), L.T("help.settings.5.a")),
+                new(L.T("help.settings.6.q"), L.T("help.settings.6.a")),
+                new(L.T("help.settings.7.q"), L.T("help.settings.7.a")),
+                new(L.T("help.settings.8.q"), L.T("help.settings.8.a")),
             ]),
 
-        new("deployment", "Deployment & Infrastructure", "Self-hosting, Docker, Railway", "bg-slate-100 dark:bg-dgb-800",
+        new("deployment", L.T("help.deployment.title"), L.T("help.deployment.subtitle"), "bg-slate-100 dark:bg-dgb-800",
             "<svg class=\"w-5 h-5 text-slate-500 dark:text-slate-400\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008ZM6.75 14.25h.008v.008H6.75v-.008Z\" /></svg>",
             [
-                new("Can I self-host the wallet?", "Yes. The wallet is fully open source. Clone the repo, run <code>dotnet run --project src/DigiByte.Web</code>, and open <code>localhost:5251</code>. For the full stack (node + API), use Docker Compose."),
-                new("What Docker configurations are available?", "Three Docker Compose files: <b>Regtest</b> (instant mining, local dev), <b>Testnet</b> (real network), and <b>Mainnet</b> (pruned node, production). See the <b>Deployment</b> page for infrastructure details."),
-                new("How is the production deployment set up?", "The production app runs on Railway with 4 services: Blazor WASM (served by Nginx), Backend API (CoinGecko proxy, P2P), Node API (RPC wrapper), and a pruned mainnet DigiByte node (~2 GB disk)."),
-                new("What does the Deployment page show about donations?", "The Deployment page shows the project's donation address with a <b>live DGB balance</b> and <b>USD conversion</b> (fetched from CoinGecko). You can <b>copy the address</b> to your clipboard and tap the <b>refresh button</b> to update the data. There's also a link to the full <b>Donation History</b> page showing every transaction with its USD value."),
+                new(L.T("help.deployment.1.q"), L.T("help.deployment.1.a")),
+                new(L.T("help.deployment.2.q"), L.T("help.deployment.2.a")),
+                new(L.T("help.deployment.3.q"), L.T("help.deployment.3.a")),
+                new(L.T("help.deployment.4.q"), L.T("help.deployment.4.a")),
             ]),
     ];
 }

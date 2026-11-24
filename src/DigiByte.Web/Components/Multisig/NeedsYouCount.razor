@@ -3,6 +3,7 @@
    shows it agrees, and it follows changes by itself. Shows nothing at zero. With Spoken set it also says the count
    in words for assistive technology, from inside the control it sits on, so the words change with the number. *@
 @inject MultisigAttentionState Attention
+@inject LocalizationService L
 @implements IDisposable
 
 @if (Attention.Current.NeedsYouTotal > 0)
@@ -10,7 +11,7 @@
     <span class="@Class" aria-hidden="true" data-testid="@TestId">@CountBadge.Text(Attention.Current.NeedsYouTotal)</span>
     @if (Spoken)
     {
-        <span class="sr-only">@(Attention.Current.NeedsYouTotal == 1 ? "1 payment needs you." : $"{CountBadge.Text(Attention.Current.NeedsYouTotal)} payments need you.")</span>
+        <span class="sr-only">@(Attention.Current.NeedsYouTotal == 1 ? L.T("nav.count.pending.one") : L.T("nav.count.pending.other", CountBadge.Text(Attention.Current.NeedsYouTotal))).</span>
     }
 }
 
@@ -20,6 +21,7 @@
 
     /// <summary>Also say the count in words, hidden from sight. For a control whose name comes from its content.</summary>
     [Parameter] public bool Spoken { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     protected override void OnInitialized()
     {

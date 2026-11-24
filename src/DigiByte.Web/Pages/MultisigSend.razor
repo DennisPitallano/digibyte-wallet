@@ -6,8 +6,9 @@
 @inject IBlockchainService Blockchain
 @inject AppState AppState
 @inject NavigationManager Nav
+@inject LocalizationService L
 
-<PageTitle>Send from Multisig — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.send.page_title")</PageTitle>
 
 <AuthGuard>
 @if (isLoading)
@@ -23,14 +24,14 @@ else if (config == null)
     @if (!string.IsNullOrWhiteSpace(QueryAddress))
     {
         <div class="flex justify-center -mt-6 pb-8">
-            <button type="button" class="btn-secondary btn-sm" data-testid="pay-from-personal" @onclick="PayFromPersonalWallet">Pay from @ActiveWallet.WalletName</button>
+            <button type="button" class="btn-secondary btn-sm" data-testid="pay-from-personal" @onclick="PayFromPersonalWallet">@L.T("ms.send.pay_personal", ActiveWallet.WalletName)</button>
         </div>
     }
 }
 else
 {
     <div class="flex flex-col gap-4">
-        <PageHeader Title="@(step == Step.Done ? "Proposal Created" : "Send from Multisig")" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
+        <PageHeader Title="@(step == Step.Done ? L.T("ms.send.created.title") : L.T("ms.send.title"))" BackLabel="@config.DisplayName" BackHref="@($"/multisig/{WalletId}")" />
         <div class="-mt-2"><SharedWalletContextLine Config="config" /></div>
 
         @if (step != Step.Done)
@@ -45,22 +46,22 @@ else
             @* Amount *@
             <div class="flex flex-col gap-1.5 slide-up-delay-2">
                 <div class="flex items-center justify-between">
-                    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-amount">Amount</label>
+                    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-amount">@L.T("send.amount")</label>
                     @if (utxosFailed)
                     {
-                        <span class="flex items-center gap-1 text-xs text-amber-500">Couldn't load funds <button type="button" class="min-h-[32px] px-1 font-semibold text-dgb-500" @onclick="LoadUtxos">Retry</button></span>
+                        <span class="flex items-center gap-1 text-xs text-amber-500">@L.T("ms.send.funds_failed") <button type="button" class="min-h-[32px] px-1 font-semibold text-dgb-500" @onclick="LoadUtxos">@L.T("ms.send.retry")</button></span>
                     }
                     else if (utxos is null)
                     {
                         <span class="flex items-center gap-1.5 text-xs text-dgb-500">
-                            <span>Available:</span>
+                            <span>@L.T("send.available_label")</span>
                             <span class="inline-block w-16 h-3.5 skeleton rounded"></span>
                         </span>
                     }
                     else
                     {
                         <button type="button" @onclick="ToggleMax" class="min-h-[32px] text-xs font-semibold text-dgb-500 hover:text-dgb-400 transition-colors">
-                            Available: @((Spendable / 100_000_000m).ToString("N4")) DGB
+                            @L.T("send.available", (Spendable / 100_000_000m).ToString("N4"))
                         </button>
                     }
                 </div>
@@ -73,22 +74,22 @@ else
                     </span>
                 </div>
                 @* Quick amounts: a share of what can be sent *@
-                <div class="flex gap-2" role="group" aria-label="Quick amounts">
+                <div class="flex gap-2" role="group" aria-label="@L.T("send.quick_amounts")">
                     @foreach (var (label, share) in AmountShares)
                     {
                         var fraction = share;
                         <button type="button" class="choice flex-1" aria-pressed="@(IsShareActive(fraction) ? "true" : "false")"
-                                @onclick="() => SetAmountShare(fraction)" disabled="@(utxos is null || Spendable <= 0)">@label</button>
+                                @onclick="() => SetAmountShare(fraction)" disabled="@(utxos is null || Spendable <= 0)">@(fraction == 1m ? L.T("send.quick_max") : label)</button>
                     }
                 </div>
                 @if (dgbPrice > 0 && estimate is { AmountSatoshis: > 0 })
                 {
                     <p class="text-xs text-slate-400 dark:text-slate-500">
                         ~ @AppState.FiatSymbol@((estimate.AmountSatoshis / 100_000_000m * dgbPrice).ToString("N" + AppState.FiatDecimals)) @AppState.FiatCurrency
-                        <span class="italic ml-1">(estimate — actual rate may vary)</span>
+                        <span class="italic ml-1">@L.T("send.estimate_note")</span>
                     </p>
                 }
-                <p class="text-xs text-slate-400 dark:text-slate-500">Minimum send: @(MultisigSendHelper.DustThresholdSatoshis / 100_000_000m) DGB</p>
+                <p class="text-xs text-slate-400 dark:text-slate-500">@L.T("send.minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m)</p>
                 @if (!string.IsNullOrEmpty(amountError)) { <InlineError Message="@amountError" /> }
             </div>
 
@@ -96,37 +97,37 @@ else
             @if (!AppState.IsSimpleMode)
             {
                 <div class="flex flex-col gap-1.5 slide-up-delay-3">
-                    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fee Rate (sat/vB)</label>
+                    <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("send.fee_rate")</label>
                     <div class="flex gap-2">
-                        <button class="choice flex-1" aria-pressed="@(feeRate == 100 ? "true" : "false")" @onclick="() => SetFeeRate(100)">Slow (100)</button>
-                        <button class="choice flex-1" aria-pressed="@(feeRate == 200 ? "true" : "false")" @onclick="() => SetFeeRate(200)">Normal (200)</button>
-                        <button class="choice flex-1" aria-pressed="@(feeRate == 400 ? "true" : "false")" @onclick="() => SetFeeRate(400)">Fast (400)</button>
+                        <button class="choice flex-1" aria-pressed="@(feeRate == 100 ? "true" : "false")" @onclick="() => SetFeeRate(100)">@L.T("send.fee_slow")</button>
+                        <button class="choice flex-1" aria-pressed="@(feeRate == 200 ? "true" : "false")" @onclick="() => SetFeeRate(200)">@L.T("send.fee_normal")</button>
+                        <button class="choice flex-1" aria-pressed="@(feeRate == 400 ? "true" : "false")" @onclick="() => SetFeeRate(400)">@L.T("send.fee_fast")</button>
                     </div>
-                    <input type="number" inputmode="numeric" value="@feeRate" @onchange="OnCustomFee" min="1" placeholder="Custom sat/vB" aria-label="Custom fee rate in sat per vB"
+                    <input type="number" inputmode="numeric" value="@feeRate" @onchange="OnCustomFee" min="1" placeholder="@L.T("send.fee_custom_placeholder")" aria-label="@L.T("ms.send.fee_custom_aria")"
                            class="input" />
                 </div>
             }
 
             @* Memo *@
             <div class="flex flex-col gap-1.5 slide-up-delay-3">
-                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-memo">Memo (optional)</label>
-                <input id="ms-memo" type="text" value="@memo" @oninput="OnMemoInput" maxlength="80" placeholder="What's this for?"
+                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" for="ms-memo">@L.T("send.memo")</label>
+                <input id="ms-memo" type="text" value="@memo" @oninput="OnMemoInput" maxlength="80" placeholder="@L.T("send.memo_placeholder")"
                        class="input" />
             </div>
 
             @* Fee display *@
             <div class="flex flex-col gap-1.5 px-4 py-3 bg-slate-50 dark:bg-dgb-900/50 rounded-xl border border-slate-100 dark:border-dgb-800 slide-up-delay-4" aria-live="polite">
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Fee</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("send.fee")</span>
                     <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold tabular-nums">@(estimate is { Ok: true } ? "~" + MultisigFormat.Dgb(estimate.FeeSatoshis) + " DGB" : "—")</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Left in multisig</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">@L.T("ms.send.left")</span>
                     <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold tabular-nums">@(estimate is { Ok: true } ? MultisigFormat.Dgb(estimate.RemainingSatoshis) + " DGB" : "—")</span>
                 </div>
                 @if (estimate is { Ok: true, ChangeSatoshis: 0 } && !useMax)
                 {
-                    <p class="text-[11px] text-slate-400 dark:text-slate-500">The small leftover is too little to send back, so it goes to the network fee.</p>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500">@L.T("ms.send.leftover_note")</p>
                 }
             </div>
 
@@ -134,12 +135,12 @@ else
                 <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
-                <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">This creates a proposal that needs <b>@config.RequiredSignatures of @config.TotalSigners</b> signatures before it can be broadcast.</p>
+                <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">@L.T("ms.send.needs.before") <b>@L.T("ms.send.of", config.RequiredSignatures, config.TotalSigners)</b> @L.T("ms.send.needs.after")</p>
             </div>
 
             <button class="btn-primary btn-sm slide-up-delay-5 w-full mt-2"
                     disabled="@(!CanContinue)" @onclick="GoToReview">
-                <span>Review Transaction</span>
+                <span>@L.T("send.review")</span>
             </button>
         }
         else if (created is not null)
@@ -149,24 +150,24 @@ else
                 <div class="w-12 h-12 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
                     <svg class="w-6 h-6 text-green-500" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                 </div>
-                <h3 class="block-title block-title-lg">Proposal Created</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 text-center max-w-[260px]">It needs @created.RequiredSignatures signature(s) before it can be broadcast.</p>
+                <h3 class="block-title block-title-lg">@L.T("ms.send.created.title")</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 text-center max-w-[260px]">@(created.RequiredSignatures == 1 ? L.T("ms.send.created.needs.one", created.RequiredSignatures) : L.T("ms.send.created.needs.other", created.RequiredSignatures))</p>
             </div>
 
             <div class="bg-slate-50 dark:bg-dgb-950 rounded-2xl p-4 flex flex-col gap-3 slide-up-delay-1">
                 <div class="flex justify-between items-start">
-                    <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">To</span>
+                    <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.to")</span>
                     <p class="text-[11px] font-mono text-slate-900 dark:text-white max-w-[210px] text-right break-words leading-relaxed">@MultisigFormat.Chunk(created.DestinationAddress)</p>
                 </div>
                 <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Amount</span>
+                    <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.amount")</span>
                     <span class="text-sm font-bold text-slate-900 dark:text-white tabular-nums">@MultisigFormat.Dgb(created.AmountSatoshis) DGB</span>
                 </div>
                 <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                 <div class="flex justify-between">
-                    <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Signatures</span>
-                    <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">@created.SignatureCount of @created.RequiredSignatures</span>
+                    <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("ms.send.signatures")</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">@L.T("ms.send.of", created.SignatureCount, created.RequiredSignatures)</span>
                 </div>
             </div>
 
@@ -183,14 +184,14 @@ else
                 @if (MultisigWalletService.NeedsMySignature(created, config))
                 {
                     <button class="btn-primary btn-sm w-full" disabled="@isSigning" @onclick="SignNow">
-                        @(isSigning ? "Signing…" : "Sign Now")
+                        @(isSigning ? L.T("ms.pendingDetail.sign.busy") : L.T("ms.send.sign_now"))
                     </button>
                 }
                 <button class="btn-secondary btn-sm w-full" @onclick="SharePsbt">
-                    Copy Proposal to Share
+                    @L.T("ms.send.copy_share")
                 </button>
                 <button class="w-full min-h-[44px] py-2.5 text-sm font-semibold text-dgb-500" @onclick='() => Nav.NavigateTo(created is null ? $"/multisig/{WalletId}/pending" : $"/multisig/{WalletId}/pending/{Uri.EscapeDataString(created.Id)}")'>
-                    Open this payment
+                    @L.T("ms.send.open_payment")
                 </button>
             </div>
         }
@@ -199,7 +200,7 @@ else
     @* Confirm modal: same card as the Send page's "Confirm Send" *@
     @if (step == Step.Review && estimate is { Ok: true })
     {
-        <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Confirm proposal" @onclick="() => { if (!isCreating) { step = Step.Form; error = null; } }">
+        <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="@L.T("ms.send.confirm.aria")" @onclick="() => { if (!isCreating) { step = Step.Form; error = null; } }">
             <div class="modal-card flex flex-col gap-5" @onclick:stopPropagation="true">
                 <div class="flex flex-col items-center gap-2">
                     <div class="w-12 h-12 rounded-full bg-dgb-50 dark:bg-dgb-800 flex items-center justify-center">
@@ -207,38 +208,38 @@ else
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
                         </svg>
                     </div>
-                    <h3 class="block-title block-title-lg">Confirm Proposal</h3>
-                    <span class="text-xs font-semibold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-0.5 rounded-md">@config.RequiredSignatures of @config.TotalSigners signatures</span>
+                    <h3 class="block-title block-title-lg">@L.T("ms.send.confirm.title")</h3>
+                    <span class="text-xs font-semibold text-dgb-500 bg-dgb-50 dark:bg-dgb-900 px-2 py-0.5 rounded-md">@L.T("ms.send.confirm.signatures", config.RequiredSignatures, config.TotalSigners)</span>
                 </div>
 
                 <div class="bg-slate-50 dark:bg-dgb-950 rounded-2xl p-4 flex flex-col gap-3">
                     <div class="flex justify-between items-start">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">To</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.to")</span>
                         <div class="text-right">
                             <p class="text-xs font-mono font-medium text-slate-900 dark:text-white max-w-[210px] ml-auto break-words leading-relaxed" aria-label="@destination.Trim()">@MultisigFormat.Chunk(destination.Trim())</p>
-                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Check the first and last groups against the address you were given.</p>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">@L.T("send.confirm.check_address")</p>
                         </div>
                     </div>
                     <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                     <div class="flex justify-between">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Amount</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.amount")</span>
                         <span class="text-sm font-bold text-slate-900 dark:text-white tabular-nums">@MultisigFormat.Dgb(estimate.AmountSatoshis) DGB</span>
                     </div>
                     <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                     <div class="flex justify-between">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Network Fee</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.network_fee")</span>
                         <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">~@MultisigFormat.Dgb(estimate.FeeSatoshis) DGB</span>
                     </div>
                     <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                     <div class="flex justify-between">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Total</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("send.confirm.total")</span>
                         <span class="text-xs text-slate-600 dark:text-slate-300 tabular-nums">@MultisigFormat.Dgb(estimate.AmountSatoshis + estimate.FeeSatoshis) DGB</span>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(memo))
                     {
                         <div class="h-px bg-slate-200 dark:bg-dgb-800"></div>
                         <div class="flex justify-between gap-3">
-                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">Memo</span>
+                            <span class="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase">@L.T("history.detail.memo")</span>
                             <span class="text-xs text-slate-600 dark:text-slate-300 text-right break-words">@memo</span>
                         </div>
                     }
@@ -247,7 +248,7 @@ else
                 @if (destCheck?.IsOwnAddress == true)
                 {
                     <div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl">
-                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">You're sending to this multisig's own address.</p>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">@L.T("ms.send.own_address")</p>
                     </div>
                 }
 
@@ -259,7 +260,7 @@ else
                 <div class="flex gap-3">
                     <button class="btn-secondary btn-sm flex-1"
                             @onclick="() => { step = Step.Form; error = null; }" disabled="@isCreating">
-                        Cancel
+                        @L.T("common.cancel")
                     </button>
                     <button class="btn-primary btn-sm flex-1"
                             @onclick="Confirm" disabled="@isCreating">
@@ -269,11 +270,11 @@ else
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                             </svg>
-                            <span>Creating...</span>
+                            <span>@L.T("create.creating")</span>
                         }
                         else
                         {
-                            <span>Create Proposal</span>
+                            <span>@L.T("ms.send.create")</span>
                         }
                     </button>
                 </div>
@@ -291,6 +292,7 @@ else
     private static readonly (string Label, decimal Share)[] AmountShares = [("25%", 0.25m), ("50%", 0.5m), ("75%", 0.75m), ("Max", 1m)];
 
     [Parameter] public string WalletId { get; set; } = "";
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     // A recipient (and amount) scanned with the menu's Scan while this shared wallet was open
     // (specs/026-multisig-wallet-experience, FR-002a). Only an address and an amount ever travel this way.
@@ -501,7 +503,7 @@ else
     {
         // Destination: only complain once something has been entered.
         destCheck = string.IsNullOrWhiteSpace(destination) ? null : MultisigSendHelper.ValidateDestination(destination, MultisigService.ActiveNetwork, config?.Address);
-        destinationError = destCheck is { Ok: false } ? destCheck.Error : null;
+        destinationError = destCheck is { Ok: false } ? DestinationMessage(destCheck) : null;
 
         amountError = null;
         estimate = null;
@@ -521,28 +523,47 @@ else
 
         estimate = MultisigSendHelper.EstimateSend(utxos, feeRate, amountSat, config.RequiredSignatures, config.TotalSigners, config.AddressType, memoBytes, useMax);
         if (!estimate.Ok)
-            amountError = estimate.Error;
+            amountError = EstimateMessage(estimate);
         else if (useMax)
             amountText = (estimate.AmountSatoshis / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private static bool TryParseAmount(string text, out long satoshis, out string? error)
+    private bool TryParseAmount(string text, out long satoshis, out string? error)
     {
         satoshis = 0;
         error = null;
         if (!decimal.TryParse(text.Trim(), System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var dgb) || dgb < 0)
         {
-            error = "Enter a valid amount, for example 1.5.";
+            error = L.T("ms.send.error.amount_invalid");
             return false;
         }
         if (decimal.Round(dgb, 8) != dgb)
         {
-            error = "An amount can have at most 8 decimal places.";
+            error = L.T("ms.send.error.amount_decimals");
             return false;
         }
         satoshis = (long)(dgb * 100_000_000m);
         return true;
     }
+
+    // The helper's reasons, worded in the chosen language (its Error text stays English for logs and exceptions).
+    private string? DestinationMessage(DestinationCheck check) => check.Problem switch
+    {
+        DestinationProblem.Missing => L.T("ms.send.error.address_missing"),
+        DestinationProblem.WrongNetwork => L.T("ms.send.error.wrong_network"),
+        DestinationProblem.Invalid => L.T("ms.send.error.invalid_address"),
+        _ => check.Error,
+    };
+
+    private string? EstimateMessage(SendEstimate e) => e.Problem switch
+    {
+        SendProblem.NoFunds => L.T("ms.send.error.no_funds"),
+        SendProblem.FeeNotCovered => L.T("ms.send.error.fee_not_covered"),
+        SendProblem.NoAmount => L.T("ms.send.error.no_amount"),
+        SendProblem.BelowMinimum => L.T("ms.send.error.below_minimum", MultisigSendHelper.DustThresholdSatoshis / 100_000_000m),
+        SendProblem.OverSpendable => L.T("ms.send.error.over_spendable", (e.SpendableSatoshis / 100_000_000m).ToString("N8")),
+        _ => e.Error,
+    };
 
     private void GoToReview()
     {
@@ -589,12 +610,12 @@ else
         try
         {
             var privateKey = WalletService.GetPrivateKeyForMultisig()
-                ?? throw new InvalidOperationException("Wallet is locked or private key unavailable.");
+                ?? throw new InvalidOperationException(L.T("ms.pendingDetail.error.locked"));
             var key = new NBitcoin.Key(Convert.FromHexString(privateKey));
             created = await MultisigService.SignPendingTransactionAsync(created, key);
             message = created.HasEnoughSignatures
-                ? "Signed. It has enough signatures and is ready to broadcast from Pending."
-                : $"Signed ({created.SignatureCount} of {created.RequiredSignatures}). Share it with your co-signers.";
+                ? L.T("ms.send.signed_ready")
+                : L.T("ms.send.signed", created.SignatureCount, created.RequiredSignatures);
         }
         catch (Exception ex)
         {
@@ -610,6 +631,6 @@ else
     {
         if (created is null) return;
         await Clipboard.CopyAsync(created.PsbtBase64, toast: false);
-        message = "Proposal copied. Send it to your co-signers to sign.";
+        message = L.T("ms.send.copied");
     }
 }

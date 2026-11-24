@@ -23,6 +23,9 @@ else if (unsupported)
 }
 
 @code {
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     /// <summary>The Send page needs the send switch too (FR-022).</summary>

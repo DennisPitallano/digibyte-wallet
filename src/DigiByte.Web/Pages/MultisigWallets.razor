@@ -7,6 +7,7 @@
 @inject ISecureStorage Storage
 @inject SigningRoomClient Room
 @inject MultisigAttentionState Attention
+@inject LocalizationService L
 
 @*
     The shared wallets of the active wallet (specs/026-multisig-wallet-experience, FR-011 to FR-017). Each card says
@@ -15,16 +16,16 @@
     wallet's dashboard makes, and fill in without moving anything. The order is fixed when the list loads.
 *@
 
-<PageTitle>Multisig Wallets — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.wallets.page_title")</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Shared wallets">
+    <PageHeader Title="@L.T("ms.wallets.title")">
         <TitleContent>
-            <h2 class="page-title">Shared wallets</h2>
+            <h2 class="page-title">@L.T("ms.wallets.title")</h2>
             @* Whose they are: multisigs are kept separately for each wallet on this device (FR-011) *@
             <p class="flex items-center gap-1.5 mt-1 text-sm text-slate-600 dark:text-slate-400 min-w-0" data-testid="multisig-list-owner">
-                in
+                @L.T("ms.wallets.owner_in")
                 <span class="w-2 h-2 rounded-full shrink-0" style="background-color: @ActiveWallet.WalletColor;" aria-hidden="true"></span>
                 <span class="font-semibold text-slate-800 dark:text-slate-100 truncate">@ActiveWallet.WalletName</span>
             </p>
@@ -35,11 +36,11 @@
     <div class="grid grid-cols-2 gap-2">
         <button type="button" class="btn-primary btn-sm" data-testid="multisig-create" @onclick='() => Nav.NavigateTo("/multisig/create")'>
             <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            Create
+            @L.T("ms.wallets.create")
         </button>
         <button type="button" class="btn-secondary btn-sm" data-testid="multisig-import" @onclick='() => Nav.NavigateTo("/multisig/import")'>
             <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            Import
+            @L.T("ms.wallets.import")
         </button>
     </div>
 
@@ -60,22 +61,22 @@
     {
         @if (unassigned.Count > 0 && !unassignedDismissed)
         {
-            <div class="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/30" role="region" aria-label="Unassigned multisigs">
-                <p class="text-sm font-bold text-amber-800 dark:text-amber-300">Unassigned multisigs</p>
+            <div class="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/30" role="region" aria-label="@L.T("ms.wallets.unassigned.title")">
+                <p class="text-sm font-bold text-amber-800 dark:text-amber-300">@L.T("ms.wallets.unassigned.title")</p>
                 <p class="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
-                    These were saved before multisigs were tied to a wallet and none of your wallets' keys is in them.
-                    Claim one to add it to <b>@ActiveWallet.WalletName</b>.
+                    @L.T("ms.wallets.unassigned.body")
+                    @Rich(L.T("ms.wallets.unassigned.claim_hint"), ActiveWallet.WalletName)
                 </p>
                 <div class="flex flex-col gap-2 mt-3">
                     @foreach (var item in unassigned)
                     {
                         <div class="flex items-center justify-between gap-2 p-2.5 bg-white/70 dark:bg-dgb-900/60 rounded-xl">
                             <span class="text-sm font-medium text-slate-900 dark:text-white truncate">@item.Name</span>
-                            <button type="button" class="btn-primary btn-sm shrink-0" @onclick="() => Claim(item.Id)">Claim</button>
+                            <button type="button" class="btn-primary btn-sm shrink-0" @onclick="() => Claim(item.Id)">@L.T("ms.wallets.unassigned.claim")</button>
                         </div>
                     }
                 </div>
-                <button type="button" class="min-h-[44px] mt-1 text-xs font-medium text-amber-700 dark:text-amber-400" @onclick="() => unassignedDismissed = true">Not now</button>
+                <button type="button" class="min-h-[44px] mt-1 text-xs font-medium text-amber-700 dark:text-amber-400" @onclick="() => unassignedDismissed = true">@L.T("ms.wallets.unassigned.not_now")</button>
             </div>
         }
 
@@ -87,11 +88,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
                     </svg>
                 </div>
-                <h3 class="block-title">No shared wallets yet</h3>
+                <h3 class="block-title">@L.T("ms.wallets.empty.title")</h3>
                 <p class="text-sm text-slate-600 dark:text-slate-400 max-w-[280px]">
-                    A shared wallet needs several people to approve each payment. Create one, or import one a co-signer already set up.
+                    @L.T("ms.wallets.empty.body")
                 </p>
-                <a href="/help/multisig" class="min-h-[44px] inline-flex items-center text-sm font-medium text-dgb-600 dark:text-dgb-300">New to multisig? Read the guide</a>
+                <a href="/help/multisig" class="min-h-[44px] inline-flex items-center text-sm font-medium text-dgb-600 dark:text-dgb-300">@L.T("ms.wallets.empty.guide")</a>
             </div>
         }
         else
@@ -100,7 +101,7 @@
             {
                 <p class="flex items-center gap-2 px-1 text-sm font-semibold text-slate-700 dark:text-slate-200" role="status" data-testid="multisig-list-summary">
                     <UxIcon Name="pen" Class="w-4 h-4 shrink-0 text-dgb-500" />
-                    <span>@(needsYouTotal == 1 ? "1 payment needs you" : $"{needsYouTotal} payments need you")</span>
+                    <span>@(needsYouTotal == 1 ? L.T("nav.count.pending.one") : L.T("nav.count.pending.other", needsYouTotal))</span>
                 </p>
             }
 
@@ -122,7 +123,7 @@
             @if (drafts.Count > 0)
             {
                 <section class="flex flex-col gap-3" aria-labelledby="drafts-heading">
-                    <h3 id="drafts-heading" class="section-label">Drafts · waiting for co-signers</h3>
+                    <h3 id="drafts-heading" class="section-label">@L.T("ms.wallets.drafts.title")</h3>
                     @foreach (var draft in drafts)
                     {
                         var filled = draft.CoSigners.Count(c => !string.IsNullOrWhiteSpace(c.PublicKeyHex));
@@ -130,27 +131,27 @@
                         <div class="shared-card shared-card-draft">
                             <div class="p-4 flex flex-col gap-3">
                                 <div class="flex items-center justify-between gap-2">
-                                    <button type="button" class="flex items-center gap-1.5 min-w-0 min-h-[32px] text-left group" aria-label="Rename draft @draft.Name"
+                                    <button type="button" class="flex items-center gap-1.5 min-w-0 min-h-[32px] text-left group" aria-label="@L.T("ms.wallets.drafts.rename_aria", draft.Name)"
                                             @onclick="() => StartRenameDraft(draft)">
                                         <span class="text-base font-bold text-slate-900 dark:text-white truncate">@draft.Name</span>
                                         <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-dgb-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
                                     </button>
                                     <span class="shared-card-mark shared-card-mark-warn shrink-0">
                                         <UxIcon Name="clock" Class="w-3.5 h-3.5 shrink-0" />
-                                        Draft
+                                        @L.T("ms.wallets.drafts.badge")
                                     </span>
                                 </div>
-                                <p class="text-xs text-slate-600 dark:text-slate-400 -mt-2">@draft.Label · @filled of @needed co-signer keys added</p>
+                                <p class="text-xs text-slate-600 dark:text-slate-400 -mt-2">@L.T("ms.wallets.drafts.progress", draft.RequiredSignatures, draft.TotalSigners, filled, needed)</p>
                                 <div class="flex items-center gap-2">
-                                    <button type="button" class="btn-primary btn-sm flex-1" @onclick="() => ContinueDraft(draft.Id)">Continue</button>
+                                    <button type="button" class="btn-primary btn-sm flex-1" @onclick="() => ContinueDraft(draft.Id)">@L.T("create.continue")</button>
                                     @if (confirmDeleteId == draft.Id)
                                     {
-                                        <button type="button" class="btn-danger btn-sm" @onclick="() => DeleteDraft(draft.Id)">Delete draft?</button>
-                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmDeleteId = null">Cancel</button>
+                                        <button type="button" class="btn-danger btn-sm" @onclick="() => DeleteDraft(draft.Id)">@L.T("ms.wallets.drafts.delete_confirm")</button>
+                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmDeleteId = null">@L.T("common.cancel")</button>
                                     }
                                     else
                                     {
-                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmDeleteId = draft.Id">Delete</button>
+                                        <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmDeleteId = draft.Id">@L.T("ms.wallets.drafts.delete")</button>
                                     }
                                 </div>
                             </div>
@@ -163,13 +164,20 @@
 </div>
 
 <RenameDialog IsOpen="@(renameWallet is not null || renameDraft is not null)"
-              Title="@(renameDraft is not null ? "Rename draft" : "Rename multisig")"
+              Title="@(renameDraft is not null ? L.T("ms.wallets.rename_draft") : L.T("ms.wallets.rename_multisig"))"
               Initial="@(renameDraft?.Name ?? renameWallet?.Name ?? "")"
               OnSave="SaveRename"
               OnClosed="OnRenameClosed" />
 </AuthGuard>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    /// <summary>A translated sentence with its {n} values in bold; the sentence and the values are both HTML-encoded.</summary>
+    private static MarkupString Rich(string template, params string[] bold) =>
+        new(string.Format(System.Globalization.CultureInfo.InvariantCulture, System.Net.WebUtility.HtmlEncode(template),
+            bold.Select(b => (object)("<b>" + System.Net.WebUtility.HtmlEncode(b) + "</b>")).ToArray()));
+
     /// <summary>A balance call that has come back: the amount, or null when it could not be fetched.</summary>
     private sealed record BalanceResult(long? Satoshis);
 
@@ -328,7 +336,7 @@
             ? await MultisigService.RenameDraftAsync(renameDraft.Id, name)
             : renameWallet is not null
                 ? await MultisigService.RenameWalletAsync(renameWallet.Id, name)
-                : new RenameResult(false, "Nothing to rename.", false, null);
+                : new RenameResult(false, L.T("ms.wallets.nothing_to_rename"), false, null);
         if (result.Ok) await Load(reorder: false);
         return result;
     }

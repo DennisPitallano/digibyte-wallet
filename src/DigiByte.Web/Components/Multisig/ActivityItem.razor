@@ -1,4 +1,5 @@
 @* One line of multisig activity, in the same row style as the wallet's transaction list. *@
+@inject LocalizationService L
 <div class="flex items-center gap-3 px-3 py-2.5 min-h-[56px] bg-white dark:bg-dgb-900/60 rounded-xl border border-slate-100 dark:border-dgb-800/40 cursor-pointer hover:bg-slate-50 dark:hover:bg-dgb-800/40 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-dgb-500"
      role="button" tabindex="0" aria-label="@AriaLabel" @onclick="() => OnSelect.InvokeAsync(Entry)" @onkeydown="OnKeyDown">
     <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 @IconBg">
@@ -29,7 +30,7 @@
             <p class="text-[11px] text-slate-400 dark:text-slate-500 truncate" title="@Entry.Counterparty">
                 <span class="font-mono">@MultisigFormat.Short(Entry.Counterparty, 8, 5)</span>@if (Entry.MoreCount > 0)
                 {
-                    <span> +@Entry.MoreCount more</span>
+                    <span> @L.T("ms.ui.activityItem.more", Entry.MoreCount)</span>
                 }
             </p>
         }
@@ -43,6 +44,7 @@
 @code {
     [Parameter, EditorRequired] public ActivityEntry Entry { get; set; } = default!;
     [Parameter] public EventCallback<ActivityEntry> OnSelect { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
@@ -51,27 +53,27 @@
 
     private string Title => Entry.Kind switch
     {
-        ActivityKind.Received => "Received",
-        ActivityKind.Sent => "Sent",
-        ActivityKind.ProposalAwaiting => "Waiting for signatures",
-        ActivityKind.ProposalReady => "Ready to broadcast",
-        ActivityKind.Failed => "Broadcast failed",
-        ActivityKind.Cancelled => MultisigStateVocabulary.For(MultisigState.CancelledOrExpired).Label,
-        _ => "Activity",
+        ActivityKind.Received => L.T("history.received"),
+        ActivityKind.Sent => L.T("history.sent"),
+        ActivityKind.ProposalAwaiting => L.T("ms.ui.activityItem.awaiting"),
+        ActivityKind.ProposalReady => L.T("ms.ui.common.state.ready"),
+        ActivityKind.Failed => L.T("ms.ui.activityItem.broadcast_failed"),
+        ActivityKind.Cancelled => L.T(StatusBadge.StateKey(MultisigState.CancelledOrExpired)),
+        _ => L.T("nav.activity"),
     };
 
     private string StatusText => Entry.Kind switch
     {
         ActivityKind.Received or ActivityKind.Sent => Entry.Confirmations switch
         {
-            null or 0 => "Unconfirmed",
-            < 6 => $"{Entry.Confirmations} conf.",
-            _ => "Confirmed",
+            null or 0 => L.T("ms.ui.activityItem.unconfirmed"),
+            < 6 => L.T("ms.ui.activityItem.confirmations", Entry.Confirmations),
+            _ => L.T("history.confirmed"),
         },
-        ActivityKind.ProposalAwaiting => $"{Entry.SignedCount ?? 0}/{Entry.RequiredCount ?? 0} signed",
-        ActivityKind.ProposalReady => MultisigStateVocabulary.For(MultisigState.ReadyToBroadcast).Label,
-        ActivityKind.Failed => MultisigStateVocabulary.For(MultisigState.Failed).Label,
-        ActivityKind.Cancelled => "Cancelled",
+        ActivityKind.ProposalAwaiting => L.T("ms.ui.activityItem.signed", Entry.SignedCount ?? 0, Entry.RequiredCount ?? 0),
+        ActivityKind.ProposalReady => L.T(StatusBadge.StateKey(MultisigState.ReadyToBroadcast)),
+        ActivityKind.Failed => L.T(StatusBadge.StateKey(MultisigState.Failed)),
+        ActivityKind.Cancelled => L.T("ms.ui.activityItem.cancelled"),
         _ => "",
     };
 

@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject SigningRoomClient Room
 @inject MultisigAttentionState Attention
+@inject LocalizationService L
 @implements IDisposable
 
 @*
@@ -18,11 +19,11 @@
     The id in the address is this device's own id for the payment; the proposal itself is never put in an address.
 *@
 
-<PageTitle>Payment — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("ms.pendingDetail.page_title")</PageTitle>
 
 <AuthGuard>
 <div class="flex flex-col gap-4">
-    <PageHeader Title="@Title" BackLabel="Pending" BackHref="@ListHref" />
+    <PageHeader Title="@Title" BackLabel="@L.T("nav.pending")" BackHref="@ListHref" />
     @if (config is not null)
     {
         <div class="-mt-2"><SharedWalletContextLine Config="config" /></div>
@@ -44,9 +45,9 @@
     {
         @* Removed here, or the link is old. Never a blank page. *@
         <div class="card p-6 text-center flex flex-col items-center gap-3" role="status">
-            <p class="block-title">This payment is no longer here</p>
-            <p class="text-sm text-slate-600 dark:text-slate-400">It may have been removed from this device.</p>
-            <button type="button" class="btn-primary btn-sm" @onclick="() => Nav.NavigateTo(ListHref)">Back to Pending</button>
+            <p class="block-title">@L.T("ms.pendingDetail.gone.title")</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">@L.T("ms.pendingDetail.gone.body")</p>
+            <button type="button" class="btn-primary btn-sm" @onclick="() => Nav.NavigateTo(ListHref)">@L.T("ms.pendingDetail.gone.back")</button>
         </div>
     }
     else if (tx.Status == PendingTxStatus.Broadcast)
@@ -59,20 +60,20 @@
             <p class="text-2xl font-extrabold tabular-nums text-slate-900 dark:text-white">
                 @MultisigFormat.Dgb(tx.AmountSatoshis) <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">DGB</span>
             </p>
-            <p class="text-sm text-slate-600 dark:text-slate-400">This payment was broadcast. It now shows in Activity.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">@L.T("ms.pendingDetail.sent.body")</p>
             @if (!string.IsNullOrEmpty(tx.BroadcastTxId))
             {
                 <div>
-                    <p class="section-label">Transaction ID</p>
+                    <p class="section-label">@L.T("ms.pendingDetail.txid")</p>
                     <p class="mt-1 font-mono text-xs break-all text-slate-700 dark:text-slate-300 select-all">@tx.BroadcastTxId</p>
                 </div>
             }
             <div class="flex flex-wrap gap-2">
                 @if (!string.IsNullOrEmpty(tx.BroadcastTxId))
                 {
-                    <button type="button" class="btn-secondary btn-sm" @onclick="() => Clipboard.CopyAsync(tx.BroadcastTxId!)">Copy transaction ID</button>
+                    <button type="button" class="btn-secondary btn-sm" @onclick="() => Clipboard.CopyAsync(tx.BroadcastTxId!)">@L.T("ms.pendingDetail.copy_txid")</button>
                 }
-                <button type="button" class="btn-primary btn-sm flex-1" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/activity")'>View in Activity</button>
+                <button type="button" class="btn-primary btn-sm flex-1" @onclick='() => Nav.NavigateTo($"/multisig/{WalletId}/activity")'>@L.T("ms.pendingDetail.view_activity")</button>
             </div>
         </div>
     }
@@ -88,7 +89,7 @@
             <div class="flex flex-wrap items-center gap-2 min-w-0">
                 @if (coinsSpent)
                 {
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"><UxIcon Name="alert" Class="w-3 h-3 shrink-0" />Can't go through</span>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"><UxIcon Name="alert" Class="w-3 h-3 shrink-0" />@L.T("ms.pendingDetail.cant.badge")</span>
                 }
                 else
                 {
@@ -96,7 +97,7 @@
                 }
                 @if (tx.ReceivedFromCoSigner)
                 {
-                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">Received from a co-signer</span>
+                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-dgb-50 dark:bg-dgb-800 text-dgb-600 dark:text-dgb-300">@L.T("ms.pendingDetail.from_cosigner")</span>
                 }
             </div>
             <span class="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">@MultisigFormat.Age(tx.CreatedAt)</span>
@@ -106,26 +107,26 @@
         {
             <p class="flex items-center gap-1.5 -mt-2 text-xs font-semibold text-dgb-700 dark:text-dgb-200">
                 <UxIcon Name="pen" Class="w-3.5 h-3.5 shrink-0" />
-                Your signature is needed
+                @L.T("ms.pendingDetail.your_signature")
             </p>
         }
         @if (coinsSpent)
         {
             <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl" role="status">
-                <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">This payment can't go through</p>
-                <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">Some of the coins it uses were already spent, so it can't be signed or broadcast. You can cancel it.</p>
+                <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">@L.T("ms.pendingDetail.cant.title")</p>
+                <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">@L.T("ms.pendingDetail.cant.body")</p>
             </div>
         }
         @if (tx.Status == PendingTxStatus.Failed && !string.IsNullOrEmpty(tx.FailureReason))
         {
             <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl" role="alert">
-                <p class="text-sm font-semibold text-red-700 dark:text-red-300">Broadcast failed</p>
+                <p class="text-sm font-semibold text-red-700 dark:text-red-300">@L.T("ms.pendingDetail.failed.title")</p>
                 <p class="text-xs text-red-700 dark:text-red-400 mt-0.5 break-words">@tx.FailureReason</p>
             </div>
         }
         @if (config.OwnKeyIndex < 0 && open)
         {
-            <p class="text-xs text-slate-500 dark:text-slate-400">View only: this device holds no key for this wallet, so it can't sign or join a signing room.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.pendingDetail.view_only")</p>
         }
 
         @* The payment, in full: read from the saved proposal, the same summary the signing room shows *@
@@ -134,9 +135,9 @@
             <Details>
                 @if (!string.IsNullOrEmpty(tx.UnsignedTxId))
                 {
-                    <p class="text-xs text-slate-500 dark:text-slate-400 break-all">Unsigned transaction id: <span class="font-mono">@tx.UnsignedTxId</span></p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 break-all">@L.T("ms.pendingDetail.unsigned_id") <span class="font-mono">@tx.UnsignedTxId</span></p>
                 }
-                <p class="text-xs text-slate-500 dark:text-slate-400">Created @MultisigFormat.When(tx.CreatedAt)</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.pendingDetail.created", MultisigFormat.When(tx.CreatedAt))</p>
             </Details>
         </PaymentSummary>
 
@@ -151,20 +152,20 @@
         {
             case PendingCardAction.ReviewAndSign when !signConfirm:
                 @* Until the coins have been looked up, signing waits: a payment that can't go through never offers it. *@
-                <StickyAction Label="Sign this payment" Busy="isSigning" BusyLabel="Signing…" OnAction="() => signConfirm = true"
-                              Disabled="spentChecking" DisabledReason="@(spentChecking ? "Checking this payment's coins…" : null)" />
+                <StickyAction Label="@L.T("ms.pendingDetail.sign.label")" Busy="isSigning" BusyLabel="@L.T("ms.pendingDetail.sign.busy")" OnAction="() => signConfirm = true"
+                              Disabled="spentChecking" DisabledReason="@(spentChecking ? L.T("ms.pendingDetail.sign.checking") : null)" />
                 break;
 
             case PendingCardAction.ReviewAndSign:
                 @* Confirm signing: restates amount and recipient (spec 018, FR-007) *@
                 <StickyAction>
-                    <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-2xl flex flex-col gap-3" role="alertdialog" aria-label="Confirm signing">
-                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Sign @MultisigFormat.Dgb(tx.AmountSatoshis) DGB to @MultisigFormat.Short(tx.DestinationAddress)?</p>
+                    <div class="p-3 bg-white dark:bg-dgb-900 border border-dgb-300 dark:border-dgb-700 rounded-2xl flex flex-col gap-3" role="alertdialog" aria-label="@L.T("ms.pendingDetail.sign.confirm.aria")">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@L.T("ms.pendingDetail.sign.confirm.title", MultisigFormat.Dgb(tx.AmountSatoshis), MultisigFormat.Short(tx.DestinationAddress))</p>
                         <div class="flex gap-2">
                             <button type="button" class="btn-primary btn-sm flex-1" disabled="@isSigning" data-testid="confirm-sign" @onclick="ConfirmSign">
-                                @(isSigning ? "Signing…" : "Confirm and sign")
+                                @(isSigning ? L.T("ms.pendingDetail.sign.busy") : L.T("ms.pendingDetail.sign.confirm.button"))
                             </button>
-                            <button type="button" class="btn-ghost btn-sm" disabled="@isSigning" @onclick="() => signConfirm = false">Back</button>
+                            <button type="button" class="btn-ghost btn-sm" disabled="@isSigning" @onclick="() => signConfirm = false">@L.T("nav.back")</button>
                         </div>
                     </div>
                 </StickyAction>
@@ -174,22 +175,22 @@
                 @* Broadcasting sends the coins and cannot be undone: slide, not tap (docs/UI_STYLE.md).
                    The key changes after every attempt, so a failed one leaves a fresh, unlocked control. *@
                 <StickyAction>
-                    <SlideToConfirm @key="@($"{tx.Id}:{broadcastAttempt}")" Label="Slide to broadcast" BusyLabel="Broadcasting…"
-                                    ActionDescription="Broadcast this multisig payment"
+                    <SlideToConfirm @key="@($"{tx.Id}:{broadcastAttempt}")" Label="@L.T("ms.pendingDetail.broadcast.slide")" BusyLabel="@L.T("ms.pendingDetail.broadcast.busy")"
+                                    ActionDescription="@L.T("ms.pendingDetail.broadcast.describe")"
                                     Disabled="@(isBroadcasting || coinsSpent || spentChecking)" OnConfirmed="BroadcastTransaction" />
                 </StickyAction>
                 break;
 
             case PendingCardAction.ReviewAndRetry:
-                <StickyAction Label="Retry broadcast" Busy="isBroadcasting" BusyLabel="Broadcasting…" OnAction="RetryBroadcast" />
+                <StickyAction Label="@L.T("ms.pendingDetail.retry")" Busy="isBroadcasting" BusyLabel="@L.T("ms.pendingDetail.broadcast.busy")" OnAction="RetryBroadcast" />
                 break;
 
             case PendingCardAction.OpenRoom:
-                <StickyAction Label="Open room" OnAction='() => Nav.NavigateTo("/multisig/sign-room")' />
+                <StickyAction Label="@L.T("ms.pendingDetail.open_room")" OnAction='() => Nav.NavigateTo("/multisig/sign-room")' />
                 break;
 
             case PendingCardAction.ReviewAndCancel when !confirmCancel:
-                <StickyAction Label="Cancel this proposal" Tone="UxTone.Warning" OnAction="() => confirmCancel = true" />
+                <StickyAction Label="@L.T("ms.pendingDetail.cancel.label")" Tone="UxTone.Warning" OnAction="() => confirmCancel = true" />
                 break;
 
             case PendingCardAction.ReviewAndCancel:
@@ -200,7 +201,7 @@
         @* Getting the other signatures: live in a room, or by sending the proposal and taking signed copies back *@
         @if (open && !coinsSpent)
         {
-            <h3 class="section-label mt-1" id="@GetSignaturesSection">Get signatures</h3>
+            <h3 class="section-label mt-1" id="@GetSignaturesSection">@L.T("ms.pendingDetail.get_signatures")</h3>
 
             @* Sign together online (specs/017-multisig-online-signing) *@
             @if (action != PendingCardAction.OpenRoom)
@@ -209,8 +210,8 @@
                     <button type="button" class="detail-row" aria-expanded="@(onlineOpen ? "true" : "false")" @onclick="ToggleOnline">
                         <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="live" Class="w-5 h-5" /></span>
                         <span class="flex-1 min-w-0 text-left">
-                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">Sign together online</span>
-                            <span class="block text-xs text-slate-600 dark:text-slate-400">Open a live room; co-signers sign on their own devices</span>
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("ms.pendingDetail.online.title")</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.pendingDetail.online.desc")</span>
                         </span>
                         <svg class="detail-row-chevron" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
                     </button>
@@ -219,30 +220,30 @@
                         <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-dgb-800">
                             @if (config.OwnKeyIndex < 0)
                             {
-                                <p class="text-xs text-slate-500 dark:text-slate-400" role="status">Watch-only copies can't join signing rooms. Share the proposal and add signed copies instead.</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400" role="status">@L.T("ms.pendingDetail.online.watch_only")</p>
                             }
                             else if (onlineState == OnlineState.Checking)
                             {
-                                <p class="text-xs text-slate-500 dark:text-slate-400" role="status">Checking the signing service…</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400" role="status">@L.T("ms.pendingDetail.online.checking")</p>
                             }
                             else if (onlineState == OnlineState.Unavailable)
                             {
-                                <p class="text-xs text-amber-700 dark:text-amber-300" role="status">Online signing is unavailable right now. You can still share the proposal and add signed copies.</p>
+                                <p class="text-xs text-amber-700 dark:text-amber-300" role="status">@L.T("ms.pendingDetail.online.unavailable")</p>
                             }
                             else
                             {
-                                <p class="text-xs text-slate-500 dark:text-slate-400">Open a room and share its code. Everyone sees signatures arrive live.</p>
-                                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-length">Room stays open for</label>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.pendingDetail.online.intro")</p>
+                                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-length">@L.T("ms.pendingDetail.online.lifetime")</label>
                                 <select id="room-length" @bind="lifetime" class="min-h-[44px] px-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-700 rounded-xl text-sm text-slate-900 dark:text-white">
                                     @foreach (var minutes in lifetimes)
                                     {
-                                        <option value="@minutes">@(minutes >= 60 ? $"{minutes / 60} hour{(minutes >= 120 ? "s" : "")}" : $"{minutes} minutes")</option>
+                                        <option value="@minutes">@LifetimeLabel(minutes)</option>
                                     }
                                 </select>
-                                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-name">Your name in the room</label>
+                                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400" for="room-name">@L.T("ms.pendingDetail.online.name")</label>
                                 <input id="room-name" @bind="roomName" @bind:event="oninput" maxlength="40" class="input" />
                                 <button type="button" class="btn-primary btn-sm" disabled="@(isOpening || string.IsNullOrWhiteSpace(roomName))" @onclick="OpenRoomAsync">
-                                    @(isOpening ? "Opening…" : "Open room")
+                                    @(isOpening ? L.T("ms.pendingDetail.online.opening") : L.T("ms.pendingDetail.open_room"))
                                 </button>
                             }
                         </div>
@@ -255,8 +256,8 @@
                 <button type="button" class="detail-row" aria-expanded="@(shareOpen ? "true" : "false")" @onclick="() => shareOpen = !shareOpen">
                     <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="send" Class="w-5 h-5" /></span>
                     <span class="flex-1 min-w-0 text-left">
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">Share with co-signers</span>
-                        <span class="block text-xs text-slate-600 dark:text-slate-400">Send the proposal as a QR code, text or file</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("ms.pendingDetail.share.title")</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.pendingDetail.share.desc")</span>
                     </span>
                     <svg class="detail-row-chevron" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
                 </button>
@@ -264,16 +265,16 @@
                 {
                     <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-dgb-800">
                         <div class="flex flex-wrap gap-2">
-                            <button type="button" class="btn-primary btn-sm" @onclick="CopyPsbt">Copy PSBT</button>
-                            <button type="button" class="btn-secondary btn-sm" @onclick="DownloadPsbt">Save as file</button>
+                            <button type="button" class="btn-primary btn-sm" @onclick="CopyPsbt">@L.T("ms.pendingDetail.share.copy")</button>
+                            <button type="button" class="btn-secondary btn-sm" @onclick="DownloadPsbt">@L.T("ms.pendingDetail.share.save")</button>
                         </div>
                         @if (tx.PsbtBase64.Length <= 2200)
                         {
-                            <div class="flex justify-center pt-1"><QrImage Payload="@tx.PsbtBase64" Alt="Proposal QR code" /></div>
+                            <div class="flex justify-center pt-1"><QrImage Payload="@tx.PsbtBase64" Alt="@L.T("ms.pendingDetail.share.qr_alt")" /></div>
                         }
                         else
                         {
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">This proposal is too large for a QR code. Use Copy or Save as file.</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">@L.T("ms.pendingDetail.share.too_large")</p>
                         }
                     </div>
                 }
@@ -287,21 +288,21 @@
                 <button type="button" class="detail-row" aria-expanded="@(importOpen ? "true" : "false")" @onclick="ToggleImport">
                     <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="check-circle" Class="w-5 h-5" /></span>
                     <span class="flex-1 min-w-0 text-left">
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">Add a signed copy</span>
-                        <span class="block text-xs text-slate-600 dark:text-slate-400">Bring in a co-signer's signature: paste, scan or file</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("ms.pendingDetail.import.title")</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.pendingDetail.import.desc")</span>
                     </span>
                     <svg class="detail-row-chevron" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
                 </button>
                 @if (importOpen)
                 {
                     <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-dgb-800">
-                        <textarea @bind="importPsbtBase64" @bind:event="oninput" rows="3" aria-label="Signed PSBT from co-signer"
-                                  placeholder="Base64-encoded PSBT…" class="input font-mono resize-none"></textarea>
+                        <textarea @bind="importPsbtBase64" @bind:event="oninput" rows="3" aria-label="@L.T("ms.pendingDetail.import.aria")"
+                                  placeholder="@L.T("ms.pendingDetail.import.placeholder")" class="input font-mono resize-none"></textarea>
                         <div class="flex flex-wrap gap-2">
-                            <button type="button" class="btn-secondary btn-sm" @onclick="PasteImport">Paste</button>
-                            <button type="button" class="btn-secondary btn-sm" @onclick="() => showScanner = true">Scan QR</button>
+                            <button type="button" class="btn-secondary btn-sm" @onclick="PasteImport">@L.T("send.paste")</button>
+                            <button type="button" class="btn-secondary btn-sm" @onclick="() => showScanner = true">@L.T("send.scan_qr")</button>
                             <label class="btn-secondary btn-sm cursor-pointer">
-                                Choose file
+                                @L.T("ms.pendingDetail.import.choose_file")
                                 <InputFile OnChange="OnFileChosen" class="hidden" accept=".txt,.psbt,text/plain" />
                             </label>
                         </div>
@@ -309,7 +310,7 @@
                         {
                             <p class="text-xs text-amber-700 dark:text-amber-400 break-words" role="status">@importNotice</p>
                         }
-                        <button type="button" class="btn-primary btn-sm" disabled="@string.IsNullOrWhiteSpace(importPsbtBase64)" @onclick="ImportSignedPSBT">Merge signatures</button>
+                        <button type="button" class="btn-primary btn-sm" disabled="@string.IsNullOrWhiteSpace(importPsbtBase64)" @onclick="ImportSignedPSBT">@L.T("ms.pendingDetail.import.merge")</button>
                     </div>
                 }
             </div>
@@ -324,7 +325,7 @@
                 <div class="mt-2 pt-4 border-t border-slate-200 dark:border-dgb-800">
                     @if (!confirmCancel)
                     {
-                        <button type="button" class="min-h-[44px] text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500" data-testid="cancel-proposal" @onclick="() => confirmCancel = true">Cancel this proposal</button>
+                        <button type="button" class="min-h-[44px] text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500" data-testid="cancel-proposal" @onclick="() => confirmCancel = true">@L.T("ms.pendingDetail.cancel.label")</button>
                     }
                     else
                     {
@@ -337,8 +338,8 @@
         @if (tx.Status == PendingTxStatus.Cancelled)
         {
             <div class="card p-4 flex flex-col gap-2">
-                <p class="text-sm text-slate-600 dark:text-slate-400">You cancelled this proposal on this device. A co-signer's copy can restore it: add it again from Pending.</p>
-                <button type="button" class="self-start min-h-[44px] text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500" @onclick="RemoveCancelled">Remove from this device</button>
+                <p class="text-sm text-slate-600 dark:text-slate-400">@L.T("ms.pendingDetail.cancelled.body")</p>
+                <button type="button" class="self-start min-h-[44px] text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500" @onclick="RemoveCancelled">@L.T("ms.pendingDetail.cancelled.remove")</button>
             </div>
         }
     }
@@ -350,6 +351,7 @@
 @code {
     [Parameter] public string WalletId { get; set; } = "";
     [Parameter] public string PendingId { get; set; } = "";
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     /// <summary>
     /// The part of this screen with the ways to collect signatures. A link that ends in #get-signatures lands on it:
@@ -371,15 +373,14 @@
     // The cancel confirmation, shown where cancelling was asked for: in the pinned area or at the foot of the page.
     private RenderFragment CancelConfirm => __builder =>
     {
-        <div class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800/50 rounded-xl" role="alertdialog" aria-label="Confirm cancel">
-            <p class="text-sm font-bold text-red-700 dark:text-red-300">Cancel this proposal?</p>
+        <div class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800/50 rounded-xl" role="alertdialog" aria-label="@L.T("ms.pendingDetail.cancel.confirm.aria")">
+            <p class="text-sm font-bold text-red-700 dark:text-red-300">@L.T("ms.pendingDetail.cancel.confirm.title")</p>
             <p class="text-xs text-red-700 dark:text-red-400 leading-relaxed mt-1">
-                This only cancels it on this device. Co-signers who already have a copy could still sign and broadcast it.
-                This device will not broadcast it.
+                @L.T("ms.pendingDetail.cancel.confirm.body")
             </p>
             <div class="flex gap-2 mt-2">
-                <button type="button" class="btn-danger btn-sm" data-testid="confirm-cancel" @onclick="CancelProposal">Cancel proposal</button>
-                <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmCancel = false">Keep it</button>
+                <button type="button" class="btn-danger btn-sm" data-testid="confirm-cancel" @onclick="CancelProposal">@L.T("ms.pendingDetail.cancel.confirm.button")</button>
+                <button type="button" class="btn-ghost btn-sm" @onclick="() => confirmCancel = false">@L.T("ms.pending.clear.keep.one")</button>
             </div>
         </div>
     };
@@ -412,11 +413,11 @@
     private bool NeedsMySignature => MultisigWalletService.NeedsMySignature(tx!, config!);
     private PendingCardButton Button => PendingCardActions.For(State, coinsSpent, config!.OwnKeyIndex < 0);
 
-    private string Title => tx is null || isLoading ? "Payment" : tx.Status switch
+    private string Title => tx is null || isLoading ? L.T("ms.pendingDetail.title.payment") : tx.Status switch
     {
-        PendingTxStatus.Broadcast => "Payment sent",
-        PendingTxStatus.Cancelled => "Cancelled payment",
-        _ => "Payment",
+        PendingTxStatus.Broadcast => L.T("ms.pendingDetail.title.sent"),
+        PendingTxStatus.Cancelled => L.T("ms.pendingDetail.title.cancelled"),
+        _ => L.T("ms.pendingDetail.title.payment"),
     };
 
     // Runs again when the same page is reused for another payment or another multisig.
@@ -526,14 +527,14 @@
         {
             var privateKey = WalletService.GetPrivateKeyForMultisig();
             if (privateKey == null)
-                throw new InvalidOperationException("Wallet is locked or private key unavailable.");
+                throw new InvalidOperationException(L.T("ms.pendingDetail.error.locked"));
 
             var key = new NBitcoin.Key(Convert.FromHexString(privateKey));
             await MultisigService.SignPendingTransactionAsync(tx, key);
             await Reload();
             Notifications.Success(tx is { HasEnoughSignatures: true }
-                ? "Signed. It has enough signatures and is ready to broadcast."
-                : "Signed. Now get your co-signers' signatures.");
+                ? L.T("ms.pendingDetail.toast.signed_ready")
+                : L.T("ms.pendingDetail.toast.signed"));
         }
         catch (Exception ex)
         {
@@ -561,7 +562,7 @@
         {
             await MultisigService.FinalizeAndBroadcastAsync(tx);
             await Reload();
-            Notifications.Success("Payment broadcast.");
+            Notifications.Success(L.T("ms.pendingDetail.toast.broadcast"));
         }
         catch (Exception ex)
         {
@@ -586,7 +587,7 @@
         {
             await MultisigService.RetryBroadcastAsync(tx);
             await Reload();
-            Notifications.Success("Payment broadcast.");
+            Notifications.Success(L.T("ms.pendingDetail.toast.broadcast"));
         }
         catch (Exception ex)
         {
@@ -609,6 +610,10 @@
     private int lifetime = 30;
     private string roomName = "";
     private bool isOpening;
+
+    private string LifetimeLabel(int minutes) => minutes >= 60
+        ? L.T(minutes >= 120 ? "ms.pendingDetail.online.hours.other" : "ms.pendingDetail.online.hours.one", minutes / 60)
+        : L.T(minutes == 1 ? "ms.pendingDetail.online.minutes.one" : "ms.pendingDetail.online.minutes.other", minutes);
     private bool roomEventsWired;
 
     private async Task ToggleOnline()
@@ -708,14 +713,14 @@
     {
         if (tx is null) return;
         await Clipboard.CopyAsync(tx.PsbtBase64, toast: false);
-        Notifications.Success("Proposal copied. Send it to your co-signers.");
+        Notifications.Success(L.T("ms.pendingDetail.toast.copied"));
     }
 
     private async Task DownloadPsbt()
     {
         if (tx is null) return;
         await JS.InvokeVoidAsync("downloadTextFile", tx.PsbtBase64, $"multisig-proposal-{tx.Id[..Math.Min(8, tx.Id.Length)]}.psbt.txt");
-        Notifications.Success("Proposal saved as a file.");
+        Notifications.Success(L.T("ms.pendingDetail.toast.saved"));
     }
 
     // ─── Add a signed copy ───
@@ -733,7 +738,7 @@
         try { text = await Clipboard.ReadAsync(); } catch { /* blocked */ }
         if (string.IsNullOrWhiteSpace(text))
         {
-            importNotice = "Nothing to paste, or the browser blocked clipboard access.";
+            importNotice = L.T("ms.pending.paste_empty");
             return;
         }
         AcceptImportText(text);
@@ -756,7 +761,7 @@
         }
         catch
         {
-            importNotice = "That file couldn't be read. Use a small text file containing the PSBT.";
+            importNotice = L.T("ms.pendingDetail.import.file_unreadable");
         }
     }
 
@@ -771,8 +776,8 @@
         else
         {
             importNotice = result.Kind is ScanKind.Address or ScanKind.PaymentUri
-                ? "That is an address, not a signed transaction (PSBT). Co-signers send you a PSBT to import here."
-                : "That doesn't look like a signed transaction (PSBT).";
+                ? L.T("ms.pendingDetail.import.is_address")
+                : L.T("ms.pendingDetail.import.not_psbt");
         }
     }
 
@@ -787,8 +792,8 @@
             importPsbtBase64 = "";
             importNotice = null;
             Notifications.Success(tx is { HasEnoughSignatures: true }
-                ? "Signatures merged. It has enough signatures and is ready to broadcast."
-                : "Signatures merged.");
+                ? L.T("ms.pendingDetail.toast.merged_ready")
+                : L.T("ms.pendingDetail.toast.merged"));
         }
         catch (PsbtImportException ex)
         {
@@ -810,7 +815,7 @@
             await MultisigService.CancelPendingAsync(tx);
             confirmCancel = false;
             await Reload();
-            Notifications.Success("Proposal cancelled on this device.");
+            Notifications.Success(L.T("ms.pendingDetail.toast.cancelled"));
         }
         catch (Exception ex)
         {
@@ -823,7 +828,7 @@
         try
         {
             await MultisigService.RemoveCancelledAsync(WalletId, PendingId);
-            Notifications.Success("Removed from this device's list.");
+            Notifications.Success(L.T("ms.pending.toast.removed.one"));
             Nav.NavigateTo(ListHref);
         }
         catch (Exception ex)

@@ -8,11 +8,11 @@
 @inject AppState AppState
 @implements IDisposable
 
-<PageTitle>Recovery Tools — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("recovery.page_title")</PageTitle>
 
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Recovery Tools" BackHref="/settings"
-                Subtitle="Sweep funds from old derivation paths, another seed phrase, or a private key." />
+    <PageHeader Title="@L.T("recovery.title")" BackHref="/settings"
+                Subtitle="@L.T("recovery.subtitle")" />
 
     @* Active Wallet Info *@
     @if (WalletService.ActiveWallet is { } wallet)
@@ -43,10 +43,10 @@
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@wallet.Name</p>
                 <p class="text-[11px] text-slate-400 dark:text-slate-500">
-                    Swept funds will be sent to this wallet
+                    @L.T("recovery.wallet.destination")
                     @if (wallet.WalletType == "xpub")
                     {
-                        <span class="text-sky-500 ml-1">· Watch-only</span>
+                        <span class="text-sky-500 ml-1">· @L.T("recovery.wallet.watch_only")</span>
                     }
                     else if (wallet.WalletType == "privatekey")
                     {
@@ -65,17 +65,17 @@
                 <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
                 </svg>
-                <p class="text-sm font-semibold text-slate-900 dark:text-white">Current Wallet — Old Paths</p>
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("recovery.legacy.title")</p>
             </div>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
-                Scan your current seed's old derivation paths (BIP44 and BIP49) for any stranded funds. No need to re-enter your seed.
+                @L.T("recovery.legacy.intro")
             </p>
 
             @if (legacyScanComplete && legacyBalance > 0)
             {
                 <div class="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 border border-green-200 dark:border-green-900/30 mb-3">
                     <p class="text-sm font-semibold text-green-700 dark:text-green-300">
-                        Found @((legacyBalance / 100_000_000m).ToString("N8")) DGB on @legacyResults.Count address@(legacyResults.Count != 1 ? "es" : "")
+                        @FoundOn(legacyBalance, legacyResults.Count)
                     </p>
                     <div class="flex flex-col gap-1.5 mt-2">
                         @foreach (var addr in legacyResults)
@@ -95,16 +95,16 @@
                     @if (isLegacySweeping)
                     {
                         <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Sweeping funds…</span>
+                        <span>@L.T("recovery.sweeping")</span>
                     }
                     else
                     {
-                        <span>Move to Wallet</span>
+                        <span>@L.T("recovery.legacy.move")</span>
                     }
                 </button>
                 @if (isLegacySweeping)
                 {
-                    <p class="text-[11px] text-green-600 dark:text-green-400 mt-1.5 text-center">Building and broadcasting transaction…</p>
+                    <p class="text-[11px] text-green-600 dark:text-green-400 mt-1.5 text-center">@L.T("recovery.broadcasting")</p>
                 }
                 @if (legacySweepError != null)
                 {
@@ -114,8 +114,8 @@
             else if (legacyScanComplete && legacyBalance == 0)
             {
                 <div class="bg-slate-50 dark:bg-dgb-800/30 rounded-xl p-3 text-center">
-                    <p class="text-xs text-slate-500 dark:text-slate-400">No funds found on old BIP44 or BIP49 addresses.</p>
-                    <button class="mt-2 text-[11px] text-dgb-500 hover:text-dgb-600 font-medium hover:underline" @onclick="ScanLegacyPaths">Scan again</button>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("recovery.legacy.none")</p>
+                    <button class="mt-2 text-[11px] text-dgb-500 hover:text-dgb-600 font-medium hover:underline" @onclick="ScanLegacyPaths">@L.T("recovery.scan_again")</button>
                 </div>
             }
             else if (legacySweepTxId != null)
@@ -125,10 +125,10 @@
                         <svg class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
-                        <p class="text-xs font-semibold text-green-700 dark:text-green-300">Funds moved successfully!</p>
+                        <p class="text-xs font-semibold text-green-700 dark:text-green-300">@L.T("recovery.legacy.moved")</p>
                     </div>
-                    <p class="text-[11px] text-green-600 dark:text-green-400 font-mono break-all">TX: @legacySweepTxId</p>
-                    <button class="mt-2 text-[11px] text-dgb-500 hover:text-dgb-600 font-medium hover:underline" @onclick="ScanLegacyPaths">Scan again</button>
+                    <p class="text-[11px] text-green-600 dark:text-green-400 font-mono break-all">@L.T("recovery.txid", legacySweepTxId)</p>
+                    <button class="mt-2 text-[11px] text-dgb-500 hover:text-dgb-600 font-medium hover:underline" @onclick="ScanLegacyPaths">@L.T("recovery.scan_again")</button>
                 </div>
             }
             else
@@ -138,21 +138,21 @@
                     @if (isLegacyScanning)
                     {
                         <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Scanning… @scanProgress%</span>
+                        <span>@L.T("recovery.scanning", scanProgress)</span>
                     }
                     else
                     {
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                         </svg>
-                        <span>Scan Old Derivation Paths</span>
+                        <span>@L.T("recovery.legacy.scan")</span>
                     }
                 </button>
                 @if (isLegacyScanning)
                 {
                     <div class="mt-2">
                         <div class="flex items-center justify-between mb-1">
-                            <span class="text-[11px] text-slate-500 dark:text-slate-400">@(scanCurrentLabel ?? "Preparing…")</span>
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400">@(scanCurrentLabel ?? L.T("recovery.preparing"))</span>
                             <span class="text-[11px] font-semibold text-dgb-500">@scanProgress%</span>
                         </div>
                         <div class="w-full bg-slate-200 dark:bg-dgb-700 rounded-full h-1.5 overflow-hidden">
@@ -172,9 +172,9 @@
     @if (hasDerivedAddresses)
     {
         <div id="receive-search" class="card slide-up-delay-1 p-4">
-            <p class="text-sm font-semibold text-slate-900 dark:text-white mb-2">Current Wallet — Missing Payments</p>
+            <p class="text-sm font-semibold text-slate-900 dark:text-white mb-2">@L.T("recovery.missing.title")</p>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
-                Paid an address from "Generate new address" but the money isn't showing? Search further along this wallet's addresses. Anything found joins your balance, with nothing to move.
+                @L.T("recovery.missing.intro")
             </p>
 
             <label for="receive-search-upto" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -272,7 +272,7 @@
     <div class="@(isHdWallet ? "slide-up-delay-2" : "slide-up-delay-1")">
         @if (isHdWallet)
         {
-            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">External Sweep</p>
+            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">@L.T("recovery.external.heading")</p>
         }
     </div>
 
@@ -282,24 +282,24 @@
         <div class="flex gap-2 mb-3">
             <button class="choice" aria-pressed="@(inputMode == InputMode.Mnemonic ? "true" : "false")"
                     @onclick="() => SwitchMode(InputMode.Mnemonic)">
-                Seed Phrase
+                @L.T("recovery.mode.seed")
             </button>
             <button class="choice" aria-pressed="@(inputMode == InputMode.Wif ? "true" : "false")"
                     @onclick="() => SwitchMode(InputMode.Wif)">
-                Private Key (WIF)
+                @L.T("recovery.mode.wif")
             </button>
         </div>
 
         @if (inputMode == InputMode.Mnemonic)
         {
             <textarea @bind="inputText" @bind:event="oninput" rows="3"
-                      placeholder="Enter 12 or 24 word recovery phrase…"
+                      placeholder="@L.T("recovery.seed_placeholder")"
                       class="input resize-none font-mono"></textarea>
         }
         else
         {
             <input type="text" @bind="inputText" @bind:event="oninput"
-                   placeholder="Enter WIF private key (starts with K, L, or 5)…"
+                   placeholder="@L.T("recovery.wif_placeholder")"
                    class="input font-mono" />
         }
 
@@ -308,14 +308,14 @@
             @if (isScanning)
             {
                 <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Scanning… @scanProgress%</span>
+                <span>@L.T("recovery.scanning", scanProgress)</span>
             }
             else
             {
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
-                <span>Scan for Funds</span>
+                <span>@L.T("recovery.scan_funds")</span>
             }
         </button>
 
@@ -332,7 +332,7 @@
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-3">
                     <div class="w-5 h-5 border-2 border-dgb-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">@(scanCurrentLabel ?? "Preparing…")</p>
+                    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">@(scanCurrentLabel ?? L.T("recovery.preparing"))</p>
                 </div>
                 <span class="text-xs font-semibold text-dgb-500">@scanProgress%</span>
             </div>
@@ -351,7 +351,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
                 <p class="text-sm font-semibold text-green-800 dark:text-green-300">
-                    Found @((totalDiscovered / 100_000_000m).ToString("N8")) DGB on @discoveredAddresses.Count address@(discoveredAddresses.Count != 1 ? "es" : "")
+                    @FoundOn(totalDiscovered, discoveredAddresses.Count)
                 </p>
             </div>
 
@@ -375,19 +375,19 @@
                 @if (isSweeping)
                 {
                     <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Sweeping funds…</span>
+                    <span>@L.T("recovery.sweeping")</span>
                 }
                 else
                 {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                     </svg>
-                    <span>Sweep All to Wallet</span>
+                    <span>@L.T("recovery.sweep_all")</span>
                 }
             </button>
             @if (isSweeping)
             {
-                <p class="text-[11px] text-green-600 dark:text-green-400 mt-1.5 text-center">Building and broadcasting transaction…</p>
+                <p class="text-[11px] text-green-600 dark:text-green-400 mt-1.5 text-center">@L.T("recovery.broadcasting")</p>
             }
             @if (sweepError != null)
             {
@@ -401,15 +401,15 @@
             <svg class="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
             </svg>
-            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No funds found</p>
+            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">@L.T("recovery.none.title")</p>
             <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                 @if (inputMode == InputMode.Mnemonic)
                 {
-                    <span>Scanned BIP44, BIP49, and BIP84 derivation paths — all addresses have zero balance.</span>
+                    <span>@L.T("recovery.none.seed")</span>
                 }
                 else
                 {
-                    <span>Scanned Legacy, SegWit-P2SH, and SegWit address types — no balance found.</span>
+                    <span>@L.T("recovery.none.wif")</span>
                 }
             </p>
         </div>
@@ -423,39 +423,45 @@
                 <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                 </svg>
-                <p class="text-sm font-semibold text-green-800 dark:text-green-300">Funds swept successfully!</p>
+                <p class="text-sm font-semibold text-green-800 dark:text-green-300">@L.T("recovery.swept")</p>
             </div>
-            <p class="text-[11px] text-green-600 dark:text-green-400 font-mono break-all">TX: @sweepTxId</p>
+            <p class="text-[11px] text-green-600 dark:text-green-400 font-mono break-all">@L.T("recovery.txid", sweepTxId)</p>
         </div>
     }
 
     @* Info section *@
     <div class="slide-up-delay-2 bg-slate-50 dark:bg-dgb-800/30 rounded-2xl border border-slate-200/80 dark:border-dgb-800 p-4">
-        <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">How it works</p>
+        <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">@L.T("recovery.how.title")</p>
         <div class="flex flex-col gap-2 text-[11px] text-slate-500 dark:text-slate-400">
             <div class="flex gap-2">
                 <span class="font-bold text-dgb-500">1.</span>
-                <span>Enter a seed phrase or WIF private key from another wallet or backup.</span>
+                <span>@L.T("recovery.how.step1")</span>
             </div>
             <div class="flex gap-2">
                 <span class="font-bold text-dgb-500">2.</span>
-                <span>The tool scans BIP44, BIP49, and BIP84 derivation paths for any funds.</span>
+                <span>@L.T("recovery.how.step2")</span>
             </div>
             <div class="flex gap-2">
                 <span class="font-bold text-dgb-500">3.</span>
-                <span>If funds are found, sweep them all into your current wallet in one transaction.</span>
+                <span>@L.T("recovery.how.step3")</span>
             </div>
         </div>
         <div class="mt-3 p-2.5 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200/50 dark:border-amber-900/20">
             <p class="text-[11px] text-amber-600 dark:text-amber-400">
-                <strong>Security note:</strong> The seed phrase or private key is used only in memory for signing and is never stored. Close this page when done.
+                <strong>@L.T("recovery.security_note.label")</strong> @L.T("recovery.security_note.body")
             </p>
         </div>
     </div>
 </div>
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private enum InputMode { Mnemonic, Wif }
+
+    /// <summary>"Found 1.5 DGB on 2 addresses", in the chosen language and its number style.</summary>
+    private string FoundOn(long satoshis, int addresses) =>
+        L.T(addresses == 1 ? "recovery.found.one" : "recovery.found.other", (satoshis / 100_000_000m).ToString("N8"), Count(addresses));
 
     private InputMode inputMode = InputMode.Mnemonic;
     private string? inputText;
@@ -658,7 +664,7 @@
                 var words = inputText.Trim();
                 if (!DigiByte.Crypto.KeyGeneration.MnemonicGenerator.IsValid(words))
                 {
-                    scanError = "Invalid seed phrase. Please enter a valid 12 or 24 word BIP39 mnemonic.";
+                    scanError = L.T("recovery.error.invalid_seed");
                     return;
                 }
                 discoveredAddresses = await WalletService.ScanExternalMnemonicAsync(words, progress, onLabel);
@@ -668,7 +674,7 @@
                 var wif = inputText.Trim();
                 if (!DigiByte.Crypto.KeyGeneration.PrivateKeyImporter.IsValidWif(wif))
                 {
-                    scanError = "Invalid private key. Please enter a valid WIF-encoded private key.";
+                    scanError = L.T("recovery.error.invalid_wif");
                     return;
                 }
                 discoveredAddresses = await WalletService.ScanExternalWifAsync(wif, progress, onLabel);
@@ -702,7 +708,7 @@
             discoveredAddresses = [];
             scanComplete = false;
             inputText = null;
-            Notify.Success("Funds swept to your wallet!");
+            Notify.Success(L.T("recovery.toast.swept"));
         }
         catch (Exception ex)
         {
@@ -765,7 +771,7 @@
             legacyBalance = 0;
             legacyResults = [];
             legacyScanComplete = false;
-            Notify.Success("Funds moved to your wallet!");
+            Notify.Success(L.T("recovery.toast.moved"));
         }
         catch (Exception ex)
         {

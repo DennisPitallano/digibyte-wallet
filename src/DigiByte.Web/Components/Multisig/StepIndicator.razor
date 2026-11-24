@@ -1,5 +1,6 @@
 @* Compact step marker: number + label, with a check for finished steps. Position is also said in text, not by colour alone. *@
-<ol class="flex items-center gap-1" aria-label="Progress">
+@inject LocalizationService L
+<ol class="flex items-center gap-1" aria-label="@L.T("ms.ui.steps.aria")">
     @for (var i = 0; i < Steps.Count; i++)
     {
         var index = i;
@@ -9,7 +10,7 @@
             <span class="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold @(done ? "bg-green-500 text-white" : active ? "bg-dgb-500 text-white" : "bg-slate-200 dark:bg-dgb-800 text-slate-500 dark:text-slate-400")">
                 @if (done) { <UxIcon Name="check" Class="w-3.5 h-3.5" /> } else { @(index + 1) }
             </span>
-            <span class="text-[11px] font-semibold truncate @(active ? "text-slate-900 dark:text-white" : "text-slate-400")">@Steps[index]<span class="sr-only">@(done ? " (done)" : active ? " (current step)" : "")</span></span>
+            <span class="text-[11px] font-semibold truncate @(active ? "text-slate-900 dark:text-white" : "text-slate-400")">@Steps[index]<span class="sr-only">@(done ? " " + L.T("ms.ui.steps.done") : active ? " " + L.T("ms.ui.steps.current") : "")</span></span>
             @if (index < Steps.Count - 1)
             {
                 <span class="flex-1 h-px bg-slate-200 dark:bg-dgb-800 mx-1" aria-hidden="true"></span>
@@ -22,4 +23,5 @@
     [Parameter, EditorRequired] public IReadOnlyList<string> Steps { get; set; } = [];
     /// <summary>Zero-based index of the current step.</summary>
     [Parameter] public int Current { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 }

@@ -1,13 +1,14 @@
 @page "/contacts"
 @inject ContactService ContactService
 @inject NavigationManager Nav
+@inject LocalizationService L
 
-<PageTitle>Contacts — DigiByte Wallet</PageTitle>
+<PageTitle>@L.T("contacts.page_title")</PageTitle>
 
 <div class="flex flex-col gap-4">
-    <PageHeader Title="Contacts">
+    <PageHeader Title="@L.T("contacts.title")">
         <button class="icon-btn icon-btn-primary"
-                @onclick="ShowAddForm" aria-label="Add">
+                @onclick="ShowAddForm" aria-label="@L.T("contacts.add")">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -17,7 +18,7 @@
     @* Search *@
     <div class="slide-up-delay-1">
         <input type="text" @bind="searchQuery" @bind:event="oninput" @bind:after="SearchContacts"
-               placeholder="Search contacts..."
+               placeholder="@L.T("contacts.search")"
                class="input" />
     </div>
 
@@ -25,21 +26,21 @@
     @if (showForm)
     {
         <div class="card scale-in p-4 flex flex-col gap-3">
-            <h3 class="block-title block-title-sm">@(editingContact != null ? "Edit Contact" : "Add Contact")</h3>
-            <input type="text" @bind="formName" placeholder="Name"
+            <h3 class="block-title block-title-sm">@(editingContact != null ? L.T("contacts.edit") : L.T("contacts.add"))</h3>
+            <input type="text" @bind="formName" placeholder="@L.T("contacts.name_placeholder")"
                    class="input" />
             <div class="flex gap-1.5">
-                <input type="text" @bind="formAddress" placeholder="DGB address (D... or dgb1...)"
+                <input type="text" @bind="formAddress" placeholder="@L.T("contacts.address_placeholder")"
                        class="input flex-1 font-mono" />
                 <button class="icon-btn icon-btn-primary flex-shrink-0"
-                        @onclick="() => showScanner = true" title="Scan QR" aria-label="Scan QR" type="button">
+                        @onclick="() => showScanner = true" title="@L.T("send.scan_qr")" aria-label="@L.T("send.scan_qr")" type="button">
                     <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 14.625v2.625m3.375-2.625v2.625" />
                     </svg>
                 </button>
             </div>
-            <input type="text" @bind="formNotes" placeholder="Notes (optional)"
+            <input type="text" @bind="formNotes" placeholder="@L.T("contacts.notes_placeholder")"
                    class="input" />
             @if (formError != null)
             {
@@ -47,10 +48,10 @@
             }
             <div class="flex gap-2">
                 <button class="btn-secondary btn-sm flex-1"
-                        @onclick="CancelForm">Cancel</button>
+                        @onclick="CancelForm">@L.T("common.cancel")</button>
                 <button class="btn-primary btn-sm flex-1"
                         @onclick="SaveContact" disabled="@(string.IsNullOrWhiteSpace(formName) || string.IsNullOrWhiteSpace(formAddress))">
-                    Save
+                    @L.T("contacts.save")
                 </button>
             </div>
         </div>
@@ -65,8 +66,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                 </svg>
             </div>
-            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No contacts yet</p>
-            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Add contacts to easily send DGB</p>
+            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">@L.T("contacts.empty")</p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">@L.T("contacts.empty_hint")</p>
         </div>
     }
     else
@@ -88,19 +89,19 @@
                     </div>
                     <div class="flex gap-1">
                         <button class="icon-btn icon-btn-sm"
-                                @onclick="() => SendToContact(c)" title="Send" aria-label="Send">
+                                @onclick="() => SendToContact(c)" title="@L.T("wallet.send")" aria-label="@L.T("contacts.send_aria", c.Name)">
                             <svg class="w-4 h-4 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
                             </svg>
                         </button>
                         <button class="icon-btn icon-btn-sm"
-                                @onclick="() => EditContact(c)" title="Edit" aria-label="Edit">
+                                @onclick="() => EditContact(c)" title="@L.T("contacts.edit_short")" aria-label="@L.T("contacts.edit_aria", c.Name)">
                             <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
                             </svg>
                         </button>
                         <button class="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                @onclick="() => deleteTarget = c" title="Delete" aria-label="Delete @c.Name">
+                                @onclick="() => deleteTarget = c" title="@L.T("contacts.delete")" aria-label="@L.T("contacts.delete_aria", c.Name)">
                             <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                             </svg>
@@ -118,7 +119,7 @@
 @* Confirm before removing a contact *@
 @if (deleteTarget is not null)
 {
-    <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Delete contact" @onclick="() => deleteTarget = null">
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="@L.T("contacts.delete_dialog")" @onclick="() => deleteTarget = null">
         <div class="modal-card flex flex-col gap-4" @onclick:stopPropagation="true">
             <div class="flex flex-col items-center gap-2 text-center">
                 <div class="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
@@ -126,20 +127,22 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                     </svg>
                 </div>
-                <h3 class="block-title block-title-lg">Delete @deleteTarget.Name?</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400">This removes the saved name and address. Past transactions are not affected.</p>
+                <h3 class="block-title block-title-lg">@L.T("contacts.delete_title", deleteTarget.Name)</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">@L.T("contacts.delete_body")</p>
             </div>
             <div class="flex gap-2">
                 <button type="button" class="btn-secondary btn-sm flex-1"
-                        @onclick="() => deleteTarget = null">Cancel</button>
+                        @onclick="() => deleteTarget = null">@L.T("common.cancel")</button>
                 <button type="button" class="btn-danger btn-sm flex-1"
-                        @onclick="ConfirmDeleteAsync">Delete</button>
+                        @onclick="ConfirmDeleteAsync">@L.T("contacts.delete")</button>
             </div>
         </div>
     </div>
 }
 
 @code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
     private Contact? deleteTarget;
 
     private async Task ConfirmDeleteAsync()
@@ -203,14 +206,14 @@
         formError = null;
 
         // Length caps
-        if (formName.Length > 64) { formError = "Name is too long (max 64 characters)."; return; }
-        if (formAddress.Length > 128) { formError = "Address is too long."; return; }
-        if (formNotes.Length > 256) { formError = "Notes are too long (max 256 characters)."; return; }
+        if (formName.Length > 64) { formError = L.T("contacts.error.name_too_long", 64); return; }
+        if (formAddress.Length > 128) { formError = L.T("contacts.error.address_too_long"); return; }
+        if (formNotes.Length > 256) { formError = L.T("contacts.error.notes_too_long", 256); return; }
 
         if (!DigiByte.Crypto.Addresses.AddressValidator.IsValid(formAddress)
             && !IsPlausibleDigiByteAddress(formAddress))
         {
-            formError = "Invalid DigiByte address.";
+            formError = L.T("contacts.error.invalid_address");
             return;
         }
 

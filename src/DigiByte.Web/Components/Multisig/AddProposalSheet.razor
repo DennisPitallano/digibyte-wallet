@@ -2,6 +2,7 @@
    code (specs/026-multisig-wallet-experience, FR-022). The bottom menu is hidden while the sheet is open, so the
    sheet owns the bottom of the screen. *@
 @inject ShellChrome Chrome
+@inject LocalizationService L
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -12,27 +13,27 @@
         <div class="more-sheet sheet-enter" @onclick:stopPropagation="true">
             <div class="more-sheet-grip" aria-hidden="true"></div>
             <div class="flex items-center justify-between px-5 pb-1">
-                <h3 id="@TitleId" class="block-title">Add a proposal</h3>
-                <button type="button" class="icon-btn -mr-2" aria-label="Close" @onclick="CloseAsync">
+                <h3 id="@TitleId" class="block-title">@L.T("ms.ui.addProposal.title")</h3>
+                <button type="button" class="icon-btn -mr-2" aria-label="@L.T("more.close")" @onclick="CloseAsync">
                     <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
-            <p class="px-5 pb-3 text-xs text-slate-600 dark:text-slate-400">A co-signer sent you a payment to sign. Bring it in here.</p>
+            <p class="px-5 pb-3 text-xs text-slate-600 dark:text-slate-400">@L.T("ms.ui.addProposal.intro")</p>
             <div class="more-sheet-list">
                 <button type="button" class="more-sheet-row" data-autofocus="true" @onclick="() => ChooseAsync(OnScan)">
                     <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="scan" Class="w-5 h-5" /></span>
                     <span class="flex-1 min-w-0 text-left">
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">Scan QR</span>
-                        <span class="block text-xs text-slate-600 dark:text-slate-400">Point the camera at the code on their screen</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("send.scan_qr")</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.ui.addProposal.scan_hint")</span>
                     </span>
                 </button>
                 <button type="button" class="more-sheet-row" @onclick="() => ChooseAsync(OnPaste)">
                     <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="copy" Class="w-5 h-5" /></span>
                     <span class="flex-1 min-w-0 text-left">
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">Paste</span>
-                        <span class="block text-xs text-slate-600 dark:text-slate-400">Use the proposal text you copied from a message</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("send.paste")</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.ui.addProposal.paste_hint")</span>
                     </span>
                 </button>
                 <label class="more-sheet-row">
@@ -42,8 +43,8 @@
                         </svg>
                     </span>
                     <span class="flex-1 min-w-0 text-left">
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">Choose file</span>
-                        <span class="block text-xs text-slate-600 dark:text-slate-400">Open a proposal file they sent you</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("ms.ui.addProposal.file")</span>
+                        <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.ui.addProposal.file_hint")</span>
                     </span>
                     <InputFile OnChange="OnFileChosenAsync" class="sr-only" accept=".txt,.psbt,text/plain" />
                 </label>
@@ -52,8 +53,8 @@
                     <button type="button" class="more-sheet-row" @onclick="() => ChooseAsync(OnJoinRoom)">
                         <span class="more-sheet-icon" aria-hidden="true"><UxIcon Name="live" Class="w-5 h-5" /></span>
                         <span class="flex-1 min-w-0 text-left">
-                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">Join a room with a code</span>
-                            <span class="block text-xs text-slate-600 dark:text-slate-400">Sign together online, live, with your co-signers</span>
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">@L.T("ms.ui.addProposal.join")</span>
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">@L.T("ms.ui.addProposal.join_hint")</span>
                         </span>
                     </button>
                 }
@@ -73,6 +74,7 @@
     [Parameter] public EventCallback<InputFileChangeEventArgs> OnFile { get; set; }
     [Parameter] public EventCallback OnJoinRoom { get; set; }
     [Parameter] public EventCallback OnClosed { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private readonly string SheetId = "add-proposal-" + Guid.NewGuid().ToString("N")[..8];
     private string TitleId => SheetId + "-title";

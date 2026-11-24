@@ -1,9 +1,10 @@
 @* One co-signer: initials avatar, name ("You" marked), presence and a status pill. Presence and status are separate facts. *@
+@inject LocalizationService L
 @if (Card.Status == SignerStatus.NotJoined)
 {
     <li class="flex items-center gap-3 p-2.5 rounded-xl border border-dashed border-slate-300 dark:border-dgb-700 text-slate-400">
         <span class="w-9 h-9 rounded-full border border-dashed border-slate-300 dark:border-dgb-700 flex items-center justify-center text-sm" aria-hidden="true">?</span>
-        <span class="text-sm flex-1">Not joined yet</span>
+        <span class="text-sm flex-1">@L.T("ms.ui.statusBadge.not_joined")</span>
     </li>
 }
 else
@@ -18,19 +19,19 @@ else
         </span>
         <span class="min-w-0 flex-1">
             <span class="flex items-center gap-1.5 min-w-0">
-                <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">@(Card.IsYou ? $"{Card.DisplayName} (You)" : Card.DisplayName)</span>
+                <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">@(Card.IsYou ? L.T("ms.ui.signerCard.you_name", Card.DisplayName) : Card.DisplayName)</span>
                 @if (Card.Fingerprint is not null)
                 {
-                    <span class="text-[10px] font-mono text-slate-400 shrink-0" title="Key ending @Card.Fingerprint">…@Card.Fingerprint</span>
+                    <span class="text-[10px] font-mono text-slate-400 shrink-0" title="@L.T("ms.ui.signerCard.key_ending", Card.Fingerprint)">…@Card.Fingerprint</span>
                 }
                 @if (Card.IsCreator)
                 {
-                    <span class="text-[10px] font-semibold text-slate-400 shrink-0">Host</span>
+                    <span class="text-[10px] font-semibold text-slate-400 shrink-0">@L.T("ms.ui.signerCard.host")</span>
                 }
             </span>
             @if (Card.Presence is { } p)
             {
-                <span class="text-[11px] @(p == SignerPresence.Online ? "text-green-600 dark:text-green-400" : "text-slate-400")">@(p == SignerPresence.Online ? "Online" : "Offline")</span>
+                <span class="text-[11px] @(p == SignerPresence.Online ? "text-green-600 dark:text-green-400" : "text-slate-400")">@(p == SignerPresence.Online ? L.T("ms.ui.signerCard.online") : L.T("ms.ui.signerCard.offline"))</span>
             }
         </span>
         <StatusBadge Signer="Card.Status" />
@@ -39,6 +40,7 @@ else
 
 @code {
     [Parameter, EditorRequired] public SignerCardModel Card { get; set; } = default!;
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private static readonly string[] Palette =
     [

@@ -1,29 +1,30 @@
 @* Getting co-signers into the room (specs/026-multisig-wallet-experience, FR-029). Up front, it is the host's first
    job: the code, Share, Copy link, Copy code and the QR code. Folded, it is one row with the code that opens again
    with one tap, for when enough people are here or the viewer is not the host. *@
+@inject LocalizationService L
 @if (Prominent || expanded)
 {
     <div class="card p-4 flex flex-col gap-3" data-testid="room-invite" data-prominent="@(Prominent ? "true" : "false")">
         <div class="flex items-center justify-between gap-2">
-            <p class="section-label">Invite your co-signers</p>
+            <p class="section-label">@L.T("ms.ui.roomInvite.title")</p>
             @if (!Prominent)
             {
-                <button type="button" class="min-h-[32px] text-xs font-medium text-slate-500 dark:text-slate-400" @onclick="() => expanded = false">Hide</button>
+                <button type="button" class="min-h-[32px] text-xs font-medium text-slate-500 dark:text-slate-400" @onclick="() => expanded = false">@L.T("ms.ui.roomInvite.hide")</button>
             }
         </div>
-        <p class="font-mono text-3xl font-extrabold tracking-[0.3em] text-slate-900 dark:text-white select-all" aria-label="Room code @Spaced">@InviteCode</p>
-        <p class="text-xs text-slate-600 dark:text-slate-400 -mt-1">Send the link or the code. Only co-signers of this wallet can join.</p>
+        <p class="font-mono text-3xl font-extrabold tracking-[0.3em] text-slate-900 dark:text-white select-all" aria-label="@L.T("ms.ui.roomInvite.code_aria", Spaced)">@InviteCode</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 -mt-1">@L.T("ms.ui.roomInvite.hint")</p>
         <div class="flex flex-wrap gap-2">
-            <button type="button" class="btn-primary btn-sm flex-1" data-testid="room-share" @onclick="OnShare">Share invite</button>
-            <button type="button" class="btn-secondary btn-sm" @onclick="OnCopyLink">Copy link</button>
-            <button type="button" class="btn-secondary btn-sm" @onclick="OnCopyCode">Copy code</button>
+            <button type="button" class="btn-primary btn-sm flex-1" data-testid="room-share" @onclick="OnShare">@L.T("ms.ui.roomInvite.share")</button>
+            <button type="button" class="btn-secondary btn-sm" @onclick="OnCopyLink">@L.T("ms.ui.roomInvite.copy_link")</button>
+            <button type="button" class="btn-secondary btn-sm" @onclick="OnCopyCode">@L.T("ms.ui.roomInvite.copy_code")</button>
         </div>
         @if (showQr)
         {
-            <div class="flex justify-center"><QrImage Payload="@InviteLink" Alt="Signing room invite QR code" /></div>
+            <div class="flex justify-center"><QrImage Payload="@InviteLink" Alt="@L.T("ms.ui.roomInvite.qr_alt")" /></div>
         }
         <button type="button" class="self-center min-h-[44px] px-3 text-xs font-medium text-dgb-600 dark:text-dgb-300" aria-expanded="@(showQr ? "true" : "false")" @onclick="() => showQr = !showQr">
-            @(showQr ? "Hide QR code" : "Show QR code to scan in person")
+            @(showQr ? L.T("ms.ui.backup.hide_qr") : L.T("ms.ui.roomInvite.show_qr"))
         </button>
     </div>
 }
@@ -31,7 +32,7 @@ else
 {
     <button type="button" class="room-invite-row" aria-expanded="false" data-testid="room-invite-row" @onclick="() => expanded = true">
         <UxIcon Name="user" Class="w-4 h-4 shrink-0" />
-        <span class="flex-1 text-left">Invite co-signers</span>
+        <span class="flex-1 text-left">@L.T("ms.ui.roomInvite.row")</span>
         <span class="font-mono font-bold tracking-widest">@InviteCode</span>
         <svg class="w-4 h-4 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
     </button>
@@ -47,6 +48,7 @@ else
     [Parameter] public EventCallback OnShare { get; set; }
     [Parameter] public EventCallback OnCopyLink { get; set; }
     [Parameter] public EventCallback OnCopyCode { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
     private bool expanded;
     private bool showQr;
