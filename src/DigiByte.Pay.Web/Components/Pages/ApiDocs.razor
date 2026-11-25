@@ -402,11 +402,21 @@
                 <p class="@Small m-0">Site-wide totals for the home page: <InlineCode>{ merchants, stores, sessions, paidSessions, totalDgb, generatedAt }</InlineCode>. Counts only, demo and test data excluded, cached for 30 seconds.</p>
             </Endpoint>
             <Endpoint Method="GET" Path="/v1/pay/public/price" Auth="No auth" Id="public-price">
-                <p class="@Small">The DGB spot price (from CoinGecko, cached for 60 seconds), used by POS tablets: <InlineCode>{ currency, dgbPrice, fetchedAt }</InlineCode>.</p>
+                <p class="@Small">The price of 1 DGB in a fiat currency, worked out the same way as the DigiByte wallet: CoinGecko's own price where it quotes DGB in that currency, otherwise the USD price times the USD exchange rate. Used by POS tablets, payment links and the checkout. Returns <InlineCode>{ currency, dgbPrice, fetchedAt, source, decimals, symbol, stale }</InlineCode>.</p>
                 <ParamList Title="Query parameters">
-                    <Param Name="currency" Type="string">usd (default), eur, gbp, cad, aud, jpy, chf, sek, nok, dkk, php, ngn or zar. Anything else: <InlineCode>400</InlineCode>.</Param>
+                    <Param Name="currency" Type="string">Any code from <InlineCode>GET /v1/pay/public/currencies</InlineCode> (the wallet's list of about 80), case-insensitive; default <InlineCode>usd</InlineCode>. Anything else: <InlineCode>400</InlineCode>.</Param>
                 </ParamList>
-                <p class="@Small m-0">If CoinGecko can't be reached, the last price from the past 10 minutes is returned (check <InlineCode>fetchedAt</InlineCode>); with none, <InlineCode>502</InlineCode>.</p>
+                <ParamList Title="Response fields">
+                    <Param Name="source" Type="string"><InlineCode>coingecko</InlineCode> (priced directly) or <InlineCode>coingecko+fx</InlineCode> (USD price times the USD exchange rate, refreshed every 6 hours).</Param>
+                    <Param Name="decimals" Type="number">Digits after the decimal point for amounts in this currency: 0 for yen, won or rupiah, 3 for the Gulf dinars, otherwise 2. Round fiat amounts to this.</Param>
+                    <Param Name="symbol" Type="string">The symbol written before an amount, for example ₱.</Param>
+                    <Param Name="stale" Type="boolean"><InlineCode>true</InlineCode> when CoinGecko couldn't be reached and this is the last price from the past 10 minutes (check <InlineCode>fetchedAt</InlineCode>).</Param>
+                </ParamList>
+                <p class="@Small m-0">Prices are cached for 60 seconds. With no price at all: <InlineCode>502</InlineCode>. To charge a fiat amount, send <InlineCode>amount = fiatAmount / dgbPrice</InlineCode> rounded to 8 decimals, with <InlineCode>fiatCurrency</InlineCode>, <InlineCode>fiatAmount</InlineCode> and <InlineCode>dgbPriceAtCreation</InlineCode>.</p>
+            </Endpoint>
+
+            <Endpoint Method="GET" Path="/v1/pay/public/currencies" Auth="No auth" Id="public-currencies">
+                <p class="@Small m-0">The fiat currencies DigiPay can price in, the same list as the DigiByte wallet: <InlineCode>{ regions, currencies: [{ code, name, symbol, region, decimals, flag }] }</InlineCode>. <InlineCode>flag</InlineCode> is an ISO country code, or null for currencies shared by several countries.</p>
             </Endpoint>
 
             @* ===================== Sandbox ===================== *@

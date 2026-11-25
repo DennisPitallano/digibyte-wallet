@@ -77,7 +77,7 @@
                 {
                     @* Fiat-priced: lead with the number the shopper recognises; the DGB line is what gets paid. *@
                     <div class="ui-checkout-amount">
-                        <p class="ui-checkout-big">@FormatFiat(fiatAmt) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
+                        <p class="ui-checkout-big">@Fiat.Format(fiatAmt, session.FiatCurrency) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
                         <p class="ui-checkout-muted tabular-nums">≈ <span id="checkout-amount" class="font-mono">@FormatDgb(session.AmountSatoshis)</span> DGB</p>
                     </div>
                 }
@@ -446,8 +446,6 @@
     private static string FormatDgb(long sats) =>
         (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static string FormatFiat(decimal amount) =>
-        amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string FormatUsdPlain(long cents) =>
         (cents / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);

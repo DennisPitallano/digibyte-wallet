@@ -77,7 +77,7 @@
                     }
                     else if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
                     {
-                        <p class="ui-checkout-big">@FormatFiat(fiatAmt) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
+                        <p class="ui-checkout-big">@Fiat.Format(fiatAmt, session.FiatCurrency) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
                         <p class="ui-checkout-muted"><span class="font-mono tabular-nums">@FormatDgb(session.AmountSatoshis)</span> DGB</p>
                     }
                     else
@@ -328,8 +328,6 @@
     private static string FormatUsd(long cents) =>
         (cents / 100m).ToString("0.00", CultureInfo.InvariantCulture);
 
-    private static string FormatFiat(decimal amount) =>
-        amount.ToString("0.00", CultureInfo.InvariantCulture);
 
     public record GetSessionResponse(SessionDto Session, string? MerchantName);
 

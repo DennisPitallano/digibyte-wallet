@@ -397,18 +397,21 @@ else
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="field">
                                     <label class="field-label" for="link-amount-fiat">Amount</label>
-                                    <input id="link-amount-fiat" @bind="linkAmountFiat" @bind:event="oninput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="@Input" />
+                                    <input id="link-amount-fiat" @bind="linkAmountFiat" @bind:event="oninput" type="number" inputmode="decimal" step="@LinkFiatStep" min="0" placeholder="@LinkFiatPlaceholder" class="@Input" />
                                 </div>
                                 <div class="field">
                                     <label class="field-label" for="link-currency">Currency</label>
-                                    <select id="link-currency" @bind="linkFiatCurrency" @bind:after="LoadLinkPriceAsync" class="@Input">
-                                        <option value="USD">USD</option>
-                                        <option value="EUR">EUR</option>
-                                        <option value="GBP">GBP</option>
-                                        <option value="CAD">CAD</option>
-                                        <option value="AUD">AUD</option>
-                                        <option value="JPY">JPY</option>
-                                    </select>
+                                    @* The wallet's currency list, searchable and grouped by region (Shared/Ui/CurrencyPicker). *@
+                                    <button id="link-currency" type="button" class="@Input dash-currency-btn" aria-haspopup="dialog"
+                                            aria-label="@($"Currency: {Fiat.Name(linkFiatCurrency)}, change")" @onclick="() => linkPickerOpen = true">
+                                        <CurrencyFlag Code="@linkFiatCurrency" />
+                                        <span class="dash-currency-code">@linkFiatCurrency</span>
+                                        <span class="dash-currency-name">@Fiat.Name(linkFiatCurrency)</span>
+                                        <Icon Name="chevron-down" Class="w-4 h-4" />
+                                    </button>
+                                    <CurrencyPicker Id="link-currency-picker" IsOpen="linkPickerOpen" Selected="@linkFiatCurrency"
+                                                    Title="Price the link in" Hint="The customer pays the DGB equivalent at the live price when the link is created."
+                                                    OnSelected="PickLinkCurrencyAsync" OnClosed="() => linkPickerOpen = false" />
                                 </div>
                             </div>
                             @if (linkPriceLoading)
@@ -418,7 +421,7 @@ else
                             else if (linkDgbPrice is decimal price)
                             {
                                 <p class="@Muted m-0" role="status">
-                                    1 DGB = @price.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture) @linkFiatCurrency.
+                                    1 DGB = @Fiat.Rate(price, linkFiatCurrency) @linkFiatCurrency@(linkPriceSource == "coingecko+fx" ? " (converted via USD)" : "").
                                     @if (LinkFiatToDgb is decimal dgb)
                                     {
                                         <span>The customer pays <strong class="text-slate-900 dark:text-white">@dgb.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) DGB</strong>.</span>
@@ -1323,8 +1326,7 @@ else
         return $"/merchant/sessions/{Uri.EscapeDataString(sessionId)}?back={Uri.EscapeDataString(back)}";
     }
 
-    private static string FormatFiat(decimal amount, string currency) =>
-        $"{amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)} {currency.ToUpperInvariant()}";
+    private static string FormatFiat(decimal amount, string currency) => Fiat.FormatWithCode(amount, currency);
 
     /// <summary>A tile number, or a dash while the counts are loading.</summary>
     private static string CountText(int? n) => n is int v ? v.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) : "–";
@@ -1558,6 +1560,18 @@ else
     private string linkPriceMode = "dgb"; // "dgb" or "fiat"
     private decimal linkAmountDgb;
     private decimal linkAmountFiat;
+    private bool linkPickerOpen;
+    private string? linkPriceSource;
+    private string LinkFiatStep => Fiat.Decimals(linkFiatCurrency) == 0 ? "1" : "0." + new string('0', Fiat.Decimals(linkFiatCurrency) - 1) + "1";
+    private string LinkFiatPlaceholder => Fiat.Plain(0m, linkFiatCurrency);
+
+    private async Task PickLinkCurrencyAsync(string code)
+    {
+        linkPickerOpen = false;
+        if (code == linkFiatCurrency) return;
+        linkFiatCurrency = code;
+        await LoadLinkPriceAsync();
+    }
     private string linkFiatCurrency = "USD";
     private string linkLabel = "";
     private string linkMemo = "";
@@ -1575,7 +1589,7 @@ else
     /// <summary>The fiat amount in DGB at the live price, rounded to 8 decimals (1 satoshi).</summary>
     private decimal? LinkFiatToDgb =>
         linkDgbPrice is decimal p && p > 0 && linkAmountFiat > 0
-            ? Math.Round(linkAmountFiat / p, 8, MidpointRounding.AwayFromZero)
+            ? Fiat.ToDgb(Fiat.Round(linkAmountFiat, linkFiatCurrency), p)
             : null;
 
     private string? donationAddress;
@@ -2076,7 +2090,7 @@ else
             if (resp.IsSuccessStatusCode)
             {
                 var quote = await resp.Content.ReadFromJsonAsync<PriceQuote>();
-                if (quote is not null && quote.DgbPrice > 0) linkDgbPrice = quote.DgbPrice;
+                if (quote is not null && quote.DgbPrice > 0) { linkDgbPrice = quote.DgbPrice; linkPriceSource = quote.Source; }
             }
         }
         catch (Exception ex) { Log.LogWarning(ex, "Dashboard: price lookup failed"); }
@@ -2118,7 +2132,7 @@ else
                 label = string.IsNullOrWhiteSpace(linkLabel) ? null : linkLabel.Trim(),
                 memo = string.IsNullOrWhiteSpace(linkMemo) ? null : linkMemo.Trim(),
                 fiatCurrency = linkPriceMode == "fiat" ? linkFiatCurrency : null,
-                fiatAmount = linkPriceMode == "fiat" ? (decimal?)linkAmountFiat : null,
+                fiatAmount = linkPriceMode == "fiat" ? (decimal?)Fiat.Round(linkAmountFiat, linkFiatCurrency) : null,
                 dgbPriceAtCreation = priceAtCreation,
                 expiresInSeconds = expirySeconds,
             });
@@ -2582,7 +2596,7 @@ else
 
     private record WebhookSecretDto(string WebhookSecret);
 
-    private record PriceQuote(string Currency, decimal DgbPrice, DateTime FetchedAt);
+    private record PriceQuote(string Currency, decimal DgbPrice, DateTime FetchedAt, string? Source = null, bool Stale = false);
 
     private record SessionList(int Total, int Take, int Skip, List<SessionRow> Sessions);
 

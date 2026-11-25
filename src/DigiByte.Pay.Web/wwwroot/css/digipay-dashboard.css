@@ -94,3 +94,8 @@
 @media (max-width: 360px) {
     .dash-filter .segmented-item { padding: 0 0.625rem; }
 }
+
+/* Payment-link currency: a button that opens the shared CurrencyPicker (the wallet's list). */
+.dash-currency-btn { display: flex; align-items: center; gap: 0.5rem; text-align: left; cursor: pointer; }
+.dash-currency-code { font-weight: 700; }
+.dash-currency-name { flex: 1; min-width: 0; font-size: 0.8125rem; color: var(--ui-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

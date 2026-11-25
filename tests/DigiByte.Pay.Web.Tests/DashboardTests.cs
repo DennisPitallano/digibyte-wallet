@@ -47,7 +47,7 @@ public class DashboardTests : BunitContext
         cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
 
         Buttons(cut, "Your currency").First().Click();
-        cut.WaitForAssertion(() => Assert.Contains("1 DGB = 0.0123 USD", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("1 DGB = $0.0123 USD", cut.Markup));
         Assert.Contains(api.Requests, r => r.StartsWith("GET /v1/pay/public/price?currency=usd"));
 
         cut.Find("#link-amount-fiat").Input("12.50");
@@ -61,6 +61,25 @@ public class DashboardTests : BunitContext
         Assert.Equal(0.0123m, body["dgbPriceAtCreation"]!.GetValue<decimal>());
         Assert.Equal(12.50m, body["fiatAmount"]!.GetValue<decimal>());
         Assert.Equal("USD", body["fiatCurrency"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void A_link_can_be_priced_in_any_wallet_currency_from_the_picker()
+    {
+        api.Price = 1.52m;
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
+        Buttons(cut, "Your currency").First().Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-currency")));
+
+        cut.Find("#link-currency").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-currency-picker")));
+        cut.Find("#link-currency-picker input[type=search]").Input("kenya");
+        cut.WaitForAssertion(() => Assert.Contains("Kenyan Shilling", cut.Find("#link-currency-picker").TextContent));
+        cut.FindAll("#link-currency-picker .ui-picker-row").Single(b => b.TextContent.Contains("KES")).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r.StartsWith("GET /v1/pay/public/price?currency=kes")));
+        Assert.Contains("KES", cut.Find("#link-currency").TextContent);
     }
 
     [Fact]
