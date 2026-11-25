@@ -1,0 +1,23 @@
+@* Wallet-style status badge for a checkout or session state (FR-009). Icon + text, never a
+   glyph; colour comes from the shared ui-badge tone classes. *@
+@{
+    var state = CheckoutStates.For(Status);
+}
+<span class="ui-badge ui-badge-@ToneClass(state.Tone) @Class" data-status="@state.Key">
+    <Icon Name="@state.Icon" Class="" />
+    <span>@state.Badge</span>
+</span>
+
+@code {
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public string Class { get; set; } = "";
+
+    public static string ToneClass(BadgeTone tone) => tone switch
+    {
+        BadgeTone.Info => "info",
+        BadgeTone.Success => "success",
+        BadgeTone.Danger => "danger",
+        BadgeTone.Refund => "refund",
+        _ => "neutral",
+    };
+}

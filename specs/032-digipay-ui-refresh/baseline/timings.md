@@ -22,6 +22,28 @@ Recorded on 2026-11-25 from `feature/digipay-ui-refresh` at commit `d8670da`. On
 - **What they're good for**: comparing before and after on the same machine, which tests the "no slower than before" half of SC-011.
 - **What's still owed**: the 2-second Fast 4G half still needs a throttled run (quickstart Q6).
 
+## Checkout speed after the restyle (T044, quickstart Q6)
+
+**Why the method changed.** After a few minutes hidden, the browser pane throttles timers to about once a second, so the timer-polling method above stopped being usable. Both builds were measured again with timers out of the loop:
+
+- The pre-change build was run from a temporary worktree on port 5262.
+- Both builds loaded the same four demo sessions, in a 375×800 iframe, with a warm cache.
+
+| Build | Metric | Median | Max | Runs |
+|---|---|---|---|---|
+| Before the restyle | Payment card with the amount inserted (MutationObserver) | **76 ms** | 119 ms | 20 |
+| Restyled, without prerendering | same | **94 ms** | 158 ms | 20 |
+| Restyled, with the R8 fallback (shopper pages prerendered) | HTML with the amount received / render-blocking CSS done | **20 ms / 49 ms** | — | 12 |
+
+**Without prerendering, the restyle was slower.** It took about 18 ms longer than before, which fails the "no slower than before" half of SC-011. So the research R8 fallback was applied:
+
+- `/pay/*` pages are prerendered on the server.
+- The session is handed to the interactive render with `PersistentComponentState`, so it doesn't flash "Loading…".
+
+**With prerendering, it's faster than before.** The amount and QR code are in the first HTML and can paint as soon as the CSS has loaded, about 50 ms in, against 76 ms before. Every run came back prerendered.
+
+**Still owed:** a throttled Fast 4G run, for the 2-second half of SC-011.
+
 ## Wallet style gallery snapshot (for Q1)
 
 **Method**: Instead of PNG screenshots, a computed-style fingerprint of `/test-animations`. For every element, the full `getComputedStyle` property list is serialised and hashed, at 375px and 1280px in the light and dark themes. Two runs match only when every element's computed style is identical, which is stricter than a pixel comparison of what happens to be on screen.

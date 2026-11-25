@@ -271,7 +271,7 @@ else
                                             @if (!string.IsNullOrEmpty(s.Label)) { <div class="@Muted">@s.Label</div> }
                                         </div>
                                         <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1.5 shrink-0">
-                                            <CheckoutStatusPill Status="@s.Status" />
+                                            <StatusBadge Status="@s.Status" />
                                             <div class="@Muted">@s.CreatedAt.ToLocalTime().ToString("MMM d, HH:mm")</div>
                                         </div>
                                     </a>

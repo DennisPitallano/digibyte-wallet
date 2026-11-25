@@ -57,7 +57,7 @@ else
                             @if (!string.IsNullOrEmpty(deviceName)) { <span>POS · @deviceName</span> } else { <span>POS</span> }
                         </span>
                     }
-                    <CheckoutStatusPill Status="@session.Status" />
+                    <StatusBadge Status="@session.Status" />
                 </div>
             </div>
 

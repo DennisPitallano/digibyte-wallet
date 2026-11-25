@@ -129,44 +129,44 @@ description: "Task list for the DigiPay UI refresh"
 
 ### Tests for User Story 1
 
-- [ ] T029 [P] [US1] Write `tests/DigiByte.Pay.Web.Tests/StatusBadgeTests.cs`. Enumerate every row of data-model §5 (API statuses `pending, seen, paid, confirmed, underpaid, expired, refunded, voided` plus client states `reconnecting` and `load-failed`). Assert:
+- [X] T029 [P] [US1] Write `tests/DigiByte.Pay.Web.Tests/StatusBadgeTests.cs`. Enumerate every row of data-model §5 (API statuses `pending, seen, paid, confirmed, underpaid, expired, refunded, voided` plus client states `reconnecting` and `load-failed`). Assert:
   - each row's badge text, tone, icon and announcement exactly as the table says;
   - an unknown status renders as `pending` with no announcement;
   - no emoji or symbol glyphs appear in the output.
-- [ ] T030 [P] [US1] Write `tests/DigiByte.Pay.Web.Tests/CheckoutErrorTests.cs` (bUnit, HttpClient that throws or returns 404). The page shows "This payment page could not be loaded", a Retry button, and no exception message text (FR-010).
+- [X] T030 [P] [US1] Write `tests/DigiByte.Pay.Web.Tests/CheckoutErrorTests.cs` (bUnit, HttpClient that throws or returns 404). The page shows "This payment page could not be loaded", a Retry button, and no exception message text (FR-010).
 
 ### Implementation for User Story 1
 
-- [ ] T031 [P] [US1] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/CheckoutStates.cs`: the data-model §5 table as a static map from a status string to `(BadgeText, Tone, Icon, Announcement, IsFinal)`. Final states are `confirmed, expired, underpaid, refunded, voided`.
-- [ ] T032 [P] [US1] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/StatusBadge.razor`, which renders from `CheckoutStates` with shared badge tone classes and an `Icon` from the shared icon set. It replaces `src/DigiByte.Pay.Web/Components/Pages/CheckoutStatusPill.razor`: delete the old file and update its callers.
-- [ ] T033 [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor` with the shared classes:
+- [X] T031 [P] [US1] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/CheckoutStates.cs`: the data-model §5 table as a static map from a status string to `(BadgeText, Tone, Icon, Announcement, IsFinal)`. Final states are `confirmed, expired, underpaid, refunded, voided`.
+- [X] T032 [P] [US1] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/StatusBadge.razor`, which renders from `CheckoutStates` with shared badge tone classes and an `Icon` from the shared icon set. It replaces `src/DigiByte.Pay.Web/Components/Pages/CheckoutStatusPill.razor`: delete the old file and update its callers.
+- [X] T033 [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor` with the shared classes:
   - `card` container;
   - `qr-frame` around the QR code, with the logo at most 1/5 of the code's width;
   - **Open in wallet** as `btn-primary`;
   - the address in `font-mono` with a `CopyButton`, and the DGB amount with a `CopyButton` that copies the plain decimal string (no symbol or separators; FR-008);
   - the price-drift banner in warning tone;
   - the countdown kept.
-- [ ] T034 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, call `LiveAnnouncer.Announce` with the §5 announcement when the session status changes. Make sure a toast never covers the status badge (place the badge outside the toast area).
-- [ ] T035 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, handle the SignalR `Reconnecting`, `Reconnected` and `Closed` events (`hub` at line ~208):
+- [X] T034 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, call `LiveAnnouncer.Announce` with the §5 announcement when the session status changes. Make sure a toast never covers the status badge (place the badge outside the toast area).
+- [X] T035 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, handle the SignalR `Reconnecting`, `Reconnected` and `Closed` events (`hub` at line ~208):
   - show the `reconnecting` badge and keep the last known state;
   - on `Closed`, retry with backoff and also poll the session over HTTP every 10 s while not final;
   - never switch to a final state without a server status saying so (FR-011).
-- [ ] T036 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, replace `loadError = $"Could not load session: {ex.Message}"` (line ~174) with the `load-failed` state: plain text, Retry, and Back to shop when `ReturnUrl` is known. Log the exception to the server logger only.
-- [ ] T037 [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/TerminalState.razor`:
+- [X] T036 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, replace `loadError = $"Could not load session: {ex.Message}"` (line ~174) with the `load-failed` state: plain text, Retry, and Back to shop when `ReturnUrl` is known. Log the exception to the server logger only.
+- [X] T037 [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/TerminalState.razor`:
   - drop the glyph icons (⏱ ! ↩ ⊘) in favour of `StatusBadge` and the shared icons, with the plain-language explanation and next step from §5;
   - `expired` shows no QR code or address;
   - `underpaid` shows the received and expected amounts;
   - Back to shop (`btn-secondary`) when `ReturnUrl` is set.
-- [ ] T038 [P] [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/Receipt.razor`: `card`, `CopyButton` on the txid, `font-mono` values, `qr-frame-sm` on the txid QR, and the load-failed state without exception text. Add a print stylesheet section (`@media print`) so it prints dark on white in either theme (FR-028).
-- [ ] T039 [P] [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/Donate.razor`: `card`, `qr-frame`, `CopyButton` for the address and amount, `btn-primary` Open in wallet, `font-mono` address. Keep the existing query parameters `to, amount, name, label`.
-- [ ] T040 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, carry a valid `theme` query value into the "View receipt" link (contract C3).
-- [ ] T041 [US1] Update `src/DigiByte.Pay.Web/wwwroot/embed/digipay.js`:
+- [X] T038 [P] [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/Receipt.razor`: `card`, `CopyButton` on the txid, `font-mono` values, `qr-frame-sm` on the txid QR, and the load-failed state without exception text. Add a print stylesheet section (`@media print`) so it prints dark on white in either theme (FR-028).
+- [X] T039 [P] [US1] Restyle `src/DigiByte.Pay.Web/Components/Pages/Donate.razor`: `card`, `qr-frame`, `CopyButton` for the address and amount, `btn-primary` Open in wallet, `font-mono` address. Keep the existing query parameters `to, amount, name, label`.
+- [X] T040 [US1] In `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, carry a valid `theme` query value into the "View receipt" link (contract C3).
+- [X] T041 [US1] Update `src/DigiByte.Pay.Web/wwwroot/embed/digipay.js`:
   - accept an optional `theme` in `DigiPay.checkout()` and `DigiPay.button()`, and a `data-theme` attribute on auto-bound elements;
   - append `theme=<light|dark>` to the iframe URL only for those two values, and drop anything else silently;
   - style the modal backdrop and close button to match when a theme is given;
   - change nothing else (contract C3).
-- [ ] T042 [P] [US1] Add a light/dark example with `data-theme` to `src/DigiByte.Pay.Web/wwwroot/embed/demo.html`.
-- [ ] T043 [US1] Make sure no Baku markup or pose images are referenced from `Checkout.razor`, `Receipt.razor`, `Donate.razor`, `TerminalState.razor` or `Pos.razor` (clarification 2). Add an assertion to `tests/DigiByte.Pay.Web.Tests/StatusBadgeTests.cs` that the rendered checkout contains no `mascot/poses` URL.
+- [X] T042 [P] [US1] Add a light/dark example with `data-theme` to `src/DigiByte.Pay.Web/wwwroot/embed/demo.html`.
+- [X] T043 [US1] Make sure no Baku markup or pose images are referenced from `Checkout.razor`, `Receipt.razor`, `Donate.razor`, `TerminalState.razor` or `Pos.razor` (clarification 2). Add an assertion to `tests/DigiByte.Pay.Web.Tests/StatusBadgeTests.cs` that the rendered checkout contains no `mascot/poses` URL.
 - [ ] T044 [US1] Run quickstart Q2, Q3 and Q6 (20 timed runs on the Fast 4G profile at 375px with a cold cache, compared with the baseline median from the T001 runs). Also complete one testnet payment, unchanged, through each shop integration: the embed demo, `samples/express-store`, `samples/flask-store`, `samples/dotnet-store` and the WooCommerce plugin (`samples/woocommerce-plugin`). If the amount and QR code aren't visible within 2 s in at least 19 of 20 runs, or the median is worse than the baseline, apply research R8's fallback:
   - prerender `/pay/*` with static server rendering plus InteractiveServer for live updates;
   - in `src/DigiByte.Pay.Web/Components/Routes.razor`, `App.razor` and the three shopper pages.
