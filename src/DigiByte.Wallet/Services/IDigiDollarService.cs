@@ -143,4 +143,13 @@ public interface IDigiDollarService
 
     /// <summary>Forget session-scoped state (the send rate limit) when the wallet locks or changes.</summary>
     void ResetSession();
+
+    /// <summary>
+    /// The complete DigiDollar history for the CSV export (spec 031, US4, research R2), newest first: every history page until
+    /// the node says there is no more, with pending sends merged. Strict: any failure throws
+    /// <see cref="Export.HistoryIncompleteException"/>; the cached last 50 are never used.
+    /// </summary>
+    Task<IReadOnlyList<DigiDollarTransaction>> LoadCompleteHistoryAsync(
+        IProgress<Export.HistoryExportProgress>? progress = null, CancellationToken ct = default) =>
+        Task.FromException<IReadOnlyList<DigiDollarTransaction>>(new NotSupportedException("Complete DigiDollar history is not supported."));
 }

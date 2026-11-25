@@ -109,6 +109,60 @@ public class ExportRowMapperTests
         Assert.Equal("UTC-05:00", winter.UtcOffset);
     }
 
+    // ── DigiDollar rows (US4) ──
+
+    private static DigiDollarTransaction Dd(DdDirection direction, long cents, long? feeSats = 22_600, DdTxStatus status = DdTxStatus.Confirmed,
+        int confirmations = 6) =>
+        new("dd" + cents, direction, "TDcounterparty", cents, feeSats, confirmations,
+            new DateTimeOffset(2026, 11, 18, 2, 2, 44, TimeSpan.Zero), status);
+
+    [Fact]
+    public void DdReceived_IsPositiveDd_WithNoFee()
+    {
+        var row = ExportRowMapper.FromDd(Dd(DdDirection.Received, 1250, feeSats: null), Manila);
+        Assert.Equal(ExportAsset.Dd, row.Asset);
+        Assert.Equal(ExportKind.Received, row.Kind);
+        Assert.Equal(12.50m, row.Amount);
+        Assert.Null(row.FeeDgb);
+        Assert.Equal(2, row.AmountDecimals);
+    }
+
+    [Fact]
+    public void DdSent_IsNegativeDd_AndTheFeeIsNegativeDgb()
+    {
+        var row = ExportRowMapper.FromDd(Dd(DdDirection.Sent, 1250), Manila);
+        Assert.Equal(ExportKind.Sent, row.Kind);
+        Assert.Equal(-12.50m, row.Amount);
+        Assert.Equal(-0.000226m, row.FeeDgb);
+    }
+
+    [Fact]
+    public void DdSelfTransfer_IsAnOwnTransfer_WithZeroAndTheFee()
+    {
+        var row = ExportRowMapper.FromDd(Dd(DdDirection.SelfTransfer, 1250), Manila);
+        Assert.Equal(ExportKind.OwnTransfer, row.Kind);
+        Assert.Equal(0m, row.Amount);
+        Assert.Equal(-0.000226m, row.FeeDgb);
+    }
+
+    [Fact]
+    public void DdFailedSend_IsFailed_WithZeroAmount_SoItIsNeverCounted()
+    {
+        var row = ExportRowMapper.FromDd(Dd(DdDirection.Sent, 1250, status: DdTxStatus.Failed, confirmations: 0), Manila);
+        Assert.Equal(ExportStatus.Failed, row.Status);
+        Assert.Equal(0m, row.Amount);
+        Assert.Null(row.FeeDgb);
+    }
+
+    [Fact]
+    public void DdPending_IsUnconfirmed_InLocalTime()
+    {
+        var row = ExportRowMapper.FromDd(Dd(DdDirection.Received, 100, feeSats: null, status: DdTxStatus.Pending, confirmations: 0), Manila);
+        Assert.Equal(ExportStatus.Unconfirmed, row.Status);
+        Assert.Equal("2026-11-18 10:02:44", row.LocalTime);
+        Assert.Equal("TDcounterparty", row.CounterpartyAddress);
+    }
+
     // ── Addresses and note ──
 
     [Fact]

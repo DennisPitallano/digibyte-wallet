@@ -275,24 +275,24 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Tests for User Story 4
 
-- [ ] T048 [P] [US4] Write `tests/DigiByte.Wallet.Tests/DigiDollarCompleteHistoryTests.cs` using the doubles in `DdTestDoubles.cs`:
+- [X] T048 [P] [US4] Write `tests/DigiByte.Wallet.Tests/DigiDollarCompleteHistoryTests.cs` using the doubles in `DdTestDoubles.cs`:
   - `LoadCompleteHistoryAsync` follows `next` until null, with page size 200, for every address chunk
   - a failed page throws `HistoryIncompleteException`
   - pending sends are merged through `BuildHistory`
   - the cached last-50 history is never used
-- [ ] T049 [P] [US4] Extend `ExportRowMapperTests.cs` with `FromDd(DigiDollarTransaction, …)` per the research R6 table:
+- [X] T049 [P] [US4] Extend `ExportRowMapperTests.cs` with `FromDd(DigiDollarTransaction, …)` per the research R6 table:
   - Received → `+AmountCents/100`
   - Sent → `−AmountCents/100` and Fee `−FeeSats` in DGB
   - SelfTransfer → "Own transfer", 0, Fee
   - `DdTxStatus.Failed` → Status "Failed", Amount 0
   - Asset `DD`, 2 decimals
-- [ ] T050 [P] [US4] Extend `TransactionCsvWriterTests.cs`: for the same language and currency, the DD and DGB header lines are byte-identical: the same 15 columns in the same order (US4 scenario 3)
+- [X] T050 [P] [US4] Extend `TransactionCsvWriterTests.cs`: for the same language and currency, the DD and DGB header lines are byte-identical: the same 15 columns in the same order (US4 scenario 3)
 
 ### Implementation for User Story 4
 
-- [ ] T051 [US4] Add `LoadCompleteHistoryAsync(IProgress<HistoryExportProgress>?, CancellationToken)` to `src/DigiByte.Wallet/Services/IDigiDollarService.cs` and implement it in `DigiDollarService.cs` per research R2, reusing `BuildHistory`/`Classify`. Make T048 pass.
-- [ ] T052 [US4] Implement `ExportRowMapper.FromDd` in `ExportRowMapper.cs`. Make T049 pass.
-- [ ] T053 [US4] Branch `TransactionExportService.ExportAsync` on `Asset`. DD reads `IDigiDollarService.LoadCompleteHistoryAsync`, maps with `FromDd`, and uses a `Peg` price series: 1.00 per day for USD with no request, otherwise one `/api/price/range?asset=dd` request that returns each day's USD rate. The file name uses `DD`. Make T050 pass.
+- [X] T051 [US4] Add `LoadCompleteHistoryAsync(IProgress<HistoryExportProgress>?, CancellationToken)` to `src/DigiByte.Wallet/Services/IDigiDollarService.cs` and implement it in `DigiDollarService.cs` per research R2, reusing `BuildHistory`/`Classify`. Make T048 pass.
+- [X] T052 [US4] Implement `ExportRowMapper.FromDd` in `ExportRowMapper.cs`. Make T049 pass.
+- [X] T053 [US4] Branch `TransactionExportService.ExportAsync` on `Asset`. DD reads `IDigiDollarService.LoadCompleteHistoryAsync`, maps with `FromDd`, and uses a `Peg` price series: 1.00 per day for USD with no request, otherwise one `/api/price/range?asset=dd` request that returns each day's USD rate. The file name uses `DD`. Make T050 pass.
 - [ ] T054 [US4] Add the **Export CSV** button above the history list in `src/DigiByte.Web/Pages/DigiDollar.razor`, opening `ExportCsvSheet` with `Asset = DD` (no "What the list shows" option). Run quickstart scenarios 13 and 14.
 
 **Checkpoint**: DGB and DD files can be pasted together.

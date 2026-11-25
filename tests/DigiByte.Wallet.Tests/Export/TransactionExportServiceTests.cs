@@ -235,6 +235,73 @@ public class TransactionExportServiceTests
         Assert.Contains("\"Price (KES, daily, via USD)\"", header);
     }
 
+    // ── US4: DigiDollar ──
+
+    private sealed class FakeDd(IReadOnlyList<DigiByte.Wallet.Models.DigiDollarTransaction>? history, bool fail = false) : IDigiDollarService
+    {
+        public Task<IReadOnlyList<DigiByte.Wallet.Models.DigiDollarTransaction>> LoadCompleteHistoryAsync(
+            IProgress<HistoryExportProgress>? progress = null, CancellationToken ct = default) =>
+            fail ? Task.FromException<IReadOnlyList<DigiByte.Wallet.Models.DigiDollarTransaction>>(new HistoryIncompleteException("down"))
+                 : Task.FromResult(history!);
+
+        public Task<DdDashboard> RefreshAsync(CancellationToken ct = default, IProgress<DdScanProgress>? progress = null) => throw new NotImplementedException();
+        public Task<DigiByte.Wallet.Models.DigiDollarAddress> NewReceiveAddressAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<DigiByte.Wallet.Models.DigiDollarAddress>> GetReceiveAddressesAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<DdSendCheck> CheckSendAsync(string recipient, long amountCents, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<DdSendResult> SendAsync(string recipient, long amountCents, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<long> GetSendAllAmountAsync(CancellationToken ct = default) => throw new NotImplementedException();
+        public Task AcknowledgeFailedSendAsync(string txid, CancellationToken ct = default) => throw new NotImplementedException();
+        public void ResetSession() { }
+    }
+
+    private static DigiByte.Wallet.Models.DigiDollarTransaction DdTx(string id, DigiByte.Wallet.Models.DdDirection direction, long cents) =>
+        new(id, direction, "TDcounterparty", cents, direction == DigiByte.Wallet.Models.DdDirection.Received ? null : 22_600, 6,
+            DateTimeOffset.UtcNow, DigiByte.Wallet.Models.DdTxStatus.Confirmed);
+
+    [Fact]
+    public async Task Dd_ExportsDdRowsOnly_NamedDd_WithTheUsdPegAndNoPriceRequest()
+    {
+        var (env, wallet) = await WalletWithAsync(2);   // DGB history exists too: it must not appear
+        var dd = new FakeDd([DdTx("d1", DigiByte.Wallet.Models.DdDirection.Received, 1250), DdTx("d2", DigiByte.Wallet.Models.DdDirection.Sent, 500)]);
+        var sut = new TransactionExportService(wallet, env.Chain, dd);
+
+        var result = await sut.ExportAsync(new ExportRequest { Asset = ExportAsset.Dd }, Env());
+
+        Assert.Equal(ExportOutcome.Ready, result.Outcome);
+        Assert.Equal(2, result.RowCount);
+        Assert.EndsWith("-DD-2026-11-26.csv", result.FileName);
+        Assert.All(DataLines(result.Content!), l => Assert.Contains(",DD,", l));
+        Assert.Contains(",DD,Received,12.50,,1.00000000,12.50,", result.Content);
+        Assert.Contains(",DD,Sent,-5.00,-0.00022600,1.00000000,-5.00,", result.Content);
+        Assert.Empty(env.Chain.PriceRequests);
+        Assert.Equal(0, result.RowsWithoutPrice);
+    }
+
+    [Fact]
+    public async Task Dd_OutsideUsd_AsksForTheDdSeries()
+    {
+        var (env, wallet) = await WalletWithAsync(0);
+        var dd = new FakeDd([DdTx("d1", DigiByte.Wallet.Models.DdDirection.Received, 100)]);
+        var sut = new TransactionExportService(wallet, env.Chain, dd);
+
+        await sut.ExportAsync(new ExportRequest { Asset = ExportAsset.Dd }, Env("PHP"));
+
+        var request = Assert.Single(env.Chain.PriceRequests);
+        Assert.Equal("dd", request.Asset);
+        Assert.Equal("PHP", request.Currency);
+    }
+
+    [Fact]
+    public async Task Dd_HistoryUnreadable_IsHistoryUnavailable()
+    {
+        var (env, wallet) = await WalletWithAsync(0);
+        var sut = new TransactionExportService(wallet, env.Chain, new FakeDd(null, fail: true));
+
+        var result = await sut.ExportAsync(new ExportRequest { Asset = ExportAsset.Dd }, Env());
+
+        Assert.Equal(ExportOutcome.HistoryUnavailable, result.Outcome);
+    }
+
     [Fact]
     public async Task WithoutPrices_PriceAndValueAreEmpty_AndCounted()
     {

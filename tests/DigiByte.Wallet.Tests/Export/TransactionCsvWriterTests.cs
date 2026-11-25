@@ -107,6 +107,17 @@ public class TransactionCsvWriterTests
             line);
     }
 
+    [Theory]
+    [InlineData("en", "USD")]
+    [InlineData("es", "KES")]
+    public void DdAndDgbFiles_HaveByteIdenticalHeaderLines(string language, string currency)
+    {
+        var words = CsvWords.For(language);
+        var dgb = TransactionCsvWriter.Write([Row("a", DateTime.UtcNow)], Dot, words, currency, PriceBasis.Native);
+        var dd = TransactionCsvWriter.Write([Row("b", DateTime.UtcNow, 1m, ExportAsset.Dd)], Dot, words, currency, PriceBasis.Native);
+        Assert.Equal(Lines(dgb)[0], Lines(dd)[0]);
+    }
+
     [Fact]
     public void DdRow_HasTwoDecimalAmounts()
     {

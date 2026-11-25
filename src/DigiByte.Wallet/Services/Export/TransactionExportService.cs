@@ -9,7 +9,7 @@ namespace DigiByte.Wallet.Services.Export;
 /// file: an unreadable history is <see cref="ExportOutcome.HistoryUnavailable"/> and nothing to export is
 /// <see cref="ExportOutcome.NothingToExport"/>, both without content (FR-006, FR-017).
 /// </summary>
-public sealed class TransactionExportService(WalletService wallet, IBlockchainService chain)
+public sealed class TransactionExportService(WalletService wallet, IBlockchainService chain, IDigiDollarService? digiDollar = null)
 {
     public async Task<ExportResult> ExportAsync(ExportRequest request, ExportEnvironment env,
         IProgress<HistoryExportProgress>? progress = null, CancellationToken ct = default)
@@ -20,19 +20,33 @@ public sealed class TransactionExportService(WalletService wallet, IBlockchainSe
         try
         {
             ct.ThrowIfCancellationRequested();
-            var records = await wallet.LoadCompleteHistoryAsync(progress, ct);
             var today = env.Today;
-            rows = records
-                .Select(r => (Record: r, Row: ExportRowMapper.FromRecord(r, env.TimeZone, env.NameOf, env.WalletLabelOf)))
-                .Where(x => request.Matches(x.Row, x.Record, today))
-                .Select(x => x.Row)
-                .ToList();
+            if (request.Asset == ExportAsset.Dd)
+            {
+                // One currency per file (FR-014): the DigiDollar screen's history only, amounts in DD.
+                if (digiDollar is null) return ExportResult.Of(ExportOutcome.HistoryUnavailable);
+                var history = await digiDollar.LoadCompleteHistoryAsync(progress, ct);
+                var ddRequest = request.Scope == ExportScope.CurrentView ? request with { Scope = ExportScope.Everything } : request;
+                rows = history
+                    .Select(t => ExportRowMapper.FromDd(t, env.TimeZone, env.NameOf))
+                    .Where(r => ddRequest.Matches(r, null, today))
+                    .ToList();
+            }
+            else
+            {
+                var records = await wallet.LoadCompleteHistoryAsync(progress, ct);
+                rows = records
+                    .Select(r => (Record: r, Row: ExportRowMapper.FromRecord(r, env.TimeZone, env.NameOf, env.WalletLabelOf)))
+                    .Where(x => request.Matches(x.Row, x.Record, today))
+                    .Select(x => x.Row)
+                    .ToList();
+            }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             return ExportResult.Of(ExportOutcome.Cancelled);
         }
-        catch (HistoryIncompleteException)
+        catch (Exception ex) when (ex is HistoryIncompleteException or NotSupportedException)
         {
             return ExportResult.Of(ExportOutcome.HistoryUnavailable);
         }

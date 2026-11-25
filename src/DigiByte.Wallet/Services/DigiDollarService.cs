@@ -322,6 +322,67 @@ public sealed class DigiDollarService : IDigiDollarService
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
+    // ------------------------------------------------------------------ complete history (CSV export, spec 031)
+
+    /// <summary>History page size for the export: the largest the client already asks for.</summary>
+    private const int CompleteHistoryPageSize = 200;
+
+    /// <summary>A guard against a node whose pages never end.</summary>
+    private const int CompleteHistoryMaxPages = 10_000;
+
+    public async Task<IReadOnlyList<DigiDollarTransaction>> LoadCompleteHistoryAsync(
+        IProgress<Export.HistoryExportProgress>? progress = null, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var c = Resolve() ?? throw new Export.HistoryIncompleteException("This wallet has no DigiDollar history.");
+            var state = await LoadStateAsync(c);
+            if (!state.Account.ScanComplete)
+                throw new Export.HistoryIncompleteException("The wallet is still finding its DigiDollar addresses.");
+
+            var addresses = state.Addresses.Select(a => a.Address).Distinct(StringComparer.Ordinal).ToList();
+            var own = new HashSet<string>(addresses, StringComparer.Ordinal);
+            var chunks = addresses.Chunk(MaxAddressesPerRequest).ToList();
+            var entries = new List<DdHistoryEntry>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            progress?.Report(new(0, chunks.Count));
+            try
+            {
+                for (var i = 0; i < chunks.Count; i++)
+                {
+                    string? before = null;
+                    var pages = 0;
+                    do
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var page = await _api.GetHistoryAsync(chunks[i], CompleteHistoryPageSize, before, ct);
+                        foreach (var e in page.Items)
+                            if (seen.Add(e.Txid)) entries.Add(e);
+                        before = page.Next;
+                        if (++pages > CompleteHistoryMaxPages)
+                            throw new Export.HistoryIncompleteException("The DigiDollar history did not end.");
+                    }
+                    while (before is not null);
+                    progress?.Report(new(i + 1, chunks.Count));
+                }
+            }
+            catch (Exception ex) when (ex is DdBackendUnavailableException or DdApiException or HttpRequestException)
+            {
+                throw new Export.HistoryIncompleteException("The complete DigiDollar history could not be read.", ex);
+            }
+
+            return BuildHistory(entries, own, state.PendingSends)
+                .OrderByDescending(t => t.Timestamp)
+                .ToList();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     // ------------------------------------------------------------------ dashboard
 
     private sealed record Built(DigiDollarState State, DdDashboard Dashboard);
