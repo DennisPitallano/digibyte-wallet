@@ -118,5 +118,38 @@
                 osc.onended = () => ctx.close();
             } catch { /* ignore — audio unavailable */ }
         },
+
+        // Hardware keyboard on the keypad: digits, "." / ",", Backspace and Enter (charge).
+        // Ignored while a text field, select or dialog has focus, with modifier keys held, or
+        // when Enter is pressed on a focused button (the button handles that itself). The .NET
+        // side also checks that the keypad screen is showing.
+        bindKeys: function (dotnetRef) {
+            window.digipayPos.unbindKeys();
+            keyHandler = function (e) {
+                if (!dotnetRef || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+                if (!isKeypadKey(e.key)) return;
+                const active = document.activeElement;
+                if (active) {
+                    const tag = (active.tagName || '').toLowerCase();
+                    if (tag === 'input' || tag === 'textarea' || tag === 'select' || active.isContentEditable) return;
+                    if (active.closest && active.closest('[role="dialog"]')) return;
+                    if (e.key === 'Enter' && (tag === 'button' || tag === 'a')) return;
+                }
+                if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+                if (e.key === 'Backspace' || e.key === 'Enter') e.preventDefault();
+                dotnetRef.invokeMethodAsync('OnKeypadKey', e.key).catch(function () { });
+            };
+            document.addEventListener('keydown', keyHandler);
+        },
+        unbindKeys: function () {
+            if (keyHandler) document.removeEventListener('keydown', keyHandler);
+            keyHandler = null;
+        },
     };
+
+    let keyHandler = null;
+    function isKeypadKey(key) {
+        return key === 'Enter' || key === 'Backspace' || key === '.' || key === ','
+            || (typeof key === 'string' && key.length === 1 && key >= '0' && key <= '9');
+    }
 })();

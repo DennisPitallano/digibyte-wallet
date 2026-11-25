@@ -13,7 +13,7 @@ public class ReceiptRenderTests : BunitContext
     private const string Txid = "518485f7939bdbb8bb1332a30712c9ddb48e2f56b0e84e513aecde7fbf4b8d35";
 
     private void UseSession(string status, int confirmations, string? paidAt = "2026-11-25T21:42:00Z",
-        string currency = "DGB", string amountCentsDd = "null", long received = 200000000)
+        string currency = "DGB", string amountCentsDd = "null", long received = 200000000, string? returnUrl = null)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddLogging();
@@ -24,7 +24,8 @@ public class ReceiptRenderTests : BunitContext
              "receivedSatoshis":{{received}},"confirmations":{{confirmations}},"paidTxid":"{{Txid}}",
              "paidAt":{{(paidAt is null ? "null" : $"\"{paidAt}\"")}},
              "uri":"digibyte:dgb1qexample?amount=2","checkoutUrl":"http://x/pay/ses_4jarxgkthx5hk86s",
-             "currency":"{{currency}}","amountCentsDd":{{amountCentsDd}}},
+             "currency":"{{currency}}","amountCentsDd":{{amountCentsDd}},
+             "returnUrl":{{(returnUrl is null ? "null" : $"\"{returnUrl}\"")}}},
              "merchantName":"DigiPay"}
             """));
         Services.AddScoped<ToastService>();
@@ -83,6 +84,76 @@ public class ReceiptRenderTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains("12.50", cut.Markup));
         Assert.Contains("Paid in DigiDollar", cut.Markup);
         Assert.DoesNotContain(">0 <", cut.Markup);
+    }
+
+    [Fact]
+    public void A_receipt_offers_the_way_back_to_the_shop_when_the_shop_gave_one()
+    {
+        UseSession("confirmed", 6, returnUrl: "https://shop.example/thanks");
+        var cut = Render<Receipt>(p => p.Add(x => x.SessionId, "ses_4jarxgkthx5hk86s"));
+        cut.WaitForAssertion(() => Assert.Contains("Payment confirmed", cut.Markup));
+        var back = cut.Find("a.btn-secondary[href='https://shop.example/thanks']");
+        Assert.Contains("Back to the shop", back.TextContent);
+        Assert.True(back.HasAttribute("data-digipay-return-link"));
+    }
+
+    [Fact]
+    public void Without_a_return_url_there_is_no_back_to_the_shop_link()
+    {
+        UseSession("confirmed", 6);
+        var cut = Render<Receipt>(p => p.Add(x => x.SessionId, "ses_4jarxgkthx5hk86s"));
+        cut.WaitForAssertion(() => Assert.Contains("Payment confirmed", cut.Markup));
+        Assert.DoesNotContain("Back to the shop", cut.Markup);
+    }
+
+    [Fact]
+    public void A_receipt_still_confirming_refreshes_until_it_is_final()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddLogging();
+        var factory = new SequenceFactory(Body("paid", 2), Body("paid", 4), Body("confirmed", 6));
+        Services.AddSingleton<IHttpClientFactory>(factory);
+        Services.AddScoped<ToastService>();
+        Services.AddScoped<LiveAnnouncer>();
+        AddBunitPersistentComponentState();
+
+        var cut = Render<Receipt>(p => p
+            .Add(x => x.SessionId, "ses_4jarxgkthx5hk86s")
+            .Add(x => x.PollInterval, TimeSpan.FromMilliseconds(50)));
+
+        cut.WaitForAssertion(() => Assert.Contains("Payment confirmed", cut.Markup), TimeSpan.FromSeconds(10));
+        Assert.Contains("Final", cut.Find(".ui-receipt-status").TextContent);
+        var calls = factory.Calls;
+        Thread.Sleep(300);
+        Assert.Equal(calls, factory.Calls); // stopped once final
+    }
+
+    private static string Body(string status, int confirmations) => $$"""
+        {"session":{"id":"ses_4jarxgkthx5hk86s","address":"dgb1qexample","amountSatoshis":200000000,"amount":2,
+         "fiatCurrency":null,"fiatAmount":null,"label":"Fee","memo":null,
+         "status":"{{status}}","createdAt":"2026-11-25T21:30:00Z","expiresAt":"2026-11-25T22:00:00Z",
+         "receivedSatoshis":200000000,"confirmations":{{confirmations}},"paidTxid":"{{Txid}}",
+         "paidAt":"2026-11-25T21:42:00Z","uri":"digibyte:dgb1qexample?amount=2","checkoutUrl":"http://x/pay/ses",
+         "currency":"DGB","amountCentsDd":null},"merchantName":"DigiPay"}
+        """;
+
+    // Answers each request with the next body, then keeps repeating the last one.
+    private sealed class SequenceFactory(params string[] bodies) : IHttpClientFactory
+    {
+        private readonly string[] items = bodies;
+        private int calls;
+        public int Calls => Volatile.Read(ref calls);
+        public HttpClient CreateClient(string name) => new(new SeqHandler(this)) { BaseAddress = new Uri("http://pay-api.test") };
+
+        private sealed class SeqHandler(SequenceFactory f) : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+            {
+                var n = Interlocked.Increment(ref f.calls) - 1;
+                var json = f.items[Math.Min(n, f.items.Length - 1)];
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") });
+            }
+        }
     }
 
     private sealed class StubFactory(string json) : IHttpClientFactory

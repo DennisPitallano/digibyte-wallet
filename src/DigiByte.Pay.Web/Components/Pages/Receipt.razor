@@ -1,6 +1,6 @@
 @page "/pay/{SessionId}/receipt"
 @rendermode InteractiveServer
-@implements IDisposable
+@implements IAsyncDisposable
 @inject IHttpClientFactory HttpFactory
 @inject PersistentComponentState AppState
 @inject ILogger<Receipt> Log
@@ -9,7 +9,8 @@
 @using System.Net.Http.Json
 
 @* Shopper's proof of payment (spec 032, US1): outcome, amount, a slip of the details, the
-   transaction ID with a copy button and a QR of it, and a Blockchair PDF receipt like the wallet's. Read-only, no live connection.
+   transaction ID with a copy button and a QR of it, and a Blockchair PDF receipt like the wallet's. Read-only, no live connection:
+   until the payment is final it re-reads the session every 15 seconds so the confirmations move.
    Prints dark on white in either theme (FR-028). Same components and states as the checkout. *@
 
 <PageTitle>@PageTitleText</PageTitle>
@@ -148,6 +149,14 @@
                             <span>Print</span>
                         </button>
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(session.ReturnUrl))
+                    {
+                        @* In the embed iframe checkout-countdown.js hands this to the shop's page instead. *@
+                        <a href="@session.ReturnUrl" class="btn-secondary w-full" data-digipay-return-link>
+                            <Icon Name="arrow-left" Class="w-4 h-4" />
+                            <span>Back to the shop</span>
+                        </a>
+                    }
                 </div>
             </article>
         }
@@ -241,7 +250,55 @@
         finally { loading = false; }
     }
 
-    public void Dispose() => persisting?.Dispose();
+    // Until the payment is final the receipt re-reads the session so its confirmations move. Runs only
+    // once interactive (OnAfterRender never runs while prerendering) and stops on dispose.
+    /// <summary>How often a receipt that isn't final yet is refreshed. A parameter so tests can shorten it.</summary>
+    [Parameter] public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(15);
+
+    private readonly CancellationTokenSource lifetime = new();
+    private Task? pollLoop;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (pollLoop is null && session is not null && !CheckoutStates.IsFinal(session.Status))
+            pollLoop = PollAsync();
+    }
+
+    private async Task PollAsync()
+    {
+        using var timer = new PeriodicTimer(PollInterval);
+        try
+        {
+            while (session is not null && !CheckoutStates.IsFinal(session.Status) && await timer.WaitForNextTickAsync(lifetime.Token))
+            {
+                try
+                {
+                    var http = HttpFactory.CreateClient("PayApi");
+                    var response = await http.GetFromJsonAsync<GetSessionResponse>($"/v1/pay/sessions/{Uri.EscapeDataString(SessionId)}", lifetime.Token);
+                    if (response?.Session is not { } fresh) continue;
+                    await InvokeAsync(() =>
+                    {
+                        var hadTxid = session?.PaidTxid;
+                        session = fresh;
+                        merchantName = response.MerchantName ?? merchantName;
+                        if (!string.IsNullOrEmpty(fresh.PaidTxid) && fresh.PaidTxid != hadTxid) qrDataUrl = GenerateQr(fresh.PaidTxid);
+                        StateHasChanged();
+                    });
+                }
+                catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
+                catch (Exception ex) { Log.LogDebug(ex, "Receipt refresh failed for {SessionId}", SessionId); }
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        persisting?.Dispose();
+        lifetime.Cancel();
+        if (pollLoop is not null) { try { await pollLoop; } catch { } }
+        lifetime.Dispose();
+    }
 
     private async Task PrintAsync() => await JS.InvokeVoidAsync("window.print");
 
@@ -285,5 +342,7 @@
         DateTime? PaidAt = null,
         // DigiDollar: Currency = "DGB" (default) or "DD"; for DD, AmountCentsDd carries USD cents.
         string Currency = "DGB",
-        long? AmountCentsDd = null);
+        long? AmountCentsDd = null,
+        // Optional merchant URL the shopper goes back to (the same one the checkout uses).
+        string? ReturnUrl = null);
 }

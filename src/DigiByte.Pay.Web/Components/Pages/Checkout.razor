@@ -41,7 +41,10 @@
         else
         {
             var final = CheckoutStates.IsFinal(session.Status);
-            <div data-digipay-measure class="card ui-checkout">
+            @* data-digipay-status/-session/-return-url: inside the embed iframe, checkout-countdown.js posts
+               each status change to the shop's page (digipay.js). *@
+            <div data-digipay-measure class="card ui-checkout" data-digipay-status="@session.Status"
+                 data-digipay-session="@session.Id" data-digipay-return-url="@session.ReturnUrl">
                 <header class="ui-checkout-header">
                     <div class="min-w-0">
                         @if (!string.IsNullOrWhiteSpace(session.Label))
