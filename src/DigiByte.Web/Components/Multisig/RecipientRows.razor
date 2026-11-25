@@ -19,7 +19,7 @@
             </div>
 
             <RecipientInput @ref="inputs[index]" Address="@row.Address" Label="@L.T("send.recipient")" InputId="@($"ms-recipient-{index}")"
-                            InputAriaLabel="@L.T("send.batch.recipient_n", index + 1)"
+                            InputAriaLabel="@L.T("send.batch.recipient_n", index + 1)" ContactList="ContactList"
                             Error="@row.AddressError" AddressChanged="v => OnAddressAsync(row, v)"
                             OnPaymentLink="link => OnPaymentLinkAsync(row, link)" OnScanRequested="() => OnScanRequested.InvokeAsync(index)" />
 
@@ -69,6 +69,9 @@
     public const int MinRows = 2;
 
     [Parameter, EditorRequired] public List<Row> Rows { get; set; } = [];
+
+    /// <summary>Your own wallets and saved contacts, for each row's Contacts button.</summary>
+    [Parameter] public IReadOnlyList<Contact>? ContactList { get; set; }
 
     /// <summary>Raised after any row is added, removed or edited.</summary>
     [Parameter] public EventCallback RowsChanged { get; set; }

@@ -50,32 +50,68 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 14.625v2.625m3.375-2.625v2.625" />
                 </svg>
             </button>
-            @if (contacts.Count > 0)
-            {
-                <button type="button" class="icon-btn flex-shrink-0"
-                        @onclick="() => showContacts = !showContacts" title="@L.T("send.contacts")" aria-label="@L.T("send.contacts")" aria-expanded="@showContacts">
-                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-                    </svg>
-                </button>
-            }
+            <button type="button" class="icon-btn flex-shrink-0" data-testid="browse-contacts"
+                    @onclick="ToggleContacts" title="@L.T("send.contacts")" aria-label="@L.T("send.contacts")" aria-expanded="@showContacts">
+                <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                </svg>
+            </button>
         </div>
 
-        @if (showContacts && contacts.Count > 0)
+        @if (showContacts)
         {
-            <div class="scale-in bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl max-h-40 overflow-y-auto">
-                @foreach (var c in contacts)
+            @* Your own wallets first, then saved contacts; only addresses that can be paid on this network. *@
+            <div class="scale-in bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl overflow-hidden" data-testid="contact-browser">
+                @if (AllContacts.Count == 0)
                 {
-                    var contact = c;
-                    <button type="button" class="w-full flex items-center gap-2 px-3 py-2 min-h-[44px] hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors text-left" @onclick="() => PickContact(contact)">
-                        <div class="w-7 h-7 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
-                            <span class="text-xs font-bold text-dgb-600 dark:text-dgb-400">@contact.Name[..1].ToUpper()</span>
+                    <div class="px-3 py-3 flex flex-col gap-1">
+                        <p class="text-xs text-slate-500 dark:text-slate-400">@L.T("ms.ui.recipient.no_contacts")</p>
+                        <a href="contacts" class="text-xs font-semibold text-dgb-500 min-h-[32px] inline-flex items-center">@L.T("ms.ui.recipient.open_contacts")</a>
+                    </div>
+                }
+                else
+                {
+                    @if (AllContacts.Count > SearchFrom)
+                    {
+                        <div class="p-2 border-b border-slate-100 dark:border-dgb-800">
+                            <input type="search" value="@contactFilter" @oninput="e => contactFilter = e.Value?.ToString() ?? string.Empty"
+                                   placeholder="@L.T("ms.ui.recipient.search_contacts")" aria-label="@L.T("ms.ui.recipient.search_contacts")"
+                                   autocomplete="off" spellcheck="false" class="input w-full text-sm" />
                         </div>
-                        <div class="min-w-0">
-                            <p class="text-sm font-medium text-slate-900 dark:text-white truncate">@contact.Name</p>
-                            <p class="text-xs font-mono text-slate-400 truncate">@contact.Address</p>
-                        </div>
-                    </button>
+                    }
+                    <div class="max-h-56 overflow-y-auto" role="list">
+                        @foreach (var c in FilteredContacts)
+                        {
+                            var contact = c;
+                            <button type="button" role="listitem" class="w-full flex items-center gap-2 px-3 py-2 min-h-[44px] hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors text-left" @onclick="() => PickContact(contact)">
+                                @if (contact.IsWallet)
+                                {
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style="background-color: @(contact.WalletColor ?? "#0066FF")20;">
+                                        <svg class="w-3.5 h-3.5" style="color: @(contact.WalletColor ?? "#0066FF");" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+                                        </svg>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="w-7 h-7 rounded-full bg-dgb-100 dark:bg-dgb-800 flex items-center justify-center flex-shrink-0">
+                                        <span class="text-xs font-bold text-dgb-600 dark:text-dgb-400">@contact.Name[..1].ToUpper()</span>
+                                    </div>
+                                }
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium text-slate-900 dark:text-white truncate">
+                                        @contact.Name
+                                        @if (contact.IsWallet) { <span class="ml-1 text-[10px] font-semibold uppercase text-slate-400">@L.T("ms.ui.recipient.my_wallet")</span> }
+                                    </p>
+                                    <p class="text-xs font-mono text-slate-400 truncate">@contact.Address</p>
+                                </div>
+                            </button>
+                        }
+                        @if (!FilteredContacts.Any())
+                        {
+                            <p class="px-3 py-3 text-xs text-slate-500 dark:text-slate-400">@L.T("ms.ui.recipient.no_match")</p>
+                        }
+                    </div>
                 }
             </div>
         }
@@ -112,6 +148,27 @@
     /// <summary>A name for the address box read by screen readers when the visible label alone repeats ("Recipient 2").</summary>
     [Parameter] public string? InputAriaLabel { get; set; }
 
+    /// <summary>
+    /// What the Contacts button lists: the page's own wallets and saved contacts, loaded once for every recipient field.
+    /// When null the field loads saved contacts itself.
+    /// </summary>
+    [Parameter] public IReadOnlyList<Contact>? ContactList { get; set; }
+
+    // A search box appears once the list is longer than this.
+    private const int SearchFrom = 5;
+    private string contactFilter = string.Empty;
+    private IReadOnlyList<Contact> AllContacts => ContactList ?? contacts;
+    private IEnumerable<Contact> FilteredContacts => string.IsNullOrWhiteSpace(contactFilter)
+        ? AllContacts
+        : AllContacts.Where(c => c.Name.Contains(contactFilter.Trim(), StringComparison.CurrentCultureIgnoreCase)
+                              || c.Address.Contains(contactFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private void ToggleContacts()
+    {
+        showContacts = !showContacts;
+        contactFilter = string.Empty;
+    }
+
     /// <summary>Raised when a scanned or pasted payment link carries an amount or label to prefill.</summary>
     [Parameter] public EventCallback<ScanResult> OnPaymentLink { get; set; }
 
@@ -127,6 +184,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (ContactList is not null) return;   // the page supplies the list
         try { contacts = (await Contacts.GetAllAsync()).Where(c => !string.IsNullOrWhiteSpace(c.Address)).ToList(); }
         catch { contacts = []; }   // the picker is optional: hide it when contacts can't be read
     }

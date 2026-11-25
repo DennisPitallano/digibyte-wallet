@@ -64,7 +64,7 @@ else
             @if (batchMode)
             {
                 <div class="slide-up-delay-1">
-                    <RecipientRows @ref="rowsRef" Rows="rows" RowsChanged="OnRowsChanged" OnScanRequested="OpenScannerForRow" />
+                    <RecipientRows @ref="rowsRef" Rows="rows" ContactList="contactList" RowsChanged="OnRowsChanged" OnScanRequested="OpenScannerForRow" />
                 </div>
                 @if (utxosFailed)
                 {
@@ -87,7 +87,7 @@ else
             {
             @* Recipient: type, paste, scan or pick a contact, like the Send page *@
             <div class="slide-up-delay-1">
-                <RecipientInput @ref="recipient" Address="@destination" AddressChanged="OnAddressChanged" Error="@destinationError"
+                <RecipientInput @ref="recipient" Address="@destination" AddressChanged="OnAddressChanged" Error="@destinationError" ContactList="contactList"
                                 IsOwnAddress="@(destCheck?.IsOwnAddress ?? false)" OnPaymentLink="OnPaymentLink"
                                 OnScanRequested="() => showScanner = true" />
             </div>
@@ -557,17 +557,44 @@ else
         Nav.NavigateTo(ScanRouter.SendPagePath(null, Link.GetValueOrDefault() + 1));
     }
 
-    // Names shown next to addresses come only from this device's contacts (FR-011a).
+    // What the Contacts button lists, loaded once for every recipient field: this device's wallets first (the wallet that
+    // owns this shared wallet included, so paying it back is one tap), then saved contacts. Only addresses valid on this
+    // network are offered. Names shown next to addresses come only from here, never from a proposal (FR-011a).
+    private List<Contact> contactList = [];
+
     private async Task LoadContactNames()
     {
         try
         {
-            contactNames = (await Contacts.GetAllAsync())
-                .Where(c => !string.IsNullOrWhiteSpace(c.Address) && !string.IsNullOrWhiteSpace(c.Name))
+            var all = await Contacts.GetAllWithWalletsAsync(WalletService);
+            var activeId = WalletService.ActiveWallet?.Id;
+            if (activeId is not null && WalletService.GetReceivingAddressForWallet(activeId) is { Length: > 0 } ownerAddress)
+            {
+                all.Insert(0, new Contact
+                {
+                    Id = $"wallet:{activeId}",
+                    Name = WalletService.ActiveWallet!.Name,
+                    Address = ownerAddress,
+                    Notes = "My wallet",
+                    IsWallet = true,
+                    WalletColor = WalletService.ActiveWallet.Color,
+                });
+            }
+            var network = MultisigService.ActiveNetwork;
+            contactList = all
+                .Where(c => !string.IsNullOrWhiteSpace(c.Address) && !string.IsNullOrWhiteSpace(c.Name)
+                            && DigiByte.Crypto.Addresses.AddressValidator.IsValid(c.Address.Trim(), network)
+                            && !string.Equals(c.Address.Trim(), config?.Address, StringComparison.OrdinalIgnoreCase))
                 .GroupBy(c => c.Address.Trim(), StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
+                .Select(g => g.First())
+                .ToList();
+            contactNames = contactList.ToDictionary(c => c.Address.Trim(), c => c.Name, StringComparer.OrdinalIgnoreCase);
         }
-        catch { contactNames = new(StringComparer.OrdinalIgnoreCase); }
+        catch
+        {
+            contactList = [];
+            contactNames = new(StringComparer.OrdinalIgnoreCase);
+        }
         StateHasChanged();
     }
 
