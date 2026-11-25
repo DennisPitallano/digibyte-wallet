@@ -1,1 +1,272 @@
-/* DigiPay docs styles. Loaded after digipay.css; built only from the shared ui.css tokens. */
+/* DigiPay public website + developer docs.
+   Built only from the shared tokens in DigiByte.UI's ui.css (--ui-*), so light and dark follow the
+   `dark` class theme.js puts on <html>. Loaded after digipay.css. Components: DocsLayout, DocsHeading,
+   ParamList/Param, Endpoint, SiteFooter, plus a few page helpers (callouts, tables, roadmap). */
+
+/* ----- Docs frame (DocsLayout) ----- */
+.dp-docs {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 2rem 1rem 3rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+}
+@media (min-width: 640px) { .dp-docs { padding: 3rem 1.5rem; } }
+@media (min-width: 1024px) { .dp-docs { grid-template-columns: 14rem minmax(0, 1fr); gap: 3rem; } }
+
+.dp-docs-main { min-width: 0; }
+.dp-docs-article { max-width: 48rem; min-width: 0; }
+
+/* Left menu: wide screens only, stays in view while the page scrolls. */
+.dp-docs-side { display: none; }
+@media (min-width: 1024px) {
+    .dp-docs-side {
+        display: block;
+        position: sticky;
+        top: 1.5rem;
+        align-self: start;
+        max-height: calc(100vh - 3rem);
+        overflow-y: auto;
+        padding-bottom: 1rem;
+    }
+}
+.dp-docs-nav ul, .dp-docs-mobile ul { list-style: none; margin: 0; padding: 0; }
+.dp-docs-nav-title {
+    margin: 0 0 0.5rem;
+    padding: 0 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ui-text-muted);
+}
+.dp-docs-nav-link {
+    display: block;
+    padding: 0.4375rem 0.75rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ui-text-muted);
+    text-decoration: none;
+}
+.dp-docs-nav-link:hover { color: var(--ui-text); background: var(--ui-ghost-hover); }
+.dp-docs-nav-link[aria-current="page"] { color: var(--ui-ghost-text); background: var(--ui-ghost-hover); font-weight: 600; }
+.dp-docs-nav-link:focus-visible, .dp-docs-toc-link:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+.dp-docs-toc { margin: 0.25rem 0 0.5rem 0.75rem !important; padding-left: 0.5rem !important; border-left: 1px solid var(--ui-border); }
+.dp-docs-toc-link {
+    display: block;
+    padding: 0.3125rem 0.5rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--ui-text-muted);
+    text-decoration: none;
+}
+.dp-docs-toc-link:hover { color: var(--ui-text); background: var(--ui-ghost-hover); }
+.dp-docs-toc-sub { padding-left: 1.125rem; font-size: 0.78125rem; }
+.dp-docs-extra { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--ui-border); }
+
+/* Phones and tablets: the menu folds into one disclosure above the content. */
+.dp-docs-mobile {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface);
+}
+@media (min-width: 1024px) { .dp-docs-mobile { display: none; } }
+.dp-docs-mobile > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ui-text);
+    cursor: pointer;
+    list-style: none;
+}
+.dp-docs-mobile > summary::-webkit-details-marker { display: none; }
+.dp-docs-mobile > summary:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; border-radius: var(--ui-radius); }
+.dp-docs-mobile[open] .dp-docs-mobile-chevron { transform: rotate(180deg); }
+.dp-docs-mobile-body {
+    display: grid;
+    gap: 1rem;
+    padding: 0.25rem 0.5rem 0.875rem;
+    border-top: 1px solid var(--ui-border);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+.dp-docs-mobile-body .dp-docs-toc { margin: 0.5rem 0 0 !important; border-left: 0; padding-left: 0 !important; }
+.dp-docs-mobile-body .dp-docs-nav-title { margin-top: 0.25rem; }
+
+/* ----- Page header inside the docs frame ----- */
+.dp-docs-eyebrow {
+    margin: 0 0 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ui-primary);
+}
+.dp-docs-title { margin: 0 0 0.75rem; font-size: 1.75rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; color: var(--ui-text); }
+@media (min-width: 640px) { .dp-docs-title { font-size: 2.25rem; } }
+.dp-docs-lead { margin: 0 0 1.5rem; font-size: 1.0625rem; line-height: 1.6; color: var(--ui-text-muted); }
+
+/* ----- Headings with anchor links (DocsHeading) ----- */
+.dp-docs-h { position: relative; color: var(--ui-text); letter-spacing: -0.01em; scroll-margin-top: 1.5rem; }
+.dp-docs-h2 { margin: 2.5rem 0 0.5rem; font-size: 1.125rem; font-weight: 700; line-height: 1.3; }
+@media (min-width: 640px) { .dp-docs-h2 { font-size: 1.25rem; } }
+.dp-docs-h3 { margin: 1.75rem 0 0.5rem; font-size: 1rem; font-weight: 700; line-height: 1.35; }
+.dp-docs-anchor {
+    margin-left: 0.375rem;
+    padding: 0 0.25rem;
+    border-radius: var(--ui-radius-sm);
+    font-weight: 500;
+    color: var(--ui-text-muted);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity var(--motion-fast, 120ms) ease;
+}
+.dp-docs-h:hover .dp-docs-anchor, .dp-docs-anchor:focus-visible { opacity: 1; }
+.dp-docs-anchor:hover { color: var(--ui-primary); }
+.dp-docs-anchor:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+@media (hover: none) { .dp-docs-anchor { opacity: 0.45; } }
+
+/* Any linked target in the docs lands a little below the top of the window. */
+.dp-docs-article [id], .dp-site section[id] { scroll-margin-top: 1.5rem; }
+
+/* ----- Body text helpers ----- */
+.dp-docs-article p, .dp-docs-article li { overflow-wrap: anywhere; }
+.dp-docs-article a:not([class]) { color: var(--ui-primary); }
+.dp-docs-article a:not([class]):hover { text-decoration: underline; }
+
+.dp-callout {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--ui-border);
+    border-left: 3px solid var(--ui-primary);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: var(--ui-text);
+}
+.dp-callout p { margin: 0; }
+.dp-callout p + p { margin-top: 0.5rem; }
+.dp-callout-warn { border-left-color: #d97706; }
+
+/* ----- Request/response field lists (ParamList, Param) ----- */
+.dp-params { margin: 0.875rem 0; }
+.dp-params-title {
+    margin: 0 0 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ui-text-muted);
+}
+.dp-params-list { margin: 0; border-top: 1px solid var(--ui-border); }
+.dp-param { padding: 0.5rem 0; border-bottom: 1px solid var(--ui-border); }
+.dp-param dt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.375rem 0.5rem; }
+.dp-param dd { margin: 0.125rem 0 0; font-size: 0.875rem; line-height: 1.55; color: var(--ui-text-muted); overflow-wrap: anywhere; }
+.dp-param-name { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8125rem; font-weight: 600; color: var(--ui-text); }
+.dp-param-type { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.75rem; color: var(--ui-text-muted); }
+.dp-param-req { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #b45309; }
+.dark .dp-param-req { color: #fbbf24; }
+
+/* ----- Endpoint card extras ----- */
+.dp-endpoint { scroll-margin-top: 1.5rem; }
+.dp-endpoint-auth {
+    margin-left: auto;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+    white-space: nowrap;
+}
+.dp-endpoint > p:last-child, .dp-endpoint > .dp-params:last-child { margin-bottom: 0; }
+
+/* ----- Plain data tables (events, status codes) ----- */
+.dp-table-wrap { margin: 0.75rem 0 1rem; overflow-x: auto; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.dp-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.dp-table th {
+    padding: 0.625rem 0.875rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+    border-bottom: 1px solid var(--ui-border);
+    white-space: nowrap;
+}
+.dp-table td { padding: 0.625rem 0.875rem; vertical-align: top; color: var(--ui-text); border-bottom: 1px solid var(--ui-border); line-height: 1.5; }
+.dp-table tr:last-child td { border-bottom: 0; }
+.dp-table td:first-child { white-space: nowrap; }
+
+/* ----- Buttons that read as links (in-page actions) ----- */
+.dp-linklike { padding: 0; border: 0; background: none; font: inherit; color: var(--ui-primary); cursor: pointer; text-align: left; }
+.dp-linklike:hover { text-decoration: underline; }
+.dp-linklike:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; border-radius: 2px; }
+
+/* ----- Site footer ----- */
+.dp-footer { margin-top: 4rem; padding: 2.5rem 1rem 2rem; border-top: 1px solid var(--ui-border); font-size: 0.875rem; color: var(--ui-text-muted); }
+.dp-footer-grid { max-width: 72rem; margin: 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem 1.5rem; }
+@media (min-width: 768px) { .dp-footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; padding: 0 0.5rem; } }
+.dp-footer-brand { grid-column: 1 / -1; }
+@media (min-width: 768px) { .dp-footer-brand { grid-column: auto; } }
+.dp-footer-brand p { margin: 0.625rem 0 0.875rem; max-width: 22rem; line-height: 1.55; }
+.dp-footer a { color: inherit; text-decoration: none; }
+.dp-footer a:hover { color: var(--ui-text); text-decoration: underline; }
+.dp-footer a:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; border-radius: 2px; }
+.dp-footer-col h2 { margin: 0 0 0.625rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ui-text); }
+.dp-footer-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.375rem; }
+.dp-footer-col li a { display: inline-block; padding: 0.125rem 0; }
+.dp-footer .dp-footer-telegram {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(34, 158, 217, 0.1);
+    color: #1d7fb0;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.dark .dp-footer .dp-footer-telegram { color: #4ec0e6; }
+.dp-footer .dp-footer-telegram:hover { background: rgba(34, 158, 217, 0.16); text-decoration: none; }
+.dp-footer-credit { max-width: 72rem; margin: 2rem auto 0; padding: 1.25rem 0.5rem 0; border-top: 1px solid var(--ui-border); font-size: 0.75rem; }
+
+/* ----- Roadmap (Features) and the home page's "recently shipped" strip ----- */
+.dp-roadmap-group + .dp-roadmap-group { margin-top: 2rem; }
+.dp-roadmap-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+@media (min-width: 640px) { .dp-roadmap-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dp-roadmap-item { padding: 1rem 1.125rem; }
+.dp-roadmap-item h4 { margin: 0 0 0.25rem; font-size: 0.9375rem; font-weight: 700; color: var(--ui-text); }
+.dp-roadmap-item p { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--ui-text-muted); }
+.dp-shipped-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+@media (min-width: 640px) { .dp-shipped-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .dp-shipped-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.dp-shipped-item { display: flex; gap: 0.625rem; align-items: flex-start; padding: 0.875rem 1rem; }
+.dp-shipped-item strong { display: block; font-size: 0.875rem; color: var(--ui-text); }
+.dp-shipped-item span { display: block; margin-top: 0.125rem; font-size: 0.8125rem; line-height: 1.45; color: var(--ui-text-muted); }
+
+/* ----- Static donation button demo (home page) ----- */
+.dp-tip-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.125rem;
+    border-radius: 10px;
+    background: #0066ff;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.dp-tip-button:hover { background: #0052cc; color: #fff; }
+.dp-tip-button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }

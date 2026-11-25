@@ -4,7 +4,7 @@
 @* Code sample with a copy button (FR-035): fixed-width font, and a notice confirms the copy.
    The text comes from the rendered <code>, so callers keep passing the sample as child content. *@
 <div class="dp-code">
-    <pre id="@id" class="dp-code-pre" tabindex="0" role="region" aria-label="@(Label is null ? "Code sample" : Label.Replace("Copy ", ""))"><code>@ChildContent</code></pre>
+    <pre id="@id" class="dp-code-pre" tabindex="0" role="region" data-lang="@Lang" aria-label="@(Label is null ? "Code sample" : Label.Replace("Copy ", ""))"><code>@ChildContent</code></pre>
     <button type="button" class="dp-code-copy" aria-label="@(Label ?? "Copy code")" @onclick="CopyAsync">
         <Icon Name="copy" Class="w-4 h-4" /><span>Copy</span>
     </button>
@@ -15,6 +15,13 @@
 
     /// <summary>Accessible name for the copy button, for example "Copy the curl example".</summary>
     [Parameter] public string? Label { get; set; }
+
+    /// <summary>
+    /// Language of the sample ("json", "bash", "js", "python", "csharp", "php", "html"), written to data-lang.
+    /// Samples marked "json" must be valid JSON as written: no comments, so a copied sample parses
+    /// (tests/DigiByte.Pay.Web.Tests/DocsJsonSampleTests checks this). Put notes in a parameter list instead.
+    /// </summary>
+    [Parameter] public string? Lang { get; set; }
 
     private readonly string id = "code-" + Guid.NewGuid().ToString("N")[..8];
 

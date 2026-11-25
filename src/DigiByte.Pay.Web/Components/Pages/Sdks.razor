@@ -1,14 +1,11 @@
 @page "/sdks"
 @layout SiteLayout
-@rendermode InteractiveServer
+@using System.Collections.Concurrent
+@using System.Text.Json
 @inject IJSRuntime JS
 @inject ToastService Toasts
+@inject IHttpClientFactory HttpFactory
 <PageTitle>SDKs — DigiPay</PageTitle>
-
-<HeadContent>
-    @* Version-badge fetch is a one-shot JS call; tabs/copy are Blazor. *@
-    <script src="/sdks-page.js" defer></script>
-</HeadContent>
 
 
     <main class="flex-1 page-enter">
@@ -47,7 +44,7 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2">
                                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Node.js</span>
-                                <span data-version-badge="npm" class="opacity-0 transition-opacity text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" title="Latest published version"></span>
+                                <span data-version-badge="npm" class="@(Version("npm") is null ? "opacity-0" : "") transition-opacity text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" title="Latest published version">@(Version("npm") is { } vnpm ? $"v{vnpm}" : "")</span>
                             </div>
                             <div class="font-bold text-slate-900 dark:text-white truncate">@("@dgbwallet/digipay")</div>
                         </div>
@@ -79,7 +76,7 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2">
                                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Python</span>
-                                <span data-version-badge="pypi" class="opacity-0 transition-opacity text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" title="Latest published version"></span>
+                                <span data-version-badge="pypi" class="@(Version("pypi") is null ? "opacity-0" : "") transition-opacity text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" title="Latest published version">@(Version("pypi") is { } vpypi ? $"v{vpypi}" : "")</span>
                             </div>
                             <div class="font-bold text-slate-900 dark:text-white truncate">digipay</div>
                         </div>
@@ -111,7 +108,7 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2">
                                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">.NET</span>
-                                <span data-version-badge="nuget" class="opacity-0 transition-opacity text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" title="Latest published version"></span>
+                                <span data-version-badge="nuget" class="@(Version("nuget") is null ? "opacity-0" : "") transition-opacity text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" title="Latest published version">@(Version("nuget") is { } vnuget ? $"v{vnuget}" : "")</span>
                             </div>
                             <div class="font-bold text-slate-900 dark:text-white truncate">DigiPay</div>
                         </div>
@@ -254,7 +251,8 @@
                             <tr><td class="font-mono text-xs">400</td><td>Validation — <InlineCode>err.body.error</InlineCode> has the field</td><td class="text-red-500 dark:text-red-400">No — fix input</td></tr>
                             <tr><td class="font-mono text-xs">401</td><td>Missing or invalid API key</td><td class="text-red-500 dark:text-red-400">No — rotate</td></tr>
                             <tr><td class="font-mono text-xs">404</td><td>Not found or not owned by this merchant</td><td class="text-red-500 dark:text-red-400">No</td></tr>
-                            <tr><td class="font-mono text-xs">429</td><td>Rate-limited (sandbox endpoints only)</td><td class="text-amber-600 dark:text-amber-400">Honour <InlineCode>Retry-After</InlineCode></td></tr>
+                            <tr><td class="font-mono text-xs">409</td><td>Wrong state, for example refunding a session that isn't paid</td><td class="text-red-500 dark:text-red-400">No — check the status</td></tr>
+                            <tr><td class="font-mono text-xs">429</td><td>Rate-limited (store, account and key endpoints: 120/min per key; sign-up, sign-in and sandbox: per client address). See <a href="/docs/api#rate-limits" class="text-dgb-500 hover:underline">limits</a></td><td class="text-amber-600 dark:text-amber-400">Yes, after the window resets, with backoff</td></tr>
                             <tr><td class="font-mono text-xs">≥ 500</td><td>Server-side</td><td class="text-emerald-600 dark:text-emerald-400">Yes, with backoff</td></tr>
                         </tbody>
                     </table>
@@ -355,16 +353,16 @@
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Download collection</div>
                             <div class="text-xs text-slate-500 dark:text-slate-400 truncate">digipay.postman_collection.json (Postman 2.1)</div>
                         </div>
-                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                        <Icon Name="download" Class="w-4 h-4 text-slate-400 shrink-0" />
                     </a>
                     <a href="/docs/api"
                        class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="code" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
-                            <div class="text-sm font-semibold text-slate-900 dark:text-white">Live API explorer</div>
-                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Scalar reference + OpenAPI download</div>
+                            <div class="text-sm font-semibold text-slate-900 dark:text-white">API reference</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Endpoints, Scalar explorer, OpenAPI download</div>
                         </div>
-                        <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
+                        <Icon Name="arrow-right" Class="w-4 h-4 text-slate-400 shrink-0" />
                     </a>
                 </div>
             </section>
@@ -417,6 +415,48 @@
     private string createTab = "node";
     private string verifyTab = "node";
     private string? copiedKey;
+
+    // Latest published versions, fetched on the server once the page is live (not during the server
+    // render, so registries can't slow the first HTML) and cached for an hour across visitors.
+    private static readonly ConcurrentDictionary<string, (string? Version, DateTime At)> VersionCache = new();
+    private readonly Dictionary<string, string?> versions = new();
+
+    private string? Version(string registry) => versions.GetValueOrDefault(registry);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+        var found = await Task.WhenAll(new[] { "npm", "pypi", "nuget" }.Select(async r => (r, v: await LatestVersionAsync(r))));
+        foreach (var (r, v) in found) versions[r] = v;
+    }
+
+    private async Task<string?> LatestVersionAsync(string registry)
+    {
+        if (VersionCache.TryGetValue(registry, out var hit) && DateTime.UtcNow - hit.At < TimeSpan.FromHours(1))
+            return hit.Version;
+        string? version = null;
+        try
+        {
+            var url = registry switch
+            {
+                "npm" => "https://registry.npmjs.org/@dgbwallet/digipay/latest",
+                "pypi" => "https://pypi.org/pypi/digipay/json",
+                _ => "https://api.nuget.org/v3-flatcontainer/digipay/index.json",
+            };
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var doc = JsonDocument.Parse(await HttpFactory.CreateClient().GetStringAsync(url, cts.Token));
+            var root = doc.RootElement;
+            version = registry switch
+            {
+                "npm" => root.TryGetProperty("version", out var v) ? v.GetString() : null,
+                "pypi" => root.TryGetProperty("info", out var info) && info.TryGetProperty("version", out var pv) ? pv.GetString() : null,
+                _ => root.TryGetProperty("versions", out var list) && list.GetArrayLength() > 0 ? list[list.GetArrayLength() - 1].GetString() : null,
+            };
+        }
+        catch { /* offline or registry down: no badge */ }
+        VersionCache[registry] = (version, DateTime.UtcNow);
+        return version;
+    }
 
     private async Task CopyAsync(string key, string text)
     {

@@ -4,32 +4,16 @@
 <PageTitle>POS mode — DigiPay</PageTitle>
 
 
-    <main class="flex-1 page-enter">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 grid lg:grid-cols-[220px,1fr] gap-8">
-
-            @* ----- Sidebar menu ----- *@
-            <aside class="lg:sticky lg:top-6 self-start">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">POS guide</p>
-                <nav class="flex flex-col text-sm">
-                    <a href="/docs/pos#overview" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">1. What is POS mode?</a>
-                    <a href="/docs/pos#pair" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">2. Pair a tablet</a>
-                    <a href="/docs/pos#take-payment" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">3. Take a payment</a>
-                    <a href="/docs/pos#refund-void" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">4. Refund or void</a>
-                    <a href="/docs/pos#shift-close" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">5. End-of-day close</a>
-                    <a href="/docs/pos#audit" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">6. Audit trail</a>
-                    <a href="/docs/pos#manage-devices" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">7. Manage devices</a>
-                    <a href="/docs/pos#faq" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">FAQ</a>
-                    <div class="mt-4 border-t border-slate-200 dark:border-dgb-800 pt-3 flex flex-col gap-1">
-                        <a href="/features" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">← Back to Features</a>
-                        <a href="/docs" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">How it works (API)</a>
-                        <a href="/docs/api" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">API reference</a>
-                    </div>
-                </nav>
-            </aside>
-
-            @* ----- Content ----- *@
-            <article class="max-w-3xl">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-dgb-500 mb-2">Point-of-sale guide · Apr 2026</p>
+<main class="flex-1 page-enter">
+    <DocsLayout Current="/docs/pos" Toc="toc">
+        <Extra>
+            <div class="dp-docs-extra">
+                <a href="/features" class="dp-docs-nav-link">← Features tour</a>
+            </div>
+        </Extra>
+        <ChildContent>
+            <article class="dp-docs-article">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-dgb-500 mb-2">Point-of-sale guide</p>
                 <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3 slide-up">DigiPay POS mode</h1>
                 <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 slide-up-delay-1">
                     Turn any tablet, phone, or spare laptop into a countertop DigiByte terminal in under a minute.
@@ -216,6 +200,20 @@
                     </div>
                 </section>
             </article>
-        </div>
-    </main>
+        </ChildContent>
+    </DocsLayout>
+</main>
 
+@code {
+    private static readonly DocsTocItem[] toc =
+    [
+        new("overview", "1. What is POS mode?"),
+        new("pair", "2. Pair a tablet"),
+        new("take-payment", "3. Take a payment"),
+        new("refund-void", "4. Refund or void"),
+        new("shift-close", "5. End-of-day close"),
+        new("audit", "6. Audit trail"),
+        new("manage-devices", "7. Manage devices"),
+        new("faq", "FAQ"),
+    ];
+}

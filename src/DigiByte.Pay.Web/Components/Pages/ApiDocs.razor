@@ -29,225 +29,460 @@
         return $"{uri.Scheme}://api.{host}";
     }
     var apiPublic = ResolveApiPublic();
+
+    const string P = "leading-relaxed text-slate-700 dark:text-slate-300 mb-3";
+    const string Small = "text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3";
 }
 
-
-    <main class="flex-1 page-enter">
-        <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-            <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2 slide-up">API reference</h1>
-            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-4 slide-up-delay-1">
-                DigiPay speaks plain REST. All endpoints live under <InlineCode>/v1/pay</InlineCode>.
-                An account (merchant) owns one or more stores; most per-shop config (receive
-                address, webhook, session defaults) is scoped to a store.
+<main class="flex-1 page-enter">
+    <DocsLayout Current="/docs/api" Toc="toc">
+        <article class="dp-docs-article">
+            <p class="dp-docs-eyebrow">Developer docs</p>
+            <h1 class="dp-docs-title slide-up">API reference</h1>
+            <p class="dp-docs-lead slide-up-delay-1">
+                DigiPay speaks plain REST over HTTPS with JSON bodies. Every endpoint lives under
+                <InlineCode>/v1/pay</InlineCode> on <InlineCode>https://api.pay.dgbwallet.app</InlineCode>. An account owns one or more stores;
+                receive address, webhook and session defaults belong to a store. New here? Start with the
+                <a href="/docs#quickstart" class="text-dgb-500 hover:underline">quickstart</a>.
             </p>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 slide-up-delay-1">
-                On Node / Python / .NET? Skip the hand-rolling — <a href="/sdks" class="text-dgb-500 hover:underline font-medium">grab a first-party SDK</a>. One-line install, typed, zero deps.
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                On Node, Python or .NET? The <a href="/sdks" class="text-dgb-500 hover:underline font-medium">official SDKs</a> wrap these endpoints with types and a webhook verifier.
             </p>
 
-            @* Live OpenAPI / Scalar callout — prefer sending integrators to the
-               interactive explorer when they just want to poke endpoints. *@
-            <div class="mb-10 rounded-2xl border border-dgb-200/70 dark:border-dgb-800 bg-gradient-to-br from-dgb-50 to-white dark:from-dgb-900 dark:to-dgb-950 p-5 sm:p-6">
+            @* Live OpenAPI / Scalar callout. Only the integrator-facing groups are in the OpenAPI document
+               (see Program.cs: auth, me, api-keys and pos are ExcludeFromDescription). *@
+            <div class="mb-8 rounded-2xl border border-dgb-200/70 dark:border-dgb-800 bg-gradient-to-br from-dgb-50 to-white dark:from-dgb-900 dark:to-dgb-950 p-5 sm:p-6">
                 <div class="flex items-start gap-3 mb-3">
                     <div class="w-10 h-10 rounded-xl bg-dgb-500/10 dark:bg-dgb-500/20 flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-dgb-500" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3M6.75 15h10.5M4.5 4.5h15A1.5 1.5 0 0 1 21 6v12a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V6a1.5 1.5 0 0 1 1.5-1.5Z" />
-                        </svg>
+                        <Icon Name="code" Class="w-5 h-5 text-dgb-500" />
                     </div>
                     <div>
-                        <h3 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Live, interactive reference</h3>
-                        <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Every endpoint below is documented as OpenAPI 3.1 and rendered with Scalar — try requests in the browser.</p>
+                        <h2 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Try it in the browser</h2>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                            The server-to-server endpoints (sessions, stores and webhooks, public, sandbox) are published as OpenAPI 3.1 and rendered with Scalar,
+                            where you can send real requests. Dashboard-only endpoints (Digi-ID sign-in, account, API keys, POS pairing) are documented on this page only.
+                        </p>
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2 mt-4">
-                    <a href="@($"{apiPublic}/scalar")" target="_blank" rel="noopener"
-                       class="btn-primary inline-flex items-center gap-2">
-                        Open Scalar explorer
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                        </svg>
+                    <a href="@($"{apiPublic}/scalar")" target="_blank" rel="noopener" class="btn-primary inline-flex items-center gap-2">
+                        Open Scalar explorer <Icon Name="external-link" Class="w-3.5 h-3.5" /><span class="sr-only">(opens in a new tab)</span>
                     </a>
-                    <a href="@($"{apiPublic}/openapi/v1.json")" target="_blank" rel="noopener"
-                       class="btn-secondary inline-flex items-center gap-2">
-                        Download openapi.json
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
+                    <a href="@($"{apiPublic}/openapi/v1.json")" target="_blank" rel="noopener" class="btn-secondary inline-flex items-center gap-2">
+                        openapi.json <Icon Name="download" Class="w-3.5 h-3.5" /><span class="sr-only">(opens in a new tab)</span>
                     </a>
                 </div>
             </div>
 
-            <DocsHeading>Authentication</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
-                Two token kinds share the same <InlineCode>Authorization: Bearer …</InlineCode> header,
-                distinguished by prefix:
-            </p>
+            @* ===================== Authentication ===================== *@
+            <DocsHeading Id="authentication">Authentication</DocsHeading>
+            <p class="@P">Send one header on every authenticated call: <InlineCode>Authorization: Bearer &lt;token&gt;</InlineCode>. Two kinds of token work:</p>
             <ul class="space-y-1 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3">
-                <li><InlineCode>dps_…</InlineCode> — <strong>session token</strong> minted when you sign in with Digi-ID from the dashboard. 30-day rolling expiry, revoked on sign-out. Used by the browser.</li>
-                <li><InlineCode>dgp_…</InlineCode> — <strong>API key</strong>. Long-lived, N per account, revocable individually. Used by your server / CI / SDK. Create them from the API keys tab.</li>
+                <li><InlineCode>dgp_…</InlineCode> — <strong>API key</strong>. Long-lived, as many per account as you like, revocable one by one. For your server, CI and the SDKs. Create them in the dashboard's API keys tab.</li>
+                <li><InlineCode>dps_…</InlineCode> — <strong>session token</strong>, minted when you sign in to the dashboard with Digi-ID. Expires after 30 days, revoked on sign-out. Used by the browser.</li>
             </ul>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Both look like <InlineCode>{prefix}_{secret}</InlineCode>. Only a SHA-256 hash of the secret is stored server-side; losing the secret means you mint (or revoke + re-create) the key, not your funds.</p>
-            <CodeBlock>Authorization: Bearer dgp_@("{prefix}_{secret}")</CodeBlock>
-
-            <DocsHeading>Register (SDK)</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Unauthenticated. Creates an account + its first store in one call and returns the initial API key. Aimed at self-host installs and CLI bootstrapping — interactive users should sign in with Digi-ID from the dashboard instead.</p>
-
-            <Endpoint Method="POST" Path="/v1/pay/merchants">
-                <CodeBlock>@("{\n  \"displayName\": \"My Shop\",\n  \"addressOrXpub\": \"dgb1q…\",           // or an xpub6/zpub\n  \"network\": \"mainnet\",                 // optional\n  \"webhookUrl\": \"https://…/digipay\"    // optional, generates webhookSecret\n}")</CodeBlock>
-                <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Response includes <InlineCode>id</InlineCode>, <InlineCode>storeId</InlineCode>, and a one-shot <InlineCode>apiKey</InlineCode>. Save the key — the secret is never retrievable again.</p>
-            </Endpoint>
-
-            <DocsHeading>Digi-ID sign-in</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Used by the browser dashboard — servers typically don't need this flow.</p>
-
-            <Endpoint Method="GET" Path="/v1/pay/auth/challenge">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Returns <InlineCode>{ nonce, uri, expiresAt }</InlineCode>. Render <InlineCode>uri</InlineCode> as a QR for the user's DigiByte wallet to sign.</p>
-            </Endpoint>
-
-            <Endpoint Method="POST" Path="/v1/pay/auth/callback">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Wallet-driven: POSTs <InlineCode>@("{ address, uri, signature }")</InlineCode>. DigiPay verifies the signature, creates the merchant + Default Store if new, and marks the challenge as signed.</p>
-            </Endpoint>
-
-            <Endpoint Method="GET" Path="/v1/pay/auth/poll/{nonce}">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Browser polls this until it flips to <InlineCode>{ status: "signed", merchantId, displayName, token }</InlineCode>. Store the token — it's your Bearer.</p>
-            </Endpoint>
-
-            <Endpoint Method="DELETE" Path="/v1/pay/auth/session">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Sign out: invalidates the current <InlineCode>dps_</InlineCode> session token. API keys are untouched.</p>
-            </Endpoint>
-
-            <DocsHeading>Account</DocsHeading>
-
-            <Endpoint Method="GET" Path="/v1/pay/me">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Returns the authenticated account: <InlineCode>{ id, displayName, digiIdAddress, createdAt, stores: [ … ] }</InlineCode>.</p>
-            </Endpoint>
-
-            <Endpoint Method="PATCH" Path="/v1/pay/me">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0 mb-3">Update the account display name (everything else lives per-store now):</p>
-                <CodeBlock>@("{\n  \"displayName\": \"Acme Co\"\n}")</CodeBlock>
-            </Endpoint>
-
-            <DocsHeading>Stores</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">A store owns its receive address/xpub, webhook URL, default expiry, and sessions. One account can run many stores (multiple shops, tip jars, per-environment setups).</p>
-
-            <Endpoint Method="GET" Path="/v1/pay/stores">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">List all stores owned by the account.</p>
-            </Endpoint>
-
-            <Endpoint Method="POST" Path="/v1/pay/stores">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0 mb-3">Create a new store:</p>
-                <CodeBlock>@("{\n  \"name\": \"Acme Tips Jar\",\n  \"network\": \"mainnet\"              // optional: mainnet | testnet | regtest\n}")</CodeBlock>
-            </Endpoint>
-
-            <Endpoint Method="GET" Path="/v1/pay/stores/{storeId}">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Returns one store. 404 if the store belongs to a different merchant.</p>
-            </Endpoint>
-
-            <Endpoint Method="PATCH" Path="/v1/pay/stores/{storeId}">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0 mb-3">Update any subset of the below. Setting <InlineCode>webhookUrl</InlineCode> for the first time auto-generates a webhook secret.</p>
-                <CodeBlock>@("{\n  \"name\": \"Main Shop\",\n  \"network\": \"mainnet\",\n  \"addressOrXpub\": \"dgb1q…\",          // or an xpub; empty string clears\n  \"webhookUrl\": \"https://…/digipay\",  // empty string clears + revokes secret\n  \"defaultSessionExpiryMinutes\": 45    // 1..1440\n}")</CodeBlock>
-            </Endpoint>
-
-            <Endpoint Method="DELETE" Path="/v1/pay/stores/{storeId}">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Delete a store. Rejects the request if this is the account's only remaining store.</p>
-            </Endpoint>
-
-            <Endpoint Method="GET" Path="/v1/pay/stores/{storeId}/donation-address">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Stable address for donation buttons. In xpub mode this is derive index 0 (reserved — invoice sessions start at 1). In address mode it's the configured address.</p>
-            </Endpoint>
-
-            <Endpoint Method="POST" Path="/v1/pay/stores/{storeId}/webhook/test">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Fires a synthetic <InlineCode>webhook.test</InlineCode> at the configured URL. Response includes the resulting delivery id + status so you can see what happened without opening the dashboard.</p>
-            </Endpoint>
-
-            <DocsHeading>Sessions</DocsHeading>
-
-            <Endpoint Method="POST" Path="/v1/pay/sessions">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0 mb-3">Create a payment session. <InlineCode>storeId</InlineCode> is optional — omit it to use the account's first store.</p>
-                <CodeBlock>@("{\n  \"amount\": 12.5,                 // required, DGB\n  \"storeId\": \"sto_…\",             // optional, defaults to first store\n  \"label\": \"Order #4201\",         // optional, shown on checkout\n  \"memo\": \"inv-001\",              // optional, merchant-private\n  \"fiatCurrency\": \"USD\",          // optional\n  \"fiatAmount\": 5.00,             // optional\n  \"dgbPriceAtCreation\": 0.0098,   // optional, drives the price-volatility banner\n  \"expiresInSeconds\": 1800,       // optional, overrides store default\n  \"returnUrl\": \"https://shop.example/orders/42/thanks\"   // optional\n}")</CodeBlock>
-                <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Response includes the derived <InlineCode>address</InlineCode>, <InlineCode>storeId</InlineCode>, a BIP21 <InlineCode>uri</InlineCode>, the hosted <InlineCode>checkoutUrl</InlineCode>, <InlineCode>expiresAt</InlineCode>, and the <InlineCode>returnUrl</InlineCode> (echoed back so you can confirm what was stored).</p>
-                <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3"><strong>Headers</strong> — pass <InlineCode>Idempotency-Key: &lt;up-to-255-chars&gt;</InlineCode> to make the request safely retryable. Subsequent calls with the same key (within 24h, scoped per merchant) return the original session instead of creating a new one. A natural choice is your local order id, e.g. <InlineCode>shop_42</InlineCode>.</p>
-                <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3"><InlineCode>returnUrl</InlineCode> is the page DigiPay's hosted checkout sends the buyer back to once payment confirms — a "Return to merchant" button + 5s auto-redirect lights up on the success state. HTTPS in production; HTTP allowed only for localhost so dev environments work without certs. Length cap 2048. Stripe-shaped — same field name, same semantics.</p>
-            </Endpoint>
-
-            <Endpoint Method="GET" Path="/v1/pay/sessions">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">List sessions, newest first. Filters: <InlineCode>?status=pending|seen|paid|confirmed|expired|underpaid</InlineCode>, <InlineCode>?storeId=sto_…</InlineCode>, <InlineCode>?take=1..100</InlineCode> (default 25), <InlineCode>?skip=0..</InlineCode>.</p>
-            </Endpoint>
-
-            <Endpoint Method="GET" Path="/v1/pay/sessions/{id}">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Public read of a session's current state. No auth — the id is random and contains no secret. Used by the hosted checkout page.</p>
-            </Endpoint>
-
-            <DocsHeading>API keys</DocsHeading>
-
-            <Endpoint Method="GET" Path="/v1/pay/api-keys">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">List your keys. Returns prefix + metadata (created, last used, revoked) — never the raw secret.</p>
-            </Endpoint>
-
-            <Endpoint Method="POST" Path="/v1/pay/api-keys">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0 mb-3">Create a new API key. The raw secret is returned <strong>once</strong> in the response as <InlineCode>apiKey</InlineCode>; save it to your secrets manager. DigiPay only stores the hash.</p>
-                <CodeBlock>@("{\n  \"label\": \"production\"            // optional, 1..80 chars\n}")</CodeBlock>
-            </Endpoint>
-
-            <Endpoint Method="DELETE" Path="/v1/pay/api-keys/{id}">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Revoke a key. Further auth attempts with it return 401. Already-in-flight sessions are unaffected; webhooks continue to fire.</p>
-            </Endpoint>
-
-            <DocsHeading>Webhooks</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">DigiPay POSTs signed JSON to a store's <InlineCode>webhookUrl</InlineCode> on every session state change. Every attempt is persisted and visible in the dashboard; failures can be replayed manually. Automatic retries / dead-letter aren't in scope yet — treat webhooks as a hint and reconcile via <InlineCode>GET /v1/pay/sessions/{id}</InlineCode> if your flow is money-critical.</p>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2">Headers:</p>
-            <ul class="text-sm leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3">
-                <li><InlineCode>X-DigiPay-Signature: sha256=&lt;hex&gt;</InlineCode> — HMAC-SHA256 of the raw body with the store's webhook secret.</li>
-                <li><InlineCode>X-DigiPay-Event</InlineCode> — same value as <InlineCode>event</InlineCode> in the body. Useful for routing without parsing JSON.</li>
-                <li><InlineCode>X-DigiPay-Delivery: wdel_…</InlineCode> — per-attempt delivery id. Stable across retries of the same event so subscribers can de-duplicate replays.</li>
-            </ul>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-2">Body:</p>
-            <CodeBlock>@("{\n  \"event\": \"session.paid\",\n  \"timestamp\": \"2026-04-19T12:34:56Z\",\n  \"session\": {\n    \"id\": \"ses_…\",\n    \"merchantId\": \"mer_…\",\n    \"storeId\": \"sto_…\",\n    \"address\": \"dgb1q…\",\n    \"amountSatoshis\": 1250000000,\n    \"amount\": 12.5,\n    \"fiatCurrency\": \"USD\",       // null for DGB-priced sessions\n    \"fiatAmount\": 5.00,\n    \"label\": \"Order #4201\",\n    \"memo\": \"inv-001\",\n    \"status\": \"paid\",\n    \"receivedSatoshis\": 1250000000,\n    \"confirmations\": 1,\n    \"paidTxid\": \"…\",\n    \"refundTxid\": null,           // populated on refunded/voided\n    \"refundedAt\": null,\n    \"refundNote\": null,\n    \"returnUrl\": \"https://shop.example/orders/42/thanks\",\n    \"createdAt\": \"…\",\n    \"expiresAt\": \"…\"\n  }\n}")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3"><strong>Freshness check</strong> — defend against replay attacks if your secret leaks by rejecting deliveries whose <InlineCode>timestamp</InlineCode> is more than ~5 minutes from your server's clock. Stripe-shaped tolerance window. The WooCommerce plugin enforces this by default; SDKs leave it to the application.</p>
-
-            <h3 class="text-base font-bold mt-6 mb-2 tracking-tight text-slate-900 dark:text-white">Delivery log</h3>
-
-            <Endpoint Method="GET" Path="/v1/pay/stores/{storeId}/webhook-deliveries">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Recent delivery attempts (newest first, <InlineCode>?take=1..100</InlineCode>, default 25). Each row carries status code or error message, duration, response snippet (2KB cap), and attempt number.</p>
-            </Endpoint>
-
-            <Endpoint Method="POST" Path="/v1/pay/stores/{storeId}/webhook-deliveries/{deliveryId}/replay">
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Re-fire a past delivery using the original session payload. Writes a new row with <InlineCode>attempt</InlineCode> incremented so the audit trail is preserved. Test deliveries (no session) cannot be replayed — fire a fresh test instead.</p>
-            </Endpoint>
-
-            <h3 class="text-base font-bold mt-6 mb-2 tracking-tight text-slate-900 dark:text-white">Signature verification</h3>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Compute <InlineCode>HMAC_SHA256(secret, rawBody)</InlineCode> as hex, prefix with <InlineCode>sha256=</InlineCode>, and <strong>constant-time</strong> compare against the <InlineCode>X-DigiPay-Signature</InlineCode> header. Never parse JSON before verifying — the signature covers the raw bytes, so any reserialization breaks the check.</p>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>Node</strong> (Express):</p>
-            <CodeBlock>@("const crypto = require('crypto');\n\napp.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {\n  const expected = 'sha256=' +\n    crypto.createHmac('sha256', process.env.DIGIPAY_SECRET)\n          .update(req.body).digest('hex');\n  const provided = req.headers['x-digipay-signature'];\n  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided))) {\n    return res.status(401).end();\n  }\n  const event = JSON.parse(req.body.toString());\n  // reconcile event.session.id in your database\n  res.status(200).end();\n});")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>Python</strong> (Flask):</p>
-            <CodeBlock>@("import hmac, hashlib, os\nfrom flask import Flask, request, abort\n\napp = Flask(__name__)\n\n@app.post('/webhook')\ndef webhook():\n    raw = request.get_data()\n    expected = 'sha256=' + hmac.new(\n        os.environ['DIGIPAY_SECRET'].encode(),\n        raw, hashlib.sha256).hexdigest()\n    provided = request.headers.get('X-DigiPay-Signature', '')\n    if not hmac.compare_digest(expected, provided):\n        abort(401)\n    event = request.get_json()  # now safe\n    # reconcile event['session']['id']\n    return '', 200")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>PHP</strong>:</p>
-            <CodeBlock>@("<?php\n$raw = file_get_contents('php://input');\n$expected = 'sha256=' . hash_hmac('sha256', $raw, getenv('DIGIPAY_SECRET'));\n$provided = $_SERVER['HTTP_X_DIGIPAY_SIGNATURE'] ?? '';\nif (!hash_equals($expected, $provided)) {\n    http_response_code(401);\n    exit;\n}\n$event = json_decode($raw, true);\n// reconcile $event['session']['id']\nhttp_response_code(200);")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>C# / ASP.NET Core</strong>:</p>
-            <CodeBlock>@("app.MapPost(\"/webhook\", async (HttpRequest req) =>\n{\n    using var reader = new StreamReader(req.Body);\n    var raw = await reader.ReadToEndAsync();\n    var secret = Environment.GetEnvironmentVariable(\"DIGIPAY_SECRET\")!;\n    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));\n    var expected = \"sha256=\" + Convert.ToHexString(\n        hmac.ComputeHash(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();\n    var provided = req.Headers[\"X-DigiPay-Signature\"].ToString();\n    if (!CryptographicOperations.FixedTimeEquals(\n            Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(provided)))\n        return Results.Unauthorized();\n    // JsonSerializer.Deserialize<WebhookEvent>(raw) …\n    return Results.Ok();\n});")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-3">Unknown event types? Return <InlineCode>200 OK</InlineCode> and ignore — we add new events over time, and 4xx/5xx responses trigger delivery failure rows in the dashboard. Use <InlineCode>event.event</InlineCode> to branch on <InlineCode>session.paid</InlineCode>, <InlineCode>session.confirmed</InlineCode>, etc.</p>
-
-            <DocsHeading>Embed widget</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
-                The JS embed is hosted at <InlineCode>/embed/digipay.js</InlineCode>. ~7 KB, no dependencies, derives its own origin from the script src.
-                <a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">Try it live →</a>
+            <p class="@P">
+                A token has three parts joined by underscores: its kind (<InlineCode>dgp</InlineCode> or <InlineCode>dps</InlineCode>), a 10-character public id,
+                and the secret. Send the whole string exactly as you received it. DigiPay stores only a SHA-256 hash of the secret, so a lost key can't be
+                shown again: revoke it and create a new one.
             </p>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-2">Programmatic:</p>
-            <CodeBlock>@("DigiPay.checkout({ sessionId: 'ses_abc' });  // opens iframe modal\nDigiPay.checkout({ sessionId: 'ses_abc', theme: 'light' });  // optional: 'light' | 'dark'\nDigiPay.close();                              // dismiss it\nconst a = DigiPay.button({ address: 'dgb1…', amount: 5, name: 'Shop' });\ndocument.body.appendChild(a);")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2">Declarative:</p>
-            <CodeBlock>@("<button data-digipay-checkout data-session-id=\"ses_abc\">Pay</button>\n<span data-digipay-button data-address=\"dgb1…\" data-amount=\"5\">Tip</span>\n<!-- optional on either: data-theme=\"light\" or \"dark\" -->")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Auto-binds on <InlineCode>DOMContentLoaded</InlineCode>; call <InlineCode>DigiPay.bind(rootEl)</InlineCode> after injecting new elements dynamically.</p>
+            <CodeBlock Lang="bash" Label="Copy the header example">Authorization: Bearer dgp_a1b2c3d4e5_s3cr3tPartShownOnlyOnce</CodeBlock>
+            <p class="@Small">The example key is made up. In the docs, <InlineCode>$DIGIPAY_KEY</InlineCode> stands for your full key.</p>
 
-            <DocsHeading>Status codes</DocsHeading>
-            <ul class="space-y-1 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5">
-                <li><InlineCode>200</InlineCode> — success.</li>
-                <li><InlineCode>400</InlineCode> — validation error, body includes an <InlineCode>error</InlineCode> field.</li>
-                <li><InlineCode>401</InlineCode> — missing / invalid Bearer token, or key has been revoked.</li>
-                <li><InlineCode>404</InlineCode> — resource not found, or belongs to a different merchant.</li>
-                <li><InlineCode>409</InlineCode> — challenge already resolved (Digi-ID flows).</li>
+            @* ===================== Register ===================== *@
+            <DocsHeading Id="register">Register (headless)</DocsHeading>
+            <p class="@P">Creates an account, its first store and an API key in one call, for self-hosting and CI bootstrapping. People should sign in with Digi-ID from the dashboard instead.</p>
+            <Endpoint Method="POST" Path="/v1/pay/merchants" Auth="No auth · 5 per hour" Id="post-merchants">
+                <CodeBlock Lang="json" Label="Copy the register body">@("{\n  \"displayName\": \"My Shop\",\n  \"addressOrXpub\": \"dgb1q...\",\n  \"network\": \"mainnet\",\n  \"webhookUrl\": \"https://shop.example/digipay/webhook\"\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="displayName" Type="string" Required="true">Account and store name.</Param>
+                    <Param Name="addressOrXpub" Type="string" Required="true">A DigiByte address (single-address mode) or a BIP84 account xpub (a fresh address per session).</Param>
+                    <Param Name="network" Type="string">mainnet (default), testnet or regtest.</Param>
+                    <Param Name="webhookUrl" Type="string">If given, a webhook secret is generated and returned. Must be a public HTTPS URL.</Param>
+                </ParamList>
+                <p class="@Small m-0">Returns <InlineCode>id</InlineCode>, <InlineCode>displayName</InlineCode>, <InlineCode>storeId</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>mode</InlineCode> (<InlineCode>address</InlineCode> or <InlineCode>xpub</InlineCode>), <InlineCode>apiKey</InlineCode> and <InlineCode>webhookSecret</InlineCode> (null without a webhook URL). Both secrets appear only in this response.</p>
+            </Endpoint>
+
+            @* ===================== Sessions ===================== *@
+            <DocsHeading Id="sessions">Sessions</DocsHeading>
+            <p class="@P">A session is one invoice: an amount, an address to pay, and a status that moves from <InlineCode>pending</InlineCode> to <InlineCode>confirmed</InlineCode> (or <InlineCode>expired</InlineCode>, <InlineCode>underpaid</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>). See <a href="/docs#lifecycle" class="text-dgb-500 hover:underline">how a payment flows</a>.</p>
+
+            <Endpoint Method="POST" Path="/v1/pay/sessions" Auth="API key" Id="create-session">
+                <p class="@Small">Create a payment session.</p>
+                <CodeBlock Lang="json" Label="Copy the create-session body">@("{\n  \"amount\": 12.5,\n  \"storeId\": \"sto_4fj8w2k9m3n7p5q1\",\n  \"label\": \"Order #4201\",\n  \"memo\": \"inv-001\",\n  \"fiatCurrency\": \"USD\",\n  \"fiatAmount\": 5.00,\n  \"dgbPriceAtCreation\": 0.0098,\n  \"expiresInSeconds\": 1800,\n  \"returnUrl\": \"https://shop.example/orders/42/thanks\"\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="amount" Type="number">Amount in DGB. Required for DGB sessions (must be greater than 0).</Param>
+                    <Param Name="storeId" Type="string">Which store gets paid. Defaults to the account's first store.</Param>
+                    <Param Name="label" Type="string">Shown to the buyer on the checkout and in the wallet request.</Param>
+                    <Param Name="memo" Type="string">Your own reference. Added to the payment request as its message.</Param>
+                    <Param Name="fiatCurrency" Type="string">The currency you priced the order in, for example USD. Recorded for your books and shown on the checkout.</Param>
+                    <Param Name="fiatAmount" Type="number">The order total in <InlineCode>fiatCurrency</InlineCode>.</Param>
+                    <Param Name="dgbPriceAtCreation" Type="number">The DGB price you quoted. The checkout warns the buyer if the live price has moved noticeably since.</Param>
+                    <Param Name="expiresInSeconds" Type="integer">1 to 86400. Overrides the store's default expiry (30 minutes if unset).</Param>
+                    <Param Name="returnUrl" Type="string">Where the checkout sends the buyer after payment confirms (a <em>Return to merchant</em> button and a 5-second redirect). HTTPS, or HTTP on localhost only. Up to 2048 characters.</Param>
+                    <Param Name="currency" Type="string">DGB (default) or DD for a DigiDollar session.</Param>
+                    <Param Name="amountCentsDd" Type="integer">DigiDollar amount in US cents, 100 to 10000000. Required when <InlineCode>currency</InlineCode> is DD; <InlineCode>amount</InlineCode> is then ignored. The store must have <InlineCode>digiDollarEnabled</InlineCode>, otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; if the DigiDollar node can't be reached you get <InlineCode>503 digidollar_node_unavailable</InlineCode>.</Param>
+                </ParamList>
+                <ParamList Title="Headers">
+                    <Param Name="Idempotency-Key" Type="string">Up to 255 characters. Repeat calls with the same key within 24 hours (per account) return the original session instead of a new one. Your order id works well.</Param>
+                </ParamList>
+                <p class="@Small">
+                    Returns the session: <InlineCode>id</InlineCode>, <InlineCode>storeId</InlineCode>, <InlineCode>address</InlineCode>, <InlineCode>amount</InlineCode>,
+                    <InlineCode>amountSatoshis</InlineCode>, <InlineCode>status</InlineCode>, <InlineCode>uri</InlineCode> (BIP21 payment request),
+                    <InlineCode>checkoutUrl</InlineCode>, <InlineCode>expiresAt</InlineCode>, <InlineCode>returnUrl</InlineCode>, <InlineCode>currency</InlineCode>
+                    and the payment fields below (null until something arrives).
+                </p>
+                <p class="@Small m-0">
+                    <strong>Errors:</strong> <InlineCode>400</InlineCode> if the store has no receive address yet (<InlineCode>PATCH</InlineCode> the store first), the store id isn't yours, or a field is invalid.
+                </p>
+            </Endpoint>
+
+            <Endpoint Method="GET" Path="/v1/pay/sessions" Auth="API key" Id="list-sessions">
+                <p class="@Small">Your sessions, newest first, as <InlineCode>{ total, take, skip, sessions: [ … ] }</InlineCode>.</p>
+                <ParamList Title="Query parameters">
+                    <Param Name="status" Type="string">pending, seen, paid, confirmed, expired, underpaid, refunded or voided. An unknown value is ignored (no filter).</Param>
+                    <Param Name="storeId" Type="string">Only this store's sessions.</Param>
+                    <Param Name="take" Type="integer">1 to 100, default 25. With <InlineCode>format=csv</InlineCode>: up to 10000.</Param>
+                    <Param Name="skip" Type="integer">Default 0.</Param>
+                    <Param Name="format" Type="string"><InlineCode>csv</InlineCode> returns a spreadsheet download (<InlineCode>text/csv</InlineCode>) instead of JSON: id, store, status, address, DGB amounts, fiat, label, memo, confirmations, txid, timestamps and source.</Param>
+                </ParamList>
+            </Endpoint>
+
+            <Endpoint Method="GET" Path="/v1/pay/sessions/{id}" Auth="No auth" Id="get-session">
+                <p class="@Small m-0">
+                    Public read of one session, as <InlineCode>{ session: { … }, merchantName }</InlineCode>. No key needed: the id is random and reveals nothing
+                    secret. The hosted checkout uses it, and it's the call to make when you want to double-check a webhook.
+                </p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/sessions/{id}/refund" Auth="API key" Id="refund-session">
+                <p class="@Small">
+                    Record a refund. Crypto payments can't be pulled back, so you send the DGB back from your own wallet first, then record the transaction
+                    here so the dashboard, receipts and webhooks agree. The session becomes <InlineCode>refunded</InlineCode> and
+                    <InlineCode>session.refunded</InlineCode> fires.
+                </p>
+                <CodeBlock Lang="json" Label="Copy the refund body">@("{\n  \"txid\": \"9f2c4e1a7b3d5f8e0c6a2b4d8f1e3a5c7b9d0e2f4a6c8b1d3e5f7a9c0b2d4e6f\",\n  \"note\": \"Customer returned the item\"\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="txid" Type="string" Required="true">The refund transaction id, 32 to 128 characters.</Param>
+                    <Param Name="note" Type="string">Why. Kept up to 512 characters and included in the webhook as <InlineCode>refundNote</InlineCode>.</Param>
+                </ParamList>
+                <p class="@Small m-0"><strong>Errors:</strong> <InlineCode>409</InlineCode> unless the session is <InlineCode>paid</InlineCode> or <InlineCode>confirmed</InlineCode> (so refunding twice is refused), <InlineCode>404</InlineCode> if it isn't yours.</p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/sessions/{id}/void" Auth="API key" Id="void-session">
+                <p class="@Small">Cancel an unpaid session. It becomes <InlineCode>voided</InlineCode>, DigiPay stops watching its address, the checkout shows it as cancelled, and <InlineCode>session.voided</InlineCode> fires. The body is optional.</p>
+                <CodeBlock Lang="json" Label="Copy the void body">@("{\n  \"note\": \"Order cancelled\"\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="note" Type="string">Why. Kept up to 512 characters.</Param>
+                </ParamList>
+                <p class="@Small m-0"><strong>Errors:</strong> <InlineCode>409</InlineCode> unless the session is <InlineCode>pending</InlineCode> or <InlineCode>seen</InlineCode>.</p>
+            </Endpoint>
+
+            @* ===================== Stores ===================== *@
+            <DocsHeading Id="stores">Stores</DocsHeading>
+            <p class="@P">A store owns its receive address or xpub, webhook URL and secret, default expiry and sessions. An account can run many: several shops, a tip jar, a testnet store. A store id that belongs to another account answers <InlineCode>404</InlineCode>.</p>
+
+            <Endpoint Method="GET" Path="/v1/pay/stores" Auth="API key" Id="list-stores">
+                <p class="@Small m-0">All your stores. Each has <InlineCode>id</InlineCode>, <InlineCode>name</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>receiveMode</InlineCode> (<InlineCode>xpub</InlineCode>, <InlineCode>address</InlineCode> or <InlineCode>unconfigured</InlineCode>), <InlineCode>hasReceive</InlineCode>, <InlineCode>receivePreview</InlineCode>, <InlineCode>webhookUrl</InlineCode>, <InlineCode>hasWebhookSecret</InlineCode>, <InlineCode>defaultSessionExpiryMinutes</InlineCode>, <InlineCode>digiDollarEnabled</InlineCode> and <InlineCode>createdAt</InlineCode>.</p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/stores" Auth="API key" Id="create-store">
+                <CodeBlock Lang="json" Label="Copy the create-store body">@("{\n  \"name\": \"Acme Tips Jar\",\n  \"network\": \"mainnet\"\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="name" Type="string" Required="true">Store name.</Param>
+                    <Param Name="network" Type="string">mainnet (default), testnet or regtest. A testnet store is watched on DigiByte testnet.</Param>
+                </ParamList>
+                <p class="@Small m-0">The new store has no receive address yet: <InlineCode>PATCH</InlineCode> one before creating sessions.</p>
+            </Endpoint>
+
+            <Endpoint Method="GET" Path="/v1/pay/stores/{id}" Auth="API key" Id="get-store">
+                <p class="@Small m-0">One store, in the same shape as the list.</p>
+            </Endpoint>
+
+            <Endpoint Method="PATCH" Path="/v1/pay/stores/{id}" Auth="API key" Id="update-store">
+                <p class="@Small">Change any subset of these fields; leave the rest out.</p>
+                <CodeBlock Lang="json" Label="Copy the update-store body">@("{\n  \"name\": \"Main Shop\",\n  \"network\": \"mainnet\",\n  \"addressOrXpub\": \"xpub6...\",\n  \"webhookUrl\": \"https://shop.example/digipay/webhook\",\n  \"defaultSessionExpiryMinutes\": 45,\n  \"digiDollarEnabled\": false\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="name" Type="string">1 to 120 characters.</Param>
+                    <Param Name="network" Type="string">mainnet, testnet or regtest.</Param>
+                    <Param Name="addressOrXpub" Type="string">A DigiByte address or a BIP84 account xpub, checked against the store's network. An empty string clears it. Setting a new xpub restarts address derivation.</Param>
+                    <Param Name="webhookUrl" Type="string">Public HTTPS URL for webhooks. The first time one is set, a webhook secret is created. An empty string removes the URL and deletes the secret.</Param>
+                    <Param Name="defaultSessionExpiryMinutes" Type="integer">1 to 1440.</Param>
+                    <Param Name="digiDollarEnabled" Type="boolean">Allow DigiDollar (DD) sessions on this store.</Param>
+                </ParamList>
+                <p class="@Small m-0">
+                    Returns the store, plus <InlineCode>webhookSecret</InlineCode>. It holds the secret only on the call that created it, and is
+                    <InlineCode>null</InlineCode> on every other call. Store it then: it can't be read again (rotate it if it's lost).
+                </p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/stores/{id}/webhook-secret/rotate" Auth="API key" Id="rotate-webhook-secret">
+                <p class="@Small">Replace the store's webhook secret. The new secret is returned once:</p>
+                <CodeBlock Lang="json" Label="Copy the rotate response example">@("{\n  \"webhookSecret\": \"3f9a1c7e5b2d8f4a6c0e9b1d7f3a5c8e2b4d6f8a0c1e3b5d\"\n}")</CodeBlock>
+                <p class="@Small m-0">The old secret stops working immediately: every webhook after this call is signed with the new one, so update your receiver straight away.</p>
+            </Endpoint>
+
+            <Endpoint Method="DELETE" Path="/v1/pay/stores/{id}" Auth="API key" Id="delete-store">
+                <p class="@Small m-0">Delete a store. Answers <InlineCode>400</InlineCode> (<InlineCode>cannot delete your only store</InlineCode>) if it's the account's last one.</p>
+            </Endpoint>
+
+            <Endpoint Method="GET" Path="/v1/pay/stores/{id}/donation-address" Auth="API key" Id="donation-address">
+                <p class="@Small m-0">A stable address for <a href="/docs#donation-button" class="text-dgb-500 hover:underline">donation buttons</a>, as <InlineCode>{ address, mode }</InlineCode>. In xpub mode it's derivation index 0, which is then reserved (invoices start at 1). In address mode it's the configured address. <InlineCode>400</InlineCode> if the store has no receive address.</p>
+            </Endpoint>
+
+            <Endpoint Method="GET" Path="/v1/pay/stores/{id}/analytics" Auth="API key" Id="analytics">
+                <p class="@Small">Daily totals for the dashboard charts: <InlineCode>{ storeId, days, since, until, summary, series }</InlineCode>.</p>
+                <ParamList Title="Query parameters">
+                    <Param Name="days" Type="integer">1 to 365, default 30. Days are UTC.</Param>
+                </ParamList>
+                <p class="@Small m-0">
+                    <InlineCode>summary</InlineCode> has <InlineCode>totalSessions</InlineCode>, <InlineCode>totalPaid</InlineCode> (paid, confirmed and refunded), <InlineCode>totalRefunded</InlineCode>,
+                    <InlineCode>grossVolumeDgb</InlineCode>, <InlineCode>conversionPct</InlineCode> and <InlineCode>refundRatePct</InlineCode>. Each <InlineCode>series</InlineCode> entry has
+                    <InlineCode>day</InlineCode>, <InlineCode>total</InlineCode>, <InlineCode>paid</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>, <InlineCode>failed</InlineCode> and <InlineCode>volumeDgb</InlineCode>.
+                </p>
+            </Endpoint>
+
+            @* ===================== Webhooks ===================== *@
+            <DocsHeading Id="webhooks">Webhooks</DocsHeading>
+            <p class="@P">
+                DigiPay sends a signed <InlineCode>POST</InlineCode> with a JSON body to the store's <InlineCode>webhookUrl</InlineCode> whenever a session changes state.
+                A store needs both a URL and a secret; set the URL with <a href="/docs/api#update-store" class="text-dgb-500 hover:underline">PATCH store</a>.
+            </p>
+
+            <DocsHeading Id="webhook-events" Level="3">Events</DocsHeading>
+            <div class="dp-table-wrap">
+                <table class="dp-table">
+                    <thead><tr><th scope="col">Event</th><th scope="col">Sent when</th></tr></thead>
+                    <tbody>
+                        <tr><td><InlineCode>session.seen</InlineCode></td><td>A payment for at least 99% of the amount is in the mempool, unconfirmed.</td></tr>
+                        <tr><td><InlineCode>session.paid</InlineCode></td><td>That payment has 1 confirmation.</td></tr>
+                        <tr><td><InlineCode>session.confirmed</InlineCode></td><td>It has 6 confirmations. Can arrive without <InlineCode>session.paid</InlineCode> first if the payment was already that deep when DigiPay saw it.</td></tr>
+                        <tr><td><InlineCode>session.underpaid</InlineCode></td><td>The payment found is less than 99% of the amount.</td></tr>
+                        <tr><td><InlineCode>session.expired</InlineCode></td><td>Nothing arrived before <InlineCode>expiresAt</InlineCode>. A payment within the next 3 days still moves the session on and sends <InlineCode>session.paid</InlineCode> or <InlineCode>session.confirmed</InlineCode>.</td></tr>
+                        <tr><td><InlineCode>session.refunded</InlineCode></td><td>You recorded a refund (<a href="/docs/api#refund-session" class="text-dgb-500 hover:underline">refund</a>). <InlineCode>refundTxid</InlineCode>, <InlineCode>refundedAt</InlineCode> and <InlineCode>refundNote</InlineCode> are set.</td></tr>
+                        <tr><td><InlineCode>session.voided</InlineCode></td><td>You cancelled an unpaid session (<a href="/docs/api#void-session" class="text-dgb-500 hover:underline">void</a>).</td></tr>
+                        <tr><td><InlineCode>webhook.test</InlineCode></td><td>You asked for a test (<a href="/docs/api#webhook-test" class="text-dgb-500 hover:underline">test</a>). Its session is made up (<InlineCode>ses_test_…</InlineCode>); it is sent once, never retried, and can't be replayed.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="@Small">New event types may be added. Answer <InlineCode>200</InlineCode> to ones you don't handle; anything else counts as a failed delivery.</p>
+
+            <DocsHeading Id="webhook-headers" Level="3">Headers</DocsHeading>
+            <ul class="text-sm leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3 space-y-1">
+                <li><InlineCode>X-DigiPay-Signature: sha256=&lt;hex&gt;</InlineCode> — HMAC-SHA256 of the raw body, keyed with the store's webhook secret.</li>
+                <li><InlineCode>X-DigiPay-Event</InlineCode> — the event name, the same as <InlineCode>event</InlineCode> in the body. Handy for routing without parsing.</li>
+                <li><InlineCode>X-DigiPay-Delivery: wdel_…</InlineCode> — the id of this delivery attempt. Every retry and replay gets a <em>new</em> id, so log it, but don't de-duplicate on it.</li>
             </ul>
 
-            <DocsHeading>Questions?</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300">The source is open. Clone the repo, file an issue, or just run DigiPay yourself — it's designed to self-host in a single container backed by SQLite or Postgres.</p>
-        </article>
-    </main>
+            <DocsHeading Id="webhook-body" Level="3">Body</DocsHeading>
+            <CodeBlock Lang="json" Label="Copy the webhook body example">@("{\n  \"event\": \"session.paid\",\n  \"timestamp\": \"2026-11-26T12:34:56Z\",\n  \"session\": {\n    \"id\": \"ses_8kq2x7m4n9p3r6t1\",\n    \"merchantId\": \"mer_2m8p4q6r1t3v5x7z\",\n    \"storeId\": \"sto_4fj8w2k9m3n7p5q1\",\n    \"address\": \"dgb1qexampleaddress\",\n    \"amountSatoshis\": 1250000000,\n    \"amount\": 12.5,\n    \"fiatCurrency\": \"USD\",\n    \"fiatAmount\": 5.00,\n    \"label\": \"Order #4201\",\n    \"memo\": \"inv-001\",\n    \"status\": \"paid\",\n    \"receivedSatoshis\": 1250000000,\n    \"confirmations\": 1,\n    \"paidTxid\": \"c4de7f12a34bc6de3e9f1d7b5a2c3f7e8b4d1a6c9e5f2a8d3b7c1e4f6a9d2c5\",\n    \"returnUrl\": \"https://shop.example/orders/42/thanks\",\n    \"createdAt\": \"2026-11-26T12:30:02Z\",\n    \"expiresAt\": \"2026-11-26T13:00:02Z\",\n    \"currency\": \"DGB\"\n  }\n}")</CodeBlock>
+            <ParamList Title="Notes">
+                <Param Name="null fields">Fields with no value are left out of the body rather than sent as null: <InlineCode>fiatCurrency</InlineCode>, <InlineCode>label</InlineCode>, <InlineCode>paidTxid</InlineCode> and so on appear only when set.</Param>
+                <Param Name="refundTxid, refundedAt, refundNote">Present on <InlineCode>session.refunded</InlineCode> (a void sets <InlineCode>refundedAt</InlineCode> and, if given, <InlineCode>refundNote</InlineCode>).</Param>
+                <Param Name="currency, amountCentsDd">DigiDollar sessions carry <InlineCode>"currency": "DD"</InlineCode> and <InlineCode>amountCentsDd</InlineCode>; their <InlineCode>amountSatoshis</InlineCode> is 0 and <InlineCode>receivedSatoshis</InlineCode> holds the cents received.</Param>
+                <Param Name="timestamp">When this attempt was sent. Rejecting deliveries more than about 5 minutes from your clock protects you if your secret leaks; each retry carries a fresh timestamp.</Param>
+            </ParamList>
 
+            <DocsHeading Id="webhook-retries" Level="3">Retries and de-duplication</DocsHeading>
+            <p class="@P">
+                A delivery fails when your server can't be reached, times out, or answers anything but <InlineCode>2xx</InlineCode> (redirects aren't followed).
+                Network errors, <InlineCode>5xx</InlineCode>, <InlineCode>408</InlineCode> and <InlineCode>429</InlineCode> are retried automatically after
+                <strong>1 minute, 5 minutes, 30 minutes, 2 hours and 6 hours</strong> (7 attempts over about 8.5 hours). Other <InlineCode>4xx</InlineCode> answers
+                are treated as permanent and not retried. After the last attempt the delivery stays failed until you replay it.
+            </p>
+            <p class="@P">
+                Each retry or replay is a new delivery, rebuilt from the session's <em>current</em> state, with a new id, timestamp and signature. So you may see an
+                event more than once: de-duplicate on <InlineCode>session.id</InlineCode> plus <InlineCode>event</InlineCode>, and treat
+                <InlineCode>session.status</InlineCode> as the truth. For money-critical steps you can always confirm with
+                <a href="/docs/api#get-session" class="text-dgb-500 hover:underline">GET /v1/pay/sessions/{id}</a>.
+            </p>
+
+            <DocsHeading Id="webhook-log" Level="3">Test, delivery log and replay</DocsHeading>
+            <Endpoint Method="POST" Path="/v1/pay/stores/{id}/webhook/test" Auth="API key" Id="webhook-test">
+                <p class="@Small m-0">Sends a <InlineCode>webhook.test</InlineCode> event to the configured URL now and returns <InlineCode>{ ok, webhookUrl, deliveryId, statusCode, error }</InlineCode>, so you can see what your server answered. <InlineCode>400</InlineCode> if the store has no webhook URL.</p>
+            </Endpoint>
+            <Endpoint Method="GET" Path="/v1/pay/stores/{id}/webhook-deliveries" Auth="API key" Id="webhook-deliveries">
+                <p class="@Small">Recent delivery attempts, newest first. Each has <InlineCode>id</InlineCode>, <InlineCode>sessionId</InlineCode>, <InlineCode>eventName</InlineCode>, <InlineCode>url</InlineCode>, <InlineCode>attempt</InlineCode>, <InlineCode>statusCode</InlineCode> or <InlineCode>errorMessage</InlineCode>, <InlineCode>durationMs</InlineCode>, <InlineCode>responseSnippet</InlineCode> (the first 512 characters of your reply, as plain text), <InlineCode>success</InlineCode>, and <InlineCode>nextRetryAt</InlineCode> (set while a retry is scheduled; null once it succeeded or gave up).</p>
+                <ParamList Title="Query parameters">
+                    <Param Name="take" Type="integer">1 to 100, default 25. With <InlineCode>format=csv</InlineCode>: up to 10000.</Param>
+                    <Param Name="sessionId" Type="string">Only deliveries for this session, including retries and replays.</Param>
+                    <Param Name="format" Type="string"><InlineCode>csv</InlineCode> returns a spreadsheet download. The response text is replaced by its length.</Param>
+                </ParamList>
+            </Endpoint>
+            <Endpoint Method="POST" Path="/v1/pay/stores/{id}/webhook-deliveries/{deliveryId}/replay" Auth="API key" Id="webhook-replay">
+                <p class="@Small m-0">Sends a past delivery's event again, rebuilt from the session's current state, as a new delivery with <InlineCode>attempt</InlineCode> increased by one. Test deliveries can't be replayed (<InlineCode>400</InlineCode>): send a new test instead.</p>
+            </Endpoint>
+
+            <DocsHeading Id="verify-signature" Level="3">Verifying the signature</DocsHeading>
+            <p class="@P">
+                Compute <InlineCode>HMAC_SHA256(secret, rawBody)</InlineCode> as lowercase hex, prefix it with <InlineCode>sha256=</InlineCode>, and compare it with the
+                <InlineCode>X-DigiPay-Signature</InlineCode> header in <strong>constant time</strong>. Verify before parsing: the signature covers the exact bytes, so
+                re-serialised JSON won't match. Answer <InlineCode>401</InlineCode> on a mismatch or a missing header.
+            </p>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>Node</strong> (Express):</p>
+            <CodeBlock Lang="js" Label="Copy the Node verification example">@Docs.NodeVerify</CodeBlock>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>Python</strong> (Flask):</p>
+            <CodeBlock Lang="python" Label="Copy the Python verification example">@("import hmac, hashlib, os\nfrom flask import Flask, request, abort\n\napp = Flask(__name__)\n\n@app.post('/digipay/webhook')\ndef webhook():\n    raw = request.get_data()\n    expected = 'sha256=' + hmac.new(\n        os.environ['DIGIPAY_WEBHOOK_SECRET'].encode(),\n        raw, hashlib.sha256).hexdigest()\n    provided = request.headers.get('X-DigiPay-Signature', '')\n    if not hmac.compare_digest(expected, provided):\n        abort(401)\n    event = request.get_json()  # safe now\n    # de-duplicate on event['session']['id'] + event['event']\n    return '', 200")</CodeBlock>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>PHP</strong>:</p>
+            <CodeBlock Lang="php" Label="Copy the PHP verification example">@("<?php\n$raw = file_get_contents('php://input');\n$expected = 'sha256=' . hash_hmac('sha256', $raw, getenv('DIGIPAY_WEBHOOK_SECRET'));\n$provided = $_SERVER['HTTP_X_DIGIPAY_SIGNATURE'] ?? '';\nif (!hash_equals($expected, $provided)) {\n    http_response_code(401);\n    exit;\n}\n$event = json_decode($raw, true);\n// de-duplicate on $event['session']['id'] + $event['event']\nhttp_response_code(200);")</CodeBlock>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4 mb-2"><strong>C#</strong> (ASP.NET Core):</p>
+            <CodeBlock Lang="csharp" Label="Copy the C# verification example">@("app.MapPost(\"/digipay/webhook\", async (HttpRequest req) =>\n{\n    using var ms = new MemoryStream();\n    await req.Body.CopyToAsync(ms);\n    var raw = ms.ToArray();\n    var secret = Environment.GetEnvironmentVariable(\"DIGIPAY_WEBHOOK_SECRET\")!;\n    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));\n    var expected = \"sha256=\" + Convert.ToHexString(hmac.ComputeHash(raw)).ToLowerInvariant();\n    var provided = req.Headers[\"X-DigiPay-Signature\"].ToString();\n    // FixedTimeEquals returns false (not throws) when the lengths differ.\n    if (!CryptographicOperations.FixedTimeEquals(\n            Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(provided)))\n        return Results.Unauthorized();\n    // JsonSerializer.Deserialize<WebhookEvent>(raw) ...\n    return Results.Ok();\n});")</CodeBlock>
+
+            @* ===================== Embed ===================== *@
+            <DocsHeading Id="embed">Embed script</DocsHeading>
+            <p class="@P">
+                <InlineCode>https://pay.dgbwallet.app/embed/digipay.js</InlineCode> is a small script with no dependencies that opens the hosted checkout in a modal
+                over your page. <a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">Try it live<span class="sr-only"> (opens in a new tab)</span></a>.
+            </p>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-2">From code:</p>
+            <CodeBlock Lang="js" Label="Copy the embed API example">@("DigiPay.checkout({ sessionId: 'ses_abc' });                  // open the checkout modal\nDigiPay.checkout({ sessionId: 'ses_abc', theme: 'light' });  // theme: 'light' | 'dark' (optional)\nDigiPay.close();                                             // close it\nconst a = DigiPay.button({ address: 'dgb1...', amount: 5, name: 'Shop' });\ndocument.body.appendChild(a);                                // a donation button")</CodeBlock>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2">From markup:</p>
+            <CodeBlock Lang="html" Label="Copy the embed markup example">@("<button data-digipay-checkout data-session-id=\"ses_abc\">Pay</button>\n<span data-digipay-button data-address=\"dgb1...\" data-amount=\"5\">Tip</span>\n<!-- optional on either: data-theme=\"light\" or \"dark\" -->")</CodeBlock>
+            <p class="@P">Elements are bound on <InlineCode>DOMContentLoaded</InlineCode>; call <InlineCode>DigiPay.bind(rootEl)</InlineCode> after adding new ones.</p>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2"><strong>Status events.</strong> The embedded checkout posts a message to your page each time the session's status changes:</p>
+            <CodeBlock Lang="js" Label="Copy the status event example">@("window.addEventListener('message', (e) => {\n  if (e.origin !== 'https://pay.dgbwallet.app') return;\n  const msg = e.data;\n  if (!msg || msg.type !== 'digipay-checkout-status') return;\n  // msg.sessionId, msg.status: 'seen' | 'paid' | 'confirmed' | 'expired' | ...\n  if (msg.status === 'paid') showThankYou();\n});")</CodeBlock>
+            <p class="@Small">Use these messages for your page's UI only. Anyone can post messages to a window, and the buyer's browser can close at any moment, so fulfil orders from the webhook.</p>
+
+            @* ===================== Account ===================== *@
+            <DocsHeading Id="account">Account and audit log</DocsHeading>
+            <p class="@Small">Used by the dashboard; not in the OpenAPI document.</p>
+            <Endpoint Method="GET" Path="/v1/pay/me" Auth="API key or session" Id="get-me">
+                <p class="@Small m-0">The signed-in account: <InlineCode>{ id, displayName, digiIdAddress, createdAt, stores: [ … ] }</InlineCode>.</p>
+            </Endpoint>
+            <Endpoint Method="PATCH" Path="/v1/pay/me" Auth="API key or session" Id="update-me">
+                <CodeBlock Lang="json" Label="Copy the update-account body">@("{\n  \"displayName\": \"Acme Co\"\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="displayName" Type="string">1 to 120 characters. Everything else is set per store.</Param>
+                </ParamList>
+            </Endpoint>
+            <Endpoint Method="GET" Path="/v1/pay/me/audit" Auth="API key or session" Id="audit">
+                <p class="@Small">The account's append-only audit trail, newest first: <InlineCode>{ items: [ … ], nextCursor }</InlineCode>. Each item has <InlineCode>action</InlineCode> (for example <InlineCode>session.refund</InlineCode>, <InlineCode>store.update</InlineCode>), the actor (type, token prefix, IP), the target, a summary, metadata and <InlineCode>createdAt</InlineCode>.</p>
+                <ParamList Title="Query parameters">
+                    <Param Name="limit" Type="integer">1 to 200, default 50.</Param>
+                    <Param Name="cursor" Type="string">The <InlineCode>nextCursor</InlineCode> from the previous page (a UTC timestamp). Omit for the newest entries; <InlineCode>nextCursor</InlineCode> is null on the last page.</Param>
+                </ParamList>
+            </Endpoint>
+
+            @* ===================== API keys ===================== *@
+            <DocsHeading Id="api-keys">API keys</DocsHeading>
+            <p class="@Small">Managed from the dashboard; not in the OpenAPI document.</p>
+            <Endpoint Method="GET" Path="/v1/pay/api-keys" Auth="API key or session" Id="list-keys">
+                <p class="@Small m-0">Your keys: prefix, label, created, last used and revoked dates. Never the secret.</p>
+            </Endpoint>
+            <Endpoint Method="POST" Path="/v1/pay/api-keys" Auth="API key or session" Id="create-key">
+                <CodeBlock Lang="json" Label="Copy the create-key body">@("{\n  \"label\": \"production\"\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="label" Type="string">Optional, up to 80 characters.</Param>
+                </ParamList>
+                <p class="@Small m-0">The full key is returned <strong>once</strong>, as <InlineCode>apiKey</InlineCode>. DigiPay keeps only its hash.</p>
+            </Endpoint>
+            <Endpoint Method="DELETE" Path="/v1/pay/api-keys/{id}" Auth="API key or session" Id="revoke-key">
+                <p class="@Small m-0">Revoke a key. Calls with it then get <InlineCode>401</InlineCode>. Existing sessions carry on and their webhooks still fire.</p>
+            </Endpoint>
+
+            @* ===================== Digi-ID ===================== *@
+            <DocsHeading Id="digi-id">Digi-ID sign-in</DocsHeading>
+            <p class="@Small">The browser dashboard's sign-in flow. Servers don't need it. Limited to 10 requests per minute per address.</p>
+            <Endpoint Method="GET" Path="/v1/pay/auth/challenge" Auth="No auth" Id="auth-challenge">
+                <p class="@Small m-0">Returns <InlineCode>{ nonce, uri, expiresAt }</InlineCode>. Show <InlineCode>uri</InlineCode> as a QR code for the DigiByte wallet to sign.</p>
+            </Endpoint>
+            <Endpoint Method="POST" Path="/v1/pay/auth/callback" Auth="No auth" Id="auth-callback">
+                <p class="@Small m-0">Called by the wallet with <InlineCode>@("{ address, uri, signature }")</InlineCode>. DigiPay checks the signature, creates the account and its Default Store if new, and marks the challenge signed. <InlineCode>409</InlineCode> if the challenge was already used or has expired.</p>
+            </Endpoint>
+            <Endpoint Method="GET" Path="/v1/pay/auth/poll/{nonce}" Auth="No auth" Id="auth-poll">
+                <p class="@Small m-0">The browser polls until it returns <InlineCode>{ status: "signed", merchantId, displayName, token }</InlineCode>. The token is a <InlineCode>dps_</InlineCode> session token.</p>
+            </Endpoint>
+            <Endpoint Method="DELETE" Path="/v1/pay/auth/session" Auth="Session" Id="auth-signout">
+                <p class="@Small m-0">Sign out: revokes the current <InlineCode>dps_</InlineCode> token. API keys aren't affected.</p>
+            </Endpoint>
+
+            @* ===================== Public ===================== *@
+            <DocsHeading Id="public">Public data</DocsHeading>
+            <Endpoint Method="GET" Path="/v1/pay/public/stats" Auth="No auth" Id="public-stats">
+                <p class="@Small m-0">Site-wide totals for the home page: <InlineCode>{ merchants, stores, sessions, paidSessions, totalDgb, generatedAt }</InlineCode>. Counts only, demo and test data excluded, cached for 30 seconds.</p>
+            </Endpoint>
+            <Endpoint Method="GET" Path="/v1/pay/public/price" Auth="No auth" Id="public-price">
+                <p class="@Small">The DGB spot price (from CoinGecko, cached for 60 seconds), used by POS tablets: <InlineCode>{ currency, dgbPrice, fetchedAt }</InlineCode>.</p>
+                <ParamList Title="Query parameters">
+                    <Param Name="currency" Type="string">usd (default), eur, gbp, cad, aud, jpy, chf, sek, nok, dkk, php, ngn or zar. Anything else: <InlineCode>400</InlineCode>.</Param>
+                </ParamList>
+                <p class="@Small m-0">If CoinGecko can't be reached, the last price from the past 10 minutes is returned (check <InlineCode>fetchedAt</InlineCode>); with none, <InlineCode>502</InlineCode>.</p>
+            </Endpoint>
+
+            @* ===================== Sandbox ===================== *@
+            <DocsHeading Id="sandbox">Sandbox</DocsHeading>
+            <p class="@P">No key needed; 20 requests per minute per address. These endpoints drive demo sessions through the checkout so you can watch it react. They never touch real sessions and never send webhooks. See <a href="/docs#testing" class="text-dgb-500 hover:underline">testing without real money</a> for the other options.</p>
+            <Endpoint Method="POST" Path="/v1/pay/test/demo-session" Auth="No auth · 20/min" Id="demo-session">
+                <p class="@Small m-0">Creates a throwaway demo account, store and 5 DGB session, and returns <InlineCode>{ sessionId, storeId, merchantId }</InlineCode>. Open <InlineCode>https://pay.dgbwallet.app/pay/{sessionId}</InlineCode> to see it. Demo data is swept away within a day.</p>
+            </Endpoint>
+            <Endpoint Method="POST" Path="/v1/pay/test/sessions/{id}/advance" Auth="No auth · 20/min" Id="advance-session">
+                <p class="@Small m-0">Moves a demo session one step: <InlineCode>pending → seen → paid → confirmed</InlineCode> (with a made-up txid), and pushes the change to any open checkout. Returns <InlineCode>{ id, status, confirmations, receivedSatoshis, paidTxid }</InlineCode>. Ids that don't start with <InlineCode>ses_demo_</InlineCode> get <InlineCode>400</InlineCode>.</p>
+            </Endpoint>
+
+            @* ===================== Errors ===================== *@
+            <DocsHeading Id="errors">Status codes</DocsHeading>
+            <p class="@P">Errors come back as JSON with an <InlineCode>error</InlineCode> field explaining what to fix, for example <InlineCode>{ "error": "amount (DGB) must be > 0" }</InlineCode>.</p>
+            <div class="dp-table-wrap">
+                <table class="dp-table">
+                    <thead><tr><th scope="col">Code</th><th scope="col">Meaning</th><th scope="col">What to do</th></tr></thead>
+                    <tbody>
+                        <tr><td><InlineCode>200</InlineCode></td><td>Success.</td><td></td></tr>
+                        <tr><td><InlineCode>400</InlineCode></td><td>Invalid input, or the request can't work yet (no receive address, deleting your only store).</td><td>Fix the request; don't retry as is.</td></tr>
+                        <tr><td><InlineCode>401</InlineCode></td><td>Missing, wrong or revoked token.</td><td>Check the key.</td></tr>
+                        <tr><td><InlineCode>404</InlineCode></td><td>Not found, or it belongs to another account (DigiPay doesn't say which).</td><td>Check the id.</td></tr>
+                        <tr><td><InlineCode>409</InlineCode></td><td>Wrong state: refunding a session that isn't paid or confirmed, voiding one that isn't pending or seen, or reusing a Digi-ID challenge.</td><td>Read the session's status first.</td></tr>
+                        <tr><td><InlineCode>429</InlineCode></td><td>Rate limit reached (see below).</td><td>Wait for the window to reset, then retry with backoff.</td></tr>
+                        <tr><td><InlineCode>502</InlineCode></td><td>Public price only: no price source available.</td><td>Retry later.</td></tr>
+                        <tr><td><InlineCode>503</InlineCode></td><td>DigiDollar sessions only: the DigiDollar node is unreachable.</td><td>Retry with backoff.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <DocsHeading Id="rate-limits" Level="3">Rate limits</DocsHeading>
+            <p class="@Small">Fixed windows; going over returns <InlineCode>429</InlineCode> until the window resets.</p>
+            <div class="dp-table-wrap">
+                <table class="dp-table">
+                    <thead><tr><th scope="col">Endpoints</th><th scope="col">Limit</th></tr></thead>
+                    <tbody>
+                        <tr><td><InlineCode>/v1/pay/stores/…</InlineCode>, <InlineCode>/me/…</InlineCode>, <InlineCode>/api-keys/…</InlineCode></td><td>120 requests per minute per key or session token</td></tr>
+                        <tr><td><InlineCode>POST /v1/pay/merchants</InlineCode></td><td>5 per hour per client address</td></tr>
+                        <tr><td><InlineCode>/v1/pay/auth/…</InlineCode></td><td>10 per minute per client address</td></tr>
+                        <tr><td><InlineCode>/v1/pay/test/…</InlineCode></td><td>20 per minute per client address</td></tr>
+                        <tr><td><InlineCode>/v1/pay/pos/…</InlineCode></td><td>20 per minute per client address</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <DocsHeading Id="questions">Questions?</DocsHeading>
+            <p class="@P">The source is open: read it, file an issue, or run DigiPay yourself. It's built to self-host in one container backed by SQLite or Postgres.</p>
+        </article>
+    </DocsLayout>
+</main>
+
+@code {
+    private static readonly DocsTocItem[] toc =
+    [
+        new("authentication", "Authentication"),
+        new("register", "Register (headless)"),
+        new("sessions", "Sessions"),
+        new("create-session", "Create", true),
+        new("refund-session", "Refund", true),
+        new("void-session", "Void", true),
+        new("stores", "Stores"),
+        new("update-store", "Update", true),
+        new("rotate-webhook-secret", "Rotate webhook secret", true),
+        new("webhooks", "Webhooks"),
+        new("webhook-events", "Events", true),
+        new("webhook-body", "Body", true),
+        new("webhook-retries", "Retries", true),
+        new("verify-signature", "Verify the signature", true),
+        new("embed", "Embed script"),
+        new("account", "Account and audit log"),
+        new("api-keys", "API keys"),
+        new("digi-id", "Digi-ID sign-in"),
+        new("public", "Public data"),
+        new("sandbox", "Sandbox"),
+        new("errors", "Status codes"),
+        new("rate-limits", "Rate limits", true),
+    ];
+}
