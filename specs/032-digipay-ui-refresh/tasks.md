@@ -280,7 +280,7 @@ description: "Task list for the DigiPay UI refresh"
 - [X] T066 [P] [US3] Restyle `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`: `card` surface, `qr-frame` around the Digi-ID QR code, shared buttons, and a `back-btn` link to Home.
 - [X] T067 [P] [US3] Make `src/DigiByte.Pay.Web/Components/Shared/Icon.razor` match the wallet's icon style (stroke width, size and 24px grid). Add the icons used by `CheckoutStates` (clock, radar, check, check-circle, alert, timer-off, undo, ban, refresh) and by `DashboardSections`. Remove all emoji and glyph status markers across `src/DigiByte.Pay.Web/Components/` (FR-006).
 - [X] T068 [US3] Add a `## DigiPay` section to `docs/UI_STYLE.md`. It lists the shared building blocks DigiPay uses and where DigiPay differs: POS keypad sizing, data tables, code blocks, analytics charts, and the wide dashboard content area (FR-037).
-- [ ] T069 [US3] Run quickstart Q5 step 8 (sizes and contrast against the gallery) on every DigiPay page type, in light and dark, at 375px and 1280px. Fix any mismatch.
+- [X] T069 [US3] Run quickstart Q5 step 8 (sizes and contrast against the gallery) on every DigiPay page type, in light and dark, at 375px and 1280px. Fix any mismatch.
 
 **Checkpoint**: All P1 stories are done. DigiPay visibly belongs to the wallet's family.
 
@@ -335,7 +335,7 @@ description: "Task list for the DigiPay UI refresh"
 - [X] T081 [US6] Add `aria-label`s to every icon-only button across `src/DigiByte.Pay.Web/Components/`: copy, close, menu, store switcher, refresh, back and theme (FR-031).
 - [X] T082 [US6] Make sure every interactive element shows the shared `:focus-visible` ring in both themes. Remove any `outline-none` without a replacement in `src/DigiByte.Pay.Web/Components/**/*.razor` and `wwwroot/css/tailwind-input.css`.
 - [X] T083 [US6] Expose selected state on the store switcher, filters, pairing method and ThemePicker (`aria-pressed`, or `aria-selected` in tablists). Make sure every form field has a `<label>` or `aria-labelledby`, and that errors use `aria-invalid` plus `aria-describedby` pointing at `field-error`.
-- [ ] T084 [US6] Run the Playwright + axe-core pass from quickstart Q5 step 7, in the official Playwright container. Pages: `/`, `/docs/api`, `/merchant/signin`, every `/merchant/*` section, one session detail, `/pay/{id}` in each state, the receipt, `/pay/button` and `/pos`, in both themes. Save the script as `specs/032-digipay-ui-refresh/a11y/axe-pass.mjs`, then fix every serious and critical finding until there are zero (SC-003).
+- [X] T084 [US6] Run the Playwright + axe-core pass from quickstart Q5 step 7, in the official Playwright container. Pages: `/`, `/docs/api`, `/merchant/signin`, every `/merchant/*` section, one session detail, `/pay/{id}` in each state, the receipt, `/pay/button` and `/pos`, in both themes. Save the script as `specs/032-digipay-ui-refresh/a11y/axe-pass.mjs`, then fix every serious and critical finding until there are zero (SC-003).
 - [ ] T085 [US6] Do a screen-reader pass (NVDA or VoiceOver): sign-in → Overview → Sessions → session detail, and checkout through payment (quickstart Q5 step 6). Fix anything announced wrongly.
 
 ---

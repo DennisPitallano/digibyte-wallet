@@ -1,0 +1,487 @@
+{
+  "base": "http://host.docker.internal:5252",
+  "ranAt": "2026-11-25T03:55:21.074Z",
+  "axe": [
+    {
+      "name": "Home",
+      "path": "/",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Features",
+      "path": "/features",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "About",
+      "path": "/about",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "How it works",
+      "path": "/docs",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "API reference",
+      "path": "/docs/api",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "POS guide",
+      "path": "/docs/pos",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "WooCommerce guide",
+      "path": "/docs/woocommerce",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "SDKs",
+      "path": "/sdks",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Sign in",
+      "path": "/merchant/signin",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Not found",
+      "path": "/not-found",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Tip page",
+      "path": "/pay/button?to=dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8&amount=2.5&name=Creator",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "POS",
+      "path": "/pos",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Checkout 1",
+      "path": "/pay/ses_demo_xk5i7mnzx6ad",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Receipt 1",
+      "path": "/pay/ses_demo_xk5i7mnzx6ad/receipt",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Checkout 2",
+      "path": "/pay/ses_demo_stsjsuspkueb",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Receipt 2",
+      "path": "/pay/ses_demo_stsjsuspkueb/receipt",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Overview",
+      "path": "/merchant",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "New payment",
+      "path": "/merchant/new",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Sessions",
+      "path": "/merchant/sessions",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Payment links",
+      "path": "/merchant/links",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Analytics",
+      "path": "/merchant/analytics",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Donation button",
+      "path": "/merchant/donation",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Webhook",
+      "path": "/merchant/webhook",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Stores",
+      "path": "/merchant/stores",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "API keys",
+      "path": "/merchant/api-keys",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Audit log",
+      "path": "/merchant/audit",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "POS mode",
+      "path": "/merchant/pos",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Settings",
+      "path": "/merchant/settings",
+      "theme": "light",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Home",
+      "path": "/",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Features",
+      "path": "/features",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "About",
+      "path": "/about",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "How it works",
+      "path": "/docs",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "API reference",
+      "path": "/docs/api",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "POS guide",
+      "path": "/docs/pos",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "WooCommerce guide",
+      "path": "/docs/woocommerce",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "SDKs",
+      "path": "/sdks",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Sign in",
+      "path": "/merchant/signin",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Not found",
+      "path": "/not-found",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Tip page",
+      "path": "/pay/button?to=dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8&amount=2.5&name=Creator",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "POS",
+      "path": "/pos",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Checkout 1",
+      "path": "/pay/ses_demo_xk5i7mnzx6ad",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Receipt 1",
+      "path": "/pay/ses_demo_xk5i7mnzx6ad/receipt",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Checkout 2",
+      "path": "/pay/ses_demo_stsjsuspkueb",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Receipt 2",
+      "path": "/pay/ses_demo_stsjsuspkueb/receipt",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Overview",
+      "path": "/merchant",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "New payment",
+      "path": "/merchant/new",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Sessions",
+      "path": "/merchant/sessions",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Payment links",
+      "path": "/merchant/links",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Analytics",
+      "path": "/merchant/analytics",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Donation button",
+      "path": "/merchant/donation",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Webhook",
+      "path": "/merchant/webhook",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Stores",
+      "path": "/merchant/stores",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "API keys",
+      "path": "/merchant/api-keys",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Audit log",
+      "path": "/merchant/audit",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "POS mode",
+      "path": "/merchant/pos",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    },
+    {
+      "name": "Settings",
+      "path": "/merchant/settings",
+      "theme": "dark",
+      "serious": [],
+      "minorCount": 0
+    }
+  ],
+  "timing": {
+    "profile": "Fast 4G: 9 Mbps down, 1.5 Mbps up, 150 ms latency; 375px; cache disabled",
+    "runs": [
+      {
+        "visibleMs": 1023,
+        "fcpMs": 918
+      },
+      {
+        "visibleMs": 1005,
+        "fcpMs": 905
+      },
+      {
+        "visibleMs": 1020,
+        "fcpMs": 936
+      },
+      {
+        "visibleMs": 1031,
+        "fcpMs": 894
+      },
+      {
+        "visibleMs": 1019,
+        "fcpMs": 913
+      },
+      {
+        "visibleMs": 1018,
+        "fcpMs": 900
+      },
+      {
+        "visibleMs": 1014,
+        "fcpMs": 914
+      },
+      {
+        "visibleMs": 1016,
+        "fcpMs": 885
+      },
+      {
+        "visibleMs": 1018,
+        "fcpMs": 897
+      },
+      {
+        "visibleMs": 1018,
+        "fcpMs": 899
+      },
+      {
+        "visibleMs": 1020,
+        "fcpMs": 930
+      },
+      {
+        "visibleMs": 1075,
+        "fcpMs": 921
+      },
+      {
+        "visibleMs": 1071,
+        "fcpMs": 1003
+      },
+      {
+        "visibleMs": 1048,
+        "fcpMs": 927
+      },
+      {
+        "visibleMs": 1163,
+        "fcpMs": 981
+      },
+      {
+        "visibleMs": 1005,
+        "fcpMs": 906
+      },
+      {
+        "visibleMs": 2924,
+        "fcpMs": 2808
+      },
+      {
+        "visibleMs": 1016,
+        "fcpMs": 918
+      },
+      {
+        "visibleMs": 1003,
+        "fcpMs": 940
+      },
+      {
+        "visibleMs": 1015,
+        "fcpMs": 909
+      }
+    ],
+    "median": 1018.5,
+    "max": 2924,
+    "within2s": 19,
+    "total": 20
+  }
+}

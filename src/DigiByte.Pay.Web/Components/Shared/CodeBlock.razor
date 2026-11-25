@@ -4,7 +4,7 @@
 @* Code sample with a copy button (FR-035): fixed-width font, and a notice confirms the copy.
    The text comes from the rendered <code>, so callers keep passing the sample as child content. *@
 <div class="dp-code">
-    <pre id="@id" class="dp-code-pre"><code>@ChildContent</code></pre>
+    <pre id="@id" class="dp-code-pre" tabindex="0" role="region" aria-label="@(Label is null ? "Code sample" : Label.Replace("Copy ", ""))"><code>@ChildContent</code></pre>
     <button type="button" class="dp-code-copy" aria-label="@(Label ?? "Copy code")" @onclick="CopyAsync">
         <Icon Name="copy" Class="w-4 h-4" /><span>Copy</span>
     </button>

@@ -42,7 +42,7 @@ Recorded on 2026-11-25 from `feature/digipay-ui-refresh` at commit `d8670da`. On
 
 **With prerendering, it's faster than before.** The amount and QR code are in the first HTML and can paint as soon as the CSS has loaded, about 50 ms in, against 76 ms before. Every run came back prerendered.
 
-**Still owed:** a throttled Fast 4G run, for the 2-second half of SC-011.
+**Throttled run done (T044).** On Fast 4G at 375px with a cold cache, the median was 1018 ms and 19/20 runs finished within 2 s. Details: [../a11y/README.md](../a11y/README.md).
 
 ## Wallet style gallery snapshot (for Q1)
 

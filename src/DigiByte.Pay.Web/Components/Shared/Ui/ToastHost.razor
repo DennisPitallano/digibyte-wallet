@@ -3,7 +3,7 @@
 
 @* Wallet-style notices. Success and info are announced politely (role=status); warnings and
    errors interrupt (role=alert). Sits clear of the dashboard's bottom menu and the safe area. *@
-<div class="ui-toast-stack" aria-label="Notifications">
+<div class="ui-toast-stack" role="region" aria-label="Notifications">
     @foreach (var t in Toasts.Items)
     {
         <div @key="t.Id" class="ui-toast ui-toast-@ToneClass(t.Tone)"

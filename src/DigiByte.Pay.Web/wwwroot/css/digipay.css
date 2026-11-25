@@ -399,3 +399,33 @@ html:not(.dark) .dp-pos .disabled\:text-slate-400:disabled { color: #64748b; }
 .dp-main .font-mono { overflow-wrap: anywhere; }
 /* Column flex children (page sections) shrink to the screen, so wide tables scroll inside their card. */
 .dp-site .flex-col > * { min-width: 0; }
+
+/* =====================================================================================
+   Contrast and link fixes from the axe pass (spec 032, T084). Tailwind colour utilities
+   used by older markup are remapped to shades that meet WCAG AA in each theme.
+   ===================================================================================== */
+/* DigiByte blue as text on navy (dark theme) is too dark: use a lighter shade of the same blue. */
+.dark .text-dgb-500, .dark .dark\:text-dgb-500, .dark .hover\:text-dgb-500:hover { color: #80b3ff; }
+/* Small grey text on light backgrounds. */
+html:not(.dark) .text-slate-500 { color: #475569; }
+html:not(.dark) .text-slate-400 { color: #475569; }
+.dark .dark\:text-slate-500 { color: #94a3b8; }
+.dark .text-slate-500 { color: #94a3b8; }
+/* Small red text on white. */
+html:not(.dark) .text-red-500 { color: #dc2626; }
+/* Telegram pill text. */
+.text-\[\#229ED9\] { color: #0b6c99; }
+/* Links inside running text are underlined, not told apart by colour alone. */
+p a:not([class*="btn"]), li a:not([class*="btn"]):not(.dp-rail-item):not(.dp-sitenav-link),
+.dp-muted a, figcaption a { text-decoration: underline; text-underline-offset: 2px; }
+/* Code samples can be scrolled with the keyboard; show where focus is. */
+.dp-code-pre:focus-visible { outline: 2px solid #80b3ff; outline-offset: 2px; }
+/* Light theme: accent text one shade darker so small labels and badges reach 4.5:1. */
+html:not(.dark) .text-dgb-500 { color: #0052a3; }
+html:not(.dark) .text-emerald-500, html:not(.dark) .text-emerald-600 { color: #047857; }
+html:not(.dark) .text-indigo-500 { color: #4338ca; }
+html:not(.dark) .text-amber-600 { color: #b45309; }
+html:not(.dark) .field-label .opacity-70 { opacity: 1; color: #475569; }
+/* Text links styled with hover:underline are underlined at rest too (they sit in running text). */
+.dp-site a.text-dgb-500.hover\:underline { text-decoration: underline; text-underline-offset: 2px; }
+.dark .text-indigo-500 { color: #a5b4fc; }
