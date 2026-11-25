@@ -362,7 +362,7 @@ description: "Task list for the DigiPay UI refresh"
 - [X] T094 [P] Update `docs/ARCHITECTURE.md`: add the `DigiByte.UI` leaf project, who references it, and that its assets are copied in at build time. Update the dependency description for Principle IV.
 - [X] T095 [P] Add a CHANGELOG entry in `CHANGELOG.md` covering the DigiPay restyle, routed dashboard, theme picker, checkout copy buttons and the embed `theme` option.
 - [ ] T096 Check across DigiPay that nothing overflows its button, badge or menu item, or pushes the layout sideways, at 320px (SC-008). Check long store names, labels and txids in particular.
-- [ ] T097 Run quickstart Q8: build both Docker images. Check that the DigiPay image has no Node and that `wwwroot/_content/DigiByte.UI/css/ui.css` and the two fonts are in both published outputs.
+- [X] T097 Run quickstart Q8: build both Docker images. Check that the DigiPay image has no Node and that `wwwroot/_content/DigiByte.UI/css/ui.css` and the two fonts are in both published outputs.
 - [ ] T098 Run the SC-004 and SC-005 hands-on tests before release (quickstart Q9):
   - five people unfamiliar with DigiPay pay a testnet checkout on a phone (copy address, pay, see "received");
   - five merchants find each of five named dashboard sections on desktop and on a phone, timed, and return with the back button.
