@@ -406,19 +406,20 @@
     {
         showScanner = false;
         SyncDialogFlag();
-        // This wallet's payment link goes to Send in memory, as from /pay, so its details never reach the address bar
-        // (spec 030, FR-021). The counter only makes the address new when Send is already open; it carries nothing.
-        // Inside a shared wallet the link keeps the shared wallet's own route below.
-        if (!Shared && ScanRouter.TryOwnPaymentLink(data, Nav.BaseUri, out var payLink))
+        // Every payment (address, digibyte: request, this wallet's payment link) goes to Send in memory, as from /pay,
+        // so its address and amount never reach the address bar (spec 030, FR-021; spec 032, FR-001). Inside a shared
+        // wallet it goes to that shared wallet's Send (spec 026, FR-002a). The counter only makes the address new when
+        // that Send is already open; it carries nothing.
+        var sharedId = Shared ? Context.SharedWalletId : null;
+        if (ScanRouter.TryPayment(data, Nav.BaseUri, out var payment))
         {
-            PayHandoff.Set(payLink);
-            Nav.NavigateTo($"/send?link={++scanCount}");
+            PayHandoff.Set(payment, sharedId);
+            Nav.NavigateTo(ScanRouter.SendPagePath(sharedId, ++scanCount));
             return;
         }
 
-        // Inside a shared wallet a payment code starts a payment from that shared wallet (FR-002a).
         var sharedName = Shared ? sharedConfig!.DisplayName : null;
-        var route = ScanRouter.Route(data, Nav.BaseUri, Shared ? Context.SharedWalletId : null);
+        var route = ScanRouter.Route(data, Nav.BaseUri, sharedId);
         switch (route.Kind)
         {
             case ScanTarget.DigiId:
@@ -428,7 +429,6 @@
                 Nav.NavigateTo(route.Url!);
                 break;
 
-            case ScanTarget.Payment:
             case ScanTarget.RoomInvite:
                 Nav.NavigateTo(route.Url!);
                 break;

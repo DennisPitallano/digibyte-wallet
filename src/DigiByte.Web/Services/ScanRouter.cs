@@ -54,19 +54,13 @@ public static class ScanRouter
 
         if (RoomInvite(data, appBaseUri) is { } invite) return invite;
 
-        // This wallet's own payment link (specs/030-desktop-paste-scan, FR-024). Any other web link goes nowhere.
-        if (PayLink(data, appBaseUri) is { } link)
-            return new(ScanTarget.Payment, SendUrl(link.Address, link.AmountDgb, sharedWalletId));
+        // A payment: this wallet's own payment link, a digibyte: request or a bare address.
+        if (Payment(data, appBaseUri) is { } payment)
+            return new(ScanTarget.Payment, SendUrl(payment.Address, payment.AmountDgb, sharedWalletId));
 
-        // The multisig pages' own classifier: payment request, bare address or proposal.
-        var result = MultisigSendHelper.ClassifyScan(data);
-        switch (result.Kind)
-        {
-            case ScanKind.Psbt:
-                return new(ScanTarget.MultisigProposal, null, data);
-            case ScanKind.Address or ScanKind.PaymentUri when result.Address is { } address && AddressValidator.IsValid(address.Trim()):
-                return new(ScanTarget.Payment, SendUrl(address.Trim(), result.AmountDgb, sharedWalletId));
-        }
+        // The multisig pages' own classifier, for a proposal (payments were read above).
+        if (MultisigSendHelper.ClassifyScan(data).Kind == ScanKind.Psbt)
+            return new(ScanTarget.MultisigProposal, null, data);
 
         // Last, because a redeem script is "any plausible run of hex": everything more specific was ruled out above.
         if (MultisigSendHelper.TryParseRedeemScriptQr(data, out var redeemScript))
@@ -76,6 +70,43 @@ public static class ScanRouter
     }
 
     private static readonly ScanRoute Unknown = new(ScanTarget.Unknown, null);
+
+    /// <summary>
+    /// True when <paramref name="scanned"/> is a code <see cref="Route"/> sends to Send: a bare address, a
+    /// <c>digibyte:</c> request, or this wallet's payment link. <paramref name="payment"/> then holds the address and
+    /// the amount (null unless more than 0) the route would have put in Send's address, and never a label or message,
+    /// which must not reach Send's memo. The menu hands it to Send in memory instead of putting it in the address bar
+    /// (specs/032-desktop-receive-everywhere, FR-001, FR-003, FR-005).
+    /// </summary>
+    public static bool TryPayment(string? scanned, string? appBaseUri, out PaymentLinkData payment)
+    {
+        payment = null!;
+        if (Route(scanned, appBaseUri).Kind != ScanTarget.Payment) return false;
+        payment = Payment(scanned!.Trim(), appBaseUri)!;
+        return true;
+    }
+
+    /// <summary>
+    /// The Send page a handed-over payment opens: the personal Send, or the open shared wallet's. It carries no payment;
+    /// <paramref name="counter"/> only makes the address new when that Send is already open.
+    /// </summary>
+    public static string SendPagePath(string? sharedWalletId, int counter) =>
+        (string.IsNullOrWhiteSpace(sharedWalletId) ? "/send" : $"/multisig/{Uri.EscapeDataString(sharedWalletId)}/send")
+        + "?link=" + counter.ToString(CultureInfo.InvariantCulture);
+
+    // The address and amount of a payment code, or null. The one place both Route and TryPayment read a payment from.
+    private static PaymentLinkData? Payment(string data, string? appBaseUri)
+    {
+        // This wallet's own payment link (specs/030-desktop-paste-scan, FR-024). Any other web link goes nowhere.
+        if (PayLink(data, appBaseUri) is { } link)
+            return new(link.Address, link.AmountDgb is > 0 ? link.AmountDgb : null, null, null);
+
+        // The multisig pages' own classifier: payment request or bare address.
+        var result = MultisigSendHelper.ClassifyScan(data);
+        if (result.Kind is ScanKind.Address or ScanKind.PaymentUri && result.Address is { } address && AddressValidator.IsValid(address.Trim()))
+            return new(address.Trim(), result.AmountDgb is > 0 ? result.AmountDgb : null, null, null);
+        return null;
+    }
 
     // A payment opens the personal Send, or the open shared wallet's Send (FR-002a).
     private static string SendUrl(string address, decimal? amountDgb, string? sharedWalletId)
