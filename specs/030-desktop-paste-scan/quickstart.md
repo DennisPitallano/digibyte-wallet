@@ -60,6 +60,9 @@ npm test --prefix src/DigiByte.Web
 | Q-19 | Keyboard only: Tab to the menu button, Enter, type or paste, Enter, Escape. Screen reader on (NVDA or VoiceOver). | Everything is reachable. Status messages are announced. Focus returns to the menu button on close (FR-029). |
 | Q-20 | Switch to Español and repeat Q-1, Q-7, Q-10 and Q-15. | All new text is in Spanish. The keyboard hint shows ⌘V on a Mac. |
 | Q-21 | DevTools → Performance on a mid-range laptop: record a paste (Q-2), a 10 MB picture drop (Q-10) and 30 s of Scan from screen (Q-11). | From paste to the new screen under 300 ms after the clipboard read. Picture decoded under 1.5 s. Screen sampling uses under 30% of one CPU core. |
+| Q-22 | Unlocked, copy a payment link from Receive, then paste it into the menu's **Paste / Scan**. Without leaving Send, paste a second link with a different amount. | Send opens with the address and amount; the address bar shows only `/send?link=1` (a counter, no payment data). The second link replaces the amount and the bar shows `/send?link=2`. The memo stays empty. |
+| Q-23 | With a testnet wallet, open `/pay#digibyte:<a mainnet address>?amount=1` (or the reverse). | "Not a valid payment link" with the wrong-network explanation; nothing is filled in. |
+| Q-24 | Screen reader on (NVDA or VoiceOver). Paste a valid address into the menu's panel. | "Code found. Opening…" is read out even though the panel closes at once. |
 
 ## 3. Manual checks, phone (regression)
 
@@ -73,5 +76,5 @@ npm test --prefix src/DigiByte.Web
 ## 4. Done when
 
 - Every automated test in section 1 passes.
-- Q-1 to Q-21 (including Q-14a) and P-1 to P-4 behave as listed. Q-11 may be marked "not shipped" if Scan from screen is deferred (clarification Q4), and the release still ships.
+- Q-1 to Q-24 (including Q-14a) and P-1 to P-4 behave as listed. Q-11 may be marked "not shipped" if Scan from screen is deferred (clarification Q4), and the release still ships.
 - `docs/PROCESS_FLOWS.md`, `docs/ARCHITECTURE.md` and `CHANGELOG.md` are updated. The Spanish security text is approved by a native speaker.
