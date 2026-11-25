@@ -8,6 +8,7 @@
     <Project Path="src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj" />
     <Project Path="src/DigiByte.Server.Shared/DigiByte.Server.Shared.csproj" />
     <Project Path="src/DigiByte.SpvGateway/DigiByte.SpvGateway.csproj" />
+    <Project Path="src/DigiByte.UI/DigiByte.UI.csproj" />
     <Project Path="src/DigiByte.Wallet/DigiByte.Wallet.csproj" />
     <Project Path="src/DigiByte.Web/DigiByte.Web.csproj" />
   </Folder>
@@ -16,6 +17,7 @@
     <Project Path="tests/DigiByte.Crypto.Tests/DigiByte.Crypto.Tests.csproj" />
     <Project Path="tests/DigiByte.NodeApi.Tests/DigiByte.NodeApi.Tests.csproj" />
     <Project Path="tests/DigiByte.Pay.Api.Tests/DigiByte.Pay.Api.Tests.csproj" />
+    <Project Path="tests/DigiByte.Pay.Web.Tests/DigiByte.Pay.Web.Tests.csproj" />
     <Project Path="tests/DigiByte.Server.Shared.Tests/DigiByte.Server.Shared.Tests.csproj" />
     <Project Path="tests/DigiByte.SpvGateway.Tests/DigiByte.SpvGateway.Tests.csproj" />
     <Project Path="tests/DigiByte.Wallet.Tests/DigiByte.Wallet.Tests.csproj" />

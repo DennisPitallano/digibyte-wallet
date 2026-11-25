@@ -23,17 +23,17 @@ description: "Task list for the DigiPay UI refresh"
 
 **Purpose**: Record the baseline and create the new projects.
 
-- [ ] T001 Record the quickstart Q0 baseline on `main` before any change:
+- [X] T001 Record the quickstart Q0 baseline on `main` before any change:
   - ten cold-load timings of a pending checkout (Fast 4G, 375px) until the amount and QR code are visible;
   - screenshots of the wallet's `/test-animations` gallery in light and dark at 375px and 1280px.
 
   Save them in `specs/032-digipay-ui-refresh/baseline/` as `timings.md` plus the PNGs.
-- [ ] T002 Create the Razor Class Library `src/DigiByte.UI/DigiByte.UI.csproj`: `net10.0`, `Microsoft.NET.Sdk.Razor`, no package or project references, with an empty `wwwroot/` holding `css/`, `fonts/` and `images/mascot/poses/`.
-- [ ] T003 Add `src/DigiByte.UI/DigiByte.UI.csproj` to `DigiByte.slnx`.
-- [ ] T004 [P] Create the test project `tests/DigiByte.Pay.Web.Tests/DigiByte.Pay.Web.Tests.csproj` (xUnit + bUnit, referencing `src/DigiByte.Pay.Web`) and add it to `DigiByte.slnx`.
-- [ ] T005 [P] Add `COPY src/DigiByte.UI/DigiByte.UI.csproj src/DigiByte.UI/` to the restore layer of `docker/pay-web/Dockerfile`.
-- [ ] T006 [P] Add the same `COPY` line to the restore layer of `docker/web/Dockerfile`.
-- [ ] T007 [P] Add a `test` script to `src/DigiByte.Pay.Web/package.json` (`node --test "tests/js/**/*.test.mjs"`) and create the folder `src/DigiByte.Pay.Web/tests/js/`.
+- [X] T002 Create the Razor Class Library `src/DigiByte.UI/DigiByte.UI.csproj`: `net10.0`, `Microsoft.NET.Sdk.Razor`, no package or project references, with an empty `wwwroot/` holding `css/`, `fonts/` and `images/mascot/poses/`.
+- [X] T003 Add `src/DigiByte.UI/DigiByte.UI.csproj` to `DigiByte.slnx`.
+- [X] T004 [P] Create the test project `tests/DigiByte.Pay.Web.Tests/DigiByte.Pay.Web.Tests.csproj` (xUnit + bUnit, referencing `src/DigiByte.Pay.Web`) and add it to `DigiByte.slnx`.
+- [X] T005 [P] Add `COPY src/DigiByte.UI/DigiByte.UI.csproj src/DigiByte.UI/` to the restore layer of `docker/pay-web/Dockerfile`.
+- [X] T006 [P] Add the same `COPY` line to the restore layer of `docker/web/Dockerfile`.
+- [X] T007 [P] Add a `test` script to `src/DigiByte.Pay.Web/package.json` (`node --test "tests/js/**/*.test.mjs"`) and create the folder `src/DigiByte.Pay.Web/tests/js/`.
 
 ---
 
@@ -45,8 +45,8 @@ description: "Task list for the DigiPay UI refresh"
 
 ### 2a. Extract the shared style layer from the wallet (research R1, R2)
 
-- [ ] T008 Move `src/DigiByte.Web/wwwroot/fonts/inter-latin-wght-normal.woff2` and `jetbrains-mono-latin-wght-normal.woff2` to `src/DigiByte.UI/wwwroot/fonts/` with `git mv`.
-- [ ] T009 Create `src/DigiByte.UI/wwwroot/css/ui.css` by moving these blocks out of `src/DigiByte.Web/wwwroot/css/app.css`, in their current order:
+- [X] T008 Move `src/DigiByte.Web/wwwroot/fonts/inter-latin-wght-normal.woff2` and `jetbrains-mono-latin-wght-normal.woff2` to `src/DigiByte.UI/wwwroot/fonts/` with `git mv`.
+- [X] T009 Create `src/DigiByte.UI/wwwroot/css/ui.css` by moving these blocks out of `src/DigiByte.Web/wwwroot/css/app.css`, in their current order:
   - the `@font-face` rules (lines ~4–27), with `src` paths rewritten to `../fonts/…`;
   - the `--ui-*` and `--motion-*` token block (`:root` and `.dark`, from line ~855);
   - Buttons, Cards, Text inputs, Addresses, Headings, Tabs (segmented control), Choice buttons, Icon buttons, Back button, Muted text, No zoom on focus, QR frame, Staggered list entrance, and the generic Bottom menu block (lines ~965–1933, excluding "Recovery phrase" and "Slide to confirm");
@@ -55,11 +55,11 @@ description: "Task list for the DigiPay UI refresh"
   - the Baku mascot block (line ~470).
 
   Leave the wallet-only blocks in `app.css`: recovery phrase, slide to confirm, card finishes, coin, celebration, shared-wallet mode, pending payments, signing room, shared wallet list, scan panel. See [contracts/ui-style-contract.md](contracts/ui-style-contract.md).
-- [ ] T010 Add `<ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />` to `src/DigiByte.Web/DigiByte.Web.csproj`.
-- [ ] T011 In `src/DigiByte.Web/wwwroot/index.html`, add `<link rel="stylesheet" href="_content/DigiByte.UI/css/ui.css" />` immediately before the `css/app.css` link. Change the font preload links, if any, to `_content/DigiByte.UI/fonts/…`.
+- [X] T010 Add `<ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />` to `src/DigiByte.Web/DigiByte.Web.csproj`.
+- [X] T011 In `src/DigiByte.Web/wwwroot/index.html`, add `<link rel="stylesheet" href="_content/DigiByte.UI/css/ui.css" />` immediately before the `css/app.css` link. Change the font preload links, if any, to `_content/DigiByte.UI/fonts/…`.
 - [ ] T012 Check that the CSP in `src/DigiByte.Web/wwwroot/index.html` and the Nginx security headers in `src/DigiByte.Web` need no change, since `_content/…` is same-origin. Then publish the wallet and confirm that `service-worker-assets.js` lists `_content/DigiByte.UI/css/ui.css` and both fonts.
-- [ ] T013 Run quickstart Q1: retake the gallery screenshots, compare them pixel for pixel with the T001 baseline, check offline load and check the console for CSP errors. Fix any difference before continuing.
-- [ ] T014 Update `docs/UI_STYLE.md`, section "How it is built", to say the generic layer lives in `src/DigiByte.UI/wwwroot/css/ui.css`, that the wallet's `app.css` keeps only wallet-only rules, and that the change rule in contracts/ui-style-contract.md applies.
+- [X] T013 Run quickstart Q1: retake the gallery screenshots, compare them pixel for pixel with the T001 baseline, check offline load and check the console for CSP errors. Fix any difference before continuing.
+- [X] T014 Update `docs/UI_STYLE.md`, section "How it is built", to say the generic layer lives in `src/DigiByte.UI/wwwroot/css/ui.css`, that the wallet's `app.css` keeps only wallet-only rules, and that the change rule in contracts/ui-style-contract.md applies.
 
 ### 2b. DigiPay uses the shared layer (research R3, R6)
 
@@ -77,7 +77,7 @@ description: "Task list for the DigiPay UI refresh"
   - toggle the `dark` class on `<html>` and set `<meta name="theme-color">` to `#002352` or `#f8fafc`;
   - keep the MutationObserver and enhanced-navigation re-apply hooks, and follow live device changes while in `system` mode;
   - expose `window.DigiPayTheme = { getMode, setMode, resolve, apply }`.
-- [ ] T018 [P] Write `src/DigiByte.Pay.Web/tests/js/theme.test.mjs` (node --test with a fake DOM, `localStorage` and `matchMedia`). Cover:
+- [X] T018 [P] Write `src/DigiByte.Pay.Web/tests/js/theme.test.mjs` (node --test with a fake DOM, `localStorage` and `matchMedia`). Cover:
   - saved `light` and `dark` are kept;
   - missing → device;
   - invalid → `system`;

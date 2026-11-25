@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    Shared style source for the wallet (DigiByte.Web) and DigiPay (DigiByte.Pay.Web).
+    Static web assets only: css/ui.css, the two self-hosted fonts and the Baku poses
+    DigiPay's dashboard uses. Each app serves them from its own origin at
+    _content/DigiByte.UI/... and gets them at build time, so neither app loads anything
+    from the other at runtime (constitution Principle IV).
+
+    No package or project references: this is a leaf. Change rule and class contract:
+    specs/032-digipay-ui-refresh/contracts/ui-style-contract.md
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

@@ -1,21 +1,32 @@
 # UI style layer
 
-Shared classes for buttons, cards, text inputs, QR frames and motion. They live at the end of
-`src/DigiByte.Web/wwwroot/css/app.css` and are shown, in every state and both themes, in the style
-gallery at `/test-animations`.
+Shared classes for buttons, cards, text inputs, QR frames and motion. They live in
+`src/DigiByte.UI/wwwroot/css/ui.css`, which the wallet and DigiPay both use. The wallet's gallery at
+`/test-animations` shows them in every state and both themes.
 
 **Status: defined, not rolled out.** No page uses these classes yet except the gallery. The
 rollout order is at the end of this file.
 
 ## How it is built
 
-- Plain CSS in `app.css`, self-hosted like everything else. No new files, fonts or scripts, and
-  no change to the Content Security Policy.
+- Plain CSS in `src/DigiByte.UI/wwwroot/css/ui.css`, a Razor Class Library with static assets only:
+  the stylesheet, the two self-hosted fonts (Inter, JetBrains Mono) and the Baku poses DigiPay uses.
+  - **Who uses it.** The wallet (`DigiByte.Web`) and DigiPay (`DigiByte.Pay.Web`) both reference it.
+  - **Where it's served from.** Each app serves the files from its own origin at
+    `_content/DigiByte.UI/...`. They are copied in at build time, so neither app loads anything from
+    the other while running, and the Content Security Policy is unchanged.
+  - **Load order.** `tailwind.css`, then `ui.css`, then the app's own CSS.
+  - **What stays in the wallet.** The wallet's `app.css` keeps only wallet-only rules: recovery
+    phrase, slide to confirm, card finishes, coin, celebrations, shared-wallet mode, signing room
+    and scan panel.
+- A change to `ui.css` is a change to both apps. Check it on the wallet's gallery and on DigiPay's
+  checkout and dashboard, in light and dark, before release. The class contract is in
+  `specs/032-digipay-ui-refresh/contracts/ui-style-contract.md`.
 - Every colour, shadow and radius is a `--ui-*` custom property, set once on `:root` (light) and
   once on `.dark`. The component rules have no per-theme copies, so a colour change is one line.
 - The classes own colour, shape, depth and motion. Layout stays with Tailwind: add `w-full`,
   `flex-1`, `mt-3`, `p-4` and so on beside them. Do not add Tailwind colour, radius, padding or
-  shadow utilities to a button or input that uses these classes: `app.css` loads after
+  shadow utilities to a button or input that uses these classes: `ui.css` loads after
   `tailwind.css`, so the component class wins and the utility is dead weight.
 
 ## Buttons

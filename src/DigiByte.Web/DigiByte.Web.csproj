@@ -51,6 +51,7 @@
     <ProjectReference Include="..\DigiByte.Wallet\DigiByte.Wallet.csproj" />
     <ProjectReference Include="..\DigiByte.Crypto\DigiByte.Crypto.csproj" />
     <ProjectReference Include="..\DigiByte.P2P.Shared\DigiByte.P2P.Shared.csproj" />
+    <ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />
   </ItemGroup>
 
   <!-- Rebuild Tailwind CSS on build (purged & minified).

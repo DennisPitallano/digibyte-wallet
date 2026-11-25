@@ -1,0 +1,26 @@
+{
+  "page": "/test-animations (wallet style gallery)",
+  "recordedAt": "2026-11-25",
+  "method": "gallery-fingerprint.js: SHA-256 over every element's computed style (element, ::before, ::after). Properties are sorted, whitespace inside values is collapsed, one-shot animations are finished and infinite ones paused at 0. The page is loaded with the same saved theme (light) on both sides, because the gallery's own toggle label depends on it.",
+  "elements": 967,
+  "fontsLoaded": ["Inter 100 900", "JetBrains Mono 100 800"],
+  "baseline": {
+    "source": "pre-change wallet (commit d8670da, app code identical to main) run from a temporary worktree",
+    "1280-light": "e98702c14a688772a5146cae0391b03393d787e432752a3f9f31eee9743b449b",
+    "1280-dark": "0a5bce7ddd138704d4ec24ba4b650b600f0c6650339ff005140adea156dda386",
+    "375-light": "2d87abd51922f13fe9e7eb69…",
+    "375-dark": "26409f8f06d403542ddf397c…"
+  },
+  "afterExtraction": {
+    "source": "wallet loading _content/DigiByte.UI/css/ui.css + trimmed app.css (T008–T011)",
+    "1280-light": "e98702c14a688772a5146cae0391b03393d787e432752a3f9f31eee9743b449b",
+    "1280-dark": "0a5bce7ddd138704d4ec24ba4b650b600f0c6650339ff005140adea156dda386",
+    "375-light": "2d87abd51922f13fe9e7eb69…",
+    "375-dark": "26409f8f06d403542ddf397c…",
+    "result": "identical at all four sizes and themes"
+  },
+  "notes": [
+    "The first fingerprint (unsorted properties) differed after the move only because the browser lists custom properties in a different order once they come from another stylesheet; that is not a visual change.",
+    "Moving the CSS also turned the CRLF line endings inside multi-line custom property values (--ui-nav-shadow) into LF. Git normalises line endings on commit, so production builds are unaffected; the fingerprint collapses whitespace for this reason."
+  ]
+}
