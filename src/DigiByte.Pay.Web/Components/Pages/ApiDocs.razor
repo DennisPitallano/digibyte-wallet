@@ -233,9 +233,9 @@
                 <a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">Try it live →</a>
             </p>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-2">Programmatic:</p>
-            <CodeBlock>@("DigiPay.checkout({ sessionId: 'ses_abc' });  // opens iframe modal\nDigiPay.close();                              // dismiss it\nconst a = DigiPay.button({ address: 'dgb1…', amount: 5, name: 'Shop' });\ndocument.body.appendChild(a);")</CodeBlock>
+            <CodeBlock>@("DigiPay.checkout({ sessionId: 'ses_abc' });  // opens iframe modal\nDigiPay.checkout({ sessionId: 'ses_abc', theme: 'light' });  // optional: 'light' | 'dark'\nDigiPay.close();                              // dismiss it\nconst a = DigiPay.button({ address: 'dgb1…', amount: 5, name: 'Shop' });\ndocument.body.appendChild(a);")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2">Declarative:</p>
-            <CodeBlock>@("<button data-digipay-checkout data-session-id=\"ses_abc\">Pay</button>\n<span data-digipay-button data-address=\"dgb1…\" data-amount=\"5\">Tip</span>")</CodeBlock>
+            <CodeBlock>@("<button data-digipay-checkout data-session-id=\"ses_abc\">Pay</button>\n<span data-digipay-button data-address=\"dgb1…\" data-amount=\"5\">Tip</span>\n<!-- optional on either: data-theme=\"light\" or \"dark\" -->")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Auto-binds on <InlineCode>DOMContentLoaded</InlineCode>; call <InlineCode>DigiPay.bind(rootEl)</InlineCode> after injecting new elements dynamically.</p>
 
             <DocsHeading>Status codes</DocsHeading>

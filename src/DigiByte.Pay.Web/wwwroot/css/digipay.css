@@ -319,3 +319,54 @@ html:not(.dark) .dp-pos .text-dgb-100 { color: #003d7a; }
 html:not(.dark) .dp-pos .hover\:text-white:hover { color: var(--ui-text); }
 html:not(.dark) .dp-pos .disabled\:bg-slate-700:disabled { background: #e2e8f0; }
 html:not(.dark) .dp-pos .disabled\:text-slate-400:disabled { color: #64748b; }
+
+/* ----- Public site (spec 032, US7) ----- */
+.dp-sitenav { position: relative; z-index: 20; background: var(--ui-surface); border-bottom: 1px solid var(--ui-border); }
+.dp-sitenav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 40px;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ui-text-muted);
+}
+.dp-sitenav-link:hover { color: var(--ui-text); background: var(--ui-ghost-hover); }
+.dp-sitenav-link:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.dp-sitenav-link[aria-current="page"] { color: var(--ui-ghost-text); font-weight: 600; }
+/* The site sheet is used at every width below the md breakpoint, so it isn't hidden at 1024px. */
+@media (min-width: 1024px) { .dp-sheet-overlay.dp-sheet-overlay-site { display: flex; } }
+
+.dp-code { position: relative; margin: 0.75rem 0; }
+.dp-code-pre {
+    margin: 0;
+    padding: 0.875rem 1rem;
+    padding-right: 6rem;
+    border-radius: var(--ui-radius);
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+.dp-code-copy {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 36px;
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+.dp-code-copy:hover { background: rgba(255, 255, 255, 0.16); }
+.dp-code-copy:focus-visible { outline: 2px solid #80b3ff; outline-offset: 2px; }

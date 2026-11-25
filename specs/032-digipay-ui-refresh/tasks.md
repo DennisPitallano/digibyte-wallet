@@ -57,7 +57,7 @@ description: "Task list for the DigiPay UI refresh"
   Leave the wallet-only blocks in `app.css`: recovery phrase, slide to confirm, card finishes, coin, celebration, shared-wallet mode, pending payments, signing room, shared wallet list, scan panel. See [contracts/ui-style-contract.md](contracts/ui-style-contract.md).
 - [X] T010 Add `<ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />` to `src/DigiByte.Web/DigiByte.Web.csproj`.
 - [X] T011 In `src/DigiByte.Web/wwwroot/index.html`, add `<link rel="stylesheet" href="_content/DigiByte.UI/css/ui.css" />` immediately before the `css/app.css` link. Change the font preload links, if any, to `_content/DigiByte.UI/fonts/…`.
-- [ ] T012 Check that the CSP in `src/DigiByte.Web/wwwroot/index.html` and the Nginx security headers in `src/DigiByte.Web` need no change, since `_content/…` is same-origin. Then publish the wallet and confirm that `service-worker-assets.js` lists `_content/DigiByte.UI/css/ui.css` and both fonts.
+- [X] T012 Check that the CSP in `src/DigiByte.Web/wwwroot/index.html` and the Nginx security headers in `src/DigiByte.Web` need no change, since `_content/…` is same-origin. Then publish the wallet and confirm that `service-worker-assets.js` lists `_content/DigiByte.UI/css/ui.css` and both fonts.
 - [X] T013 Run quickstart Q1: retake the gallery screenshots, compare them pixel for pixel with the T001 baseline, check offline load and check the console for CSP errors. Fix any difference before continuing.
 - [X] T014 Update `docs/UI_STYLE.md`, section "How it is built", to say the generic layer lives in `src/DigiByte.UI/wwwroot/css/ui.css`, that the wallet's `app.css` keeps only wallet-only rules, and that the change rule in contracts/ui-style-contract.md applies.
 
@@ -347,20 +347,20 @@ description: "Task list for the DigiPay UI refresh"
 **Independent Test**: Quickstart Q7.
 
 - [ ] T086 [US7] Create `src/DigiByte.Pay.Web/Components/Layout/SiteLayout.razor`, containing `SiteNav` and `SiteFooter`. Apply `@layout SiteLayout` to `Home.razor`, `Features.razor`, `About.razor`, `Docs.razor`, `ApiDocs.razor`, `PosDocs.razor`, `WooCommerceDocs.razor` and `Sdks.razor`, removing their hand-included nav and footer.
-- [ ] T087 [US7] Rewrite the phone menu in `src/DigiByte.Pay.Web/Components/Shared/SiteNav.razor`: replace the checkbox hamburger dropdown with a sheet (`card-raised`, `role="dialog"`) that closes with its close button, a tap on the backdrop or Escape, and returns focus to the menu button. The Sign in / Dashboard pill uses `btn-primary btn-sm`.
+- [X] T087 [US7] Rewrite the phone menu in `src/DigiByte.Pay.Web/Components/Shared/SiteNav.razor`: replace the checkbox hamburger dropdown with a sheet (`card-raised`, `role="dialog"`) that closes with its close button, a tap on the backdrop or Escape, and returns focus to the menu button. The Sign in / Dashboard pill uses `btn-primary btn-sm`.
 - [ ] T088 [P] [US7] Restyle `Home.razor` and `Features.razor` with `page-title`, `block-title`, `card`/`card-interactive` and shared buttons. Keep all text, sections and images.
 - [ ] T089 [P] [US7] Restyle `About.razor` and `Sdks.razor` the same way. In `Sdks.razor`, the tabbed snippets use `segmented` with `aria-selected`.
 - [ ] T090 [P] [US7] Restyle `Docs.razor`, `ApiDocs.razor`, `PosDocs.razor` and `WooCommerceDocs.razor`, plus `Shared/Endpoint.razor`, `Shared/DocsHeading.razor`, `Shared/Feature.razor`, `Shared/FeaturePanel.razor`, `Shared/Step.razor` and `Shared/Stat.razor`.
-- [ ] T091 [US7] Give `src/DigiByte.Pay.Web/Components/Shared/CodeBlock.razor` a `CopyButton` (copy and notice), `font-mono` and a `card` surface. Remove its old copy code and the inline "Copied ✓" swap.
-- [ ] T092 [US7] Document the `theme` embed option and query parameter (contract C3) in the embed section of `Docs.razor`, in `samples/express-store/README.md`, `samples/flask-store/README.md` and `samples/dotnet-store/README.md` (wherever they show the embed), and as a note in `WooCommerceDocs.razor`.
+- [X] T091 [US7] Give `src/DigiByte.Pay.Web/Components/Shared/CodeBlock.razor` a `CopyButton` (copy and notice), `font-mono` and a `card` surface. Remove its old copy code and the inline "Copied ✓" swap.
+- [X] T092 [US7] Document the `theme` embed option and query parameter (contract C3) in the embed section of `Docs.razor`, in `samples/express-store/README.md`, `samples/flask-store/README.md` and `samples/dotnet-store/README.md` (wherever they show the embed), and as a note in `WooCommerceDocs.razor`.
 - [ ] T093 [US7] Run quickstart Q7.
 
 ---
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
-- [ ] T094 [P] Update `docs/ARCHITECTURE.md`: add the `DigiByte.UI` leaf project, who references it, and that its assets are copied in at build time. Update the dependency description for Principle IV.
-- [ ] T095 [P] Add a CHANGELOG entry in `CHANGELOG.md` covering the DigiPay restyle, routed dashboard, theme picker, checkout copy buttons and the embed `theme` option.
+- [X] T094 [P] Update `docs/ARCHITECTURE.md`: add the `DigiByte.UI` leaf project, who references it, and that its assets are copied in at build time. Update the dependency description for Principle IV.
+- [X] T095 [P] Add a CHANGELOG entry in `CHANGELOG.md` covering the DigiPay restyle, routed dashboard, theme picker, checkout copy buttons and the embed `theme` option.
 - [ ] T096 Check across DigiPay that nothing overflows its button, badge or menu item, or pushes the layout sideways, at 320px (SC-008). Check long store names, labels and txids in particular.
 - [ ] T097 Run quickstart Q8: build both Docker images. Check that the DigiPay image has no Node and that `wwwroot/_content/DigiByte.UI/css/ui.css` and the two fonts are in both published outputs.
 - [ ] T098 Run the SC-004 and SC-005 hands-on tests before release (quickstart Q9):

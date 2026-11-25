@@ -53,6 +53,7 @@ The DigiByte Wallet is a self-custodial Progressive Web App (PWA) built with Bla
 | `DigiByte.Crypto` | Class Library | BIP39/BIP84, HD keys, tx building, Digi-ID, WIF import, multisig (redeem scripts, PSBT), PSBT review and signing (`Psbt/`: `PsbtDocument`, `PsbtAnalyzer`, `PsbtSigner`) |
 | `DigiByte.Wallet` | Class Library | Wallet service, encryption, contacts, storage abstractions, multisig wallet management |
 | `DigiByte.Web` | Blazor WASM PWA | The wallet UI — all pages, components, JS interop |
+| `DigiByte.UI` | Razor Class Library (static assets only) | The shared style layer: `css/ui.css` (tokens and component classes), the two self-hosted fonts and the Baku poses DigiPay uses. Referenced by `DigiByte.Web` and `DigiByte.Pay.Web`, which copy it in at build time and serve it from their own origin at `_content/DigiByte.UI/...`. References no other project. See `docs/UI_STYLE.md`. |
 | `DigiByte.Api` | Web API | P2P marketplace backend (future) |
 | `DigiByte.NodeApi` | Web API | Wraps 87 digibyted RPC methods into REST + Scalar docs |
 | `DigiByte.P2P.Shared` | Class Library | Shared models for P2P exchange |

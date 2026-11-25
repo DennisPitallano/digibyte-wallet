@@ -60,6 +60,13 @@
             <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"amount\": 12.5,\n    \"storeId\": \"sto_…\",       // optional — defaults to first store\n    \"label\": \"Order #4201\"\n  }'")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Redirect the buyer to the returned <InlineCode>checkout_url</InlineCode>, or open it in-page with the JS embed (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">live demo →</a>):</p>
             <CodeBlock>@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<button data-digipay-checkout data-session-id=\"ses_...\">Pay with DigiByte</button>")</CodeBlock>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">
+                <strong>Match your shop's look (optional).</strong> The checkout follows the shopper's own light or dark choice.
+                To fix it to your shop's theme, add <InlineCode>data-theme="light"</InlineCode> or <InlineCode>"dark"</InlineCode> to the button,
+                pass <InlineCode>theme</InlineCode> to <InlineCode>DigiPay.checkout()</InlineCode>, or append <InlineCode>?theme=light</InlineCode>
+                to the <InlineCode>checkout_url</InlineCode> when you redirect. Any other value is ignored, and the shopper's own setting is never changed.
+            </p>
+            <CodeBlock Label="Copy the themed embed example">@("<button data-digipay-checkout data-session-id=\"ses_...\" data-theme=\"light\">Pay with DigiByte</button>\n<script>DigiPay.checkout({ sessionId: 'ses_...', theme: 'dark' });</script>\n<!-- or redirect to: https://pay.dgbwallet.app/pay/ses_...?theme=light -->")</CodeBlock>
 
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4">
                 <strong>Make retries safe.</strong> Pass an <InlineCode>Idempotency-Key</InlineCode> header on the create

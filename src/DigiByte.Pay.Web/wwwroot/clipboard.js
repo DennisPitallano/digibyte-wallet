@@ -46,5 +46,12 @@
         }
     }
 
-    global.digipayClipboard = { copy: copy, select: select };
+    // Copies the text of an element (code samples), as the reader sees it.
+    function copyFrom(id) {
+        var el = id && document.getElementById(id);
+        if (!el) return Promise.resolve(false);
+        return copy(el.innerText || el.textContent || '');
+    }
+
+    global.digipayClipboard = { copy: copy, select: select, copyFrom: copyFrom };
 })(window);

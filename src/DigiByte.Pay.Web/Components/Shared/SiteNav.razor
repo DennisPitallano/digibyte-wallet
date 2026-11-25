@@ -1,86 +1,111 @@
+@implements IAsyncDisposable
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
+@* Public site menu (spec 032, US7). Wide screens: inline links. Phones: a menu button that opens a
+   wallet-style sheet (dialog: focus moves in, Escape or a tap outside closes it, focus returns). *@
 @{
     var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
-    // Exact-match highlighting. Previously used StartsWith which would have
-    // lit both "How it works" (/docs) and "API" (/docs/api) on the API page.
-    // All current nav entries are flat routes so exact match is sufficient.
-    string cls(string p) => path == p
-        ? "text-slate-900 dark:text-white"
-        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+    bool current(string p) => path == p;
 }
 
-<nav class="border-b border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-6">
-        @* Brand mark — same visual vocabulary as the /about hero (DigiByte
-           logo + "Digi" in default colour + "Pay" in dgb-500), sized down
-           for the header. Single source of truth for the project identity. *@
-        @* Brand mark is the DigiPay-specific logo (receipt + arrow), not the
-           DigiByte foundation mark. The tile wrapper is dropped — the logo
-           already ships with its own rounded-square gradient container. *@
-        <a href="/" class="flex items-center gap-2 font-extrabold text-slate-900 dark:text-white no-underline text-[0.9375rem] sm:text-base tracking-tight">
-            <img src="/digipay-logo.svg" alt="" class="w-7 h-7 shrink-0" />
+<nav class="dp-sitenav" aria-label="Site">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3 sm:gap-6">
+        <a href="/" class="dp-brand">
+            <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
             <span>Digi<span class="text-dgb-500">Pay</span></span>
         </a>
-        <div class="hidden sm:flex gap-5 flex-1 items-center">
-            <a href="/features" class="@cls("/features") text-sm font-medium no-underline transition-colors">Features</a>
-            <a href="/docs" class="@cls("/docs") text-sm font-medium no-underline transition-colors">How it works</a>
-            <a href="/docs/pos" class="@cls("/docs/pos") text-sm font-medium no-underline transition-colors">POS</a>
-            <a href="/sdks" class="@cls("/sdks") text-sm font-medium no-underline transition-colors">SDKs</a>
-            <a href="/docs/api" class="@cls("/docs/api") text-sm font-medium no-underline transition-colors">API</a>
-            <a href="/about" class="@cls("/about") text-sm font-medium no-underline transition-colors">About</a>
-            @* Outbound — the main DigiByte wallet PWA lives on its own domain.
-               Dashboard access is via the blue pill on the right (shown when
-               signed in), same pattern as the Sign in pill for signed-out users. *@
-            <a href="https://dgbwallet.app" target="_blank" rel="noopener"
-               class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-sm font-medium no-underline transition-colors inline-flex items-center gap-1">
-                Wallet
-                <Icon Name="external-link" Class="w-3 h-3 opacity-60" />
+        <div class="hidden md:flex gap-1 flex-1 items-center">
+            @foreach (var (href, label) in Links)
+            {
+                <a href="@href" class="dp-sitenav-link" aria-current="@(current(href) ? "page" : null)">@label</a>
+            }
+            <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="dp-sitenav-link">
+                Wallet <Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
             </a>
         </div>
-        <div class="flex-1 sm:hidden"></div>
-        <ThemePicker Compact="true" />
-        @* Signed out: "Sign in" CTA. Signed in: "Dashboard" CTA so mobile users
-           (who don't see the inline nav link above) also get a one-tap path. *@
-        <a href="/merchant/signin" data-auth-show="out"
-           class="px-3 py-2 bg-dgb-500 hover:bg-dgb-600 text-white no-underline rounded-lg text-[0.8125rem] font-semibold transition-colors">
-            Sign in
+        <div class="flex-1 md:hidden"></div>
+        <ThemePicker Compact="true" Class="hidden sm:flex" />
+        @* Signed out: Sign in. Signed in: Dashboard (auth-state.js shows one via CSS). *@
+        <a href="/merchant/signin" data-auth-show="out" class="btn-primary btn-sm">Sign in</a>
+        <a href="/merchant" data-auth-show="in" class="btn-primary btn-sm">
+            <Icon Name="dashboard" Class="w-4 h-4" /><span>Dashboard</span>
         </a>
-        <a href="/merchant" data-auth-show="in"
-           class="px-3 py-2 bg-dgb-500 hover:bg-dgb-600 text-white no-underline rounded-lg text-[0.8125rem] font-semibold transition-colors inline-flex items-center gap-1.5">
-            <Icon Name="dashboard" Class="w-3.5 h-3.5" />
-            Dashboard
-        </a>
-        @* Mobile hamburger — uses a hidden checkbox so the panel stays open on
-           tap without needing JS or InteractiveServer. Closes when the user
-           navigates via anchor clicks or taps the overlay. *@
-        <input type="checkbox" id="sitenav-mobile" class="peer hidden" />
-        <label for="sitenav-mobile"
-               class="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 dark:border-dgb-800 text-slate-600 dark:text-slate-300 cursor-pointer"
-               aria-label="Open navigation">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 class="w-5 h-5">
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-        </label>
-        <label for="sitenav-mobile"
-               class="hidden peer-checked:block sm:!hidden fixed inset-0 bg-black/40 z-40"
-               aria-hidden="true"></label>
-        <div class="hidden peer-checked:flex sm:!hidden fixed inset-x-0 top-[56px] z-50 flex-col gap-1 p-3 bg-white dark:bg-dgb-900 border-b border-slate-200 dark:border-dgb-800 shadow-lg">
-            <a href="/features" class="@cls("/features") px-3 py-2 rounded-lg text-sm font-medium no-underline">Features</a>
-            <a href="/docs" class="@cls("/docs") px-3 py-2 rounded-lg text-sm font-medium no-underline">How it works</a>
-            <a href="/docs/pos" class="@cls("/docs/pos") px-3 py-2 rounded-lg text-sm font-medium no-underline">POS</a>
-            <a href="/sdks" class="@cls("/sdks") px-3 py-2 rounded-lg text-sm font-medium no-underline">SDKs</a>
-            <a href="/docs/api" class="@cls("/docs/api") px-3 py-2 rounded-lg text-sm font-medium no-underline">API</a>
-            <a href="/about" class="@cls("/about") px-3 py-2 rounded-lg text-sm font-medium no-underline">About</a>
-            <a href="https://dgbwallet.app" target="_blank" rel="noopener"
-               class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-slate-500 dark:text-slate-400 inline-flex items-center gap-1">
-                Wallet
-                <Icon Name="external-link" Class="w-3 h-3 opacity-60" />
-            </a>
-        </div>
+        <button type="button" class="icon-btn md:hidden" aria-label="Open menu" aria-haspopup="dialog"
+                aria-expanded="@(menuOpen ? "true" : "false")" @onclick="OpenMenu">
+            <Icon Name="menu" Class="w-5 h-5" />
+        </button>
     </div>
 </nav>
+
+@if (menuOpen)
+{
+    <div class="dp-sheet-overlay dp-sheet-overlay-site" @onclick="CloseMenu">
+        <div id="dp-site-sheet" class="card-raised dp-sheet" role="dialog" aria-modal="true" aria-labelledby="dp-site-sheet-title" @onclick:stopPropagation="true">
+            <div class="dp-sheet-head">
+                <h2 id="dp-site-sheet-title" class="block-title">Menu</h2>
+                <button type="button" class="icon-btn" aria-label="Close menu" data-autofocus @onclick="CloseMenu"><Icon Name="close" Class="w-5 h-5" /></button>
+            </div>
+            <nav aria-label="Site pages" class="dp-sheet-list">
+                @foreach (var (href, label) in Links)
+                {
+                    <a href="@href" class="dp-rail-item" aria-current="@(current(href) ? "page" : null)" @onclick="CloseMenu">@label</a>
+                }
+                <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="dp-rail-item">
+                    <span class="flex-1">Wallet</span><Icon Name="external-link" Class="w-4 h-4 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+                </a>
+            </nav>
+            <div class="dp-rail-group">
+                <p class="section-label px-3">Theme</p>
+                <ThemePicker Class="mx-1" />
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly (string Href, string Label)[] Links =
+    [
+        ("/features", "Features"),
+        ("/docs", "How it works"),
+        ("/docs/pos", "POS"),
+        ("/sdks", "SDKs"),
+        ("/docs/api", "API"),
+        ("/about", "About"),
+    ];
+
+    private bool menuOpen;
+    private DotNetObjectReference<SiteNav>? self;
+
+    private async Task OpenMenu()
+    {
+        menuOpen = true;
+        StateHasChanged();
+        await Task.Yield();
+        self ??= DotNetObjectReference.Create(this);
+        try { await JS.InvokeVoidAsync("digipayDialog.open", "dp-site-sheet", self); } catch (JSException) { }
+    }
+
+    private async Task CloseMenu()
+    {
+        if (!menuOpen) return;
+        menuOpen = false;
+        try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-site-sheet"); } catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+
+    [JSInvokable]
+    public async Task OnEscape()
+    {
+        await CloseMenu();
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (menuOpen)
+        {
+            try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-site-sheet"); } catch { }
+        }
+        self?.Dispose();
+    }
+}
