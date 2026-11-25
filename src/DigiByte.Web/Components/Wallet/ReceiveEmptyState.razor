@@ -12,13 +12,17 @@
          data-testid="receive-empty-state">
         @if (qrDataUri is not null)
         {
-            <div class="qr-frame qr-frame-sm flex-shrink-0">
-                <img src="@qrDataUri" alt="@L.T("home.empty.qr_alt")" class="w-28 h-28 rounded-md block" data-testid="receive-empty-qr" />
-                <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-                    <div class="bg-white rounded-full p-1 shadow-md">
-                        <DigiLogo Size="20" />
+            @* On wide screens the QR code says it is for a phone (specs/032-desktop-receive-everywhere, FR-010). *@
+            <div class="flex-shrink-0 flex flex-col items-center gap-1">
+                <div class="qr-frame qr-frame-sm">
+                    <img src="@qrDataUri" alt="@L.T("home.empty.qr_alt")" class="w-28 h-28 rounded-md block" data-testid="receive-empty-qr" />
+                    <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                        <div class="bg-white rounded-full p-1 shadow-md">
+                            <DigiLogo Size="20" />
+                        </div>
                     </div>
                 </div>
+                <p class="receive-qr-caption text-center max-w-[8rem]">@L.T("receive.qr_for_phone")</p>
             </div>
         }
 

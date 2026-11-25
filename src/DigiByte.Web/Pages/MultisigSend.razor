@@ -8,6 +8,7 @@
 @inject NavigationManager Nav
 @inject LocalizationService L
 @inject ContactService Contacts
+@inject PaymentHandoff PayHandoff
 
 <PageTitle>@L.T("ms.send.page_title")</PageTitle>
 
@@ -22,7 +23,7 @@ else if (config == null)
 {
     <MultisigAccessNotice State="access" />
     @* A scanned payment was meant to start here; when this shared wallet can't be opened, offer the personal wallet (FR-002a). *@
-    @if (!string.IsNullOrWhiteSpace(QueryAddress))
+    @if (PrefillAddress is not null)
     {
         <div class="flex justify-center -mt-6 pb-8">
             <button type="button" class="btn-secondary btn-sm" data-testid="pay-from-personal" @onclick="PayFromPersonalWallet">@L.T("ms.send.pay_personal", ActiveWallet.WalletName)</button>
@@ -429,6 +430,18 @@ else
     [SupplyParameterFromQuery(Name = "amount")] public string? QueryAmount { get; set; }
     private string? appliedQuery;
 
+    // The menu now hands a payment over in memory instead (specs/032-desktop-receive-everywhere, FR-001): the address
+    // only says "a payment is waiting" with a counter, which also makes the page look again when it is already open.
+    [SupplyParameterFromQuery(Name = "link")] public int? Link { get; set; }
+    private DigiByte.Wallet.Services.PaymentLinkData? handedPayment;
+
+    // The payment to fill in: one handed over in memory, else one in the address (older links).
+    private string? PrefillAddress => handedPayment?.Address ?? (string.IsNullOrWhiteSpace(QueryAddress) ? null : QueryAddress.Trim());
+    private decimal? PrefillAmount => handedPayment is not null
+        ? handedPayment.AmountDgb
+        : decimal.TryParse(QueryAmount, System.Globalization.NumberStyles.AllowDecimalPoint,
+            System.Globalization.CultureInfo.InvariantCulture, out var amount) && amount > 0 ? amount : null;
+
     private MultisigWalletConfig? config;
     private MultisigAccessState access = MultisigAccessState.NotFound;
     private bool isLoading = true;
@@ -482,6 +495,11 @@ else
     // Runs again when the same page is reused for a different multisig (e.g. a link to another one).
     protected override async Task OnParametersSetAsync()
     {
+        // Taken once per hand-over; a payment handed over for another shared wallet never carries over to this one.
+        var handed = Link is not null ? PayHandoff.Take(WalletId) : null;
+        if (loadedFor != WalletId) handedPayment = null;
+        if (handed is not null) handedPayment = handed;
+
         if (loadedFor == WalletId)
         {
             // Same shared wallet, new scan: fill the form again.
@@ -517,14 +535,13 @@ else
     // values (Recalculate); nothing is trusted because it came from an address. Returns true when something was filled in.
     private bool ApplyQueryPrefill()
     {
-        var query = $"{QueryAddress}|{QueryAmount}";
-        if (string.IsNullOrWhiteSpace(QueryAddress) || query == appliedQuery) return false;
+        var query = $"{Link}|{PrefillAddress}|{PrefillAmount}";
+        if (PrefillAddress is null || query == appliedQuery) return false;
         appliedQuery = query;
         if (step != Step.Form) return false;
 
-        destination = QueryAddress.Trim();
-        if (decimal.TryParse(QueryAmount, System.Globalization.NumberStyles.AllowDecimalPoint,
-                System.Globalization.CultureInfo.InvariantCulture, out var amount) && amount > 0)
+        destination = PrefillAddress;
+        if (PrefillAmount is { } amount)
         {
             useMax = false;
             shareUsed = null;
@@ -535,11 +552,9 @@ else
 
     private void PayFromPersonalWallet()
     {
-        var url = "/send?address=" + Uri.EscapeDataString(QueryAddress!.Trim());
-        if (decimal.TryParse(QueryAmount, System.Globalization.NumberStyles.AllowDecimalPoint,
-                System.Globalization.CultureInfo.InvariantCulture, out var amount) && amount > 0)
-            url += "&amount=" + amount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        Nav.NavigateTo(url);
+        // Handed over in memory, so the payment stays out of the address bar here too (spec 032, FR-007).
+        PayHandoff.Set(new DigiByte.Wallet.Services.PaymentLinkData(PrefillAddress!, PrefillAmount, null, null));
+        Nav.NavigateTo(ScanRouter.SendPagePath(null, Link.GetValueOrDefault() + 1));
     }
 
     // Names shown next to addresses come only from this device's contacts (FR-011a).

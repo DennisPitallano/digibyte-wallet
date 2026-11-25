@@ -2346,6 +2346,8 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 .receive-main { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 .receive-main-qr { order: -1; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .receive-qr-caption { display: none; font-size: 0.75rem; color: var(--ui-text-muted); }
+/* A line that stays above the QR code at every width, such as DigiDollar Receive's network (spec 032). */
+.receive-main-top { order: -2; }
 @media (min-width: 1024px) {
     .receive-main-qr { order: 0; }
     .receive-main-qr .qr-frame > img { width: 9rem; height: 9rem; }

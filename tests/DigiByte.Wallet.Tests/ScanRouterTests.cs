@@ -297,6 +297,100 @@ public class ScanRouterTests
         Assert.Equal(ScanTarget.Unknown, ScanRouter.Route("https://dgbwallet.app/pay#digibyte:not-an-address?amount=2", App).Kind);
     }
 
+    // ─── Payments read in the menu go to Send in memory (specs/032-desktop-receive-everywhere, FR-001 to FR-005) ───
+
+    [Fact]
+    public void TryPayment_reads_a_bare_address()
+    {
+        Assert.True(ScanRouter.TryPayment($"  {Address}\n", App, out var payment));
+        Assert.Equal(new PaymentLinkData(Address, null, null, null), payment);
+        Assert.True(ScanRouter.TryPayment(LegacyAddress, App, out var legacy));
+        Assert.Equal(LegacyAddress, legacy.Address);
+    }
+
+    [Fact]
+    public void TryPayment_reads_a_payment_request_with_its_amount()
+    {
+        Assert.True(ScanRouter.TryPayment($"digibyte:{Address}?amount=12.5", App, out var payment));
+        Assert.Equal(Address, payment.Address);
+        Assert.Equal(12.5m, payment.AmountDgb);
+    }
+
+    [Fact]
+    public void TryPayment_never_carries_a_note_that_could_reach_the_memo()
+    {
+        Assert.True(ScanRouter.TryPayment($"digibyte:{Address}?amount=3&label=Shop&message=Order%2042", App, out var request));
+        Assert.Null(request.Label);
+        Assert.Null(request.Message);
+
+        Assert.True(ScanRouter.TryPayment($"https://dgbwallet.app/pay#digibyte:{Address}?amount=2&message=Hi", App, out var link));
+        Assert.Equal(new PaymentLinkData(Address, 2m, null, null), link);
+    }
+
+    [Fact]
+    public void TryPayment_reads_this_wallets_payment_link_without_knowing_the_network()
+    {
+        Assert.True(ScanRouter.TryPayment($"https://dgbwallet.app/pay#digibyte:{Address}?amount=2", App, out var payment));
+        Assert.Equal(2m, payment.AmountDgb);
+    }
+
+    [Theory]
+    [InlineData("digiid://example.com/callback?x=abc123")]
+    [InlineData("https://dgbwallet.app/multisig/room?code=ab12cd")]
+    [InlineData("cHNidP8BAHECAAAAAbcd")]
+    [InlineData("hello")]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("https://evil.example/pay#digibyte:DSXnZTQABeBrJEU5b2vpnysoGiiZwjKKDY")]
+    [InlineData("digibyte:not-an-address?amount=2")]
+    public void TryPayment_is_false_for_anything_that_is_not_a_payment(string? code)
+    {
+        Assert.False(ScanRouter.TryPayment(code, App, out _));
+    }
+
+    [Fact]
+    public void TryPayment_is_false_for_a_redeem_script()
+    {
+        Assert.False(ScanRouter.TryPayment("5221" + new string('a', 66) + "21" + new string('b', 66) + "52ae", App, out _));
+    }
+
+    [Fact]
+    public void TryPayment_agrees_with_the_route_for_every_kind_of_code()
+    {
+        string[] codes =
+        [
+            Address, LegacyAddress, $"digibyte:{Address}", $"digibyte:{Address}?amount=0", $"digibyte:{Address}?amount=7.25",
+            $"https://dgbwallet.app/pay#digibyte:{Address}?amount=2", "digiid://example.com/callback?x=1",
+            "https://dgbwallet.app/multisig/room?code=ab12cd", "cHNidP8BAHECAAAAAbcd", "abcdef", "hello",
+        ];
+        foreach (var code in codes)
+        {
+            var route = ScanRouter.Route(code, App);
+            Assert.Equal(route.Kind == ScanTarget.Payment, ScanRouter.TryPayment(code, App, out var payment));
+            if (route.Kind != ScanTarget.Payment) continue;
+            // The same address and amount the route's Send address would have carried.
+            var expected = "/send?address=" + Uri.EscapeDataString(payment.Address)
+                + (payment.AmountDgb is { } a ? "&amount=" + a.ToString(System.Globalization.CultureInfo.InvariantCulture) : "");
+            Assert.Equal(expected, route.Url);
+        }
+    }
+
+    [Fact]
+    public void An_amount_of_zero_is_left_out()
+    {
+        Assert.True(ScanRouter.TryPayment($"digibyte:{Address}?amount=0", App, out var payment));
+        Assert.Null(payment.AmountDgb);
+    }
+
+    [Fact]
+    public void SendPagePath_carries_no_payment()
+    {
+        Assert.Equal("/send?link=3", ScanRouter.SendPagePath(null, 3));
+        Assert.Equal("/send?link=4", ScanRouter.SendPagePath(" ", 4));
+        Assert.Equal("/multisig/ms1/send?link=5", ScanRouter.SendPagePath("ms1", 5));
+        Assert.Equal("/multisig/a%2Fb/send?link=6", ScanRouter.SendPagePath("a/b", 6));
+    }
+
     [Fact]
     public void TryOwnPaymentLink_reads_only_this_wallets_web_links()
     {
