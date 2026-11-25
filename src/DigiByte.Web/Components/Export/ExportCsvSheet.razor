@@ -176,6 +176,7 @@
     private bool messageIsError;
     private bool offerRetry;
     private bool wasOpen;
+    private bool focusPending;
     private CancellationTokenSource? cts;
     private ElementReference exportButton;
 
@@ -191,6 +192,7 @@
             preset = ExportPreset.ThisMonth;
             from = to = null;
             message = null;
+            focusPending = true;
             offerRetry = false;
             showProgress = false;
         }
@@ -199,8 +201,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (IsOpen && !running && message is null)
+        // Focus the Export button once, when the sheet opens; never again while the person uses the other controls.
+        if (IsOpen && focusPending)
         {
+            focusPending = false;
             try { await exportButton.FocusAsync(); } catch { /* not rendered yet */ }
         }
     }

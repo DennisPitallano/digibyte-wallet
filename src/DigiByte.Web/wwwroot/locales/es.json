@@ -1210,6 +1210,8 @@
   "help.getting_around.8.a": "Sí, si lo activas: **Más** → **Ajustes** → **Sonidos**. Viene desactivado. Suena un aviso corto cuando llega un pago y otro distinto cuando sale un envío. El aviso en pantalla siempre aparece también, así que no te pierdes nada con el sonido apagado.",
   "help.getting_around.9.q": "¿Por qué deslizo para enviar en lugar de tocar un botón?",
   "help.getting_around.9.a": "Un envío no se puede deshacer, así que el último paso es un gesto deliberado que un toque accidental no puede activar. Arrastra el control hasta el final; si lo sueltas antes, se cancela. Con un teclado, ve hasta el control y mantén pulsado Enter o la barra espaciadora.",
+  "help.getting_around.10.q": "¿Cómo paso mis transacciones a una hoja de cálculo?",
+  "help.getting_around.10.a": "Abre Actividad y toca Exportar CSV (para DigiDollar, usa Exportar CSV en la pantalla de DigiDollar). Elige todo, lo que muestra la lista o un rango de fechas. El archivo tiene una fila por transacción con su fecha y zona horaria, el importe con signo, la comisión de red, el valor en tu moneda ese día, el nombre del contacto y el ID de transacción. Se abre en Excel, Google Sheets y LibreOffice. Se crea en tu dispositivo y no está protegido con contraseña, así que guárdalo en un lugar seguro.",
   "help.install_pwa.title": "Instalar como app (PWA)",
   "help.install_pwa.subtitle": "Guías de instalación para Android, iOS, Windows, macOS y Linux",
   "help.install_pwa.1.q": "¿Qué es una PWA y por qué instalarla?",

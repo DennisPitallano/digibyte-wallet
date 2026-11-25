@@ -147,6 +147,29 @@ The explorer has no oracle data, so with `DigiDollar:Backend=esplora` two small 
 
 Display only: the oracle never feeds a transaction. The home balance keeps the market price. The wallet only talks to the relay (`DigiDollar:OracleApiUrl`, https or loopback), never to digibyte.io.
 
+### Daily price ranges for CSV export (spec 031)
+
+The CSV export values each transaction at its local day's price. The wallet makes **one** request per export to the price
+service, carrying only a currency, an asset (`dgb` or `dd`) and two dates; nothing about the wallet.
+
+- **Endpoint** (`DigiByte.Api`: `PriceRangeEndpoint`, `GET /api/price/range?currency=&asset=&from=&to=`): returns one price per
+  UTC day with a `basis` of `native`, `convertedFromUsd` (the USD price at that day's USD rate) or `peg` (DigiDollar, 1 DD = 1 USD).
+  Rate-limited (30/min per visitor), cached for 1 hour, logs status codes only.
+- **Archive** (`PriceArchive`, `src/DigiByte.Api/PriceArchive/*.csv`): read-only data shipped with the service:
+  `dgb-daily-{currency}.csv` (DGB price per day) and `usd-fx-{currency}.csv` (units per USD per published day). Archived days
+  are served first and win over live values. A day without a published rate uses the latest earlier one up to 7 days old.
+- **Live sources** (days after the archive only, called by the price service, never by the wallet): CoinGecko
+  `market_chart/range` (its free tier covers the last 365 days), Frankfurter/ECB daily rates, and the free `exchange-api` daily
+  snapshots for currencies the ECB doesn't publish.
+- **Refresh**: `tools/PriceArchiveImport` seeds the archive (a maintainer, once). `.github/workflows/price-archive-refresh.yml`
+  runs monthly, appends new days and opens a pull request for review. It never merges, and it fails when a file falls more
+  than 300 days behind.
+
+In the wallet, `TransactionExportService` (`DigiByte.Wallet/Services/Export`) reads the complete history through strict reads
+(`WalletService.LoadCompleteHistoryAsync`, `DigiDollarService.LoadCompleteHistoryAsync`). These have no per-address cap and
+throw on any failure, and they never use the saved copy Activity shows offline. The service then writes the file on the
+device; `ExportCsvSheet` saves or shares it.
+
 ### Sponsors (list read from GitHub, submissions as pull requests)
 
 The Sponsors page reads `data/sponsors.json` live from the `sponsors` branch of the project's repository (`raw.githubusercontent.com`, one request per page open, last good copy kept in local storage). The form posts to one endpoint on `DigiByte.Api`, a public-contribution intake relay: it validates with the shared rules in `DigiByte.P2P.Shared`, checks the donation on the public explorers, and opens a pull request through a server-side bot token. A maintainer merges; a workflow on the branch regenerates the list. No database is used and `main` is never touched. See [SPONSORS.md](SPONSORS.md) and `specs/006-sponsors-page/`.

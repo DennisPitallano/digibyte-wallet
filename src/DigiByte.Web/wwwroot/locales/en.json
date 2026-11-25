@@ -1210,6 +1210,8 @@
   "help.getting_around.8.a": "Yes, if you turn it on: **More** → **Settings** → **Sounds**. It is off by default. One short chime plays when a payment arrives and a different one when a send goes out. The on-screen notice always shows as well, so nothing is missed with sound off.",
   "help.getting_around.9.q": "Why do I slide to send instead of tapping a button?",
   "help.getting_around.9.a": "A send cannot be undone, so the last step is a deliberate one that a stray tap cannot trigger. Drag the handle to the end; letting go early cancels. With a keyboard, move to the control and hold Enter or Space.",
+  "help.getting_around.10.q": "How do I get my transactions into a spreadsheet?",
+  "help.getting_around.10.a": "Open Activity and tap Export CSV (for DigiDollar, use Export CSV on the DigiDollar screen). Choose everything, what the list shows, or a date range. The file has one row per transaction with its date and time zone, signed amount, network fee, the value in your currency on that day, the contact name and the transaction ID. It opens in Excel, Google Sheets and LibreOffice. It's built on your device and isn't password-protected, so keep it somewhere safe.",
   "help.install_pwa.title": "Install as App (PWA)",
   "help.install_pwa.subtitle": "Android, iOS, Windows, macOS, Linux install guides",
   "help.install_pwa.1.q": "What is a PWA and why install it?",

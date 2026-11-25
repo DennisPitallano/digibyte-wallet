@@ -133,7 +133,7 @@
 ### Advanced Features
 - [x] Multiple wallet support (switch between wallets)
 - [ ] Address book import/export (CSV)
-- [ ] Transaction history CSV export
+- [x] Transaction history CSV export (DGB and DigiDollar, daily fiat values; spec 031)
 - [ ] DigiAssets (custom token support)
 - [x] Watch-only wallets (xpub import)
 - [x] Spending limits / transaction alerts

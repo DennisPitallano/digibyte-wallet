@@ -325,14 +325,14 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T057 [P] Tick "Transaction history CSV export" in `docs/ROADMAP.md` and the matching line in `src/DigiByte.Web/Pages/Roadmap.razor`
-- [ ] T058 [P] Add an "Export transaction history" flow to `docs/PROCESS_FLOWS.md`: read complete history → filter → daily prices → write → save, with the failure branches from data-model.md. In `docs/ARCHITECTURE.md`, add to the price service's section:
+- [X] T057 [P] Tick "Transaction history CSV export" in `docs/ROADMAP.md` and the matching line in `src/DigiByte.Web/Pages/Roadmap.razor`
+- [X] T058 [P] Add an "Export transaction history" flow to `docs/PROCESS_FLOWS.md`: read complete history → filter → daily prices → write → save, with the failure branches from data-model.md. In `docs/ARCHITECTURE.md`, add to the price service's section:
   - the `/api/price/range` endpoint and its `asset` parameter
   - the `PriceArchive/` price and exchange-rate files
   - the monthly refresh workflow
   - the new outside sources (Frankfurter, `exchange-api`), called by the price service only
-- [ ] T059 [P] Mention CSV export in the user Help page `src/DigiByte.Web/Pages/Help.razor` (en/es strings in the locale files)
-- [ ] T060 Check every new `export.*` key exists in both `en.json` and `es.json` with no English left in `es.json` (FR-018)
+- [X] T059 [P] Mention CSV export in the user Help page `src/DigiByte.Web/Pages/Help.razor` (en/es strings in the locale files)
+- [X] T060 Check every new `export.*` key exists in both `en.json` and `es.json` with no English left in `es.json` (FR-018)
 - [ ] T061 Performance check: export 1,000 transactions on a laptop and confirm < 10 s, with progress appearing after 1 s (SC-003); if not, profile the read before touching the writer
 - [ ] T062 Open the same DGB file in Excel, Google Sheets and LibreOffice in a dot region and a comma region (SC-004), and record screenshots in the PR
 - [ ] T063 Run every scenario in quickstart.md (including 1b and 9b) and `dotnet build src/src.sln` + `dotnet test` for `tests/DigiByte.Wallet.Tests` and `tests/DigiByte.Api.Tests`
