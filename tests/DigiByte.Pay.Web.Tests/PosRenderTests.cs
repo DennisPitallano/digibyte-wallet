@@ -152,12 +152,13 @@ public class PosRenderTests : BunitContext
         Assert.Equal("Currency: DGB, change", button.GetAttribute("aria-label"));
 
         button.Click();
-        Assert.Equal(11, cut.FindAll(".dp-pos-currency-option").Count);
-        cut.FindAll(".dp-pos-currency-option").First(b => b.TextContent.Contains("EUR")).Click();
+        // The wallet's whole list plus DGB, not a hard-coded handful.
+        Assert.True(cut.FindAll(".ui-picker-row").Count > 60);
+        PickCurrency(cut, "EUR");
 
-        Assert.Empty(cut.FindAll(".dp-pos-currency-option"));
+        Assert.Empty(cut.FindAll(".ui-picker-row"));
         Assert.Equal("Currency: EUR, change", cut.Find("button.dp-pos-currency").GetAttribute("aria-label"));
-        Assert.Contains("12", cut.Find(".dp-pos-amount").TextContent);
+        Assert.Equal("€12", cut.Find(".dp-pos-amount").TextContent.Replace(" ", "").Trim());
     }
 
     [Fact]
@@ -168,11 +169,14 @@ public class PosRenderTests : BunitContext
         Type(cut, "5");
 
         cut.Find("button.dp-pos-currency").Click();
-        cut.FindAll(".dp-pos-currency-option").First(b => b.TextContent.Contains("JPY")).Click();
+        PickCurrency(cut, "JPY");
 
         Assert.Contains("Switching clears the amount", cut.Markup);
         Assert.Contains("0.5", cut.Find(".dp-pos-amount").TextContent);
     }
+
+    internal static void PickCurrency(IRenderedComponent<Pos> cut, string code) =>
+        cut.FindAll(".ui-picker-row").First(b => b.QuerySelector(".ui-picker-code")?.TextContent.Trim() == code).Click();
 
     [Fact]
     public void Tip_buttons_report_whether_they_are_pressed()

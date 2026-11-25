@@ -1,0 +1,118 @@
+@namespace DigiByte.Pay.Web.Components.Pages
+@* Shift close / end-of-day summary (the POS page fetches /v1/pay/pos/shift-report and owns the dialog's focus
+   handling through id "pos-shift-dialog"). DGB totals keep the plain 8-dp form; every fiat figure is written the
+   wallet's way with its code (Fiat.FormatWithCode), since several currencies share "$" or "kr". *@
+<div class="dp-pos-overlay" @onclick="OnClose">
+    <div id="pos-shift-dialog" class="dp-pos-dialog dp-pos-panel-dialog" role="dialog" aria-modal="true" aria-labelledby="pos-shift-title" @onclick:stopPropagation>
+        <div class="dp-pos-dialog-head">
+            <div>
+                <h2 id="pos-shift-title" class="block-title">Shift summary</h2>
+                @if (Report is not null)
+                {
+                    <p class="dp-pos-muted dp-pos-small tabular-nums">@Report.From.ToLocalTime().ToString("dd MMM, HH:mm") → @Report.To.ToLocalTime().ToString("HH:mm")</p>
+                }
+            </div>
+            <button type="button" class="icon-btn dp-pos-dialog-close" @onclick="OnClose" aria-label="Close shift summary"><Icon Name="close" Class="w-5 h-5" /></button>
+        </div>
+
+        @if (Error is not null)
+        {
+            <p class="dp-pos-error" role="alert">@Error</p>
+        }
+        else if (Report is null)
+        {
+            <p class="dp-pos-muted">Loading…</p>
+        }
+        else
+        {
+            var totals = Report.Totals;
+            var outcomes = Report.Outcomes;
+            <div class="dp-pos-shift">
+                <section>
+                    <p class="section-label">Collected</p>
+                    <div class="dp-pos-shift-total tabular-nums">@PosEntry.FormatDgb(totals.CollectedDgb) <span class="dp-pos-unit">DGB</span></div>
+                    <p class="dp-pos-muted dp-pos-small">across @outcomes.Collected @(outcomes.Collected == 1 ? "sale" : "sales")</p>
+                    @if (totals.Fiat is { Count: > 0 })
+                    {
+                        <div class="dp-pos-chips">
+                            @foreach (var kv in totals.Fiat.OrderBy(k => k.Key))
+                            {
+                                <span class="dp-pos-chip tabular-nums">@Fiat.FormatWithCode(kv.Value, kv.Key)</span>
+                            }
+                        </div>
+                    }
+                </section>
+
+                @if (totals.Tips is { Count: > 0 })
+                {
+                    <section>
+                        <p class="section-label">Tips</p>
+                        <div class="dp-pos-chips">
+                            @foreach (var kv in totals.Tips.OrderBy(k => k.Key))
+                            {
+                                <span class="dp-pos-chip is-ok tabular-nums">@Fiat.FormatWithCode(kv.Value, kv.Key)</span>
+                            }
+                        </div>
+                    </section>
+                }
+
+                <section>
+                    <p class="section-label">Outcomes</p>
+                    <div class="dp-pos-outcomes">
+                        <div class="is-ok"><span class="tabular-nums">@outcomes.Collected</span><small>Paid</small></div>
+                        <div><span class="tabular-nums">@outcomes.Pending</span><small>Pending</small></div>
+                        <div class="is-warn"><span class="tabular-nums">@outcomes.Underpaid</span><small>Underpaid</small></div>
+                        <div><span class="tabular-nums">@outcomes.Expired</span><small>Expired</small></div>
+                    </div>
+                </section>
+
+                @* Missed revenue only when there is some, so a clean shift has no dead section. *@
+                @if (Report.Missed is { } missed && (missed.Expired.Count > 0 || missed.Underpaid.Count > 0))
+                {
+                    <section>
+                        <p class="section-label">Missed revenue</p>
+                        <div class="dp-pos-missed">
+                            @if (missed.Expired.Count > 0)
+                            {
+                                @Bucket($"Expired ({missed.Expired.Count})", missed.Expired, "")
+                            }
+                            @if (missed.Underpaid.Count > 0)
+                            {
+                                @Bucket($"Underpaid ({missed.Underpaid.Count})", missed.Underpaid, "is-warn")
+                            }
+                        </div>
+                    </section>
+                }
+            </div>
+
+            <div class="dp-pos-dialog-actions">
+                <button type="button" class="btn-secondary" @onclick="OnClose">Close</button>
+                <button type="button" class="btn-primary" @onclick="OnStartNewShift">Start new shift</button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Pos.ShiftReport? Report { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnStartNewShift { get; set; }
+
+    private RenderFragment Bucket(string title, Pos.ShiftMissedBucket bucket, string tone) => __builder =>
+    {
+        <div class="dp-pos-missed-bucket @tone">
+            <p class="dp-pos-missed-title">@title</p>
+            <p class="dp-pos-missed-dgb tabular-nums">@PosEntry.FormatDgb(bucket.Dgb) <span class="dp-pos-muted">DGB</span></p>
+            @if (bucket.Fiat is { Count: > 0 })
+            {
+                <div class="dp-pos-chips">
+                    @foreach (var kv in bucket.Fiat.OrderBy(k => k.Key))
+                    {
+                        <span class="dp-pos-chip is-small tabular-nums">@Fiat.FormatWithCode(kv.Value, kv.Key)</span>
+                    }
+                </div>
+            }
+        </div>
+    };
+}
