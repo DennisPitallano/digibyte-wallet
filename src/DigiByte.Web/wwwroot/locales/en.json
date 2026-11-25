@@ -759,7 +759,7 @@
   "scan.found_opening": "Code found. Opening…",
   "scan.drop_hint": "Drop a QR code image here, or paste a screenshot",
   "scan.not_image": "That file isn't an image. Drop or paste a picture of a QR code.",
-  "nav.paste_scan": "Paste / Scan",
+  "nav.paste_scan": "Paste / Scan",
   "nav.paste_scan.aria": "Paste or scan a code to pay, sign in or open a shared wallet item",
   "home.picker.title": "My Wallets",
   "home.picker.watch": "Watch",

@@ -755,7 +755,7 @@
   "scan.found_opening": "Código encontrado. Abriendo…",
   "scan.drop_hint": "Suelta aquí una imagen de un código QR o pega una captura de pantalla",
   "scan.not_image": "Ese archivo no es una imagen. Suelta o pega una imagen de un código QR.",
-  "nav.paste_scan": "Pegar / Escanear",
+  "nav.paste_scan": "Pegar / Escanear",
   "nav.paste_scan.aria": "Pega o escanea un código para pagar, iniciar sesión o abrir un elemento de una billetera compartida",
   "home.picker.title": "Mis billeteras",
   "home.picker.watch": "Solo ver",

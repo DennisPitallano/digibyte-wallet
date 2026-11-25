@@ -22,7 +22,7 @@
    shared wallet: Overview, Activity, Scan, Pending, More. The name tab on top of the bar says which shared wallet
    it is and opens the switcher, which is the way out. Layout/ShellContext decides the mode from the address. *@
 <nav class="nav-float nav-float-live" aria-label="@NavLabel" data-shell="@(Shared ? "shared" : "personal")"
-     style="--nav-accent: @Accent; --nav-index: @Math.Max(ActiveIndex, 0);">
+     style="--nav-accent: @Accent; --nav-index: @Math.Max(ActiveIndex, 0); --nav-after-scan: @(ActiveIndex > 2 ? 1 : 0);">
     @* No pill on pages that belong to no tab (Send, Receive and so on). *@
     @if (ActiveIndex >= 0)
     {
@@ -63,9 +63,9 @@
             <span>@T("nav.activity", "Activity")</span>
         </a>
     }
-    <button type="button" class="nav-float-scan" aria-label="@ScanAria" data-testid="nav-scan" @onclick="OpenScan">
+    <button type="button" class="nav-float-scan" aria-label="@ScanAria" title="@(pasteFirst ? ScanAria : null)" data-testid="nav-scan" @onclick="OpenScan">
         <span class="nav-float-scan-disc">@Icon("scan", false)</span>
-        <span>@ScanLabel</span>
+        <span class="nav-float-scan-label">@ScanLabel</span>
     </button>
     @if (Shared)
     {
@@ -360,7 +360,7 @@
     // the device, never the remembered choice, so one use of the camera does not rename the menu.
     private bool pasteFirst;
 
-    private string ScanLabel => pasteFirst ? T("nav.paste_scan", "Paste / Scan") : T("nav.scan", "Scan");
+    private string ScanLabel => pasteFirst ? T("nav.paste_scan", "Paste\u00a0/ Scan") : T("nav.scan", "Scan");
     private string ScanAria => pasteFirst
         ? T("nav.paste_scan.aria", "Paste or scan a code to pay, sign in or open a shared wallet item")
         : T("nav.scan.aria", "Scan a QR code to pay or sign in");
