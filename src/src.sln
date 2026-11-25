@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DigiByte.Pay.Api", "DigiByt
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DigiByte.Pay.Web", "DigiByte.Pay.Web\DigiByte.Pay.Web.csproj", "{8E465B18-0311-4ACC-9C37-5386338ED7AF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PriceArchiveImport", "..\tools\PriceArchiveImport\PriceArchiveImport.csproj", "{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{8E465B18-0311-4ACC-9C37-5386338ED7AF}.Release|x64.Build.0 = Release|Any CPU
 		{8E465B18-0311-4ACC-9C37-5386338ED7AF}.Release|x86.ActiveCfg = Release|Any CPU
 		{8E465B18-0311-4ACC-9C37-5386338ED7AF}.Release|x86.Build.0 = Release|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Debug|x64.Build.0 = Debug|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Debug|x86.Build.0 = Debug|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Release|x64.ActiveCfg = Release|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Release|x64.Build.0 = Release|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Release|x86.ActiveCfg = Release|Any CPU
+		{0A8CE875-4FE3-43C7-9030-FB03E0AA0E73}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

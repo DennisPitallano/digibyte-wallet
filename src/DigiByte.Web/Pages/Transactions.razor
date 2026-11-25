@@ -17,7 +17,17 @@
 <PullToRefresh OnRefresh="PullRefreshAsync">
 <div class="flex flex-col gap-3">
     <div class="slide-up">
-        <h2 class="page-title">@L.T("nav.activity")</h2>
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="page-title">@L.T("nav.activity")</h2>
+            @* CSV export (spec 031): the complete history, not only the rows loaded here. *@
+            <button type="button"
+                    class="min-h-[36px] px-3 text-xs font-semibold rounded-xl border border-slate-200 dark:border-dgb-800 text-dgb-600 dark:text-dgb-300 hover:bg-slate-50 dark:hover:bg-dgb-900 disabled:opacity-50 press-effect"
+                    disabled="@(!WalletService.IsUnlocked)"
+                    title="@(WalletService.IsUnlocked ? L.T("export.button") : L.T("export.button.locked"))"
+                    @onclick="() => exportOpen = true">
+                @L.T("export.button")
+            </button>
+        </div>
         @if (!loading && !failed)
         {
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -220,6 +230,9 @@
 </div>
 </PullToRefresh>
 
+<DigiByte.Web.Components.Export.ExportCsvSheet IsOpen="exportOpen" Asset="DigiByte.Wallet.Services.Export.ExportAsset.Dgb"
+                                              HideAmounts="hideAmounts" CurrentView="CurrentView" OnClosed="() => exportOpen = false" />
+
 @* The wallet's first payment, celebrated once. It waits while one of this page's two dialogs is open (spec 025, FR-023). *@
 <FirstReceiveCelebration Blocked="@(selected != null || showAddressPicker)" />
 
@@ -254,6 +267,7 @@
     private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
     private decimal price;
     private bool hideAmounts;
+    private bool exportOpen;
 
     // Labels of the wallet's own addresses (normalized address -> label), for the address line on each row.
     private IReadOnlyDictionary<string, string> walletAddressLabels = new Dictionary<string, string>();
@@ -433,6 +447,12 @@
                 refreshFailed = true;
                 return;
             }
+            if (!load.Complete && fresh.Count == 0)
+            {
+                // The chain couldn't be read and nothing is tracked locally: that is a failed load, never "No transactions yet".
+                failed = true;
+                return;
+            }
             all = fresh;
             showingSaved = false;
             refreshFailed = !load.Complete;
@@ -516,29 +536,17 @@
         ApplyFilter();
     }
 
+    // The filter and search rules are shared with the CSV export's "What the list shows" (spec 031), so the two never disagree.
     private void ApplyFilter()
     {
-        IEnumerable<TransactionRecord> result = filter switch
-        {
-            "received" => all.Where(t => t.Direction == TransactionDirection.Received),
-            "sent" => all.Where(t => t.Direction == TransactionDirection.Sent),
-            _ => all,
-        };
-        if (selectedAddress != null) result = result.Where(t => ActivityAddressIndex.Matches(t, selectedAddress));
-        if (query.Length > 0) result = result.Where(Matches);
-        shown = result.ToList();
+        var view = CurrentView;
+        shown = all.Where(t => ActivityListFilter.Matches(t, view)).ToList();
     }
 
-    private bool Matches(TransactionRecord t)
-    {
-        const StringComparison ci = StringComparison.OrdinalIgnoreCase;
-        return (NameFor(t)?.Contains(query, ci) ?? false)
-            || (t.CounterpartyAddress?.Contains(query, ci) ?? false)
-            || ActivityAddressIndex.MatchesText(t, query, walletAddressLabels)
-            || (t.Memo?.Contains(query, ci) ?? false)
-            || t.TxId.Contains(query, ci)
-            || t.AmountDgb.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture).Contains(query, ci);
-    }
+    /// <summary>What the list is showing now: its filter, search, chosen wallet address and the lookups the search uses.</summary>
+    private ActivityView CurrentView => new(filter, query, selectedAddress, ContactNameOf, walletAddressLabels);
+
+    private string? ContactNameOf(string address) => contactNames.TryGetValue(address, out var n) ? n : null;
 
     /// <summary>Why the list is empty: no history at all, or nothing matching the search or filters.</summary>
     private string EmptyText =>
@@ -547,8 +555,7 @@
         : selectedAddress != null ? L.T("history.empty.address_filter")
         : L.T("history.empty.filter");
 
-    private string? NameFor(TransactionRecord tx) =>
-        tx.CounterpartyAddress is { Length: > 0 } a && contactNames.TryGetValue(a, out var n) ? n : tx.CounterpartyName;
+    private string? NameFor(TransactionRecord tx) => ActivityListFilter.NameFor(tx, ContactNameOf);
 
     /// <summary>DGB received and sent since the first of the current month (local time), from the loaded history.</summary>
     private (decimal In, decimal Out) MonthTotals()

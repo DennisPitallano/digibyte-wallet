@@ -1,0 +1,357 @@
+@* CSV export of transaction history (spec 031, contracts/export-sheet-ui.md). Opened from Activity (DGB) and the
+   DigiDollar screen (DD). The file is built on the device; nothing is saved when the history can't be read in full,
+   when nothing matches, or when the person cancels. *@
+@using DigiByte.Wallet.Services.Export
+@inject TransactionExportService Exporter
+@inject AppState AppState
+@inject IJSRuntime JS
+@inject LocalizationService L
+@inject NotificationService Notifications
+@inject WalletService WalletService
+@inject ContactService ContactService
+@inject AddressLabelService LabelService
+@implements IDisposable
+
+@if (IsOpen)
+{
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="export-title" @onclick="CloseIfIdle" @onkeydown="OnKeyDown">
+        <div class="modal-card flex flex-col gap-4" @onclick:stopPropagation="true">
+            <h3 id="export-title" class="block-title">@(Asset == ExportAsset.Dd ? L.T("export.title.dd") : L.T("export.title.dgb"))</h3>
+
+            <fieldset class="flex flex-col gap-2" disabled="@running">
+                <legend class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">@L.T("export.what")</legend>
+                <label class="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
+                    <input type="radio" name="export-scope" checked="@(scope == ExportScope.Everything)"
+                           @onchange="() => SetScope(ExportScope.Everything)" />
+                    @L.T("export.scope.everything")
+                </label>
+                @if (Asset == ExportAsset.Dgb && CurrentView is not null)
+                {
+                    <label class="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
+                        <input type="radio" name="export-scope" checked="@(scope == ExportScope.CurrentView)"
+                               @onchange="() => SetScope(ExportScope.CurrentView)" />
+                        @L.T("export.scope.view")
+                    </label>
+                }
+                <label class="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
+                    <input type="radio" name="export-scope" checked="@(scope == ExportScope.DateRange)"
+                           @onchange="() => SetScope(ExportScope.DateRange)" />
+                    @L.T("export.scope.range")
+                </label>
+
+                @if (scope == ExportScope.DateRange)
+                {
+                    <div class="flex flex-wrap gap-1.5 pl-6" role="group" aria-label="@L.T("export.scope.range")">
+                        @foreach (var (p, key) in Presets)
+                        {
+                            <button type="button" aria-pressed="@(preset == p ? "true" : "false")"
+                                    class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors @(preset == p ? "bg-dgb-500 border-dgb-500 text-white" : "border-slate-200 dark:border-dgb-800 text-slate-600 dark:text-slate-300")"
+                                    @onclick="() => preset = p">
+                                @L.T(key)
+                            </button>
+                        }
+                    </div>
+                    @if (preset == ExportPreset.Custom)
+                    {
+                        <div class="grid grid-cols-2 gap-2 pl-6">
+                            <label class="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                @L.T("export.range.from")
+                                <input type="date" class="input" max="@Iso(Today)" value="@Iso(from)" @onchange="e => from = ParseDate(e.Value)" />
+                            </label>
+                            <label class="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                @L.T("export.range.to")
+                                <input type="date" class="input" max="@Iso(Today)" value="@Iso(to)" @onchange="e => to = ParseDate(e.Value)" />
+                            </label>
+                        </div>
+                        @if (!Request.IsValid(Today) && (from is not null || to is not null))
+                        {
+                            <p class="text-xs text-amber-600 dark:text-amber-400 pl-6" role="status">@L.T("export.range.invalid")</p>
+                        }
+                    }
+                }
+            </fieldset>
+
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                @L.T("export.notice")
+                @if (HideAmounts)
+                {
+                    <span> @L.T("export.notice.hidden")</span>
+                }
+            </p>
+
+            @if (showProgress)
+            {
+                <div class="flex flex-col gap-1.5" role="status" aria-live="polite">
+                    <div class="h-2 rounded-full bg-slate-100 dark:bg-dgb-800 overflow-hidden" role="progressbar"
+                         aria-valuemin="0" aria-valuemax="@Math.Max(1, total)" aria-valuenow="@done" aria-label="@ProgressText">
+                        <div class="h-full bg-dgb-500 transition-all" style="width: @(ProgressPercent)%"></div>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">@ProgressText</p>
+                </div>
+            }
+
+            @if (message is not null)
+            {
+                <p class="text-xs @(messageIsError ? "text-red-500" : "text-slate-600 dark:text-slate-300")" role="alert">
+                    @message
+                    @if (offerRetry)
+                    {
+                        <button type="button" class="font-semibold underline ml-1" @onclick="RunAsync">@L.T("export.try_again")</button>
+                    }
+                </p>
+            }
+
+            <div class="flex items-center gap-2">
+                <button type="button" @ref="exportButton"
+                        class="flex-1 min-h-[44px] bg-dgb-500 hover:bg-dgb-600 disabled:opacity-50 text-white font-semibold rounded-2xl press-effect"
+                        disabled="@(running || !Request.IsValid(Today))" @onclick="RunAsync">
+                    @L.T("export.export")
+                </button>
+                <button type="button" class="min-h-[44px] px-4 text-sm font-medium text-slate-500 dark:text-slate-400" @onclick="CancelOrClose">
+                    @L.T("common.cancel")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public ExportAsset Asset { get; set; } = ExportAsset.Dgb;
+
+    /// <summary>The on-screen privacy toggle: the notice then says the file still holds real amounts (FR-012).</summary>
+    [Parameter] public bool HideAmounts { get; set; }
+
+    /// <summary>Activity's current filter, search and address, for "What the list shows" (DGB only). Null hides the option.</summary>
+    [Parameter] public DigiByte.Wallet.Services.ActivityView? CurrentView { get; set; }
+
+    [Parameter] public EventCallback OnClosed { get; set; }
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    private static readonly (ExportPreset Preset, string Key)[] Presets =
+    [
+        (ExportPreset.ThisMonth, "export.range.this_month"),
+        (ExportPreset.LastMonth, "export.range.last_month"),
+        (ExportPreset.ThisYear, "export.range.this_year"),
+        (ExportPreset.Custom, "export.range.custom"),
+    ];
+
+    private ExportPreset preset = ExportPreset.ThisMonth;
+    private DateOnly? from;
+    private DateOnly? to;
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
+
+    private ExportRequest Request => new()
+    {
+        Asset = Asset,
+        Scope = scope,
+        Preset = preset,
+        From = from,
+        To = to,
+        View = scope == ExportScope.CurrentView ? CurrentView : null,
+    };
+
+    private void SetScope(ExportScope value)
+    {
+        scope = value;
+        message = null;
+    }
+
+    private static string? Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static DateOnly? ParseDate(object? value) =>
+        DateOnly.TryParseExact(value?.ToString(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+    /// <summary>The progress bar and Cancel appear once reading has taken this long (FR-003, research R8).</summary>
+    private static readonly TimeSpan ProgressDelay = TimeSpan.FromSeconds(1);
+
+    private ExportScope scope = ExportScope.Everything;
+    private bool running;
+    private bool showProgress;
+    private int done;
+    private int total;
+    private string? message;
+    private bool messageIsError;
+    private bool offerRetry;
+    private bool wasOpen;
+    private bool focusPending;
+    private CancellationTokenSource? cts;
+    private ElementReference exportButton;
+
+    // Once every address is read, what remains is the one daily-price request.
+    private string ProgressText => total > 0 && done >= total ? L.T("export.prices") : L.T("export.reading", done, total);
+    private int ProgressPercent => total <= 0 ? 0 : (int)Math.Round(100.0 * done / total);
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && !wasOpen)
+        {
+            scope = ExportScope.Everything;
+            preset = ExportPreset.ThisMonth;
+            from = to = null;
+            message = null;
+            focusPending = true;
+            offerRetry = false;
+            showProgress = false;
+        }
+        wasOpen = IsOpen;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Focus the Export button once, when the sheet opens; never again while the person uses the other controls.
+        if (IsOpen && focusPending)
+        {
+            focusPending = false;
+            try { await exportButton.FocusAsync(); } catch { /* not rendered yet */ }
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        if (running) return;
+        running = true;
+        message = null;
+        offerRetry = false;
+        done = total = 0;
+        cts = new CancellationTokenSource();
+        var token = cts.Token;
+        StateHasChanged();
+
+        // The bar appears only if reading takes longer than a moment, so quick exports don't flash it.
+        _ = Task.Delay(ProgressDelay, token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled && running) { showProgress = true; _ = InvokeAsync(StateHasChanged); }
+        }, TaskScheduler.Default);
+
+        try
+        {
+            var decimalMark = await DecimalMarkAsync();
+            var progress = new Progress<HistoryExportProgress>(p =>
+            {
+                done = p.Done;
+                total = p.Total;
+                _ = InvokeAsync(StateHasChanged);
+            });
+            var (names, labels) = await LookupsAsync();
+            var env = new ExportEnvironment
+            {
+                DecimalMark = decimalMark,
+                Language = L.CurrentLocale,
+                TimeZone = TimeZoneInfo.Local,
+                Now = DateTimeOffset.Now,
+                FiatCurrency = AppState.FiatCurrency,
+                NameOf = a => names.TryGetValue(a, out var n) ? n : null,
+                WalletLabelOf = a => labels.TryGetValue(DigiByte.Wallet.Services.AddressKey.Normalize(a), out var l) ? l : null,
+            };
+            var result = await Exporter.ExportAsync(Request, env, progress, token);
+            await HandleAsync(result);
+        }
+        finally
+        {
+            running = false;
+            showProgress = false;
+            cts?.Cancel();
+            cts?.Dispose();
+            cts = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleAsync(ExportResult result)
+    {
+        switch (result.Outcome)
+        {
+            case ExportOutcome.Ready:
+                var saved = await JS.InvokeAsync<string>("saveCsvFile", result.Content, result.FileName);
+                if (saved == "cancelled") return;   // the person closed the share sheet: nothing was saved
+                if (result.RowsWithoutPrice > 0)
+                    Notifications.Warning(L.T("export.saved.missing", result.RowCount, result.RowsWithoutPrice, AppState.FiatCurrency));
+                else
+                    Notifications.Success(L.T("export.saved", result.RowCount));
+                await CloseAsync();
+                break;
+            case ExportOutcome.HistoryUnavailable:
+                Show(L.T("export.unavailable"), error: true, retry: true);
+                break;
+            case ExportOutcome.NothingToExport:
+                Show(L.T("export.nothing"), error: false, retry: false);
+                break;
+            case ExportOutcome.Locked:
+                Show(L.T("export.locked"), error: true, retry: false);
+                break;
+            case ExportOutcome.Cancelled:
+                break;
+        }
+    }
+
+    private void Show(string text, bool error, bool retry)
+    {
+        message = text;
+        messageIsError = error;
+        offerRetry = retry;
+    }
+
+    /// <summary>
+    /// Contact and own-wallet names by address, and the labels of the wallet's own addresses (FR-015): the same sources Activity
+    /// uses. Optional: when either can't be read, those cells stay empty and the export still runs.
+    /// </summary>
+    private async Task<(Dictionary<string, string> Names, IReadOnlyDictionary<string, string> Labels)> LookupsAsync()
+    {
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, string> labels = new Dictionary<string, string>();
+        try
+        {
+            foreach (var c in await ContactService.GetAllWithWalletsAsync(WalletService))
+                if (!string.IsNullOrWhiteSpace(c.Address)) names[c.Address] = c.Name;
+        }
+        catch { /* names are optional */ }
+        try
+        {
+            if (WalletService.ActiveWallet is { } wallet)
+            {
+                var saved = await LabelService.GetAllAsync(wallet.Id);
+                labels = DigiByte.Wallet.Services.ActivityAddressIndex.BuildLabelLookup(
+                    saved.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
+            }
+        }
+        catch { /* labels are optional */ }
+        return (names, labels);
+    }
+
+    private async Task<string> DecimalMarkAsync()
+    {
+        try { return await JS.InvokeAsync<string>("getDecimalMark"); }
+        catch { return "."; }
+    }
+
+    private async Task CancelOrClose()
+    {
+        if (running) { cts?.Cancel(); return; }
+        await CloseAsync();
+    }
+
+    private async Task CloseIfIdle()
+    {
+        if (!running) await CloseAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await CancelOrClose();
+    }
+
+    private async Task CloseAsync()
+    {
+        wasOpen = false;
+        await OnClosed.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+    }
+}

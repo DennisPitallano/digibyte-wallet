@@ -10,6 +10,12 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
   </ItemGroup>
 
+  <!-- Daily price and USD-rate archive for CSV exports (spec 031): read-only data shipped with the service. -->
+  <ItemGroup>
+    <Content Include="PriceArchive\*.csv" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="PriceArchive\README.md" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\DigiByte.P2P.Shared\DigiByte.P2P.Shared.csproj" />
     <ProjectReference Include="..\DigiByte.Crypto\DigiByte.Crypto.csproj" />

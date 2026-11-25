@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DigiByte.Api\DigiByte.Api.csproj" />
+    <ProjectReference Include="..\..\tools\PriceArchiveImport\PriceArchiveImport.csproj" />
   </ItemGroup>
 
 </Project>

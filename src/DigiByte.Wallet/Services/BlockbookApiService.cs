@@ -130,38 +130,67 @@ public class BlockbookApiService : IBlockchainService
         catch { return null; }
     }
 
+    /// <summary>
+    /// The address's history. Strict: a failed or unreadable reply throws instead of reading as no transactions, so an
+    /// unreachable explorer is never shown as an empty wallet. An unused address (a reply with no transaction list) is empty.
+    /// </summary>
     public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
-        try
-        {
-            var data = await _http.GetFromJsonAsync<BlockbookAddress>(
-                $"{_baseUrl}/api/v2/address/{address}?details=txs&page=1&pageSize={take}");
-            if (data?.Transactions == null) return [];
+        var data = await _http.GetFromJsonAsync<BlockbookAddress>(
+            $"{_baseUrl}/api/v2/address/{address}?details=txs&page=1&pageSize={take}")
+            ?? throw new InvalidOperationException("The explorer's reply was empty.");
+        if (data.Transactions == null) return [];
 
-            return data.Transactions.Skip(skip).Select(tx => new TransactionInfo
-            {
-                TxId = tx.TxId,
-                Confirmations = tx.Confirmations,
-                Timestamp = tx.BlockTime > 0
-                    ? DateTimeOffset.FromUnixTimeSeconds(tx.BlockTime).UtcDateTime
-                    : DateTime.UtcNow,
-                FeeSatoshis = long.TryParse(tx.Fees, out var f) ? f : 0,
-                Inputs = tx.Vin?.Select(v => new TxInput
-                {
-                    Address = v.Addresses?.FirstOrDefault() ?? "unknown",
-                    AmountSatoshis = long.TryParse(v.Value, out var val) ? val : 0,
-                }).ToList() ?? [],
-                Outputs = tx.Vout?.Select(v => new TxOutput
-                {
-                    Address = v.Addresses?.FirstOrDefault() ?? "unknown",
-                    AmountSatoshis = long.TryParse(v.Value, out var val) ? val : 0,
-                    Index = (uint)v.N,
-                    ScriptHex = v.Hex,
-                }).ToList() ?? [],
-            }).ToList();
-        }
-        catch { return []; }
+        return data.Transactions.Skip(skip).Select(ToInfo).ToList();
     }
+
+    /// <summary>Blockbook's largest page size.</summary>
+    private const int CompletePageSize = 1000;
+
+    /// <summary>
+    /// Every transaction of the address for the CSV export (spec 031, research R1): <c>page=N&amp;pageSize=1000</c> until
+    /// <c>totalPages</c>. Strict: a failed or unreadable page throws, never a partial list.
+    /// </summary>
+    public async Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default)
+    {
+        var all = new List<TransactionInfo>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var page = 1; ; page++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var data = await _http.GetFromJsonAsync<BlockbookAddress>(
+                $"{_baseUrl}/api/v2/address/{address}?details=txs&page={page}&pageSize={CompletePageSize}", ct)
+                ?? throw new InvalidOperationException("The explorer's reply was empty.");
+            foreach (var tx in data.Transactions ?? [])
+                if (seen.Add(tx.TxId)) all.Add(ToInfo(tx));
+            if (data.TotalPages is not { } totalPages || page >= totalPages || data.Transactions is not { Count: > 0 })
+                return all;
+            if (page >= 1_000)
+                throw new InvalidOperationException("The explorer's history did not end.");
+        }
+    }
+
+    private static TransactionInfo ToInfo(BlockbookTx tx) => new()
+    {
+        TxId = tx.TxId,
+        Confirmations = tx.Confirmations,
+        Timestamp = tx.BlockTime > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(tx.BlockTime).UtcDateTime
+            : DateTime.UtcNow,
+        FeeSatoshis = long.TryParse(tx.Fees, out var f) ? f : 0,
+        Inputs = tx.Vin?.Select(v => new TxInput
+        {
+            Address = v.Addresses?.FirstOrDefault() ?? "unknown",
+            AmountSatoshis = long.TryParse(v.Value, out var val) ? val : 0,
+        }).ToList() ?? [],
+        Outputs = tx.Vout?.Select(v => new TxOutput
+        {
+            Address = v.Addresses?.FirstOrDefault() ?? "unknown",
+            AmountSatoshis = long.TryParse(v.Value, out var val) ? val : 0,
+            Index = (uint)v.N,
+            ScriptHex = v.Hex,
+        }).ToList() ?? [],
+    };
 
     public async Task<bool> HasAddressHistoryAsync(string address)
     {
@@ -251,6 +280,12 @@ public class BlockbookApiService : IBlockchainService
 
         [JsonPropertyName("transactions")]
         public List<BlockbookTx>? Transactions { get; set; }
+
+        [JsonPropertyName("page")]
+        public int? Page { get; set; }
+
+        [JsonPropertyName("totalPages")]
+        public int? TotalPages { get; set; }
     }
 
     private class BlockbookUtxo

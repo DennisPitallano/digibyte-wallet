@@ -221,38 +221,72 @@ public class BlockchainApiService : IBlockchainService, IAddressSummarySource
     /// <summary>
     /// The address's history, newest first, paged past the explorer's 25-transaction page up to
     /// <see cref="MaxTransactionsPerAddress"/>, then <paramref name="skip"/>/<paramref name="take"/> applied. A failure on the first
-    /// page reads as no history (as before); a failure on a later page keeps the pages already read.
+    /// page throws, so an unreachable explorer is never shown as an empty wallet; a failure on a later page keeps the pages already read.
     /// </summary>
     public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
         var all = new List<TransactionInfo>();
-        try
+        var page = await GetAddressHistoryPageAsync(address, null);
+        all.AddRange(page.Transactions);
+        var confirmedOnPage = page.Transactions.Count(t => t.Confirmations > 0);
+        while (confirmedOnPage >= EsploraPageSize && page.LastConfirmedTxId is not null && all.Count < MaxTransactionsPerAddress)
         {
-            var page = await GetAddressHistoryPageAsync(address, null);
-            all.AddRange(page.Transactions);
-            var confirmedOnPage = page.Transactions.Count(t => t.Confirmations > 0);
-            while (confirmedOnPage >= EsploraPageSize && page.LastConfirmedTxId is not null && all.Count < MaxTransactionsPerAddress)
+            try
             {
-                try
-                {
-                    page = await GetAddressHistoryPageAsync(address, page.LastConfirmedTxId);
-                }
-                catch
-                {
-                    break;
-                }
-                all.AddRange(page.Transactions);
-                confirmedOnPage = page.Transactions.Count;
+                page = await GetAddressHistoryPageAsync(address, page.LastConfirmedTxId);
             }
-        }
-        catch
-        {
-            return [];
+            catch
+            {
+                break;
+            }
+            all.AddRange(page.Transactions);
+            confirmedOnPage = page.Transactions.Count;
         }
 
         if (all.Count > MaxTransactionsPerAddress)
             all.RemoveRange(MaxTransactionsPerAddress, all.Count - MaxTransactionsPerAddress);
         return all.Skip(skip).Take(take).ToList();
+    }
+
+    /// <summary>Daily prices for the CSV export (spec 031): one request to the price service, or CoinGecko in direct mode.</summary>
+    public Task<Export.DailyPriceSeries> GetDailyPricesAsync(string fiatCurrency, string asset, DateOnly from, DateOnly to,
+        CancellationToken ct = default) =>
+        Export.DailyPriceClient.FetchAsync(_priceHttp, _priceApiBaseUrl, fiatCurrency, asset, from, to, ct);
+
+    /// <summary>A guard against a source whose history never ends: far beyond any real address, still finite.</summary>
+    public const int CompleteHistorySafetyCap = 200_000;
+
+    /// <summary>
+    /// Every transaction of the address for the CSV export (spec 031, research R1): pages to the end with no
+    /// <see cref="MaxTransactionsPerAddress"/> cap, and throws on any failed page instead of returning a partial list.
+    /// </summary>
+    public async Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default)
+    {
+        var all = new List<TransactionInfo>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        var page = await GetAddressHistoryPageAsync(address, null);
+        Add(page.Transactions);
+        var confirmedOnPage = page.Transactions.Count(t => t.Confirmations > 0);
+        while (confirmedOnPage >= EsploraPageSize && page.LastConfirmedTxId is not null)
+        {
+            ct.ThrowIfCancellationRequested();
+            page = await GetAddressHistoryPageAsync(address, page.LastConfirmedTxId);
+            if (Add(page.Transactions) == 0 && page.Transactions.Count > 0)
+                throw new InvalidOperationException("The explorer's history pages repeat instead of moving on.");
+            if (all.Count > CompleteHistorySafetyCap)
+                throw new InvalidOperationException("The explorer's history did not end.");
+            confirmedOnPage = page.Transactions.Count;
+        }
+        return all;
+
+        int Add(IEnumerable<TransactionInfo> txs)
+        {
+            var added = 0;
+            foreach (var tx in txs)
+                if (seen.Add(tx.TxId)) { all.Add(tx); added++; }
+            return added;
+        }
     }
 
     /// <summary>One lookup of the address's confirmed and pending counts and amounts. Strict: an incomplete reply throws.</summary>

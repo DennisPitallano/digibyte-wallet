@@ -368,7 +368,9 @@ public class FallbackBlockchainService : IBlockchainService, IAddressSummarySour
 
         // 2. Fall back to own node (pruned — scantxoutset is slower but always works).
         // Only when node use is off: with the feature on, a node that is not active is never asked (see the class summary).
-        if (LegacyOrder)
+        // Not for history off regtest: the node can't list full history, and its lenient client reads its own failure as "no
+        // transactions", so an explorer outage would look like an empty wallet. On regtest it is the only history source.
+        if (LegacyOrder && (routeClass != NodeRouteClass.History || _isRegtest))
         {
             try
             {
@@ -617,6 +619,52 @@ public class FallbackBlockchainService : IBlockchainService, IAddressSummarySour
         var all = await CachedRead($"txs:{address}", TxHistoryCacheTtl,
             s => s.GetAddressTransactionsAsync(address, 0, int.MaxValue), NodeRouteClass.History);
         return all.Skip(skip).Take(take).ToList();
+    }
+
+    /// <summary>
+    /// Daily prices for the CSV export (spec 031): independent of explorers, like <see cref="GetDgbPriceAsync"/>. One request to
+    /// the price service, or CoinGecko in direct mode. Never throws for an upstream failure.
+    /// </summary>
+    public Task<Export.DailyPriceSeries> GetDailyPricesAsync(string fiatCurrency, string asset, DateOnly from, DateOnly to,
+        CancellationToken ct = default) =>
+        Export.DailyPriceClient.FetchAsync(_priceHttp, _priceApiBaseUrl, fiatCurrency, asset, from, to, ct);
+
+    /// <summary>
+    /// Every transaction of the address for the CSV export (spec 031, research R1). Explorers only, in order, not cached; the node
+    /// is never asked (it cannot list full history). A source that doesn't support the complete read is skipped, not counted as a
+    /// failure. Throws <see cref="Export.HistoryIncompleteException"/> when no supporting explorer could answer, or none supports it.
+    /// </summary>
+    public async Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default)
+    {
+        if (ForceDemoMode && _isDevelopment && _mock != null)
+            return await _mock.GetCompleteAddressHistoryAsync(address, ct);
+
+        Exception? lastFailure = null;
+        foreach (var explorer in _explorers)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                return await explorer.GetCompleteAddressHistoryAsync(address, ct);
+            }
+            catch (NotSupportedException)
+            {
+                // This source can't list full history: try the next one.
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastFailure = ex;
+                Console.WriteLine($"[Export] Complete history failed on one explorer: {ex.GetType().Name}");
+            }
+        }
+
+        throw new Export.HistoryIncompleteException(
+            lastFailure is null ? "No source can read complete history." : "No explorer could read the complete history.",
+            lastFailure);
     }
 
     /// <summary>

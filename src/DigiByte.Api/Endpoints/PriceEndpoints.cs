@@ -7,6 +7,9 @@ public static class PriceEndpoints
 {
     public static RouteGroupBuilder MapPriceEndpoints(this RouteGroupBuilder group)
     {
+        // GET /api/price/range?currency=usd&asset=dgb&from=2026-10-31&to=2026-12-01 — daily prices for a CSV export (spec 031)
+        group.MapGet("/range", PriceRangeEndpoint.HandleAsync).RequireRateLimiting(PriceRangeEndpoint.RateLimitPolicy);
+
         // GET /api/price/simple?currency=usd
         group.MapGet("/simple", async (
             string? currency,

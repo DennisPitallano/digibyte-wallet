@@ -110,7 +110,11 @@ public class InvoiceMonitor : BackgroundService
         // Poll the chain first. A payment arriving right at the expiry deadline must still
         // be honoured — the wallet has no idea about session state, it just signed and sent.
         var chain = GetChainService(store.Network);
-        var txs = await chain.GetAddressTransactionsAsync(session.Address);
+        // The explorer client throws when it can't answer; this monitor keeps reading that as "nothing seen yet", as it always has,
+        // so one unreachable explorer doesn't stop the tick for every other session.
+        List<TransactionInfo> txs;
+        try { txs = await chain.GetAddressTransactionsAsync(session.Address); }
+        catch (Exception) when (!ct.IsCancellationRequested) { txs = []; }
 
         TransactionInfo? paymentTx = null;
         long receivedSats = 0;

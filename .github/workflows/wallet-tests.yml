@@ -15,6 +15,8 @@ jobs:
         with:
           node-version: 22
       - run: dotnet test tests/DigiByte.Wallet.Tests --filter "Category!=Live"
+      # The price service (DigiByte.Api), including the CSV export's /api/price/range, its archive and import tool (spec 031).
+      - run: dotnet test tests/DigiByte.Api.Tests
       - run: npm test
         working-directory: src/DigiByte.Web
       # A published build whose service-worker asset list does not match its files can never update

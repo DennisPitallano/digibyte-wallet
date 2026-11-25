@@ -604,6 +604,35 @@ public class ChangeAddressTests
             return Task.FromResult(txs);
         }
 
+        /// <summary>The daily prices the export gets (spec 031); null answers like the price service being down.</summary>
+        public Func<string, string, DateOnly, DateOnly, DigiByte.Wallet.Services.Export.DailyPriceSeries>? DailyPrices { get; set; }
+
+        /// <summary>Every daily-price request: currency, asset, from, to.</summary>
+        public List<(string Currency, string Asset, DateOnly From, DateOnly To)> PriceRequests { get; } = [];
+
+        public Task<DigiByte.Wallet.Services.Export.DailyPriceSeries> GetDailyPricesAsync(string fiatCurrency, string asset,
+            DateOnly from, DateOnly to, CancellationToken ct = default)
+        {
+            PriceRequests.Add((fiatCurrency, asset, from, to));
+            return Task.FromResult(DailyPrices?.Invoke(fiatCurrency, asset, from, to)
+                ?? DigiByte.Wallet.Services.Export.DailyPriceSeries.Empty(fiatCurrency,
+                    DigiByte.Wallet.Services.Export.PriceBasis.Native, from, to, failed: true));
+        }
+
+        /// <summary>When set, the complete history read (spec 031) answers this many addresses, then fails every later one.</summary>
+        public int? CompleteHistoryFailAfter { get; set; }
+        private int _completeReads;
+
+        /// <summary>The complete history read the CSV export uses: the whole credit log for the address, strict on failure.</summary>
+        public Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (HistoryDown) throw new HttpRequestException("explorer is down");
+            if (CompleteHistoryFailAfter is { } n && Interlocked.Increment(ref _completeReads) > n)
+                throw new HttpRequestException("explorer failed partway");
+            return GetAddressTransactionsAsync(address, 0, int.MaxValue);
+        }
+
         public Task<TransactionInfo?> GetTransactionAsync(string txId) => Task.FromResult<TransactionInfo?>(null);
         public Task<decimal> GetFeeRateAsync() => Task.FromResult(100m);
         public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => Task.FromResult(0.01m);

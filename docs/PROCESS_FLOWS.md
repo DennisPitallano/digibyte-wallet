@@ -34,6 +34,13 @@
 2. Choose **"Reset PIN with recovery phrase"**
 3. Enter your 24 words → set a new PIN → you're back in
 
+### Exporting Your Transactions for Bookkeeping
+1. Open **Activity** → tap **Export CSV** (for DigiDollar, use **Export CSV** on the DigiDollar screen)
+2. Choose **Everything**, **What the list shows**, or a **date range** (this month, last month, this year, or your own dates)
+3. Tap **Export**: the file is saved, or offered to share on a phone. Each row has the date and time zone, the signed amount,
+   the network fee, the value in your currency on that day, the contact name and the transaction ID
+4. If the wallet can't read your whole history from the network, nothing is saved: try again when you're back online
+
 ### A Restored Wallet Looks Empty, or a Payment Is Missing
 The wallet looks 20 addresses past the last one that was paid. If the same recovery phrase or account key also hands out
 addresses somewhere else (a shop, a deposit page that gives every order its own address), a payment can sit further along.
@@ -483,6 +490,24 @@ Actions per contact:
   → SendToContact() → navigate /send?to=address
   → EditContact() → pre-fill form
   → DeleteContact() → confirm → ContactService.DeleteAsync()
+```
+
+### Export transaction history (Activity and DigiDollar, spec 031)
+```
+Export CSV (Activity → DGB, DigiDollar screen → DD) → ExportCsvSheet
+  → choose: Everything | What the list shows (DGB) | Date range (This month, Last month, This year, Custom)
+  → Export: TransactionExportService.ExportAsync(request, env)
+      wallet locked                         → "Unlock your wallet to export"        (no file)
+      read the complete history (strict, progress + Cancel after 1 s)
+        any address/page fails              → "Couldn't read your full history…" + Try again (no file)
+      map to rows (local time + offset, signed amount, DGB fee, names, labels)
+      filter by the choice (local dates, Activity's own filter rules)
+        nothing matches                     → "Nothing to export for this choice" (no file)
+      one daily-price request: GET /api/price/range?currency&asset&from-1&to+1
+        unavailable / some days missing     → those Price/Value cells empty, counted in the message
+      write CSV (BOM, header line 1, newest first, separator per device region, formula-safe text)
+  → saveCsvFile: share sheet on phones, download elsewhere
+  → toast "Exported N transactions." (or "…M have no {currency} value")
 ```
 
 ### Payments (`/payments`)

@@ -2066,6 +2066,93 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         return load.Transactions;
     }
 
+    /// <summary>
+    /// The wallet's complete history for the CSV export (spec 031, research R1, FR-003/FR-006), newest first. Unlike
+    /// <see cref="LoadTransactionHistoryAsync"/> it has no per-address cap and never settles for less: any address that can't be read,
+    /// even partway through, throws <see cref="Export.HistoryIncompleteException"/>. It never uses the saved copy Activity shows
+    /// offline, and writes nothing. Records are built exactly as for Activity, so the two never disagree.
+    /// </summary>
+    public async Task<List<TransactionRecord>> LoadCompleteHistoryAsync(
+        IProgress<Export.HistoryExportProgress>? progress = null, CancellationToken ct = default)
+    {
+        EnsureUnlocked();
+        ct.ThrowIfCancellationRequested();
+        await WaitForAddressDiscoveryAsync(AddressDiscoveryWait);
+        if (!AddressesSettled)
+            throw new Export.HistoryIncompleteException("The wallet is still finding which of its addresses are used.");
+
+        var walletId = _activeWalletId;
+        var localTxs = await _txTracker.GetAllAsync();
+
+        // Regtest has no explorer: the locally tracked transactions are the whole history, as on Activity.
+        var effectiveMode = ActiveWallet?.WifNetwork ?? _networkMode;
+        if (effectiveMode == "regtest")
+        {
+            progress?.Report(new(1, 1));
+            return localTxs.OrderByDescending(t => t.Timestamp).ToList();
+        }
+
+        var rawAddresses = GetAllAddresses();
+        var ourNormalized = new HashSet<string>(rawAddresses.Select(NormalizeAddress));
+        bool isOurs(string? addr) => addr != null && ourNormalized.Contains(NormalizeAddress(addr));
+        var allTxs = new Dictionary<string, TransactionInfo>();
+
+        try
+        {
+            var onePass = false;
+            if (_blockchain is FallbackBlockchainService fallback && fallback.TryGetWalletHistorySource() is { } walletHistory)
+            {
+                try
+                {
+                    foreach (var tx in await walletHistory.GetWalletTransactionsAsync(rawAddresses))
+                        allTxs.TryAdd(tx.TxId, tx);
+                    onePass = true;
+                    progress?.Report(new(rawAddresses.Count, rawAddresses.Count));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    Console.WriteLine($"[Export] Gateway history unavailable: {ex.GetType().Name}");
+                    allTxs.Clear();
+                }
+            }
+
+            if (!onePass)
+            {
+                var done = 0;
+                progress?.Report(new(0, rawAddresses.Count));
+                using var semaphore = new SemaphoreSlim(10);
+                var reads = rawAddresses.Select(async addr =>
+                {
+                    await semaphore.WaitAsync(ct);
+                    try
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var txs = await _blockchain.GetCompleteAddressHistoryAsync(addr, ct);
+                        progress?.Report(new(Interlocked.Increment(ref done), rawAddresses.Count));
+                        return txs;
+                    }
+                    finally { semaphore.Release(); }
+                });
+                foreach (var list in await Task.WhenAll(reads))
+                    foreach (var tx in list)
+                        allTxs.TryAdd(tx.TxId, tx);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Export.HistoryIncompleteException) { throw; }
+        catch (Exception ex)
+        {
+            throw new Export.HistoryIncompleteException("The complete history could not be read.", ex);
+        }
+
+        // A wallet switch while reading would mix two wallets' records.
+        if (_activeWalletId != walletId)
+            throw new Export.HistoryIncompleteException("The active wallet changed while its history was read.");
+
+        var records = BuildExplorerRecords(allTxs.Values, rawAddresses, isOurs);
+        return MergeHistory(records, localTxs).Values.OrderByDescending(t => t.Timestamp).ToList();
+    }
+
     public async Task<HistoryLoad> LoadTransactionHistoryAsync(int skip = 0, int take = 50)
     {
         EnsureUnlocked();
@@ -2159,49 +2246,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 _gatewayBootstrap?.Offer(walletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),
                     servedByGateway: onePass || _blockchain is FallbackBlockchainService { ActiveBackend: "spv-gateway" });
 
-                var ownByKey = new Dictionary<string, string>();
-                foreach (var a in rawAddresses) ownByKey.TryAdd(NormalizeAddress(a), a);
-                var changeKeys = GetChangeAddressKeys();
-                var singleKey = _singleKey != null;
+                var explorerRecords = BuildExplorerRecords(allTxs.Values, rawAddresses, isOurs);
 
-                // A transaction that neither spends from nor pays any of this wallet's addresses is not this wallet's. Saved
-                // history can hold such rows (another wallet's, saved here by an older version when the wallet was switched
-                // mid-load); shown, each would read as "Received 0".
-                var explorerRecords = allTxs.Values
-                    .Where(tx => tx.Inputs.Any(i => isOurs(i.Address)) || tx.Outputs.Any(o => isOurs(o.Address)))
-                    .Select(tx =>
-                {
-                    var isSent = tx.Inputs.Any(i => isOurs(i.Address));
-                    var (walletAddresses, receivedTo) = TransactionAddressResolver.Resolve(tx, isSent, ownByKey, changeKeys, singleKey);
-                    var digiDollar = DigiDollarTxSummary.TryRead(tx.Outputs);
-                    var matchingOutputs = tx.Outputs.Where(o => isOurs(o.Address)).ToList();
-                    var amount = isSent
-                        ? tx.Outputs.Where(o => !isOurs(o.Address)).Sum(o => o.AmountSatoshis)
-                        : matchingOutputs.Sum(o => o.AmountSatoshis);
-
-                    return new TransactionRecord
-                    {
-                        TxId = tx.TxId,
-                        Direction = isSent ? TransactionDirection.Sent : TransactionDirection.Received,
-                        AmountSatoshis = amount,
-                        FeeSatoshis = tx.FeeSatoshis,
-                        Timestamp = tx.Timestamp,
-                        Confirmations = tx.Confirmations,
-                        CounterpartyAddress = digiDollar is not null ? null : isSent
-                            ? tx.Outputs.FirstOrDefault(o => !isOurs(o.Address))?.Address
-                            : tx.Inputs.FirstOrDefault(i => !isOurs(i.Address))?.Address,
-                        // The "DD" marker inside a DigiDollar OP_RETURN is not a note the sender wrote.
-                        Memo = digiDollar is null ? ExtractOpReturnMemo(tx.Outputs) : null,
-                        DigiDollar = digiDollar,
-                        WalletAddresses = walletAddresses,
-                        WalletReceivedAddresses = receivedTo,
-                    };
-                }).ToList();
-
-                // Merge: explorer txs + local txs (local wins on duplicates for freshness)
-                var merged = new Dictionary<string, TransactionRecord>();
-                foreach (var tx in explorerRecords) merged.TryAdd(tx.TxId, tx);
-                foreach (var tx in localTxs) merged[tx.TxId] = tx; // local overwrites
+                var merged = MergeHistory(explorerRecords, localTxs);
                 var localToCheck = localTxs.ToList();
 
                 // A local record replaces the explorer's version above, so give it the addresses the explorer found
@@ -2252,6 +2299,63 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             .Take(take)
             .ToList();
         return new HistoryLoad(page, Complete: !incomplete, AddressesSettled: addressesSettled);
+    }
+
+    /// <summary>
+    /// Turns explorer transactions into this wallet's records: direction, amount, counterparty, note, DigiDollar summary and the
+    /// wallet's own addresses. Shared by the Activity load and the complete export read (spec 031, research R1), so they never disagree.
+    /// </summary>
+    private List<TransactionRecord> BuildExplorerRecords(
+        IEnumerable<TransactionInfo> txs, IReadOnlyCollection<string> rawAddresses, Func<string?, bool> isOurs)
+    {
+        var ownByKey = new Dictionary<string, string>();
+        foreach (var a in rawAddresses) ownByKey.TryAdd(NormalizeAddress(a), a);
+        var changeKeys = GetChangeAddressKeys();
+        var singleKey = _singleKey != null;
+
+        // A transaction that neither spends from nor pays any of this wallet's addresses is not this wallet's. Saved
+        // history can hold such rows (another wallet's, saved here by an older version when the wallet was switched
+        // mid-load); shown, each would read as "Received 0".
+        return txs
+            .Where(tx => tx.Inputs.Any(i => isOurs(i.Address)) || tx.Outputs.Any(o => isOurs(o.Address)))
+            .Select(tx =>
+            {
+                var isSent = tx.Inputs.Any(i => isOurs(i.Address));
+                var (walletAddresses, receivedTo) = TransactionAddressResolver.Resolve(tx, isSent, ownByKey, changeKeys, singleKey);
+                var digiDollar = DigiDollarTxSummary.TryRead(tx.Outputs);
+                var matchingOutputs = tx.Outputs.Where(o => isOurs(o.Address)).ToList();
+                var amount = isSent
+                    ? tx.Outputs.Where(o => !isOurs(o.Address)).Sum(o => o.AmountSatoshis)
+                    : matchingOutputs.Sum(o => o.AmountSatoshis);
+
+                return new TransactionRecord
+                {
+                    TxId = tx.TxId,
+                    Direction = isSent ? TransactionDirection.Sent : TransactionDirection.Received,
+                    AmountSatoshis = amount,
+                    FeeSatoshis = tx.FeeSatoshis,
+                    Timestamp = tx.Timestamp,
+                    Confirmations = tx.Confirmations,
+                    CounterpartyAddress = digiDollar is not null ? null : isSent
+                        ? tx.Outputs.FirstOrDefault(o => !isOurs(o.Address))?.Address
+                        : tx.Inputs.FirstOrDefault(i => !isOurs(i.Address))?.Address,
+                    // The "DD" marker inside a DigiDollar OP_RETURN is not a note the sender wrote.
+                    Memo = digiDollar is null ? ExtractOpReturnMemo(tx.Outputs) : null,
+                    DigiDollar = digiDollar,
+                    WalletAddresses = walletAddresses,
+                    WalletReceivedAddresses = receivedTo,
+                };
+            }).ToList();
+    }
+
+    /// <summary>Explorer records plus locally tracked ones; a local record wins on the same transaction id (it is fresher).</summary>
+    private static Dictionary<string, TransactionRecord> MergeHistory(
+        IEnumerable<TransactionRecord> explorerRecords, IEnumerable<TransactionRecord> localTxs)
+    {
+        var merged = new Dictionary<string, TransactionRecord>();
+        foreach (var tx in explorerRecords) merged.TryAdd(tx.TxId, tx);
+        foreach (var tx in localTxs) merged[tx.TxId] = tx; // local overwrites
+        return merged;
     }
 
     /// <summary>
