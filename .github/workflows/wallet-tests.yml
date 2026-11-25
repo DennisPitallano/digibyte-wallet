@@ -28,3 +28,22 @@ jobs:
         working-directory: src/DigiByte.Web
       - run: dotnet publish src/DigiByte.Web -c Release -o publish --nologo
       - run: python3 tools/verify-sw-manifest.py publish/wwwroot
+
+  # DigiPay (merchant payments): the Pay API, the Pay web app (checkout, receipt, POS, dashboard, docs) and its
+  # browser scripts (checkout countdown, embed widget, POS storage). A separate job so it runs alongside the wallet
+  # and shows as its own check.
+  digipay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: dotnet test tests/DigiByte.Pay.Api.Tests
+      - run: dotnet test tests/DigiByte.Pay.Web.Tests
+      # node --test only: no packages to install.
+      - run: npm test
+        working-directory: src/DigiByte.Pay.Web
