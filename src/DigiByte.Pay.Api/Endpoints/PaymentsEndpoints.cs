@@ -284,7 +284,8 @@ public static class PaymentsEndpoints
                 AddressIndex = index,
                 Address = address,
                 AmountSatoshis = amountSats,
-                FiatCurrency = body.FiatCurrency,
+                // Upper-case so "php" and "PHP" total together in shift reports and the dashboard.
+                FiatCurrency = string.IsNullOrWhiteSpace(body.FiatCurrency) ? null : body.FiatCurrency.Trim().ToUpperInvariant(),
                 FiatAmount = body.FiatAmount,
                 DgbPriceAtCreation = body.DgbPriceAtCreation,
                 Label = body.Label,

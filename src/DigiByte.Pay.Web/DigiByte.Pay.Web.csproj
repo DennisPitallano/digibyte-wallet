@@ -16,6 +16,8 @@
   <ItemGroup>
     <ProjectReference Include="..\DigiByte.Crypto\DigiByte.Crypto.csproj" />
     <ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />
+    <!-- The wallet's fiat currency list (FiatCurrencies), so DigiPay offers and formats the same currencies. -->
+    <ProjectReference Include="..\DigiByte.Wallet\DigiByte.Wallet.csproj" />
   </ItemGroup>
 
   <!-- Rebuild Tailwind CSS on build (purged & minified) -->
