@@ -1,0 +1,122 @@
+@* Shown once a payment is on its way ("seen") or in a block ("paid"), in place of the QR code,
+   address and countdown: the shopper has already paid, so the page stops asking them to pay and
+   shows how close the payment is to final instead. Mirrors the wallet's 6-block confirmation chain.
+   A DigiDollar payment goes straight from "seen" to "confirmed" (no per-block count), so it shows
+   the ring without the chain. *@
+@{
+    var state = CheckoutStates.For(Status);
+    var required = CheckoutStates.ConfirmationsRequired;
+    var done = Math.Clamp(Confirmations, 0, required);
+    var counted = Currency != "DD";
+    var waitingForBlock = done == 0;
+    // Ring geometry: r = 52 on a 120 box.
+    const double circumference = 2 * Math.PI * 52;
+    var fraction = counted ? (double)done / required : 0;
+    var dashOffset = circumference * (1 - fraction);
+}
+<section class="ui-confirm" aria-labelledby="confirm-heading">
+    <div class="ui-confirm-ring @(waitingForBlock ? "is-waiting" : "")" aria-hidden="true">
+        <svg viewBox="0 0 120 120" width="120" height="120">
+            <circle class="ui-confirm-ring-track" cx="60" cy="60" r="52" />
+            @if (waitingForBlock)
+            {
+                <circle class="ui-confirm-ring-spin" cx="60" cy="60" r="52"
+                        stroke-dasharray="@FormattableString.Invariant($"{circumference * 0.22:0.##} {circumference:0.##}")" />
+            }
+            else
+            {
+                <circle class="ui-confirm-ring-fill" cx="60" cy="60" r="52"
+                        stroke-dasharray="@circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)"
+                        stroke-dashoffset="@dashOffset.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" />
+            }
+        </svg>
+        <span class="ui-confirm-ring-center">
+            @if (counted && !waitingForBlock)
+            {
+                <span class="ui-confirm-count"><span class="tabular-nums">@done</span><span class="ui-confirm-of">/@required</span></span>
+            }
+            else
+            {
+                <Icon Name="@state.Icon" Class="w-8 h-8" />
+            }
+        </span>
+    </div>
+
+    <div class="ui-confirm-copy">
+        <h2 id="confirm-heading" class="block-title">@Heading</h2>
+        <p class="ui-checkout-muted">@state.Explanation</p>
+    </div>
+
+    @if (counted)
+    {
+        <div class="ui-confirm-panel">
+            <div class="ui-confirm-panel-head">
+                <span class="section-label">Network confirmations</span>
+                <span class="ui-confirm-panel-value tabular-nums">@done of @required</span>
+            </div>
+            <ol class="ui-confirm-chain" aria-label="@($"{done} of {required} confirmations")">
+                @for (var i = 1; i <= required; i++)
+                {
+                    var stepState = i <= done ? "is-done" : i == done + 1 ? "is-mining" : "";
+                    @if (i > 1)
+                    {
+                        <li class="ui-confirm-link @(i <= done ? "is-done" : "")" aria-hidden="true"></li>
+                    }
+                    <li class="ui-confirm-block @stepState" aria-hidden="true">
+                        @if (i <= done)
+                        {
+                            <Icon Name="check" Class="w-3.5 h-3.5" />
+                        }
+                        else
+                        {
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                            </svg>
+                        }
+                    </li>
+                }
+            </ol>
+            <p class="ui-confirm-hint">
+                <Icon Name="zap" Class="w-3.5 h-3.5" />
+                <span>@Hint(done, required)</span>
+            </p>
+        </div>
+    }
+    else
+    {
+        <p class="ui-confirm-hint">
+            <Icon Name="zap" Class="w-3.5 h-3.5" />
+            <span>Waiting for the next block, usually about 15 seconds.</span>
+        </p>
+    }
+
+    @if (!string.IsNullOrEmpty(Txid))
+    {
+        <div class="ui-checkout-copyrow">
+            <div class="min-w-0 flex-1 text-left">
+                <p class="section-label">Transaction ID</p>
+                <p id="confirm-txid" class="ui-checkout-address">@Txid</p>
+            </div>
+            <CopyButton Value="@Txid" Label="Copy transaction ID" TargetId="confirm-txid" SuccessText="Transaction ID copied" Variant="icon" />
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public string Status { get; set; } = "";
+    [Parameter] public int Confirmations { get; set; }
+    [Parameter] public string? Txid { get; set; }
+    [Parameter] public string Currency { get; set; } = "DGB";
+
+    private string Heading => Status == "paid" ? "Confirming your payment" : CheckoutStates.For(Status).Heading;
+
+    // DigiByte targets one block every 15 seconds.
+    private static string Hint(int done, int required)
+    {
+        if (done == 0) return "Waiting for the first block, usually about 15 seconds.";
+        var seconds = (required - done) * 15;
+        var left = required - done;
+        var eta = seconds < 60 ? "under a minute" : $"about {Math.Ceiling(seconds / 60.0):0} min";
+        return $"{left} more block{(left == 1 ? "" : "s")}, {eta} left.";
+    }
+}

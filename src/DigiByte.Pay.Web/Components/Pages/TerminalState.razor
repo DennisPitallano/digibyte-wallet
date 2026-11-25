@@ -1,16 +1,52 @@
 @* A final checkout state (confirmed, underpaid, expired, refunded, voided): icon, plain-language
    heading, what it means and what to do next (FR-009). No QR code or address is ever shown for a
-   final state, so nobody pays an expired or cancelled invoice. *@
+   final state, so nobody pays an expired or cancelled invoice. Confirmed finishes the confirming
+   screen's ring (ConfirmationProgress) so the two read as one flow; the rest use the receipt's seal. *@
 @{
     var state = CheckoutStates.For(Status);
+    var confirmed = Status == "confirmed";
     var showReceipt = !string.IsNullOrEmpty(Txid) && !string.IsNullOrEmpty(SessionId) && Status is "confirmed" or "refunded" or "underpaid";
+    var returnsToShop = confirmed && !string.IsNullOrWhiteSpace(ReturnUrl);
+    var required = CheckoutStates.ConfirmationsRequired;
+    const double circumference = 2 * Math.PI * 52;
 }
-<div class="ui-terminal">
-    <span class="ui-terminal-icon ui-badge-@StatusBadge.ToneClass(state.Tone)" aria-hidden="true">
-        <Icon Name="@state.Icon" Class="w-7 h-7" />
-    </span>
-    <h2 class="block-title">@state.Heading</h2>
-    <p class="ui-checkout-muted">@state.Explanation</p>
+<div class="ui-terminal @(confirmed ? "is-confirmed" : "")">
+    @if (confirmed)
+    {
+        <div class="ui-confirm-ring ui-terminal-ring" aria-hidden="true">
+            <svg viewBox="0 0 120 120" width="120" height="120">
+                <circle class="ui-confirm-ring-track" cx="60" cy="60" r="52" />
+                <circle class="ui-confirm-ring-fill ui-terminal-ring-draw" cx="60" cy="60" r="52"
+                        stroke-dasharray="@circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)"
+                        style="--ui-ring-length: @circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" />
+            </svg>
+            <span class="ui-confirm-ring-center"><Icon Name="check" Class="ui-terminal-check" /></span>
+        </div>
+    }
+    else
+    {
+        <span class="ui-receipt-seal @SealClass(state.Tone)" aria-hidden="true">
+            <Icon Name="@state.Icon" Class="w-8 h-8" />
+        </span>
+    }
+
+    <div class="ui-terminal-copy">
+        <h2 class="block-title">@state.Heading</h2>
+        <p class="ui-checkout-muted">@state.Explanation</p>
+    </div>
+
+    @if (confirmed)
+    {
+        <p class="ui-terminal-final">
+            <span class="ui-receipt-dots" aria-hidden="true">
+                @for (var i = 0; i < required; i++)
+                {
+                    <span class="is-done"></span>
+                }
+            </span>
+            <span>@required of @required confirmations · Final</span>
+        </p>
+    }
 
     @if (Status == "underpaid" && ExpectedSatoshis > 0)
     {
@@ -31,14 +67,10 @@
         </div>
     }
 
-    @if (showReceipt)
-    {
-        <a href="@ReceiptHref" class="btn-secondary w-full">View receipt</a>
-    }
-
     @* Merchant return flow (confirmed only, when the shop gave a return URL). checkout-countdown.js
-       watches [data-digipay-return-merchant] and returns after 5 seconds; the button works at once. *@
-    @if (Status == "confirmed" && !string.IsNullOrWhiteSpace(ReturnUrl))
+       watches [data-digipay-return-merchant] and returns after 5 seconds; the button works at once.
+       Then the receipt is the main action; with no shop to go back to, it is. *@
+    @if (returnsToShop)
     {
         <div data-digipay-return-merchant
              data-digipay-return-url="@ReturnUrl"
@@ -48,7 +80,16 @@
             <p class="ui-checkout-muted">Returning automatically in <span data-digipay-return-countdown>5</span>…</p>
         </div>
     }
-    else if (Status is "expired" or "voided" && !string.IsNullOrWhiteSpace(ReturnUrl))
+
+    @if (showReceipt)
+    {
+        <a href="@ReceiptHref" class="@(confirmed && !returnsToShop ? "btn-primary" : "btn-secondary") w-full">
+            <Icon Name="receipt" Class="w-4 h-4" />
+            <span>View receipt</span>
+        </a>
+    }
+
+    @if (Status is "expired" or "voided" && !string.IsNullOrWhiteSpace(ReturnUrl))
     {
         <a href="@ReturnUrl" class="btn-primary w-full">Back to the shop</a>
     }
@@ -69,6 +110,15 @@
 
     protected override void OnParametersSet() =>
         ReceiptHref ??= SessionId is null ? null : $"/pay/{Uri.EscapeDataString(SessionId)}/receipt";
+
+    private static string SealClass(BadgeTone tone) => tone switch
+    {
+        BadgeTone.Success => "",
+        BadgeTone.Danger => "is-danger",
+        BadgeTone.Refund => "is-refund",
+        BadgeTone.Info => "is-pending",
+        _ => "is-neutral",
+    };
 
     private string FormatAmount(long sats) =>
         (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) + (Currency == "DD" ? " DD" : " DGB");

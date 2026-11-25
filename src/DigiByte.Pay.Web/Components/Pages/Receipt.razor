@@ -8,8 +8,8 @@
 @using System.Globalization
 @using System.Net.Http.Json
 
-@* Shopper's proof of payment (spec 032, US1): amount, transaction ID with a copy button, a QR of the
-   transaction ID for checking on a phone, time and confirmations. Read-only, no live connection.
+@* Shopper's proof of payment (spec 032, US1): outcome, amount, a slip of the details, the
+   transaction ID with a copy button and a QR of it, and a Blockchair PDF receipt like the wallet's. Read-only, no live connection.
    Prints dark on white in either theme (FR-028). Same components and states as the checkout. *@
 
 <PageTitle>@PageTitleText</PageTitle>
@@ -47,60 +47,109 @@
         }
         else
         {
-            <div class="card ui-checkout">
-                <span class="ui-terminal-icon ui-badge-success" aria-hidden="true"><Icon Name="check-circle" Class="w-7 h-7" /></span>
-                <div class="text-center">
-                    <h1 class="page-title">@(session.Status == "confirmed" ? "Payment confirmed" : "Payment received")</h1>
-                    <p class="ui-checkout-merchant">@(merchantName ?? "Merchant")</p>
-                </div>
+            var confirmed = session.Status == "confirmed";
+            var (heading, seal, sealIcon) = session.Status switch
+            {
+                "confirmed" => ("Payment confirmed", "", "check-circle"),
+                "underpaid" => ("Partial payment received", "is-danger", "alert"),
+                "refunded" => ("Payment refunded", "is-refund", "undo"),
+                _ => ("Payment received", "is-pending", "clock"),
+            };
+            var required = CheckoutStates.ConfirmationsRequired;
+            var confs = Math.Clamp(session.Confirmations, 0, required);
+            var isDd = session.Currency == "DD";
+            <article class="card ui-checkout ui-receipt" aria-labelledby="receipt-heading">
+                @* Hero: outcome first, then who was paid and how much. *@
+                <header class="ui-receipt-hero">
+                    <span class="ui-receipt-seal @seal" aria-hidden="true">
+                        <Icon Name="@sealIcon" Class="w-8 h-8" />
+                    </span>
+                    <h1 id="receipt-heading" class="page-title">@heading</h1>
+                    <p class="ui-checkout-merchant">Paid to <strong class="ui-receipt-merchant">@(merchantName ?? "the merchant")</strong></p>
+                </header>
 
-                @if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
-                {
-                    <div class="ui-checkout-amount">
+                <div class="ui-checkout-amount">
+                    @if (isDd && session.AmountCentsDd is { } ddCents)
+                    {
+                        <p class="ui-checkout-big">@FormatUsd(ddCents) <span class="ui-checkout-unit">USD</span></p>
+                        <p class="ui-checkout-muted">Paid in DigiDollar</p>
+                    }
+                    else if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
+                    {
                         <p class="ui-checkout-big">@FormatFiat(fiatAmt) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
                         <p class="ui-checkout-muted"><span class="font-mono tabular-nums">@FormatDgb(session.AmountSatoshis)</span> DGB</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="ui-checkout-amount">
+                    }
+                    else
+                    {
                         <p class="ui-checkout-big">@FormatDgb(session.AmountSatoshis) <span class="ui-checkout-unit">DGB</span></p>
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(session.Label))
-                {
-                    <p class="text-center w-full" style="overflow-wrap:anywhere">@session.Label</p>
-                }
-
-                @* QR of the bare transaction ID so anyone can check it on a phone, even from paper. *@
-                <div class="qr-frame qr-frame-sm">
-                    <img src="@qrDataUrl" alt="QR code of the transaction ID" width="160" height="160" class="w-40 h-40" />
+                    }
                 </div>
 
-                <div class="ui-checkout-copyrow">
-                    <div class="min-w-0 flex-1">
-                        <p class="section-label">Transaction ID</p>
-                        <p id="receipt-txid" class="ui-checkout-address">@session.PaidTxid</p>
-                    </div>
-                    <CopyButton Value="@session.PaidTxid" Label="Copy transaction ID" TargetId="receipt-txid" SuccessText="Transaction ID copied" Variant="icon" Class="ui-no-print" />
-                </div>
+                @* Tear line: everything below reads like a printed slip. *@
+                <div class="ui-receipt-tear" aria-hidden="true"></div>
 
                 <dl class="ui-receipt-facts">
-                    <div class="ui-no-print"><dt>Payment reference</dt><dd class="font-mono" style="overflow-wrap:anywhere">@session.Id</dd></div>
-                    <div><dt>Paid at</dt><dd class="font-mono tabular-nums">@session.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</dd></div>
-                    <div><dt>Confirmations</dt><dd class="font-mono tabular-nums">@session.Confirmations</dd></div>
+                    @if (!string.IsNullOrWhiteSpace(session.Label))
+                    {
+                        <div><dt>For</dt><dd class="ui-receipt-wrap">@session.Label</dd></div>
+                    }
+                    @if (session.Status == "underpaid")
+                    {
+                        <div><dt>Received</dt><dd class="font-mono tabular-nums">@FormatReceived(session.ReceivedSatoshis, isDd)</dd></div>
+                    }
+                    <div><dt>Paid at</dt><dd class="font-mono tabular-nums">@PaidAtText</dd></div>
+                    <div>
+                        <dt>Status</dt>
+                        <dd class="ui-receipt-status @(confirmed ? "is-final" : "")">
+                            <span class="ui-receipt-dots" aria-hidden="true">
+                                @for (var i = 1; i <= required; i++)
+                                {
+                                    <span class="@(i <= confs ? "is-done" : "")"></span>
+                                }
+                            </span>
+                            <span>@StatusText(session.Status) · @confs/@required</span>
+                        </dd>
+                    </div>
+                    <div><dt>Reference</dt><dd class="font-mono ui-receipt-wrap">@session.Id</dd></div>
                 </dl>
 
-                <div class="w-full flex flex-col sm:flex-row gap-2 ui-no-print">
-                    <a href="@($"https://digiexplorer.info/tx/{session.PaidTxid}")" target="_blank" rel="noopener" class="btn-secondary flex-1">
-                        <span>View on DigiExplorer</span>
-                        <Icon Name="external-link" Class="w-4 h-4" />
+                <div class="ui-receipt-tear" aria-hidden="true"></div>
+
+                @* Proof: the txid to copy, and a QR of it to check from a phone or from paper. *@
+                <section class="ui-receipt-proof" aria-label="Transaction">
+                    <div class="qr-frame qr-frame-sm shrink-0">
+                        <img src="@qrDataUrl" alt="QR code of the transaction ID" width="104" height="104" class="ui-receipt-qr" />
+                    </div>
+                    <div class="min-w-0 flex-1 flex flex-col gap-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="section-label">Transaction ID</p>
+                            <CopyButton Value="@session.PaidTxid" Label="Copy transaction ID" TargetId="receipt-txid" SuccessText="Transaction ID copied" Variant="icon" Class="ui-no-print" />
+                        </div>
+                        <p id="receipt-txid" class="ui-checkout-address ui-receipt-txid">@session.PaidTxid</p>
+                        <p class="ui-receipt-note">Scan or search this ID in any DigiByte explorer to check the payment.</p>
+                    </div>
+                </section>
+
+                <div class="ui-receipt-actions ui-no-print">
+                    <a href="@BlockchairPdfHref" target="_blank" rel="noopener" class="btn-primary w-full">
+                        <Icon Name="download" Class="w-4 h-4" />
+                        <span>Download PDF receipt</span>
+                        <span class="ui-receipt-via">via Blockchair</span>
                         <span class="sr-only">(opens in a new tab)</span>
                     </a>
-                    <button type="button" @onclick="PrintAsync" class="btn-secondary flex-1">Print</button>
+                    <div class="ui-receipt-actions-row">
+                        <a href="@BlockchairTxHref" target="_blank" rel="noopener" class="btn-secondary">
+                            <span>View transaction</span>
+                            <Icon Name="external-link" Class="w-4 h-4" />
+                            <span class="sr-only">(opens in a new tab)</span>
+                        </a>
+                        <button type="button" @onclick="PrintAsync" class="btn-secondary">
+                            <Icon Name="printer" Class="w-4 h-4" />
+                            <span>Print</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            </article>
         }
         @* Light / Dark / Match my device for the shopper (FR-026). A shop-set ?theme= wins for this view. *@
         <div class="ui-shopper-footer ui-no-print">
@@ -118,6 +167,22 @@
     private string? qrDataUrl;
     private bool loadFailed;
     private bool loading;
+
+    // Same explorer the wallet uses for transaction PDFs (TransactionDetailModal).
+    private string BlockchairTxHref => $"https://blockchair.com/digibyte/transaction/{Uri.EscapeDataString(session?.PaidTxid ?? "")}";
+    private string BlockchairPdfHref => BlockchairTxHref + ".pdf";
+
+    // When the payment landed (falls back to when it was requested). Rendered on the server, which
+    // doesn't know the shopper's time zone, so it says UTC rather than guessing.
+    private string PaidAtText
+    {
+        get
+        {
+            var at = session?.PaidAt ?? session?.CreatedAt ?? DateTime.UtcNow;
+            var utc = at.Kind == DateTimeKind.Local ? at.ToUniversalTime() : DateTime.SpecifyKind(at, DateTimeKind.Utc);
+            return utc.ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+        }
+    }
 
     private string PageTitleText => merchantName is null ? "Receipt · DigiPay" : $"Receipt from {merchantName} · DigiPay";
 
@@ -191,6 +256,21 @@
     private static string FormatDgb(long sats) =>
         (sats / 100_000_000m).ToString("0.########", CultureInfo.InvariantCulture);
 
+    private static string StatusText(string status) => status switch
+    {
+        "confirmed" => "Final",
+        "underpaid" => "Underpaid",
+        "refunded" => "Refunded",
+        _ => "Confirming",
+    };
+
+    // DigiDollar sessions keep received USD cents in ReceivedSatoshis.
+    private static string FormatReceived(long received, bool isDd) =>
+        isDd ? FormatUsd(received) + " USD" : FormatDgb(received) + " DGB";
+
+    private static string FormatUsd(long cents) =>
+        (cents / 100m).ToString("0.00", CultureInfo.InvariantCulture);
+
     private static string FormatFiat(decimal amount) =>
         amount.ToString("0.00", CultureInfo.InvariantCulture);
 
@@ -201,5 +281,9 @@
         string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
-        string Uri, string CheckoutUrl);
+        string Uri, string CheckoutUrl,
+        DateTime? PaidAt = null,
+        // DigiDollar: Currency = "DGB" (default) or "DD"; for DD, AmountCentsDd carries USD cents.
+        string Currency = "DGB",
+        long? AmountCentsDd = null);
 }

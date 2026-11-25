@@ -40,7 +40,6 @@
         }
         else
         {
-            var state = CheckoutStates.For(session.Status);
             var final = CheckoutStates.IsFinal(session.Status);
             <div data-digipay-measure class="card ui-checkout">
                 <header class="ui-checkout-header">
@@ -88,7 +87,7 @@
 
                 @* Price-volatility notice: the DGB amount was fixed when the invoice was created, so a big
                    price move changes what the shopper pays in their own currency. A banner, not a state. *@
-                @if (session.Currency != "DD" && priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !final)
+                @if (session.Currency != "DD" && priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !final && !CheckoutStates.IsConfirming(session.Status))
                 {
                     var pricierNow = drift > 0;
                     <div class="ui-banner @(pricierNow ? "ui-banner-warning" : "ui-banner-info") w-full">
@@ -114,12 +113,21 @@
                                    ReceivedSatoshis="@session.ReceivedSatoshis" ExpectedSatoshis="@session.AmountSatoshis"
                                    Currency="@session.Currency" />
                 }
+                else if (CheckoutStates.IsConfirming(session.Status))
+                {
+                    @* Paid: hide the QR, address and countdown so nobody pays twice; show progress instead. *@
+                    @if (reconnecting)
+                    {
+                        <div class="ui-banner ui-banner-info w-full" role="status">
+                            <Icon Name="refresh" Class="" />
+                            <p>@CheckoutStates.For(CheckoutStates.Reconnecting).Explanation</p>
+                        </div>
+                    }
+                    <ConfirmationProgress Status="@session.Status" Confirmations="@session.Confirmations"
+                                          Txid="@session.PaidTxid" Currency="@session.Currency" />
+                }
                 else
                 {
-                    @if (session.Status is "seen" or "paid")
-                    {
-                        <p class="ui-checkout-muted text-center">@state.Explanation</p>
-                    }
                     @if (reconnecting)
                     {
                         <div class="ui-banner ui-banner-info w-full" role="status">
@@ -180,6 +188,7 @@
     private bool loading;
     private bool reconnecting;
     private string? lastAnnouncedStatus;
+    private int lastAnnouncedConfirmations;
 
     // Drift between the quote-time and the current DGB price; |value| ≥ DriftThreshold shows the banner.
     private decimal? priceDriftPct;
@@ -240,6 +249,7 @@
             qrDataUrl = GenerateQr(session.Uri);
             loadFailed = false;
             lastAnnouncedStatus = session.Status; // the first state is visible, not announced
+            lastAnnouncedConfirmations = session.Confirmations;
             await RefreshPriceDriftAsync();
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
@@ -394,8 +404,15 @@
             if (status != lastAnnouncedStatus)
             {
                 lastAnnouncedStatus = status;
+                lastAnnouncedConfirmations = confirmations;
                 var announcement = CheckoutStates.For(status).Announcement;
                 if (announcement is not null) Announcer.Announce(announcement, assertive: status is "underpaid");
+            }
+            else if (status == "paid" && confirmations > lastAnnouncedConfirmations)
+            {
+                // Each new block while confirming, so a screen-reader user hears progress too.
+                lastAnnouncedConfirmations = confirmations;
+                Announcer.Announce($"{confirmations} of {CheckoutStates.ConfirmationsRequired} confirmations.");
             }
             StateHasChanged();
         });
