@@ -32,6 +32,23 @@ public interface IBlockchainService
     Task<decimal> GetFeeRateAsync();
     Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD");
     Task<int> GetBlockHeightAsync();
+
+    /// <summary>
+    /// Every transaction of the address, however many (spec 031, research R1): no per-address cap, and a failed page throws
+    /// instead of returning a partial or empty list. Not cached. Sources that cannot list full history (the node) keep this
+    /// default, and <see cref="FallbackBlockchainService"/> skips them.
+    /// </summary>
+    Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default) =>
+        Task.FromException<List<TransactionInfo>>(new NotSupportedException($"{GetType().Name} cannot read complete history."));
+
+    /// <summary>
+    /// One price per day for <paramref name="asset"/> (<c>dgb</c> or <c>dd</c>) in <paramref name="fiatCurrency"/>, for the
+    /// days <paramref name="from"/>..<paramref name="to"/> (spec 031, contracts/price-range-api.md). Never throws for an
+    /// upstream failure: it returns an empty series with <see cref="Export.DailyPriceSeries.Failed"/> set.
+    /// </summary>
+    Task<Export.DailyPriceSeries> GetDailyPricesAsync(string fiatCurrency, string asset, DateOnly from, DateOnly to,
+        CancellationToken ct = default) =>
+        Task.FromResult(Export.DailyPriceSeries.Empty(fiatCurrency, Export.PriceBasis.Native, from, to, failed: true));
 }
 
 public class UtxoInfo

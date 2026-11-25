@@ -604,6 +604,20 @@ public class ChangeAddressTests
             return Task.FromResult(txs);
         }
 
+        /// <summary>When set, the complete history read (spec 031) answers this many addresses, then fails every later one.</summary>
+        public int? CompleteHistoryFailAfter { get; set; }
+        private int _completeReads;
+
+        /// <summary>The complete history read the CSV export uses: the whole credit log for the address, strict on failure.</summary>
+        public Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (HistoryDown) throw new HttpRequestException("explorer is down");
+            if (CompleteHistoryFailAfter is { } n && Interlocked.Increment(ref _completeReads) > n)
+                throw new HttpRequestException("explorer failed partway");
+            return GetAddressTransactionsAsync(address, 0, int.MaxValue);
+        }
+
         public Task<TransactionInfo?> GetTransactionAsync(string txId) => Task.FromResult<TransactionInfo?>(null);
         public Task<decimal> GetFeeRateAsync() => Task.FromResult(100m);
         public Task<decimal> GetDgbPriceAsync(string fiatCurrency = "USD") => Task.FromResult(0.01m);

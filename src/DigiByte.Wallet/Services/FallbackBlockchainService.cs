@@ -620,6 +620,44 @@ public class FallbackBlockchainService : IBlockchainService, IAddressSummarySour
     }
 
     /// <summary>
+    /// Every transaction of the address for the CSV export (spec 031, research R1). Explorers only, in order, not cached; the node
+    /// is never asked (it cannot list full history). A source that doesn't support the complete read is skipped, not counted as a
+    /// failure. Throws <see cref="Export.HistoryIncompleteException"/> when no supporting explorer could answer, or none supports it.
+    /// </summary>
+    public async Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default)
+    {
+        if (ForceDemoMode && _isDevelopment && _mock != null)
+            return await _mock.GetCompleteAddressHistoryAsync(address, ct);
+
+        Exception? lastFailure = null;
+        foreach (var explorer in _explorers)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                return await explorer.GetCompleteAddressHistoryAsync(address, ct);
+            }
+            catch (NotSupportedException)
+            {
+                // This source can't list full history: try the next one.
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastFailure = ex;
+                Console.WriteLine($"[Export] Complete history failed on one explorer: {ex.GetType().Name}");
+            }
+        }
+
+        throw new Export.HistoryIncompleteException(
+            lastFailure is null ? "No source can read complete history." : "No explorer could read the complete history.",
+            lastFailure);
+    }
+
+    /// <summary>
     /// The gateway's one-pass wallet history (spec 023, FR-020), only while the gateway would answer history reads: active and first,
     /// or active as the backup with every explorer cooling down. Null otherwise, and the per-address path runs as before. The call
     /// keeps the gateway's time budget and reports to its monitor like any other gateway read.

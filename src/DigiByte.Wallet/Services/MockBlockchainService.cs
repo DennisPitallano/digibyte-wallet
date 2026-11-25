@@ -49,6 +49,10 @@ public class MockBlockchainService : IBlockchainService
         return Task.FromResult<TransactionInfo?>(null);
     }
 
+    /// <summary>Demo mode's complete history (spec 031): the same demo transactions.</summary>
+    public Task<List<TransactionInfo>> GetCompleteAddressHistoryAsync(string address, CancellationToken ct = default) =>
+        GetAddressTransactionsAsync(address, 0, int.MaxValue);
+
     public Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
         IsActive = true;
