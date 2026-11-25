@@ -4,6 +4,20 @@ namespace DigiByte.Wallet.Services.Export;
 public enum ExportScope
 {
     Everything,
+
+    /// <summary>What Activity's list shows: its filter, search and wallet address (DGB only).</summary>
+    CurrentView,
+
+    DateRange,
+}
+
+/// <summary>The date-range choices. <see cref="Custom"/> uses <see cref="ExportRequest.From"/> and <see cref="ExportRequest.To"/>.</summary>
+public enum ExportPreset
+{
+    ThisMonth,
+    LastMonth,
+    ThisYear,
+    Custom,
 }
 
 /// <summary>What the person chose in the export sheet (data-model.md "ExportRequest"). Fiat values are always included.</summary>
@@ -11,6 +25,47 @@ public sealed record ExportRequest
 {
     public required ExportAsset Asset { get; init; }
     public ExportScope Scope { get; init; } = ExportScope.Everything;
+    public ExportPreset Preset { get; init; } = ExportPreset.ThisMonth;
+
+    /// <summary>Custom range, local dates, both days included.</summary>
+    public DateOnly? From { get; init; }
+    public DateOnly? To { get; init; }
+
+    /// <summary>Activity's current view, for <see cref="ExportScope.CurrentView"/>.</summary>
+    public ActivityView? View { get; init; }
+
+    /// <summary>The local date range for <see cref="ExportScope.DateRange"/>, or null for any other scope or an invalid custom range.</summary>
+    public (DateOnly From, DateOnly To)? ResolveRange(DateOnly today)
+    {
+        if (Scope != ExportScope.DateRange) return null;
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        return Preset switch
+        {
+            ExportPreset.ThisMonth => (monthStart, today),
+            ExportPreset.LastMonth => (monthStart.AddMonths(-1), monthStart.AddDays(-1)),
+            ExportPreset.ThisYear => (new DateOnly(today.Year, 1, 1), today),
+            _ => From is { } f && To is { } t && f <= t && t <= today ? (f, t) : null,
+        };
+    }
+
+    /// <summary>A custom range needs From ≤ To and To not after today; a current-view export needs the view.</summary>
+    public bool IsValid(DateOnly today) => Scope switch
+    {
+        ExportScope.DateRange => ResolveRange(today) is not null,
+        ExportScope.CurrentView => View is not null,
+        _ => true,
+    };
+
+    /// <summary>
+    /// Whether a row belongs in the file. A date range compares the row's <b>local</b> date, both days included. The current view
+    /// applies Activity's own rules to <paramref name="record"/> (the DGB transaction the row came from).
+    /// </summary>
+    public bool Matches(ExportRow row, Models.TransactionRecord? record, DateOnly today) => Scope switch
+    {
+        ExportScope.DateRange => ResolveRange(today) is { } r && row.LocalDate >= r.From && row.LocalDate <= r.To,
+        ExportScope.CurrentView => View is not null && record is not null && ActivityListFilter.Matches(record, View),
+        _ => true,
+    };
 }
 
 /// <summary>How an export ended (data-model.md "ExportResult"). Saving is the web app's job, after <see cref="Ready"/>.</summary>

@@ -81,7 +81,7 @@ src/DigiByte.Wallet/
 │   ├── MockBlockchainService.cs         # implement the new interface members (NodeApiBlockchainService keeps the "not supported" default)
 │   ├── IDigiDollarService.cs            # + LoadCompleteHistoryAsync
 │   ├── DigiDollarService.cs             # + LoadCompleteHistoryAsync (follow `next`)
-│   ├── ActivityFilter.cs                # NEW: Activity's filter/search rules, moved from Transactions.razor
+│   ├── ActivityListFilter.cs                # NEW: Activity's filter/search rules, moved from Transactions.razor
 │   └── Export/                          # NEW
 │       ├── ExportRequest.cs             # scope, preset, range resolution (injected clock); ExportResult
 │       ├── ExportRow.cs                 # one row of the file
@@ -124,7 +124,7 @@ tests/DigiByte.Wallet.Tests/
 ├── Export/DailyPriceSeriesTests.cs
 ├── Export/TransactionExportServiceTests.cs
 ├── CompleteHistoryTests.cs                    # WalletService + readers: paging, caps, failures, unsupported backends
-├── ActivityFilterTests.cs                     # Activity's filter/search rules, before they move to DigiByte.Wallet
+├── ActivityListFilterTests.cs                     # Activity's filter/search rules, before they move to DigiByte.Wallet
 └── DigiDollarCompleteHistoryTests.cs
 
 tests/DigiByte.Api.Tests/

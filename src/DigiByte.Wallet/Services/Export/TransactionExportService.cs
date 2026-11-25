@@ -21,7 +21,12 @@ public sealed class TransactionExportService(WalletService wallet, IBlockchainSe
         {
             ct.ThrowIfCancellationRequested();
             var records = await wallet.LoadCompleteHistoryAsync(progress, ct);
-            rows = records.Select(r => ExportRowMapper.FromRecord(r, env.TimeZone, env.NameOf, env.WalletLabelOf)).ToList();
+            var today = env.Today;
+            rows = records
+                .Select(r => (Record: r, Row: ExportRowMapper.FromRecord(r, env.TimeZone, env.NameOf, env.WalletLabelOf)))
+                .Where(x => request.Matches(x.Row, x.Record, today))
+                .Select(x => x.Row)
+                .ToList();
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

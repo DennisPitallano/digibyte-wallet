@@ -231,7 +231,7 @@
 </PullToRefresh>
 
 <DigiByte.Web.Components.Export.ExportCsvSheet IsOpen="exportOpen" Asset="DigiByte.Wallet.Services.Export.ExportAsset.Dgb"
-                                              HideAmounts="hideAmounts" OnClosed="() => exportOpen = false" />
+                                              HideAmounts="hideAmounts" CurrentView="CurrentView" OnClosed="() => exportOpen = false" />
 
 @* The wallet's first payment, celebrated once. It waits while one of this page's two dialogs is open (spec 025, FR-023). *@
 <FirstReceiveCelebration Blocked="@(selected != null || showAddressPicker)" />
@@ -530,29 +530,17 @@
         ApplyFilter();
     }
 
+    // The filter and search rules are shared with the CSV export's "What the list shows" (spec 031), so the two never disagree.
     private void ApplyFilter()
     {
-        IEnumerable<TransactionRecord> result = filter switch
-        {
-            "received" => all.Where(t => t.Direction == TransactionDirection.Received),
-            "sent" => all.Where(t => t.Direction == TransactionDirection.Sent),
-            _ => all,
-        };
-        if (selectedAddress != null) result = result.Where(t => ActivityAddressIndex.Matches(t, selectedAddress));
-        if (query.Length > 0) result = result.Where(Matches);
-        shown = result.ToList();
+        var view = CurrentView;
+        shown = all.Where(t => ActivityListFilter.Matches(t, view)).ToList();
     }
 
-    private bool Matches(TransactionRecord t)
-    {
-        const StringComparison ci = StringComparison.OrdinalIgnoreCase;
-        return (NameFor(t)?.Contains(query, ci) ?? false)
-            || (t.CounterpartyAddress?.Contains(query, ci) ?? false)
-            || ActivityAddressIndex.MatchesText(t, query, walletAddressLabels)
-            || (t.Memo?.Contains(query, ci) ?? false)
-            || t.TxId.Contains(query, ci)
-            || t.AmountDgb.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture).Contains(query, ci);
-    }
+    /// <summary>What the list is showing now: its filter, search, chosen wallet address and the lookups the search uses.</summary>
+    private ActivityView CurrentView => new(filter, query, selectedAddress, ContactNameOf, walletAddressLabels);
+
+    private string? ContactNameOf(string address) => contactNames.TryGetValue(address, out var n) ? n : null;
 
     /// <summary>Why the list is empty: no history at all, or nothing matching the search or filters.</summary>
     private string EmptyText =>
@@ -561,8 +549,7 @@
         : selectedAddress != null ? L.T("history.empty.address_filter")
         : L.T("history.empty.filter");
 
-    private string? NameFor(TransactionRecord tx) =>
-        tx.CounterpartyAddress is { Length: > 0 } a && contactNames.TryGetValue(a, out var n) ? n : tx.CounterpartyName;
+    private string? NameFor(TransactionRecord tx) => ActivityListFilter.NameFor(tx, ContactNameOf);
 
     /// <summary>DGB received and sent since the first of the current month (local time), from the loaded history.</summary>
     private (decimal In, decimal Out) MonthTotals()

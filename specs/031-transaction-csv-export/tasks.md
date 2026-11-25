@@ -156,13 +156,13 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Write `tests/DigiByte.Wallet.Tests/Export/ExportRequestTests.cs`:
+- [X] T025 [P] [US2] Write `tests/DigiByte.Wallet.Tests/Export/ExportRequestTests.cs`:
   - with the clock at 2026-03-15: "This month" = 2026-03-01..2026-03-15, "Last month" = 2026-02-01..2026-02-28, "This year" = 2026-01-01..2026-03-15
   - Custom: `From ≤ To` and `To` not after today, otherwise invalid
   - a row matches when its **local** date is in `[From, To]` inclusive (23:30 local on the last day is included)
   - `CurrentView` applies the filter (`all`/`received`/`sent`), the search text and the selected wallet address exactly as Activity's `ApplyFilter` does
-- [ ] T026 [P] [US2] Extend `TransactionExportServiceTests.cs`: a range or view that matches nothing → `NothingToExport` with no content (US2 scenario 3)
-- [ ] T027 [P] [US2] Write `tests/DigiByte.Wallet.Tests/ActivityFilterTests.cs` for `ActivityFilter.Matches` before T028 moves the code. Copy today's `ApplyFilter` rules from `src/DigiByte.Web/Pages/Transactions.razor` into cases:
+- [X] T026 [P] [US2] Extend `TransactionExportServiceTests.cs`: a range or view that matches nothing → `NothingToExport` with no content (US2 scenario 3)
+- [X] T027 [P] [US2] Write `tests/DigiByte.Wallet.Tests/ActivityListFilterTests.cs` for `ActivityListFilter.Matches` before T028 moves the code. Copy today's `ApplyFilter` rules from `src/DigiByte.Web/Pages/Transactions.razor` into cases:
   - filter `all`/`received`/`sent`
   - search, case-insensitive, as `Matches` in the page does today: the contact name (`NameFor`), `CounterpartyAddress`, the wallet addresses and their labels (`ActivityAddressIndex.MatchesText`), `Memo`, `TxId`, and `AmountDgb` written as `0.########` in invariant culture
   - the selected wallet address, matched with `ActivityAddressIndex.Matches`
@@ -171,15 +171,15 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Move Activity's filter and search matching (`ApplyFilter` in `src/DigiByte.Web/Pages/Transactions.razor`) into a static `ActivityFilter.Matches(TransactionRecord, string filter, string query, string? address, …)` in `src/DigiByte.Wallet/Services/ActivityFilter.cs`. Call it from the page, so the list and the export cannot disagree. Existing behaviour is unchanged. Make T027 pass.
-- [ ] T029 [US2] Extend `ExportRequest.cs`:
+- [X] T028 [US2] Move Activity's filter and search matching (`ApplyFilter` in `src/DigiByte.Web/Pages/Transactions.razor`) into a static `ActivityListFilter.Matches(TransactionRecord, string filter, string query, string? address, …)` in `src/DigiByte.Wallet/Services/ActivityListFilter.cs`. Call it from the page, so the list and the export cannot disagree. Existing behaviour is unchanged. Make T027 pass.
+- [X] T029 [US2] Extend `ExportRequest.cs`:
   - `Scope` = `Everything` | `CurrentView` | `DateRange`; `Preset` = `ThisMonth` | `LastMonth` | `ThisYear` | `Custom`; `From`/`To` local dates
   - `Resolve(clock, tz)` turns a preset into a range
-  - `Matches(row)` uses the range or `ActivityFilter`
+  - `Matches(row)` uses the range or `ActivityListFilter`
   - make T025 pass
-- [ ] T030 [US2] Apply `ExportRequest.Matches` in `TransactionExportService.ExportAsync`, after reading and before the zero check. Make T026 pass.
-- [ ] T031 [P] [US2] Add the `export.*` strings to `en.json` and `es.json`: "What the list shows", "Date range", "This month", "Last month", "This year", "Custom", "From", "To", and an invalid-range message
-- [ ] T032 [US2] Extend `ExportCsvSheet.razor`:
+- [X] T030 [US2] Apply `ExportRequest.Matches` in `TransactionExportService.ExportAsync`, after reading and before the zero check. Make T026 pass.
+- [X] T031 [P] [US2] Add the `export.*` strings to `en.json` and `es.json`: "What the list shows", "Date range", "This month", "Last month", "This year", "Custom", "From", "To", and an invalid-range message
+- [X] T032 [US2] Extend `ExportCsvSheet.razor`:
   - the "What the list shows" radio, only when `Asset = DGB`, using the current view passed in from `Transactions.razor`
   - the date-range radio with preset buttons and From/To date inputs, and Export disabled while the range is invalid
 - [ ] T033 [US2] Pass `filter`, `query` and `selectedAddress` from `Transactions.razor` into the sheet. Run quickstart scenarios 7, 8 and 12.

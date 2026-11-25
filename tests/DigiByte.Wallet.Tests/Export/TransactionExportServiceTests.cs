@@ -107,6 +107,59 @@ public class TransactionExportServiceTests
     public void FileName_IdentifiesWalletAssetAndLocalExportDate(string walletName, string expected) =>
         Assert.Equal(expected, TransactionExportService.FileNameFor(walletName, ExportAsset.Dgb, Env()));
 
+    // ── US2: what to export ──
+
+    [Fact]
+    public async Task DateRangeMatchingNothing_IsNothingToExport_WithNoContent()
+    {
+        var (env, wallet) = await WalletWithAsync(3);   // all today
+        var sut = new TransactionExportService(wallet, env.Chain);
+        var request = new ExportRequest
+        {
+            Asset = ExportAsset.Dgb, Scope = ExportScope.DateRange, Preset = ExportPreset.Custom,
+            From = new DateOnly(2020, 1, 1), To = new DateOnly(2020, 1, 31),
+        };
+
+        var result = await sut.ExportAsync(request, Env());
+
+        Assert.Equal(ExportOutcome.NothingToExport, result.Outcome);
+        Assert.Null(result.Content);
+    }
+
+    [Fact]
+    public async Task CurrentView_MatchingNothing_IsNothingToExport()
+    {
+        var (env, wallet) = await WalletWithAsync(3);   // only received
+        var sut = new TransactionExportService(wallet, env.Chain);
+        var request = new ExportRequest
+        {
+            Asset = ExportAsset.Dgb, Scope = ExportScope.CurrentView,
+            View = new ActivityView("sent", "", null, _ => null, new Dictionary<string, string>()),
+        };
+
+        var result = await sut.ExportAsync(request, Env());
+
+        Assert.Equal(ExportOutcome.NothingToExport, result.Outcome);
+    }
+
+    [Fact]
+    public async Task CurrentView_KeepsOnlyMatchingRows()
+    {
+        var (env, wallet) = await WalletWithAsync(3);
+        var sut = new TransactionExportService(wallet, env.Chain);
+        var request = new ExportRequest
+        {
+            Asset = ExportAsset.Dgb, Scope = ExportScope.CurrentView,
+            // Credits go to receive addresses 0, 1, 2: choosing address 0 keeps one of the three.
+            View = new ActivityView("received", "", env.ReceiveAddress(0), _ => null, new Dictionary<string, string>()),
+        };
+
+        var result = await sut.ExportAsync(request, Env());
+
+        Assert.Equal(ExportOutcome.Ready, result.Outcome);
+        Assert.Equal(1, result.RowCount);
+    }
+
     [Fact]
     public async Task WithoutPrices_PriceAndValueAreEmpty_AndCounted()
     {
