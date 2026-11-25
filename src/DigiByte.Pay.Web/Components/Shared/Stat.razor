@@ -1,9 +1,32 @@
-<div class="card p-3 sm:p-4">
-    <div class="text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">@Label</div>
-    <div class="text-2xl font-bold tabular-nums mt-1 text-slate-900 dark:text-white">@Value</div>
-</div>
+@* One summary number. With Href the tile is a link (for example to the filtered payments list);
+   Attention marks a number that needs the merchant to act, shown with Hint as well as colour. *@
+@if (!string.IsNullOrEmpty(Href))
+{
+    <a href="@Href" class="card card-interactive dash-stat p-3 sm:p-4 @(Attention ? "dash-stat-attention" : "")">
+        @Body
+    </a>
+}
+else
+{
+    <div class="card dash-stat p-3 sm:p-4 @(Attention ? "dash-stat-attention" : "")">
+        @Body
+    </div>
+}
 
 @code {
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public bool Attention { get; set; }
+
+    private RenderFragment Body => __builder =>
+    {
+        <div class="text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">@Label</div>
+        <div class="text-2xl font-bold tabular-nums mt-1 text-slate-900 dark:text-white">@Value</div>
+        @if (!string.IsNullOrEmpty(Hint))
+        {
+            <div class="dash-stat-hint">@Hint</div>
+        }
+    };
 }

@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Services;
@@ -71,6 +73,9 @@ public static class StoresEndpoints
             if (err is not null) return err;
 
             var changed = new List<string>();
+            // Set only when this request creates the store's first signing secret: it is returned
+            // once in the response and can't be read again (rotate it to get a new one).
+            string? createdSecret = null;
             if (body.Name is not null)
             {
                 var trimmed = body.Name.Trim();
@@ -132,9 +137,8 @@ public static class StoresEndpoints
                     store!.WebhookUrl = trimmed;
                     if (string.IsNullOrEmpty(store.WebhookSecret))
                     {
-                        Span<byte> bytes = stackalloc byte[24];
-                        RandomNumberGenerator.Fill(bytes);
-                        store.WebhookSecret = Convert.ToHexString(bytes).ToLowerInvariant();
+                        store.WebhookSecret = NewWebhookSecret();
+                        createdSecret = store.WebhookSecret;
                     }
                 }
                 changed.Add("webhook");
@@ -162,7 +166,26 @@ public static class StoresEndpoints
                     metadata: new { fields = changed });
             }
 
-            return Results.Ok(MerchantMeEndpoints.StoreDto(store!));
+            return Results.Ok(WithSecret(store!, createdSecret));
+        });
+
+        // POST /v1/pay/stores/{storeId}/webhook-secret/rotate
+        // Replaces the store's webhook signing secret and returns the new one, once.
+        // The old secret stops working at once: deliveries are signed with the new one.
+        group.MapPost("/{storeId}/webhook-secret/rotate", async (
+            string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
+        {
+            var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
+            if (err is not null) return err;
+
+            store!.WebhookSecret = NewWebhookSecret();
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant!.Id, "store.update", "Store", store.Id,
+                summary: $"Rotated the webhook signing secret of store \"{store.Name}\"",
+                metadata: new { fields = new[] { "webhookSecret" } });
+
+            return Results.Ok(new { webhookSecret = store.WebhookSecret });
         });
 
         group.MapDelete("/{storeId}", async (string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
@@ -467,6 +490,22 @@ public static class StoresEndpoints
         if (store is null) return (merchant, null, Results.NotFound(new { error = "store not found" }));
         if (store.MerchantId != merchant.Id) return (merchant, null, Results.NotFound(new { error = "store not found" }));
         return (merchant, store, null);
+    }
+
+    /// <summary>A new webhook signing secret: 24 random bytes as lowercase hex.</summary>
+    private static string NewWebhookSecret()
+    {
+        Span<byte> bytes = stackalloc byte[24];
+        RandomNumberGenerator.Fill(bytes);
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    /// <summary>The store as the API returns it, plus <c>webhookSecret</c>: the new secret, or null.</summary>
+    private static JsonObject WithSecret(PayStore store, string? webhookSecret)
+    {
+        var node = JsonSerializer.SerializeToNode(MerchantMeEndpoints.StoreDto(store), JsonSerializerOptions.Web)!.AsObject();
+        node["webhookSecret"] = webhookSecret;
+        return node;
     }
 
     private static string RandomId(int lengthChars)

@@ -53,13 +53,7 @@ else
             @StoreSwitcher("rail")
 
             <nav aria-label="Sections" class="dp-rail-nav">
-                @foreach (var sec in DashboardSections.All)
-                {
-                    <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)">
-                        <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" />
-                        <span>@sec.Label</span>
-                    </a>
-                }
+                @SectionLinks(DashboardSections.All, "rail", false)
             </nav>
 
             <div class="dp-rail-group">
@@ -91,7 +85,17 @@ else
                 <span>Digi<span class="text-dgb-500">Pay</span></span>
             </a>
             <div class="flex-1"></div>
-            <span class="text-sm font-semibold truncate max-w-[9rem]">@account.DisplayName</span>
+            @if (stores.Count > 1 && activeStore is not null)
+            {
+                @* Several stores: say which one the page is showing (the switcher is under More). *@
+                <button type="button" class="dash-topbar-store" @onclick="OpenMore" aria-label="@($"Store: {activeStore.Name}. Switch store")">
+                    <Icon Name="store" Class="w-4 h-4 shrink-0" /><span class="truncate">@activeStore.Name</span>
+                </button>
+            }
+            else
+            {
+                <span class="dash-topbar-name truncate">@account.DisplayName</span>
+            }
         </header>
 
         <main class="dp-main @(CurrentSection.Narrow && !notFound && !storeNotFound ? "dp-main-narrow" : "") page-enter">
@@ -108,10 +112,10 @@ else
             <div class="contents">
             @if (activeStore is null)
             {
-                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">No stores</h1></div>
-                <p class="@Muted mb-6">You don't have any stores yet. One should have been created automatically at sign-in.</p>
+                <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Set up your store</h1></div>
+                <p class="@Muted mb-6">A store is where your payments go: it has its own receive address, payments and webhook. Add one to start taking DigiByte.</p>
                 <section class="@Card">
-                    <button class="@Btn self-start" @onclick='() => SwitchTab("stores")'>Create your first store</button>
+                    <button class="@Btn self-start" @onclick='() => SwitchTab("stores")'>Add a store</button>
                 </section>
             }
             else if (activeTab == "overview")
@@ -122,31 +126,30 @@ else
                 </div>
                 <p class="@Muted mb-6 slide-up-delay-1">Summary of this store's activity.</p>
 
-                @if (!activeStore.HasReceive)
+                @if (ShowChecklist)
                 {
-                    <section class="@Card">
-                        <h2 class="@H2">Configure where to receive payments</h2>
-                        <p class="@Muted m-0">Before you can create sessions for this store, set a DigiByte address or BIP84 xpub in Settings.</p>
-                        <button class="@Btn self-start" @onclick='() => SwitchTab("settings")'>Go to Settings</button>
-                    </section>
+                    @GettingStarted
                 }
-                else
+
+                @if (activeStore.HasReceive)
                 {
                     @if (WebhookFailing)
-                {
-                    @* FR-024: recent deliveries are failing; link straight to the log. *@
-                    <div class="ui-banner ui-banner-warning mb-4" role="status">
-                        <Icon Name="alert" Class="" />
-                        <p>Webhook deliveries to your server are failing. <a href="@($"{HrefFor(DashboardSections.ForKey("webhook"))}#delivery-log")" class="font-semibold underline">See the delivery log</a> to find out why.</p>
-                    </div>
-                }
-                    @* Stats row — stagger each card so they cascade in
-                       (delay-2 through -5) beneath the heading. *@
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-                        <div class="slide-up-delay-2"><Stat Label="Total sessions" Value="@((sessions?.Count ?? 0).ToString())" /></div>
-                        <div class="slide-up-delay-3"><Stat Label="Paid / Confirmed" Value="@CountBy("paid", "confirmed").ToString()" /></div>
-                        <div class="slide-up-delay-4"><Stat Label="Pending" Value="@CountBy("pending", "seen").ToString()" /></div>
-                        <div class="slide-up-delay-5"><Stat Label="Expired" Value="@CountBy("expired", "underpaid").ToString()" /></div>
+                    {
+                        @* FR-024: recent deliveries are failing; link straight to the log. *@
+                        <div class="ui-banner ui-banner-warning mb-4" role="status">
+                            <Icon Name="alert" Class="" />
+                            <p>Webhook deliveries to your server are failing. <a href="@($"{HrefFor(DashboardSections.ForKey("webhook"))}#delivery-log")" class="font-semibold underline">See the delivery log</a> to find out why.</p>
+                        </div>
+                    }
+                    @* Totals for this store, all time (the API's counts, not just the first page).
+                       Underpaid needs the merchant to act, so it has its own tile apart from Expired. *@
+                    <div class="dash-stats mb-6">
+                        <Stat Label="All payments" Value="@CountText(allTotal)" Href="@PaymentsHref(null)" />
+                        <Stat Label="Paid" Value="@CountText(Sum("paid", "confirmed"))" Hint="Received or confirmed" />
+                        <Stat Label="Waiting" Value="@CountText(Sum("pending", "seen"))" Href="@PaymentsHref("pending")" Hint="Not paid yet" />
+                        <Stat Label="Underpaid" Value="@CountText(Sum("underpaid"))" Href="@PaymentsHref("underpaid")"
+                              Attention="@(Sum("underpaid") > 0)" Hint="@(Sum("underpaid") > 0 ? "Needs your action" : "Nothing to sort out")" />
+                        <Stat Label="Expired" Value="@CountText(Sum("expired"))" Href="@PaymentsHref("expired")" Hint="Closed unpaid" />
                     </div>
 
                     <section class="@Card scale-in-delay-2">
@@ -171,7 +174,7 @@ else
                         <Icon Name="alert" Class="" />
                         <p>This store can't take payments yet: it has no DigiByte address or xpub to receive to. Add one in Settings first.</p>
                     </div>
-                    <a href="@HrefFor(DashboardSections.ForKey("settings"))" class="btn-primary">Go to Settings</a>
+                    <a href="@($"{HrefFor(DashboardSections.ForKey("settings"))}#receive")" class="btn-primary">Go to Settings</a>
                 }
                 else
                 {
@@ -196,6 +199,13 @@ else
                         {
                             <div class="ui-banner ui-banner-info flex-col items-stretch">
                                 <p class="font-semibold">Payment created</p>
+                                @if (!string.IsNullOrEmpty(createdSessionQr))
+                                {
+                                    @* The customer scans this to open the checkout. *@
+                                    <div class="qr-frame self-center">
+                                        <img src="@createdSessionQr" alt="QR code for the checkout link" class="w-40 h-40" />
+                                    </div>
+                                }
                                 <div class="ui-checkout-copyrow">
                                     <div class="min-w-0 flex-1">
                                         <p class="section-label">Checkout link</p>
@@ -203,7 +213,10 @@ else
                                     </div>
                                     <CopyButton Value="@createdSession.CheckoutUrl" Label="Copy checkout link" TargetId="np-link" SuccessText="Link copied" Variant="icon" />
                                 </div>
-                                <a href="@createdSession.CheckoutUrl" target="_blank" rel="noopener" class="btn-secondary btn-sm">Open the checkout <span class="sr-only">(opens in a new tab)</span></a>
+                                <div class="flex flex-wrap gap-2">
+                                    <a href="@SessionHref(createdSession.Id)" class="btn-primary btn-sm">View payment</a>
+                                    <a href="@createdSession.CheckoutUrl" target="_blank" rel="noopener" class="btn-secondary btn-sm">Open the checkout <span class="sr-only">(opens in a new tab)</span></a>
+                                </div>
                             </div>
                         }
                     </section>
@@ -223,24 +236,45 @@ else
             else if (activeTab == "sessions")
             {
                 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
-                    <h1 class="@H1">Sessions</h1>
+                    <h1 class="@H1">Payments</h1>
                     <div class="flex gap-2">
                         @* Bookkeeping export — same filter scope as the visible
                            list (this store, current activeStoreId), capped at
                            10 000 rows server-side. *@
-                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="ExportSessionsCsvAsync"
-                                title="Download as CSV">
-                            Export CSV
+                        <button class="@BtnGhost btn-sm" @onclick="ExportSessionsCsvAsync" disabled="@exportingCsv"
+                                aria-busy="@(exportingCsv ? "true" : null)" title="Download as CSV">
+                            @(exportingCsv ? "Exporting…" : "Export CSV")
                         </button>
-                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadSessionsAsync" disabled="@loadingSessions">
-                            @(loadingSessions ? "…" : "Refresh")
+                        <button class="@BtnGhost btn-sm" @onclick="LoadSessionsAsync" disabled="@loadingSessions"
+                                aria-busy="@(loadingSessions ? "true" : null)">
+                            <Icon Name="refresh" Class="w-4 h-4" /><span>Refresh</span>
                         </button>
                     </div>
                 </div>
-                <p class="@Muted mb-6 slide-up-delay-1">Sessions for <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>, newest first.</p>
+                <p class="@Muted mb-4 slide-up-delay-1">
+                    Payments for <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>, newest first.
+                    @if (PollingSessions) { <span>Updates on its own while a payment is in progress.</span> }
+                </p>
+
+                @* Status filter: uses the API's ?status= and lives in the address (?status=underpaid),
+                   so the Overview tiles can link straight to a filtered list. *@
+                <div class="segmented dash-filter mb-4" role="group" aria-label="Show payments">
+                    @foreach (var (value, label) in StatusFilters)
+                    {
+                        <button type="button" class="segmented-item" aria-pressed="@(statusFilter == value ? "true" : "false")"
+                                @onclick="() => Nav.NavigateTo(PaymentsHref(value))">@label</button>
+                    }
+                </div>
 
                 <section class="@Card scale-in-delay-1">
                     @if (sessions == null) { <Skeleton Shape="row" Count="4" /> }
+                    else if (sessions.Count == 0 && statusFilter is not null)
+                    {
+                        <EmptyState Title="@($"No {FilterLabel(statusFilter).ToLowerInvariant()} payments")"
+                                    Text="Nothing in this store matches this filter."
+                                    ActionLabel="Show all payments" ActionHref="@PaymentsHref(null)"
+                                    BakuPose="thinking" Class="border-0 shadow-none p-0" />
+                    }
                     else if (sessions.Count == 0)
                     {
                         <EmptyState Title="No payments yet"
@@ -250,17 +284,21 @@ else
                     }
                     else
                     {
+                        <p class="@Muted m-0" aria-live="polite">Showing @sessions.Count of @sessionsTotal</p>
                         <ul class="list-none p-0 m-0 flex flex-col gap-2">
                             @foreach (var s in sessions)
                             {
-                                @* Click opens the merchant detail page (timeline + webhook log);
-                                   checkoutUrl is available from the detail page's Links card. *@
+                                @* Click opens the merchant detail page (timeline, address, webhook log). *@
                                 <li>
-                                    <a href="@($"/merchant/sessions/{s.Id}?back={Uri.EscapeDataString(HrefFor(DashboardSections.ForKey("sessions")))}")"
-                                       class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 p-3 border border-slate-200 dark:border-dgb-800 rounded-lg no-underline text-inherit hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                                    <a href="@SessionHref(s.Id)"
+                                       class="dash-row-link flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 p-3 border border-slate-200 dark:border-dgb-800 rounded-lg text-inherit hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
                                         <div class="min-w-0">
                                             <div class="font-bold text-[0.9375rem] tabular-nums flex items-center gap-1.5 flex-wrap">
                                                 @s.Amount.ToString("0.########") DGB
+                                                @if (s.FiatAmount is decimal fiat && !string.IsNullOrWhiteSpace(s.FiatCurrency))
+                                                {
+                                                    <span class="dash-fiat">@FormatFiat(fiat, s.FiatCurrency)</span>
+                                                }
                                                 @if (s.Source is not null && s.Source.StartsWith("pos", StringComparison.OrdinalIgnoreCase))
                                                 {
                                                     @* Countertop-origin marker — kept subtle so it reads as
@@ -292,17 +330,23 @@ else
                                                     </span>
                                                 }
                                             </div>
-                                            <div class="font-mono text-[0.625rem] text-slate-500 dark:text-slate-400 break-all">@s.Address</div>
                                             @if (!string.IsNullOrEmpty(s.Label)) { <div class="@Muted">@s.Label</div> }
                                         </div>
                                         <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1.5 shrink-0">
                                             <StatusBadge Status="@s.Status" />
-                                            <div class="@Muted">@s.CreatedAt.ToLocalTime().ToString("MMM d, HH:mm")</div>
+                                            <div class="@Muted">@clock.Show(s.CreatedAt)</div>
                                         </div>
                                     </a>
                                 </li>
                             }
                         </ul>
+                        @if (sessions.Count < sessionsTotal)
+                        {
+                            <button type="button" class="btn-secondary btn-sm self-center" @onclick="LoadMoreSessionsAsync"
+                                    disabled="@loadingMore" aria-busy="@(loadingMore ? "true" : null)">
+                                @(loadingMore ? "Loading…" : "Load more")
+                            </button>
+                        }
                     }
                 </section>
             }
@@ -315,7 +359,7 @@ else
                 <p class="@Muted mb-6 slide-up-delay-1">
                     Generate a shareable checkout URL for an exact amount — send it via SMS, email, WhatsApp,
                     or a QR-printed receipt. The customer pays with any DigiByte wallet; you watch the status
-                    on the Sessions tab or via webhook.
+                    on the Payments page or via webhook.
                 </p>
 
                 @if (!activeStore.HasReceive)
@@ -331,48 +375,85 @@ else
                     <section class="@Card scale-in-delay-1">
                         <h2 class="@H2">Create a link</h2>
 
-                        @* Currency toggle: DGB (default) vs fiat. Fiat-priced sessions
-                           lock in the DGB amount at the rate the API quotes server-side
-                           when the customer opens the checkout. *@
+                        @* Currency toggle: DGB (default) vs fiat. A fiat-priced link is converted to
+                           DGB here at the live price (/v1/pay/public/price, as the POS does) and the
+                           DGB amount is locked in when the link is created. *@
                         <div class="segmented w-fit" role="group" aria-label="Price in">
                             <button type="button" class="segmented-item" aria-pressed="@(linkPriceMode == "dgb" ? "true" : "false")"
                                     @onclick='() => linkPriceMode = "dgb"'>DGB</button>
                             <button type="button" class="segmented-item" aria-pressed="@(linkPriceMode == "fiat" ? "true" : "false")"
-                                    @onclick='() => linkPriceMode = "fiat"'>Your currency</button>
+                                    @onclick="UseFiatPriceAsync">Your currency</button>
                         </div>
 
                         @if (linkPriceMode == "dgb")
                         {
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <input aria-label="Amount (DGB)" @bind="linkAmountDgb" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="@Input" />
-                                <input aria-label="Label (shown to payer)" @bind="linkLabel" placeholder="Label (shown to payer)" class="@Input" />
-                                <input aria-label="Memo / order #" @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
+                            <div class="field">
+                                <label class="field-label" for="link-amount-dgb">Amount (DGB)</label>
+                                <input id="link-amount-dgb" @bind="linkAmountDgb" type="number" inputmode="decimal" step="0.00000001" min="0" placeholder="0.00" class="@Input" />
                             </div>
                         }
                         else
                         {
-                            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                                <input aria-label="Amount" @bind="linkAmountFiat" type="number" step="0.01" min="0" placeholder="Amount" class="@Input" />
-                                <select @bind="linkFiatCurrency" class="@Input" aria-label="Currency">
-                                    <option value="USD">USD</option>
-                                    <option value="EUR">EUR</option>
-                                    <option value="GBP">GBP</option>
-                                    <option value="CAD">CAD</option>
-                                    <option value="AUD">AUD</option>
-                                    <option value="JPY">JPY</option>
-                                </select>
-                                <input aria-label="Label" @bind="linkLabel" placeholder="Label" class="@Input" />
-                                <input aria-label="Memo / order #" @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div class="field">
+                                    <label class="field-label" for="link-amount-fiat">Amount</label>
+                                    <input id="link-amount-fiat" @bind="linkAmountFiat" @bind:event="oninput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="@Input" />
+                                </div>
+                                <div class="field">
+                                    <label class="field-label" for="link-currency">Currency</label>
+                                    <select id="link-currency" @bind="linkFiatCurrency" @bind:after="LoadLinkPriceAsync" class="@Input">
+                                        <option value="USD">USD</option>
+                                        <option value="EUR">EUR</option>
+                                        <option value="GBP">GBP</option>
+                                        <option value="CAD">CAD</option>
+                                        <option value="AUD">AUD</option>
+                                        <option value="JPY">JPY</option>
+                                    </select>
+                                </div>
                             </div>
+                            @if (linkPriceLoading)
+                            {
+                                <p class="@Muted m-0" role="status">Getting the live DGB price…</p>
+                            }
+                            else if (linkDgbPrice is decimal price)
+                            {
+                                <p class="@Muted m-0" role="status">
+                                    1 DGB = @price.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture) @linkFiatCurrency.
+                                    @if (LinkFiatToDgb is decimal dgb)
+                                    {
+                                        <span>The customer pays <strong class="text-slate-900 dark:text-white">@dgb.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) DGB</strong>.</span>
+                                    }
+                                </p>
+                            }
+                            else
+                            {
+                                <div class="ui-banner ui-banner-warning" role="status">
+                                    <Icon Name="alert" Class="" />
+                                    <p>The live DGB price isn't available right now, so a link in your currency can't be created. Try again in a moment, or price the link in DGB.</p>
+                                </div>
+                                <button type="button" class="btn-secondary btn-sm self-start" @onclick="LoadLinkPriceAsync">Try again</button>
+                            }
                         }
 
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div class="field">
+                                <label class="field-label" for="link-label">Label <span class="font-normal opacity-70">(shown to the payer, optional)</span></label>
+                                <input id="link-label" @bind="linkLabel" placeholder="What it's for" class="@Input" />
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="link-memo">Memo or order number <span class="font-normal opacity-70">(optional)</span></label>
+                                <input id="link-memo" @bind="linkMemo" class="@Input" />
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
-                            <label class="flex flex-col gap-1">
-                                <span class="@Eyebrow">Expires in (minutes)</span>
-                                <input aria-label="30" @bind="linkExpiryMinutes" type="number" min="1" max="1440" placeholder="30" class="@Input" />
-                            </label>
+                            <div class="field">
+                                <label class="field-label" for="link-expiry">Expires in (minutes)</label>
+                                <input id="link-expiry" @bind="linkExpiryMinutes" type="number" min="1" max="1440" placeholder="30" class="@Input" aria-describedby="link-expiry-hint" />
+                                <p id="link-expiry-hint" class="field-hint">1 to 1440. Leave blank for the store's default.</p>
+                            </div>
                             <button class="@Btn" @onclick="CreatePaymentLinkAsync"
-                                    disabled="@(busy || !LinkFormValid)">
+                                    disabled="@(busy || !LinkFormValid)" aria-busy="@(busy ? "true" : null)">
                                 @(busy ? "Creating…" : "Create payment link")
                             </button>
                         </div>
@@ -396,16 +477,16 @@ else
                                    for the wallet step). *@
                                 @if (!string.IsNullOrEmpty(linkQrDataUrl))
                                 {
-                                    <div class="bg-white p-3 rounded-2xl shadow-inner self-start mx-auto md:mx-0">
-                                        <img src="@linkQrDataUrl" alt="Payment link QR" class="block w-40 h-40" />
+                                    <div class="qr-frame self-start mx-auto md:mx-0">
+                                        <img src="@linkQrDataUrl" alt="QR code for the payment link" class="block w-40 h-40" />
                                     </div>
                                 }
 
                                 <div class="flex flex-col gap-3 min-w-0">
                                     <div>
-                                        <div class="@Eyebrow mb-1">Checkout URL</div>
+                                        <label class="@Eyebrow mb-1" for="link-url">Checkout URL</label>
                                         <div class="flex gap-2 items-stretch">
-                                            <input class="@Input flex-1 font-mono text-xs" readonly aria-label="Payment link" value="@createdLink.CheckoutUrl"
+                                            <input id="link-url" class="@Input flex-1 font-mono text-xs" readonly value="@createdLink.CheckoutUrl"
                                                    @onclick="SelectLinkInputAsync" />
                                             <button class="@BtnGhost text-xs px-3 shrink-0"
                                                     @onclick='() => CopySnippetAsync("link", createdLink!.CheckoutUrl)'>
@@ -438,15 +519,16 @@ else
                                         </button>
                                     </div>
 
-                                    <div class="text-xs text-slate-500 dark:text-slate-400 grid grid-cols-2 gap-y-0.5 max-w-md">
+                                    <div class="text-xs text-slate-500 dark:text-slate-400 grid grid-cols-2 gap-y-0.5 max-w-md items-center">
                                         <div>Amount</div><div class="text-right tabular-nums">@FormatLinkAmount(createdLink)</div>
                                         @if (!string.IsNullOrWhiteSpace(createdLink.Label))
                                         {
                                             <div>Label</div><div class="text-right truncate" title="@createdLink.Label">@createdLink.Label</div>
                                         }
-                                        <div>Status</div><div class="text-right capitalize">@createdLink.Status</div>
-                                        <div>Expires</div><div class="text-right tabular-nums">@createdLink.ExpiresAt.ToLocalTime().ToString("MMM d, HH:mm")</div>
+                                        <div>Status</div><div class="text-right"><StatusBadge Status="@createdLink.Status" /></div>
+                                        <div>Expires</div><div class="text-right tabular-nums">@clock.Show(createdLink.ExpiresAt)</div>
                                     </div>
+                                    <a href="@SessionHref(createdLink.Id)" class="btn-secondary btn-sm self-start">View payment</a>
                                 </div>
                             </div>
                         </section>
@@ -461,9 +543,28 @@ else
                 </div>
                 <p class="@Muted mb-6 slide-up-delay-1">A permanent, session-less tip button for your site. Reuses this store's donation address — any DigiByte wallet can pay.</p>
 
-                @if (donationAddress is null)
+                @if (!activeStore.HasReceive)
                 {
-                    <section class="@Card"><p class="@Muted m-0">Loading donation address…</p></section>
+                    @* No receive address means no donation address: say so instead of loading forever. *@
+                    <section class="@Card">
+                        <h2 class="@H2">Configure where to receive payments</h2>
+                        <p class="@Muted m-0">The donation button pays this store's receive address. Set a DigiByte address or BIP84 xpub in Settings first.</p>
+                        <a href="@($"{HrefFor(DashboardSections.ForKey("settings"))}#receive")" class="@Btn self-start">Go to Settings</a>
+                    </section>
+                }
+                else if (donationAddress is null && donationLoadFailed)
+                {
+                    <section class="@Card">
+                        <p class="m-0">The donation address couldn't be loaded. Check your connection and try again.</p>
+                        <button type="button" class="btn-secondary btn-sm self-start" @onclick="LoadDonationAddressAsync">Try again</button>
+                    </section>
+                }
+                else if (donationAddress is null)
+                {
+                    <section class="@Card" aria-busy="true">
+                        <span class="sr-only">Loading the donation address</span>
+                        <Skeleton Shape="line" Count="3" />
+                    </section>
                 }
                 else
                 {
@@ -472,21 +573,21 @@ else
                         <div class="@Eyebrow">Donation address <span class="@Muted">(from this store)</span></div>
                         <div class="font-mono text-[0.6875rem] px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg break-all">@donationAddress</div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                            <div>
-                                <div class="@Eyebrow">Amount <span class="@Muted">(DGB, optional)</span></div>
-                                <input aria-label="0" @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="0" class="@Input" />
+                            <div class="field">
+                                <label class="field-label" for="don-amount">Amount <span class="font-normal opacity-70">(DGB, optional)</span></label>
+                                <input id="don-amount" @bind="donAmount" @bind:event="oninput" type="number" inputmode="decimal" step="0.00000001" min="0" placeholder="0" class="@Input" />
                             </div>
-                            <div>
-                                <div class="@Eyebrow">Your name <span class="@Muted">(optional)</span></div>
-                                <input aria-label="Acme Coffee" @bind="donName" @bind:event="oninput" placeholder="e.g. Acme Coffee" class="@Input" maxlength="80" />
+                            <div class="field">
+                                <label class="field-label" for="don-name">Your name <span class="font-normal opacity-70">(optional)</span></label>
+                                <input id="don-name" @bind="donName" @bind:event="oninput" placeholder="e.g. Acme Coffee" class="@Input" maxlength="80" />
                             </div>
-                            <div>
-                                <div class="@Eyebrow">Message / label <span class="@Muted">(optional)</span></div>
-                                <input aria-label="Thanks for the tip!" @bind="donLabel" @bind:event="oninput" placeholder="e.g. Thanks for the tip!" class="@Input" maxlength="120" />
+                            <div class="field">
+                                <label class="field-label" for="don-label">Message <span class="font-normal opacity-70">(optional)</span></label>
+                                <input id="don-label" @bind="donLabel" @bind:event="oninput" placeholder="e.g. Thanks for the tip!" class="@Input" maxlength="120" />
                             </div>
-                            <div>
-                                <div class="@Eyebrow">Button text</div>
-                                <input aria-label="Tip DGB" @bind="donButtonText" @bind:event="oninput" placeholder="Tip DGB" class="@Input" maxlength="40" />
+                            <div class="field">
+                                <label class="field-label" for="don-button">Button text</label>
+                                <input id="don-button" @bind="donButtonText" @bind:event="oninput" placeholder="Tip DGB" class="@Input" maxlength="40" />
                             </div>
                         </div>
                     </section>
@@ -549,7 +650,7 @@ else
             else if (activeTab == "webhook")
             {
                 <div class="flex items-baseline justify-between mb-1 slide-up">
-                    <h1 class="@H1">Webhook</h1>
+                    <h1 class="@H1">Webhooks</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
                 </div>
                 @if (WebhookFailing)
@@ -563,7 +664,11 @@ else
                 <p class="@Muted mb-6 slide-up-delay-1">POST with HMAC-SHA256 signature on session state changes. Each store has its own webhook URL and secret. Header: <span class="font-mono">X-DigiPay-Signature: sha256=…</span></p>
 
                 <section class="@Card scale-in-delay-1">
-                    <input aria-label="https://your-server.example/digipay-webhook" @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="@Input" />
+                    <div class="field">
+                        <label class="field-label" for="webhook-url">Webhook address</label>
+                        <input id="webhook-url" @bind="webhookInput" type="url" inputmode="url" placeholder="https://your-server.example/digipay-webhook" class="@Input" aria-describedby="webhook-url-hint" />
+                        <p id="webhook-url-hint" class="field-hint">A public https:// address on your server. Leave it empty and save to turn webhooks off.</p>
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button class="@Btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (activeStore.WebhookUrl ?? ""))">
                             @(webhookBusy ? "Saving…" : "Save")
@@ -576,16 +681,50 @@ else
                     @if (webhookError != null) { <p class="field-error" role="alert">@webhookError</p> }
                 </section>
 
+                @* Signing secret: DigiPay signs each delivery with it. It is shown once, when it is
+                   created or rotated; after that only "it's set" is known here. *@
+                <section id="signing-secret" class="@Card mt-4">
+                    <h2 class="@H2">Signing secret</h2>
+                    @if (revealedSecret is not null)
+                    {
+                        <div class="dash-once-card">
+                            <p class="font-semibold m-0">New signing secret — copy it now</p>
+                            <p class="@Muted m-0">This is the only time it is shown. Put it in your server's settings to check the <span class="font-mono">X-DigiPay-Signature</span> header.</p>
+                            <pre id="webhook-secret" class="@Pre break-all">@revealedSecret</pre>
+                            <div class="flex gap-2 flex-wrap">
+                                <CopyButton Value="@revealedSecret" Label="Copy signing secret" Text="Copy secret" TargetId="webhook-secret" SuccessText="Signing secret copied. Store it somewhere safe." />
+                                <button type="button" class="@BtnGhost btn-sm" @onclick="() => revealedSecret = null">Dismiss</button>
+                            </div>
+                        </div>
+                    }
+                    else if (activeStore.HasWebhookSecret)
+                    {
+                        <p class="@Muted m-0">A signing secret is set for this store. It can't be shown again; if you've lost it, rotate it to get a new one.</p>
+                    }
+                    else
+                    {
+                        <p class="@Muted m-0">Save a webhook address above and a signing secret is created for you.</p>
+                    }
+                    @if (activeStore.HasWebhookSecret || !string.IsNullOrWhiteSpace(activeStore.WebhookUrl))
+                    {
+                        <button type="button" class="btn-secondary btn-sm self-start"
+                                @onclick='() => Ask("Rotate the signing secret?", "A new secret is created and shown once. The old secret stops working at once, so webhook checks on your server fail until you put the new secret there.", "Rotate secret", RotateWebhookSecretAsync)'>
+                            Rotate secret
+                        </button>
+                    }
+                </section>
+
                 <section id="delivery-log" class="@Card mt-4" tabindex="-1">
-                    <div class="flex items-baseline justify-between">
+                    <div class="flex items-baseline justify-between flex-wrap gap-2">
                         <h2 class="@H2">Delivery log</h2>
-                        <div class="flex gap-2">
-                            <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="ExportDeliveriesCsvAsync"
-                                    title="Download as CSV">
-                                Export CSV
+                        <div class="flex gap-2 flex-wrap">
+                            <button class="@BtnGhost btn-sm" @onclick="ExportDeliveriesCsvAsync" disabled="@exportingCsv"
+                                    aria-busy="@(exportingCsv ? "true" : null)" title="Download as CSV">
+                                @(exportingCsv ? "Exporting…" : "Export CSV")
                             </button>
-                            <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries">
-                                @(loadingDeliveries ? "…" : "Refresh")
+                            <button class="@BtnGhost btn-sm" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries"
+                                    aria-busy="@(loadingDeliveries ? "true" : null)">
+                                <Icon Name="refresh" Class="w-4 h-4" /><span>Refresh</span>
                             </button>
                         </div>
                     </div>
@@ -620,9 +759,20 @@ else
                                                 @if (d.Attempt > 1) { <span class="@Muted">· attempt @d.Attempt</span> }
                                             </div>
                                             <div class="@Muted mt-1">
-                                                @d.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                                @clock.Show(d.CreatedAt)
                                                 @(d.DurationMs is null ? "" : $" · {d.DurationMs}ms")
-                                                @(string.IsNullOrEmpty(d.SessionId) ? "" : $" · {d.SessionId}")
+                                                @if (!string.IsNullOrEmpty(d.SessionId))
+                                                {
+                                                    <span> · </span>
+                                                    @if (d.SessionId.StartsWith("ses_test_"))
+                                                    {
+                                                        <span>test event</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <a href="@SessionHref(d.SessionId)" class="font-mono">@d.SessionId</a>
+                                                    }
+                                                }
                                             </div>
                                             @if (!string.IsNullOrEmpty(d.ErrorMessage))
                                             {
@@ -653,14 +803,21 @@ else
 
                 <section class="@Card scale-in-delay-1">
                     <h2 class="@H2">Add a new store</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
-                        <input aria-label="Store name" @bind="newStoreName" placeholder="Store name" class="@Input" />
-                        <select @bind="newStoreNetwork" class="@Input sm:w-32" aria-label="Network">
-                            <option value="mainnet">mainnet</option>
-                            <option value="testnet">testnet</option>
-                            <option value="regtest">regtest</option>
-                        </select>
-                        <button class="@Btn" @onclick="AddStoreAsync" disabled="@(storeBusy || string.IsNullOrWhiteSpace(newStoreName))">
+                    <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                        <div class="field">
+                            <label class="field-label" for="new-store-name">Store name</label>
+                            <input id="new-store-name" @bind="newStoreName" class="@Input" maxlength="120" />
+                        </div>
+                        <div class="field">
+                            <label class="field-label" for="new-store-network">Network</label>
+                            <select id="new-store-network" @bind="newStoreNetwork" class="@Input sm:w-32">
+                                <option value="mainnet">mainnet</option>
+                                <option value="testnet">testnet</option>
+                                <option value="regtest">regtest</option>
+                            </select>
+                        </div>
+                        <button class="@Btn" @onclick="AddStoreAsync" disabled="@(storeBusy || string.IsNullOrWhiteSpace(newStoreName))"
+                                aria-busy="@(storeBusy ? "true" : null)">
                             @(storeBusy ? "Adding…" : "Add store")
                         </button>
                     </div>
@@ -720,14 +877,15 @@ else
                     <h2 class="@H2">Generate new key</h2>
                     @* Input + button share a row so baselines align; hint flows below so it
                        doesn't push the button off the input's centerline. *@
+                    <label class="field-label" for="new-key-label">Label <span class="font-normal opacity-70">(optional)</span></label>
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <input aria-label="Label (production, ci)" @bind="newKeyLabel" placeholder="Label (e.g. production, ci)"
-                               class="@Input flex-1" maxlength="80" />
-                        <button class="@Btn sm:shrink-0" @onclick="CreateApiKeyAsync" disabled="@creatingKey">
+                        <input id="new-key-label" @bind="newKeyLabel" placeholder="e.g. production, ci"
+                               class="@Input flex-1" maxlength="80" aria-describedby="new-key-hint" />
+                        <button class="@Btn sm:shrink-0" @onclick="CreateApiKeyAsync" disabled="@creatingKey" aria-busy="@(creatingKey ? "true" : null)">
                             @(creatingKey ? "Creating…" : "Generate key")
                         </button>
                     </div>
-                    <div class="@Muted text-[0.6875rem] mt-0.5">Optional — just to help you tell keys apart.</div>
+                    <div id="new-key-hint" class="@Muted text-[0.6875rem] mt-0.5">Just to help you tell keys apart. POS tablets have their own keys, under POS tablets.</div>
                     @if (apiKeyError != null) { <p class="field-error" role="alert">@apiKeyError</p> }
                 </section>
 
@@ -756,9 +914,9 @@ else
                                         </div>
                                         <div class="font-mono text-xs text-slate-500 dark:text-slate-400 my-0.5 break-all">@k.Prefix…</div>
                                         <div class="@Muted">
-                                            Created @k.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")
-                                            @(k.LastUsedAt is null ? " · never used" : $" · last used {k.LastUsedAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}")
-                                            @(k.RevokedAt is null ? "" : $" · revoked {k.RevokedAt.Value.ToLocalTime():yyyy-MM-dd}")
+                                            Created @clock.Show(k.CreatedAt)
+                                            @(k.LastUsedAt is null ? " · never used" : $" · last used {clock.Show(k.LastUsedAt)}")
+                                            @(k.RevokedAt is null ? "" : $" · revoked {clock.Show(k.RevokedAt)}")
                                         </div>
                                     </div>
                                     @if (!k.IsRevoked)
@@ -776,12 +934,12 @@ else
             }
             else if (activeTab == "audit")
             {
-                <AuditPanel Token="@(token ?? string.Empty)" />
+                <AuditPanel Token="@(token ?? string.Empty)" Clock="@clock" />
             }
             else if (activeTab == "pos")
             {
                 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
-                    <h1 class="@H1">POS mode</h1>
+                    <h1 class="@H1">POS tablets</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore?.Name</strong></span>
                 </div>
                 <p class="@Muted mb-6 slide-up-delay-1">
@@ -798,10 +956,11 @@ else
                 <section class="@Card mt-4 scale-in-delay-2">
                     <h2 class="@H2">Pair a new tablet</h2>
                     <p class="@Muted m-0">Generate a one-time code. On the tablet, go to <code class="font-mono text-xs">/pos</code> and type the code to pair. Codes expire after 10 minutes and can only be used once.</p>
+                    <label class="field-label" for="pos-device-label">Tablet name <span class="font-normal opacity-70">(optional)</span></label>
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <input aria-label="Device label (Front counter)" @bind="newPosDeviceLabel" placeholder="Device label (e.g. Front counter)"
+                        <input id="pos-device-label" @bind="newPosDeviceLabel" placeholder="e.g. Front counter"
                                class="@Input flex-1" maxlength="60" />
-                        <button class="@Btn sm:shrink-0" @onclick="CreatePosPairingAsync" disabled="@posPairingBusy">
+                        <button class="@Btn sm:shrink-0" @onclick="CreatePosPairingAsync" disabled="@posPairingBusy" aria-busy="@(posPairingBusy ? "true" : null)">
                             @(posPairingBusy ? "Generating…" : "Generate code")
                         </button>
                     </div>
@@ -811,7 +970,7 @@ else
                         <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg p-4 flex flex-col items-center gap-2">
                             <div class="@Eyebrow text-emerald-700 dark:text-emerald-300">Pairing code</div>
                             <div class="font-mono text-3xl sm:text-4xl tracking-[0.4em] font-bold text-emerald-700 dark:text-emerald-300">@posPairing.Code</div>
-                            <div class="@Muted">Expires @posPairing.ExpiresAt.ToLocalTime().ToString("HH:mm") · @posPairing.DeviceLabel</div>
+                            <div class="@Muted">Expires @clock.Show(posPairing.ExpiresAt) · @posPairing.DeviceLabel</div>
                         </div>
                     }
                 </section>
@@ -838,19 +997,19 @@ else
                                         <div class="font-semibold text-sm text-slate-900 dark:text-white">@(string.IsNullOrEmpty(d.Label) ? "(no label)" : d.Label)</div>
                                         <div class="font-mono text-xs text-slate-500 dark:text-slate-400 my-0.5 break-all">@d.Prefix…</div>
                                         <div class="@Muted">
-                                            Paired @d.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")
-                                            @(d.LastUsedAt is null ? " · never used" : $" · last seen {d.LastUsedAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}")
+                                            Paired @clock.Show(d.CreatedAt)
+                                            @(d.LastUsedAt is null ? " · never used" : $" · last seen {clock.Show(d.LastUsedAt)}")
                                         </div>
                                     </div>
                                     <button class="btn-danger btn-sm shrink-0"
-                                            @onclick='() => Ask("Unpair this tablet?", "The tablet signs out of POS mode and can\u2019t take payments until you pair it again.", "Unpair tablet", () => RevokeApiKeyAsync(d.Id), "Tablet unpaired")'>
+                                            @onclick='() => Ask("Unpair this tablet?", "The tablet signs out of POS mode and can\u2019t take payments until you pair it again.", "Unpair tablet", () => UnpairTabletAsync(d.Id), "Tablet unpaired")'>
                                         Unpair
                                     </button>
                                 </li>
                             }
                         </ul>
                     }
-                    <p class="@Muted text-[0.6875rem] m-0 mt-1">Revoking here is the same as revoking an API key. The tablet will prompt to re-pair on the next sale.</p>
+                    <p class="@Muted text-[0.6875rem] m-0 mt-1">Unpairing revokes the tablet's key. The tablet asks to be paired again on its next sale.</p>
                 </section>
             }
             else if (activeTab == "settings")
@@ -864,7 +1023,10 @@ else
                 <section class="@Card scale-in-delay-1">
                     <h2 class="@H2">Profile (account)</h2>
                     <p class="@Muted m-0">Display name for you as a DigiPay account owner. Store-facing names are set per store below.</p>
-                    <input @bind="nameInput" placeholder="@account.DisplayName" class="@Input" aria-label="Display name" maxlength="120" />
+                    <div class="field">
+                        <label class="field-label" for="account-name">Display name</label>
+                        <input id="account-name" @bind="nameInput" placeholder="@account.DisplayName" class="@Input" maxlength="120" />
+                    </div>
                     <button class="@Btn self-start" @onclick="SaveNameAsync" disabled="@(nameBusy || string.IsNullOrWhiteSpace(nameInput) || nameInput.Trim() == account.DisplayName)">
                         @(nameBusy ? "Saving…" : "Save")
                     </button>
@@ -875,15 +1037,18 @@ else
                 <section class="@Card mt-4">
                     <h2 class="@H2">Store name</h2>
                     <p class="@Muted m-0">Shown to buyers on the hosted checkout and in webhook payloads.</p>
-                    <input @bind="storeNameInput" placeholder="@activeStore.Name" class="@Input" aria-label="Store name" maxlength="120" />
+                    <div class="field">
+                        <label class="field-label" for="store-name">Store name</label>
+                        <input id="store-name" @bind="storeNameInput" placeholder="@activeStore.Name" class="@Input" maxlength="120" />
+                    </div>
                     <button class="@Btn self-start" @onclick="SaveStoreNameAsync" disabled="@(storeNameBusy || string.IsNullOrWhiteSpace(storeNameInput) || storeNameInput.Trim() == activeStore.Name)">
                         @(storeNameBusy ? "Saving…" : "Save")
                     </button>
                     @if (storeNameError != null) { <p class="field-error" role="alert">@storeNameError</p> }
                 </section>
 
-                <section class="@Card mt-4">
-                    <h2 class="@H2">Receive</h2>
+                <section id="receive" class="@Card mt-4" tabindex="-1">
+                    <h2 class="@H2">Where you receive payments</h2>
                     @if (activeStore.HasReceive)
                     {
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -899,8 +1064,12 @@ else
                     }
                     @if (!activeStore.HasReceive || showEditReceive)
                     {
-                        <input aria-label="dgb1… or xpub" @bind="receiveInput" placeholder="dgb1… or xpub…" class="@Input font-mono text-xs" />
-                        <button class="@Btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
+                        <div class="field">
+                            <label class="field-label" for="receive-input">DigiByte address or BIP84 xpub</label>
+                            <input id="receive-input" @bind="receiveInput" placeholder="dgb1… or xpub…" class="@Input font-mono text-xs" autocomplete="off" aria-describedby="receive-hint" />
+                            <p id="receive-hint" class="field-hint">An xpub gives every payment its own address; a single address is reused. Use one from your own wallet.</p>
+                        </div>
+                        <button class="@Btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))" aria-busy="@(busy ? "true" : null)">
                             @(busy ? "Saving…" : "Save")
                         </button>
                         @if (patchError != null) { <p class="field-error" role="alert">@patchError</p> }
@@ -910,14 +1079,15 @@ else
                 <section class="@Card mt-4">
                     <h2 class="@H2">Default session expiry</h2>
                     <p class="@Muted m-0">How long a pending session stays open before it expires. Defaults to 30 minutes. Late payments (up to 3 days past expiry) still reconcile automatically.</p>
+                    <label class="field-label" for="expiry-input">Minutes</label>
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <input aria-label="30" @bind="expiryInput" type="number" min="1" max="1440" placeholder="30"
-                               class="@Input flex-1" />
+                        <input id="expiry-input" @bind="expiryInput" type="number" min="1" max="1440" placeholder="30"
+                               class="@Input flex-1" aria-describedby="expiry-hint" />
                         <button class="@Btn sm:shrink-0" @onclick="SaveExpiryAsync" disabled="@expiryBusy">
                             @(expiryBusy ? "Saving…" : "Save")
                         </button>
                     </div>
-                    <div class="@Muted text-[0.6875rem] mt-0.5">Minutes (1–1440). Blank = global default (30).</div>
+                    <div id="expiry-hint" class="@Muted text-[0.6875rem] mt-0.5">1 to 1440 minutes. Leave blank for the default (30).</div>
                     @if (expiryMessage != null) { <p class="@Muted m-0">@expiryMessage</p> }
                     @if (expiryError != null) { <p class="field-error" role="alert">@expiryError</p> }
                 </section>
@@ -956,8 +1126,12 @@ else
 
         <ConfirmDialog Open="@(pendingConfirm is not null)" Title="@(pendingConfirm?.Title ?? "")"
                        ConfirmLabel="@(pendingConfirm?.ConfirmLabel ?? "Confirm")" Busy="@confirmBusy"
-                       OnConfirm="RunConfirmAsync" OnCancel="() => pendingConfirm = null">
+                       OnConfirm="RunConfirmAsync" OnCancel="() => { pendingConfirm = null; confirmError = null; }">
             <p>@pendingConfirm?.Body</p>
+            @if (confirmError is not null)
+            {
+                <p class="field-error mt-3" role="alert">@confirmError</p>
+            }
         </ConfirmDialog>
 
         @if (moreOpen)
@@ -970,13 +1144,7 @@ else
                     </div>
                     @StoreSwitcher("sheet")
                     <nav aria-label="More sections" class="dp-sheet-list">
-                        @foreach (var sec in DashboardSections.More)
-                        {
-                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)" @onclick="CloseMore">
-                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" />
-                                <span>@sec.Label</span>
-                            </a>
-                        }
+                        @SectionLinks(DashboardSections.More, "sheet", true)
                     </nav>
                     <div class="dp-rail-group">
                         <p class="section-label px-3">Resources</p>
@@ -1005,6 +1173,11 @@ else
 
     [Parameter] public string? Section { get; set; }
     [SupplyParameterFromQuery(Name = "store")] public string? StoreParam { get; set; }
+    /// <summary>?status= : the Payments list filter (an API status), so tiles and bookmarks can link to it.</summary>
+    [SupplyParameterFromQuery(Name = "status")] public string? StatusParam { get; set; }
+
+    /// <summary>Shows API times in the browser's time zone (asked for once, at bootstrap).</summary>
+    private readonly LocalClock clock = new();
 
     private string activeTab = "overview";
     private bool notFound;
@@ -1029,27 +1202,39 @@ else
         var changed = activeTab != sec.Key;
         activeTab = sec.Key;
         moreOpen = false;
+        var filter = NormalizeStatus(StatusParam);
+        var filterChanged = filter != statusFilter;
+        statusFilter = filter;
         if (account is null) return; // bootstrap applies the section and store once loaded
         // POS: reload the paired devices on each visit so revoked ones fall off.
         if (changed && sec.Key == "pos") _ = LoadPosDevicesAsync();
-        await ApplyStoreParamAsync();
+        var storeChanged = await ApplyStoreParamAsync();
+        // The store change already reloaded the list with the new filter.
+        if (filterChanged && !storeChanged) await LoadSessionsAsync();
+        UpdatePolling();
     }
 
-    /// <summary>Uses the store named in the address (bookmarks, shared links).</summary>
-    private async Task ApplyStoreParamAsync()
+    /// <summary>The filter for a ?status= value: a known API status, or null for all payments.</summary>
+    private static string? NormalizeStatus(string? status)
+    {
+        var s = status?.Trim().ToLowerInvariant();
+        return s is not null && StatusFilters.Any(f => f.Value == s) ? s : null;
+    }
+
+    /// <summary>Uses the store named in the address (bookmarks, shared links). True when it switched stores.</summary>
+    private async Task<bool> ApplyStoreParamAsync()
     {
         storeNotFound = false;
-        if (string.IsNullOrEmpty(StoreParam) || StoreParam == activeStoreId) return;
+        if (string.IsNullOrEmpty(StoreParam) || StoreParam == activeStoreId) return false;
         if (stores.Any(s => s.Id == StoreParam))
         {
             activeStoreId = StoreParam;
             await OnActiveStoreChangedAsync();
+            return true;
         }
-        else
-        {
-            // Never show another merchant's store, or hint that it exists: not found.
-            storeNotFound = true;
-        }
+        // Never show another merchant's store, or hint that it exists: not found.
+        storeNotFound = true;
+        return false;
     }
 
     /// <summary>
@@ -1067,40 +1252,86 @@ else
     }
 
     // ----- Confirmations for destructive actions (FR-025) and notices (FR-022) -----
-    private sealed record PendingConfirm(string Title, string Body, string ConfirmLabel, Func<Task> Action, string? SuccessText);
+    // Each confirmed action returns null when it worked, or a plain error sentence. An error stays
+    // inside the open dialog (not behind it), so the merchant can try again or cancel.
+    private sealed record PendingConfirm(string Title, string Body, string ConfirmLabel, Func<Task<string?>> Action, string? SuccessText);
     private PendingConfirm? pendingConfirm;
     private bool confirmBusy;
+    private string? confirmError;
 
-    private void Ask(string title, string body, string confirmLabel, Func<Task> action, string? successText = null) =>
+    private void Ask(string title, string body, string confirmLabel, Func<Task<string?>> action, string? successText = null)
+    {
+        confirmError = null;
         pendingConfirm = new PendingConfirm(title, body, confirmLabel, action, successText);
+    }
 
     private async Task RunConfirmAsync()
     {
         if (pendingConfirm is null) return;
         var job = pendingConfirm;
         confirmBusy = true;
-        try
+        confirmError = null;
+        string? error;
+        try { error = await job.Action(); }
+        finally { confirmBusy = false; }
+        if (error is not null)
         {
-            var before = (apiKeyError, storeError);
-            await job.Action();
-            var failed = apiKeyError != before.apiKeyError && apiKeyError is not null
-                      || storeError != before.storeError && storeError is not null;
-            if (failed) Toasts.Error("That didn't work. Check your connection and try again.");
-            else if (job.SuccessText is not null) Toasts.Success(job.SuccessText);
+            confirmError = error;
+            return;
         }
-        finally
-        {
-            confirmBusy = false;
-            pendingConfirm = null;
-        }
+        pendingConfirm = null;
+        if (job.SuccessText is not null) Toasts.Success(job.SuccessText);
     }
 
     /// <summary>A plain message for failures; details go to the server log, never the page.</summary>
     private string Plain(Exception ex, string what)
     {
         Log.LogWarning(ex, "Dashboard: {What} failed", what);
-        return "Something went wrong. Check your connection and try again.";
+        return ApiError.Network;
     }
+
+    // ----- Payments list helpers -----
+
+    /// <summary>The Payments filter: API status values with merchant-facing labels. Null is all.</summary>
+    private static readonly (string? Value, string Label)[] StatusFilters =
+    [
+        (null, "All"),
+        ("pending", "Waiting"),
+        ("seen", "Detected"),
+        ("paid", "Received"),
+        ("confirmed", "Confirmed"),
+        ("underpaid", "Underpaid"),
+        ("expired", "Expired"),
+        ("refunded", "Refunded"),
+        ("voided", "Cancelled"),
+    ];
+
+    private static string FilterLabel(string? value) => StatusFilters.FirstOrDefault(f => f.Value == value).Label ?? "All";
+
+    /// <summary>The Payments list address, keeping the store and adding ?status= when filtered.</summary>
+    private string PaymentsHref(string? status)
+    {
+        var href = HrefFor(DashboardSections.ForKey("sessions"));
+        if (status is null) return href;
+        return href + (href.Contains('?') ? "&" : "?") + "status=" + Uri.EscapeDataString(status);
+    }
+
+    /// <summary>A payment's detail page, with the way back to the list it was opened from.</summary>
+    private string SessionHref(string sessionId)
+    {
+        var back = activeTab == "sessions" ? PaymentsHref(statusFilter) : HrefFor(CurrentSection);
+        return $"/merchant/sessions/{Uri.EscapeDataString(sessionId)}?back={Uri.EscapeDataString(back)}";
+    }
+
+    private static string FormatFiat(decimal amount, string currency) =>
+        $"{amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)} {currency.ToUpperInvariant()}";
+
+    /// <summary>A tile number, or a dash while the counts are loading.</summary>
+    private static string CountText(int? n) => n is int v ? v.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) : "–";
+
+    /// <summary>The store's all-time count for these statuses, or null while loading.</summary>
+    private int? Sum(params string[] statuses) =>
+        statusCounts is null ? null : statuses.Sum(s => statusCounts.GetValueOrDefault(s));
 
     /// <summary>Goes to a section (in-page buttons such as "Go to Settings").</summary>
     private void SwitchTab(string key)
@@ -1145,6 +1376,8 @@ else
         {
             try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-more-sheet"); } catch { }
         }
+        sessionPoller?.Dispose();
+        sessionPoller = null;
         selfRef?.Dispose();
     }
 
@@ -1177,6 +1410,104 @@ else
         </a>
     };
 
+    /// <summary>
+    /// Section links under their group headings (Payments, Insights, Developers, Account), for the
+    /// rail and the More sheet. Headings are plain text; each list keeps its own landmark name.
+    /// </summary>
+    private RenderFragment SectionLinks(IEnumerable<DashboardSection> sections, string where, bool closesSheet) => __builder =>
+    {
+        foreach (var (group, items) in DashboardSections.Grouped(sections))
+        {
+            var headingId = $"nav-{where}-{group.ToLowerInvariant()}";
+            <p id="@headingId" class="section-label dash-nav-heading">@group</p>
+            <ul class="dash-nav-list" aria-labelledby="@headingId">
+                @foreach (var sec in items)
+                {
+                    <li>
+                        @if (closesSheet)
+                        {
+                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)" @onclick="CloseMore">
+                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)">
+                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
+                            </a>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    };
+
+    // ----- Getting started (new merchants) -----
+
+    private bool StepReceive => activeStore?.HasReceive == true;
+    private bool StepFirstPayment => allTotal > 0;
+    /// <summary>Connected: an API key (POS keys are listed apart), a webhook, or a paired tablet.</summary>
+    private bool StepConnect =>
+        (apiKeys?.Any(k => !k.IsRevoked) ?? false)
+        || !string.IsNullOrWhiteSpace(activeStore?.WebhookUrl)
+        || (posDevices?.Count ?? 0) > 0;
+    private int StepsDone => (StepReceive ? 1 : 0) + (StepFirstPayment ? 1 : 0) + (StepConnect ? 1 : 0);
+    /// <summary>
+    /// Shown until all three steps are done. While the counts load it waits (so it doesn't flash),
+    /// except when the store can't take payments yet: then step 1 is the way forward.
+    /// </summary>
+    private bool ShowChecklist => activeStore is not null && (allTotal is not null || !StepReceive) && StepsDone < 3;
+
+    private RenderFragment GettingStarted => __builder =>
+    {
+        <section class="card p-5 sm:p-6 flex flex-col gap-3 mb-6" aria-labelledby="getting-started-title">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+                <h2 id="getting-started-title" class="block-title">Get started</h2>
+                <span class="dp-muted">@StepsDone of 3 done</span>
+            </div>
+            <div class="dash-progress" role="progressbar" aria-label="Getting started" aria-valuemin="0" aria-valuemax="3" aria-valuenow="@StepsDone">
+                <span style="width:@(StepsDone * 100 / 3)%"></span>
+            </div>
+            <ol class="dash-steps">
+                @Step(1, StepReceive, "Set where you receive payments",
+                      "Add the DigiByte address or xpub from your own wallet. Payments go straight there.",
+                      $"{HrefFor(DashboardSections.ForKey("settings"))}#receive", "Set it up")
+                @Step(2, StepFirstPayment, "Create your first payment",
+                      "Make a payment for any amount and open its checkout to see what your customer sees.",
+                      HrefFor(DashboardSections.ForKey("new")), "New payment")
+                <li class="dash-step @(StepConnect ? "is-done" : "")">
+                    <span class="dash-step-mark" aria-hidden="true">@if (StepConnect) { <Icon Name="check" Class="w-4 h-4" /> } else { <span>3</span> }</span>
+                    <div class="min-w-0 flex-1">
+                        <p class="dash-step-title">Connect your shop or pair a POS tablet <span class="sr-only">@(StepConnect ? "(done)" : "(to do)")</span></p>
+                        @if (!StepConnect)
+                        {
+                            <p class="dp-muted m-0">Take payments from your website with an API key or webhook, or at the counter with a tablet.</p>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                <a href="@HrefFor(DashboardSections.ForKey("apikeys"))" class="btn-secondary btn-sm">Create an API key</a>
+                                <a href="@HrefFor(DashboardSections.ForKey("pos"))" class="btn-ghost btn-sm">Pair a tablet</a>
+                            </div>
+                        }
+                    </div>
+                </li>
+            </ol>
+        </section>
+    };
+
+    private RenderFragment Step(int number, bool done, string title, string text, string href, string action) => __builder =>
+    {
+        <li class="dash-step @(done ? "is-done" : "")">
+            <span class="dash-step-mark" aria-hidden="true">@if (done) { <Icon Name="check" Class="w-4 h-4" /> } else { <span>@number</span> }</span>
+            <div class="min-w-0 flex-1">
+                <p class="dash-step-title">@title <span class="sr-only">@(done ? "(done)" : "(to do)")</span></p>
+                @if (!done)
+                {
+                    <p class="dp-muted m-0">@text</p>
+                    <a href="@href" class="btn-secondary btn-sm mt-2">@action</a>
+                }
+            </div>
+        </li>
+    };
+
     /// <summary>The store switcher changed: reload that store and put it in the address.</summary>
     private async Task OnStoreSwitchedAsync()
     {
@@ -1192,7 +1523,23 @@ else
     private StoreDto? activeStore => stores.FirstOrDefault(s => s.Id == activeStoreId);
 
     private List<SessionRow>? sessions;
+    /// <summary>How many payments match the list's filter (the API's Total, not the page size).</summary>
+    private int sessionsTotal;
+    private string? statusFilter;
+    private bool loadingMore;
+    private const int PageSize = 25;
+    /// <summary>The store's all-time count per status, for the Overview tiles; null while loading.</summary>
+    private Dictionary<string, int>? statusCounts;
+    /// <summary>The store's all-time number of payments; null while loading.</summary>
+    private int? allTotal;
+    private bool exportingCsv;
     private string? bootstrapError;
+
+    // While a visible payment can still change (waiting, detected, received), the list refreshes
+    // itself every 12 seconds; it stops once none can.
+    private static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(12);
+    private System.Threading.Timer? sessionPoller;
+    private bool PollingSessions => sessionPoller is not null;
 
     private string receiveInput = "";
     private bool showEditReceive;
@@ -1202,6 +1549,7 @@ else
     private string newLabel = "";
     private string newMemo = "";
     private CreatedSession? createdSession;
+    private string? createdSessionQr;
     private string? createError;
 
     // Links tab — payment-link generator (no-code share-a-checkout-URL).
@@ -1217,11 +1565,21 @@ else
     private SessionRow? createdLink;
     private string? linkQrDataUrl;
     private string? linkError;
+    /// <summary>Fiat per 1 DGB for <see cref="linkFiatCurrency"/>; null while loading or unavailable.</summary>
+    private decimal? linkDgbPrice;
+    private bool linkPriceLoading;
     private bool LinkFormValid => linkPriceMode == "dgb"
         ? linkAmountDgb > 0
-        : linkAmountFiat > 0 && !string.IsNullOrWhiteSpace(linkFiatCurrency);
+        : linkAmountFiat > 0 && !string.IsNullOrWhiteSpace(linkFiatCurrency) && LinkFiatToDgb is > 0m;
+
+    /// <summary>The fiat amount in DGB at the live price, rounded to 8 decimals (1 satoshi).</summary>
+    private decimal? LinkFiatToDgb =>
+        linkDgbPrice is decimal p && p > 0 && linkAmountFiat > 0
+            ? Math.Round(linkAmountFiat / p, 8, MidpointRounding.AwayFromZero)
+            : null;
 
     private string? donationAddress;
+    private bool donationLoadFailed;
     private decimal donAmount;
     private string donName = "";
     private string donLabel = "";
@@ -1233,6 +1591,8 @@ else
     private bool webhookBusy;
     private string? webhookMessage;
     private string? webhookError;
+    /// <summary>A signing secret just created or rotated: shown once, until dismissed.</summary>
+    private string? revealedSecret;
 
     private List<WebhookDeliveryDto>? deliveries;
     private bool loadingDeliveries;
@@ -1300,6 +1660,7 @@ else
                 GoToSignIn();
                 return;
             }
+            await clock.InitAsync(JS);
             await LoadAccountAsync();
             if (account is not null && stores.Count > 0)
             {
@@ -1308,9 +1669,10 @@ else
                 storeNotFound = !string.IsNullOrEmpty(StoreParam) && StoreParam != activeStoreId;
                 await LoadActiveStoreContextAsync();
             }
-            // Account-scoped (not store-scoped), load once at bootstrap.
+            // Account-scoped (not store-scoped), load once at bootstrap. Paired tablets also
+            // count for the getting-started checklist.
             await LoadApiKeysAsync();
-            if (activeTab == "pos") await LoadPosDevicesAsync();
+            await LoadPosDevicesAsync();
             StateHasChanged();
         }
         catch (Exception ex)
@@ -1321,9 +1683,6 @@ else
             StateHasChanged();
         }
     }
-
-    private int CountBy(params string[] statuses) =>
-        sessions?.Count(s => statuses.Contains(s.Status)) ?? 0;
 
     private HttpRequestMessage AuthedRequest(HttpMethod method, string path, HttpContent? content = null)
     {
@@ -1354,7 +1713,7 @@ else
         webhookInput = activeStore.WebhookUrl ?? "";
         expiryInput = activeStore.DefaultSessionExpiryMinutes;
         ddEnabledInput = activeStore.DigiDollarEnabled;
-        await LoadSessionsAsync();
+        await Task.WhenAll(LoadSessionsAsync(), LoadCountsAsync());
         await LoadDeliveriesAsync();
         if (activeStore.HasReceive) await LoadDonationAddressAsync();
         else donationAddress = null;
@@ -1364,9 +1723,15 @@ else
     {
         // Reset store-scoped state, reload everything for the new active store.
         donationAddress = null;
+        donationLoadFailed = false;
         sessions = null;
+        sessionsTotal = 0;
+        statusCounts = null;
+        allTotal = null;
         deliveries = null;
         createdSession = null;
+        createdSessionQr = null;
+        revealedSecret = null;
         showEditReceive = false;
         receiveInput = "";
         storeNameInput = "";
@@ -1377,28 +1742,107 @@ else
         StateHasChanged();
     }
 
+    /// <summary>Switches the active store and puts it in the address, so a reload keeps it.</summary>
     private async Task SetActiveAsync(string storeId)
     {
         activeStoreId = storeId;
         await OnActiveStoreChangedAsync();
+        Nav.NavigateTo(HrefFor(CurrentSection), replace: true);
+        Toasts.Success($"Now showing {activeStore?.Name}");
     }
 
+    private string SessionsPath(int skip, int take, string? status) =>
+        $"/v1/pay/sessions?take={take}&skip={skip}&storeId={Uri.EscapeDataString(activeStoreId)}"
+        + (status is null ? "" : $"&status={Uri.EscapeDataString(status)}");
+
+    private async Task<SessionList?> FetchSessionsAsync(int skip, int take, string? status)
+    {
+        var http = HttpFactory.CreateClient("PayApi");
+        var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, SessionsPath(skip, take, status)));
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<SessionList>() : null;
+    }
+
+    /// <summary>The first page of the list (or as many rows as are showing, on a refresh).</summary>
     private async Task LoadSessionsAsync()
     {
         if (activeStore is null) return;
         loadingSessions = true; StateHasChanged();
         try
         {
-            var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get,
-                $"/v1/pay/sessions?take=25&storeId={Uri.EscapeDataString(activeStoreId)}"));
-            if (response.IsSuccessStatusCode)
+            var take = Math.Clamp(sessions?.Count ?? PageSize, PageSize, 100);
+            var payload = await FetchSessionsAsync(0, take, statusFilter);
+            if (payload != null)
             {
-                var payload = await response.Content.ReadFromJsonAsync<SessionList>();
-                if (payload != null) sessions = payload.Sessions;
+                sessions = payload.Sessions;
+                sessionsTotal = payload.Total;
             }
+            else sessions ??= new();
         }
-        finally { loadingSessions = false; StateHasChanged(); }
+        catch (Exception ex) { Log.LogWarning(ex, "Dashboard: loading payments failed"); sessions ??= new(); }
+        finally { loadingSessions = false; UpdatePolling(); StateHasChanged(); }
+    }
+
+    /// <summary>Load more: the next page after the rows already showing.</summary>
+    private async Task LoadMoreSessionsAsync()
+    {
+        if (activeStore is null || sessions is null) return;
+        loadingMore = true; StateHasChanged();
+        try
+        {
+            var payload = await FetchSessionsAsync(sessions.Count, PageSize, statusFilter);
+            if (payload is null) { Toasts.Error("More payments couldn't be loaded. Try again."); return; }
+            var known = sessions.Select(s => s.Id).ToHashSet();
+            sessions.AddRange(payload.Sessions.Where(s => !known.Contains(s.Id)));
+            sessionsTotal = payload.Total;
+        }
+        catch (Exception ex) { Log.LogWarning(ex, "Dashboard: load more failed"); Toasts.Error(ApiError.Network); }
+        finally { loadingMore = false; UpdatePolling(); StateHasChanged(); }
+    }
+
+    /// <summary>
+    /// All-time counts for the Overview tiles: one small request per status (take=1, reading Total),
+    /// because the list itself is paged and would only count its first page.
+    /// </summary>
+    private async Task LoadCountsAsync()
+    {
+        if (activeStore is null) return;
+        try
+        {
+            string[] statuses = ["pending", "seen", "paid", "confirmed", "underpaid", "expired"];
+            var all = FetchSessionsAsync(0, 1, null);
+            var each = statuses.Select(s => FetchSessionsAsync(0, 1, s)).ToArray();
+            await Task.WhenAll(each.Append(all));
+            if (all.Result is null || each.Any(t => t.Result is null)) return; // tiles show a dash
+            allTotal = all.Result.Total;
+            statusCounts = statuses.Zip(each, (s, t) => (s, t.Result!.Total)).ToDictionary(x => x.s, x => x.Total);
+        }
+        catch (Exception ex) { Log.LogWarning(ex, "Dashboard: loading counts failed"); }
+    }
+
+    private static readonly string[] LiveStatuses = ["pending", "seen", "paid"];
+
+    /// <summary>Starts or stops the list's auto-refresh: on while the Payments list shows a payment that can still change.</summary>
+    private void UpdatePolling()
+    {
+        var wanted = activeTab == "sessions"
+            && sessions is not null
+            && sessions.Any(s => LiveStatuses.Contains(s.Status, StringComparer.OrdinalIgnoreCase));
+        if (wanted && sessionPoller is null)
+        {
+            sessionPoller = new System.Threading.Timer(_ => _ = InvokeAsync(PollSessionsAsync), null, PollEvery, PollEvery);
+        }
+        else if (!wanted && sessionPoller is not null)
+        {
+            sessionPoller.Dispose();
+            sessionPoller = null;
+        }
+    }
+
+    private async Task PollSessionsAsync()
+    {
+        if (loadingSessions || loadingMore || activeTab != "sessions") { UpdatePolling(); return; }
+        await LoadSessionsAsync();
+        await LoadCountsAsync();
     }
 
     // CSV export: hit the same /sessions endpoint with ?format=csv, hand the
@@ -1423,25 +1867,32 @@ else
 
     private async Task DownloadCsvAsync(string apiPath, string filename)
     {
+        exportingCsv = true; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, apiPath));
-            if (!response.IsSuccessStatusCode) return;
+            if (!response.IsSuccessStatusCode)
+            {
+                Toasts.Error($"The CSV couldn't be downloaded. {await ApiError.ReadAsync(response)}");
+                return;
+            }
             var bytes = await response.Content.ReadAsByteArrayAsync();
             await JS.InvokeVoidAsync("digipayDownloadBlob", filename, "text/csv;charset=utf-8",
                 Convert.ToBase64String(bytes));
         }
-        catch
+        catch (Exception ex)
         {
-            // Non-fatal: download failed (network/auth). The merchant can retry —
-            // logging is server-side via the API itself.
+            Log.LogWarning(ex, "Dashboard: CSV export failed");
+            Toasts.Error("The CSV couldn't be downloaded. Check your connection and try again.");
         }
+        finally { exportingCsv = false; StateHasChanged(); }
     }
 
     private async Task LoadDonationAddressAsync()
     {
-        if (activeStore is null) return;
+        if (activeStore is null || !activeStore.HasReceive) return;
+        donationLoadFailed = false;
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
@@ -1452,8 +1903,9 @@ else
                 var dto = await response.Content.ReadFromJsonAsync<DonationAddressDto>();
                 donationAddress = dto?.Address;
             }
+            donationLoadFailed = donationAddress is null;
         }
-        catch { }
+        catch (Exception ex) { Log.LogWarning(ex, "Dashboard: donation address failed"); donationLoadFailed = true; }
     }
 
     private async Task RefreshStoreAsync()
@@ -1549,19 +2001,29 @@ else
         else Toasts.Info("Your browser blocked copying. Select the text and copy it by hand.");
     }
 
+    /// <summary>PATCHes the active store; returns the response body, or sets the error and returns null.</summary>
+    private async Task<(bool Ok, string? Error, StoreUpdateDto? Body)> PatchStoreAsync(object body)
+    {
+        var http = HttpFactory.CreateClient("PayApi");
+        var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", JsonContent.Create(body)));
+        if (!response.IsSuccessStatusCode) return (false, await ApiError.ReadAsync(response), null);
+        StoreUpdateDto? dto = null;
+        try { dto = await response.Content.ReadFromJsonAsync<StoreUpdateDto>(); } catch (System.Text.Json.JsonException) { }
+        return (true, null, dto);
+    }
+
     private async Task SaveReceiveAsync()
     {
         if (activeStore is null) return;
         busy = true; patchError = null; StateHasChanged();
         try
         {
-            var http = HttpFactory.CreateClient("PayApi");
-            var content = JsonContent.Create(new { addressOrXpub = receiveInput.Trim() });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
-            if (!response.IsSuccessStatusCode) { patchError = await response.Content.ReadAsStringAsync(); return; }
+            var (ok, error, _) = await PatchStoreAsync(new { addressOrXpub = receiveInput.Trim() });
+            if (!ok) { patchError = error; return; }
             await RefreshStoreAsync();
             receiveInput = "";
             showEditReceive = false;
+            Toasts.Success("Saved. Payments to this store go to the new address.");
             if (activeStore?.HasReceive == true) { await LoadSessionsAsync(); await LoadDonationAddressAsync(); }
         }
         catch (Exception ex) { patchError = Plain(ex, "patchError"); }
@@ -1571,7 +2033,7 @@ else
     private async Task CreateSessionAsync()
     {
         if (activeStore is null) return;
-        busy = true; createError = null; createdSession = null; StateHasChanged();
+        busy = true; createError = null; createdSession = null; createdSessionQr = null; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
@@ -1583,13 +2045,42 @@ else
                 memo = string.IsNullOrWhiteSpace(newMemo) ? null : newMemo,
             });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/sessions", content));
-            if (!response.IsSuccessStatusCode) { createError = await response.Content.ReadAsStringAsync(); return; }
+            if (!response.IsSuccessStatusCode) { createError = await ApiError.ReadAsync(response); return; }
             createdSession = await response.Content.ReadFromJsonAsync<CreatedSession>();
+            if (createdSession is not null) createdSessionQr = GenerateLinkQr(createdSession.CheckoutUrl);
             newAmount = 0; newLabel = ""; newMemo = "";
-            await LoadSessionsAsync();
+            await Task.WhenAll(LoadSessionsAsync(), LoadCountsAsync());
         }
         catch (Exception ex) { createError = Plain(ex, "createError"); }
         finally { busy = false; StateHasChanged(); }
+    }
+
+    /// <summary>Switches the link form to fiat and fetches the live price for it.</summary>
+    private async Task UseFiatPriceAsync()
+    {
+        linkPriceMode = "fiat";
+        await LoadLinkPriceAsync();
+    }
+
+    /// <summary>
+    /// The live DGB price in the chosen currency, from the same public endpoint the POS uses.
+    /// Without it a fiat link can't be priced, so the create button stays off.
+    /// </summary>
+    private async Task LoadLinkPriceAsync()
+    {
+        linkPriceLoading = true; linkDgbPrice = null; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var resp = await http.GetAsync($"/v1/pay/public/price?currency={Uri.EscapeDataString(linkFiatCurrency.ToLowerInvariant())}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var quote = await resp.Content.ReadFromJsonAsync<PriceQuote>();
+                if (quote is not null && quote.DgbPrice > 0) linkDgbPrice = quote.DgbPrice;
+            }
+        }
+        catch (Exception ex) { Log.LogWarning(ex, "Dashboard: price lookup failed"); }
+        finally { linkPriceLoading = false; StateHasChanged(); }
     }
 
     private async Task CreatePaymentLinkAsync()
@@ -1599,11 +2090,24 @@ else
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            // Fiat-priced sessions still need an `amount` (DGB) — the API will
-            // accept any positive value and the customer pays whatever the
-            // server quotes at checkout time. Send a placeholder 1 DGB for fiat
-            // mode so the payload validates; the real number is `fiatAmount`.
-            var amountDgb = linkPriceMode == "dgb" ? linkAmountDgb : 1m;
+            // A fiat link is charged in DGB at the live price: fiat / (fiat per DGB), rounded to
+            // 1 satoshi. The price is sent along so the session records the rate it was made at.
+            decimal amountDgb;
+            decimal? priceAtCreation = null;
+            if (linkPriceMode == "dgb")
+            {
+                amountDgb = linkAmountDgb;
+            }
+            else
+            {
+                if (LinkFiatToDgb is not decimal converted || linkDgbPrice is not decimal price)
+                {
+                    linkError = "The live DGB price isn't available right now. Try again in a moment, or price the link in DGB.";
+                    return;
+                }
+                amountDgb = converted;
+                priceAtCreation = price;
+            }
             var expirySeconds = (linkExpiryMinutes is int m && m > 0)
                 ? Math.Clamp(m, 1, 1440) * 60
                 : (int?)null;
@@ -1615,18 +2119,19 @@ else
                 memo = string.IsNullOrWhiteSpace(linkMemo) ? null : linkMemo.Trim(),
                 fiatCurrency = linkPriceMode == "fiat" ? linkFiatCurrency : null,
                 fiatAmount = linkPriceMode == "fiat" ? (decimal?)linkAmountFiat : null,
+                dgbPriceAtCreation = priceAtCreation,
                 expiresInSeconds = expirySeconds,
             });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/sessions", content));
             if (!response.IsSuccessStatusCode)
             {
-                linkError = await response.Content.ReadAsStringAsync();
+                linkError = await ApiError.ReadAsync(response);
                 return;
             }
             createdLink = await response.Content.ReadFromJsonAsync<SessionRow>();
             if (createdLink is not null)
                 linkQrDataUrl = GenerateLinkQr(createdLink.CheckoutUrl);
-            await LoadSessionsAsync();
+            await Task.WhenAll(LoadSessionsAsync(), LoadCountsAsync());
         }
         catch (Exception ex) { linkError = Plain(ex, "linkError"); }
         finally { busy = false; StateHasChanged(); }
@@ -1655,7 +2160,7 @@ else
     private string FormatLinkAmount(SessionRow s)
     {
         if (s.FiatAmount is decimal f && !string.IsNullOrWhiteSpace(s.FiatCurrency))
-            return $"{f:0.##} {s.FiatCurrency.ToUpperInvariant()} (≈ {s.Amount:0.########} DGB)";
+            return $"{FormatFiat(f, s.FiatCurrency)} (≈ {s.Amount:0.########} DGB)";
         return $"{s.Amount:0.########} DGB";
     }
 
@@ -1709,16 +2214,35 @@ else
         webhookBusy = true; webhookError = null; webhookMessage = null; StateHasChanged();
         try
         {
-            var http = HttpFactory.CreateClient("PayApi");
-            var content = JsonContent.Create(new { webhookUrl = webhookInput.Trim() });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
-            if (!response.IsSuccessStatusCode) { webhookError = await response.Content.ReadAsStringAsync(); return; }
+            var (ok, error, body) = await PatchStoreAsync(new { webhookUrl = webhookInput.Trim() });
+            if (!ok) { webhookError = error; return; }
+            // The first save creates the signing secret and returns it this once.
+            if (!string.IsNullOrEmpty(body?.WebhookSecret)) revealedSecret = body.WebhookSecret;
             await RefreshStoreAsync();
             webhookMessage = string.IsNullOrWhiteSpace(activeStore?.WebhookUrl) ? "Webhook cleared." : "Webhook saved.";
             Toasts.Success(webhookMessage!);
         }
         catch (Exception ex) { webhookError = Plain(ex, "webhookError"); }
         finally { webhookBusy = false; StateHasChanged(); }
+    }
+
+    /// <summary>Creates a new signing secret (the old one stops working) and shows it once.</summary>
+    private async Task<string?> RotateWebhookSecretAsync()
+    {
+        if (activeStore is null) return null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, $"/v1/pay/stores/{activeStoreId}/webhook-secret/rotate"));
+            if (!response.IsSuccessStatusCode) return await ApiError.ReadAsync(response);
+            var body = await response.Content.ReadFromJsonAsync<WebhookSecretDto>();
+            if (string.IsNullOrEmpty(body?.WebhookSecret)) return ApiError.Plain(500, null);
+            revealedSecret = body.WebhookSecret;
+            await RefreshStoreAsync();
+            Toasts.Success("New signing secret created. Copy it now.");
+            return null;
+        }
+        catch (Exception ex) { return Plain(ex, "rotate webhook secret"); }
     }
 
     private async Task TestWebhookAsync()
@@ -1729,8 +2253,8 @@ else
         {
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, $"/v1/pay/stores/{activeStoreId}/webhook/test"));
-            if (!response.IsSuccessStatusCode) { webhookError = await response.Content.ReadAsStringAsync(); return; }
-            webhookMessage = "Test event dispatched — see the delivery log below for the result.";
+            if (!response.IsSuccessStatusCode) { webhookError = await ApiError.ReadAsync(response); return; }
+            webhookMessage = "Test event sent. See the delivery log below for the result.";
             Toasts.Success(webhookMessage!);
             await LoadDeliveriesAsync();
         }
@@ -1752,14 +2276,14 @@ else
                 deliveries = await response.Content.ReadFromJsonAsync<List<WebhookDeliveryDto>>() ?? new();
             }
         }
-        catch { /* non-fatal; the ref stays null and the tab shows "loading…" */ }
+        catch { /* non-fatal; the ref stays null and the log shows its loading placeholder */ }
         finally { loadingDeliveries = false; StateHasChanged(); }
     }
 
     private async Task ReplayDeliveryAsync(string deliveryId)
     {
         if (activeStore is null) return;
-        replayingId = deliveryId; StateHasChanged();
+        replayingId = deliveryId; webhookError = null; StateHasChanged();
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
@@ -1767,9 +2291,11 @@ else
                 $"/v1/pay/stores/{activeStoreId}/webhook-deliveries/{deliveryId}/replay"));
             if (!response.IsSuccessStatusCode)
             {
-                webhookError = await response.Content.ReadAsStringAsync();
+                webhookError = await ApiError.ReadAsync(response);
+                Toasts.Error(webhookError);
                 return;
             }
+            Toasts.Success("Event sent again");
             await LoadDeliveriesAsync();
         }
         catch (Exception ex) { webhookError = Plain(ex, "webhookError"); }
@@ -1782,12 +2308,10 @@ else
         expiryBusy = true; expiryError = null; expiryMessage = null; StateHasChanged();
         try
         {
-            var http = HttpFactory.CreateClient("PayApi");
-            var content = JsonContent.Create(new { defaultSessionExpiryMinutes = expiryInput });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
-            if (!response.IsSuccessStatusCode) { expiryError = await response.Content.ReadAsStringAsync(); return; }
+            var (ok, error, _) = await PatchStoreAsync(new { defaultSessionExpiryMinutes = expiryInput });
+            if (!ok) { expiryError = error; return; }
             await RefreshStoreAsync();
-            expiryMessage = activeStore?.DefaultSessionExpiryMinutes is int m ? $"Default is now {m} minutes." : "Using global default (30 minutes).";
+            expiryMessage = activeStore?.DefaultSessionExpiryMinutes is int m ? $"Default is now {m} minutes." : "Using the default (30 minutes).";
             Toasts.Success(expiryMessage!);
         }
         catch (Exception ex) { expiryError = Plain(ex, "expiryError"); }
@@ -1802,12 +2326,10 @@ else
         ddBusy = true; ddError = null; ddMessage = null; StateHasChanged();
         try
         {
-            var http = HttpFactory.CreateClient("PayApi");
-            var content = JsonContent.Create(new { digiDollarEnabled = ddEnabledInput });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
-            if (!response.IsSuccessStatusCode)
+            var (ok, error, _) = await PatchStoreAsync(new { digiDollarEnabled = ddEnabledInput });
+            if (!ok)
             {
-                ddError = await response.Content.ReadAsStringAsync();
+                ddError = error;
                 ddEnabledInput = activeStore.DigiDollarEnabled; // revert
                 return;
             }
@@ -1833,7 +2355,7 @@ else
             var http = HttpFactory.CreateClient("PayApi");
             var content = JsonContent.Create(new { displayName = nameInput.Trim() });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, "/v1/pay/me/", content));
-            if (!response.IsSuccessStatusCode) { nameError = await response.Content.ReadAsStringAsync(); return; }
+            if (!response.IsSuccessStatusCode) { nameError = await ApiError.ReadAsync(response); return; }
             await LoadAccountAsync();
             nameMessage = "Saved.";
             Toasts.Success(nameMessage!);
@@ -1849,12 +2371,11 @@ else
         storeNameBusy = true; storeNameError = null; StateHasChanged();
         try
         {
-            var http = HttpFactory.CreateClient("PayApi");
-            var content = JsonContent.Create(new { name = storeNameInput.Trim() });
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Patch, $"/v1/pay/stores/{activeStoreId}", content));
-            if (!response.IsSuccessStatusCode) { storeNameError = await response.Content.ReadAsStringAsync(); return; }
+            var (ok, error, _) = await PatchStoreAsync(new { name = storeNameInput.Trim() });
+            if (!ok) { storeNameError = error; return; }
             await RefreshStoreAsync();
             storeNameInput = "";
+            Toasts.Success("Store renamed");
         }
         catch (Exception ex) { storeNameError = Plain(ex, "storeNameError"); }
         finally { storeNameBusy = false; StateHasChanged(); }
@@ -1868,43 +2389,43 @@ else
             var http = HttpFactory.CreateClient("PayApi");
             var content = JsonContent.Create(new { name = newStoreName.Trim(), network = newStoreNetwork });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/stores", content));
-            if (!response.IsSuccessStatusCode) { storeError = await response.Content.ReadAsStringAsync(); return; }
+            if (!response.IsSuccessStatusCode) { storeError = await ApiError.ReadAsync(response); return; }
             var created = await response.Content.ReadFromJsonAsync<StoreDto>();
             await LoadAccountAsync();
+            newStoreName = "";
             if (created is not null)
             {
                 activeStoreId = created.Id;
-                await LoadActiveStoreContextAsync();
+                await OnActiveStoreChangedAsync();
+                Nav.NavigateTo(HrefFor(CurrentSection), replace: true);
+                Toasts.Success($"Store “{created.Name}” added. Set where it receives payments in Settings.");
             }
-            newStoreName = "";
         }
         catch (Exception ex) { storeError = Plain(ex, "storeError"); }
         finally { storeBusy = false; StateHasChanged(); }
     }
 
-    private async Task DeleteStoreAsync(string storeId)
+    private async Task<string?> DeleteStoreAsync(string storeId)
     {
-        if (stores.Count <= 1) return;
+        if (stores.Count <= 1) return ApiError.Plain(400, "cannot delete your only store");
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/stores/{storeId}"));
-            if (!response.IsSuccessStatusCode)
-            {
-                storeError = await response.Content.ReadAsStringAsync();
-                StateHasChanged();
-                return;
-            }
+            if (!response.IsSuccessStatusCode) return await ApiError.ReadAsync(response);
             await LoadAccountAsync();
             if (activeStoreId == storeId && stores.Count > 0)
             {
                 activeStoreId = stores[0].Id;
-                await LoadActiveStoreContextAsync();
+                await OnActiveStoreChangedAsync();
             }
+            // The address may still name the deleted store.
+            Nav.NavigateTo(HrefFor(CurrentSection), replace: true);
             Toasts.Success("Store deleted");
             StateHasChanged();
+            return null;
         }
-        catch (Exception ex) { storeError = Plain(ex, "delete store"); StateHasChanged(); }
+        catch (Exception ex) { return Plain(ex, "delete store"); }
     }
 
     private async Task LoadApiKeysAsync()
@@ -1934,7 +2455,7 @@ else
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/api-keys", content));
             if (!response.IsSuccessStatusCode)
             {
-                apiKeyError = await response.Content.ReadAsStringAsync();
+                apiKeyError = await ApiError.ReadAsync(response);
                 return;
             }
             createdKey = await response.Content.ReadFromJsonAsync<CreatedApiKeyDto>();
@@ -1946,16 +2467,31 @@ else
         finally { creatingKey = false; StateHasChanged(); }
     }
 
-    private async Task RevokeApiKeyAsync(string id)
+    /// <summary>Revokes a key. Returns null when it worked, or a plain error.</summary>
+    private async Task<string?> RevokeKeyAsync(string id)
     {
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/api-keys/{id}"));
-            if (!response.IsSuccessStatusCode) { apiKeyError = await response.Content.ReadAsStringAsync(); StateHasChanged(); return; }
-            await LoadApiKeysAsync();
+            return response.IsSuccessStatusCode ? null : await ApiError.ReadAsync(response);
         }
-        catch (Exception ex) { apiKeyError = Plain(ex, "apiKeyError"); StateHasChanged(); }
+        catch (Exception ex) { return Plain(ex, "revoke key"); }
+    }
+
+    private async Task<string?> RevokeApiKeyAsync(string id)
+    {
+        var error = await RevokeKeyAsync(id);
+        if (error is null) await LoadApiKeysAsync();
+        return error;
+    }
+
+    /// <summary>Unpairing revokes the tablet's key; the paired-devices list is what changes.</summary>
+    private async Task<string?> UnpairTabletAsync(string id)
+    {
+        var error = await RevokeKeyAsync(id);
+        if (error is null) { await LoadPosDevicesAsync(); StateHasChanged(); }
+        return error;
     }
 
     private async Task CopyCreatedKeyAsync()
@@ -2007,7 +2543,7 @@ else
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/pos/pairings", body));
             if (!response.IsSuccessStatusCode)
             {
-                posPairingError = $"Failed to create pairing ({(int)response.StatusCode}).";
+                posPairingError = await ApiError.ReadAsync(response);
                 return;
             }
             posPairing = await response.Content.ReadFromJsonAsync<PosPairingDto>();
@@ -2040,6 +2576,13 @@ else
         string? WebhookUrl, bool HasWebhookSecret,
         int? DefaultSessionExpiryMinutes, DateTime CreatedAt,
         bool DigiDollarEnabled = false);
+
+    /// <summary>What PATCH /stores/{id} returns that the page needs: the secret, the first time one is made.</summary>
+    private record StoreUpdateDto(string Id, string? WebhookSecret = null);
+
+    private record WebhookSecretDto(string WebhookSecret);
+
+    private record PriceQuote(string Currency, decimal DgbPrice, DateTime FetchedAt);
 
     private record SessionList(int Total, int Take, int Skip, List<SessionRow> Sessions);
 

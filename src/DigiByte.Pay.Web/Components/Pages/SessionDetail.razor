@@ -1,11 +1,14 @@
 @page "/merchant/sessions/{SessionId}"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @inject IHttpClientFactory HttpFactory
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject ToastService Toasts
+@using System.Globalization
 @using System.Net.Http.Json
 
-<PageTitle>@(session?.Id ?? SessionId) — DigiPay</PageTitle>
+<PageTitle>Payment @(session?.Id ?? SessionId) · DigiPay</PageTitle>
 
 @{
     const string Card = "card p-5 sm:p-6 flex flex-col gap-3";
@@ -22,47 +25,62 @@
     <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
         <div class="@Card text-center max-w-md">
             <h1 class="block-title">This payment couldn't be loaded</h1>
-            <p class="ui-checkout-muted">It may not exist, or it belongs to another account.</p>
-            <a href="@BackHref" class="btn-primary btn-sm">Back to sessions</a>
+            <p class="ui-checkout-muted">@bootstrapError</p>
+            <a href="@BackHref" class="btn-primary btn-sm">Back to payments</a>
         </div>
     </main>
 }
 else if (session == null)
 {
     <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-        <Loader Text="Loading session…" />
+        <Loader Text="Loading payment…" />
     </main>
 }
 else
 {
+    var state = CheckoutStates.For(session.Status);
     <div class="min-h-dvh bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
         <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 flex flex-col gap-4">
-            @* Header — back link + session id + status *@
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                        @* Back to the list the merchant came from (FR-018). *@
-                        <a href="@BackHref" class="back-btn" aria-label="Back to sessions"><Icon Name="arrow-left" Class="w-5 h-5" /></a>
-                        <h1 class="@H1">Session</h1>
+            @* Header — the way back, the store this payment belongs to, status and refresh. *@
+            <div class="flex flex-col gap-2 mb-2">
+                @* Back to the list the merchant came from (FR-018). *@
+                <a href="@BackHref" class="back-btn self-start"><Icon Name="arrow-left" Class="w-5 h-5" /><span>Back to payments</span></a>
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div class="min-w-0">
+                        <h1 class="@H1">Payment</h1>
+                        @if (store is not null)
+                        {
+                            <p class="@Muted m-0">
+                                Store: <strong class="text-slate-900 dark:text-white">@store.Name</strong>
+                                @if (!IsMainnet) { <span> · @store.Network</span> }
+                            </p>
+                        }
+                        <div class="@Mono text-slate-500 dark:text-slate-400 mt-1">@session.Id</div>
                     </div>
-                    <div class="@Mono text-slate-500 dark:text-slate-400 mt-1">@session.Id</div>
+                    <div class="shrink-0 flex items-center gap-2 flex-wrap">
+                        @if (session.Source is not null && session.Source.StartsWith("pos", StringComparison.OrdinalIgnoreCase))
+                        {
+                            @* Same chip as the dashboard list. On the detail page we can
+                               afford to print the device name inline too, since there's room. *@
+                            var deviceName = session.Source.Length > 4 && session.Source[3] == ':'
+                                ? session.Source[4..]
+                                : null;
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-dgb-500/10 text-dgb-500"
+                                  title="Created from a paired POS tablet">
+                                <Icon Name="zap" Class="w-3 h-3" />
+                                @if (!string.IsNullOrEmpty(deviceName)) { <span>POS · @deviceName</span> } else { <span>POS</span> }
+                            </span>
+                        }
+                        <StatusBadge Status="@session.Status" />
+                        <button type="button" class="btn-secondary btn-sm" @onclick="RefreshAsync" disabled="@refreshing" aria-busy="@(refreshing ? "true" : null)">
+                            <Icon Name="refresh" Class="w-4 h-4" /><span>Refresh</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="shrink-0 flex items-center gap-2">
-                    @if (session.Source is not null && session.Source.StartsWith("pos", StringComparison.OrdinalIgnoreCase))
-                    {
-                        @* Same chip as the dashboard list. On the detail page we can
-                           afford to print the device name inline too, since there's room. *@
-                        var deviceName = session.Source.Length > 4 && session.Source[3] == ':'
-                            ? session.Source[4..]
-                            : null;
-                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold uppercase tracking-wider bg-dgb-500/10 text-dgb-500"
-                              title="Created from a paired POS tablet">
-                            <Icon Name="zap" Class="w-3 h-3" />
-                            @if (!string.IsNullOrEmpty(deviceName)) { <span>POS · @deviceName</span> } else { <span>POS</span> }
-                        </span>
-                    }
-                    <StatusBadge Status="@session.Status" />
-                </div>
+                @if (!state.IsFinal)
+                {
+                    <p class="@Muted m-0" role="status">This page updates on its own until the payment is final.</p>
+                }
             </div>
 
             @* Primary details *@
@@ -71,17 +89,27 @@ else
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <div class="@Eyebrow">Amount</div>
-                        <div class="text-2xl font-bold tabular-nums">@session.Amount.ToString("0.########") DGB</div>
+                        <div class="text-2xl font-bold tabular-nums">@Dgb(session.AmountSatoshis) DGB</div>
                         @if (session.FiatAmount is decimal fa && !string.IsNullOrEmpty(session.FiatCurrency))
                         {
-                            <div class="@Muted">~ @fa.ToString("0.00") @session.FiatCurrency (at session creation)</div>
+                            <div class="@Muted">≈ @fa.ToString("0.00", CultureInfo.InvariantCulture) @session.FiatCurrency.ToUpperInvariant() (when the payment was made)</div>
                         }
-                        <div class="@Muted mt-1">@session.ReceivedSatoshis / @session.AmountSatoshis sats received · @session.Confirmations conf</div>
+                        <div class="@Muted mt-1">
+                            Received @Dgb(session.ReceivedSatoshis) DGB
+                            @if (session.Confirmations > 0)
+                            {
+                                <span> · @(Math.Min(session.Confirmations, ConfirmationsRequired)) of @ConfirmationsRequired confirmations</span>
+                            }
+                        </div>
+                        @if (Shortfall > 0)
+                        {
+                            <div class="dash-shortfall mt-1">@Dgb(Shortfall) DGB short</div>
+                        }
                     </div>
                     <div>
                         <div class="@Eyebrow">Address</div>
-                        <div class="@Mono">@session.Address</div>
-                        <CopyButton Value="@(session.Address)" Label="Copy address" Text="Copy" Class="self-start" />
+                        <div id="pay-address" class="@Mono">@session.Address</div>
+                        <CopyButton Value="@(session.Address)" Label="Copy address" Text="Copy" TargetId="pay-address" Class="self-start" />
                     </div>
                 </div>
                 @if (!string.IsNullOrEmpty(session.Label))
@@ -102,7 +130,9 @@ else
 
             @* Timeline — a reached step means the transition actually happened; unreached
                steps still show so merchants can see what's pending / skipped. Expiry only
-               renders as "reached" if we actually hit that terminal state. *@
+               renders as "reached" if we actually hit that terminal state. The API records
+               when a payment was seen and paid, not when it reached full confirmation, so the
+               confirmed step shows no time rather than a wrong one. *@
             <section class="@Card">
                 <h2 class="@H2">Timeline</h2>
                 <ul class="list-none p-0 m-0 flex flex-col gap-2">
@@ -112,23 +142,23 @@ else
                             @<li class="flex items-start gap-3">
                                 <span class="shrink-0 mt-0.5 w-2.5 h-2.5 rounded-full @(reached ? (isTerminalNegative ? "bg-red-500" : "bg-emerald-500") : "bg-slate-300 dark:bg-dgb-800")"></span>
                                 <div class="min-w-0 flex-1">
-                                    <div class="text-sm @(reached ? "text-slate-900 dark:text-white font-medium" : "text-slate-400 dark:text-slate-500")">@label</div>
+                                    <div class="text-sm @(reached ? "text-slate-900 dark:text-white font-medium" : "text-slate-500 dark:text-slate-400")">@label</div>
                                     @if (at is DateTime t)
                                     {
-                                        <div class="@Muted">@t.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                        <div class="@Muted">@clock.Show(t)</div>
                                     }
                                     else if (!reached)
                                     {
-                                        <div class="@Muted">pending</div>
+                                        <div class="@Muted">Not yet</div>
                                     }
                                 </div>
                             </li>;
                     }
                     @timelineRow(true, "Created", session.CreatedAt)
-                    @timelineRow(session.SeenAt is not null, "Detected in mempool", session.SeenAt)
+                    @timelineRow(session.SeenAt is not null, "Detected on the network", session.SeenAt)
                     @timelineRow(session.PaidAt is not null, "Paid (1 confirmation)", session.PaidAt)
-                    @timelineRow(session.Confirmations >= 6, "Confirmed (6 confirmations)", session.Confirmations >= 6 ? session.PaidAt : null)
-                    @timelineRow(expired, expired ? "Expired" : $"Expires at {session.ExpiresAt.ToLocalTime():yyyy-MM-dd HH:mm}", expired ? session.ExpiresAt : null, isTerminalNegative: true)
+                    @timelineRow(session.Confirmations >= ConfirmationsRequired, $"Confirmed ({ConfirmationsRequired} confirmations)", null)
+                    @timelineRow(expired, expired ? "Expired" : $"Expires {clock.Show(session.ExpiresAt)}", expired ? session.ExpiresAt : null, isTerminalNegative: true)
                 </ul>
             </section>
 
@@ -137,11 +167,13 @@ else
             {
                 <section class="@Card">
                     <h2 class="@H2">Transaction</h2>
-                    <div class="@Mono">@session.PaidTxid</div>
+                    <div id="pay-txid" class="@Mono">@session.PaidTxid</div>
                     <div class="flex gap-2 flex-wrap">
-                        <CopyButton Value="@(session.PaidTxid!)" Label="Copy transaction ID" Text="Copy txid" Class="self-start" />
-                        <a href="@($"https://digiexplorer.info/tx/{session.PaidTxid}")" target="_blank" rel="noopener"
-                           class="@BtnGhost text-xs py-1.5 px-3 no-underline">View on DigiExplorer ↗</a>
+                        <CopyButton Value="@(session.PaidTxid!)" Label="Copy transaction ID" Text="Copy txid" TargetId="pay-txid" Class="self-start" />
+                        @if (ExplorerUrl(session.PaidTxid) is string url)
+                        {
+                            <a href="@url" target="_blank" rel="noopener" class="@BtnGhost btn-sm">View on Blockchair <span class="sr-only">(opens in a new tab)</span></a>
+                        }
                     </div>
                 </section>
             }
@@ -154,7 +186,7 @@ else
                     <div class="@Mono">@session.CheckoutUrl</div>
                     <div class="flex gap-2 flex-wrap mt-1">
                         <CopyButton Value="@(session.CheckoutUrl)" Label="Copy checkout link" Text="Copy" Class="self-start" />
-                        <a href="@session.CheckoutUrl" target="_blank" rel="noopener" class="@BtnGhost text-xs py-1.5 px-3 no-underline">Open ↗</a>
+                        <a href="@session.CheckoutUrl" target="_blank" rel="noopener" class="@BtnGhost btn-sm">Open <span class="sr-only">(opens in a new tab)</span></a>
                     </div>
                 </div>
                 <div>
@@ -173,7 +205,7 @@ else
                         <div class="@Mono">@session.ReturnUrl</div>
                         <div class="flex gap-2 flex-wrap mt-1">
                             <CopyButton Value="@(session.ReturnUrl!)" Label="Copy return URL" Text="Copy" Class="self-start" />
-                            <a href="@session.ReturnUrl" target="_blank" rel="noopener" class="@BtnGhost text-xs py-1.5 px-3 no-underline">Open ↗</a>
+                            <a href="@session.ReturnUrl" target="_blank" rel="noopener" class="@BtnGhost btn-sm">Open <span class="sr-only">(opens in a new tab)</span></a>
                         </div>
                     </div>
                 }
@@ -181,20 +213,20 @@ else
 
             @* Webhook deliveries filtered to this session *@
             <section class="@Card">
-                <div class="flex items-baseline justify-between">
+                <div class="flex items-baseline justify-between flex-wrap gap-2">
                     <h2 class="@H2">Webhook deliveries</h2>
-                    <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries">
-                        @(loadingDeliveries ? "…" : "Refresh")
+                    <button class="@BtnGhost btn-sm" @onclick="LoadDeliveriesAsync" disabled="@loadingDeliveries" aria-busy="@(loadingDeliveries ? "true" : null)">
+                        <Icon Name="refresh" Class="w-4 h-4" /><span>Refresh</span>
                     </button>
                 </div>
-                <p class="@Muted m-0">Every delivery attempt that's referenced this session. Replays create a new row with the attempt number bumped.</p>
+                <p class="@Muted m-0">Every delivery attempt for this payment. A replay sends the event again and adds a row with the next attempt number.</p>
                 @if (deliveries is null)
                 {
-                    <p class="@Muted m-0">Loading…</p>
+                    <div aria-busy="true"><span class="sr-only">Loading webhook deliveries</span><Skeleton Shape="row" Count="2" /></div>
                 }
                 else if (deliveries.Count == 0)
                 {
-                    <p class="@Muted m-0">No webhook deliveries for this session — either no webhook is configured for the store, or no state change has fired yet.</p>
+                    <p class="@Muted m-0">No webhook deliveries for this payment yet: either the store has no webhook, or nothing has changed since one was set.</p>
                 }
                 else
                 {
@@ -215,7 +247,7 @@ else
                                             @if (d.Attempt > 1) { <span class="@Muted">· attempt @d.Attempt</span> }
                                         </div>
                                         <div class="@Muted mt-1">
-                                            @d.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                            @clock.Show(d.CreatedAt)
                                             @(d.DurationMs is null ? "" : $" · {d.DurationMs}ms")
                                         </div>
                                         @if (!string.IsNullOrEmpty(d.ErrorMessage))
@@ -227,7 +259,7 @@ else
                                             <div class="@Mono text-slate-500 dark:text-slate-400 mt-1 max-w-xl">@(d.ResponseSnippet.Length > 160 ? d.ResponseSnippet[..160] + "…" : d.ResponseSnippet)</div>
                                         }
                                     </div>
-                                    <button class="@BtnGhost text-xs py-1.5 px-3 shrink-0" @onclick="() => ReplayDeliveryAsync(d.Id)" disabled="@(replayingId == d.Id)">
+                                    <button class="@BtnGhost btn-sm shrink-0" @onclick="() => ReplayDeliveryAsync(d.Id)" disabled="@(replayingId == d.Id)">
                                         @(replayingId == d.Id ? "Replaying…" : "Replay")
                                     </button>
                                 </div>
@@ -237,23 +269,24 @@ else
                 }
             </section>
 
-            @* Merchant actions — refund (Paid/Confirmed) and void (Pending/Seen).
-               Refunded/voided sessions show the recorded note + timestamp so the
-               audit trail is visible without re-querying the DB. Kept below
-               everything else because it's an occasional action, not the
-               primary workflow. *@
+            @* Merchant actions — refund (Paid/Confirmed), void (Pending/Seen), and what to do
+               about an underpaid or expired payment. Refunded/voided sessions show the recorded
+               note + timestamp so the audit trail is visible without re-querying the DB. Kept
+               below everything else because it's an occasional action, not the primary workflow. *@
             <section class="@Card">
                 <h2 class="@H2">Actions</h2>
                 @if (session.Status is "refunded")
                 {
                     <div class="text-sm">
-                        Refunded @(session.RefundedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "").
+                        Refunded @(session.RefundedAt is DateTime ra ? clock.Show(ra) : "").
                         @if (!string.IsNullOrEmpty(session.RefundTxid))
                         {
                             <div class="@Eyebrow mt-2">Refund txid</div>
                             <div class="@Mono">@session.RefundTxid</div>
-                            <a href="@($"https://digiexplorer.info/tx/{session.RefundTxid}")" target="_blank" rel="noopener"
-                               class="@BtnGhost text-xs py-1.5 px-3 no-underline mt-1 inline-block">View on DigiExplorer ↗</a>
+                            @if (ExplorerUrl(session.RefundTxid) is string refundUrl)
+                            {
+                                <a href="@refundUrl" target="_blank" rel="noopener" class="@BtnGhost btn-sm mt-1">View on Blockchair <span class="sr-only">(opens in a new tab)</span></a>
+                            }
                         }
                         @if (!string.IsNullOrEmpty(session.RefundNote))
                         {
@@ -265,7 +298,7 @@ else
                 else if (session.Status is "voided")
                 {
                     <div class="text-sm">
-                        Voided @(session.RefundedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "").
+                        Cancelled @(session.RefundedAt is DateTime va ? clock.Show(va) : "").
                         @if (!string.IsNullOrEmpty(session.RefundNote))
                         {
                             <div class="@Eyebrow mt-2">Note</div>
@@ -276,20 +309,34 @@ else
                 else if (session.Status is "paid" or "confirmed")
                 {
                     <p class="@Muted m-0">Refunds aren't automatic — send DGB back to the customer from your wallet, then paste the txid here to keep the dashboard + webhooks in sync.</p>
-                    <button class="@BtnGhost text-xs py-1.5 px-3 self-start" @onclick="OpenRefundDialog">Record refund</button>
+                    <button class="@BtnGhost btn-sm self-start" @onclick="OpenRefundDialog">Record refund</button>
                 }
                 else if (session.Status is "pending" or "seen")
                 {
-                    <p class="@Muted m-0">Cancel this invoice before payment. The customer's checkout page flips to "Cancelled by merchant".</p>
-                    <button class="btn-danger btn-sm self-start" @onclick="OpenVoidDialog">Void session</button>
+                    <p class="@Muted m-0">Cancel this payment before it is paid. The customer's checkout changes to "Cancelled by the merchant".</p>
+                    <button class="btn-danger btn-sm self-start" @onclick="OpenVoidDialog">Cancel payment</button>
+                }
+                else if (session.Status is "underpaid")
+                {
+                    @* Underpaid is final: it won't complete on its own, so say what to do next. *@
+                    <div class="ui-banner ui-banner-warning">
+                        <Icon Name="alert" Class="" />
+                        <p>
+                            The customer sent @Dgb(session.ReceivedSatoshis) DGB of @Dgb(session.AmountSatoshis) DGB, so
+                            <strong>@Dgb(Shortfall) DGB is missing</strong>. This payment won't complete on its own.
+                        </p>
+                    </div>
+                    <p class="@Muted m-0">Contact the customer and either create a new payment for the missing @Dgb(Shortfall) DGB, or send what arrived back to them from your wallet. Ask them not to send more to this address.</p>
+                    <a href="@NewPaymentHref" class="btn-secondary btn-sm self-start">New payment</a>
+                }
+                else if (session.Status is "expired")
+                {
+                    <p class="@Muted m-0">This payment expired before it was paid, so nothing more can be paid to it. If the customer still wants to pay, create a new payment.</p>
+                    <a href="@NewPaymentHref" class="btn-secondary btn-sm self-start">New payment</a>
                 }
                 else
                 {
-                    <p class="@Muted m-0">No actions available for @session.Status sessions.</p>
-                }
-                @if (!string.IsNullOrEmpty(actionError))
-                {
-                    <p class="field-error" role="alert">@actionError</p>
+                    <p class="@Muted m-0">Nothing to do for this payment.</p>
                 }
             </section>
         </main>
@@ -301,28 +348,43 @@ else
         <p>Paste the transaction ID of the DGB you sent back. The payment is marked <strong>refunded</strong>, a <InlineCode>session.refunded</InlineCode> webhook is sent, and the note is kept for your records.</p>
         <div class="field mt-3">
             <label class="field-label" for="refund-txid">Refund transaction ID</label>
-            <input id="refund-txid" type="text" @bind="refundTxid" @bind:event="oninput" placeholder="e.g. a1b2c3…" class="input font-mono" autocomplete="off" />
+            <input id="refund-txid" type="text" @bind="refundTxid" @bind:event="oninput" placeholder="e.g. a1b2c3…" class="input font-mono" autocomplete="off"
+                   aria-invalid="@(actionError is null ? null : "true")" aria-describedby="@(actionError is null ? null : "action-error")" />
         </div>
         <div class="field mt-3">
             <label class="field-label" for="refund-note">Note <span class="font-normal opacity-70">(optional)</span></label>
             <input id="refund-note" type="text" @bind="refundNote" placeholder="Duplicate order, customer request…" class="input" />
         </div>
+        @if (actionError is not null)
+        {
+            <p id="action-error" class="field-error mt-3" role="alert">@actionError</p>
+        }
     </ConfirmDialog>
 
-    <ConfirmDialog Open="@showVoidDialog" Title="Void this payment?" ConfirmLabel="@(submittingAction ? "Voiding…" : "Void payment")"
-                   Busy="@submittingAction" OnConfirm="SubmitVoidAsync" OnCancel="CloseDialogs">
-        <p>The customer's checkout changes to "Cancelled by the merchant" and nothing more can be paid to it. Only unpaid payments can be voided, and this can't be undone.</p>
+    <ConfirmDialog Open="@showVoidDialog" Title="Cancel this payment?" ConfirmLabel="@(submittingAction ? "Cancelling…" : "Cancel payment")"
+                   CancelLabel="Keep it" Busy="@submittingAction" OnConfirm="SubmitVoidAsync" OnCancel="CloseDialogs">
+        <p>The customer's checkout changes to "Cancelled by the merchant" and nothing more can be paid to it. Only unpaid payments can be cancelled, and this can't be undone.</p>
         <div class="field mt-3">
             <label class="field-label" for="void-note">Note <span class="font-normal opacity-70">(optional, only you see it)</span></label>
             <input id="void-note" type="text" @bind="voidNote" class="input" />
         </div>
+        @if (actionError is not null)
+        {
+            <p class="field-error mt-3" role="alert">@actionError</p>
+        }
     </ConfirmDialog>
 }
 
 @code {
     [Inject] private ILogger<SessionDetail> Log { get; set; } = default!;
 
-    /// <summary>?back= : the Sessions list address this page was opened from (local /merchant paths only).</summary>
+    /// <summary>Confirmations after which a payment is final (the API's Confirmed status).</summary>
+    private const int ConfirmationsRequired = 6;
+
+    /// <summary>While the payment can still change, the page checks it every 10 seconds.</summary>
+    private static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(10);
+
+    /// <summary>?back= : the Payments list address this page was opened from (local /merchant paths only).</summary>
     [SupplyParameterFromQuery(Name = "back")] public string? Back { get; set; }
 
     private string BackHref
@@ -334,15 +396,29 @@ else
         }
     }
 
+    /// <summary>New payment for the same store (the list address carries ?store= when there are several).</summary>
+    private string NewPaymentHref
+    {
+        get
+        {
+            var q = BackHref.IndexOf('?');
+            var store = q < 0 ? null : System.Web.HttpUtility.ParseQueryString(BackHref[q..])["store"];
+            return string.IsNullOrEmpty(store) ? "/merchant/new" : $"/merchant/new?store={Uri.EscapeDataString(store)}";
+        }
+    }
+
     [Parameter] public string SessionId { get; set; } = "";
 
+    private readonly LocalClock clock = new();
     private string? token;
     private SessionDto? session;
+    private StoreDto? store;
     private List<WebhookDeliveryDto>? deliveries;
     private bool loadingDeliveries;
+    private bool refreshing;
     private string replayingId = "";
-    private string copiedField = "";
     private string? bootstrapError;
+    private System.Threading.Timer? poller;
 
     // Refund/void dialog state. We deliberately keep txid + note on the outer
     // component (not the dialog markup) so a user can close-and-reopen the
@@ -354,6 +430,26 @@ else
     private string voidNote = "";
     private bool submittingAction;
     private string? actionError;
+
+    private long Shortfall => session is null || session.Status is not "underpaid"
+        ? 0
+        : Math.Max(0, session.AmountSatoshis - session.ReceivedSatoshis);
+
+    /// <summary>Satoshis as DGB with up to 8 decimals, never raw satoshis.</summary>
+    private static string Dgb(long sats) => (sats / 100_000_000m).ToString("0.########", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// True for mainnet payments. Uses the store's network when it loaded; otherwise the address
+    /// (testnet and regtest addresses start with dgbt / dgbrt).
+    /// </summary>
+    private bool IsMainnet => store is not null
+        ? string.Equals(store.Network, "mainnet", StringComparison.OrdinalIgnoreCase)
+        : session is not null && !session.Address.StartsWith("dgbt", StringComparison.OrdinalIgnoreCase)
+                              && !session.Address.StartsWith("dgbrt", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A block explorer link for a mainnet transaction; none for test networks.</summary>
+    private string? ExplorerUrl(string? txid) =>
+        string.IsNullOrEmpty(txid) || !IsMainnet ? null : $"https://blockchair.com/digibyte/transaction/{Uri.EscapeDataString(txid)}";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -367,8 +463,13 @@ else
                 Nav.NavigateTo($"/merchant/signin?return={Uri.EscapeDataString(ReturnUrlGuard.Sanitize(here))}");
                 return;
             }
+            await clock.InitAsync(JS);
             await LoadSessionAsync();
-            if (session is not null) await LoadDeliveriesAsync();
+            if (session is not null)
+            {
+                await Task.WhenAll(LoadStoreAsync(), LoadDeliveriesAsync());
+                UpdatePolling();
+            }
             StateHasChanged();
         }
         catch (Exception ex) { bootstrapError = "Something went wrong. Check your connection and try again."; Log.LogWarning(ex, "Session detail: bootstrapError"); StateHasChanged(); }
@@ -387,15 +488,28 @@ else
         // still send the token so future authorization rules (e.g. restricting memo
         // visibility to the owning merchant) can tighten here without a client change.
         var http = HttpFactory.CreateClient("PayApi");
-        var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, $"/v1/pay/sessions/{SessionId}"));
+        var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, $"/v1/pay/sessions/{Uri.EscapeDataString(SessionId)}"));
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            bootstrapError = $"Session {SessionId} not found.";
+            bootstrapError = "It may not exist, or it belongs to another account.";
             return;
         }
         response.EnsureSuccessStatusCode();
         var payload = await response.Content.ReadFromJsonAsync<SessionResponse>();
         session = payload?.Session;
+    }
+
+    /// <summary>The store the payment belongs to, for the page's context line and its network.</summary>
+    private async Task LoadStoreAsync()
+    {
+        if (session is null || string.IsNullOrEmpty(session.StoreId)) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, $"/v1/pay/stores/{Uri.EscapeDataString(session.StoreId)}"));
+            if (response.IsSuccessStatusCode) store = await response.Content.ReadFromJsonAsync<StoreDto>();
+        }
+        catch (Exception ex) { Log.LogWarning(ex, "Session detail: store lookup failed"); }
     }
 
     private async Task LoadDeliveriesAsync()
@@ -413,9 +527,42 @@ else
             {
                 deliveries = await response.Content.ReadFromJsonAsync<List<WebhookDeliveryDto>>() ?? new();
             }
+            else deliveries ??= new();
         }
-        catch { /* non-fatal */ }
+        catch { deliveries ??= new(); /* non-fatal */ }
         finally { loadingDeliveries = false; StateHasChanged(); }
+    }
+
+    /// <summary>Reloads the payment (and its deliveries when the status changed).</summary>
+    private async Task RefreshAsync()
+    {
+        if (session is null || refreshing) return;
+        refreshing = true; StateHasChanged();
+        var before = session.Status;
+        try
+        {
+            await LoadSessionAsync();
+            if (session is not null && session.Status != before) await LoadDeliveriesAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(ex, "Session detail: refresh failed");
+            Toasts.Error("The payment couldn't be refreshed. Check your connection and try again.");
+        }
+        finally { refreshing = false; UpdatePolling(); StateHasChanged(); }
+    }
+
+    /// <summary>Polls while the payment is not final; stops once it is.</summary>
+    private void UpdatePolling()
+    {
+        var live = session is not null && !CheckoutStates.IsFinal(session.Status) && bootstrapError is null;
+        if (live && poller is null)
+            poller = new System.Threading.Timer(_ => _ = InvokeAsync(RefreshAsync), null, PollEvery, PollEvery);
+        else if (!live && poller is not null)
+        {
+            poller.Dispose();
+            poller = null;
+        }
     }
 
     private async Task ReplayDeliveryAsync(string deliveryId)
@@ -425,11 +572,13 @@ else
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            await http.SendAsync(AuthedRequest(HttpMethod.Post,
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Post,
                 $"/v1/pay/stores/{session.StoreId}/webhook-deliveries/{deliveryId}/replay"));
+            if (response.IsSuccessStatusCode) Toasts.Success("Event sent again");
+            else Toasts.Error(await ApiError.ReadAsync(response));
             await LoadDeliveriesAsync();
         }
-        catch { }
+        catch (Exception ex) { Log.LogWarning(ex, "Session detail: replay failed"); Toasts.Error(ApiError.Network); }
         finally { replayingId = ""; StateHasChanged(); }
     }
 
@@ -453,7 +602,18 @@ else
         showRefundDialog = false;
         showVoidDialog = false;
         submittingAction = false;
+        actionError = null;
     }
+
+    /// <summary>Plain sentences for refund and cancel failures, shown inside the open dialog.</summary>
+    private static string ActionErrorText(System.Net.HttpStatusCode status, bool refund) => (int)status switch
+    {
+        400 when refund => "That transaction ID doesn't look right. Paste the full ID of the refund (32 to 128 characters).",
+        400 => "The payment couldn't be cancelled. Check the note and try again.",
+        409 when refund => "This payment can't be refunded any more: its status has changed. Close this and refresh to see the latest.",
+        409 => "This payment can't be cancelled any more: it may have just been paid. Close this and refresh to see the latest.",
+        _ => ApiError.Plain((int)status, null),
+    };
 
     private async Task SubmitRefundAsync()
     {
@@ -467,14 +627,16 @@ else
             var resp = await http.SendAsync(req);
             if (!resp.IsSuccessStatusCode)
             {
-                actionError = $"Refund failed ({(int)resp.StatusCode}): {await resp.Content.ReadAsStringAsync()}";
+                actionError = ActionErrorText(resp.StatusCode, refund: true);
                 return;
             }
             showRefundDialog = false;
+            Toasts.Success("Refund recorded");
             await LoadSessionAsync();
             await LoadDeliveriesAsync();
+            UpdatePolling();
         }
-        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; Log.LogWarning(ex, "Session detail: actionError"); }
+        catch (Exception ex) { actionError = ApiError.Network; Log.LogWarning(ex, "Session detail: actionError"); }
         finally { submittingAction = false; StateHasChanged(); }
     }
 
@@ -490,32 +652,29 @@ else
             var resp = await http.SendAsync(req);
             if (!resp.IsSuccessStatusCode)
             {
-                actionError = $"Void failed ({(int)resp.StatusCode}): {await resp.Content.ReadAsStringAsync()}";
+                actionError = ActionErrorText(resp.StatusCode, refund: false);
                 return;
             }
             showVoidDialog = false;
+            Toasts.Success("Payment cancelled");
             await LoadSessionAsync();
             await LoadDeliveriesAsync();
+            UpdatePolling();
         }
-        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; Log.LogWarning(ex, "Session detail: actionError"); }
+        catch (Exception ex) { actionError = ApiError.Network; Log.LogWarning(ex, "Session detail: actionError"); }
         finally { submittingAction = false; StateHasChanged(); }
     }
 
-    private async Task CopyAsync(string field, string value)
+    public ValueTask DisposeAsync()
     {
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", value);
-            copiedField = field;
-            StateHasChanged();
-            await Task.Delay(1500);
-            if (copiedField == field) copiedField = "";
-            StateHasChanged();
-        }
-        catch { }
+        poller?.Dispose();
+        poller = null;
+        return ValueTask.CompletedTask;
     }
 
     private record SessionResponse(SessionDto Session, string? MerchantName);
+
+    private record StoreDto(string Id, string Name, string Network);
 
     private record SessionDto(string Id, string StoreId, string Address, long AmountSatoshis, decimal Amount,
         string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
