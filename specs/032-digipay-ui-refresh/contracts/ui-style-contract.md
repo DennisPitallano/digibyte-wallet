@@ -9,7 +9,7 @@ This is the interface between the shared style source and the two apps that use 
 | `_content/DigiByte.UI/css/ui.css` | Fonts, tokens and component classes |
 | `_content/DigiByte.UI/fonts/inter-latin-wght-normal.woff2` | Inter variable, weights 100–900 |
 | `_content/DigiByte.UI/fonts/jetbrains-mono-latin-wght-normal.woff2` | JetBrains Mono variable, weights 100–800 |
-| `_content/DigiByte.UI/images/mascot/poses/*.webp` | Baku poses used by DigiPay's dashboard |
+| `_content/DigiByte.UI/images/mascot/poses/*.webp` | The four Baku poses DigiPay's dashboard uses: `support`, `greeting`, `idea`, `thinking` |
 
 **Load order**: `tailwind.css`, then `_content/DigiByte.UI/css/ui.css`, then the app's own CSS (the wallet's `app.css`, DigiPay's component-scoped styles). The theme boot script runs synchronously in `<head>` before first paint.
 

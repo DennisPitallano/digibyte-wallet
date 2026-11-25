@@ -34,22 +34,22 @@ A fixed list. It drives the rail, the bottom menu, the More sheet, routes, page 
 
 | Key | Route | Label | In bottom menu | Empty state (Baku pose) |
 |---|---|---|---|---|
-| `overview` | `/merchant`, `/merchant/overview` | Overview | Yes (1) | Setup checklist when the store can't accept payments (`guide`) |
-| `sessions` | `/merchant/sessions` | Sessions | Yes (2) | "No payments yet": Create your first payment (`wave`) |
+| `overview` | `/merchant`, `/merchant/overview` | Overview | Yes (1) | Setup checklist when the store can't accept payments (`support`) |
+| `sessions` | `/merchant/sessions` | Sessions | Yes (2) | "No payments yet": Create your first payment (`greeting`) |
 | `new` | `/merchant/new` | New payment | Yes, raised (3) | Not applicable. Explains why when the store can't accept payments (FR-023) |
-| `links` | `/merchant/links` | Payment links | Yes (4) | "No payment links yet": Create link (`point`) |
-| `analytics` | `/merchant/analytics` | Analytics | More | "No activity in this window yet" (`think`) |
+| `links` | `/merchant/links` | Payment links | Yes (4) | "No payment links yet": Create link (`idea`) |
+| `analytics` | `/merchant/analytics` | Analytics | More | "No activity in this window yet" (`thinking`) |
 | `donation` | `/merchant/donation` | Donation button | More | Not applicable (always shows the snippet builder) |
-| `webhook` | `/merchant/webhook` | Webhook | More | "No webhook set": Add endpoint (`guide`) |
+| `webhook` | `/merchant/webhook` | Webhook | More | "No webhook set": Add endpoint (`support`) |
 | `stores` | `/merchant/stores` | Stores | More | Not applicable (always has at least one store) |
-| `api-keys` | `/merchant/api-keys` | API keys | More | "No API keys": Create key (`point`) |
-| `audit` | `/merchant/audit` | Audit log | More | "Nothing recorded yet" (`think`) |
-| `pos` | `/merchant/pos` | POS mode | More | "No paired devices": Pair a tablet (`point`) |
+| `api-keys` | `/merchant/api-keys` | API keys | More | "No API keys": Create key (`idea`) |
+| `audit` | `/merchant/audit` | Audit log | More | "Nothing recorded yet" (`thinking`) |
+| `pos` | `/merchant/pos` | POS mode | More | "No paired devices": Pair a tablet (`idea`) |
 | `settings` | `/merchant/settings` | Settings | More | Not applicable |
 | *(More)* | Not a route (opens a sheet) | More | Yes (5) | Not applicable |
 
 - **Detail route**: `/merchant/sessions/{SessionId}` stays as it is, with a back button to `/merchant/sessions` (keeping the query from the list the merchant came from).
-- **Pose names**: placeholders for the matching files in `DigiByte.UI/wwwroot/images/mascot/poses/`. They are fixed during implementation from the wallet's existing pose set. Baku never appears on `/pay/*` or `/pos` (clarification 2).
+- **Pose files**: `support`, `greeting`, `idea` and `thinking` are existing wallet poses in `src/DigiByte.Web/wwwroot/images/mascot/poses/` (`.webp`). Only these four are copied to `src/DigiByte.UI/wwwroot/images/mascot/poses/`. Baku never appears on `/pay/*` or `/pos` (clarification 2).
 
 ## 4. Dashboard view state (scoped `MerchantState`, per circuit)
 

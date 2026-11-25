@@ -114,7 +114,7 @@ description: "Task list for the DigiPay UI refresh"
   - focus moves in and is trapped; Escape and Cancel close it; focus returns to the opener;
   - `card-raised` surface, with `btn-danger` and `btn-secondary` buttons.
 - [ ] T026 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/LiveRegion.razor` and `LiveAnnouncer.cs`: a scoped service with `Announce(string text, bool assertive = false)` that renders a visually hidden `aria-live` region.
-- [ ] T027 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/Skeleton.razor` (shapes `line | block | row | card`, count, uses `skeleton`) and `EmptyState.razor` (title, text, an optional action, and an optional `BakuPose` parameter that renders the Baku bubble from `_content/DigiByte.UI/images/mascot/poses/{pose}.webp`).
+- [ ] T027 [P] Copy `support.webp`, `greeting.webp`, `idea.webp` and `thinking.webp` from `src/DigiByte.Web/wwwroot/images/mascot/poses/` to `src/DigiByte.UI/wwwroot/images/mascot/poses/` (copy, don't move; the wallet keeps its own). Create `src/DigiByte.Pay.Web/Components/Shared/Ui/Skeleton.razor` (shapes `line | block | row | card`, count, uses `skeleton`) and `EmptyState.razor` (title, text, an optional action, and an optional `BakuPose` parameter limited to `support | greeting | idea | thinking` that renders the Baku bubble from `_content/DigiByte.UI/images/mascot/poses/{pose}.webp`).
 - [ ] T028 [P] Add `tests/DigiByte.Pay.Web.Tests/CopyButtonTests.cs` (bUnit, mocked JS interop): success raises a success notice; failure selects the text and raises an info notice; there is an accessible name. Add `tests/DigiByte.Pay.Web.Tests/ConfirmDialogTests.cs`: role and label attributes, Cancel and Escape raise `OnCancel`, and Confirm raises `OnConfirm`.
 
 **Checkpoint**: The wallet looks pixel-identical. DigiPay loads `ui.css`, the fonts and the new theme script. The shared wrappers exist and are tested. User stories can start.
@@ -354,7 +354,7 @@ description: "Task list for the DigiPay UI refresh"
 
   Record pass/fail, times and the "looked trustworthy" answers in `specs/032-digipay-ui-refresh/baseline/usability.md`.
 - [ ] T099 Run `dotnet build DigiByte.slnx`, `dotnet test` and `node --test` for both web apps. Then run the full quickstart (Q1–Q9) once more and record the results in `specs/032-digipay-ui-refresh/baseline/timings.md`.
-- [ ] T100 Write the PR description. It flags the new `DigiByte.UI` project (Principle IV, a leaf with no inversion) and states that the wallet's CSP is unchanged. It also attaches the before/after gallery, checkout and dashboard screenshots required by contract C1's change rule.
+- [ ] T100 Write the PR description. It flags the new `DigiByte.UI` project (Principle IV, a leaf with no inversion) and states that the wallet's CSP is unchanged. It lists the sign-in return guard (T055, `ReturnUrlGuard`) as a security-relevant change to sign-in. It also attaches the before/after gallery, checkout and dashboard screenshots required by contract C1's change rule.
 
 ---
 

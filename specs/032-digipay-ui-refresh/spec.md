@@ -138,7 +138,7 @@ Visitors, shoppers and merchants can choose Light, Dark or Match my device, the 
 
 1. **Given** a first visit, **When** any DigiPay page opens, **Then** it follows the device's light/dark setting.
 2. **Given** the person picks Dark, **When** they open any other DigiPay page on that device, **Then** it is dark from the first frame.
-3. **Given** the theme picker, **When** it is shown, **Then** it offers Light, Dark and Match my device as labelled choices (not bare symbols), styled like the wallet's choice pills.
+3. **Given** the theme picker, **When** it is shown, **Then** it offers Light, Dark and Match my device as labelled choices (not bare symbols), styled like the wallet's segmented control.
 4. **Given** a paired POS tablet, **When** the merchant changes the POS theme in POS settings, **Then** the POS screen switches and keeps that choice after a restart.
 
 ---
@@ -270,15 +270,15 @@ A visitor arriving from the wallet sees the same fonts, buttons, cards and motio
 
 - **SC-001**: 100% of DigiPay page types (website, docs, sign-in, every dashboard section, session detail, checkout, receipt, donation page, POS) use the shared building blocks, checked page by page against the wallet's style gallery in light and dark.
 - **SC-002**: 100% of buttons and tap targets meet the wallet's minimum sizes, and 100% of text, field borders and focus outlines meet the contrast levels in the wallet's style guide. This is measured with the same checks the style guide records.
-- **SC-003**: An automated accessibility check reports zero serious or critical findings on every page type.
+- **SC-003**: An automated accessibility check reports zero serious or critical findings on every page type (FR-032).
 - **SC-004**: In a hands-on test with at least five people unfamiliar with DigiPay, every participant completes a checkout payment on a phone (copy address, pay, see "received") without help, and at least four of five say it looked trustworthy.
 - **SC-005**: In the same kind of test with at least five merchants, every participant reaches any named dashboard section in under 10 seconds on desktop and on a phone, and returns to the previous section with the back button.
 - **SC-006**: Every dashboard section can be bookmarked and reopened directly. Every section is reachable within two taps on a phone.
 - **SC-007**: No shopper-facing page shows technical error text in any failure tested: bad link, server unreachable, live updates dropped.
 - **SC-008**: No text overflows its button, badge or menu item, and nothing pushes the layout sideways, at 320px wide.
-- **SC-009**: Every page opens in the chosen theme with no visible flash, verified on a cold load in each of the three theme choices.
+- **SC-009**: Every page opens in the chosen theme with no visible flash, verified on a cold load in each of the three theme choices (FR-027).
 - **SC-010**: All existing DigiPay addresses (dashboard, checkout, receipt, donation page, docs) still open the right page, and existing shop integrations (embed script, WooCommerce plugin, sample stores) still complete a payment unchanged.
-- **SC-011**: On the same throttled mobile connection as FR-013a, measured on a cold load, the checkout's amount and QR code are usable within 2 seconds in at least 95% of test runs, and the median load time is no worse than before the restyle.
+- **SC-011**: On the same throttled mobile connection as FR-013a, measured on a cold load, the checkout's amount and QR code are usable within 2 seconds in at least 95% of test runs, and the median load time is no worse than before the restyle (FR-013a).
 
 ## Assumptions
 
