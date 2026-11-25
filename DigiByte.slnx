@@ -22,4 +22,7 @@
     <Project Path="tests/DigiByte.SpvGateway.Tests/DigiByte.SpvGateway.Tests.csproj" />
     <Project Path="tests/DigiByte.Wallet.Tests/DigiByte.Wallet.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/PriceArchiveImport/PriceArchiveImport.csproj" />
+  </Folder>
 </Solution>
