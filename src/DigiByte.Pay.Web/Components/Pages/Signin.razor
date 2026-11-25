@@ -116,6 +116,9 @@
 </main>
 
 @code {
+    /// <summary>?return= : the dashboard address to open after sign-in (sanitised).</summary>
+    [SupplyParameterFromQuery(Name = "return")] public string? ReturnTo { get; set; }
+
     private ChallengeResponse? challenge;
     private SignedResponse? signed;
     private string? qrDataUrl;
@@ -199,8 +202,9 @@
                     StateHasChanged();
                 });
                 await Task.Delay(1200);
-                await InvokeAsync(async () =>
-                    await JS.InvokeVoidAsync("eval", "window.location.href = '/merchant'"));
+                // Back to where the merchant was going, but only to a local dashboard address
+                // (open-redirect guard, contracts/dashboard-routes.md). A full load picks up the token.
+                await InvokeAsync(() => Nav.NavigateTo(ReturnUrlGuard.Sanitize(ReturnTo), forceLoad: true));
             }
         }
         catch { /* transient — keep polling */ }

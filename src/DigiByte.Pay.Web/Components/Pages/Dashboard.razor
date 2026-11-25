@@ -1,11 +1,13 @@
 @page "/merchant"
+@page "/merchant/{Section}"
+@implements IAsyncDisposable
 @rendermode InteractiveServer
 @inject IHttpClientFactory HttpFactory
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @using System.Net.Http.Json
 
-<PageTitle>@(account?.DisplayName ?? "Dashboard") — DigiPay</PageTitle>
+<PageTitle>@(notFound || storeNotFound ? "Not found" : CurrentSection.Label) · DigiPay</PageTitle>
 
 @* Shared class strings for consistency *@
 @{
@@ -23,7 +25,11 @@
 @if (bootstrapError != null)
 {
     <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-        <div class="@Card text-center"><p class="text-sm text-red-500 m-0">@bootstrapError</p></div>
+        <div class="card p-6 text-center max-w-md flex flex-col gap-3 items-center">
+            <h1 class="block-title">Your dashboard couldn't be loaded</h1>
+            <p class="ui-checkout-muted">Check your connection and try again.</p>
+            <button type="button" class="btn-primary" @onclick="RetryBootstrapAsync">Try again</button>
+        </div>
     </main>
 }
 else if (account == null)
@@ -34,106 +40,71 @@ else if (account == null)
 }
 else
 {
-    <div class="min-h-dvh bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans md:grid md:grid-cols-[240px_1fr]">
-        @* Mobile top bar — uses the public-site brand treatment (logo mark +
-           Digi in default colour + Pay in dgb-500) so returning from the
-           website into the dashboard keeps the same visual identity. *@
-        <header class="md:hidden sticky top-0 z-[15] bg-white dark:bg-dgb-900 border-b border-slate-200 dark:border-dgb-800 px-3 py-2.5 flex items-center gap-2.5 fade-in">
-            <button class="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-dgb-800 rounded-lg transition-colors hover:bg-slate-50 dark:hover:bg-dgb-800"
-                    @onclick="() => sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">
-                <Icon Name="@(sidebarOpen ? "close" : "menu")" Class="w-4 h-4" />
-            </button>
-            <a href="/" class="flex items-center gap-2 font-extrabold text-slate-900 dark:text-white no-underline text-[0.9375rem] tracking-tight">
-                <img src="/digipay-logo.svg" alt="" class="w-7 h-7 shrink-0" />
-                <span>Digi<span class="text-dgb-500">Pay</span></span>
-            </a>
-            <div class="flex-1"></div>
-            <ThemeToggle />
-            <div class="text-right">
-                <div class="text-[0.8125rem] font-semibold truncate max-w-[8rem]">@account.DisplayName</div>
-                <button class="px-2 py-0.5 text-[0.6875rem] font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-dgb-800 rounded transition-colors hover:bg-slate-50 dark:hover:bg-dgb-800"
-                        @onclick="SignOutAsync">Sign out</button>
-            </div>
-        </header>
-
-        @* Mobile backdrop *@
-        <div class="md:hidden fixed inset-0 bg-black/50 z-10 @(sidebarOpen ? "block" : "hidden")" @onclick="() => sidebarOpen = false"></div>
-
-        @* Sidebar *@
-        <aside class="bg-white dark:bg-dgb-900 border-r border-slate-200 dark:border-dgb-800 md:sticky md:top-0 md:self-start md:h-dvh md:z-20 fixed left-0 top-0 bottom-0 w-64 z-20 transition-transform flex flex-col gap-1 p-5 md:p-3 @(sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full") md:translate-x-0 md:shadow-none">
-            @* Brand mark — matches the public-site SiteNav so the dashboard
-               reads as the same product, not a separate app. Uses the
-               DigiPay logo directly (it already renders as a rounded tile). *@
-            <a href="/" class="flex items-center gap-2 pb-3 mb-2 border-b border-slate-200 dark:border-dgb-800 font-extrabold text-slate-900 dark:text-white no-underline text-[0.9375rem] tracking-tight">
-                <img src="/digipay-logo.svg" alt="" class="w-7 h-7 shrink-0" />
+    <div class="dp-shell">
+        @* Wide screens (1024px and up): a left rail with every section, like the wallet's
+           wide-screen menu (FR-016). Phones and tablets get the top bar + bottom menu below. *@
+        <aside class="dp-rail" aria-label="Dashboard">
+            <a href="/" class="dp-brand">
+                <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
                 <span>Digi<span class="text-dgb-500">Pay</span></span>
             </a>
 
-            @* Store switcher — visible only when the account has at least one store *@
-            @if (stores.Count > 0)
-            {
-                <div class="mb-2">
-                    <label class="@Eyebrow block mb-1 px-1">Active store</label>
-                    <select class="@Input text-[0.8125rem] py-1.5" @bind="activeStoreId" @bind:after="OnActiveStoreChangedAsync">
-                        @foreach (var s in stores)
-                        {
-                            <option value="@s.Id">@s.Name</option>
-                        }
-                    </select>
-                </div>
-            }
+            @StoreSwitcher("rail")
 
-            <nav class="flex flex-col gap-0.5 flex-1">
-                @foreach (var tab in tabs)
+            <nav aria-label="Sections" class="dp-rail-nav">
+                @foreach (var sec in DashboardSections.All)
                 {
-                    var t = tab;
-                    var active = activeTab == t.Key;
-                    <button class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors @(active ? "bg-dgb-500/10 text-dgb-500 font-semibold" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white")"
-                            @onclick="() => SwitchTab(t.Key)">
-                        <Icon Name="@t.Icon" Class="w-4 h-4 shrink-0" />
-                        @t.Label
-                    </button>
+                    <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)">
+                        <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" />
+                        <span>@sec.Label</span>
+                    </a>
                 }
             </nav>
 
-            @* External resources — open in new tab so the merchant keeps their session /
-               scroll position on whichever dashboard tab they were reading. *@
-            <div class="border-t border-slate-200 dark:border-dgb-800 pt-3 mt-3 flex flex-col gap-0.5">
-                <div class="@Eyebrow px-3 mb-1">Resources</div>
-                <a href="/docs" target="_blank" rel="noopener"
-                   class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white no-underline transition-colors">
-                    <Icon Name="book" Class="w-4 h-4 shrink-0" />
-                    <span class="flex-1">How it works</span>
-                    <Icon Name="external-link" Class="w-3 h-3 shrink-0 opacity-60" />
-                </a>
-                <a href="/docs/api" target="_blank" rel="noopener"
-                   class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white no-underline transition-colors">
-                    <Icon Name="code" Class="w-4 h-4 shrink-0" />
-                    <span class="flex-1">API reference</span>
-                    <Icon Name="external-link" Class="w-3 h-3 shrink-0 opacity-60" />
-                </a>
-                <a href="/embed/demo.html" target="_blank" rel="noopener"
-                   class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-dgb-800 hover:text-slate-900 dark:hover:text-white no-underline transition-colors">
-                    <Icon Name="gift" Class="w-4 h-4 shrink-0" />
-                    <span class="flex-1">Embed demo</span>
-                    <Icon Name="external-link" Class="w-3 h-3 shrink-0 opacity-60" />
-                </a>
+            <div class="dp-rail-group">
+                <p class="section-label px-3">Resources</p>
+                @ResourceLinks
             </div>
 
-            <div class="border-t border-slate-200 dark:border-dgb-800 pt-3 mt-3 flex flex-col gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <div>@account.DisplayName</div>
-                @if (!string.IsNullOrEmpty(account.DigiIdAddress))
-                {
-                    <div class="font-mono text-[0.625rem]">@(account.DigiIdAddress.Length > 14 ? account.DigiIdAddress[..8] + "…" + account.DigiIdAddress[^4..] : account.DigiIdAddress)</div>
-                }
-                <div class="flex gap-1.5 items-stretch mt-1">
-                    <button class="@BtnGhost flex-1 text-xs py-2" @onclick="SignOutAsync">Sign out</button>
+            <div class="dp-rail-group">
+                <div class="px-3">
+                    <p class="text-sm font-semibold truncate">@account.DisplayName</p>
+                    @if (!string.IsNullOrEmpty(account.DigiIdAddress))
+                    {
+                        <p class="font-mono text-xs ui-checkout-muted">@(account.DigiIdAddress.Length > 14 ? account.DigiIdAddress[..8] + "…" + account.DigiIdAddress[^4..] : account.DigiIdAddress)</p>
+                    }
+                </div>
+                <div class="flex gap-2 items-center px-3 pt-2">
+                    <button type="button" class="btn-secondary btn-sm flex-1" @onclick="SignOutAsync">
+                        <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
+                    </button>
                     <ThemeToggle />
                 </div>
             </div>
         </aside>
 
-        <main class="p-4 sm:p-8 max-w-5xl box-border page-enter">
+        @* Phones and tablets: a slim top bar (brand, account). Sections live in the bottom menu. *@
+        <header class="dp-topbar">
+            <a href="/" class="dp-brand">
+                <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
+                <span>Digi<span class="text-dgb-500">Pay</span></span>
+            </a>
+            <div class="flex-1"></div>
+            <span class="text-sm font-semibold truncate max-w-[9rem]">@account.DisplayName</span>
+        </header>
+
+        <main class="dp-main @(CurrentSection.Narrow && !notFound && !storeNotFound ? "dp-main-narrow" : "") page-enter">
+            @if (notFound || storeNotFound)
+            {
+                <div class="card p-6 flex flex-col gap-3 items-start">
+                    <h1 class="page-title">Page not found</h1>
+                    <p class="ui-checkout-muted">@(storeNotFound ? "That store isn't one of yours, or it no longer exists." : "There's no dashboard page at this address.")</p>
+                    <a href="/merchant" class="btn-primary btn-sm">Back to Overview</a>
+                </div>
+            }
+            else
+            {
+            <div class="contents">
             @if (activeStore is null)
             {
                 <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">No stores</h1></div>
@@ -170,21 +141,60 @@ else
                     </div>
 
                     <section class="@Card scale-in-delay-2">
-                        <h2 class="@H2">New session</h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <input @bind="newAmount" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="@Input" />
-                            <input @bind="newLabel" placeholder="Label" class="@Input" />
-                            <input @bind="newMemo" placeholder="Memo / invoice #" class="@Input" />
+                        <h2 class="@H2">New payment</h2>
+                        <p class="@Muted m-0">Create a payment and show its QR code to your customer.</p>
+                        <a href="@HrefFor(DashboardSections.ForKey("new"))" class="btn-primary self-start"><Icon Name="plus" Class="w-4 h-4" /><span>New payment</span></a>
+                    </section>
+                }
+            }
+            else if (activeTab == "new")
+            {
+                <div class="flex items-center gap-2 mb-1 slide-up">
+                    <a href="@HrefFor(DashboardSections.ForKey("overview"))" class="back-btn" aria-label="Back to Overview"><Icon Name="arrow-left" Class="w-5 h-5" /></a>
+                    <h1 class="@H1">New payment</h1>
+                </div>
+                <p class="@Muted mb-6 slide-up-delay-1">For <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>. Your customer scans the code or opens the link to pay.</p>
+
+                @if (!activeStore.HasReceive)
+                {
+                    @* FR-023: say why payments can't be created yet and go straight to the fix. *@
+                    <div class="ui-banner ui-banner-warning mb-4">
+                        <Icon Name="alert" Class="" />
+                        <p>This store can't take payments yet: it has no DigiByte address or xpub to receive to. Add one in Settings first.</p>
+                    </div>
+                    <a href="@HrefFor(DashboardSections.ForKey("settings"))" class="btn-primary">Go to Settings</a>
+                }
+                else
+                {
+                    <section class="@Card scale-in-delay-1">
+                        <div class="field">
+                            <label class="field-label" for="np-amount">Amount (DGB)</label>
+                            <input id="np-amount" @bind="newAmount" type="number" inputmode="decimal" step="0.00000001" min="0" placeholder="0.00" class="input" />
                         </div>
-                        <button class="@Btn" @onclick="CreateSessionAsync" disabled="@(busy || newAmount <= 0)">
-                            @(busy ? "Creating…" : "Create session")
+                        <div class="field">
+                            <label class="field-label" for="np-label">Label <span class="font-normal opacity-70">(optional)</span></label>
+                            <input id="np-label" @bind="newLabel" placeholder="What it's for" class="input" />
+                        </div>
+                        <div class="field">
+                            <label class="field-label" for="np-memo">Memo or invoice number <span class="font-normal opacity-70">(optional)</span></label>
+                            <input id="np-memo" @bind="newMemo" class="input" />
+                        </div>
+                        <button class="btn-primary w-full" @onclick="CreateSessionAsync" disabled="@(busy || newAmount <= 0)" aria-busy="@(busy ? "true" : null)">
+                            @(busy ? "Creating…" : "Create payment")
                         </button>
-                        @if (createError != null) { <p class="text-xs text-red-500 m-0">@createError</p> }
+                        @if (createError != null) { <p class="field-error" role="alert">@createError</p> }
                         @if (createdSession != null)
                         {
-                            <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg p-3 flex flex-col gap-1">
-                                <div class="@Eyebrow">Checkout URL</div>
-                                <a href="@createdSession.CheckoutUrl" target="_blank" class="font-mono text-[0.6875rem] text-emerald-700 dark:text-emerald-300 break-all underline">@createdSession.CheckoutUrl</a>
+                            <div class="ui-banner ui-banner-info flex-col items-stretch">
+                                <p class="font-semibold">Payment created</p>
+                                <div class="ui-checkout-copyrow">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="section-label">Checkout link</p>
+                                        <p id="np-link" class="ui-checkout-address">@createdSession.CheckoutUrl</p>
+                                    </div>
+                                    <CopyButton Value="@createdSession.CheckoutUrl" Label="Copy checkout link" TargetId="np-link" SuccessText="Link copied" Variant="icon" />
+                                </div>
+                                <a href="@createdSession.CheckoutUrl" target="_blank" rel="noopener" class="btn-secondary btn-sm">Open the checkout <span class="sr-only">(opens in a new tab)</span></a>
                             </div>
                         }
                     </section>
@@ -231,7 +241,7 @@ else
                                 @* Click opens the merchant detail page (timeline + webhook log);
                                    checkoutUrl is available from the detail page's Links card. *@
                                 <li>
-                                    <a href="@($"/merchant/sessions/{s.Id}")"
+                                    <a href="@($"/merchant/sessions/{s.Id}?back={Uri.EscapeDataString(HrefFor(DashboardSections.ForKey("sessions")))}")"
                                        class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 p-3 border border-slate-200 dark:border-dgb-800 rounded-lg no-underline text-inherit hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
                                         <div class="min-w-0">
                                             <div class="font-bold text-[0.9375rem] tabular-nums flex items-center gap-1.5 flex-wrap">
@@ -894,36 +904,197 @@ else
                     @if (ddError != null) { <p class="text-xs text-red-500 m-0">@ddError</p> }
                 </section>
             }
+            </div>
+            }
         </main>
+
+        @* Phones and tablets: the wallet-style bottom menu (FR-017). The raised middle button
+           starts a new payment; More opens a sheet with every other section. *@
+        <nav class="dp-bottom" aria-label="Main sections">
+            @foreach (var sec in DashboardSections.BottomMenu)
+            {
+                <a href="@HrefFor(sec)" class="@(sec.Raised ? "dp-bottom-raised" : "dp-bottom-item")" aria-current="@(IsCurrent(sec) ? "page" : null)">
+                    <span class="dp-bottom-icon"><Icon Name="@sec.Icon" Class="w-5 h-5" /></span>
+                    <span class="dp-bottom-label">@sec.Label</span>
+                </a>
+            }
+            <button type="button" class="dp-bottom-item" aria-haspopup="dialog" aria-expanded="@(moreOpen ? "true" : "false")"
+                    aria-current="@(DashboardSections.More.Any(IsCurrent) ? "page" : null)" @onclick="OpenMore">
+                <span class="dp-bottom-icon"><Icon Name="more" Class="w-5 h-5" /></span>
+                <span class="dp-bottom-label">More</span>
+            </button>
+        </nav>
+
+        @if (moreOpen)
+        {
+            <div class="dp-sheet-overlay" @onclick="CloseMore">
+                <div id="dp-more-sheet" class="card-raised dp-sheet" role="dialog" aria-modal="true" aria-labelledby="dp-more-title" @onclick:stopPropagation="true">
+                    <div class="dp-sheet-head">
+                        <h2 id="dp-more-title" class="block-title">More</h2>
+                        <button type="button" class="icon-btn" aria-label="Close" data-autofocus @onclick="CloseMore"><Icon Name="close" Class="w-5 h-5" /></button>
+                    </div>
+                    @StoreSwitcher("sheet")
+                    <nav aria-label="More sections" class="dp-sheet-list">
+                        @foreach (var sec in DashboardSections.More)
+                        {
+                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)" @onclick="CloseMore">
+                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" />
+                                <span>@sec.Label</span>
+                            </a>
+                        }
+                    </nav>
+                    <div class="dp-rail-group">
+                        <p class="section-label px-3">Resources</p>
+                        @ResourceLinks
+                    </div>
+                    <div class="flex gap-2 items-center pt-3">
+                        <button type="button" class="btn-secondary btn-sm flex-1" @onclick="SignOutAsync">
+                            <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
+                        </button>
+                        <ThemeToggle />
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 }
 
 @code {
-    private record TabDef(string Key, string Label, string Icon);
-    private readonly TabDef[] tabs = new[]
-    {
-        new TabDef("overview",  "Overview",        "dashboard"),
-        new TabDef("analytics", "Analytics",       "chart"),
-        new TabDef("sessions",  "Sessions",        "list"),
-        new TabDef("links",     "Payment links",   "link"),
-        new TabDef("donation",  "Donation button", "gift"),
-        new TabDef("webhook",   "Webhook",         "bell"),
-        new TabDef("stores",    "Stores",          "store"),
-        new TabDef("apikeys",   "API keys",        "key"),
-        new TabDef("audit",     "Audit log",       "history"),
-        new TabDef("pos",       "POS mode",        "zap"),
-        new TabDef("settings",  "Settings",        "settings"),
-    };
-    private string activeTab = "overview";
-    private bool sidebarOpen;
+    // ----- Sections and addresses (spec 032, US2; contracts/dashboard-routes.md) -----
+    // Every section has its own address (/merchant/{Section}). Moving between sections is real
+    // navigation, so bookmarks and the back and forward buttons work (FR-014, FR-015). Blazor
+    // keeps this component alive across sections, so the merchant, stores and lists stay loaded.
 
+    [Parameter] public string? Section { get; set; }
+    [SupplyParameterFromQuery(Name = "store")] public string? StoreParam { get; set; }
+
+    private string activeTab = "overview";
+    private bool notFound;
+    private bool storeNotFound;
+    private bool moreOpen;
+    private DotNetObjectReference<Dashboard>? selfRef;
+
+    private DashboardSection CurrentSection => DashboardSections.ForKey(activeTab);
+    private bool IsCurrent(DashboardSection sec) => !notFound && !storeNotFound && sec.Key == activeTab;
+
+    /// <summary>The section's address, keeping the chosen store when the merchant has several.</summary>
+    private string HrefFor(DashboardSection sec) =>
+        stores.Count > 1 && !string.IsNullOrEmpty(activeStoreId)
+            ? $"{sec.Href}?store={Uri.EscapeDataString(activeStoreId)}"
+            : sec.Href;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var sec = DashboardSections.ForSlug(Section);
+        notFound = sec is null;
+        if (sec is null) return;
+        var changed = activeTab != sec.Key;
+        activeTab = sec.Key;
+        moreOpen = false;
+        if (account is null) return; // bootstrap applies the section and store once loaded
+        // POS: reload the paired devices on each visit so revoked ones fall off.
+        if (changed && sec.Key == "pos") _ = LoadPosDevicesAsync();
+        await ApplyStoreParamAsync();
+    }
+
+    /// <summary>Uses the store named in the address (bookmarks, shared links).</summary>
+    private async Task ApplyStoreParamAsync()
+    {
+        storeNotFound = false;
+        if (string.IsNullOrEmpty(StoreParam) || StoreParam == activeStoreId) return;
+        if (stores.Any(s => s.Id == StoreParam))
+        {
+            activeStoreId = StoreParam;
+            await OnActiveStoreChangedAsync();
+        }
+        else
+        {
+            // Never show another merchant's store, or hint that it exists: not found.
+            storeNotFound = true;
+        }
+    }
+
+    /// <summary>Goes to a section (in-page buttons such as "Go to Settings").</summary>
     private void SwitchTab(string key)
     {
-        activeTab = key;
-        sidebarOpen = false;
-        // POS tab: lazy-load the paired-device list on first entry and
-        // whenever we come back, so freshly-revoked devices fall off.
-        if (key == "pos") _ = LoadPosDevicesAsync();
+        moreOpen = false;
+        Nav.NavigateTo(HrefFor(DashboardSections.ForKey(key)));
+    }
+
+    private async Task OpenMore()
+    {
+        moreOpen = true;
+        StateHasChanged();
+        await Task.Yield();
+        selfRef ??= DotNetObjectReference.Create(this);
+        try { await JS.InvokeVoidAsync("digipayDialog.open", "dp-more-sheet", selfRef); } catch (JSException) { }
+    }
+
+    private async Task CloseMore()
+    {
+        if (!moreOpen) return;
+        moreOpen = false;
+        try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-more-sheet"); } catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+
+    [JSInvokable]
+    public async Task OnEscape()
+    {
+        await CloseMore();
+        StateHasChanged();
+    }
+
+    private async Task RetryBootstrapAsync()
+    {
+        bootstrapError = null;
+        StateHasChanged();
+        await BootstrapAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (moreOpen)
+        {
+            try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-more-sheet"); } catch { }
+        }
+        selfRef?.Dispose();
+    }
+
+    private RenderFragment StoreSwitcher(string where) => __builder =>
+    {
+        if (stores.Count > 0)
+        {
+            <div class="field px-1 pb-2">
+                <label class="field-label" for="@("store-switch-" + where)">Active store</label>
+                <select id="@("store-switch-" + where)" class="input" @bind="activeStoreId" @bind:after="OnStoreSwitchedAsync">
+                    @foreach (var st in stores)
+                    {
+                        <option value="@st.Id">@st.Name</option>
+                    }
+                </select>
+            </div>
+        }
+    };
+
+    private RenderFragment ResourceLinks => __builder =>
+    {
+        <a href="/docs" target="_blank" rel="noopener" class="dp-rail-item">
+            <Icon Name="book" Class="w-5 h-5 shrink-0" /><span class="flex-1">How it works</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+        <a href="/docs/api" target="_blank" rel="noopener" class="dp-rail-item">
+            <Icon Name="code" Class="w-5 h-5 shrink-0" /><span class="flex-1">API reference</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+        <a href="/embed/demo.html" target="_blank" rel="noopener" class="dp-rail-item">
+            <Icon Name="gift" Class="w-5 h-5 shrink-0" /><span class="flex-1">Embed demo</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+    };
+
+    /// <summary>The store switcher changed: reload that store and put it in the address.</summary>
+    private async Task OnStoreSwitchedAsync()
+    {
+        moreOpen = false;
+        await OnActiveStoreChangedAsync();
+        Nav.NavigateTo(HrefFor(CurrentSection), replace: true);
     }
 
     private string? token;
@@ -1016,28 +1187,51 @@ else
     private bool busy;
     private bool loadingSessions;
 
+    [Inject] private ILogger<Dashboard> Log { get; set; } = default!;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || account != null || bootstrapError != null) return;
+        await BootstrapAsync();
+    }
+
+    /// <summary>Signed-out visitors go to Digi-ID sign-in and come back to this exact address.</summary>
+    private void GoToSignIn()
+    {
+        var here = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        Nav.NavigateTo($"/merchant/signin?return={Uri.EscapeDataString(ReturnUrlGuard.Sanitize(here))}");
+    }
+
+    private async Task BootstrapAsync()
+    {
         try
         {
             token = await JS.InvokeAsync<string?>("localStorage.getItem", "digipay-token");
             if (string.IsNullOrEmpty(token))
             {
-                Nav.NavigateTo("/merchant/signin");
+                GoToSignIn();
                 return;
             }
             await LoadAccountAsync();
             if (account is not null && stores.Count > 0)
             {
-                activeStoreId = stores[0].Id;
+                // The store in the address wins (bookmarks, shared links); otherwise the first one.
+                activeStoreId = !string.IsNullOrEmpty(StoreParam) && stores.Any(s => s.Id == StoreParam) ? StoreParam : stores[0].Id;
+                storeNotFound = !string.IsNullOrEmpty(StoreParam) && StoreParam != activeStoreId;
                 await LoadActiveStoreContextAsync();
             }
             // Account-scoped (not store-scoped), load once at bootstrap.
             await LoadApiKeysAsync();
+            if (activeTab == "pos") await LoadPosDevicesAsync();
             StateHasChanged();
         }
-        catch (Exception ex) { bootstrapError = ex.Message; StateHasChanged(); }
+        catch (Exception ex)
+        {
+            // Details to the server log; the page shows a plain message with Try again.
+            Log.LogWarning(ex, "Dashboard bootstrap failed");
+            bootstrapError = "load-failed";
+            StateHasChanged();
+        }
     }
 
     private int CountBy(params string[] statuses) =>
@@ -1057,7 +1251,7 @@ else
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
-            Nav.NavigateTo("/merchant/signin");
+            GoToSignIn();
             return;
         }
         response.EnsureSuccessStatusCode();

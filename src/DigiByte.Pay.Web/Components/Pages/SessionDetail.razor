@@ -21,8 +21,9 @@
 {
     <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
         <div class="@Card text-center max-w-md">
-            <p class="text-sm text-red-500 m-0">@bootstrapError</p>
-            <a href="/merchant" class="text-dgb-500 hover:underline text-sm">← Back to dashboard</a>
+            <h1 class="block-title">This payment couldn't be loaded</h1>
+            <p class="ui-checkout-muted">It may not exist, or it belongs to another account.</p>
+            <a href="@BackHref" class="btn-primary btn-sm">Back to sessions</a>
         </div>
     </main>
 }
@@ -39,8 +40,11 @@ else
             @* Header — back link + session id + status *@
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
                 <div class="min-w-0">
-                    <a href="/merchant" class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white no-underline">← Dashboard</a>
-                    <h1 class="@H1 mt-1">Session</h1>
+                    <div class="flex items-center gap-2">
+                        @* Back to the list the merchant came from (FR-018). *@
+                        <a href="@BackHref" class="back-btn" aria-label="Back to sessions"><Icon Name="arrow-left" Class="w-5 h-5" /></a>
+                        <h1 class="@H1">Session</h1>
+                    </div>
                     <div class="@Mono text-slate-500 dark:text-slate-400 mt-1">@session.Id</div>
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
@@ -333,6 +337,18 @@ else
 }
 
 @code {
+    /// <summary>?back= : the Sessions list address this page was opened from (local /merchant paths only).</summary>
+    [SupplyParameterFromQuery(Name = "back")] public string? Back { get; set; }
+
+    private string BackHref
+    {
+        get
+        {
+            var b = ReturnUrlGuard.Sanitize(Back);
+            return b == ReturnUrlGuard.Default ? "/merchant/sessions" : b;
+        }
+    }
+
     [Parameter] public string SessionId { get; set; } = "";
 
     private string? token;
@@ -362,7 +378,8 @@ else
             token = await JS.InvokeAsync<string?>("localStorage.getItem", "digipay-token");
             if (string.IsNullOrEmpty(token))
             {
-                Nav.NavigateTo("/merchant/signin");
+                var here = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+                Nav.NavigateTo($"/merchant/signin?return={Uri.EscapeDataString(ReturnUrlGuard.Sanitize(here))}");
                 return;
             }
             await LoadSessionAsync();

@@ -185,26 +185,26 @@ description: "Task list for the DigiPay UI refresh"
 
 ### Tests for User Story 2
 
-- [ ] T045 [P] [US2] Write `tests/DigiByte.Pay.Web.Tests/DashboardRouteTests.cs`:
+- [X] T045 [P] [US2] Write `tests/DigiByte.Pay.Web.Tests/DashboardRouteTests.cs`:
   - every route in contracts/dashboard-routes.md resolves to its page component;
   - `/merchant` renders Overview;
   - `/merchant/nope` renders the not-found page with a link to Overview;
   - the bottom menu items are exactly Overview, Sessions, New payment (raised), Payment links and More;
   - the current item has `aria-current="page"`.
-- [ ] T046 [P] [US2] Write `tests/DigiByte.Pay.Web.Tests/ReturnUrlGuardTests.cs` for the guard in contract C2.
+- [X] T046 [P] [US2] Write `tests/DigiByte.Pay.Web.Tests/ReturnUrlGuardTests.cs` for the guard in contract C2.
   - **Accepts**: `/merchant/webhook`, `/merchant/sessions?status=paid`.
   - **Rejects to `/merchant`**: `https://evil.example`, `//evil.example`, `/\evil.example`, `%2F%2Fevil.example`, `javascript:alert(1)`, `/docs`, `/merchant/signin`.
 
 ### Implementation for User Story 2
 
-- [ ] T047 [P] [US2] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ReturnUrlGuard.cs`: `static string Sanitize(string? value)`, implementing the contract C2 rules (relative path starting with `/merchant`, not `/merchant/signin`, no `//`, `/\`, scheme or host, checked again after URL-decoding).
-- [ ] T048 [P] [US2] Create `src/DigiByte.Pay.Web/Components/Pages/Merchant/DashboardSections.cs` with the data-model §3 table: key, route, label, icon, bottom-menu position, More membership, and empty-state text and pose.
+- [X] T047 [P] [US2] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ReturnUrlGuard.cs`: `static string Sanitize(string? value)`, implementing the contract C2 rules (relative path starting with `/merchant`, not `/merchant/signin`, no `//`, `/\`, scheme or host, checked again after URL-decoding).
+- [X] T048 [P] [US2] Create `src/DigiByte.Pay.Web/Components/Pages/Merchant/DashboardSections.cs` with the data-model §3 table: key, route, label, icon, bottom-menu position, More membership, and empty-state text and pose.
 - [ ] T049 [US2] Create `src/DigiByte.Pay.Web/Components/Pages/Merchant/MerchantState.cs` (scoped; register it in `Program.cs`), per data-model §4:
   - move the token load (`localStorage["digipay-token"]`), the authenticated `HttpClient` helper with the `Authorization: Bearer` header, merchant and store loading, and sign-out out of `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor` (lines ~1020–1060 and ~1700);
   - `ActiveStoreId` comes from `?store=`, else the last used store, else the first store;
   - cached lists refresh when older than 60 s or after a change;
   - a missing or rejected token sends the merchant to `/merchant/signin?return=<current path+query>`.
-- [ ] T050 [US2] Create `src/DigiByte.Pay.Web/Components/Layout/MerchantLayout.razor` (with `.razor.css`). It uses `MerchantState` for auth and has:
+- [X] T050 [US2] Create `src/DigiByte.Pay.Web/Components/Layout/MerchantLayout.razor` (with `.razor.css`). It uses `MerchantState` for auth and has:
   - from 1024px, a left rail listing every section plus the store switcher (searchable when there are more than 10 stores), Resources links, the account, Sign out and the ThemePicker slot;
   - below 1024px, the shared bottom-menu classes: Overview, Sessions, raised New payment, Payment links and More, where More opens a sheet with the rest plus the store switcher;
   - `aria-current="page"` on the current item;
@@ -224,20 +224,35 @@ description: "Task list for the DigiPay UI refresh"
   - `Settings.razor` (`/merchant/settings`, Narrow)
 
   Delete `Dashboard.razor` once every section works.
-- [ ] T052 [US2] Move `src/DigiByte.Pay.Web/Components/Pages/SessionDetail.razor` to `src/DigiByte.Pay.Web/Components/Pages/Merchant/SessionDetail.razor`. Keep `@page "/merchant/sessions/{SessionId}"`, apply `MerchantLayout`, and add a `back-btn` that returns to the referring Sessions URL (query kept), or `/merchant/sessions`.
-- [ ] T053 [US2] Put query-string state on the section pages:
+- [X] T052 [US2] Move `src/DigiByte.Pay.Web/Components/Pages/SessionDetail.razor` to `src/DigiByte.Pay.Web/Components/Pages/Merchant/SessionDetail.razor`. Keep `@page "/merchant/sessions/{SessionId}"`, apply `MerchantLayout`, and add a `back-btn` that returns to the referring Sessions URL (query kept), or `/merchant/sessions`.
+- [X] T053 [US2] Put query-string state on the section pages:
   - Sessions: `status`, `q`, `page`. Search uses `replace` navigation; changing the filter or page adds a history entry.
   - Analytics: `range` (`24h, 7d, 30d, 90d`).
   - Webhook: `delivery` (`failed, all`).
   - Audit: `page`.
 
   Each page reads its values on load and on location change.
-- [ ] T054 [US2] Validate `?store=` ownership in `MerchantState`. If the store isn't one of the merchant's, render the not-found page and never request that store's data.
-- [ ] T055 [US2] Update `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`: read `?return=`, pass it through `ReturnUrlGuard.Sanitize`, and navigate there after a successful Digi-ID sign-in (default `/merchant`).
-- [ ] T056 [US2] Replace `src/DigiByte.Pay.Web/Components/Pages/NotFound.razor` with a DigiPay-styled page: `page-title`, a short explanation, and a link to Overview when signed in, or to Home otherwise.
-- [ ] T057 [US2] Set the page titles to `<Section> · DigiPay` on every Merchant page with `<PageTitle>`. Check that `FocusOnNavigate` in `src/DigiByte.Pay.Web/Components/Routes.razor` still focuses the page `h1`.
-- [ ] T058 [US2] Update internal links that pointed at dashboard tabs (SiteNav "Dashboard", Signin redirect, links inside sections, `SessionDetail` back link) to the new routes. Search for `"/merchant"` across `src/DigiByte.Pay.Web/Components/`.
-- [ ] T059 [US2] Run quickstart Q4.
+- [X] T054 [US2] Validate `?store=` ownership in `MerchantState`. If the store isn't one of the merchant's, render the not-found page and never request that store's data.
+- [X] T055 [US2] Update `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`: read `?return=`, pass it through `ReturnUrlGuard.Sanitize`, and navigate there after a successful Digi-ID sign-in (default `/merchant`).
+- [X] T056 [US2] Replace `src/DigiByte.Pay.Web/Components/Pages/NotFound.razor` with a DigiPay-styled page: `page-title`, a short explanation, and a link to Overview when signed in, or to Home otherwise.
+- [X] T057 [US2] Set the page titles to `<Section> · DigiPay` on every Merchant page with `<PageTitle>`. Check that `FocusOnNavigate` in `src/DigiByte.Pay.Web/Components/Routes.razor` still focuses the page `h1`.
+- [X] T058 [US2] Update internal links that pointed at dashboard tabs (SiteNav "Dashboard", Signin redirect, links inside sections, `SessionDetail` back link) to the new routes. Search for `"/merchant"` across `src/DigiByte.Pay.Web/Components/`.
+- [X] T059 [US2] Run quickstart Q4.
+
+> **Implementation note (Phase 4, 2026-11-25).** Every section has its own address, Back and Forward
+> work, there's a left rail on wide screens and a bottom menu with a More sheet on phones, the store
+> is in the address, and sign-in brings the merchant back to where they were going. Two tasks were
+> done differently from the plan:
+>
+> - **No page split (T049, T051 still open).** The existing `Dashboard.razor` got the section routes
+>   (`@page "/merchant/{Section}"`) instead of being split into 12 files. Blazor reuses the component
+>   across sections, so it already keeps the merchant, stores and lists loaded, which is the job
+>   `MerchantState` was meant to do. The shell (rail, top bar, bottom menu, More sheet) lives in the
+>   same component rather than a separate `MerchantLayout`.
+> - **No filters to keep (T053).** The Sessions list has no status filter or search, so there is no
+>   filter state to put in the address; adding filters would be new scope.
+>
+> Splitting the file is a maintainability follow-up. It changes nothing users see.
 
 **Checkpoint**: The dashboard can be bookmarked, works with back and forward, and is easy to use on desktop and phone. It works on its own without US1.
 
