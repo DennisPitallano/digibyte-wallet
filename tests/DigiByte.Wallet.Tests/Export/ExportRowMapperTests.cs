@@ -163,6 +163,59 @@ public class ExportRowMapperTests
         Assert.Equal("TDcounterparty", row.CounterpartyAddress);
     }
 
+    // ── Names and labels (US5, FR-015) ──
+
+    [Fact]
+    public void Name_IsTheContactsName_ForTheCounterparty()
+    {
+        var row = ExportRowMapper.FromRecord(Record(TransactionDirection.Received, 1), Manila,
+            nameOf: a => string.Equals(a, "dq4COUNTERPARTY", StringComparison.OrdinalIgnoreCase) ? "Customer – Alice" : null);
+        Assert.Equal("Customer – Alice", row.Name);
+    }
+
+    [Fact]
+    public void Name_FallsBackToTheNameRecordedWithTheTransaction()
+    {
+        var record = Record(TransactionDirection.Received, 1);
+        record.CounterpartyName = "Savings wallet";
+        Assert.Equal("Savings wallet", ExportRowMapper.FromRecord(record, Manila, nameOf: _ => null).Name);
+    }
+
+    [Fact]
+    public void NoName_IsAnEmptyCell_NeverAPlaceholder()
+    {
+        var row = ExportRowMapper.FromRecord(Record(TransactionDirection.Received, 1), Manila, nameOf: _ => null);
+        Assert.Null(row.Name);
+        var line = TransactionCsvWriter.Write([row], CsvFormat.ForDecimalMark("."), CsvWords.English, "USD", PriceBasis.Native)
+            .TrimStart('﻿').Split("\r\n")[1];
+        Assert.Contains(",6,,DQ4counterparty,", line);   // Confirmations, empty Name, Counterparty
+    }
+
+    [Fact]
+    public void WalletAddress_CarriesItsLabel()
+    {
+        var row = ExportRowMapper.FromRecord(Record(TransactionDirection.Received, 1), Manila,
+            walletLabelOf: a => a == "dgb1qmine" ? "Shop till" : null);
+        Assert.Equal("Shop till (dgb1qmine)", row.WalletAddress);
+    }
+
+    [Fact]
+    public void DdName_IsTheContactsName()
+    {
+        var row = ExportRowMapper.FromDd(Dd(DdDirection.Received, 100, feeSats: null), Manila,
+            nameOf: a => a == "TDcounterparty" ? "Supplier" : null);
+        Assert.Equal("Supplier", row.Name);
+    }
+
+    [Fact]
+    public void AFormulaLikeName_IsWrittenAsText()
+    {
+        var row = ExportRowMapper.FromRecord(Record(TransactionDirection.Received, 1), Manila, nameOf: _ => "@SUM(1)");
+        var line = TransactionCsvWriter.Write([row], CsvFormat.ForDecimalMark("."), CsvWords.English, "USD", PriceBasis.Native)
+            .TrimStart('﻿').Split("\r\n")[1];
+        Assert.Contains(",'@SUM(1),", line);
+    }
+
     // ── Addresses and note ──
 
     [Fact]

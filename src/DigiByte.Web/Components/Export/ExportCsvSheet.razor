@@ -7,6 +7,9 @@
 @inject IJSRuntime JS
 @inject LocalizationService L
 @inject NotificationService Notifications
+@inject WalletService WalletService
+@inject ContactService ContactService
+@inject AddressLabelService LabelService
 @implements IDisposable
 
 @if (IsOpen)
@@ -228,6 +231,7 @@
                 total = p.Total;
                 _ = InvokeAsync(StateHasChanged);
             });
+            var (names, labels) = await LookupsAsync();
             var env = new ExportEnvironment
             {
                 DecimalMark = decimalMark,
@@ -235,6 +239,8 @@
                 TimeZone = TimeZoneInfo.Local,
                 Now = DateTimeOffset.Now,
                 FiatCurrency = AppState.FiatCurrency,
+                NameOf = a => names.TryGetValue(a, out var n) ? n : null,
+                WalletLabelOf = a => labels.TryGetValue(DigiByte.Wallet.Services.AddressKey.Normalize(a), out var l) ? l : null,
             };
             var result = await Exporter.ExportAsync(Request, env, progress, token);
             await HandleAsync(result);
@@ -282,6 +288,33 @@
         message = text;
         messageIsError = error;
         offerRetry = retry;
+    }
+
+    /// <summary>
+    /// Contact and own-wallet names by address, and the labels of the wallet's own addresses (FR-015): the same sources Activity
+    /// uses. Optional: when either can't be read, those cells stay empty and the export still runs.
+    /// </summary>
+    private async Task<(Dictionary<string, string> Names, IReadOnlyDictionary<string, string> Labels)> LookupsAsync()
+    {
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, string> labels = new Dictionary<string, string>();
+        try
+        {
+            foreach (var c in await ContactService.GetAllWithWalletsAsync(WalletService))
+                if (!string.IsNullOrWhiteSpace(c.Address)) names[c.Address] = c.Name;
+        }
+        catch { /* names are optional */ }
+        try
+        {
+            if (WalletService.ActiveWallet is { } wallet)
+            {
+                var saved = await LabelService.GetAllAsync(wallet.Id);
+                labels = DigiByte.Wallet.Services.ActivityAddressIndex.BuildLabelLookup(
+                    saved.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value.Label)));
+            }
+        }
+        catch { /* labels are optional */ }
+        return (names, labels);
     }
 
     private async Task<string> DecimalMarkAsync()

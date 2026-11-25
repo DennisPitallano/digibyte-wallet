@@ -307,7 +307,7 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Tests for User Story 5
 
-- [ ] T055 [P] [US5] Extend `ExportRowMapperTests.cs`:
+- [X] T055 [P] [US5] Extend `ExportRowMapperTests.cs`:
   - the counterparty matching a contact (case-insensitive, normalized address) → Name = contact name
   - an own-wallet contact → the wallet name
   - no match → empty Name, never a placeholder
@@ -317,7 +317,7 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Implementation for User Story 5
 
-- [ ] T056 [US5] Build the name lookup from `ContactService.GetAllWithWalletsAsync(WalletService)` and the wallet-address label lookup from the same source `Transactions.razor` uses (`LoadWalletLabelsAsync`). Pass both through `ExportEnvironment` from `ExportCsvSheet.razor`, for both DGB and DD. Make T055 pass and run US5's independent test.
+- [X] T056 [US5] Build the name lookup from `ContactService.GetAllWithWalletsAsync(WalletService)` and the wallet-address label lookup from the same source `Transactions.razor` uses (`LoadWalletLabelsAsync`). Pass both through `ExportEnvironment` from `ExportCsvSheet.razor`, for both DGB and DD. Make T055 pass and run US5's independent test.
 
 **Checkpoint**: All five stories work on their own.
 
