@@ -1890,14 +1890,16 @@ textarea.input { min-height: 96px; resize: vertical; }
         max-width: none;
         transform: translateY(-50%);
         grid-template-columns: 1fr;
-        grid-auto-rows: 56px;
+        /* The middle row is taller: its label ("Paste / Scan", "Pegar / Escanear") takes two lines under the disc. */
+        grid-template-rows: 56px 56px 68px 56px 56px;
         row-gap: 4px;
         padding: 14px 6px;
     }
     .nav-float-live .nav-float-tab { min-height: 0; }
     .nav-float-live .nav-float-pill {
         left: calc(50% - 28px);
-        top: calc(14px + var(--nav-index) * 60px + 4px);
+        /* Rows below the taller middle row sit 12px lower (--nav-after-scan is 1 for them). */
+        top: calc(14px + var(--nav-index) * 60px + 4px + var(--nav-after-scan, 0) * 12px);
         transition: top var(--motion-slow) var(--ease-out);
     }
     /* In the rail, Scan is one more row: a smaller disc in line with the tabs, not raised above them. */
@@ -1911,6 +1913,15 @@ textarea.input { min-height: 96px; resize: vertical; }
     }
     .nav-float-live .nav-float-scan-disc svg { width: 20px; height: 20px; }
     .nav-float-live .nav-float-scan:active .nav-float-scan-disc { transform: scale(0.94); }
+    /* Two even lines that stay inside the rail, never one squeezed line spilling into the row above. */
+    .nav-float-live .nav-float-scan-label { max-width: 62px; line-height: 1.15; text-align: center; text-wrap: balance; }
+    /* A mouse gets feedback before it clicks (specs/030: the rail is what desktop users see). */
+    @media (hover: hover) {
+        .nav-float-live .nav-float-tab:hover { color: var(--ui-nav-active); }
+        .nav-float-live .nav-float-tab:hover .nav-float-icon { border-radius: 9999px; background: var(--ui-ghost-hover); }
+        .nav-float-live .nav-float-tab[aria-current="page"]:hover .nav-float-icon { background: none; }
+        .nav-float-live .nav-float-scan:hover .nav-float-scan-disc { background: var(--ui-primary-hover); box-shadow: var(--ui-primary-shadow-hover); }
+    }
     .nav-float-live .nav-moved-tip { right: auto; left: calc(100% + 14px); bottom: 6px; }
     .nav-float-live .nav-moved-tip::after {
         right: auto;
