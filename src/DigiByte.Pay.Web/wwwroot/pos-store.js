@@ -13,6 +13,9 @@
     const PIN_KEY = 'digipay.pos.pin:v1';
     const CURRENCY_KEY = 'digipay.pos.currency:v1';
     const SHIFT_KEY = 'digipay.pos.shiftStartedAt:v1';
+    const PREFS_KEY = 'digipay.pos.prefs:v1';
+    const RECENT_KEY = 'digipay.pos.recentCurrencies:v1';
+    const MAX_RECENT = 4;
 
     // Manager PIN helpers. PIN is never stored raw — we hash it with SHA-256
     // over a per-device random salt so a leaked localStorage dump doesn't
@@ -77,12 +80,51 @@
         // Remember the last-selected currency on this tablet so a JPY till
         // stays on JPY after a reload. Stored as a raw string code ("DGB",
         // "EUR", etc.) — no validation here; the Blazor side checks it
-        // against its SupportedCurrencies list.
+        // against the wallet's currency list (PosEntry.NormalizeCurrency).
         saveCurrency: function (code) {
             try { localStorage.setItem(CURRENCY_KEY, String(code)); } catch { }
         },
         loadCurrency: function () {
             try { return localStorage.getItem(CURRENCY_KEY); } catch { return null; }
+        },
+
+        // Display settings for this tablet (layout, keypad order and side, customer display, haptics,
+        // "00" key, quick amounts). Stored as one JSON object; the Blazor side validates every field
+        // (PosPrefs.Normalize), so anything that isn't a plain object reads back as null.
+        savePrefs: function (prefs) {
+            try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs || {})); } catch { }
+        },
+        loadPrefs: function () {
+            try {
+                const raw = localStorage.getItem(PREFS_KEY);
+                if (!raw) return null;
+                const value = JSON.parse(raw);
+                return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+            } catch { return null; }
+        },
+
+        // The till currencies used most recently on this tablet (most recent first), shown as
+        // "Recent" in the currency picker. Only strings are kept, upper-cased, at most four; the
+        // Blazor side still checks each against the wallet's currency list.
+        saveRecent: function (codes) {
+            try { localStorage.setItem(RECENT_KEY, JSON.stringify(cleanRecent(codes))); } catch { }
+        },
+        loadRecent: function () {
+            try {
+                const raw = localStorage.getItem(RECENT_KEY);
+                return raw ? cleanRecent(JSON.parse(raw)) : [];
+            } catch { return []; }
+        },
+
+        // Moves focus into an element once the current render has settled (used for the currency
+        // picker's search field, which dialog.js would otherwise skip for the close button).
+        focus: function (selector) {
+            setTimeout(function () {
+                try {
+                    const el = document.querySelector(selector);
+                    if (el && el.focus) el.focus();
+                } catch { }
+            }, 30);
         },
 
         // "Shift started at" marker — set when the cashier hits "Start new
@@ -119,7 +161,7 @@
             } catch { /* ignore — audio unavailable */ }
         },
 
-        // Hardware keyboard on the keypad: digits, "." / ",", Backspace and Enter (charge).
+        // Hardware keyboard on the keypad: digits, "." / ",", Backspace, Delete (clear) and Enter (charge).
         // Ignored while a text field, select or dialog has focus, with modifier keys held, or
         // when Enter is pressed on a focused button (the button handles that itself). The .NET
         // side also checks that the keypad screen is showing.
@@ -140,16 +182,62 @@
                 dotnetRef.invokeMethodAsync('OnKeypadKey', e.key).catch(function () { });
             };
             document.addEventListener('keydown', keyHandler);
+
+            // Haptic tick: a short vibration when a keypad key ([data-pos-haptic]) is pressed and
+            // the merchant turned it on (data-haptics="on" on the POS root). Done here rather than
+            // through the server so it lands with the touch.
+            pointerHandler = function (e) {
+                const target = e.target;
+                const key = target && target.closest ? target.closest('[data-pos-haptic]') : null;
+                if (!key || key.disabled) return;
+                const root = key.closest('.dp-pos');
+                if (!root || root.getAttribute('data-haptics') !== 'on') return;
+                const nav = window.navigator;
+                if (nav && typeof nav.vibrate === 'function') {
+                    try { nav.vibrate(8); } catch { }
+                }
+            };
+            document.addEventListener('pointerdown', pointerHandler);
+
+            // Connection: tell the till when the browser goes offline or comes back.
+            onlineHandler = function () { dotnetRef.invokeMethodAsync('OnNetworkChanged', true).catch(function () { }); };
+            offlineHandler = function () { dotnetRef.invokeMethodAsync('OnNetworkChanged', false).catch(function () { }); };
+            if (window.addEventListener) {
+                window.addEventListener('online', onlineHandler);
+                window.addEventListener('offline', offlineHandler);
+            }
         },
         unbindKeys: function () {
             if (keyHandler) document.removeEventListener('keydown', keyHandler);
-            keyHandler = null;
+            if (pointerHandler) document.removeEventListener('pointerdown', pointerHandler);
+            if (window.removeEventListener) {
+                if (onlineHandler) window.removeEventListener('online', onlineHandler);
+                if (offlineHandler) window.removeEventListener('offline', offlineHandler);
+            }
+            keyHandler = pointerHandler = onlineHandler = offlineHandler = null;
         },
     };
 
     let keyHandler = null;
+    let pointerHandler = null;
+    let onlineHandler = null;
+    let offlineHandler = null;
+
+    function cleanRecent(codes) {
+        if (!Array.isArray(codes)) return [];
+        const out = [];
+        for (const c of codes) {
+            if (typeof c !== 'string') continue;
+            const code = c.trim().toUpperCase();
+            if (!code || code.length > 5 || out.indexOf(code) >= 0) continue;
+            out.push(code);
+            if (out.length === MAX_RECENT) break;
+        }
+        return out;
+    }
+
     function isKeypadKey(key) {
-        return key === 'Enter' || key === 'Backspace' || key === '.' || key === ','
+        return key === 'Enter' || key === 'Backspace' || key === 'Delete' || key === '.' || key === ','
             || (typeof key === 'string' && key.length === 1 && key >= '0' && key <= '9');
     }
 })();
