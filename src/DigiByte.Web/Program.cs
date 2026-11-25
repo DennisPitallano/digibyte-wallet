@@ -94,6 +94,8 @@ builder.Services.AddScoped<DigiByte.Web.Services.SearchOfferCoordinator>();
 builder.Services.AddScoped<DigiByte.Web.Services.InstallAppState>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
+// CSV export of transaction history (spec 031): built on the device from the complete history.
+builder.Services.AddScoped<DigiByte.Wallet.Services.Export.TransactionExportService>();
 builder.Services.AddScoped<PaymentRequestService>();
 // Multisig follows the network chosen in Settings (mainnet / testnet / regtest), like the rest of the wallet.
 builder.Services.AddScoped<MultisigWalletService>(sp =>

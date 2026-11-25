@@ -106,7 +106,7 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Write `tests/DigiByte.Wallet.Tests/Export/TransactionExportServiceTests.cs`:
+- [X] T016 [P] [US1] Write `tests/DigiByte.Wallet.Tests/Export/TransactionExportServiceTests.cs`:
   - `Everything` exports every record from a fake `LoadCompleteHistoryAsync`, newest first
   - `HistoryIncompleteException` → `ExportResult.Outcome = HistoryUnavailable` and no content
   - locked → `Locked`
@@ -117,31 +117,31 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Create `src/DigiByte.Wallet/Services/Export/ExportRequest.cs` with `Asset` and `Scope = Everything` (other scopes come in US2), and `ExportResult` with `Outcome` (`Saved` · `Shared` · `Cancelled` · `NothingToExport` · `HistoryUnavailable` · `Locked`), `RowCount`, `RowsWithoutPrice`, `FileName` and `Content`, per data-model.md.
-- [ ] T018 [US1] Implement `src/DigiByte.Wallet/Services/Export/TransactionExportService.cs`:
+- [X] T017 [US1] Create `src/DigiByte.Wallet/Services/Export/ExportRequest.cs` with `Asset` and `Scope = Everything` (other scopes come in US2), and `ExportResult` with `Outcome` (`Saved` · `Shared` · `Cancelled` · `NothingToExport` · `HistoryUnavailable` · `Locked`), `RowCount`, `RowsWithoutPrice`, `FileName` and `Content`, per data-model.md.
+- [X] T018 [US1] Implement `src/DigiByte.Wallet/Services/Export/TransactionExportService.cs`:
   - `ExportAsync(ExportRequest, ExportEnvironment env, IProgress<HistoryExportProgress>?, CancellationToken)`, where `env` carries the decimal mark, language, `TimeZoneInfo`, clock, wallet name and the name/label lookups
   - flow: read → map → zero check → write → `ExportResult`, following the data-model "State flow"
   - then make T016 pass
-- [ ] T019 [US1] Register `TransactionExportService` as scoped in `src/DigiByte.Web/Program.cs`, next to `ContactService`.
-- [ ] T020 [P] [US1] Add `saveCsvFile(content, filename)` and `getDecimalMark()` to `src/DigiByte.Web/wwwroot/js/download.js`:
+- [X] T019 [US1] Register `TransactionExportService` as scoped in `src/DigiByte.Web/Program.cs`, next to `ContactService`.
+- [X] T020 [P] [US1] Add `saveCsvFile(content, filename)` and `getDecimalMark()` to `src/DigiByte.Web/wwwroot/js/download.js`:
   - `saveCsvFile` returns `saved`, `shared` or `cancelled`
   - it uses `navigator.share` with a `text/csv` `File` when `matchMedia('(pointer: coarse)').matches && navigator.canShare?.({files:[file]})`, otherwise an anchor download with `text/csv;charset=utf-8`, revoking the object URL after 1 s
   - `getDecimalMark` returns the decimal mark from `Intl.NumberFormat().formatToParts(1.1)`
-- [ ] T021 [P] [US1] Add the `export.*` strings for US1 to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`:
+- [X] T021 [P] [US1] Add the `export.*` strings for US1 to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`:
   - the button, the sheet title (DGB/DD) and the "Everything" option
   - the FR-012 notice, plus its hidden-amounts addition
   - the Export and Cancel buttons
   - the progress text "Reading history… {0} of {1} addresses"
   - the messages for saved, history unavailable + Try again, nothing to export, and locked
   - the CSV header names and Type/Status words from [contracts/csv-file-format.md](contracts/csv-file-format.md)
-- [ ] T022 [US1] Build `src/DigiByte.Web/Components/Export/ExportCsvSheet.razor` per [contracts/export-sheet-ui.md](contracts/export-sheet-ui.md):
+- [X] T022 [US1] Build `src/DigiByte.Web/Components/Export/ExportCsvSheet.razor` per [contracts/export-sheet-ui.md](contracts/export-sheet-ui.md):
   - dialog with focus trap and focus returned on close
   - "What to export" radios (Everything only for now) and the always-shown FR-012 notice
   - Export runs `TransactionExportService` and passes it the decimal mark from `getDecimalMark`
   - the progress bar with Cancel appears only after 1 s (research R8), with `aria-live="polite"`
   - inline states for HistoryUnavailable (with Try again), NothingToExport and Locked
   - on success it calls `saveCsvFile` and shows a toast
-- [ ] T023 [US1] Add the **Export CSV** button to the header row of `src/DigiByte.Web/Pages/Transactions.razor`, next to the filters. It opens `ExportCsvSheet` with `Asset = DGB` and passes `hideAmounts` for the notice. It is disabled with "Unlock your wallet to export" while the wallet is locked (FR-019).
+- [X] T023 [US1] Add the **Export CSV** button to the header row of `src/DigiByte.Web/Pages/Transactions.razor`, next to the filters. It opens `ExportCsvSheet` with `Asset = DGB` and passes `hideAmounts` for the notice. It is disabled with "Unlock your wallet to export" while the wallet is locked (FR-019).
 - [ ] T024 [US1] Run quickstart scenarios 1, 1b, 2–6, 11, 15, 16, 18 and 20 in the browser preview and record the results in the PR description. Scenario 1 confirms no more than 3 actions to a saved file (SC-001); scenario 1b compares an "Everything" export of a wallet with more than 1,000 transactions against an explorer's count (SC-002).
 
 **Checkpoint**: MVP. A shop owner can export the full DGB history. Price and Value columns exist but are empty.

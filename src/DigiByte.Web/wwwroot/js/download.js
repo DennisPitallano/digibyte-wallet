@@ -196,3 +196,42 @@ async function shareQrCard(qrDataUrl, filename, logoUrl, title, subtitle, captio
         return e && e.name === 'AbortError' ? 'cancelled' : 'unsupported';
     }
 }
+
+// CSV export of transaction history (spec 031). The content already starts with the UTF-8 byte-order mark.
+// On a phone or installed mobile app (coarse pointer) that can share files, the share sheet is used: iOS standalone apps
+// can't follow download links reliably. Elsewhere the file is downloaded. Returns "saved", "shared" or "cancelled".
+async function saveCsvFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (coarse && navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: 'text/csv' });
+        if (navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: filename });
+                return 'shared';
+            } catch (e) {
+                if (e && e.name === 'AbortError') return 'cancelled';
+                // Sharing failed for another reason: fall back to a download below.
+            }
+        }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    return 'saved';
+}
+
+// The device's decimal mark ("." or ","), from its number format: decides the CSV separator (spec 031, research R4).
+function getDecimalMark() {
+    try {
+        const part = new Intl.NumberFormat().formatToParts(1.1).find(function (p) { return p.type === 'decimal'; });
+        return part ? part.value : '.';
+    } catch (e) {
+        return '.';
+    }
+}

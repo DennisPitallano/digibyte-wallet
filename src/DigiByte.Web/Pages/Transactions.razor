@@ -17,7 +17,17 @@
 <PullToRefresh OnRefresh="PullRefreshAsync">
 <div class="flex flex-col gap-3">
     <div class="slide-up">
-        <h2 class="page-title">@L.T("nav.activity")</h2>
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="page-title">@L.T("nav.activity")</h2>
+            @* CSV export (spec 031): the complete history, not only the rows loaded here. *@
+            <button type="button"
+                    class="min-h-[36px] px-3 text-xs font-semibold rounded-xl border border-slate-200 dark:border-dgb-800 text-dgb-600 dark:text-dgb-300 hover:bg-slate-50 dark:hover:bg-dgb-900 disabled:opacity-50 press-effect"
+                    disabled="@(!WalletService.IsUnlocked)"
+                    title="@(WalletService.IsUnlocked ? L.T("export.button") : L.T("export.button.locked"))"
+                    @onclick="() => exportOpen = true">
+                @L.T("export.button")
+            </button>
+        </div>
         @if (!loading && !failed)
         {
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -220,6 +230,9 @@
 </div>
 </PullToRefresh>
 
+<DigiByte.Web.Components.Export.ExportCsvSheet IsOpen="exportOpen" Asset="DigiByte.Wallet.Services.Export.ExportAsset.Dgb"
+                                              HideAmounts="hideAmounts" OnClosed="() => exportOpen = false" />
+
 @* The wallet's first payment, celebrated once. It waits while one of this page's two dialogs is open (spec 025, FR-023). *@
 <FirstReceiveCelebration Blocked="@(selected != null || showAddressPicker)" />
 
@@ -254,6 +267,7 @@
     private Dictionary<string, string> contactNames = new(StringComparer.OrdinalIgnoreCase);
     private decimal price;
     private bool hideAmounts;
+    private bool exportOpen;
 
     // Labels of the wallet's own addresses (normalized address -> label), for the address line on each row.
     private IReadOnlyDictionary<string, string> walletAddressLabels = new Dictionary<string, string>();
