@@ -1,11 +1,10 @@
 @page "/"
+@layout SiteLayout
 @inject IHttpClientFactory HttpFactory
 @using System.Net.Http.Json
 
 <PageTitle>DigiPay — accept DigiByte on your site</PageTitle>
 
-<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-    <SiteNav />
 
     <main class="flex-1 page-enter">
         @* Hero — stagger the eyebrow badge, headline, subhead, and CTA row
@@ -28,16 +27,16 @@
                    data-digipay-auth on <html> before paint, CSS hides whichever
                    variant doesn't match. *@
                 <a href="/merchant/signin" data-auth-show="out"
-                   class="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                   class="btn-primary inline-flex items-center justify-center gap-1.5">
                     Start accepting DGB →
                 </a>
                 <a href="/merchant" data-auth-show="in"
-                   class="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                   class="btn-primary inline-flex items-center justify-center gap-1.5">
                     <Icon Name="dashboard" Class="w-4 h-4" />
                     Open dashboard →
                 </a>
                 <a href="/docs"
-                   class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm sm:text-base no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                   class="btn-secondary inline-flex items-center justify-center">
                     How it works
                 </a>
             </div>
@@ -69,19 +68,19 @@
         {
             <section class="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                    <div class="card px-4 py-3 text-center">
                         <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Merchants.ToString("N0")</div>
                         <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Merchants</div>
                     </div>
-                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                    <div class="card px-4 py-3 text-center">
                         <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Stores.ToString("N0")</div>
                         <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Stores</div>
                     </div>
-                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                    <div class="card px-4 py-3 text-center">
                         <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Sessions.ToString("N0")</div>
                         <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Sessions</div>
                     </div>
-                    <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl px-4 py-3 text-center">
+                    <div class="card px-4 py-3 text-center">
                         <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.TotalDgb.ToString("N0")</div>
                         <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">DGB processed</div>
                     </div>
@@ -94,7 +93,7 @@
             <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">The problem</p>
             <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight max-w-3xl mx-auto">Why accepting crypto is usually painful</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 max-w-4xl mx-auto">
-                <div class="bg-white dark:bg-dgb-900 border border-red-200 dark:border-red-800/40 rounded-xl p-5 sm:p-6">
+                <div class="card p-5 sm:p-6 !border-red-200 dark:!border-red-800/40">
                     <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-red-500 dark:text-red-400 mb-2">Without DigiPay</div>
                     <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
                         <li>Custodial gateway holds your funds and takes a cut, plus KYC forms.</li>
@@ -104,7 +103,7 @@
                         <li>Price volatility during payment means you either eat the swing or ship reconciliation code.</li>
                     </ul>
                 </div>
-                <div class="bg-white dark:bg-dgb-900 border border-emerald-200 dark:border-emerald-800/30 rounded-xl p-5 sm:p-6">
+                <div class="card p-5 sm:p-6 !border-emerald-200 dark:!border-emerald-800/30">
                     <div class="text-[0.6875rem] font-bold tracking-widest uppercase text-emerald-700 dark:text-emerald-300 mb-2">With DigiPay</div>
                     <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed m-0 list-disc pl-5">
                         <li>Non-custodial by design — you paste an xpub, funds flow straight to your wallet.</li>
@@ -168,10 +167,10 @@
                     Body="Buyer pays. DigiPay detects the tx in the mempool, tracks confirmations, and POSTs a signed webhook to your server at each state change." />
             </div>
             <div class="text-center mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-                <a href="/docs" class="inline-flex items-center justify-center px-5 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                <a href="/docs" class="btn-secondary inline-flex items-center justify-center">
                     Read the tutorial
                 </a>
-                <a href="/embed/demo.html" target="_blank" class="inline-flex items-center justify-center px-5 py-2.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                <a href="/embed/demo.html" target="_blank" class="btn-secondary inline-flex items-center justify-center">
                     Live embed demo →
                 </a>
             </div>
@@ -287,7 +286,7 @@
            mount with the real production-styled button, so visitors literally
            see (and can click) what their own site will look like. *@
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-            <div class="max-w-3xl mx-auto bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-6 sm:p-8 text-center">
+            <div class="card max-w-3xl mx-auto p-6 sm:p-8 text-center">
                 <p class="text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Support the project</p>
                 <h2 class="text-xl sm:text-2xl font-bold mb-3 tracking-tight">Built by humans, runs on DigiByte</h2>
                 <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed mb-6 max-w-xl mx-auto">
@@ -317,16 +316,16 @@
             <h2 class="text-2xl sm:text-3xl font-bold mb-6 tracking-tight" data-auth-show="in">Jump back in</h2>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
                 <a href="/merchant/signin" data-auth-show="out"
-                   class="inline-flex items-center justify-center px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                   class="btn-primary inline-flex items-center justify-center">
                     Start accepting DGB
                 </a>
                 <a href="/merchant" data-auth-show="in"
-                   class="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl text-sm sm:text-base no-underline transition-colors">
+                   class="btn-primary inline-flex items-center justify-center gap-1.5">
                     <Icon Name="dashboard" Class="w-4 h-4" />
                     Open dashboard
                 </a>
                 <a href="/docs/api"
-                   class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white font-semibold rounded-xl text-sm sm:text-base no-underline hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
+                   class="btn-secondary inline-flex items-center justify-center">
                     API reference
                 </a>
             </div>
@@ -337,8 +336,6 @@
         </section>
     </main>
 
-    <SiteFooter />
-</div>
 
 @code {
     private StatsDto? stats;

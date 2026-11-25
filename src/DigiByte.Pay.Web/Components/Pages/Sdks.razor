@@ -1,6 +1,8 @@
 @page "/sdks"
+@layout SiteLayout
 @rendermode InteractiveServer
 @inject IJSRuntime JS
+@inject ToastService Toasts
 <PageTitle>SDKs — DigiPay</PageTitle>
 
 <HeadContent>
@@ -8,8 +10,6 @@
     <script src="/sdks-page.js" defer></script>
 </HeadContent>
 
-<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-    <SiteNav />
 
     <main class="flex-1 page-enter">
         <article class="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-10">
@@ -39,7 +39,7 @@
                 }
 
                 @* npm card *@
-                <div class="card-hover bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 flex flex-col gap-3">
+                <div class="card card-hover p-5 flex flex-col gap-3">
                     <div class="flex items-center gap-3">
                         <span class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 128 128" aria-hidden="true"><path fill="#cb3837" d="M2 38.5h124v43.71H64v7.29H36.44v-7.29H2zm6.89 36.43h13.78V53.07h6.89v21.86h6.89V45.79H8.89zm34.44-29.14v36.42h13.78v-7.28h13.78V45.79zm13.78 7.29H64v14.56h-6.89zm20.67-7.29v29.14h13.78V53.07h6.89v21.86h6.89V53.07h6.89v21.86h6.89V45.79z"/></svg>
@@ -57,8 +57,8 @@
                             <span class="text-slate-500 select-none">$ </span>npm install @("@dgbwallet/digipay")
                         </div>
                         <button type="button" @onclick='() => CopyAsync("npm", NpmInstall)'
-                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold @(copiedKey == "npm" ? "text-emerald-500" : "text-slate-400 hover:text-slate-100") transition-colors px-2 py-1">
-                            @(copiedKey == "npm" ? "Copied ✓" : "Copy")
+                                class="absolute top-1/2 -translate-y-1/2 right-2 min-h-9 text-xs font-semibold text-slate-300 hover:text-white transition-colors px-2.5 py-1.5 rounded-md hover:bg-white/10">
+                            Copy
                         </button>
                     </div>
                     <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 gap-2">
@@ -71,7 +71,7 @@
                 </div>
 
                 @* PyPI card *@
-                <div class="card-hover bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 flex flex-col gap-3">
+                <div class="card card-hover p-5 flex flex-col gap-3">
                     <div class="flex items-center gap-3">
                         <span class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 128 128" aria-hidden="true"><linearGradient id="python-original-a" gradientUnits="userSpaceOnUse" x1="70.252" y1="1237.476" x2="170.659" y2="1151.089" gradientTransform="matrix(.563 0 0 -.568 -29.215 707.817)"><stop offset="0" stop-color="#5A9FD4"/><stop offset="1" stop-color="#306998"/></linearGradient><linearGradient id="python-original-b" gradientUnits="userSpaceOnUse" x1="209.474" y1="1098.811" x2="173.62" y2="1149.537" gradientTransform="matrix(.563 0 0 -.568 -29.215 707.817)"><stop offset="0" stop-color="#FFD43B"/><stop offset="1" stop-color="#FFE873"/></linearGradient><path fill="url(#python-original-a)" d="M63.391 1.988c-4.222.02-8.252.379-11.8 1.007-10.45 1.846-12.346 5.71-12.346 12.837v9.411h24.693v3.137H29.977c-7.176 0-13.46 4.313-15.426 12.521-2.268 9.405-2.368 15.275 0 25.096 1.755 7.311 5.947 12.519 13.124 12.519h8.491V67.234c0-8.151 7.051-15.34 15.426-15.34h24.665c6.866 0 12.346-5.654 12.346-12.548V15.833c0-6.693-5.646-11.72-12.346-12.837-4.244-.706-8.645-1.027-12.866-1.008zM50.037 9.557c2.55 0 4.634 2.117 4.634 4.721 0 2.593-2.083 4.69-4.634 4.69-2.56 0-4.633-2.097-4.633-4.69-.001-2.604 2.073-4.721 4.633-4.721z" transform="translate(0 10.26)"/><path fill="url(#python-original-b)" d="M91.682 28.38v10.966c0 8.5-7.208 15.655-15.426 15.655H51.591c-6.756 0-12.346 5.783-12.346 12.549v23.515c0 6.691 5.818 10.628 12.346 12.547 7.816 2.297 15.312 2.713 24.665 0 6.216-1.801 12.346-5.423 12.346-12.547v-9.412H63.938v-3.138h37.012c7.176 0 9.852-5.005 12.348-12.519 2.578-7.735 2.467-15.174 0-25.096-1.774-7.145-5.161-12.521-12.348-12.521h-9.268zM77.809 87.927c2.561 0 4.634 2.097 4.634 4.692 0 2.602-2.074 4.719-4.634 4.719-2.55 0-4.633-2.117-4.633-4.719 0-2.595 2.083-4.692 4.633-4.692z" transform="translate(0 10.26)"/></svg>
@@ -89,8 +89,8 @@
                             <span class="text-slate-500 select-none">$ </span>pip install digipay
                         </div>
                         <button type="button" @onclick='() => CopyAsync("pip", "pip install digipay")'
-                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold @(copiedKey == "pip" ? "text-emerald-500" : "text-slate-400 hover:text-slate-100") transition-colors px-2 py-1">
-                            @(copiedKey == "pip" ? "Copied ✓" : "Copy")
+                                class="absolute top-1/2 -translate-y-1/2 right-2 min-h-9 text-xs font-semibold text-slate-300 hover:text-white transition-colors px-2.5 py-1.5 rounded-md hover:bg-white/10">
+                            Copy
                         </button>
                     </div>
                     <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 gap-2">
@@ -103,7 +103,7 @@
                 </div>
 
                 @* NuGet card *@
-                <div class="card-hover bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 flex flex-col gap-3">
+                <div class="card card-hover p-5 flex flex-col gap-3">
                     <div class="flex items-center gap-3">
                         <span class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 128 128" aria-hidden="true"><g fill="#623697"><path d="M61.195 0h4.953c12.918.535 25.688 4.89 36.043 12.676 9.809 7.289 17.473 17.437 21.727 28.906 2.441 6.387 3.664 13.18 4.082 19.992v4.211c-.414 11.293-3.664 22.52-9.73 32.082-6.801 10.895-16.922 19.73-28.727 24.828A64.399 64.399 0 0165.082 128h-2.144c-11.735-.191-23.41-3.66-33.297-9.992-11.196-7.113-20.114-17.785-25.028-30.117C1.891 81.19.441 74.02 0 66.812v-4.957c.504-14.39 5.953-28.609 15.41-39.496C23.168 13.31 33.5 6.48 44.887 2.937 50.172 1.27 55.676.41 61.195 0M25.191 37.523c-.03 12.153-.011 24.305-.011 36.454 1.43.011 2.86.011 4.293.011-.075-10.433.101-20.863-.106-31.293.48.907.918 1.84 1.465 2.707C37.035 54.91 43.105 64.5 49.309 74c1.738-.023 3.476-.023 5.214.004-.003-12.16-.007-24.32.004-36.48a308.076 308.076 0 00-4.25-.012c.075 10.32-.136 20.64.125 30.949-6.507-10.352-13.101-20.645-19.695-30.945a370.85 370.85 0 00-5.516.007m38.844-.011c-.129 12.16-.004 24.32-.047 36.476 6.469-.015 12.938.024 19.41-.02a83.36 83.36 0 01.024-3.952c-5.012-.016-10.027.007-15.043-.02-.074-4.21-.004-8.426-.04-12.637 4.395-.078 8.79.012 13.18-.047-.011-1.277-.011-2.554-.019-3.832-4.387.141-8.773-.054-13.164.012.012-4.023.02-8.05.02-12.078 4.699 0 9.398-.02 14.093.012-.008-1.301 0-2.606.016-3.906-6.145-.016-12.29-.008-18.43-.008m22.602.054c.004 1.266.004 2.528.008 3.79 3.488-.04 6.972.109 10.46.035-.023 10.863.004 21.718-.011 32.574 1.46.043 2.93.035 4.39-.09-.12-5.992.118-11.988-.156-17.977.067-2.699-.07-5.394.117-8.09.106-2.14-.277-4.277-.035-6.417 3.516.047 7.035.015 10.55.015a59.774 59.774 0 01.075-3.832c-8.469-.105-16.937-.094-25.398-.008M13.55 69.094c-1.977.91-2.106 4.023-.149 5.027 1.72 1.18 4.305-.371 4.227-2.41.133-2.004-2.29-3.688-4.078-2.617m29.23 15.289c-4.277 3.469-4.226 11.195.5 14.25 2.668 1.695 6.102 1.344 8.922.215.012-.621.027-1.239.05-1.86-2.671 1.395-6.41 1.68-8.675-.61-2.965-3.237-2.297-9.269 1.613-11.476 2.211-1.164 4.907-.824 7.086.239-.007-.66-.004-1.32 0-1.98-3.097-1.099-6.922-1.04-9.496 1.222m17.207 2.71c-1.89.22-3.758 1.22-4.633 2.966-1.253 2.496-1.109 5.867.864 7.96 2.035 2.297 5.945 2.32 8.18.297 2.425-2.308 2.699-6.468.757-9.164-1.148-1.629-3.273-2.183-5.168-2.058m17.887 2.722c-1.66 2.883-1.332 7.25 1.598 9.211 2.183 1.22 4.933.832 7.074-.308-.004-.617.004-1.235.031-1.848-1.687 1.07-3.937 1.856-5.812.777-1.309-.722-1.704-2.257-1.914-3.625 2.875-.039 5.746-.082 8.625-.074-.075-1.828-.118-3.894-1.45-5.308-2.199-2.43-6.644-1.657-8.152 1.175m-8.414-2.336v12.008c.652 0 1.312 0 1.973.004.023-2.195-.04-4.394.023-6.594.016-1.27.527-2.558 1.484-3.414.801-.605 1.883-.27 2.801-.246-.012-.636-.02-1.27-.023-1.902-1.793-.398-3.336.652-4.242 2.117-.02-.633-.04-1.266-.051-1.894-.656-.024-1.313-.051-1.965-.079zm0 0"/><path d="M58.758 89.223c1.652-.805 4.023-.41 4.945 1.3 1.05 1.887 1.027 4.383-.137 6.211-1.52 2.286-5.527 1.786-6.523-.742-1.008-2.258-.617-5.484 1.715-6.77zm0 0M79.04 92.414c.046-1.574 1.144-3.137 2.726-3.48.976-.164 2.097.007 2.773.793.672.714.813 1.714.98 2.64-2.16.012-4.32-.031-6.48.047zm0 0"/></g></svg>
@@ -121,8 +121,8 @@
                             <span class="text-slate-500 select-none">$ </span>dotnet add package DigiPay
                         </div>
                         <button type="button" @onclick='() => CopyAsync("dotnet", "dotnet add package DigiPay")'
-                                class="absolute top-1/2 -translate-y-1/2 right-2 text-[0.6875rem] font-semibold @(copiedKey == "dotnet" ? "text-emerald-500" : "text-slate-400 hover:text-slate-100") transition-colors px-2 py-1">
-                            @(copiedKey == "dotnet" ? "Copied ✓" : "Copy")
+                                class="absolute top-1/2 -translate-y-1/2 right-2 min-h-9 text-xs font-semibold text-slate-300 hover:text-white transition-colors px-2.5 py-1.5 rounded-md hover:bg-white/10">
+                            Copy
                         </button>
                     </div>
                     <div class="flex items-center justify-between text-[0.6875rem] font-medium text-slate-500 dark:text-slate-400 gap-2">
@@ -138,7 +138,7 @@
             @* Feature matrix *@
             <section class="slide-up-delay-2">
                 <h2 class="text-xl font-bold tracking-tight mb-3">What's included</h2>
-                <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900">
+                <div class="card overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-dgb-800 bg-slate-50 dark:bg-dgb-900/50">
@@ -149,15 +149,15 @@
                             </tr>
                         </thead>
                         <tbody class="[&_td]:py-2.5 [&_td]:px-4 [&_tr:not(:last-child)_td]:border-b [&_tr:not(:last-child)_td]:border-slate-100 dark:[&_tr:not(:last-child)_td]:border-dgb-800/60">
-                            <tr><td>Self-serve merchant registration</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>Sessions: create / get / list</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>Stores: CRUD + webhook test + replay</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>CSV bookkeeping export</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>Webhook HMAC verifier (constant-time)</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>Typed DTOs for every endpoint</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>Zero runtime dependencies</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>Identical 8-test parity suite</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
-                            <tr><td>Error mapping (<InlineCode>DigiPayError</InlineCode> w/ HTTP status)</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td><td class="text-center text-emerald-500">✓</td></tr>
+                            <tr><td>Self-serve merchant registration</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>Sessions: create / get / list</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>Stores: CRUD + webhook test + replay</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>CSV bookkeeping export</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>Webhook HMAC verifier (constant-time)</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>Typed DTOs for every endpoint</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>Zero runtime dependencies</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>Identical 8-test parity suite</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
+                            <tr><td>Error mapping (<InlineCode>DigiPayError</InlineCode> w/ HTTP status)</td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td><td class="text-center text-emerald-500"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -240,7 +240,7 @@
                 <p class="text-sm text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
                     Every failure raises <InlineCode>DigiPayError</InlineCode> with the HTTP status preserved on <InlineCode>err.status</InlineCode>. Branch on the number, not the message — the message is for humans, the status is for your retry policy.
                 </p>
-                <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900">
+                <div class="card overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-dgb-800 bg-slate-50 dark:bg-dgb-900/50">
@@ -274,7 +274,7 @@
                 </p>
                 <div class="grid sm:grid-cols-3 gap-3">
                     <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/express-store" target="_blank" rel="noopener"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Express mini-store</div>
@@ -283,7 +283,7 @@
                         <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
                     </a>
                     <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/flask-store" target="_blank" rel="noopener"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Flask mini-store</div>
@@ -292,7 +292,7 @@
                         <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
                     </a>
                     <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/dotnet-store" target="_blank" rel="noopener"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">ASP.NET mini-store</div>
@@ -318,7 +318,7 @@
                     WC thank-you page once payment confirms.
                 </p>
                 <a href="/docs/woocommerce"
-                   class="card-hover flex items-center gap-4 p-5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                   class="card card-hover flex items-center gap-4 p-5 no-underline">
                     <Icon Name="package" Class="w-7 h-7 text-dgb-500 shrink-0" />
                     <div class="flex-1 min-w-0">
                         <div class="text-base font-semibold text-slate-900 dark:text-white">DigiPay for WooCommerce</div>
@@ -349,7 +349,7 @@
                 </p>
                 <div class="grid sm:grid-cols-2 gap-3">
                     <a href="/digipay.postman_collection.json" download
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Download collection</div>
@@ -358,7 +358,7 @@
                         <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
                     </a>
                     <a href="/docs/api"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="code" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Live API explorer</div>
@@ -374,7 +374,7 @@
                 <h2 class="text-xl font-bold tracking-tight mb-3">Source + docs</h2>
                 <div class="grid sm:grid-cols-3 gap-3">
                     <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/sdk/node" target="_blank" rel="noopener"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="code" Class="w-5 h-5 text-slate-400" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Node source</div>
@@ -383,7 +383,7 @@
                         <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
                     </a>
                     <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/sdk/python" target="_blank" rel="noopener"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="code" Class="w-5 h-5 text-slate-400" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Python source</div>
@@ -392,7 +392,7 @@
                         <Icon Name="external-link" Class="w-4 h-4 text-slate-400 shrink-0" />
                     </a>
                     <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/sdk/dotnet" target="_blank" rel="noopener"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="code" Class="w-5 h-5 text-slate-400" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">.NET source</div>
@@ -411,38 +411,20 @@
         </article>
     </main>
 
-    <SiteFooter />
-</div>
 
 @code {
     private const string NpmInstall = "npm install @dgbwallet/digipay";
     private string createTab = "node";
     private string verifyTab = "node";
     private string? copiedKey;
-    private CancellationTokenSource? copyResetCts;
 
     private async Task CopyAsync(string key, string text)
     {
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
-        }
-        catch
-        {
-            // Clipboard API unavailable (old browser / insecure context) — silent no-op.
-        }
-
         copiedKey = key;
-        copyResetCts?.Cancel();
-        copyResetCts = new CancellationTokenSource();
-        var token = copyResetCts.Token;
-        _ = Task.Delay(1500, token).ContinueWith(t =>
-        {
-            if (!t.IsCanceled)
-            {
-                copiedKey = null;
-                InvokeAsync(StateHasChanged);
-            }
-        }, TaskScheduler.Default);
+        bool ok;
+        try { ok = await JS.InvokeAsync<bool>("digipayClipboard.copy", text); }
+        catch (JSException) { ok = false; }
+        if (ok) Toasts.Success("Install command copied");
+        else Toasts.Info("Your browser blocked copying. Select the command and copy it by hand.");
     }
 }

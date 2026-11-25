@@ -1,0 +1,10 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+
+@* Public website frame (spec 032, T086): site menu, page, footer. Pages render their own <main>.
+   Shopper pages, the dashboard and the POS don't use it. *@
+<div class="dp-site">
+    <SiteNav />
+    @Body
+    <SiteFooter />
+</div>

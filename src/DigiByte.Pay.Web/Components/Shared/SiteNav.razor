@@ -10,7 +10,7 @@
 }
 
 <nav class="dp-sitenav" aria-label="Site">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3 sm:gap-6">
+    <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-2 sm:gap-6">
         <a href="/" class="dp-brand">
             <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
             <span>Digi<span class="text-dgb-500">Pay</span></span>
@@ -25,16 +25,19 @@
             </a>
         </div>
         <div class="flex-1 md:hidden"></div>
-        <ThemePicker Compact="true" Class="hidden sm:flex" />
+        @* Wrapped: the shared .segmented rule loads after Tailwind and would override "hidden". *@
+        <div class="hidden sm:block"><ThemePicker Compact="true" /></div>
         @* Signed out: Sign in. Signed in: Dashboard (auth-state.js shows one via CSS). *@
         <a href="/merchant/signin" data-auth-show="out" class="btn-primary btn-sm">Sign in</a>
         <a href="/merchant" data-auth-show="in" class="btn-primary btn-sm">
             <Icon Name="dashboard" Class="w-4 h-4" /><span>Dashboard</span>
         </a>
-        <button type="button" class="icon-btn md:hidden" aria-label="Open menu" aria-haspopup="dialog"
-                aria-expanded="@(menuOpen ? "true" : "false")" @onclick="OpenMenu">
-            <Icon Name="menu" Class="w-5 h-5" />
-        </button>
+        <div class="md:hidden">
+            <button type="button" class="icon-btn" aria-label="Open menu" aria-haspopup="dialog"
+                    aria-expanded="@(menuOpen ? "true" : "false")" @onclick="OpenMenu">
+                <Icon Name="menu" Class="w-5 h-5" />
+            </button>
+        </div>
     </div>
 </nav>
 

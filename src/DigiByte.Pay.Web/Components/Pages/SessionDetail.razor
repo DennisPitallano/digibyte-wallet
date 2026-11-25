@@ -320,6 +320,8 @@ else
 }
 
 @code {
+    [Inject] private ILogger<SessionDetail> Log { get; set; } = default!;
+
     /// <summary>?back= : the Sessions list address this page was opened from (local /merchant paths only).</summary>
     [SupplyParameterFromQuery(Name = "back")] public string? Back { get; set; }
 
@@ -369,7 +371,7 @@ else
             if (session is not null) await LoadDeliveriesAsync();
             StateHasChanged();
         }
-        catch (Exception ex) { bootstrapError = "Something went wrong. Check your connection and try again."; StateHasChanged(); }
+        catch (Exception ex) { bootstrapError = "Something went wrong. Check your connection and try again."; Log.LogWarning(ex, "Session detail: bootstrapError"); StateHasChanged(); }
     }
 
     private HttpRequestMessage AuthedRequest(HttpMethod method, string path)
@@ -472,7 +474,7 @@ else
             await LoadSessionAsync();
             await LoadDeliveriesAsync();
         }
-        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; }
+        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; Log.LogWarning(ex, "Session detail: actionError"); }
         finally { submittingAction = false; StateHasChanged(); }
     }
 
@@ -495,7 +497,7 @@ else
             await LoadSessionAsync();
             await LoadDeliveriesAsync();
         }
-        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; }
+        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; Log.LogWarning(ex, "Session detail: actionError"); }
         finally { submittingAction = false; StateHasChanged(); }
     }
 

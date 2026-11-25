@@ -334,26 +334,26 @@ else
                         @* Currency toggle: DGB (default) vs fiat. Fiat-priced sessions
                            lock in the DGB amount at the rate the API quotes server-side
                            when the customer opens the checkout. *@
-                        <div class="flex rounded-lg bg-slate-100 dark:bg-dgb-950 p-1 text-sm font-semibold w-fit">
-                            <button type="button" class="px-3 py-1.5 rounded-md transition-colors @(linkPriceMode == "dgb" ? "bg-white dark:bg-dgb-800 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400")"
+                        <div class="segmented w-fit" role="group" aria-label="Price in">
+                            <button type="button" class="segmented-item" aria-pressed="@(linkPriceMode == "dgb" ? "true" : "false")"
                                     @onclick='() => linkPriceMode = "dgb"'>DGB</button>
-                            <button type="button" class="px-3 py-1.5 rounded-md transition-colors @(linkPriceMode == "fiat" ? "bg-white dark:bg-dgb-800 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400")"
-                                    @onclick='() => linkPriceMode = "fiat"'>Fiat</button>
+                            <button type="button" class="segmented-item" aria-pressed="@(linkPriceMode == "fiat" ? "true" : "false")"
+                                    @onclick='() => linkPriceMode = "fiat"'>Your currency</button>
                         </div>
 
                         @if (linkPriceMode == "dgb")
                         {
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <input @bind="linkAmountDgb" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="@Input" />
-                                <input @bind="linkLabel" placeholder="Label (shown to payer)" class="@Input" />
-                                <input @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
+                                <input aria-label="Amount (DGB)" @bind="linkAmountDgb" type="number" step="0.00000001" min="0" placeholder="Amount (DGB)" class="@Input" />
+                                <input aria-label="Label (shown to payer)" @bind="linkLabel" placeholder="Label (shown to payer)" class="@Input" />
+                                <input aria-label="Memo / order #" @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
                             </div>
                         }
                         else
                         {
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                                <input @bind="linkAmountFiat" type="number" step="0.01" min="0" placeholder="Amount" class="@Input" />
-                                <select @bind="linkFiatCurrency" class="@Input">
+                                <input aria-label="Amount" @bind="linkAmountFiat" type="number" step="0.01" min="0" placeholder="Amount" class="@Input" />
+                                <select @bind="linkFiatCurrency" class="@Input" aria-label="Currency">
                                     <option value="USD">USD</option>
                                     <option value="EUR">EUR</option>
                                     <option value="GBP">GBP</option>
@@ -361,15 +361,15 @@ else
                                     <option value="AUD">AUD</option>
                                     <option value="JPY">JPY</option>
                                 </select>
-                                <input @bind="linkLabel" placeholder="Label" class="@Input" />
-                                <input @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
+                                <input aria-label="Label" @bind="linkLabel" placeholder="Label" class="@Input" />
+                                <input aria-label="Memo / order #" @bind="linkMemo" placeholder="Memo / order #" class="@Input" />
                             </div>
                         }
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
                             <label class="flex flex-col gap-1">
                                 <span class="@Eyebrow">Expires in (minutes)</span>
-                                <input @bind="linkExpiryMinutes" type="number" min="1" max="1440" placeholder="30" class="@Input" />
+                                <input aria-label="30" @bind="linkExpiryMinutes" type="number" min="1" max="1440" placeholder="30" class="@Input" />
                             </label>
                             <button class="@Btn" @onclick="CreatePaymentLinkAsync"
                                     disabled="@(busy || !LinkFormValid)">
@@ -405,7 +405,7 @@ else
                                     <div>
                                         <div class="@Eyebrow mb-1">Checkout URL</div>
                                         <div class="flex gap-2 items-stretch">
-                                            <input class="@Input flex-1 font-mono text-xs" readonly value="@createdLink.CheckoutUrl"
+                                            <input class="@Input flex-1 font-mono text-xs" readonly aria-label="Payment link" value="@createdLink.CheckoutUrl"
                                                    @onclick="SelectLinkInputAsync" />
                                             <button class="@BtnGhost text-xs px-3 shrink-0"
                                                     @onclick='() => CopySnippetAsync("link", createdLink!.CheckoutUrl)'>
@@ -474,19 +474,19 @@ else
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                             <div>
                                 <div class="@Eyebrow">Amount <span class="@Muted">(DGB, optional)</span></div>
-                                <input @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="0" class="@Input" />
+                                <input aria-label="0" @bind="donAmount" @bind:event="oninput" type="number" step="0.00000001" min="0" placeholder="0" class="@Input" />
                             </div>
                             <div>
                                 <div class="@Eyebrow">Your name <span class="@Muted">(optional)</span></div>
-                                <input @bind="donName" @bind:event="oninput" placeholder="e.g. Acme Coffee" class="@Input" maxlength="80" />
+                                <input aria-label="Acme Coffee" @bind="donName" @bind:event="oninput" placeholder="e.g. Acme Coffee" class="@Input" maxlength="80" />
                             </div>
                             <div>
                                 <div class="@Eyebrow">Message / label <span class="@Muted">(optional)</span></div>
-                                <input @bind="donLabel" @bind:event="oninput" placeholder="e.g. Thanks for the tip!" class="@Input" maxlength="120" />
+                                <input aria-label="Thanks for the tip!" @bind="donLabel" @bind:event="oninput" placeholder="e.g. Thanks for the tip!" class="@Input" maxlength="120" />
                             </div>
                             <div>
                                 <div class="@Eyebrow">Button text</div>
-                                <input @bind="donButtonText" @bind:event="oninput" placeholder="Tip DGB" class="@Input" maxlength="40" />
+                                <input aria-label="Tip DGB" @bind="donButtonText" @bind:event="oninput" placeholder="Tip DGB" class="@Input" maxlength="40" />
                             </div>
                         </div>
                     </section>
@@ -563,7 +563,7 @@ else
                 <p class="@Muted mb-6 slide-up-delay-1">POST with HMAC-SHA256 signature on session state changes. Each store has its own webhook URL and secret. Header: <span class="font-mono">X-DigiPay-Signature: sha256=…</span></p>
 
                 <section class="@Card scale-in-delay-1">
-                    <input @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="@Input" />
+                    <input aria-label="https://your-server.example/digipay-webhook" @bind="webhookInput" placeholder="https://your-server.example/digipay-webhook" class="@Input" />
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button class="@Btn" @onclick="SaveWebhookAsync" disabled="@(webhookBusy || webhookInput == (activeStore.WebhookUrl ?? ""))">
                             @(webhookBusy ? "Saving…" : "Save")
@@ -654,8 +654,8 @@ else
                 <section class="@Card scale-in-delay-1">
                     <h2 class="@H2">Add a new store</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
-                        <input @bind="newStoreName" placeholder="Store name" class="@Input" />
-                        <select @bind="newStoreNetwork" class="@Input sm:w-32">
+                        <input aria-label="Store name" @bind="newStoreName" placeholder="Store name" class="@Input" />
+                        <select @bind="newStoreNetwork" class="@Input sm:w-32" aria-label="Network">
                             <option value="mainnet">mainnet</option>
                             <option value="testnet">testnet</option>
                             <option value="regtest">regtest</option>
@@ -675,17 +675,17 @@ else
                             var isActive = s.Id == activeStoreId;
                             <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg @(isActive ? "border-dgb-500 bg-dgb-500/5" : "border-slate-200 dark:border-dgb-800")">
                                 <div class="min-w-0">
-                                    <div class="font-semibold text-sm text-slate-900 dark:text-white">@s.Name @(isActive ? "· active" : "")</div>
-                                    <div class="@Muted">
+                                    <div class="font-semibold text-sm text-slate-900 dark:text-white" style="overflow-wrap:anywhere">@s.Name @(isActive ? "· active" : "")</div>
+                                    <div class="@Muted" style="overflow-wrap:anywhere">
                                         @s.Network ·
                                         @(s.HasReceive ? $"receiving to {s.ReceivePreview}" : "no receive configured")
                                         @(string.IsNullOrEmpty(s.WebhookUrl) ? "" : " · webhook set")
                                     </div>
                                 </div>
-                                <div class="flex gap-2 shrink-0">
+                                <div class="flex flex-wrap gap-2">
                                     @if (!isActive)
                                     {
-                                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="() => SetActiveAsync(s.Id)">Switch to</button>
+                                        <button class="btn-secondary btn-sm" @onclick="() => SetActiveAsync(s.Id)">Switch to</button>
                                     }
                                     <button class="btn-danger btn-sm"
                                             @onclick='() => Ask("Delete this store?", $"\u201c{s.Name}\u201d stops taking payments and disappears from your dashboard. Payments already made are not affected. This can\u2019t be undone.", "Delete store", () => DeleteStoreAsync(s.Id))'
@@ -721,7 +721,7 @@ else
                     @* Input + button share a row so baselines align; hint flows below so it
                        doesn't push the button off the input's centerline. *@
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <input @bind="newKeyLabel" placeholder="Label (e.g. production, ci)"
+                        <input aria-label="Label (production, ci)" @bind="newKeyLabel" placeholder="Label (e.g. production, ci)"
                                class="@Input flex-1" maxlength="80" />
                         <button class="@Btn sm:shrink-0" @onclick="CreateApiKeyAsync" disabled="@creatingKey">
                             @(creatingKey ? "Creating…" : "Generate key")
@@ -799,7 +799,7 @@ else
                     <h2 class="@H2">Pair a new tablet</h2>
                     <p class="@Muted m-0">Generate a one-time code. On the tablet, go to <code class="font-mono text-xs">/pos</code> and type the code to pair. Codes expire after 10 minutes and can only be used once.</p>
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <input @bind="newPosDeviceLabel" placeholder="Device label (e.g. Front counter)"
+                        <input aria-label="Device label (Front counter)" @bind="newPosDeviceLabel" placeholder="Device label (e.g. Front counter)"
                                class="@Input flex-1" maxlength="60" />
                         <button class="@Btn sm:shrink-0" @onclick="CreatePosPairingAsync" disabled="@posPairingBusy">
                             @(posPairingBusy ? "Generating…" : "Generate code")
@@ -864,7 +864,7 @@ else
                 <section class="@Card scale-in-delay-1">
                     <h2 class="@H2">Profile (account)</h2>
                     <p class="@Muted m-0">Display name for you as a DigiPay account owner. Store-facing names are set per store below.</p>
-                    <input @bind="nameInput" placeholder="@account.DisplayName" class="@Input" maxlength="120" />
+                    <input @bind="nameInput" placeholder="@account.DisplayName" class="@Input" aria-label="Display name" maxlength="120" />
                     <button class="@Btn self-start" @onclick="SaveNameAsync" disabled="@(nameBusy || string.IsNullOrWhiteSpace(nameInput) || nameInput.Trim() == account.DisplayName)">
                         @(nameBusy ? "Saving…" : "Save")
                     </button>
@@ -875,7 +875,7 @@ else
                 <section class="@Card mt-4">
                     <h2 class="@H2">Store name</h2>
                     <p class="@Muted m-0">Shown to buyers on the hosted checkout and in webhook payloads.</p>
-                    <input @bind="storeNameInput" placeholder="@activeStore.Name" class="@Input" maxlength="120" />
+                    <input @bind="storeNameInput" placeholder="@activeStore.Name" class="@Input" aria-label="Store name" maxlength="120" />
                     <button class="@Btn self-start" @onclick="SaveStoreNameAsync" disabled="@(storeNameBusy || string.IsNullOrWhiteSpace(storeNameInput) || storeNameInput.Trim() == activeStore.Name)">
                         @(storeNameBusy ? "Saving…" : "Save")
                     </button>
@@ -899,7 +899,7 @@ else
                     }
                     @if (!activeStore.HasReceive || showEditReceive)
                     {
-                        <input @bind="receiveInput" placeholder="dgb1… or xpub…" class="@Input font-mono text-xs" />
+                        <input aria-label="dgb1… or xpub" @bind="receiveInput" placeholder="dgb1… or xpub…" class="@Input font-mono text-xs" />
                         <button class="@Btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
                             @(busy ? "Saving…" : "Save")
                         </button>
@@ -911,7 +911,7 @@ else
                     <h2 class="@H2">Default session expiry</h2>
                     <p class="@Muted m-0">How long a pending session stays open before it expires. Defaults to 30 minutes. Late payments (up to 3 days past expiry) still reconcile automatically.</p>
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <input @bind="expiryInput" type="number" min="1" max="1440" placeholder="30"
+                        <input aria-label="30" @bind="expiryInput" type="number" min="1" max="1440" placeholder="30"
                                class="@Input flex-1" />
                         <button class="@Btn sm:shrink-0" @onclick="SaveExpiryAsync" disabled="@expiryBusy">
                             @(expiryBusy ? "Saving…" : "Save")
@@ -926,7 +926,7 @@ else
                     <h2 class="@H2">Accept DigiDollar (DD) <span class="text-[0.625rem] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 align-middle ml-1">Beta</span></h2>
                     <p class="@Muted m-0">Accept USD-pegged DigiDollar stablecoin payments alongside DGB. Each session gets a fresh <code class="text-[0.6875rem]">DD…</code> address; buyers pay in DD; the amount is denominated in USD (1&nbsp;DD&nbsp;=&nbsp;$1). Fees are paid in DGB from our house wallet — no fee reserve to manage on your side.</p>
                     <label class="inline-flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" @bind="ddEnabledInput" @bind:after="SaveDigiDollarEnabledAsync" disabled="@ddBusy" class="w-4 h-4 accent-dgb-500" />
+                        <input type="checkbox" @bind="ddEnabledInput" @bind:after="SaveDigiDollarEnabledAsync" disabled="@ddBusy" class="w-5 h-5 accent-dgb-500" />
                         <span class="text-sm">Enable DigiDollar for this store</span>
                     </label>
                     @if (ddMessage != null) { <p class="@Muted m-0">@ddMessage</p> }

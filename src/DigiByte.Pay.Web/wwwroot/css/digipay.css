@@ -370,3 +370,32 @@ html:not(.dark) .dp-pos .disabled\:text-slate-400:disabled { color: #64748b; }
 }
 .dp-code-copy:hover { background: rgba(255, 255, 255, 0.16); }
 .dp-code-copy:focus-visible { outline: 2px solid #80b3ff; outline-offset: 2px; }
+
+/* Public website frame (SiteLayout). */
+.dp-site { min-height: 100dvh; display: flex; flex-direction: column; background: #f8fafc; color: var(--ui-text); }
+.dark .dp-site { background: #001529; }
+.dp-site > main { flex: 1; }
+
+/* Tables stack into labelled rows on phones (spec 032, T061). Add data-label to each cell. */
+@media (max-width: 767px) {
+    .dp-stack-table thead { display: none; }
+    .dp-stack-table, .dp-stack-table tbody { display: block; }
+    .dp-stack-table tr { display: block; padding: 0.5rem 0; border-top: 1px solid var(--ui-border); }
+    .dp-stack-table td { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 0.375rem 1rem; text-align: right; }
+    .dp-stack-table td > * { min-width: 0; }
+    .dp-stack-table td[data-label]::before { content: attr(data-label); flex-shrink: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ui-text-muted); text-align: left; }
+    .dp-stack-table td[data-label=""]::before { content: none; }
+    .dp-stack-table td[colspan] { display: block; text-align: left; }
+}
+
+/* Grid and flex items shouldn't grow past their track on small screens because of long content. */
+.grid > .card, .grid > a.card { min-width: 0; }
+/* Public pages: cards never force their row wider than the screen. */
+.dp-site .card { min-width: 0; max-width: 100%; }
+/* Long tokens (file names, IDs) in public-page text wrap instead of widening the page. */
+.dp-site code, .dp-site .min-w-0 { overflow-wrap: anywhere; }
+/* Dashboard: long IDs, addresses and URLs wrap instead of widening the page on phones. */
+.dp-main { min-width: 0; }
+.dp-main .font-mono { overflow-wrap: anywhere; }
+/* Column flex children (page sections) shrink to the screen, so wide tables scroll inside their card. */
+.dp-site .flex-col > * { min-width: 0; }

@@ -1,4 +1,5 @@
 @page "/docs/woocommerce"
+@layout SiteLayout
 
 <PageTitle>WooCommerce plugin — DigiPay</PageTitle>
 
@@ -19,8 +20,6 @@
     const string ImgV = "?v=2026-04-30";
 }
 
-<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-    <SiteNav />
 
     <main class="flex-1 page-enter">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 grid lg:grid-cols-[220px,1fr] gap-8">
@@ -73,7 +72,7 @@
                 <section id="zip" class="scroll-mt-20 mb-12">
                     <h2 class="text-xl sm:text-2xl font-bold tracking-tight mb-3">1. Get the plugin ZIP</h2>
                     <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
-                        Download <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">digipay-for-woocommerce-0.1.0.zip</code>
+                        Download <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded [overflow-wrap:anywhere]">digipay-for-woocommerce-0.1.0.zip</code>
                         from the <a href="https://github.com/DennisPitallano/digibyte-wallet/releases" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">GitHub releases</a> page.
                         Building from source is also fine — clone the repo and run the bundled <code class="font-mono text-xs px-1 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded">scripts/build-woocommerce-zip.sh</code>.
                     </p>
@@ -135,7 +134,7 @@
                             DigiPay plugin settings. The webhook URL to register on the dashboard side is shown verbatim — no guessing.
                         </figcaption>
                     </figure>
-                    <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-dgb-800 bg-white dark:bg-dgb-900 mb-3">
+                    <div class="card overflow-x-auto mb-3">
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-dgb-800 bg-slate-50 dark:bg-dgb-900/50">
@@ -265,7 +264,7 @@
                 <section class="border-t border-slate-200 dark:border-dgb-800 pt-6 mt-8 grid sm:grid-cols-2 gap-4">
                     <a href="https://github.com/DennisPitallano/digibyte-wallet/blob/main/samples/woocommerce-plugin/docs/customer-flow.md"
                        target="_blank" rel="noopener"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Customer flow ↗</div>
@@ -273,7 +272,7 @@
                         </div>
                     </a>
                     <a href="/sdks"
-                       class="card-hover flex items-center gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                       class="card card-hover flex items-center gap-3 p-4 no-underline">
                         <Icon Name="package" Class="w-5 h-5 text-dgb-500" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 dark:text-white">Other integrations</div>
@@ -284,4 +283,3 @@
             </article>
         </div>
     </main>
-</div>

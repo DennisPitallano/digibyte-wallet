@@ -1,9 +1,8 @@
 @page "/docs/pos"
+@layout SiteLayout
 
 <PageTitle>POS mode — DigiPay</PageTitle>
 
-<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-    <SiteNav />
 
     <main class="flex-1 page-enter">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 grid lg:grid-cols-[220px,1fr] gap-8">
@@ -46,15 +45,15 @@
                         your staff sees an amount pad. Payments flow straight to your wallet — DigiPay never holds funds.
                     </p>
                     <div class="grid sm:grid-cols-3 gap-3 mt-4">
-                        <div class="p-4 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                        <div class="card p-4">
                             <p class="text-xs font-bold uppercase tracking-wider text-dgb-500 mb-1">Non-custodial</p>
                             <p class="text-sm text-slate-600 dark:text-slate-400 m-0">DGB lands in your wallet instantly. DigiPay never touches the keys.</p>
                         </div>
-                        <div class="p-4 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                        <div class="card p-4">
                             <p class="text-xs font-bold uppercase tracking-wider text-dgb-500 mb-1">No staff login</p>
                             <p class="text-sm text-slate-600 dark:text-slate-400 m-0">Staff only sees the amount pad. They can't see revenue, refunds, or API keys.</p>
                         </div>
-                        <div class="p-4 bg-white dark:bg-dgb-900 rounded-xl border border-slate-200 dark:border-dgb-800">
+                        <div class="card p-4">
                             <p class="text-xs font-bold uppercase tracking-wider text-dgb-500 mb-1">Works offline-ready</p>
                             <p class="text-sm text-slate-600 dark:text-slate-400 m-0">Device remembers itself across reboots. Offline queue on the roadmap.</p>
                         </div>
@@ -212,13 +211,11 @@
                     <h2 class="text-xl font-bold mb-2">Ready to go live?</h2>
                     <p class="text-sm text-slate-600 dark:text-slate-400 mb-4 m-0">Pair your first tablet from the dashboard's POS tab.</p>
                     <div class="flex flex-wrap gap-2 justify-center">
-                        <a href="/merchant" class="inline-flex items-center gap-1.5 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white no-underline rounded-lg text-sm font-semibold transition-colors">Open dashboard</a>
-                        <a href="/features" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 hover:border-dgb-400 text-slate-700 dark:text-slate-300 no-underline rounded-lg text-sm font-semibold transition-colors">See all features</a>
+                        <a href="/merchant" class="btn-primary inline-flex items-center gap-1.5">Open dashboard</a>
+                        <a href="/features" class="card inline-flex items-center gap-1.5 px-4 py-2 text-slate-700 dark:text-slate-300 no-underline text-sm font-semibold transition-colors">See all features</a>
                     </div>
                 </section>
             </article>
         </div>
     </main>
 
-    <SiteFooter />
-</div>

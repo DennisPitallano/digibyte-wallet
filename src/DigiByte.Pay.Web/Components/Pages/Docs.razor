@@ -1,9 +1,8 @@
 @page "/docs"
+@layout SiteLayout
 
 <PageTitle>How it works — DigiPay</PageTitle>
 
-<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-    <SiteNav />
 
     <main class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
@@ -19,7 +18,7 @@
                clone. Surface both up-front so neither has to scroll the full
                tutorial to find their starting point. *@
             <div class="grid sm:grid-cols-2 gap-3 mb-10 slide-up-delay-2">
-                <a href="/merchant" class="card-hover flex items-start gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                <a href="/merchant" class="card card-hover flex items-start gap-3 p-4 no-underline">
                     <Icon Name="link" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
                     <div class="flex-1 min-w-0">
                         <div class="text-sm font-semibold text-slate-900 dark:text-white">Just need a link to share?</div>
@@ -28,7 +27,7 @@
                         </div>
                     </div>
                 </a>
-                <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples" target="_blank" rel="noopener" class="card-hover flex items-start gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples" target="_blank" rel="noopener" class="card card-hover flex items-start gap-3 p-4 no-underline">
                     <Icon Name="package" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
                     <div class="flex-1 min-w-0">
                         <div class="text-sm font-semibold text-slate-900 dark:text-white">Building an integration?</div>
@@ -114,5 +113,3 @@
         </article>
     </main>
 
-    <SiteFooter />
-</div>

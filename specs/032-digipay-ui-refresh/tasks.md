@@ -265,11 +265,11 @@ description: "Task list for the DigiPay UI refresh"
 **Independent Test**: Quickstart Q5 step 8, comparing side by side with the wallet's gallery.
 
 - [X] T060 [US3] Delete the per-page class bundle constants (`Card`, `Btn`, `BtnGhost`, `Input` and so on) from the Merchant pages created in T051 and from `src/DigiByte.Pay.Web/Components/Pages/Merchant/SessionDetail.razor`. Replace them with `card`, `btn-primary`, `btn-secondary`, `btn-ghost`, `btn-sm`, `input`, `field`, `field-label`, `field-hint` and `field-error`, plus `page-title`, `block-title` and `section-label`. Keep only Tailwind layout utilities beside them.
-- [ ] T061 [P] [US3] Convert the tables in `src/DigiByte.Pay.Web/Components/Pages/Merchant/Sessions.razor`, `Webhook.razor` (delivery log), `ApiKeys.razor`, `AuditLog.razor` and `src/DigiByte.Pay.Web/Components/Shared/AuditPanel.razor` to shared-style tables on wide screens and stacked `card` rows below 768px. Long ids wrap or are shortened, with a `CopyButton` for the full value.
+- [X] T061 [P] [US3] Convert the tables in `src/DigiByte.Pay.Web/Components/Pages/Merchant/Sessions.razor`, `Webhook.razor` (delivery log), `ApiKeys.razor`, `AuditLog.razor` and `src/DigiByte.Pay.Web/Components/Shared/AuditPanel.razor` to shared-style tables on wide screens and stacked `card` rows below 768px. Long ids wrap or are shortened, with a `CopyButton` for the full value.
 - [X] T062 [US3] Show every address, txid, API key, pairing code and code snippet in `font-mono` across the Merchant pages, `src/DigiByte.Pay.Web/Components/Shared/CodeBlock.razor` and `InlineCode.razor`.
 - [X] T063 [US3] Wrap the destructive actions in `ConfirmDialog` with `btn-danger`: revoke API key (`ApiKeys.razor`), void and refund (`SessionDetail.razor`), unpair device (`PosMode.razor`), remove store (`Stores.razor`). Each dialog states what will happen and whether it can be undone.
-- [ ] T064 [P] [US3] Convert the choice controls to `segmented` / `choice-pill` with `aria-pressed`: the Sessions status filter, the Analytics range, the Webhook delivery filter, the Settings toggles (DigiDollar beta, expiry), and the PaymentLinks options.
-- [ ] T065 [US3] Restyle `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
+- [X] T064 [P] [US3] Convert the choice controls to `segmented` / `choice-pill` with `aria-pressed`: the Sessions status filter, the Analytics range, the Webhook delivery filter, the Settings toggles (DigiDollar beta, expiry), and the PaymentLinks options.
+- [X] T065 [US3] Restyle `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
   - keep the full-screen keypad and QR layout, the pairing flows, the manager PIN modal and the unpair modal;
   - remove the hardcoded `bg-slate-950` and `dgb-900`, so colours come from `ui.css` tokens and `.dark`;
   - keypad keys stay large (≥ 64px), using `btn-secondary`;
@@ -278,7 +278,7 @@ description: "Task list for the DigiPay UI refresh"
   - the pairing method toggle gets `aria-pressed`;
   - the QR code sits in `qr-frame`.
 - [X] T066 [P] [US3] Restyle `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`: `card` surface, `qr-frame` around the Digi-ID QR code, shared buttons, and a `back-btn` link to Home.
-- [ ] T067 [P] [US3] Make `src/DigiByte.Pay.Web/Components/Shared/Icon.razor` match the wallet's icon style (stroke width, size and 24px grid). Add the icons used by `CheckoutStates` (clock, radar, check, check-circle, alert, timer-off, undo, ban, refresh) and by `DashboardSections`. Remove all emoji and glyph status markers across `src/DigiByte.Pay.Web/Components/` (FR-006).
+- [X] T067 [P] [US3] Make `src/DigiByte.Pay.Web/Components/Shared/Icon.razor` match the wallet's icon style (stroke width, size and 24px grid). Add the icons used by `CheckoutStates` (clock, radar, check, check-circle, alert, timer-off, undo, ban, refresh) and by `DashboardSections`. Remove all emoji and glyph status markers across `src/DigiByte.Pay.Web/Components/` (FR-006).
 - [X] T068 [US3] Add a `## DigiPay` section to `docs/UI_STYLE.md`. It lists the shared building blocks DigiPay uses and where DigiPay differs: POS keypad sizing, data tables, code blocks, analytics charts, and the wide dashboard content area (FR-037).
 - [ ] T069 [US3] Run quickstart Q5 step 8 (sizes and contrast against the gallery) on every DigiPay page type, in light and dark, at 375px and 1280px. Fix any mismatch.
 
@@ -332,9 +332,9 @@ description: "Task list for the DigiPay UI refresh"
 
 **Independent Test**: Quickstart Q5 steps 6–7.
 
-- [ ] T081 [US6] Add `aria-label`s to every icon-only button across `src/DigiByte.Pay.Web/Components/`: copy, close, menu, store switcher, refresh, back and theme (FR-031).
-- [ ] T082 [US6] Make sure every interactive element shows the shared `:focus-visible` ring in both themes. Remove any `outline-none` without a replacement in `src/DigiByte.Pay.Web/Components/**/*.razor` and `wwwroot/css/tailwind-input.css`.
-- [ ] T083 [US6] Expose selected state on the store switcher, filters, pairing method and ThemePicker (`aria-pressed`, or `aria-selected` in tablists). Make sure every form field has a `<label>` or `aria-labelledby`, and that errors use `aria-invalid` plus `aria-describedby` pointing at `field-error`.
+- [X] T081 [US6] Add `aria-label`s to every icon-only button across `src/DigiByte.Pay.Web/Components/`: copy, close, menu, store switcher, refresh, back and theme (FR-031).
+- [X] T082 [US6] Make sure every interactive element shows the shared `:focus-visible` ring in both themes. Remove any `outline-none` without a replacement in `src/DigiByte.Pay.Web/Components/**/*.razor` and `wwwroot/css/tailwind-input.css`.
+- [X] T083 [US6] Expose selected state on the store switcher, filters, pairing method and ThemePicker (`aria-pressed`, or `aria-selected` in tablists). Make sure every form field has a `<label>` or `aria-labelledby`, and that errors use `aria-invalid` plus `aria-describedby` pointing at `field-error`.
 - [ ] T084 [US6] Run the Playwright + axe-core pass from quickstart Q5 step 7, in the official Playwright container. Pages: `/`, `/docs/api`, `/merchant/signin`, every `/merchant/*` section, one session detail, `/pay/{id}` in each state, the receipt, `/pay/button` and `/pos`, in both themes. Save the script as `specs/032-digipay-ui-refresh/a11y/axe-pass.mjs`, then fix every serious and critical finding until there are zero (SC-003).
 - [ ] T085 [US6] Do a screen-reader pass (NVDA or VoiceOver): sign-in → Overview → Sessions → session detail, and checkout through payment (quickstart Q5 step 6). Fix anything announced wrongly.
 
@@ -346,11 +346,11 @@ description: "Task list for the DigiPay UI refresh"
 
 **Independent Test**: Quickstart Q7.
 
-- [ ] T086 [US7] Create `src/DigiByte.Pay.Web/Components/Layout/SiteLayout.razor`, containing `SiteNav` and `SiteFooter`. Apply `@layout SiteLayout` to `Home.razor`, `Features.razor`, `About.razor`, `Docs.razor`, `ApiDocs.razor`, `PosDocs.razor`, `WooCommerceDocs.razor` and `Sdks.razor`, removing their hand-included nav and footer.
+- [X] T086 [US7] Create `src/DigiByte.Pay.Web/Components/Layout/SiteLayout.razor`, containing `SiteNav` and `SiteFooter`. Apply `@layout SiteLayout` to `Home.razor`, `Features.razor`, `About.razor`, `Docs.razor`, `ApiDocs.razor`, `PosDocs.razor`, `WooCommerceDocs.razor` and `Sdks.razor`, removing their hand-included nav and footer.
 - [X] T087 [US7] Rewrite the phone menu in `src/DigiByte.Pay.Web/Components/Shared/SiteNav.razor`: replace the checkbox hamburger dropdown with a sheet (`card-raised`, `role="dialog"`) that closes with its close button, a tap on the backdrop or Escape, and returns focus to the menu button. The Sign in / Dashboard pill uses `btn-primary btn-sm`.
-- [ ] T088 [P] [US7] Restyle `Home.razor` and `Features.razor` with `page-title`, `block-title`, `card`/`card-interactive` and shared buttons. Keep all text, sections and images.
-- [ ] T089 [P] [US7] Restyle `About.razor` and `Sdks.razor` the same way. In `Sdks.razor`, the tabbed snippets use `segmented` with `aria-selected`.
-- [ ] T090 [P] [US7] Restyle `Docs.razor`, `ApiDocs.razor`, `PosDocs.razor` and `WooCommerceDocs.razor`, plus `Shared/Endpoint.razor`, `Shared/DocsHeading.razor`, `Shared/Feature.razor`, `Shared/FeaturePanel.razor`, `Shared/Step.razor` and `Shared/Stat.razor`.
+- [X] T088 [P] [US7] Restyle `Home.razor` and `Features.razor` with `page-title`, `block-title`, `card`/`card-interactive` and shared buttons. Keep all text, sections and images.
+- [X] T089 [P] [US7] Restyle `About.razor` and `Sdks.razor` the same way. In `Sdks.razor`, the tabbed snippets use `segmented` with `aria-selected`.
+- [X] T090 [P] [US7] Restyle `Docs.razor`, `ApiDocs.razor`, `PosDocs.razor` and `WooCommerceDocs.razor`, plus `Shared/Endpoint.razor`, `Shared/DocsHeading.razor`, `Shared/Feature.razor`, `Shared/FeaturePanel.razor`, `Shared/Step.razor` and `Shared/Stat.razor`.
 - [X] T091 [US7] Give `src/DigiByte.Pay.Web/Components/Shared/CodeBlock.razor` a `CopyButton` (copy and notice), `font-mono` and a `card` surface. Remove its old copy code and the inline "Copied ✓" swap.
 - [X] T092 [US7] Document the `theme` embed option and query parameter (contract C3) in the embed section of `Docs.razor`, in `samples/express-store/README.md`, `samples/flask-store/README.md` and `samples/dotnet-store/README.md` (wherever they show the embed), and as a note in `WooCommerceDocs.razor`.
 - [ ] T093 [US7] Run quickstart Q7.
@@ -369,7 +369,7 @@ description: "Task list for the DigiPay UI refresh"
 
   Record pass/fail, times and the "looked trustworthy" answers in `specs/032-digipay-ui-refresh/baseline/usability.md`.
 - [ ] T099 Run `dotnet build DigiByte.slnx`, `dotnet test` and `node --test` for both web apps. Then run the full quickstart (Q1–Q9) once more and record the results in `specs/032-digipay-ui-refresh/baseline/timings.md`.
-- [ ] T100 Write the PR description. It flags the new `DigiByte.UI` project (Principle IV, a leaf with no inversion) and states that the wallet's CSP is unchanged. It lists the sign-in return guard (T055, `ReturnUrlGuard`) as a security-relevant change to sign-in. It also attaches the before/after gallery, checkout and dashboard screenshots required by contract C1's change rule.
+- [X] T100 Write the PR description. It flags the new `DigiByte.UI` project (Principle IV, a leaf with no inversion) and states that the wallet's CSP is unchanged. It lists the sign-in return guard (T055, `ReturnUrlGuard`) as a security-relevant change to sign-in. It also attaches the before/after gallery, checkout and dashboard screenshots required by contract C1's change rule.
 
 ---
 
