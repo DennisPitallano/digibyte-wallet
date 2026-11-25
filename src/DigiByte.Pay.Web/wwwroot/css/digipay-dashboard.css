@@ -1,0 +1,96 @@
+/*
+ * Merchant dashboard only (Dashboard.razor, SessionDetail.razor and their panels).
+ * Loaded by those pages through <HeadContent>, after digipay.css. Colours come from the shared
+ * --ui-* tokens (ui.css), so light and dark need no separate rules except where noted.
+ */
+
+/* ----- Menu groups (rail and More sheet) ----- */
+.dash-nav-heading { padding: 0 0.75rem; margin: 0.75rem 0 0.25rem; }
+.dash-nav-heading:first-child { margin-top: 0.25rem; }
+.dash-nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* ----- Top bar (phones): the active store when there are several ----- */
+.dash-topbar-name { max-width: 9rem; font-size: 0.875rem; font-weight: 600; }
+.dash-topbar-store {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    max-width: 12rem;
+    min-height: 44px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--ui-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.dash-topbar-store:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* ----- Overview tiles ----- */
+.dash-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.dash-stats > :first-child { grid-column: 1 / -1; }
+@media (min-width: 640px) {
+    .dash-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .dash-stats > :first-child { grid-column: auto; }
+}
+@media (min-width: 1280px) { .dash-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.dash-stat { display: block; color: inherit; text-decoration: none !important; }
+.dash-stat-hint { margin-top: 0.25rem; font-size: 0.75rem; color: var(--ui-text-muted); }
+/* Needs action: a coloured edge and bold hint, never colour alone (the hint says so). */
+.dash-stat-attention { border-left: 4px solid var(--ui-danger); }
+.dash-stat-attention .dash-stat-hint { color: var(--ui-error); font-weight: 600; }
+.dark .dash-stat-attention .dash-stat-hint { color: #fca5a5; }
+
+/* ----- Getting started ----- */
+.dash-progress { height: 6px; border-radius: 9999px; background: var(--ui-ghost-hover); overflow: hidden; }
+.dash-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--ui-primary); transition: width var(--motion-base, 200ms) ease-out; }
+.dash-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.dash-step { display: flex; align-items: flex-start; gap: 0.75rem; }
+.dash-step-mark {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    border: 2px solid var(--ui-secondary-border);
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+.dash-step.is-done .dash-step-mark { border-color: #059669; background: #059669; color: #fff; }
+.dash-step-title { margin: 0.125rem 0 0; font-weight: 600; color: var(--ui-text); }
+.dash-step.is-done .dash-step-title { color: var(--ui-text-muted); font-weight: 500; }
+
+/* ----- Payments list ----- */
+/* The filter scrolls sideways on phones instead of squeezing nine labels. */
+.dash-filter { overflow-x: auto; scrollbar-width: none; }
+.dash-filter::-webkit-scrollbar { display: none; }
+.dash-filter .segmented-item { flex: 0 0 auto; white-space: nowrap; }
+/* Whole-row links: the site's underline-every-link rule doesn't apply to them. */
+.dash-row-link { text-decoration: none !important; }
+.dash-fiat { font-weight: 500; font-size: 0.8125rem; color: var(--ui-text-muted); }
+
+/* ----- Shown-once secret ----- */
+.dash-once-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid #a7f3d0;
+    background: #ecfdf5;
+}
+.dark .dash-once-card { border-color: rgba(6, 95, 70, 0.4); background: rgba(6, 78, 59, 0.25); }
+
+/* ----- Payment detail ----- */
+.dash-shortfall { font-weight: 600; color: var(--ui-error); }
+.dark .dash-shortfall { color: #fca5a5; }
+
+/* Small screens: wrapped card headers keep a gap between title and buttons. */
+@media (max-width: 360px) {
+    .dash-filter .segmented-item { padding: 0 0.625rem; }
+}
