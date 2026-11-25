@@ -14,7 +14,7 @@
 @* Full-bleed kiosk shell. Fixed dark theme so the tablet looks consistent
    regardless of the merchant's OS light/dark setting, and so the success
    flash-green actually reads as success on a countertop. No nav, no chrome. *@
-<div class="fixed inset-0 bg-slate-950 text-white font-sans flex flex-col select-none touch-manipulation overflow-hidden">
+<div class="dp-pos fixed inset-0 bg-slate-950 text-white font-sans flex flex-col select-none touch-manipulation overflow-hidden">
 
     @if (screen == Screen.Pair)
     {
@@ -115,7 +115,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <button class="w-9 h-9 flex items-center justify-center text-slate-300 border border-dgb-800 rounded-lg hover:bg-dgb-900 transition-colors"
-                        @onclick="OpenPinSettings" title="@(hasPin ? "Change / remove PIN" : "Set a manager PIN")" aria-label="PIN settings">
+                        @onclick="OpenPinSettings" title="@(hasPin ? "Change / remove PIN" : "Set a manager PIN")" aria-label="Tablet settings">
                     <Icon Name="@(hasPin ? "shield" : "settings")" Class="w-4 h-4" />
                 </button>
                 @* "Close shift" surfaces the today-so-far summary. Disabled on
@@ -344,12 +344,12 @@
 @if (showUnpair)
 {
     <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="() => showUnpair = false">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" @onclick:stopPropagation>
-            <h3 class="text-lg font-bold m-0 mb-2">Unpair this device?</h3>
+        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-unpair-title" @onclick:stopPropagation>
+            <h3 id="pos-unpair-title" class="text-lg font-bold m-0 mb-2">Unpair this device?</h3>
             <p class="text-sm text-slate-400 m-0 mb-4">The stored API key will be forgotten on this tablet. Revoke it from the dashboard too if it's lost or stolen.</p>
             <div class="flex gap-2">
                 <button class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm" @onclick="() => showUnpair = false">Cancel</button>
-                <button class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg text-sm" @onclick="UnpairAsync">Unpair</button>
+                <button class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm" @onclick="UnpairAsync">Unpair</button>
             </div>
         </div>
     </div>
@@ -510,8 +510,8 @@
 @if (showPinSettings)
 {
     <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="ClosePinSettings">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" @onclick:stopPropagation>
-            <h3 class="text-lg font-bold m-0 mb-1">@(hasPin ? "Change manager PIN" : "Set a manager PIN")</h3>
+        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-settings-title" @onclick:stopPropagation>
+            <h3 id="pos-settings-title" class="text-lg font-bold m-0 mb-1">@(hasPin ? "Change manager PIN" : "Set a manager PIN")</h3>
             <p class="text-sm text-slate-400 m-0 mb-4">
                 A 4–8 digit PIN gates destructive actions on this tablet (right now: unpairing).
                 The PIN never leaves the browser.
@@ -539,6 +539,12 @@
             {
                 <button class="w-full py-2 text-xs font-semibold text-red-400 hover:text-red-300" @onclick="RemovePinAsync">Remove PIN</button>
             }
+            @* Screen theme for this tablet (FR-013). Stored under the POS key, so it doesn't
+               change the merchant's dashboard theme. Starts dark. *@
+            <div class="border-t border-dgb-800 mt-4 pt-4">
+                <p class="block text-xs font-semibold text-slate-300 mb-2">Screen theme</p>
+                <ThemePicker />
+            </div>
         </div>
     </div>
 }
@@ -549,8 +555,8 @@
 @if (showPinChallenge)
 {
     <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="CancelPinChallenge">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" @onclick:stopPropagation>
-            <h3 class="text-lg font-bold m-0 mb-1">Enter manager PIN</h3>
+        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-pin-title" @onclick:stopPropagation>
+            <h3 id="pos-pin-title" class="text-lg font-bold m-0 mb-1">Enter manager PIN</h3>
             <p class="text-sm text-slate-400 m-0 mb-4">@pinChallengePrompt</p>
             <input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
                    maxlength="8"

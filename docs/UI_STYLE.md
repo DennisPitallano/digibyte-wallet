@@ -415,6 +415,49 @@ Still to follow up after adopting C:
 
 Text needs 4.5:1 and boundaries 3:1 for AA. Button heights measure 48px and 44px.
 
+## DigiPay
+
+DigiPay (`src/DigiByte.Pay.Web`) uses this same layer. It loads `_content/DigiByte.UI/css/ui.css` after its
+Tailwind build. Its own page layout lives in `src/DigiByte.Pay.Web/wwwroot/css/digipay.css`, built only from
+the `--ui-*` tokens. Spec: `specs/032-digipay-ui-refresh`.
+
+**Shared as is:**
+
+- buttons
+- cards
+- `input` and `field-*`
+- headings
+- `segmented`
+- `icon-btn` and `back-btn`
+- `qr-frame`
+- `skeleton`
+- the Baku bubble
+- the fonts
+
+**Added to `ui.css` for DigiPay, with new selectors only, so the wallet is unchanged:**
+
+| Class | Use |
+| --- | --- |
+| `ui-toast-*` | Notices. Success and info use `role=status` and close after 3 s; warnings and errors use `role=alert` and stay until dismissed. |
+| `ui-dialog-*` | Confirmation dialog: focus trap, Escape, focus returns to the opener. |
+| `ui-empty-*` | Empty state with an optional Baku pose. |
+| `ui-badge-*` | Status badges, tones `neutral`, `info`, `success`, `danger` and `refund`. |
+| `ui-banner-*` | Warning and info strips. |
+| `ui-skip-link` | The "Skip to main content" link. |
+
+**Where DigiPay differs:**
+
+- **Theme.** DigiPay defaults to Match my device. The wallet defaults to dark. A shop can force light or dark
+  on `/pay/*` pages with `?theme=`, which is never saved.
+- **Dashboard width.** Lists, tables, charts and logs use a wide area capped at 1280px. Forms (New payment,
+  Settings) keep the wallet's 480px column. Navigation is a left rail from 1024px, and the wallet-style
+  bottom menu with a raised New payment button below that.
+- **POS keypad.** The kiosk keeps its own full-screen layout. It starts dark, and its theme is set behind the
+  manager PIN. `.dp-pos` maps its colours onto the light tokens when light is chosen.
+- **Shopper pages.** The checkout, receipt and tip page never show Baku. The checkout is prerendered, so the
+  amount and QR code arrive in the first HTML.
+- **`<select>`.** `select.input` gets its native arrow back, because the shared `input` class removes it.
+
 ## Rollout
 
 **Buttons: done for the standard cases.** `tools/button-style-rollout.py` moved 159 hand-written

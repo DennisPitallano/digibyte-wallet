@@ -5,21 +5,22 @@
 @inject IHttpClientFactory HttpFactory
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject ToastService Toasts
 @using System.Net.Http.Json
 
 <PageTitle>@(notFound || storeNotFound ? "Not found" : CurrentSection.Label) · DigiPay</PageTitle>
 
 @* Shared class strings for consistency *@
 @{
-    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
-    const string Btn = "px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/50 text-white font-semibold rounded-lg text-sm disabled:cursor-not-allowed transition-colors";
-    const string BtnGhost = "px-4 py-2.5 bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-dgb-800 font-semibold rounded-lg text-sm disabled:opacity-50 transition-colors";
-    const string Input = "w-full rounded-lg px-3 py-2 text-sm bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-dgb-500/40";
-    const string Eyebrow = "text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400";
-    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
-    const string Pre = "bg-slate-900 text-slate-100 rounded-lg p-3 text-[0.6875rem] font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed";
-    const string H2 = "text-base font-bold text-slate-900 dark:text-white m-0";
-    const string H1 = "text-xl sm:text-2xl font-bold tracking-tight m-0";
+    const string Card = "card p-5 sm:p-6 flex flex-col gap-3";
+    const string Btn = "btn-primary";
+    const string BtnGhost = "btn-secondary";
+    const string Input = "input";
+    const string Eyebrow = "section-label";
+    const string Muted = "dp-muted";
+    const string Pre = "bg-slate-900 text-slate-100 rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed";
+    const string H2 = "block-title";
+    const string H1 = "page-title";
 }
 
 @if (bootstrapError != null)
@@ -78,7 +79,7 @@ else
                     <button type="button" class="btn-secondary btn-sm flex-1" @onclick="SignOutAsync">
                         <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
                     </button>
-                    <ThemeToggle />
+                    <ThemePicker Compact="true" />
                 </div>
             </div>
         </aside>
@@ -131,6 +132,14 @@ else
                 }
                 else
                 {
+                    @if (WebhookFailing)
+                {
+                    @* FR-024: recent deliveries are failing; link straight to the log. *@
+                    <div class="ui-banner ui-banner-warning mb-4" role="status">
+                        <Icon Name="alert" Class="" />
+                        <p>Webhook deliveries to your server are failing. <a href="@($"{HrefFor(DashboardSections.ForKey("webhook"))}#delivery-log")" class="font-semibold underline">See the delivery log</a> to find out why.</p>
+                    </div>
+                }
                     @* Stats row — stagger each card so they cascade in
                        (delay-2 through -5) beneath the heading. *@
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -231,8 +240,14 @@ else
                 <p class="@Muted mb-6 slide-up-delay-1">Sessions for <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong>, newest first.</p>
 
                 <section class="@Card scale-in-delay-1">
-                    @if (sessions == null) { <p class="@Muted m-0">Loading…</p> }
-                    else if (sessions.Count == 0) { <p class="@Muted m-0">No sessions yet.</p> }
+                    @if (sessions == null) { <Skeleton Shape="row" Count="4" /> }
+                    else if (sessions.Count == 0)
+                    {
+                        <EmptyState Title="No payments yet"
+                                    Text="Every payment you create, from here, a payment link, your shop or a POS tablet, shows up in this list."
+                                    ActionLabel="Create your first payment" ActionHref="@HrefFor(DashboardSections.ForKey("new"))"
+                                    BakuPose="greeting" Class="border-0 shadow-none p-0" />
+                    }
                     else
                     {
                         <ul class="list-none p-0 m-0 flex flex-col gap-2">
@@ -362,7 +377,7 @@ else
                             </button>
                         </div>
 
-                        @if (linkError != null) { <p class="text-xs text-red-500 m-0">@linkError</p> }
+                        @if (linkError != null) { <p class="field-error" role="alert">@linkError</p> }
                     </section>
 
                     @if (createdLink is not null)
@@ -394,7 +409,7 @@ else
                                                    @onclick="SelectLinkInputAsync" />
                                             <button class="@BtnGhost text-xs px-3 shrink-0"
                                                     @onclick='() => CopySnippetAsync("link", createdLink!.CheckoutUrl)'>
-                                                @(copiedSnippet == "link" ? "Copied ✓" : "Copy")
+                                                Copy
                                             </button>
                                         </div>
                                     </div>
@@ -494,7 +509,7 @@ else
                         </div>
                         <div class="@Eyebrow">HTML snippet</div>
                         <pre class="@Pre">@DonationHostedSnippet</pre>
-                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("hosted", DonationHostedSnippet)'>@(copiedSnippet == "hosted" ? "Copied ✓" : "Copy snippet")</button>
+                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("hosted", DonationHostedSnippet)'>Copy snippet</button>
                     </section>
 
                     @* Variant 2 — embed widget (JS-rendered, drop-in styling) *@
@@ -511,7 +526,7 @@ else
                         </div>
                         <div class="@Eyebrow">HTML snippet</div>
                         <pre class="@Pre">@DonationWidgetSnippet</pre>
-                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("widget", DonationWidgetSnippet)'>@(copiedSnippet == "widget" ? "Copied ✓" : "Copy snippet")</button>
+                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("widget", DonationWidgetSnippet)'>Copy snippet</button>
                     </section>
 
                     @* Variant 3 — raw BIP21 (direct OS wallet handoff) *@
@@ -527,7 +542,7 @@ else
                         </div>
                         <div class="@Eyebrow">HTML snippet</div>
                         <pre class="@Pre">@DonationBip21Snippet</pre>
-                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("bip21", DonationBip21Snippet)'>@(copiedSnippet == "bip21" ? "Copied ✓" : "Copy snippet")</button>
+                        <button class="@BtnGhost" @onclick='() => CopySnippetAsync("bip21", DonationBip21Snippet)'>Copy snippet</button>
                     </section>
                 }
             }
@@ -537,6 +552,14 @@ else
                     <h1 class="@H1">Webhook</h1>
                     <span class="@Muted">Store: <strong class="text-slate-900 dark:text-white">@activeStore.Name</strong></span>
                 </div>
+                @if (WebhookFailing)
+                {
+                    @* FR-024: recent deliveries are failing; link straight to the log. *@
+                    <div class="ui-banner ui-banner-warning mb-4" role="status">
+                        <Icon Name="alert" Class="" />
+                        <p>Webhook deliveries to your server are failing. <a href="@($"{HrefFor(DashboardSections.ForKey("webhook"))}#delivery-log")" class="font-semibold underline">See the delivery log</a> to find out why.</p>
+                    </div>
+                }
                 <p class="@Muted mb-6 slide-up-delay-1">POST with HMAC-SHA256 signature on session state changes. Each store has its own webhook URL and secret. Header: <span class="font-mono">X-DigiPay-Signature: sha256=…</span></p>
 
                 <section class="@Card scale-in-delay-1">
@@ -550,10 +573,10 @@ else
                         </button>
                     </div>
                     @if (webhookMessage != null) { <p class="@Muted m-0">@webhookMessage</p> }
-                    @if (webhookError != null) { <p class="text-xs text-red-500 m-0">@webhookError</p> }
+                    @if (webhookError != null) { <p class="field-error" role="alert">@webhookError</p> }
                 </section>
 
-                <section class="@Card mt-4">
+                <section id="delivery-log" class="@Card mt-4" tabindex="-1">
                     <div class="flex items-baseline justify-between">
                         <h2 class="@H2">Delivery log</h2>
                         <div class="flex gap-2">
@@ -569,11 +592,13 @@ else
                     <p class="@Muted m-0">Last 25 delivery attempts for this store. Replays re-fire the event with the same payload and add a new row to the log.</p>
                     @if (deliveries is null)
                     {
-                        <p class="@Muted m-0">Loading…</p>
+                        <Skeleton Shape="row" Count="3" />
                     }
                     else if (deliveries.Count == 0)
                     {
-                        <p class="@Muted m-0">No deliveries yet. Save a webhook URL and send a test event to see it here.</p>
+                        <EmptyState Title="Nothing sent yet"
+                                    Text="Save a webhook address above and send a test event; every delivery shows up here."
+                                    BakuPose="support" Class="border-0 shadow-none p-0" />
                     }
                     else
                     {
@@ -639,7 +664,7 @@ else
                             @(storeBusy ? "Adding…" : "Add store")
                         </button>
                     </div>
-                    @if (storeError != null) { <p class="text-xs text-red-500 m-0">@storeError</p> }
+                    @if (storeError != null) { <p class="field-error" role="alert">@storeError</p> }
                 </section>
 
                 <section class="@Card mt-4">
@@ -662,9 +687,9 @@ else
                                     {
                                         <button class="@BtnGhost text-xs py-1.5 px-3" @onclick="() => SetActiveAsync(s.Id)">Switch to</button>
                                     }
-                                    <button class="@BtnGhost text-xs py-1.5 px-3 text-red-500 dark:text-red-400 border-red-200 dark:border-red-800/40"
-                                            @onclick="() => DeleteStoreAsync(s.Id)"
-                                            disabled="@(stores.Count <= 1)">
+                                    <button class="btn-danger btn-sm"
+                                            @onclick='() => Ask("Delete this store?", $"\u201c{s.Name}\u201d stops taking payments and disappears from your dashboard. Payments already made are not affected. This can\u2019t be undone.", "Delete store", () => DeleteStoreAsync(s.Id))'
+                                            disabled="@(stores.Count <= 1)" title="@(stores.Count <= 1 ? "You need at least one store" : null)">
                                         Delete
                                     </button>
                                 </div>
@@ -685,7 +710,7 @@ else
                         <p class="@Muted m-0">This is the only time the secret will be shown. After you dismiss this card, only the prefix remains visible.</p>
                         <pre class="@Pre break-all">@createdKey.ApiKey</pre>
                         <div class="flex gap-2 flex-wrap">
-                            <button class="@Btn" @onclick="CopyCreatedKeyAsync">@(createdKeyCopied ? "Copied ✓" : "Copy")</button>
+                            <button class="@Btn" @onclick="CopyCreatedKeyAsync">Copy key</button>
                             <button class="@BtnGhost" @onclick="() => { createdKey = null; createdKeyCopied = false; }">Dismiss</button>
                         </div>
                     </section>
@@ -703,18 +728,20 @@ else
                         </button>
                     </div>
                     <div class="@Muted text-[0.6875rem] mt-0.5">Optional — just to help you tell keys apart.</div>
-                    @if (apiKeyError != null) { <p class="text-xs text-red-500 m-0">@apiKeyError</p> }
+                    @if (apiKeyError != null) { <p class="field-error" role="alert">@apiKeyError</p> }
                 </section>
 
                 <section class="@Card mt-4">
                     <h2 class="@H2">Your keys</h2>
                     @if (loadingKeys && apiKeys is null)
                     {
-                        <p class="@Muted m-0">Loading…</p>
+                        <Skeleton Shape="row" Count="2" />
                     }
                     else if (apiKeys is null || apiKeys.Count == 0)
                     {
-                        <p class="@Muted m-0">No keys yet. Generate one above to start using the SDK or REST API.</p>
+                        <EmptyState Title="No API keys"
+                                    Text="Create a key above to connect your shop, plugin or scripts through the SDKs or REST API."
+                                    BakuPose="idea" Class="border-0 shadow-none p-0" />
                     }
                     else
                     {
@@ -736,8 +763,8 @@ else
                                     </div>
                                     @if (!k.IsRevoked)
                                     {
-                                        <button class="@BtnGhost text-xs py-1.5 px-3 text-red-500 dark:text-red-400 border-red-200 dark:border-red-800/40 shrink-0"
-                                                @onclick="() => RevokeApiKeyAsync(k.Id)">
+                                        <button class="btn-danger btn-sm shrink-0"
+                                                @onclick='() => Ask("Revoke this API key?", "Anything using this key (your shop, plugin or scripts) stops working at once. This can\u2019t be undone; you can create a new key.", "Revoke key", () => RevokeApiKeyAsync(k.Id), "API key revoked")'>
                                             Revoke
                                         </button>
                                     }
@@ -778,7 +805,7 @@ else
                             @(posPairingBusy ? "Generating…" : "Generate code")
                         </button>
                     </div>
-                    @if (posPairingError != null) { <p class="text-xs text-red-500 m-0">@posPairingError</p> }
+                    @if (posPairingError != null) { <p class="field-error" role="alert">@posPairingError</p> }
                     @if (posPairing != null)
                     {
                         <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg p-4 flex flex-col items-center gap-2">
@@ -793,11 +820,13 @@ else
                     <h2 class="@H2">Paired devices</h2>
                     @if (posDevices is null)
                     {
-                        <p class="@Muted m-0">Loading…</p>
+                        <Skeleton Shape="row" Count="2" />
                     }
                     else if (posDevices.Count == 0)
                     {
-                        <p class="@Muted m-0">No tablets paired yet. Generate a code above to get started.</p>
+                        <EmptyState Title="No paired tablets"
+                                    Text="Generate a pairing code above, then enter it on the tablet to take payments at the counter."
+                                    BakuPose="idea" Class="border-0 shadow-none p-0" />
                     }
                     else
                     {
@@ -813,9 +842,9 @@ else
                                             @(d.LastUsedAt is null ? " · never used" : $" · last seen {d.LastUsedAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}")
                                         </div>
                                     </div>
-                                    <button class="@BtnGhost text-xs py-1.5 px-3 text-red-500 dark:text-red-400 border-red-200 dark:border-red-800/40 shrink-0"
-                                            @onclick="() => RevokeApiKeyAsync(d.Id)">
-                                        Revoke
+                                    <button class="btn-danger btn-sm shrink-0"
+                                            @onclick='() => Ask("Unpair this tablet?", "The tablet signs out of POS mode and can\u2019t take payments until you pair it again.", "Unpair tablet", () => RevokeApiKeyAsync(d.Id), "Tablet unpaired")'>
+                                        Unpair
                                     </button>
                                 </li>
                             }
@@ -840,7 +869,7 @@ else
                         @(nameBusy ? "Saving…" : "Save")
                     </button>
                     @if (nameMessage != null) { <p class="@Muted m-0">@nameMessage</p> }
-                    @if (nameError != null) { <p class="text-xs text-red-500 m-0">@nameError</p> }
+                    @if (nameError != null) { <p class="field-error" role="alert">@nameError</p> }
                 </section>
 
                 <section class="@Card mt-4">
@@ -850,7 +879,7 @@ else
                     <button class="@Btn self-start" @onclick="SaveStoreNameAsync" disabled="@(storeNameBusy || string.IsNullOrWhiteSpace(storeNameInput) || storeNameInput.Trim() == activeStore.Name)">
                         @(storeNameBusy ? "Saving…" : "Save")
                     </button>
-                    @if (storeNameError != null) { <p class="text-xs text-red-500 m-0">@storeNameError</p> }
+                    @if (storeNameError != null) { <p class="field-error" role="alert">@storeNameError</p> }
                 </section>
 
                 <section class="@Card mt-4">
@@ -874,7 +903,7 @@ else
                         <button class="@Btn" @onclick="SaveReceiveAsync" disabled="@(busy || string.IsNullOrWhiteSpace(receiveInput))">
                             @(busy ? "Saving…" : "Save")
                         </button>
-                        @if (patchError != null) { <p class="text-xs text-red-500 m-0">@patchError</p> }
+                        @if (patchError != null) { <p class="field-error" role="alert">@patchError</p> }
                     }
                 </section>
 
@@ -890,7 +919,7 @@ else
                     </div>
                     <div class="@Muted text-[0.6875rem] mt-0.5">Minutes (1–1440). Blank = global default (30).</div>
                     @if (expiryMessage != null) { <p class="@Muted m-0">@expiryMessage</p> }
-                    @if (expiryError != null) { <p class="text-xs text-red-500 m-0">@expiryError</p> }
+                    @if (expiryError != null) { <p class="field-error" role="alert">@expiryError</p> }
                 </section>
 
                 <section class="@Card mt-4">
@@ -901,7 +930,7 @@ else
                         <span class="text-sm">Enable DigiDollar for this store</span>
                     </label>
                     @if (ddMessage != null) { <p class="@Muted m-0">@ddMessage</p> }
-                    @if (ddError != null) { <p class="text-xs text-red-500 m-0">@ddError</p> }
+                    @if (ddError != null) { <p class="field-error" role="alert">@ddError</p> }
                 </section>
             }
             </div>
@@ -925,6 +954,12 @@ else
             </button>
         </nav>
 
+        <ConfirmDialog Open="@(pendingConfirm is not null)" Title="@(pendingConfirm?.Title ?? "")"
+                       ConfirmLabel="@(pendingConfirm?.ConfirmLabel ?? "Confirm")" Busy="@confirmBusy"
+                       OnConfirm="RunConfirmAsync" OnCancel="() => pendingConfirm = null">
+            <p>@pendingConfirm?.Body</p>
+        </ConfirmDialog>
+
         @if (moreOpen)
         {
             <div class="dp-sheet-overlay" @onclick="CloseMore">
@@ -947,11 +982,14 @@ else
                         <p class="section-label px-3">Resources</p>
                         @ResourceLinks
                     </div>
-                    <div class="flex gap-2 items-center pt-3">
-                        <button type="button" class="btn-secondary btn-sm flex-1" @onclick="SignOutAsync">
+                    <div class="dp-rail-group">
+                        <p class="section-label px-3">Theme</p>
+                        <ThemePicker Class="mx-1" />
+                    </div>
+                    <div class="pt-3">
+                        <button type="button" class="btn-secondary btn-sm w-full" @onclick="SignOutAsync">
                             <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
                         </button>
-                        <ThemeToggle />
                     </div>
                 </div>
             </div>
@@ -1012,6 +1050,56 @@ else
             // Never show another merchant's store, or hint that it exists: not found.
             storeNotFound = true;
         }
+    }
+
+    /// <summary>
+    /// The latest delivery attempts are failing (FR-024): the newest one failed and so did at least
+    /// one of the two before it, so a single blip doesn't raise the banner.
+    /// </summary>
+    private bool WebhookFailing
+    {
+        get
+        {
+            if (deliveries is null || deliveries.Count == 0 || string.IsNullOrWhiteSpace(activeStore?.WebhookUrl)) return false;
+            var recent = deliveries.OrderByDescending(d => d.CreatedAt).Take(3).ToList();
+            return !recent[0].Success && (recent.Count == 1 || recent.Skip(1).Any(d => !d.Success));
+        }
+    }
+
+    // ----- Confirmations for destructive actions (FR-025) and notices (FR-022) -----
+    private sealed record PendingConfirm(string Title, string Body, string ConfirmLabel, Func<Task> Action, string? SuccessText);
+    private PendingConfirm? pendingConfirm;
+    private bool confirmBusy;
+
+    private void Ask(string title, string body, string confirmLabel, Func<Task> action, string? successText = null) =>
+        pendingConfirm = new PendingConfirm(title, body, confirmLabel, action, successText);
+
+    private async Task RunConfirmAsync()
+    {
+        if (pendingConfirm is null) return;
+        var job = pendingConfirm;
+        confirmBusy = true;
+        try
+        {
+            var before = (apiKeyError, storeError);
+            await job.Action();
+            var failed = apiKeyError != before.apiKeyError && apiKeyError is not null
+                      || storeError != before.storeError && storeError is not null;
+            if (failed) Toasts.Error("That didn't work. Check your connection and try again.");
+            else if (job.SuccessText is not null) Toasts.Success(job.SuccessText);
+        }
+        finally
+        {
+            confirmBusy = false;
+            pendingConfirm = null;
+        }
+    }
+
+    /// <summary>A plain message for failures; details go to the server log, never the page.</summary>
+    private string Plain(Exception ex, string what)
+    {
+        Log.LogWarning(ex, "Dashboard: {What} failed", what);
+        return "Something went wrong. Check your connection and try again.";
     }
 
     /// <summary>Goes to a section (in-page buttons such as "Go to Settings").</summary>
@@ -1138,7 +1226,7 @@ else
     private string donName = "";
     private string donLabel = "";
     private string donButtonText = "Tip DGB";
-    /// <summary>Which variant's snippet was last copied; drives the "Copied ✓" feedback.</summary>
+    /// <summary>Which variant's snippet was last copied.</summary>
     private string copiedSnippet = "";
 
     private string webhookInput = "";
@@ -1450,19 +1538,15 @@ else
     private string DonationBip21Snippet =>
         $"<a href=\"{System.Net.WebUtility.HtmlEncode(DonationBip21Uri)}\">{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</a>";
 
-    /// <summary>Copy a variant's snippet to the clipboard and flash "Copied ✓" for 1.5s.</summary>
+    /// <summary>Copies a snippet or link and confirms with a notice (FR-022); explains when the browser blocks it.</summary>
     private async Task CopySnippetAsync(string variant, string snippet)
     {
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", snippet);
-            copiedSnippet = variant;
-            StateHasChanged();
-            await Task.Delay(1500);
-            if (copiedSnippet == variant) copiedSnippet = "";
-            StateHasChanged();
-        }
-        catch { }
+        bool ok;
+        try { ok = await JS.InvokeAsync<bool>("digipayClipboard.copy", snippet); }
+        catch (JSException) { ok = false; }
+        copiedSnippet = variant;
+        if (ok) Toasts.Success(variant == "link" ? "Link copied" : "Snippet copied");
+        else Toasts.Info("Your browser blocked copying. Select the text and copy it by hand.");
     }
 
     private async Task SaveReceiveAsync()
@@ -1480,7 +1564,7 @@ else
             showEditReceive = false;
             if (activeStore?.HasReceive == true) { await LoadSessionsAsync(); await LoadDonationAddressAsync(); }
         }
-        catch (Exception ex) { patchError = ex.Message; }
+        catch (Exception ex) { patchError = Plain(ex, "patchError"); }
         finally { busy = false; StateHasChanged(); }
     }
 
@@ -1504,7 +1588,7 @@ else
             newAmount = 0; newLabel = ""; newMemo = "";
             await LoadSessionsAsync();
         }
-        catch (Exception ex) { createError = ex.Message; }
+        catch (Exception ex) { createError = Plain(ex, "createError"); }
         finally { busy = false; StateHasChanged(); }
     }
 
@@ -1544,7 +1628,7 @@ else
                 linkQrDataUrl = GenerateLinkQr(createdLink.CheckoutUrl);
             await LoadSessionsAsync();
         }
-        catch (Exception ex) { linkError = ex.Message; }
+        catch (Exception ex) { linkError = Plain(ex, "linkError"); }
         finally { busy = false; StateHasChanged(); }
     }
 
@@ -1631,8 +1715,9 @@ else
             if (!response.IsSuccessStatusCode) { webhookError = await response.Content.ReadAsStringAsync(); return; }
             await RefreshStoreAsync();
             webhookMessage = string.IsNullOrWhiteSpace(activeStore?.WebhookUrl) ? "Webhook cleared." : "Webhook saved.";
+            Toasts.Success(webhookMessage!);
         }
-        catch (Exception ex) { webhookError = ex.Message; }
+        catch (Exception ex) { webhookError = Plain(ex, "webhookError"); }
         finally { webhookBusy = false; StateHasChanged(); }
     }
 
@@ -1646,9 +1731,10 @@ else
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, $"/v1/pay/stores/{activeStoreId}/webhook/test"));
             if (!response.IsSuccessStatusCode) { webhookError = await response.Content.ReadAsStringAsync(); return; }
             webhookMessage = "Test event dispatched — see the delivery log below for the result.";
+            Toasts.Success(webhookMessage!);
             await LoadDeliveriesAsync();
         }
-        catch (Exception ex) { webhookError = ex.Message; }
+        catch (Exception ex) { webhookError = Plain(ex, "webhookError"); }
         finally { webhookBusy = false; StateHasChanged(); }
     }
 
@@ -1686,7 +1772,7 @@ else
             }
             await LoadDeliveriesAsync();
         }
-        catch (Exception ex) { webhookError = ex.Message; }
+        catch (Exception ex) { webhookError = Plain(ex, "webhookError"); }
         finally { replayingId = ""; StateHasChanged(); }
     }
 
@@ -1702,8 +1788,9 @@ else
             if (!response.IsSuccessStatusCode) { expiryError = await response.Content.ReadAsStringAsync(); return; }
             await RefreshStoreAsync();
             expiryMessage = activeStore?.DefaultSessionExpiryMinutes is int m ? $"Default is now {m} minutes." : "Using global default (30 minutes).";
+            Toasts.Success(expiryMessage!);
         }
-        catch (Exception ex) { expiryError = ex.Message; }
+        catch (Exception ex) { expiryError = Plain(ex, "expiryError"); }
         finally { expiryBusy = false; StateHasChanged(); }
     }
 
@@ -1728,10 +1815,11 @@ else
             ddMessage = (activeStore?.DigiDollarEnabled ?? false)
                 ? "DigiDollar acceptance enabled for this store."
                 : "DigiDollar acceptance disabled.";
+            Toasts.Success(ddMessage!);
         }
         catch (Exception ex)
         {
-            ddError = ex.Message;
+            ddError = Plain(ex, "ddError");
             ddEnabledInput = activeStore.DigiDollarEnabled;
         }
         finally { ddBusy = false; StateHasChanged(); }
@@ -1748,9 +1836,10 @@ else
             if (!response.IsSuccessStatusCode) { nameError = await response.Content.ReadAsStringAsync(); return; }
             await LoadAccountAsync();
             nameMessage = "Saved.";
+            Toasts.Success(nameMessage!);
             nameInput = "";
         }
-        catch (Exception ex) { nameError = ex.Message; }
+        catch (Exception ex) { nameError = Plain(ex, "nameError"); }
         finally { nameBusy = false; StateHasChanged(); }
     }
 
@@ -1767,7 +1856,7 @@ else
             await RefreshStoreAsync();
             storeNameInput = "";
         }
-        catch (Exception ex) { storeNameError = ex.Message; }
+        catch (Exception ex) { storeNameError = Plain(ex, "storeNameError"); }
         finally { storeNameBusy = false; StateHasChanged(); }
     }
 
@@ -1789,7 +1878,7 @@ else
             }
             newStoreName = "";
         }
-        catch (Exception ex) { storeError = ex.Message; }
+        catch (Exception ex) { storeError = Plain(ex, "storeError"); }
         finally { storeBusy = false; StateHasChanged(); }
     }
 
@@ -1812,9 +1901,10 @@ else
                 activeStoreId = stores[0].Id;
                 await LoadActiveStoreContextAsync();
             }
+            Toasts.Success("Store deleted");
             StateHasChanged();
         }
-        catch (Exception ex) { storeError = ex.Message; StateHasChanged(); }
+        catch (Exception ex) { storeError = Plain(ex, "delete store"); StateHasChanged(); }
     }
 
     private async Task LoadApiKeysAsync()
@@ -1829,7 +1919,7 @@ else
                 apiKeys = await response.Content.ReadFromJsonAsync<List<ApiKeyListDto>>() ?? new();
             }
         }
-        catch (Exception ex) { apiKeyError = ex.Message; }
+        catch (Exception ex) { apiKeyError = Plain(ex, "apiKeyError"); }
         finally { loadingKeys = false; StateHasChanged(); }
     }
 
@@ -1852,7 +1942,7 @@ else
             newKeyLabel = "";
             await LoadApiKeysAsync();
         }
-        catch (Exception ex) { apiKeyError = ex.Message; }
+        catch (Exception ex) { apiKeyError = Plain(ex, "apiKeyError"); }
         finally { creatingKey = false; StateHasChanged(); }
     }
 
@@ -1865,19 +1955,18 @@ else
             if (!response.IsSuccessStatusCode) { apiKeyError = await response.Content.ReadAsStringAsync(); StateHasChanged(); return; }
             await LoadApiKeysAsync();
         }
-        catch (Exception ex) { apiKeyError = ex.Message; StateHasChanged(); }
+        catch (Exception ex) { apiKeyError = Plain(ex, "apiKeyError"); StateHasChanged(); }
     }
 
     private async Task CopyCreatedKeyAsync()
     {
         if (createdKey is null) return;
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", createdKey.ApiKey);
-            createdKeyCopied = true;
-            StateHasChanged();
-        }
-        catch { }
+        bool ok;
+        try { ok = await JS.InvokeAsync<bool>("digipayClipboard.copy", createdKey.ApiKey); }
+        catch (JSException) { ok = false; }
+        createdKeyCopied = ok;
+        if (ok) Toasts.Success("API key copied. Store it somewhere safe.");
+        else Toasts.Info("Your browser blocked copying. Select the key and copy it by hand.");
     }
 
     private async Task SignOutAsync()
@@ -1925,7 +2014,7 @@ else
             newPosDeviceLabel = "";
             await LoadPosDevicesAsync();
         }
-        catch (Exception ex) { posPairingError = ex.Message; }
+        catch (Exception ex) { posPairingError = Plain(ex, "posPairingError"); }
         finally { posPairingBusy = false; }
     }
 

@@ -76,7 +76,19 @@
         root.style.colorScheme = theme;
         var meta = global.document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', COLORS[theme]);
+        syncPickers();
         return theme;
+    }
+
+    // Marks the saved choice in every <ThemePicker> on the page (aria-pressed drives its style).
+    function syncPickers() {
+        if (!global.document.querySelectorAll) return;
+        var mode = getMode();
+        var buttons = global.document.querySelectorAll('[data-dp-theme-choice]');
+        for (var i = 0; i < buttons.length; i++) {
+            var pressed = buttons[i].getAttribute('data-dp-theme-choice') === mode ? 'true' : 'false';
+            if (buttons[i].getAttribute('aria-pressed') !== pressed) buttons[i].setAttribute('aria-pressed', pressed);
+        }
     }
 
     // Saves the choice for this page type (website/dashboard/checkout, or the POS) and applies it.
@@ -96,6 +108,23 @@
             if (global.document.documentElement.classList.contains('dark') !== want) apply();
         });
         observer.observe(global.document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    } catch (_) { }
+
+    // Pickers are rendered by Blazor after this script runs; mark the current choice whenever new
+    // ones appear (batched to one check per frame).
+    try {
+        var pending = false;
+        var pickerObserver = new global.MutationObserver(function () {
+            if (pending) return;
+            pending = true;
+            (global.requestAnimationFrame || setTimeout)(function () { pending = false; syncPickers(); });
+        });
+        var startPickerObserver = function () {
+            pickerObserver.observe(global.document.body || global.document.documentElement, { childList: true, subtree: true });
+            syncPickers();
+        };
+        if (global.document.body) startPickerObserver();
+        else global.document.addEventListener('DOMContentLoaded', startPickerObserver);
     } catch (_) { }
 
     ['enhancedload', 'blazor-enhanced-load'].forEach(function (n) {

@@ -16,9 +16,13 @@
         <img src="/digipay-logo.svg" alt="" class="w-7 h-7 shrink-0" />
         <span>Digi<span class="text-dgb-500">Pay</span></span>
     </a>
+    @* Light / Dark / Match my device (FR-026). *@
+    <div class="absolute top-3 right-3 sm:top-5 sm:right-5">
+        <ThemePicker Compact="true" />
+    </div>
 
     <div class="w-full max-w-md">
-        <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 sm:p-8 flex flex-col items-center gap-5 shadow-xl shadow-dgb-500/5 scale-in">
+        <div class="card-raised p-6 sm:p-8 flex flex-col items-center gap-5 scale-in">
             @* Brand header *@
             <div class="flex flex-col items-center gap-1 text-center">
                 <div class="text-[0.6875rem] font-bold tracking-[0.2em] text-dgb-500 uppercase">DIGIPAY</div>
@@ -34,7 +38,7 @@
                     </div>
                     <p class="text-sm font-medium text-slate-900 dark:text-white m-0">@loadError</p>
                     <button type="button" @onclick="RestartAsync"
-                            class="mt-1 px-4 py-2 rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold transition-colors">
+                            class="btn-primary btn-sm mt-1">
                         Try again
                     </button>
                 </div>
@@ -58,11 +62,11 @@
             {
                 @* QR with Digi-ID mark centred. Uses error-correction level H so the
                    punched-out logo doesn't corrupt the code. *@
-                <div class="relative bg-white p-3 rounded-2xl shadow-inner ring-1 ring-slate-100 dark:ring-0">
-                    <img src="@qrDataUrl" alt="Scan with your DigiByte wallet" class="block w-60 h-60 rounded-lg" />
+                <div class="qr-frame">
+                    <img src="@qrDataUrl" alt="Scan with your DigiByte wallet" width="240" height="240" class="w-60 h-60" />
                     <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div class="bg-white rounded-xl p-1.5 shadow-md ring-1 ring-slate-200">
-                            <svg class="w-10 h-10" viewBox="0 0 479.8 479.8" aria-hidden="true">
+                        <div class="qr-frame-logo" style="position:static;transform:none">
+                            <svg class="w-9 h-9" viewBox="0 0 479.8 479.8" aria-hidden="true">
                                 <circle cx="239.9" cy="239.9" r="239.9" fill="#002352" />
                                 <circle cx="239.9" cy="239.9" r="219.5" fill="#002352" stroke="#06c" stroke-miterlimit="10" stroke-width="40.8" />
                                 <path fill="#fff" d="M116.9 182.9h155s53.5-.5 16.5 68.5c0 0-27 54-94 53l36.1-92.2a7.3 7.3 0 0 0-6.6-10l-47.5-.8-60 146s20 2 31 1l-6 15h28.3a3.8 3.8 0 0 0 3.6-2.5l5.1-13.5 12-1-7 17H211a5 5 0 0 0 4.7-3.2l7.7-19.8s84-14 122-82c0 0 51-79-9-107a116 116 0 0 0-37-10l7-17.3a3.4 3.4 0 0 0-3.1-4.7h-25.9l-8 21h-11l6.2-16.3a3.5 3.5 0 0 0-3.2-4.7h-26l-8 21h-80.8a12 12 0 0 0-10.6 6.3z" />

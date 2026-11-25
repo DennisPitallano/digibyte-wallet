@@ -264,10 +264,10 @@ description: "Task list for the DigiPay UI refresh"
 
 **Independent Test**: Quickstart Q5 step 8, comparing side by side with the wallet's gallery.
 
-- [ ] T060 [US3] Delete the per-page class bundle constants (`Card`, `Btn`, `BtnGhost`, `Input` and so on) from the Merchant pages created in T051 and from `src/DigiByte.Pay.Web/Components/Pages/Merchant/SessionDetail.razor`. Replace them with `card`, `btn-primary`, `btn-secondary`, `btn-ghost`, `btn-sm`, `input`, `field`, `field-label`, `field-hint` and `field-error`, plus `page-title`, `block-title` and `section-label`. Keep only Tailwind layout utilities beside them.
+- [X] T060 [US3] Delete the per-page class bundle constants (`Card`, `Btn`, `BtnGhost`, `Input` and so on) from the Merchant pages created in T051 and from `src/DigiByte.Pay.Web/Components/Pages/Merchant/SessionDetail.razor`. Replace them with `card`, `btn-primary`, `btn-secondary`, `btn-ghost`, `btn-sm`, `input`, `field`, `field-label`, `field-hint` and `field-error`, plus `page-title`, `block-title` and `section-label`. Keep only Tailwind layout utilities beside them.
 - [ ] T061 [P] [US3] Convert the tables in `src/DigiByte.Pay.Web/Components/Pages/Merchant/Sessions.razor`, `Webhook.razor` (delivery log), `ApiKeys.razor`, `AuditLog.razor` and `src/DigiByte.Pay.Web/Components/Shared/AuditPanel.razor` to shared-style tables on wide screens and stacked `card` rows below 768px. Long ids wrap or are shortened, with a `CopyButton` for the full value.
-- [ ] T062 [US3] Show every address, txid, API key, pairing code and code snippet in `font-mono` across the Merchant pages, `src/DigiByte.Pay.Web/Components/Shared/CodeBlock.razor` and `InlineCode.razor`.
-- [ ] T063 [US3] Wrap the destructive actions in `ConfirmDialog` with `btn-danger`: revoke API key (`ApiKeys.razor`), void and refund (`SessionDetail.razor`), unpair device (`PosMode.razor`), remove store (`Stores.razor`). Each dialog states what will happen and whether it can be undone.
+- [X] T062 [US3] Show every address, txid, API key, pairing code and code snippet in `font-mono` across the Merchant pages, `src/DigiByte.Pay.Web/Components/Shared/CodeBlock.razor` and `InlineCode.razor`.
+- [X] T063 [US3] Wrap the destructive actions in `ConfirmDialog` with `btn-danger`: revoke API key (`ApiKeys.razor`), void and refund (`SessionDetail.razor`), unpair device (`PosMode.razor`), remove store (`Stores.razor`). Each dialog states what will happen and whether it can be undone.
 - [ ] T064 [P] [US3] Convert the choice controls to `segmented` / `choice-pill` with `aria-pressed`: the Sessions status filter, the Analytics range, the Webhook delivery filter, the Settings toggles (DigiDollar beta, expiry), and the PaymentLinks options.
 - [ ] T065 [US3] Restyle `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
   - keep the full-screen keypad and QR layout, the pairing flows, the manager PIN modal and the unpair modal;
@@ -277,9 +277,9 @@ description: "Task list for the DigiPay UI refresh"
   - the PIN and unpair modals use `ConfirmDialog` semantics (`role=dialog`, focus trap, Escape);
   - the pairing method toggle gets `aria-pressed`;
   - the QR code sits in `qr-frame`.
-- [ ] T066 [P] [US3] Restyle `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`: `card` surface, `qr-frame` around the Digi-ID QR code, shared buttons, and a `back-btn` link to Home.
+- [X] T066 [P] [US3] Restyle `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`: `card` surface, `qr-frame` around the Digi-ID QR code, shared buttons, and a `back-btn` link to Home.
 - [ ] T067 [P] [US3] Make `src/DigiByte.Pay.Web/Components/Shared/Icon.razor` match the wallet's icon style (stroke width, size and 24px grid). Add the icons used by `CheckoutStates` (clock, radar, check, check-circle, alert, timer-off, undo, ban, refresh) and by `DashboardSections`. Remove all emoji and glyph status markers across `src/DigiByte.Pay.Web/Components/` (FR-006).
-- [ ] T068 [US3] Add a `## DigiPay` section to `docs/UI_STYLE.md`. It lists the shared building blocks DigiPay uses and where DigiPay differs: POS keypad sizing, data tables, code blocks, analytics charts, and the wide dashboard content area (FR-037).
+- [X] T068 [US3] Add a `## DigiPay` section to `docs/UI_STYLE.md`. It lists the shared building blocks DigiPay uses and where DigiPay differs: POS keypad sizing, data tables, code blocks, analytics charts, and the wide dashboard content area (FR-037).
 - [ ] T069 [US3] Run quickstart Q5 step 8 (sizes and contrast against the gallery) on every DigiPay page type, in light and dark, at 375px and 1280px. Fix any mismatch.
 
 **Checkpoint**: All P1 stories are done. DigiPay visibly belongs to the wallet's family.
@@ -292,13 +292,13 @@ description: "Task list for the DigiPay UI refresh"
 
 **Independent Test**: Quickstart Q5 steps 1–3, with a brand-new merchant and a throttled network.
 
-- [ ] T070 [US4] Replace every "Loading…" text in `src/DigiByte.Pay.Web/Components/Pages/Merchant/*.razor`, `Shared/AnalyticsPanel.razor` and `Shared/AuditPanel.razor` with `Skeleton` shapes matching each section's content (rows for lists, blocks for stats and charts). Keep `Shared/Loader.razor` only for the first full-page load.
-- [ ] T071 [US4] Add an `EmptyState` to each section in data-model §3, using its title, text, action and Baku pose: Sessions, Payment links, Analytics, Webhook, API keys, Audit log and POS mode.
-- [ ] T072 [US4] Add a store-readiness check to `MerchantState` (no receive xpub or address set, so the store can't accept payments).
+- [X] T070 [US4] Replace every "Loading…" text in `src/DigiByte.Pay.Web/Components/Pages/Merchant/*.razor`, `Shared/AnalyticsPanel.razor` and `Shared/AuditPanel.razor` with `Skeleton` shapes matching each section's content (rows for lists, blocks for stats and charts). Keep `Shared/Loader.razor` only for the first full-page load.
+- [X] T071 [US4] Add an `EmptyState` to each section in data-model §3, using its title, text, action and Baku pose: Sessions, Payment links, Analytics, Webhook, API keys, Audit log and POS mode.
+- [X] T072 [US4] Add a store-readiness check to `MerchantState` (no receive xpub or address set, so the store can't accept payments).
   - **Overview** (`Overview.razor`) shows a setup card with a link to `/merchant/settings`.
   - **New payment** (`NewPayment.razor`) explains why and links to Settings instead of showing the form (FR-023).
-- [ ] T073 [US4] Add a failing-webhook banner (warning tone, linking to `/merchant/webhook?delivery=failed`) to `Overview.razor` and `Webhook.razor` when recent deliveries are failing, using the existing delivery-log data (FR-024).
-- [ ] T074 [US4] Send success and failure feedback for every action through `ToastService`:
+- [X] T073 [US4] Add a failing-webhook banner (warning tone, linking to `/merchant/webhook?delivery=failed`) to `Overview.razor` and `Webhook.razor` when recent deliveries are failing, using the existing delivery-log data (FR-024).
+- [X] T074 [US4] Send success and failure feedback for every action through `ToastService`:
   - save settings, create and revoke a key, create a link, copy a link, send a test webhook, pair and unpair a device, void, refund, and switch store;
   - failures say what went wrong in plain words, with a Retry action where it makes sense, and no exception text.
 
@@ -313,14 +313,14 @@ description: "Task list for the DigiPay UI refresh"
 
 **Independent Test**: Quickstart Q5 steps 4–5.
 
-- [ ] T076 [US5] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ThemePicker.razor`: a `segmented` control labelled Light, Dark and Match my device with `aria-pressed`, calling `DigiPayTheme.setMode` through JS interop and reflecting the current mode. Delete `src/DigiByte.Pay.Web/Components/Shared/ThemeToggle.razor`.
-- [ ] T077 [US5] Place the `ThemePicker`:
+- [X] T076 [US5] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ThemePicker.razor`: a `segmented` control labelled Light, Dark and Match my device with `aria-pressed`, calling `DigiPayTheme.setMode` through JS interop and reflecting the current mode. Delete `src/DigiByte.Pay.Web/Components/Shared/ThemeToggle.razor`.
+- [X] T077 [US5] Place the `ThemePicker`:
   - in `src/DigiByte.Pay.Web/Components/Shared/SiteNav.razor`, in the menu;
   - in the `MerchantLayout` rail and More sheet;
   - in `src/DigiByte.Pay.Web/Components/Pages/Merchant/Settings.razor`;
   - as a compact control in the footer of the checkout, receipt and donation pages;
   - as a compact control on `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`.
-- [ ] T078 [US5] Add a "Screen theme" setting to the POS settings in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`, reachable only after the existing manager PIN check. It writes `localStorage["digipay.pos.theme:v1"]` through a new `setTheme`/`getTheme` pair in `src/DigiByte.Pay.Web/wwwroot/pos-store.js` (values `light | dark | system`; missing means `dark`). Unpairing (`clear`) must keep this key (data-model §2).
+- [X] T078 [US5] Add a "Screen theme" setting to the POS settings in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`, reachable only after the existing manager PIN check. It writes `localStorage["digipay.pos.theme:v1"]` through a new `setTheme`/`getTheme` pair in `src/DigiByte.Pay.Web/wwwroot/pos-store.js` (values `light | dark | system`; missing means `dark`). Unpairing (`clear`) must keep this key (data-model §2).
 - [ ] T079 [US5] Cold-reload every page type in each of the three modes, and while toggling the device setting, to check for a flash of the wrong theme (FR-027). Fix it if the server-rendered `<html>` lacks the class before `theme.js` runs.
 - [ ] T080 [US5] Run quickstart Q5 steps 4–5.
 

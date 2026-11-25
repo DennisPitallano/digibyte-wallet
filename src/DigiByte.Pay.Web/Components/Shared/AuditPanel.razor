@@ -7,9 +7,9 @@
 @using System.Text.Json
 
 @{
-    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
-    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
-    const string BtnGhost = "px-3 py-1.5 text-xs font-semibold rounded-lg border bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-dgb-800 disabled:opacity-50 transition-colors";
+    const string Card = "card p-5 sm:p-6 flex flex-col gap-3";
+    const string Muted = "dp-muted";
+    const string BtnGhost = "btn-secondary btn-sm";
 }
 
 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
@@ -31,14 +31,17 @@
 }
 else if (items is null)
 {
-    <section class="@Card">
-        <p class="@Muted m-0">Loading…</p>
+    <section class="@Card" aria-busy="true">
+        <span class="sr-only">Loading audit log</span>
+        <Skeleton Shape="row" Count="4" />
     </section>
 }
 else if (items.Count == 0)
 {
     <section class="@Card">
-        <p class="@Muted m-0">No audit events recorded yet. Perform a sensitive action (void, refund, store edit) to populate this log.</p>
+        <EmptyState Title="Nothing recorded yet"
+                    Text="Sensitive actions such as voids, refunds and store changes are recorded here."
+                    BakuPose="thinking" Class="border-0 shadow-none p-0" />
     </section>
 }
 else

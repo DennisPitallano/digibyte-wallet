@@ -17,7 +17,7 @@
             }
             <div class="ui-dialog-actions">
                 <button type="button" class="btn-secondary" data-autofocus @onclick="CancelAsync" disabled="@Busy">@CancelLabel</button>
-                <button type="button" class="@(Danger ? "btn-danger" : "btn-primary")" @onclick="ConfirmAsync" disabled="@Busy" aria-busy="@(Busy ? "true" : null)">@ConfirmLabel</button>
+                <button type="button" class="@(Danger ? "btn-danger" : "btn-primary")" @onclick="ConfirmAsync" disabled="@(Busy || ConfirmDisabled)" aria-busy="@(Busy ? "true" : null)">@ConfirmLabel</button>
             </div>
         </div>
     </div>
@@ -31,6 +31,8 @@
     [Parameter] public string CancelLabel { get; set; } = "Cancel";
     [Parameter] public bool Danger { get; set; } = true;
     [Parameter] public bool Busy { get; set; }
+    /// <summary>Disables only the confirm button, for example until a required field is filled.</summary>
+    [Parameter] public bool ConfirmDisabled { get; set; }
     [Parameter] public EventCallback OnConfirm { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
 

@@ -273,3 +273,49 @@
 @media (prefers-reduced-motion: reduce) {
     .dp-sheet, .dp-sheet-overlay { animation: none !important; }
 }
+
+/* Muted body text in dashboard sections (meets the style guide's contrast in both themes). */
+.dp-muted { font-size: 0.875rem; line-height: 1.5; color: var(--ui-text-muted); }
+
+/* The shared `input` class removes the native control look; for <select> keep the browser's
+   dropdown arrow so a select still reads as one (docs/UI_STYLE.md notes the gap). */
+select.input { -webkit-appearance: menulist; appearance: auto; padding-right: 0.75rem; }
+
+/* =====================================================================================
+   POS screen in the light theme (spec 032, FR-013). The kiosk keeps its layout and starts
+   dark; when the merchant picks Light (or Match my device on a light tablet), these rules map
+   its dark-only colours onto the shared light tokens. Scoped to .dp-pos so nothing else changes.
+   ===================================================================================== */
+html:not(.dark) .dp-pos.bg-slate-950 { background: #f8fafc; color: var(--ui-text); }
+html:not(.dark) .dp-pos .bg-slate-950 { background: #ffffff; }
+html:not(.dark) .dp-pos .bg-dgb-900,
+html:not(.dark) .dp-pos .bg-dgb-900\/60,
+html:not(.dark) .dp-pos .bg-slate-900 { background: var(--ui-surface); }
+html:not(.dark) .dp-pos .bg-slate-800,
+html:not(.dark) .dp-pos .bg-slate-800\/60,
+html:not(.dark) .dp-pos .bg-slate-800\/40,
+html:not(.dark) .dp-pos .bg-dgb-800 { background: #e2e8f0; }
+html:not(.dark) .dp-pos .hover\:bg-slate-700:hover,
+html:not(.dark) .dp-pos .hover\:bg-slate-800:hover,
+html:not(.dark) .dp-pos .hover\:bg-dgb-900:hover,
+html:not(.dark) .dp-pos .hover\:bg-dgb-800:hover,
+html:not(.dark) .dp-pos .hover\:bg-dgb-700:hover { background: #cbd5e1; }
+html:not(.dark) .dp-pos .bg-slate-600,
+html:not(.dark) .dp-pos .bg-slate-500\/20 { background: #cbd5e1; }
+html:not(.dark) .dp-pos .border-dgb-800,
+html:not(.dark) .dp-pos .border-dgb-800\/60,
+html:not(.dark) .dp-pos .border-dgb-700,
+html:not(.dark) .dp-pos .border-slate-700,
+html:not(.dark) .dp-pos .border-slate-700\/60,
+html:not(.dark) .dp-pos .border-slate-500\/30 { border-color: #cbd5e1; }
+/* Text: white on dark becomes the normal text colour, except on coloured buttons. */
+html:not(.dark) .dp-pos .text-white:not([class*="bg-dgb-5"]):not([class*="bg-red-"]):not([class*="bg-emerald-"]):not([class*="bg-amber-"]) { color: var(--ui-text); }
+html:not(.dark) .dp-pos .text-slate-200,
+html:not(.dark) .dp-pos .text-slate-300 { color: #334155; }
+html:not(.dark) .dp-pos .text-slate-400 { color: #475569; }
+html:not(.dark) .dp-pos .text-slate-500,
+html:not(.dark) .dp-pos .text-slate-600 { color: #64748b; }
+html:not(.dark) .dp-pos .text-dgb-100 { color: #003d7a; }
+html:not(.dark) .dp-pos .hover\:text-white:hover { color: var(--ui-text); }
+html:not(.dark) .dp-pos .disabled\:bg-slate-700:disabled { background: #e2e8f0; }
+html:not(.dark) .dp-pos .disabled\:text-slate-400:disabled { color: #64748b; }

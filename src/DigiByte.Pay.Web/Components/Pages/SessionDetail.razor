@@ -8,13 +8,13 @@
 <PageTitle>@(session?.Id ?? SessionId) — DigiPay</PageTitle>
 
 @{
-    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
-    const string BtnGhost = "px-4 py-2.5 bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-dgb-800 font-semibold rounded-lg text-sm disabled:opacity-50 transition-colors";
-    const string Eyebrow = "text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400";
-    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
-    const string Mono = "font-mono text-[0.6875rem] break-all";
-    const string H2 = "text-base font-bold text-slate-900 dark:text-white m-0";
-    const string H1 = "text-xl sm:text-2xl font-bold tracking-tight m-0";
+    const string Card = "card p-5 sm:p-6 flex flex-col gap-3";
+    const string BtnGhost = "btn-secondary";
+    const string Eyebrow = "section-label";
+    const string Muted = "dp-muted";
+    const string Mono = "font-mono text-sm break-all";
+    const string H2 = "block-title";
+    const string H1 = "page-title";
 }
 
 @if (bootstrapError != null)
@@ -81,7 +81,7 @@ else
                     <div>
                         <div class="@Eyebrow">Address</div>
                         <div class="@Mono">@session.Address</div>
-                        <button class="@BtnGhost text-xs py-1.5 px-3 mt-1" @onclick='() => CopyAsync("address", session.Address)'>@(copiedField == "address" ? "Copied ✓" : "Copy")</button>
+                        <CopyButton Value="@(session.Address)" Label="Copy address" Text="Copy" Class="self-start" />
                     </div>
                 </div>
                 @if (!string.IsNullOrEmpty(session.Label))
@@ -139,7 +139,7 @@ else
                     <h2 class="@H2">Transaction</h2>
                     <div class="@Mono">@session.PaidTxid</div>
                     <div class="flex gap-2 flex-wrap">
-                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick='() => CopyAsync("txid", session.PaidTxid!)'>@(copiedField == "txid" ? "Copied ✓" : "Copy txid")</button>
+                        <CopyButton Value="@(session.PaidTxid!)" Label="Copy transaction ID" Text="Copy txid" Class="self-start" />
                         <a href="@($"https://digiexplorer.info/tx/{session.PaidTxid}")" target="_blank" rel="noopener"
                            class="@BtnGhost text-xs py-1.5 px-3 no-underline">View on DigiExplorer ↗</a>
                     </div>
@@ -153,14 +153,14 @@ else
                     <div class="@Eyebrow">Checkout URL <span class="@Muted">(public, safe to share)</span></div>
                     <div class="@Mono">@session.CheckoutUrl</div>
                     <div class="flex gap-2 flex-wrap mt-1">
-                        <button class="@BtnGhost text-xs py-1.5 px-3" @onclick='() => CopyAsync("checkout", session.CheckoutUrl)'>@(copiedField == "checkout" ? "Copied ✓" : "Copy")</button>
+                        <CopyButton Value="@(session.CheckoutUrl)" Label="Copy checkout link" Text="Copy" Class="self-start" />
                         <a href="@session.CheckoutUrl" target="_blank" rel="noopener" class="@BtnGhost text-xs py-1.5 px-3 no-underline">Open ↗</a>
                     </div>
                 </div>
                 <div>
                     <div class="@Eyebrow">BIP21 URI</div>
                     <div class="@Mono">@session.Uri</div>
-                    <button class="@BtnGhost text-xs py-1.5 px-3 mt-1" @onclick='() => CopyAsync("uri", session.Uri)'>@(copiedField == "uri" ? "Copied ✓" : "Copy")</button>
+                    <CopyButton Value="@(session.Uri)" Label="Copy payment URI" Text="Copy" Class="self-start" />
                 </div>
                 @if (!string.IsNullOrWhiteSpace(session.ReturnUrl))
                 {
@@ -172,7 +172,7 @@ else
                         <div class="@Eyebrow">Return URL <span class="@Muted">(buyer is redirected here on success)</span></div>
                         <div class="@Mono">@session.ReturnUrl</div>
                         <div class="flex gap-2 flex-wrap mt-1">
-                            <button class="@BtnGhost text-xs py-1.5 px-3" @onclick='() => CopyAsync("returnurl", session.ReturnUrl!)'>@(copiedField == "returnurl" ? "Copied ✓" : "Copy")</button>
+                            <CopyButton Value="@(session.ReturnUrl!)" Label="Copy return URL" Text="Copy" Class="self-start" />
                             <a href="@session.ReturnUrl" target="_blank" rel="noopener" class="@BtnGhost text-xs py-1.5 px-3 no-underline">Open ↗</a>
                         </div>
                     </div>
@@ -281,7 +281,7 @@ else
                 else if (session.Status is "pending" or "seen")
                 {
                     <p class="@Muted m-0">Cancel this invoice before payment. The customer's checkout page flips to "Cancelled by merchant".</p>
-                    <button class="@BtnGhost text-xs py-1.5 px-3 self-start" @onclick="OpenVoidDialog">Void session</button>
+                    <button class="btn-danger btn-sm self-start" @onclick="OpenVoidDialog">Void session</button>
                 }
                 else
                 {
@@ -289,51 +289,34 @@ else
                 }
                 @if (!string.IsNullOrEmpty(actionError))
                 {
-                    <p class="text-sm text-red-500 m-0">@actionError</p>
+                    <p class="field-error" role="alert">@actionError</p>
                 }
             </section>
         </main>
     </div>
 
-    @if (showRefundDialog)
-    {
-        <div class="fixed inset-0 bg-slate-900/60 z-40 flex items-center justify-center p-4" @onclick="CloseDialogs">
-            <div class="bg-white dark:bg-dgb-900 rounded-2xl shadow-xl w-full max-w-md p-6 flex flex-col gap-3" @onclick:stopPropagation="true">
-                <h3 class="text-lg font-bold m-0">Record refund</h3>
-                <p class="@Muted m-0">Paste the DGB refund transaction id. We'll mark this session <strong>refunded</strong>, fire a <InlineCode>session.refunded</InlineCode> webhook, and store the note for your records.</p>
-                <label class="@Eyebrow">Refund txid</label>
-                <input type="text" @bind="refundTxid" placeholder="e.g. a1b2c3…" class="px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg font-mono text-xs" />
-                <label class="@Eyebrow">Note (optional)</label>
-                <input type="text" @bind="refundNote" placeholder="Duplicate order, customer request…" class="px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-sm" />
-                <div class="flex gap-2 justify-end mt-2">
-                    <button class="@BtnGhost" @onclick="CloseDialogs">Cancel</button>
-                    <button class="px-4 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg text-sm disabled:opacity-50"
-                            @onclick="SubmitRefundAsync" disabled="@(submittingAction || string.IsNullOrWhiteSpace(refundTxid))">
-                        @(submittingAction ? "Saving…" : "Record refund")
-                    </button>
-                </div>
-            </div>
+    <ConfirmDialog Open="@showRefundDialog" Title="Record a refund" ConfirmLabel="@(submittingAction ? "Saving…" : "Record refund")"
+                   Danger="false" Busy="@submittingAction" ConfirmDisabled="@string.IsNullOrWhiteSpace(refundTxid)"
+                   OnConfirm="SubmitRefundAsync" OnCancel="CloseDialogs">
+        <p>Paste the transaction ID of the DGB you sent back. The payment is marked <strong>refunded</strong>, a <InlineCode>session.refunded</InlineCode> webhook is sent, and the note is kept for your records.</p>
+        <div class="field mt-3">
+            <label class="field-label" for="refund-txid">Refund transaction ID</label>
+            <input id="refund-txid" type="text" @bind="refundTxid" @bind:event="oninput" placeholder="e.g. a1b2c3…" class="input font-mono" autocomplete="off" />
         </div>
-    }
+        <div class="field mt-3">
+            <label class="field-label" for="refund-note">Note <span class="font-normal opacity-70">(optional)</span></label>
+            <input id="refund-note" type="text" @bind="refundNote" placeholder="Duplicate order, customer request…" class="input" />
+        </div>
+    </ConfirmDialog>
 
-    @if (showVoidDialog)
-    {
-        <div class="fixed inset-0 bg-slate-900/60 z-40 flex items-center justify-center p-4" @onclick="CloseDialogs">
-            <div class="bg-white dark:bg-dgb-900 rounded-2xl shadow-xl w-full max-w-md p-6 flex flex-col gap-3" @onclick:stopPropagation="true">
-                <h3 class="text-lg font-bold m-0">Void this session?</h3>
-                <p class="@Muted m-0">Only unpaid sessions can be voided. This cancels the invoice and stops polling the chain for it.</p>
-                <label class="@Eyebrow">Note (optional)</label>
-                <input type="text" @bind="voidNote" placeholder="Reason (shown in dashboard only)" class="px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-sm" />
-                <div class="flex gap-2 justify-end mt-2">
-                    <button class="@BtnGhost" @onclick="CloseDialogs">Cancel</button>
-                    <button class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg text-sm disabled:opacity-50"
-                            @onclick="SubmitVoidAsync" disabled="@submittingAction">
-                        @(submittingAction ? "Voiding…" : "Void session")
-                    </button>
-                </div>
-            </div>
+    <ConfirmDialog Open="@showVoidDialog" Title="Void this payment?" ConfirmLabel="@(submittingAction ? "Voiding…" : "Void payment")"
+                   Busy="@submittingAction" OnConfirm="SubmitVoidAsync" OnCancel="CloseDialogs">
+        <p>The customer's checkout changes to "Cancelled by the merchant" and nothing more can be paid to it. Only unpaid payments can be voided, and this can't be undone.</p>
+        <div class="field mt-3">
+            <label class="field-label" for="void-note">Note <span class="font-normal opacity-70">(optional, only you see it)</span></label>
+            <input id="void-note" type="text" @bind="voidNote" class="input" />
         </div>
-    }
+    </ConfirmDialog>
 }
 
 @code {
@@ -386,7 +369,7 @@ else
             if (session is not null) await LoadDeliveriesAsync();
             StateHasChanged();
         }
-        catch (Exception ex) { bootstrapError = ex.Message; StateHasChanged(); }
+        catch (Exception ex) { bootstrapError = "Something went wrong. Check your connection and try again."; StateHasChanged(); }
     }
 
     private HttpRequestMessage AuthedRequest(HttpMethod method, string path)
@@ -489,7 +472,7 @@ else
             await LoadSessionAsync();
             await LoadDeliveriesAsync();
         }
-        catch (Exception ex) { actionError = ex.Message; }
+        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; }
         finally { submittingAction = false; StateHasChanged(); }
     }
 
@@ -512,7 +495,7 @@ else
             await LoadSessionAsync();
             await LoadDeliveriesAsync();
         }
-        catch (Exception ex) { actionError = ex.Message; }
+        catch (Exception ex) { actionError = "Something went wrong. Check your connection and try again."; }
         finally { submittingAction = false; StateHasChanged(); }
     }
 
