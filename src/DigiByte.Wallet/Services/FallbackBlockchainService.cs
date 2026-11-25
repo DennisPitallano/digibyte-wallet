@@ -368,7 +368,9 @@ public class FallbackBlockchainService : IBlockchainService, IAddressSummarySour
 
         // 2. Fall back to own node (pruned — scantxoutset is slower but always works).
         // Only when node use is off: with the feature on, a node that is not active is never asked (see the class summary).
-        if (LegacyOrder)
+        // Not for history off regtest: the node can't list full history, and its lenient client reads its own failure as "no
+        // transactions", so an explorer outage would look like an empty wallet. On regtest it is the only history source.
+        if (LegacyOrder && (routeClass != NodeRouteClass.History || _isRegtest))
         {
             try
             {

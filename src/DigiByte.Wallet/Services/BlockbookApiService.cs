@@ -130,17 +130,18 @@ public class BlockbookApiService : IBlockchainService
         catch { return null; }
     }
 
+    /// <summary>
+    /// The address's history. Strict: a failed or unreadable reply throws instead of reading as no transactions, so an
+    /// unreachable explorer is never shown as an empty wallet. An unused address (a reply with no transaction list) is empty.
+    /// </summary>
     public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
-        try
-        {
-            var data = await _http.GetFromJsonAsync<BlockbookAddress>(
-                $"{_baseUrl}/api/v2/address/{address}?details=txs&page=1&pageSize={take}");
-            if (data?.Transactions == null) return [];
+        var data = await _http.GetFromJsonAsync<BlockbookAddress>(
+            $"{_baseUrl}/api/v2/address/{address}?details=txs&page=1&pageSize={take}")
+            ?? throw new InvalidOperationException("The explorer's reply was empty.");
+        if (data.Transactions == null) return [];
 
-            return data.Transactions.Skip(skip).Select(ToInfo).ToList();
-        }
-        catch { return []; }
+        return data.Transactions.Skip(skip).Select(ToInfo).ToList();
     }
 
     /// <summary>Blockbook's largest page size.</summary>

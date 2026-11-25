@@ -447,6 +447,12 @@
                 refreshFailed = true;
                 return;
             }
+            if (!load.Complete && fresh.Count == 0)
+            {
+                // The chain couldn't be read and nothing is tracked locally: that is a failed load, never "No transactions yet".
+                failed = true;
+                return;
+            }
             all = fresh;
             showingSaved = false;
             refreshFailed = !load.Complete;
