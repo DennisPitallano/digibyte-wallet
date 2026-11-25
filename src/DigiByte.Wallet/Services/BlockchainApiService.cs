@@ -221,33 +221,26 @@ public class BlockchainApiService : IBlockchainService, IAddressSummarySource
     /// <summary>
     /// The address's history, newest first, paged past the explorer's 25-transaction page up to
     /// <see cref="MaxTransactionsPerAddress"/>, then <paramref name="skip"/>/<paramref name="take"/> applied. A failure on the first
-    /// page reads as no history (as before); a failure on a later page keeps the pages already read.
+    /// page throws, so an unreachable explorer is never shown as an empty wallet; a failure on a later page keeps the pages already read.
     /// </summary>
     public async Task<List<TransactionInfo>> GetAddressTransactionsAsync(string address, int skip = 0, int take = 50)
     {
         var all = new List<TransactionInfo>();
-        try
+        var page = await GetAddressHistoryPageAsync(address, null);
+        all.AddRange(page.Transactions);
+        var confirmedOnPage = page.Transactions.Count(t => t.Confirmations > 0);
+        while (confirmedOnPage >= EsploraPageSize && page.LastConfirmedTxId is not null && all.Count < MaxTransactionsPerAddress)
         {
-            var page = await GetAddressHistoryPageAsync(address, null);
-            all.AddRange(page.Transactions);
-            var confirmedOnPage = page.Transactions.Count(t => t.Confirmations > 0);
-            while (confirmedOnPage >= EsploraPageSize && page.LastConfirmedTxId is not null && all.Count < MaxTransactionsPerAddress)
+            try
             {
-                try
-                {
-                    page = await GetAddressHistoryPageAsync(address, page.LastConfirmedTxId);
-                }
-                catch
-                {
-                    break;
-                }
-                all.AddRange(page.Transactions);
-                confirmedOnPage = page.Transactions.Count;
+                page = await GetAddressHistoryPageAsync(address, page.LastConfirmedTxId);
             }
-        }
-        catch
-        {
-            return [];
+            catch
+            {
+                break;
+            }
+            all.AddRange(page.Transactions);
+            confirmedOnPage = page.Transactions.Count;
         }
 
         if (all.Count > MaxTransactionsPerAddress)
