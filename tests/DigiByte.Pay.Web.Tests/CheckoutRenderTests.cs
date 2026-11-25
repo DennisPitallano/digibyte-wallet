@@ -147,6 +147,31 @@ public class CheckoutRenderTests : BunitContext
     }
 
     [Fact]
+    public void The_auto_return_waits_eight_seconds_and_pauses_on_the_receipt_link()
+    {
+        UseSession("confirmed", txid: "ab12cd34", returnUrl: "https://shop.example/thanks", confirmations: 6);
+        var cut = Render<Checkout>(p => p.Add(x => x.SessionId, "ses_abc"));
+        cut.WaitForAssertion(() => Assert.Contains("Payment confirmed", cut.Markup));
+
+        Assert.Equal("8", cut.Find("[data-digipay-return-merchant]").GetAttribute("data-digipay-return-seconds"));
+        Assert.True(cut.Find("a[href='/pay/ses_abc/receipt']").HasAttribute("data-digipay-return-pause"));
+        Assert.True(cut.Find("a.btn-primary[href='https://shop.example/thanks']").HasAttribute("data-digipay-return-link"));
+    }
+
+    [Fact]
+    public void The_card_tells_the_embed_script_its_session_and_status()
+    {
+        UseSession("paid", txid: "ab12cd34", returnUrl: "https://shop.example/thanks", confirmations: 1);
+        var cut = Render<Checkout>(p => p.Add(x => x.SessionId, "ses_abc"));
+        cut.WaitForAssertion(() => Assert.Contains("Confirming your payment", cut.Markup));
+
+        var card = cut.Find("[data-digipay-status]");
+        Assert.Equal("paid", card.GetAttribute("data-digipay-status"));
+        Assert.Equal("ses_abc", card.GetAttribute("data-digipay-session"));
+        Assert.Equal("https://shop.example/thanks", card.GetAttribute("data-digipay-return-url"));
+    }
+
+    [Fact]
     public void A_shop_set_theme_is_carried_into_the_receipt_link()
     {
         UseSession("confirmed", txid: "ab12cd34");

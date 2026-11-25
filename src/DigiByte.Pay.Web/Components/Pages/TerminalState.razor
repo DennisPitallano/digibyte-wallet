@@ -68,22 +68,24 @@
     }
 
     @* Merchant return flow (confirmed only, when the shop gave a return URL). checkout-countdown.js
-       watches [data-digipay-return-merchant] and returns after 5 seconds; the button works at once.
-       Then the receipt is the main action; with no shop to go back to, it is. *@
+       watches [data-digipay-return-merchant] and returns after 8 seconds (paused while the receipt link
+       is pointed at or focused, so the shopper can still reach it); the button works at once. In the
+       embed iframe the shop's page does the navigating (data-digipay-return-link). With no shop to go
+       back to, the receipt is the main action. *@
     @if (returnsToShop)
     {
         <div data-digipay-return-merchant
              data-digipay-return-url="@ReturnUrl"
-             data-digipay-return-seconds="5"
+             data-digipay-return-seconds="8"
              class="w-full flex flex-col items-center gap-2">
-            <a href="@ReturnUrl" class="btn-primary w-full">Back to the shop</a>
-            <p class="ui-checkout-muted">Returning automatically in <span data-digipay-return-countdown>5</span>…</p>
+            <a href="@ReturnUrl" class="btn-primary w-full" data-digipay-return-link>Back to the shop</a>
+            <p class="ui-checkout-muted">Returning automatically in <span data-digipay-return-countdown>8</span>…</p>
         </div>
     }
 
     @if (showReceipt)
     {
-        <a href="@ReceiptHref" class="@(confirmed && !returnsToShop ? "btn-primary" : "btn-secondary") w-full">
+        <a href="@ReceiptHref" class="@(confirmed && !returnsToShop ? "btn-primary" : "btn-secondary") w-full" data-digipay-return-pause>
             <Icon Name="receipt" Class="w-4 h-4" />
             <span>View receipt</span>
         </a>
@@ -91,7 +93,7 @@
 
     @if (Status is "expired" or "voided" && !string.IsNullOrWhiteSpace(ReturnUrl))
     {
-        <a href="@ReturnUrl" class="btn-primary w-full">Back to the shop</a>
+        <a href="@ReturnUrl" class="btn-primary w-full" data-digipay-return-link>Back to the shop</a>
     }
 </div>
 
