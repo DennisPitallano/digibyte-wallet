@@ -45,9 +45,10 @@ There are no payment, API or authentication changes.
 
 **Project Type**: Web application, with two front ends that share a style library.
 
-**Performance Goals**: Checkout amount and QR code usable in ≤ 2 s on an average mobile connection, with the median no slower than the pre-restyle baseline (FR-013a, SC-011). The added weight is Inter at 48 KB, JetBrains Mono at 40 KB (both woff2) and the shared CSS at about 30 KB unminified.
+**Performance Goals**: Checkout amount and QR code usable in ≤ 2 s on the Fast 4G profile defined in FR-013a, with the median no slower than the pre-restyle baseline (FR-013a, SC-011). The added weight is Inter at 48 KB, JetBrains Mono at 40 KB (both woff2) and the shared CSS at about 30 KB unminified.
 
 **Constraints**:
+- The dashboard's wide content area is capped at 1280px (`max-w-7xl`); narrow pages use the wallet's 480px column.
 - No relaxation of the wallet's CSP: the shared assets are same-origin `_content/DigiByte.UI/*`.
 - The DigiPay Docker build has no Node, so compiled `tailwind.css` stays committed.
 - `font-display: swap` is required.

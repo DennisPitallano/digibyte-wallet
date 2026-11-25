@@ -24,7 +24,7 @@ description: "Task list for the DigiPay UI refresh"
 **Purpose**: Record the baseline and create the new projects.
 
 - [ ] T001 Record the quickstart Q0 baseline on `main` before any change:
-  - three cold-load timings of a pending checkout (Fast 4G, 375px) until the amount and QR code are visible;
+  - ten cold-load timings of a pending checkout (Fast 4G, 375px) until the amount and QR code are visible;
   - screenshots of the wallet's `/test-animations` gallery in light and dark at 375px and 1280px.
 
   Save them in `specs/032-digipay-ui-refresh/baseline/` as `timings.md` plus the PNGs.
@@ -167,7 +167,7 @@ description: "Task list for the DigiPay UI refresh"
   - change nothing else (contract C3).
 - [ ] T042 [P] [US1] Add a light/dark example with `data-theme` to `src/DigiByte.Pay.Web/wwwroot/embed/demo.html`.
 - [ ] T043 [US1] Make sure no Baku markup or pose images are referenced from `Checkout.razor`, `Receipt.razor`, `Donate.razor`, `TerminalState.razor` or `Pos.razor` (clarification 2). Add an assertion to `tests/DigiByte.Pay.Web.Tests/StatusBadgeTests.cs` that the rendered checkout contains no `mascot/poses` URL.
-- [ ] T044 [US1] Run quickstart Q2, Q3 and Q6 (20 timed runs against the T001 baseline). If the amount and QR code aren't visible within 2 s in at least 19 of 20 runs, or the median is worse than the baseline, apply research R8's fallback:
+- [ ] T044 [US1] Run quickstart Q2, Q3 and Q6 (20 timed runs on the Fast 4G profile at 375px with a cold cache, compared with the baseline median from the T001 runs). Also complete one testnet payment, unchanged, through each shop integration: the embed demo, `samples/express-store`, `samples/flask-store`, `samples/dotnet-store` and the WooCommerce plugin (`samples/woocommerce-plugin`). If the amount and QR code aren't visible within 2 s in at least 19 of 20 runs, or the median is worse than the baseline, apply research R8's fallback:
   - prerender `/pay/*` with static server rendering plus InteractiveServer for live updates;
   - in `src/DigiByte.Pay.Web/Components/Routes.razor`, `App.razor` and the three shopper pages.
 
@@ -208,7 +208,7 @@ description: "Task list for the DigiPay UI refresh"
   - from 1024px, a left rail listing every section plus the store switcher (searchable when there are more than 10 stores), Resources links, the account, Sign out and the ThemePicker slot;
   - below 1024px, the shared bottom-menu classes: Overview, Sessions, raised New payment, Payment links and More, where More opens a sheet with the rest plus the store switcher;
   - `aria-current="page"` on the current item;
-  - a content area that is wide (capped at a comfortable maximum) for list, table, chart and log pages, with a `Narrow` layout parameter for forms (clarification 1, second pass).
+  - a content area that is wide (capped at 1280px) for list, table, chart and log pages, with a `Narrow` layout parameter for forms (480px, the wallet's column; clarification 1, second pass).
 - [ ] T051 [US2] Split `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor` into routed pages under `src/DigiByte.Pay.Web/Components/Pages/Merchant/`, each with `@layout MerchantLayout` and its section's `@page` routes from contract C2. Move each tab's markup and code verbatim first, and restyle later in US3:
   - `Overview.razor` (`/merchant`, `/merchant/overview`)
   - `NewPayment.razor` (`/merchant/new`, Narrow)
@@ -303,7 +303,8 @@ description: "Task list for the DigiPay UI refresh"
   - in `src/DigiByte.Pay.Web/Components/Shared/SiteNav.razor`, in the menu;
   - in the `MerchantLayout` rail and More sheet;
   - in `src/DigiByte.Pay.Web/Components/Pages/Merchant/Settings.razor`;
-  - as a compact control in the footer of the checkout, receipt and donation pages.
+  - as a compact control in the footer of the checkout, receipt and donation pages;
+  - as a compact control on `src/DigiByte.Pay.Web/Components/Pages/Signin.razor`.
 - [ ] T078 [US5] Add a "Screen theme" setting to the POS settings in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`, reachable only after the existing manager PIN check. It writes `localStorage["digipay.pos.theme:v1"]` through a new `setTheme`/`getTheme` pair in `src/DigiByte.Pay.Web/wwwroot/pos-store.js` (values `light | dark | system`; missing means `dark`). Unpairing (`clear`) must keep this key (data-model §2).
 - [ ] T079 [US5] Cold-reload every page type in each of the three modes, and while toggling the device setting, to check for a flash of the wrong theme (FR-027). Fix it if the server-rendered `<html>` lacks the class before `theme.js` runs.
 - [ ] T080 [US5] Run quickstart Q5 steps 4–5.
@@ -347,8 +348,13 @@ description: "Task list for the DigiPay UI refresh"
 - [ ] T095 [P] Add a CHANGELOG entry in `CHANGELOG.md` covering the DigiPay restyle, routed dashboard, theme picker, checkout copy buttons and the embed `theme` option.
 - [ ] T096 Check across DigiPay that nothing overflows its button, badge or menu item, or pushes the layout sideways, at 320px (SC-008). Check long store names, labels and txids in particular.
 - [ ] T097 Run quickstart Q8: build both Docker images. Check that the DigiPay image has no Node and that `wwwroot/_content/DigiByte.UI/css/ui.css` and the two fonts are in both published outputs.
-- [ ] T098 Run `dotnet build DigiByte.slnx`, `dotnet test` and `node --test` for both web apps. Then run the full quickstart (Q1–Q8) once more and record the results in `specs/032-digipay-ui-refresh/baseline/timings.md`.
-- [ ] T099 Write the PR description. It flags the new `DigiByte.UI` project (Principle IV, a leaf with no inversion) and states that the wallet's CSP is unchanged. It also attaches the before/after gallery, checkout and dashboard screenshots required by contract C1's change rule.
+- [ ] T098 Run the SC-004 and SC-005 hands-on tests before release (quickstart Q9):
+  - five people unfamiliar with DigiPay pay a testnet checkout on a phone (copy address, pay, see "received");
+  - five merchants find each of five named dashboard sections on desktop and on a phone, timed, and return with the back button.
+
+  Record pass/fail, times and the "looked trustworthy" answers in `specs/032-digipay-ui-refresh/baseline/usability.md`.
+- [ ] T099 Run `dotnet build DigiByte.slnx`, `dotnet test` and `node --test` for both web apps. Then run the full quickstart (Q1–Q9) once more and record the results in `specs/032-digipay-ui-refresh/baseline/timings.md`.
+- [ ] T100 Write the PR description. It flags the new `DigiByte.UI` project (Principle IV, a leaf with no inversion) and states that the wallet's CSP is unchanged. It also attaches the before/after gallery, checkout and dashboard screenshots required by contract C1's change rule.
 
 ---
 

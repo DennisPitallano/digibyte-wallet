@@ -207,12 +207,12 @@ A visitor arriving from the wallet sees the same fonts, buttons, cards and motio
 
 - **FR-007**: The checkout MUST show the merchant's name, the label, the amount (DGB, and the shopper's currency when priced that way), a framed QR code, an **Open in wallet** action, the address, and the expiry countdown.
 - **FR-008**: The checkout, donation page and receipt MUST offer copy buttons for every value a shopper may need to paste (address, DGB amount, transaction ID). Each copy MUST confirm with a wallet-style notice. When copying is blocked, the value MUST be selected for manual copy.
-- **FR-009**: Every checkout state (waiting, partly paid, price changed, received, confirmed, expired, underpaid, refunded, voided) MUST be shown with a wallet-style status badge, a plain-language explanation, and the next step. A status change MUST be announced to assistive technology.
+- **FR-009**: Every checkout state (waiting, payment detected, payment received, confirmed, underpaid, expired, refunded, voided, plus the reconnecting and could-not-load states of FR-010 and FR-011) MUST be shown with a wallet-style status badge, a plain-language explanation, and the next step. A status change MUST be announced to assistive technology. A price change while waiting is shown as a warning banner, not a separate state.
 - **FR-010**: Shopper-facing pages MUST NOT show technical error text. Load and connection failures MUST show a plain message and a way to retry or return to the shop.
 - **FR-011**: If live updates are interrupted, the checkout MUST say it is reconnecting and keep showing the last known state, and MUST NOT show a final state (expired, failed) only because the connection dropped.
 - **FR-012**: The checkout MUST stay fully usable at 320px wide, including inside a shop's embedded window.
 - **FR-013**: The POS screen MUST keep its full-screen keypad layout and pairing flows, restyled with the shared building blocks. Its theme MUST be chosen in POS settings behind the existing manager PIN. It MUST start dark on a newly paired tablet, and tablets already paired MUST stay dark until the merchant changes it.
-- **FR-013a**: On an average mobile connection, the checkout MUST show a usable amount and QR code within 2 seconds, and MUST NOT load slower than it did before the restyle. Text MUST show straight away in the device's own font while the wallet's fonts load.
+- **FR-013a**: On a throttled mobile connection (Chrome DevTools "Fast 4G" profile: about 9 Mbps down, 150 ms latency), on a 375px-wide phone viewport, the checkout MUST show a usable amount and QR code within 2 seconds, and MUST NOT load slower than it did before the restyle. Text MUST show straight away in the device's own font while the wallet's fonts load.
 
 **Merchant dashboard navigation**
 
@@ -234,7 +234,7 @@ A visitor arriving from the wallet sees the same fonts, buttons, cards and motio
 
 **Theme**
 
-- **FR-026**: Every DigiPay page MUST offer Light, Dark and Match my device as labelled choices, remember the choice on that device, and default to Match my device (the POS screen starts dark instead; see FR-013).
+- **FR-026**: Every DigiPay page except the POS screen MUST offer Light, Dark and Match my device as labelled choices, remember the choice on that device, and default to Match my device (the POS screen's theme is set by the merchant in POS settings and starts dark; see FR-013).
 - **FR-026a**: A shop MAY set light or dark for the checkout it opens, both embedded and redirected. When a shop sets one, the checkout MUST use it. Otherwise the checkout uses the shopper's saved choice, or follows their device. Shops that set nothing MUST see no change in behaviour.
 - **FR-027**: Pages MUST open in the chosen theme with no visible flash of the other theme.
 - **FR-028**: The receipt MUST print legibly on white paper in either theme.
@@ -278,7 +278,7 @@ A visitor arriving from the wallet sees the same fonts, buttons, cards and motio
 - **SC-008**: No text overflows its button, badge or menu item, and nothing pushes the layout sideways, at 320px wide.
 - **SC-009**: Every page opens in the chosen theme with no visible flash, verified on a cold load in each of the three theme choices.
 - **SC-010**: All existing DigiPay addresses (dashboard, checkout, receipt, donation page, docs) still open the right page, and existing shop integrations (embed script, WooCommerce plugin, sample stores) still complete a payment unchanged.
-- **SC-011**: On an average mobile connection, measured on a cold load, the checkout's amount and QR code are usable within 2 seconds in at least 95% of test runs, and the median load time is no worse than before the restyle.
+- **SC-011**: On the same throttled mobile connection as FR-013a, measured on a cold load, the checkout's amount and QR code are usable within 2 seconds in at least 95% of test runs, and the median load time is no worse than before the restyle.
 
 ## Assumptions
 

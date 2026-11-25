@@ -36,7 +36,7 @@ node --test "src/DigiByte.Pay.Web/tests/js/**/*.test.mjs"
 
 On `main`, before stage 1, record:
 
-1. Three cold-load timings of a pending checkout on a throttled "Fast 4G" profile, at a 375px viewport: time until the amount and QR code are visible.
+1. Ten cold-load timings of a pending checkout on a throttled "Fast 4G" profile, at a 375px viewport: time until the amount and QR code are visible.
 2. Screenshots of the wallet's `/test-animations` gallery in light and dark, at 375px and 1280px.
 
 ## Q1. The wallet is unchanged after the extraction (stage 1)
@@ -75,7 +75,7 @@ No Baku appears on any `/pay/*` page.
    **Expected**: the iframe URL carries `theme=light` and the checkout is light.
 3. Use `theme=purple`, or leave the parameter out.
    **Expected**: the checkout follows the shopper's choice or the device, as before.
-4. Run one sample store (for example `samples/express-store`) unchanged.
+4. Run each sample store (`samples/express-store`, `samples/flask-store`, `samples/dotnet-store`) and the WooCommerce plugin (`samples/woocommerce-plugin`) unchanged.
    **Expected**: the payment completes exactly as before (SC-010).
 
 ## Q4. Dashboard navigation (US2, [C2](contracts/dashboard-routes.md))
@@ -142,3 +142,9 @@ docker build -f docker/web/Dockerfile .
 ```
 
 **Expected**: both build. The DigiPay image still contains no Node. In both published outputs, `wwwroot/_content/DigiByte.UI/css/ui.css` and the two fonts are present.
+
+## Q9. Hands-on usability (SC-004, SC-005)
+
+Run the sessions described in task T098 before release. Five people unfamiliar with DigiPay pay a checkout on a phone. Five merchants find named dashboard sections on desktop and phone, and return with the back button.
+
+**Expected**: every shopper completes payment without help, and at least four of five say it looked trustworthy. Every merchant reaches each section in under 10 seconds.
