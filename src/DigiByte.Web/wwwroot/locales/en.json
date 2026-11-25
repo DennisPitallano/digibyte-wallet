@@ -866,6 +866,8 @@
   "export.export": "Export",
   "export.reading": "Reading history… {0} of {1} addresses",
   "export.saved": "Exported {0} transactions.",
+  "export.prices": "Getting daily prices…",
+  "export.saved.missing": "{0} transactions exported. {1} have no {2} value (no price was available for those days).",
   "export.unavailable": "Couldn't read your full history from the network, so nothing was exported.",
   "export.try_again": "Try again",
   "export.nothing": "Nothing to export for this choice.",

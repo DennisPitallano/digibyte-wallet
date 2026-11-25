@@ -40,6 +40,18 @@ builder.Services.AddHttpClient("CoinGeckoProxy", client =>
 {
     client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
 });
+
+// Daily price ranges for CSV exports (spec 031): the read-only archive shipped with the service, and its live sources
+// (CoinGecko, Frankfurter/ECB, exchange-api), which receive only currencies and dates.
+builder.Services.AddSingleton(sp => new DigiByte.Api.Services.PriceArchive(
+    builder.Configuration["PriceArchive:Path"] is { Length: > 0 } archivePath
+        ? archivePath
+        : Path.Combine(AppContext.BaseDirectory, "PriceArchive")));
+builder.Services.AddHttpClient(DigiByte.Api.Endpoints.PriceRangeEndpoint.HttpClientName, client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiByte-Wallet/1.0");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
 // Digi-ID callback proxy: the target is derived from a signature-verified URI and the client refuses redirects and private/loopback/metadata
 // addresses at connect time (specs/008-security-hardening). Outbound:AllowLoopback is a development-only switch and defaults to false.
 builder.Services.Configure<OutboundOptions>(builder.Configuration.GetSection(OutboundOptions.SectionName));
@@ -83,6 +95,15 @@ builder.Services.AddRateLimiter(limiter =>
         RateLimitPartition.GetFixedWindowLimiter(SponsorEndpoints.ClientKey(context), _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
+    // Daily price ranges for CSV exports (spec 031): one request per export, so 30 per minute per visitor is generous.
+    limiter.AddPolicy(DigiByte.Api.Endpoints.PriceRangeEndpoint.RateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(SponsorEndpoints.ClientKey(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true,

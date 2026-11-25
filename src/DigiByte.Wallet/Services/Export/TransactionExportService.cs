@@ -44,18 +44,71 @@ public sealed class TransactionExportService(WalletService wallet, IBlockchainSe
         if (rows.Count == 0) return ExportResult.Of(ExportOutcome.NothingToExport);
         if (ct.IsCancellationRequested) return ExportResult.Of(ExportOutcome.Cancelled);
 
-        var basis = PriceBasis.Native;
-        var content = TransactionCsvWriter.Write(rows, CsvFormat.ForDecimalMark(env.DecimalMark), CsvWords.For(env.Language),
-            env.FiatCurrency, basis);
+        DailyPriceSeries series;
+        try
+        {
+            series = await PricesForAsync(rows, request.Asset, env.FiatCurrency, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return ExportResult.Of(ExportOutcome.Cancelled);
+        }
+        var (priced, withoutPrice) = ApplyPrices(rows, series, env.FiatCurrency);
+
+        var content = TransactionCsvWriter.Write(priced, CsvFormat.ForDecimalMark(env.DecimalMark), CsvWords.For(env.Language),
+            env.FiatCurrency, series.Basis);
 
         return new ExportResult
         {
             Outcome = ExportOutcome.Ready,
-            RowCount = rows.Select(r => r.TxId).Distinct().Count(),
-            RowsWithoutPrice = rows.Count(r => r.Value is null),
+            RowCount = priced.Select(r => r.TxId).Distinct().Count(),
+            RowsWithoutPrice = withoutPrice,
             FileName = FileNameFor(wallet.ActiveWallet?.Name, request.Asset, env),
             Content = content,
         };
+    }
+
+    /// <summary>
+    /// One daily price series covering the rows' local days, widened by one day on each side (FR-007, FR-016). The request carries
+    /// only the currency, the asset and those two dates. DigiDollar in USD needs no request: 1 DD = 1 USD.
+    /// </summary>
+    private async Task<DailyPriceSeries> PricesForAsync(IReadOnlyList<ExportRow> rows, ExportAsset asset, string fiatCurrency,
+        CancellationToken ct)
+    {
+        var from = rows.Min(r => r.LocalDate).AddDays(-1);
+        var to = rows.Max(r => r.LocalDate).AddDays(1);
+        if (asset == ExportAsset.Dd && string.Equals(fiatCurrency, "USD", StringComparison.OrdinalIgnoreCase))
+            return DailyPriceSeries.UsdPeg(from, to);
+        return await chain.GetDailyPricesAsync(fiatCurrency, asset == ExportAsset.Dd ? "dd" : "dgb", from, to, ct);
+    }
+
+    /// <summary>
+    /// Sets each row's Price (the price on its local day) and Value (Amount × Price, rounded to the currency's decimals). A row
+    /// whose day has no price keeps empty cells and is counted, so the person can be told (FR-007).
+    /// </summary>
+    public static (List<ExportRow> Rows, int WithoutPrice) ApplyPrices(IReadOnlyList<ExportRow> rows, DailyPriceSeries series,
+        string fiatCurrency)
+    {
+        var decimals = Models.FiatCurrencies.DecimalsFor(fiatCurrency);
+        var missing = 0;
+        var priced = new List<ExportRow>(rows.Count);
+        foreach (var row in rows)
+        {
+            if (series.TryGet(row.LocalDate, out var price))
+            {
+                priced.Add(row with
+                {
+                    Price = price,
+                    Value = Math.Round(row.Amount * price, decimals, MidpointRounding.AwayFromZero),
+                });
+            }
+            else
+            {
+                missing++;
+                priced.Add(row);
+            }
+        }
+        return (priced, missing);
     }
 
     /// <summary>

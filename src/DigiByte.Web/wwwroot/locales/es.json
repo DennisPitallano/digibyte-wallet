@@ -862,6 +862,8 @@
   "export.export": "Exportar",
   "export.reading": "Leyendo el historial… {0} de {1} direcciones",
   "export.saved": "Se exportaron {0} transacciones.",
+  "export.prices": "Obteniendo precios diarios…",
+  "export.saved.missing": "Se exportaron {0} transacciones. {1} no tienen valor en {2} (no había precio para esos días).",
   "export.unavailable": "No se pudo leer todo tu historial desde la red, así que no se exportó nada.",
   "export.try_again": "Reintentar",
   "export.nothing": "No hay nada que exportar con esta opción.",

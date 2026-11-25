@@ -160,6 +160,81 @@ public class TransactionExportServiceTests
         Assert.Equal(1, result.RowCount);
     }
 
+    // ── US3: daily fiat values ──
+
+    private static DailyPriceSeries Series(PriceBasis basis, params (DateOnly Day, decimal Price)[] days) =>
+        new("USD", basis, days.ToDictionary(d => d.Day, d => d.Price), DateOnly.MinValue, DateOnly.MaxValue);
+
+    [Fact]
+    public async Task EachRow_IsValuedAtItsLocalDaysPrice()
+    {
+        var (env, wallet) = await WalletWithAsync(2);   // 1 DGB and 2 DGB, both stamped "now" by the test chain
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Utc8).DateTime);
+        env.Chain.DailyPrices = (_, _, _, _) => Series(PriceBasis.Native, (today, 0.5m));
+        var sut = new TransactionExportService(wallet, env.Chain);
+
+        var result = await sut.ExportAsync(new ExportRequest { Asset = ExportAsset.Dgb }, Env());
+
+        Assert.Equal(0, result.RowsWithoutPrice);
+        var values = DataLines(result.Content!).Select(l => l.Split(',')[7]).OrderBy(v => v).ToList();
+        Assert.Equal(["0.50", "1.00"], values);   // 1 × 0.5 and 2 × 0.5, USD decimals
+    }
+
+    [Fact]
+    public void EqualAmountsOnDaysWithDifferentPrices_GetDifferentValues()
+    {
+        var mapper = TransactionCsvWriterTests.Row("a", DateTime.UtcNow, 10m) with { LocalDate = new DateOnly(2026, 11, 20) };
+        var other = mapper with { TxId = "b", LocalDate = new DateOnly(2026, 11, 21) };
+        var series = Series(PriceBasis.Native, (new DateOnly(2026, 11, 20), 0.01m), (new DateOnly(2026, 11, 21), 0.02m));
+
+        var (rows, missing) = TransactionExportService.ApplyPrices([mapper, other], series, "USD");
+
+        Assert.Equal(0.10m, rows[0].Value);
+        Assert.Equal(0.20m, rows[1].Value);
+        Assert.Equal(0, missing);
+    }
+
+    [Fact]
+    public async Task PriceRequest_IsOneRange_WidenedByADayEachSide()
+    {
+        var (env, wallet) = await WalletWithAsync(2);
+        var sut = new TransactionExportService(wallet, env.Chain);
+
+        await sut.ExportAsync(new ExportRequest { Asset = ExportAsset.Dgb }, Env());
+
+        var (currency, asset, from, to) = Assert.Single(env.Chain.PriceRequests);
+        Assert.Equal("USD", currency);
+        Assert.Equal("dgb", asset);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Utc8).DateTime);
+        Assert.Equal(today.AddDays(-1), from);
+        Assert.Equal(today.AddDays(1), to);
+    }
+
+    [Fact]
+    public async Task PriceFailure_StillGivesAFile_WithEveryRowCounted()
+    {
+        var (env, wallet) = await WalletWithAsync(3);   // DailyPrices not set: the price service is "down"
+        var sut = new TransactionExportService(wallet, env.Chain);
+
+        var result = await sut.ExportAsync(new ExportRequest { Asset = ExportAsset.Dgb }, Env());
+
+        Assert.Equal(ExportOutcome.Ready, result.Outcome);
+        Assert.Equal(3, result.RowsWithoutPrice);
+    }
+
+    [Fact]
+    public async Task Headers_CarryTheCurrencyAndBasis()
+    {
+        var (env, wallet) = await WalletWithAsync(1);
+        env.Chain.DailyPrices = (c, _, f, t) => new DailyPriceSeries(c, PriceBasis.ConvertedFromUsd, new Dictionary<DateOnly, decimal>(), f, t);
+        var sut = new TransactionExportService(wallet, env.Chain);
+
+        var result = await sut.ExportAsync(new ExportRequest { Asset = ExportAsset.Dgb }, Env("KES"));
+
+        var header = result.Content!.TrimStart('﻿').Split("\r\n")[0];
+        Assert.Contains("\"Price (KES, daily, via USD)\"", header);
+    }
+
     [Fact]
     public async Task WithoutPrices_PriceAndValueAreEmpty_AndCounted()
     {

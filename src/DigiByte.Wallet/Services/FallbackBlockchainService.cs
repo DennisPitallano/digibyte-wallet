@@ -620,6 +620,14 @@ public class FallbackBlockchainService : IBlockchainService, IAddressSummarySour
     }
 
     /// <summary>
+    /// Daily prices for the CSV export (spec 031): independent of explorers, like <see cref="GetDgbPriceAsync"/>. One request to
+    /// the price service, or CoinGecko in direct mode. Never throws for an upstream failure.
+    /// </summary>
+    public Task<Export.DailyPriceSeries> GetDailyPricesAsync(string fiatCurrency, string asset, DateOnly from, DateOnly to,
+        CancellationToken ct = default) =>
+        Export.DailyPriceClient.FetchAsync(_priceHttp, _priceApiBaseUrl, fiatCurrency, asset, from, to, ct);
+
+    /// <summary>
     /// Every transaction of the address for the CSV export (spec 031, research R1). Explorers only, in order, not cached; the node
     /// is never asked (it cannot list full history). A source that doesn't support the complete read is skipped, not counted as a
     /// failure. Throws <see cref="Export.HistoryIncompleteException"/> when no supporting explorer could answer, or none supports it.

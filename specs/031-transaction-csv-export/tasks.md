@@ -196,7 +196,7 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
 
 ### Tests for User Story 3
 
-- [ ] T034 [P] [US3] Write `tests/DigiByte.Api.Tests/PriceRangeEndpointTests.cs` for [contracts/price-range-api.md](contracts/price-range-api.md):
+- [X] T034 [P] [US3] Write `tests/DigiByte.Api.Tests/PriceRangeEndpointTests.cs` for [contracts/price-range-api.md](contracts/price-range-api.md):
   - `currency` outside the wallet's `FiatCurrencies` list → 400; `asset` other than `dgb`/`dd` → 400
   - `from > to` → 400; `to` after tomorrow (UTC) → 400
   - a converted currency returns `basis: convertedFromUsd` with `price = USD price × that day's rate`; a Saturday uses Friday's rate; a day more than 7 days after the last rate is absent
@@ -207,42 +207,42 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
   - a range that ends on or before the archive's last date makes **no** upstream call
   - upstream 429 or 5xx with archived days in range → 200 with the archived days; with none → the error is passed back
   - a second identical call is served from cache with no upstream call
-- [ ] T035 [P] [US3] Write `tests/DigiByte.Wallet.Tests/Export/DailyPriceSeriesTests.cs`:
+- [X] T035 [P] [US3] Write `tests/DigiByte.Wallet.Tests/Export/DailyPriceSeriesTests.cs`:
   - `TryGet(date)` by local date; a missing day returns nothing, never 0
   - `Basis` is taken from the response's `basis`; the client never converts anything itself
   - for DD in USD no request is made and every day is 1.00
   - the client asks for `[From−1, To+1]` with only `currency`, `asset`, `from` and `to`, in one request, also for converted currencies (FR-016)
   - an upstream failure gives an empty series with `Failed = true` and never throws
   - the direct-mode URL is the CoinGecko `coins/digibyte/market_chart/range` URL
-- [ ] T036 [P] [US3] Extend `TransactionExportServiceTests.cs`:
+- [X] T036 [P] [US3] Extend `TransactionExportServiceTests.cs`:
   - two equal amounts on days with different prices get different Values (US3 scenario 2)
   - rows without a price have empty Price/Value and are counted in `RowsWithoutPrice`
   - a price failure still yields `Saved` content (FR-007)
   - the Price/Value headers carry the currency and basis
 
-- [ ] T037 [P] [US3] Write `tests/DigiByte.Api.Tests/PriceArchiveTests.cs`:
+- [X] T037 [P] [US3] Write `tests/DigiByte.Api.Tests/PriceArchiveTests.cs`:
   - loads `dgb-daily-{currency}.csv` lines `yyyy-MM-dd,price` and `usd-fx-{currency}.csv` lines `yyyy-MM-dd,rate` once per process
   - a rate lookup on a day with no rate returns the most recent earlier rate up to 7 days old, and nothing beyond that
   - a range lookup returns ascending days, inclusive, and absent days stay absent
   - an unknown currency returns no archive (the endpoint falls back to live)
   - a malformed line fails loading with the file name and line number, so a bad refresh PR breaks tests rather than production
   - `LastDate` is the file's last day
-- [ ] T038 [P] [US3] Write `tests/DigiByte.Api.Tests/PriceArchiveImportTests.cs` for the `tools/PriceArchiveImport` normaliser:
+- [X] T038 [P] [US3] Write `tests/DigiByte.Api.Tests/PriceArchiveImportTests.cs` for the `tools/PriceArchiveImport` normaliser:
   - a CoinGecko history export (header `snapped_at,price,market_cap,total_volume`, timestamps in UTC) becomes one `yyyy-MM-dd,price` line per UTC day, ascending, with no duplicates
   - rows with an empty or zero price are dropped
   - a Frankfurter time-series reply and an `exchange-api` daily snapshot each become `yyyy-MM-dd,rate` lines (units per 1 USD), ascending, with no duplicates
 
 ### Implementation for User Story 3
 
-- [ ] T039 [US3] Create `src/DigiByte.Api/Services/PriceArchive.cs`, a singleton registered in `src/DigiByte.Api/Program.cs`, that reads `PriceArchive/dgb-daily-{currency}.csv` and `PriceArchive/usd-fx-{currency}.csv` from the content root on first use, with the 7-day rate carry-forward. Add `<Content Include="PriceArchive\*.csv" CopyToOutputDirectory="PreserveNewest" />` to `src/DigiByte.Api/DigiByte.Api.csproj`. Make T037 pass.
+- [X] T039 [US3] Create `src/DigiByte.Api/Services/PriceArchive.cs`, a singleton registered in `src/DigiByte.Api/Program.cs`, that reads `PriceArchive/dgb-daily-{currency}.csv` and `PriceArchive/usd-fx-{currency}.csv` from the content root on first use, with the 7-day rate carry-forward. Add `<Content Include="PriceArchive\*.csv" CopyToOutputDirectory="PreserveNewest" />` to `src/DigiByte.Api/DigiByte.Api.csproj`. Make T037 pass.
 - [ ] T040 [US3] Create the console tool `tools/PriceArchiveImport/` (added to `src/src.sln`), which turns a CoinGecko DGB historical-data export into the archive format, and add a `ProjectReference` to it from `tests/DigiByte.Api.Tests/DigiByte.Api.Tests.csproj` so T038 can call its normaliser. Make T038 pass. Then, for each currency in `FiatCurrencies`' CoinGecko-native list, download CoinGecko's full DGB history export (a manual, one-time maintainer step), run the tool, and commit `src/DigiByte.Api/PriceArchive/dgb-daily-{currency}.csv`. For each converted currency in `FiatCurrencies` (and every native one, for DD), seed `usd-fx-{currency}.csv` from Frankfurter (ECB) when it publishes that currency, otherwise from the `exchange-api` daily snapshots. Record each file's source, seed date and first date in `src/DigiByte.Api/PriceArchive/README.md`.
-- [ ] T041 [US3] Add `.github/workflows/price-archive-refresh.yml` per the "Archive refresh" section of [contracts/price-range-api.md](contracts/price-range-api.md):
+- [X] T041 [US3] Add `.github/workflows/price-archive-refresh.yml` per the "Archive refresh" section of [contracts/price-range-api.md](contracts/price-range-api.md):
   - schedule monthly plus `workflow_dispatch`
   - append days after each file's last date, excluding today, for both the price files and the rate files (each rate file from its recorded source)
   - open one pull request with the default `GITHUB_TOKEN` and `contents: write` + `pull-requests: write` only; never auto-merge
   - fail when any file is more than 300 days behind
   - it reuses `tools/PriceArchiveImport` in a `--append-from-api` mode
-- [ ] T042 [US3] Add `GET /range` to `src/DigiByte.Api/Endpoints/PriceEndpoints.cs`:
+- [X] T042 [US3] Add `GET /range` to `src/DigiByte.Api/Endpoints/PriceEndpoints.cs`:
   - validates as in the contract
   - takes archived days from `PriceArchive` (T039); only for days after the archive's last date does it make one upstream call through `CoinGeckoProxy`; archive values win; an upstream failure still returns the archived days
   - for converted currencies, multiplies the USD price by that day's rate (archive, then one live Frankfurter or `exchange-api` call for newer days) and returns `basis: convertedFromUsd`; for `asset=dd`, returns each day's USD rate with `basis: peg`
@@ -250,17 +250,17 @@ Existing monorepo: `src/DigiByte.Wallet/` (logic), `src/DigiByte.Api/` (price pr
   - reduces the points to daily with a shared helper `DailyPriceReducer` in `src/DigiByte.Wallet/Services/Export/DailyPriceReducer.cs` (`DigiByte.Api` already references `DigiByte.Wallet`; the wallet's direct mode uses the same helper)
   - caches for 1 hour and logs only status codes
   - make T034 pass
-- [ ] T043 [US3] Create `src/DigiByte.Wallet/Services/Export/DailyPriceSeries.cs`, with `Currency`, `Basis` (`Native` | `ConvertedFromUsd` | `Peg`), `Prices` (map local date → decimal; "Missing days are absent, never zero"), `Requested` and `Failed`, plus `TryGet`.
-- [ ] T044 [US3] Add `GetDailyPricesAsync(string fiatCurrency, string asset, DateOnly from, DateOnly to, CancellationToken ct)` to `IBlockchainService` (default member returning an empty, failed series) and implement it in `BlockchainApiService.cs` and `FallbackBlockchainService.cs`:
+- [X] T043 [US3] Create `src/DigiByte.Wallet/Services/Export/DailyPriceSeries.cs`, with `Currency`, `Basis` (`Native` | `ConvertedFromUsd` | `Peg`), `Prices` (map local date → decimal; "Missing days are absent, never zero"), `Requested` and `Failed`, plus `TryGet`.
+- [X] T044 [US3] Add `GetDailyPricesAsync(string fiatCurrency, string asset, DateOnly from, DateOnly to, CancellationToken ct)` to `IBlockchainService` (default member returning an empty, failed series) and implement it in `BlockchainApiService.cs` and `FallbackBlockchainService.cs`:
   - proxy URL `{_priceApiBaseUrl}/range?currency=&asset=&from=&to=`, or in direct mode the CoinGecko URL for native currencies only (converted currencies get an empty series there)
   - no exchange-rate lookup in the wallet: `Basis` comes from the response
   - never throws
   - make T035 pass
-- [ ] T045 [US3] In `TransactionExportService.ExportAsync`, after filtering:
+- [X] T045 [US3] In `TransactionExportService.ExportAsync`, after filtering:
   - request the series once for `[min local date − 1, max local date + 1]`, set `Price` and `Value = round(Amount × Price, currency decimals)` per row, and count `RowsWithoutPrice`
   - pass the currency and basis to the writer
   - make T036 pass
-- [ ] T046 [P] [US3] Add strings to `en.json` and `es.json`: "Getting daily prices…", "{0} transactions exported. {1} have no {2} value (no price was available for those days).", and the header suffix ", via USD" / ", vía USD"
+- [X] T046 [P] [US3] Add strings to `en.json` and `es.json`: "Getting daily prices…", "{0} transactions exported. {1} have no {2} value (no price was available for those days).", and the header suffix ", via USD" / ", vía USD"
 - [ ] T047 [US3] Show the "Getting daily prices…" state and the price-gap toast in `ExportCsvSheet.razor`. Run quickstart scenarios 9, 9b, 10 and 19 (DevTools Network: only one `/api/price/range` request leaves the device, also for a converted currency).
 
 **Checkpoint**: Exports are bookkeeping-ready, with each local day's fiat value.

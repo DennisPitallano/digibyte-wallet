@@ -176,7 +176,8 @@
     private CancellationTokenSource? cts;
     private ElementReference exportButton;
 
-    private string ProgressText => L.T("export.reading", done, total);
+    // Once every address is read, what remains is the one daily-price request.
+    private string ProgressText => total > 0 && done >= total ? L.T("export.prices") : L.T("export.reading", done, total);
     private int ProgressPercent => total <= 0 ? 0 : (int)Math.Round(100.0 * done / total);
 
     protected override void OnParametersSet()
@@ -256,7 +257,10 @@
             case ExportOutcome.Ready:
                 var saved = await JS.InvokeAsync<string>("saveCsvFile", result.Content, result.FileName);
                 if (saved == "cancelled") return;   // the person closed the share sheet: nothing was saved
-                Notifications.Success(L.T("export.saved", result.RowCount));
+                if (result.RowsWithoutPrice > 0)
+                    Notifications.Warning(L.T("export.saved.missing", result.RowCount, result.RowsWithoutPrice, AppState.FiatCurrency));
+                else
+                    Notifications.Success(L.T("export.saved", result.RowCount));
                 await CloseAsync();
                 break;
             case ExportOutcome.HistoryUnavailable:

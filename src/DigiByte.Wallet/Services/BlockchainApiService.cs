@@ -255,6 +255,11 @@ public class BlockchainApiService : IBlockchainService, IAddressSummarySource
         return all.Skip(skip).Take(take).ToList();
     }
 
+    /// <summary>Daily prices for the CSV export (spec 031): one request to the price service, or CoinGecko in direct mode.</summary>
+    public Task<Export.DailyPriceSeries> GetDailyPricesAsync(string fiatCurrency, string asset, DateOnly from, DateOnly to,
+        CancellationToken ct = default) =>
+        Export.DailyPriceClient.FetchAsync(_priceHttp, _priceApiBaseUrl, fiatCurrency, asset, from, to, ct);
+
     /// <summary>A guard against a source whose history never ends: far beyond any real address, still finite.</summary>
     public const int CompleteHistorySafetyCap = 200_000;
 
