@@ -6,6 +6,8 @@
 @inject IJSRuntime JS
 @inject IConfiguration Config
 @inject LocalizationService L
+@inject NavigationManager Nav
+@using DigiByte.Wallet.Services
 
 <PageTitle>@L.T("payments.page_title")</PageTitle>
 
@@ -49,37 +51,46 @@
     @* Active request detail *@
     @if (activeRequest != null)
     {
-        <div class="card scale-in p-5 flex flex-col items-center gap-4">
-            <div class="qr-frame">
-                <img src="@activeQrUrl" alt="@L.T("payments.qr_alt")" class="w-44 h-44 rounded-lg" />
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="bg-white rounded-full p-1.5 shadow-md">
-                        <DigiLogo Size="28" />
+        @* Wide screens lead with the request and its buttons; the QR code follows, smaller (spec 030, FR-025). *@
+        <div class="card scale-in p-5 receive-main">
+            <div class="receive-main-details w-full flex flex-col items-center gap-4">
+                @if (activeRequest.AmountDgb.HasValue)
+                {
+                    <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
+                }
+                @if (!string.IsNullOrEmpty(activeRequest.Label))
+                {
+                    <p class="text-sm text-slate-500 dark:text-slate-400">@activeRequest.Label</p>
+                }
+                <p class="font-mono text-xs text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 w-full border border-slate-100 dark:border-dgb-800">
+                    @activeRequest.ToUri()
+                </p>
+                @* The web payment link first: it works when clicked in a chat or an email (spec 030, FR-019). *@
+                <div class="flex flex-wrap gap-2 w-full">
+                    <button class="btn-primary btn-sm flex-1" data-testid="payments-copy-pay-link"
+                            @onclick="CopyPayLink">@(copiedPayLink ? L.T("receive.copied") : L.T("payments.copy_pay_link"))</button>
+                    <button class="btn-secondary btn-sm flex-1"
+                            @onclick="ShareUri">@L.T("receive.share")</button>
+                </div>
+                <button class="btn-ghost btn-sm w-full"
+                        @onclick="CopyUri">@(copied ? L.T("receive.copied") : L.T("payments.copy_uri"))</button>
+                <button class="flex items-center justify-center gap-1.5 w-full py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors"
+                        @onclick="DownloadQr">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                    @L.T("payments.download_qr")
+                </button>
+            </div>
+            <div class="receive-main-qr">
+                <div class="qr-frame">
+                    <img src="@activeQrUrl" alt="@L.T("payments.qr_alt")" class="w-44 h-44 rounded-lg" />
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="bg-white rounded-full p-1.5 shadow-md">
+                            <DigiLogo Size="28" />
+                        </div>
                     </div>
                 </div>
+                <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
             </div>
-            @if (activeRequest.AmountDgb.HasValue)
-            {
-                <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
-            }
-            @if (!string.IsNullOrEmpty(activeRequest.Label))
-            {
-                <p class="text-sm text-slate-500 dark:text-slate-400">@activeRequest.Label</p>
-            }
-            <p class="font-mono text-xs text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 w-full border border-slate-100 dark:border-dgb-800">
-                @activeRequest.ToUri()
-            </p>
-            <div class="flex gap-2 w-full">
-                <button class="btn-primary btn-sm flex-1"
-                        @onclick="CopyUri">@(copied ? L.T("receive.copied") : L.T("payments.copy_link"))</button>
-                <button class="btn-secondary btn-sm flex-1"
-                        @onclick="ShareUri">@L.T("receive.share")</button>
-            </div>
-            <button class="flex items-center justify-center gap-1.5 w-full py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors"
-                    @onclick="DownloadQr">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                @L.T("payments.download_qr")
-            </button>
             <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="() => activeRequest = null">@L.T("more.close")</button>
         </div>
     }
@@ -207,11 +218,25 @@
         copied = false; StateHasChanged();
     }
 
+    private bool copiedPayLink;
+
+    // The web payment link: the request after the #, so the web host never sees it (spec 030, FR-019).
+    private string? PayLink => activeRequest is null ? null : PaymentLink.Create(new Uri(Nav.BaseUri), activeRequest);
+
+    private async Task CopyPayLink()
+    {
+        if (PayLink is not { } link) return;
+        await Clipboard.CopyAsync(link, toast: false);
+        copiedPayLink = true; StateHasChanged();
+        await Task.Delay(2000);
+        copiedPayLink = false; StateHasChanged();
+    }
+
     private async Task ShareUri()
     {
-        if (activeRequest == null) return;
-        try { await JS.InvokeVoidAsync("navigator.share", new { title = activeRequest.Label ?? L.T("payments.share_title"), text = activeRequest.ToUri() }); }
-        catch { await CopyUri(); }
+        if (activeRequest == null || PayLink is not { } link) return;
+        try { await JS.InvokeVoidAsync("navigator.share", new { title = activeRequest.Label ?? L.T("payments.share_title"), text = link }); }
+        catch { await CopyPayLink(); }
     }
 
     private async Task DownloadQr()

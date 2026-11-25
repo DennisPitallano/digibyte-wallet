@@ -21,9 +21,9 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **WIF private key import** — Single-key import with auto network detection (mainnet/testnet/regtest)
 - **Send & Receive** — Real transaction building, signing, and broadcasting via NBitcoin
 - **Configurable fee rates** — Low/Normal/Fast fee presets with sat/vB control
-- **QR Scanner** — Self-hosted jsQR, camera-based scanning for addresses, `digibyte:` URIs, WIF keys, and Digi-ID URIs
+- **Paste / Scan** — Self-hosted jsQR. On a computer it opens a paste panel: paste a copied code, paste a screenshot or drop a picture of a QR code, or read one from another tab (screen share); on a phone it opens the camera. Reads addresses, `digibyte:` URIs, payment links, WIF keys, Digi-ID URIs and multisig codes. Pictures and screen frames never leave the browser
 - **Contacts** — Save addresses with names, QR scan, send with one tap
-- **Payment Requests** — Generate BIP21 URIs with amount/label/message and QR codes
+- **Payment Requests & payment links** — Generate BIP21 URIs with amount/label/message and QR codes, plus a web payment link (`/pay#digibyte:…`) that opens Send for wallet users or a read-only payment page for anyone else; the payment details stay after the `#` and never reach the server
 - **Digi-ID** — Passwordless authentication protocol (`digiid://` URI signing)
 - **Light & Dark Mode** — Official DigiByte branding with theme toggle
 - **Multi-network** — Mainnet, Testnet, and Regtest support
@@ -259,9 +259,10 @@ Four services for production:
 | `/unlock` | Unlock | PIN entry, forgot PIN (seed reset), delete wallet |
 | `/` | Home | Dashboard — balance, fiat conversion, quick contacts, tx list, pull-to-refresh |
 | `/send` | Send | Recipient (address/contact/QR), amount (DGB↔fiat toggle), fee selector, review modal |
-| `/receive` | Receive | QR code + address display, Legacy/SegWit toggle, copy/share, generate new address |
+| `/receive` | Receive | Address + QR code (address first on wide screens), Legacy/SegWit toggle, copy/share, copy payment link, generate new address |
 | `/contacts` | Contacts | CRUD contacts, search, QR scan address, send to contact |
-| `/payments` | Payments | Create BIP21 payment requests with QR, copy/share URI |
+| `/payments` | Payments | Create BIP21 payment requests with QR, copy/share payment link or URI |
+| `/pay` | Pay | Opens a payment link: hands it to Send in memory (unlock first if needed), or shows a read-only payment page when no wallet is on the device |
 | `/identity` | Identity | Digi-ID passwordless auth — scan/paste `digiid://` URI, approve domain, sign challenge |
 | `/p2p` | P2P Marketplace | Coming soon — buy/sell orders, escrow, trade chat |
 | `/remittance` | Remittance | Send by username, fee comparison vs traditional services |

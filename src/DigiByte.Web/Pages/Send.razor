@@ -14,6 +14,8 @@
 @inject BakuService Baku
 @inject NodeSourceStatusService NodeStatus
 @inject IJSRuntime JS
+@inject DigiByte.Web.Services.PaymentHandoff PayHandoff
+@implements IDisposable
 
 <PageTitle>@L.T("send.page_title")</PageTitle>
 
@@ -932,22 +934,57 @@ else
         else if (amountEntry is not null) OnAmountInput(new ChangeEventArgs { Value = amountText }); // re-check against the new unit
     }
 
+    // Checked again here with the same rules as the address query; any note stays off the memo.
+    private bool TryTakeHandoff()
+    {
+        if (PayHandoff.Take() is not { } link) return false;
+        if (link.Address.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(link.Address))
+        {
+            destinationAddress = link.Address;
+            if (link.AmountDgb is { } linkAmount && linkAmount > 0 && linkAmount < 21_000_000_000m)
+            {
+                isAmountInFiat = false; // a link's amount is in DGB
+                SetAmount(linkAmount);
+            }
+        }
+        return true;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (!new Uri(e.Location).AbsolutePath.Equals("/send", StringComparison.OrdinalIgnoreCase)) return;
+        _ = InvokeAsync(() =>
+        {
+            if (!TryTakeHandoff()) return;
+            RecalcFee();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
     protected override async Task OnInitializedAsync()
     {
         AppState.ResetLockTimer();
 
-        // Parse query params immediately (no I/O) — with validation
-        var uri = new Uri(Nav.Uri);
-        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        var qAddr = query["address"];
-        if (qAddr != null && qAddr.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(qAddr))
-            destinationAddress = qAddr;
-        var qName = query["name"];
-        if (qName != null && qName.Length <= 64)
-            recipientName = qName;
-        // A link amount is digits and one point only: "?amount=1,5" is left empty, never read as 15.
-        if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
-            SetAmount(qtyAmount);
+        // A payment link (opened on /pay, or pasted in the menu) hands its payment over in memory, never in the
+        // address (spec 030, FR-021). A link that arrives while Send is open is taken in OnLocationChanged.
+        Nav.LocationChanged += OnLocationChanged;
+        if (!TryTakeHandoff())
+        {
+            // Parse query params immediately (no I/O) — with validation
+            var uri = new Uri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var qAddr = query["address"];
+            if (qAddr != null && qAddr.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(qAddr))
+                destinationAddress = qAddr;
+            var qName = query["name"];
+            if (qName != null && qName.Length <= 64)
+                recipientName = qName;
+            // A link amount is digits and one point only: "?amount=1,5" is left empty, never read as 15.
+            if (query["amount"] != null && decimal.TryParse(query["amount"], System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var qtyAmount) && qtyAmount > 0 && qtyAmount < 21_000_000_000m)
+                SetAmount(qtyAmount);
+        }
 
         // Detect wallet address type for fee estimation
         if (WalletService.IsUnlocked)

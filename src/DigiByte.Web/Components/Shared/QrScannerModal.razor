@@ -1,53 +1,124 @@
+@using DigiByte.Wallet.Services
+@using DigiByte.Web.Services
+@implements IAsyncDisposable
 @inject IJSRuntime JS
 @inject LocalizationService L
+@inject NavigationManager Nav
 
+@*
+    The one scan panel (specs/030-desktop-paste-scan). On a desktop it opens on Paste: a field, Paste from clipboard,
+    picture paste and drop, Upload image. On a phone it opens on the camera, as before. Whatever comes in goes out
+    through HandOffAsync, the same way, to whichever page opened the panel.
+*@
 @if (IsOpen)
 {
-    <div class="modal-overlay" style="flex-direction:column; gap:1rem;" role="dialog" aria-modal="true" aria-label="@L.T("scan.title")">
-        <div class="relative w-[300px] h-[300px] rounded-2xl overflow-hidden bg-black shadow-2xl scale-in">
-            <video id="qr-video" class="w-full h-full object-cover" playsinline muted aria-label="@L.T("scan.viewfinder")"></video>
-            @* Scan frame overlay *@
-            <div class="absolute inset-0 pointer-events-none">
-                <div class="absolute inset-8 border-2 border-white/40 rounded-xl"></div>
-                <div class="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-dgb-400 rounded-tl-lg"></div>
-                <div class="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-dgb-400 rounded-tr-lg"></div>
-                <div class="absolute bottom-8 left-8 w-6 h-6 border-b-2 border-l-2 border-dgb-400 rounded-bl-lg"></div>
-                <div class="absolute bottom-8 right-8 w-6 h-6 border-b-2 border-r-2 border-dgb-400 rounded-br-lg"></div>
-                @* Scanning line animation *@
-                <div class="absolute left-8 right-8 h-0.5 bg-gradient-to-r from-transparent via-dgb-400 to-transparent animate-scan"></div>
-            </div>
-            @if (isLoading)
-            {
-                <div class="absolute inset-0 flex items-center justify-center bg-black/60">
-                    <div class="w-8 h-8 border-3 border-dgb-400 border-t-transparent rounded-full animate-spin"></div>
+    <div id="@PanelId" @ref="panelRef" class="modal-overlay scan-overlay" role="dialog" aria-modal="true" aria-labelledby="qr-panel-title">
+        @if (view == View.Paste)
+        {
+            <div class="scan-panel scale-in @(dragOver ? "is-dragover" : "")" data-testid="scan-paste-panel">
+                <div class="scan-panel-head">
+                    <h2 id="qr-panel-title" class="block-title">@L.T("scan.panel_title")</h2>
+                    <button type="button" class="icon-btn -mr-2" aria-label="@L.T("more.close")" @onclick="CloseAsync">
+                        <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
-            }
-        </div>
 
-        <p class="text-white/80 text-sm font-medium">@L.T("scan.point_camera")</p>
+                <label for="qr-field" class="sr-only">@L.T("scan.field_label")</label>
+                <textarea id="qr-field" class="input scan-field" rows="3" data-autofocus data-testid="scan-field"
+                          @bind="fieldText" @bind:event="oninput"
+                          placeholder="@L.T("scan.field_placeholder")"
+                          autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
 
-        @if (errorMessage != null)
-        {
-            <p class="text-red-400 text-xs font-medium bg-red-900/30 px-3 py-1.5 rounded-lg">@errorMessage</p>
+                <div class="scan-paste-row">
+                    <button type="button" class="btn-primary btn-sm" data-testid="scan-paste-button" @onclick="PasteFromClipboardAsync">
+                        @L.T("scan.paste_button")
+                    </button>
+                    <span class="scan-hint">@L.T("scan.keyboard_hint", PasteKeys)</span>
+                </div>
+
+                <div class="scan-drop" aria-hidden="true">@L.T("scan.drop_hint")</div>
+
+                <div class="scan-actions">
+                    <label class="btn-ghost btn-sm scan-upload">
+                        @L.T("scan.upload_image")
+                        <InputFile @ref="uploadInput" OnChange="OnFileSelectedAsync" accept="image/*" class="sr-only" />
+                    </label>
+                    @if (facts.CanCaptureScreen)
+                    {
+                        <button type="button" class="btn-ghost btn-sm" data-testid="scan-from-screen" @onclick="StartScreenAsync">@L.T("scan.from_screen")</button>
+                    }
+                    @if (facts.HasCamera != false)
+                    {
+                        <button type="button" class="btn-ghost btn-sm" data-testid="scan-use-camera" @onclick="UseCameraAsync">@L.T("scan.use_camera")</button>
+                    }
+                </div>
+
+                <p class="scan-status" role="status" aria-live="polite" data-testid="scan-status">@StatusText</p>
+            </div>
         }
-
-        <div class="flex items-center gap-3">
-            <label class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur transition-colors press-effect cursor-pointer flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                </svg>
-                @L.T("scan.upload_image")
-                <InputFile OnChange="OnFileSelected" accept="image/*" class="hidden" />
-            </label>
-            <button class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur transition-colors press-effect"
-                    @onclick="Close">
-                @L.T("common.cancel")
-            </button>
-        </div>
-
-        @if (isDecoding)
+        else if (view == View.Screen)
         {
-            <p class="text-dgb-400 text-xs font-medium">@L.T("scan.decoding")</p>
+            @* No preview of the shared screen: nothing is shown or kept, only looked at for a code (FR-016). *@
+            <div class="scan-panel scale-in" data-testid="scan-screen-panel">
+                <div class="scan-panel-head">
+                    <h2 id="qr-panel-title" class="block-title">@L.T("scan.from_screen")</h2>
+                    <button type="button" class="icon-btn -mr-2" aria-label="@L.T("more.close")" @onclick="CloseAsync">
+                        <svg class="w-5 h-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 border-3 border-dgb-400 border-t-transparent rounded-full animate-spin flex-shrink-0" aria-hidden="true"></div>
+                    <p class="text-sm" role="status" aria-live="polite">@L.T("scan.screen_looking")</p>
+                </div>
+                <button type="button" class="btn-secondary btn-sm self-start" data-testid="scan-screen-stop" @onclick="StopScreenAsync">@L.T("scan.screen_stop")</button>
+            </div>
+        }
+        else if (view == View.Camera)
+        {
+            <h2 id="qr-panel-title" class="sr-only">@L.T("scan.title")</h2>
+            <div class="relative w-[300px] h-[300px] rounded-2xl overflow-hidden bg-black shadow-2xl scale-in">
+                <video id="qr-video" class="w-full h-full object-cover" playsinline muted aria-label="@L.T("scan.viewfinder")"></video>
+                @* Scan frame overlay *@
+                <div class="absolute inset-0 pointer-events-none">
+                    <div class="absolute inset-8 border-2 border-white/40 rounded-xl"></div>
+                    <div class="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-dgb-400 rounded-tl-lg"></div>
+                    <div class="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-dgb-400 rounded-tr-lg"></div>
+                    <div class="absolute bottom-8 left-8 w-6 h-6 border-b-2 border-l-2 border-dgb-400 rounded-bl-lg"></div>
+                    <div class="absolute bottom-8 right-8 w-6 h-6 border-b-2 border-r-2 border-dgb-400 rounded-br-lg"></div>
+                    @* Scanning line animation *@
+                    <div class="absolute left-8 right-8 h-0.5 bg-gradient-to-r from-transparent via-dgb-400 to-transparent animate-scan"></div>
+                </div>
+                @if (isLoading)
+                {
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/60">
+                        <div class="w-8 h-8 border-3 border-dgb-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                }
+            </div>
+
+            <p class="text-white/80 text-sm font-medium">@L.T("scan.point_camera")</p>
+
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <button type="button" class="scan-dark-btn press-effect" data-testid="scan-paste-instead" @onclick="PasteInsteadAsync">
+                    @L.T("scan.paste_instead")
+                </button>
+                <label class="scan-dark-btn press-effect cursor-pointer flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    @L.T("scan.upload_image")
+                    <InputFile @ref="uploadInput" OnChange="OnFileSelectedAsync" accept="image/*" class="sr-only" />
+                </label>
+                <button type="button" class="scan-dark-btn press-effect" @onclick="CloseAsync">
+                    @L.T("common.cancel")
+                </button>
+            </div>
+
+            <p class="scan-status-dark" role="status" aria-live="polite">@StatusText</p>
         }
     </div>
 }
@@ -57,92 +128,382 @@
     [Parameter] public EventCallback<string> OnScanned { get; set; }
     [Parameter] public EventCallback OnClosed { get; set; }
 
+    /// <summary>
+    /// True only for the menu's Paste / Scan. The menu routes what it gets through ScanRouter, so a recovery phrase
+    /// or private key pasted there is cleared instead of being handed on (FR-027), and text the wallet cannot open
+    /// stays in the field to be corrected.
+    /// </summary>
+    [Parameter] public bool FromMenu { get; set; }
+
     /// <summary>Re-render when the language changes (spec 028).</summary>
     [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
+    private const string PanelId = "qr-panel";
+    private const string StorageKey = "dgb-scan-mode";
+
+    private enum View { Paste, Camera, Screen }
+
+    // What the browser reports, as JS sends it (camelCase is matched case-insensitively).
+    private sealed record JsFacts(bool FinePointer, bool? HasCamera, bool CanCaptureScreen, bool CanReadClipboardText,
+        bool CanReadClipboardImages, bool IsMac);
+
+    private sealed record JsClip(string Kind, string? Text);
+
+    private View view = View.Paste;
+    private JsFacts facts = new(false, null, false, false, false, false);
     private DotNetObjectReference<QrScannerModal>? objRef;
+    private ElementReference panelRef;
+    private InputFile? uploadInput;
     private bool isLoading = true;
-    private bool isDecoding;
-    private string? errorMessage;
+    private bool attached;
+    private bool focusField;
+    private bool dragOver;
+
+    // The field's text. It is emptied when its content is handed on, on close, and at once for a secret (FR-027).
+    private string fieldText = "";
+
+    // A localisation key, with an optional argument; shown in the one live region every view shares (FR-029).
+    private string? statusKey;
+    private object? statusArg;
+
+    private string StatusText => statusKey is null ? "" : statusArg is null ? L.T(statusKey) : L.T(statusKey, statusArg);
+    private string PasteKeys => facts.IsMac ? "⌘V" : "Ctrl+V";
+
+    private void SetStatus(string? key, object? arg = null)
+    {
+        statusKey = key;
+        statusArg = arg;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         if (IsOpen && objRef == null)
         {
             objRef = DotNetObjectReference.Create(this);
-            isLoading = true;
-            errorMessage = null;
-            StateHasChanged();
+            SetStatus(null);
+            fieldText = "";
+            dragOver = false;
+            attached = false;
 
-            await Task.Delay(100); // Let DOM render the video element
-            var success = await JS.InvokeAsync<bool>("qrScanner.start", objRef);
-            isLoading = !success;
+            facts = await ReadFactsAsync();
+            var remembered = ScanInputMode.ParseRemembered(await ReadStoredAsync());
+            var entry = ScanInputMode.Decide(
+                new DeviceFacts(facts.FinePointer, facts.HasCamera, facts.CanCaptureScreen, facts.CanReadClipboardText, facts.CanReadClipboardImages),
+                remembered);
+
+            view = entry == ScanEntry.Camera ? View.Camera : View.Paste;
+            if (view == View.Camera) await StartCameraAsync();
         }
     }
 
-    [JSInvokable]
-    public async Task OnScanResult(string data)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await OnScanned.InvokeAsync(data);
-        await Close();
+        if (!IsOpen || objRef is null) return;
+        if (!attached)
+        {
+            attached = true;
+            try
+            {
+                await JS.InvokeVoidAsync("qrScanner.attachPanel", panelRef, objRef);
+                await JS.InvokeVoidAsync("domHelpers.trapFocus", PanelId);
+            }
+            catch (Exception) { /* without the extras the buttons still work */ }
+        }
+        if (focusField)
+        {
+            focusField = false;
+            try { await JS.InvokeVoidAsync("qrScanner.focusField", panelRef); } catch (Exception) { }
+        }
     }
+
+    private async Task<JsFacts> ReadFactsAsync()
+    {
+        try { return await JS.InvokeAsync<JsFacts>("qrScanner.deviceFacts"); }
+        catch (Exception) { return new JsFacts(false, null, false, false, false, false); }
+    }
+
+    private async Task<string?> ReadStoredAsync()
+    {
+        try { return await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey); }
+        catch (Exception) { return null; }
+    }
+
+    // Only the panel's own switch buttons write the choice (FR-004). Blocked storage just means no memory.
+    private async Task RememberAsync(ScanEntry entry)
+    {
+        try { await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, ScanInputMode.ToStored(entry)); }
+        catch (Exception) { }
+    }
+
+    // ----- Switching views -----
+
+    private async Task UseCameraAsync()
+    {
+        await RememberAsync(ScanEntry.Camera);
+        SetStatus(null);
+        view = View.Camera;
+        await StartCameraAsync();
+    }
+
+    private async Task PasteInsteadAsync()
+    {
+        await RememberAsync(ScanEntry.Paste);
+        await StopStreamsAsync();
+        SetStatus(null);
+        view = View.Paste;
+        focusField = true;
+    }
+
+    // ----- Scan from screen -----
+
+    private async Task StartScreenAsync()
+    {
+        SetStatus(null);
+        string result;
+        try { result = await JS.InvokeAsync<string>("qrScanner.startScreen", objRef); }
+        catch (Exception) { result = "cancelled"; }
+
+        switch (result)
+        {
+            case "started":
+                view = View.Screen;
+                break;
+            case "unsupported":
+                facts = facts with { CanCaptureScreen = false };
+                break;
+            default:
+                // Cancelled or refused in the browser's prompt: the other ways in still work (FR-018).
+                SetStatus("scan.screen_cancelled");
+                break;
+        }
+    }
+
+    private async Task StopScreenAsync()
+    {
+        await StopScreenStreamAsync();
+        view = View.Paste;
+        focusField = true;
+    }
+
+    [JSInvokable]
+    public async Task OnScreenResult(string text)
+    {
+        view = View.Paste;
+        await HandOffAsync(text, keepOpenIfUnknown: true);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task OnScreenEnded(string reason)
+    {
+        view = View.Paste;
+        focusField = true;
+        SetStatus(reason == "timeout" ? "scan.screen_timeout" : null);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task StopScreenStreamAsync()
+    {
+        try { await JS.InvokeVoidAsync("qrScanner.stopScreen"); } catch (Exception) { }
+    }
+
+    private async Task StartCameraAsync()
+    {
+        isLoading = true;
+        StateHasChanged();
+        await Task.Delay(100); // Let DOM render the video element
+        bool success;
+        try { success = await JS.InvokeAsync<bool>("qrScanner.start", objRef); }
+        catch (Exception) { success = false; }
+        isLoading = !success;
+    }
+
+    // ----- Ways in -----
+
+    private async Task PasteFromClipboardAsync()
+    {
+        JsClip clip;
+        try { clip = await JS.InvokeAsync<JsClip>("qrScanner.readClipboard"); }
+        catch (Exception) { clip = new JsClip("refused", null); }
+
+        if (clip.Kind == "refused")
+        {
+            SetStatus("scan.keyboard_hint_full", PasteKeys);
+            focusField = true;
+            return;
+        }
+        await OnClipboardResultAsync(clip.Kind, clip.Text, fromField: false);
+    }
+
+    [JSInvokable]
+    public Task OnPanelPaste(string kind, string? text) => OnClipboardResultAsync(kind, text, fromField: kind == "typed");
+
+    [JSInvokable]
+    public Task OnPanelDrop(string kind, string? text) => OnClipboardResultAsync(kind, text, fromField: false);
+
+    [JSInvokable]
+    public Task OnDragState(bool over)
+    {
+        dragOver = over;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnEscape() => CloseAsync();
+
+    private async Task OnClipboardResultAsync(string kind, string? text, bool fromField)
+    {
+        switch (kind)
+        {
+            case "text" or "typed" or "code":
+                await HandOffAsync(text ?? "", keepOpenIfUnknown: true);
+                return;
+            case "decoding":
+                SetStatus("scan.decoding");
+                break;
+            case "nocode":
+                SetStatus("scan.no_code_found");
+                break;
+            case "notimage":
+                SetStatus("scan.not_image");
+                break;
+            case "toolarge":
+                SetStatus("scan.image_too_large");
+                break;
+            default:
+                SetStatus("scan.nothing_to_paste");
+                break;
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        SetStatus("scan.decoding");
+        StateHasChanged();
+
+        string? result;
+        try { result = await JS.InvokeAsync<string?>("qrScanner.decodeInputFile", uploadInput?.Element); }
+        catch (Exception ex)
+        {
+            SetStatus("scan.read_failed", ex.Message);
+            StateHasChanged();
+            return;
+        }
+        await OnClipboardResultAsync(result switch
+        {
+            null or "" => "nocode",
+            "notimage" or "toolarge" => result,
+            _ => "code",
+        }, result, fromField: false);
+    }
+
+    [JSInvokable]
+    public async Task OnScanResult(string data) => await HandOffAsync(data, keepOpenIfUnknown: false);
 
     [JSInvokable]
     public void OnScanError(string error)
     {
-        errorMessage = L.T("scan.camera_failed", error);
+        SetStatus("scan.camera_failed", error);
         isLoading = false;
         StateHasChanged();
     }
 
-    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    // ----- The one way out -----
+
+    /// <summary>
+    /// Cleans the value, checks it, hands it to the page that opened the panel, then closes. The page's own handler
+    /// runs before OnClosed, as it did when the camera found a code.
+    /// </summary>
+    private async Task HandOffAsync(string raw, bool keepOpenIfUnknown)
     {
-        errorMessage = null;
-        isDecoding = true;
-        StateHasChanged();
-
-        try
+        // The rules live in ScanHandOff so they are tested; this only acts on the decision.
+        var decision = ScanHandOff.Decide(raw, FromMenu, keepOpenIfUnknown, Nav.BaseUri);
+        switch (decision.Outcome)
         {
-            var file = e.File;
-            if (file.Size > 10 * 1024 * 1024)
-            {
-                errorMessage = L.T("scan.image_too_large");
+            case HandOffOutcome.Nothing:
+                SetStatus("scan.nothing_to_paste");
+                StateHasChanged();
                 return;
-            }
 
-            // Read file as data URL for JS processing
-            var buffer = new byte[file.Size];
-            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).ReadExactlyAsync(buffer);
-            var dataUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(buffer)}";
+            case HandOffOutcome.TooLong:
+                fieldText = decision.Value ?? "";
+                SetStatus("scan.too_long");
+                StateHasChanged();
+                return;
 
-            var result = await JS.InvokeAsync<string?>("qrScanner.decodeImage", dataUrl);
+            case HandOffOutcome.SecretCleared:
+                // Never left on screen, never routed (FR-027).
+                await ClearFieldAsync();
+                SetStatus("scan.secret_cleared");
+                StateHasChanged();
+                return;
 
-            if (!string.IsNullOrEmpty(result))
-            {
-                await OnScanned.InvokeAsync(result);
-                await Close();
-            }
-            else
-            {
-                errorMessage = L.T("scan.no_code_found");
-            }
+            case HandOffOutcome.Unknown:
+                // Nothing opens; the text stays to be corrected (User Story 1, scenario 6).
+                fieldText = decision.Value ?? "";
+                SetStatus("scan.unknown");
+                focusField = true;
+                StateHasChanged();
+                return;
         }
-        catch (Exception ex)
-        {
-            errorMessage = L.T("scan.read_failed", ex.Message);
-        }
-        finally
-        {
-            isDecoding = false;
-            StateHasChanged();
-        }
+
+        // The panel closes at once, taking its own status line with it, so the result is announced in a live region
+        // that stays on the page (FR-029).
+        try { await JS.InvokeVoidAsync("qrScanner.announce", L.T("scan.found_opening")); } catch (Exception) { }
+        await ClearFieldAsync();
+        await StopStreamsAsync();
+        await OnScanned.InvokeAsync(decision.Value!);
+        await CloseAsync();
     }
 
-    private async Task Close()
+    private async Task ClearFieldAsync()
     {
-        await JS.InvokeVoidAsync("qrScanner.stop");
-        objRef?.Dispose();
+        fieldText = "";
+        try { await JS.InvokeVoidAsync("qrScanner.clearField", panelRef); } catch (Exception) { }
+    }
+
+    private async Task StopStreamsAsync()
+    {
+        // Best effort: a stream that was never started, or a page being torn down, must not stop the close.
+        // Both the camera and a shared screen stop here, so closing or leaving always ends sharing (FR-017).
+        try { await JS.InvokeVoidAsync("qrScanner.stop"); } catch (Exception) { }
+        await StopScreenStreamAsync();
+    }
+
+    private async Task DetachAsync()
+    {
+        if (!attached) return;
+        attached = false;
+        try
+        {
+            await JS.InvokeVoidAsync("domHelpers.releaseFocus", PanelId);
+            await JS.InvokeVoidAsync("qrScanner.detachPanel", panelRef);
+        }
+        catch (Exception) { }
+    }
+
+    private async Task CloseAsync()
+    {
+        if (objRef is null) return;
+        await StopStreamsAsync();
+        await DetachAsync();
+        fieldText = "";
+        SetStatus(null);
+        dragOver = false;
+        objRef.Dispose();
         objRef = null;
         await OnClosed.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopStreamsAsync();
+        await DetachAsync();
+        fieldText = "";
+        objRef?.Dispose();
+        objRef = null;
     }
 }

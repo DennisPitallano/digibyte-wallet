@@ -10,6 +10,7 @@
 @inject MultisigWalletService Multisig
 @inject ActiveWalletContext ActiveWallet
 @inject ProposalHandoff Handoff
+@inject PaymentHandoff PayHandoff
 @inject MultisigAttentionState Attention
 @implements IDisposable
 
@@ -62,9 +63,9 @@
             <span>@T("nav.activity", "Activity")</span>
         </a>
     }
-    <button type="button" class="nav-float-scan" aria-label="@T("nav.scan.aria", "Scan a QR code to pay or sign in")" data-testid="nav-scan" @onclick="OpenScan">
+    <button type="button" class="nav-float-scan" aria-label="@ScanAria" data-testid="nav-scan" @onclick="OpenScan">
         <span class="nav-float-scan-disc">@Icon("scan", false)</span>
-        <span>@T("nav.scan", "Scan")</span>
+        <span>@ScanLabel</span>
     </button>
     @if (Shared)
     {
@@ -112,7 +113,7 @@
     }
 </nav>
 
-<QrScannerModal IsOpen="@showScanner" OnScanned="OnScannedAsync" OnClosed="CloseScanner" />
+<QrScannerModal IsOpen="@showScanner" OnScanned="OnScannedAsync" OnClosed="CloseScanner" FromMenu="true" />
 
 <SharedWalletSwitcher IsOpen="@(showSwitcher && Shared)" CurrentId="@Context.SharedWalletId" OnClosed="CloseSwitcher" />
 
@@ -308,6 +309,7 @@
         Attention.Changed += OnAttentionChanged;
         Shell.SwitcherRequested += OnSwitcherRequested;
         lastWalletId = ActiveWallet.WalletId;
+        ReadPointerNow();
     }
 
     protected override async Task OnInitializedAsync()
@@ -340,7 +342,11 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await CheckMovedTipAsync();
+        if (firstRender)
+        {
+            await CheckMovedTipAsync();
+            await ReadDeviceAsync();
+        }
         if (focusMore && showMore)
         {
             focusMore = false;
@@ -349,6 +355,38 @@
     }
 
     // ----- Scan -----
+
+    // On a desktop the middle button pastes first, so it says so (specs/030-desktop-paste-scan, FR-005). It follows
+    // the device, never the remembered choice, so one use of the camera does not rename the menu.
+    private bool pasteFirst;
+
+    private string ScanLabel => pasteFirst ? T("nav.paste_scan", "Paste / Scan") : T("nav.scan", "Scan");
+    private string ScanAria => pasteFirst
+        ? T("nav.paste_scan.aria", "Paste or scan a code to pay, sign in or open a shared wallet item")
+        : T("nav.scan.aria", "Scan a QR code to pay or sign in");
+
+    // Read synchronously before the first render, so a desktop never shows "Scan" first.
+    private void ReadPointerNow()
+    {
+        try { if (JS is IJSInProcessRuntime js) pasteFirst = js.Invoke<bool>("qrScanner.finePointer"); }
+        catch (Exception) { /* not ready: the camera check below still runs */ }
+    }
+
+    // Only the camera check is async; it can only turn a touch device with no camera into paste-first.
+    private async Task ReadDeviceAsync()
+    {
+        try
+        {
+            var facts = await JS.InvokeAsync<DeviceFacts>("qrScanner.deviceFacts");
+            var first = ScanInputMode.Decide(facts, null) == ScanEntry.Paste;
+            if (first != pasteFirst)
+            {
+                pasteFirst = first;
+                StateHasChanged();
+            }
+        }
+        catch (Exception) { }
+    }
 
     private void OpenScan()
     {
@@ -368,9 +406,20 @@
     {
         showScanner = false;
         SyncDialogFlag();
-        // Inside a shared wallet a payment code starts a payment from that shared wallet (FR-002a).
+        // Every payment (address, digibyte: request, this wallet's payment link) goes to Send in memory, as from /pay,
+        // so its address and amount never reach the address bar (spec 030, FR-021; spec 032, FR-001). Inside a shared
+        // wallet it goes to that shared wallet's Send (spec 026, FR-002a). The counter only makes the address new when
+        // that Send is already open; it carries nothing.
+        var sharedId = Shared ? Context.SharedWalletId : null;
+        if (ScanRouter.TryPayment(data, Nav.BaseUri, out var payment))
+        {
+            PayHandoff.Set(payment, sharedId);
+            Nav.NavigateTo(ScanRouter.SendPagePath(sharedId, ++scanCount));
+            return;
+        }
+
         var sharedName = Shared ? sharedConfig!.DisplayName : null;
-        var route = ScanRouter.Route(data, Nav.BaseUri, Shared ? Context.SharedWalletId : null);
+        var route = ScanRouter.Route(data, Nav.BaseUri, sharedId);
         switch (route.Kind)
         {
             case ScanTarget.DigiId:
@@ -380,7 +429,6 @@
                 Nav.NavigateTo(route.Url!);
                 break;
 
-            case ScanTarget.Payment:
             case ScanTarget.RoomInvite:
                 Nav.NavigateTo(route.Url!);
                 break;

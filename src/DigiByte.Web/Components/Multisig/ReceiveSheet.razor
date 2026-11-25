@@ -1,5 +1,6 @@
 @* Receive into a multisig, laid out like the Receive page: QR card with the logo, the address in a box, Copy Address,
-   Share, and Download QR. *@
+   Share, and Download QR. Wide screens lead with the address and its buttons, with a smaller QR code captioned for a
+   phone (specs/032-desktop-receive-everywhere, FR-009); phones keep the QR code on top through CSS order. *@
 @inject ClipboardService Clipboard
 @inject IJSRuntime JS
 @inject LocalizationService L
@@ -12,8 +13,8 @@
             <h3 class="block-title block-title-sm">@L.T("receive.title")</h3>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-2 text-center">@L.T("ms.ui.receiveSheet.intro") <b>@(Name ?? L.T("ms.ui.receiveSheet.default_name"))</b>.</p>
 
-            <QrImage Payload="@Address" Alt="@L.T("ms.ui.receiveSheet.qr_alt")" ShowLogo="true" />
-
+            <div class="receive-main w-full" data-testid="ms-receive-main">
+            <div class="receive-main-details w-full flex flex-col items-center gap-4">
             <p class="font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800 select-all">@Address</p>
 
             <div class="flex gap-2 w-full">
@@ -30,6 +31,12 @@
                 <svg class="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                 @L.T("dd.receive.download")
             </button>
+            </div>
+            <div class="receive-main-qr">
+                <QrImage Payload="@Address" Alt="@L.T("ms.ui.receiveSheet.qr_alt")" ShowLogo="true" />
+                <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
+            </div>
+            </div>
             <button class="min-h-[44px] w-full text-xs font-semibold rounded-xl bg-slate-100 dark:bg-dgb-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-dgb-700 transition-colors" @onclick="Close">@L.T("more.close")</button>
         </div>
     </div>

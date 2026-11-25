@@ -96,6 +96,16 @@ A seed wallet watches about 80 addresses. The read path keeps the number of expl
 - **Switches and benchmark.** `/dev/node` has "Change-only history sync" (`dev:history-change-only`) and "Tiered refresh" (`dev:tiered-refresh`) switches and a wallet refresh benchmark that shows time and explorer requests by kind, quiet refreshes with tiering on and off, and how many addresses a send would read, counted by `RequestCountingHandler` on the explorer `HttpClient` in memory only. The switches are for developers, testing and benchmarks: a saved value counts only while the developer view is on (`HistorySyncOptions.FromStorage`); otherwise both are on.
 - **Instant pages.** `WalletSnapshotCache` (Web) holds the figures Home has always saved (`cache:balance:{id}`, `cache:transactions:{id}`, `cache:lastFetch:{id}`, the shared `cache:dgbPrice`). Transactions, Receive and Send show them at once and refresh in the background; a refresh that can't reach the chain keeps them with "Last updated". Home's main figure is the confirmed balance, with a separate "Pending ±X DGB" line; Send offers `AvailableDgb` = confirmed + min(0, pending). The coins for a send are always read fresh.
 
+### Paste, drop and payment links (specs/030-desktop-paste-scan)
+
+Desktop users rarely hold a code up to a camera: it is on the same screen or already copied.
+
+- **Rules in `DigiByte.Wallet`** (tested): `PastedCode` (cleaning pasted text, spotting a recovery phrase or private key), `ScanInputMode` (paste or camera first, from device facts and the remembered choice), `PaymentLink` (making and checking `{base}pay#digibyte:…` links).
+- **Browser glue** (`wwwroot/js/qrscanner.js`): device facts without prompts, clipboard reading, paste and drop listeners, QR reading from pictures and from screen-share frames. Picture bytes and frames never reach .NET or the network.
+- **Routing**: `ScanRouter` also recognises this wallet's own payment link (same scheme, host and port, path `/pay`); a look-alike site's link goes nowhere.
+- **`/pay` page and `PaymentHandoff`**: the payment stays after `#`, so the host only ever sees `GET /pay`. With a wallet, the page hands the payment to Send in memory (`PaymentHandoff`, one-shot, like `ProposalHandoff`); without one it shows a read-only page that cannot move funds.
+- **Installed app**: `manifest.webmanifest` registers `web+digibyte` → `/pay#%s` next to `web+digiid`. If a browser refuses a placeholder after `#`, the handler is removed rather than moved into the query.
+
 ### First-receive flow (specs/025-first-receive-flow)
 
 A new user's first session is built around getting a first payment.
@@ -181,7 +191,7 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 - **MainLayout.razor** — Root wrapper, 480px max-width mobile-first container
 - **NavMenu.razor** — Fixed bottom nav (5 tabs: Wallet, Pay, P2P, ID, Settings) with frosted glass
 - **AuthGuard.razor** — Protects pages: no wallet → `/welcome`, locked → `/unlock`
-- **HiddenNavPaths** — Routes without bottom nav: `/welcome`, `/create-wallet`, `/recover-wallet`, `/unlock`, `/about`, `/roadmap`, `/analytics`, `/deployment`, `/help`, `/help/multisig`
+- **HiddenNavPaths** — Routes without bottom nav: `/welcome`, `/create-wallet`, `/recover-wallet`, `/unlock`, `/about`, `/roadmap`, `/analytics`, `/deployment`, `/help`, `/help/multisig`, `/pay`
 - **OfflineBanner** — Amber banner when offline
 - **ToastContainer** — Top-center notifications (success/error/warning/info)
 
@@ -190,7 +200,7 @@ Wallets created before the BIP84 fix used `m/44'/20'/...` derivation with SegWit
 | Component | Purpose |
 |-----------|---------|
 | `PinInput` | 6-digit OTP input, auto-focus, paste support, shake on error |
-| `QrScannerModal` | Camera QR scanner with jsQR decoding + file upload fallback |
+| `QrScannerModal` | The scan panel (spec 030): paste first on desktop (field, clipboard, picture paste, drag-and-drop, upload, scan from screen), camera first on phones; same parameters for every caller, `FromMenu` only for the menu |
 | `ToastContainer` | Auto-dismiss notifications via NotificationService |
 | `OfflineBanner` | Offline indicator via NetworkStatusService |
 | `DigiLogo` | Official DigiByte SVG logo, configurable size |

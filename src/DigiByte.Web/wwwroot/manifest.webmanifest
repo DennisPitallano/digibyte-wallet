@@ -47,6 +47,10 @@
     {
       "protocol": "web+digiid",
       "url": "/identity?uri=%s"
+    },
+    {
+      "protocol": "web+digibyte",
+      "url": "/pay#%s"
     }
   ]
 }

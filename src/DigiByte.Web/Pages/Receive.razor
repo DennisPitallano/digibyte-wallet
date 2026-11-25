@@ -45,25 +45,18 @@
 
     @if (address != null)
     {
-        <div class="card scale-in p-6 flex flex-col items-center gap-4 w-full card-hover">
-            <div class="qr-frame">
-                <img src="@qrDataUrl" alt="@L.T("receive.qr_alt")" class="w-48 h-48 rounded-lg" />
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="bg-white rounded-full p-1.5 shadow-md">
-                        <DigiLogo Size="32" />
-                    </div>
-                </div>
-            </div>
+        @* Wide screens lead with the address and its buttons; the QR code follows, smaller (spec 030, FR-025).
+           Phones keep the QR code on top through CSS order. *@
+        <div class="card scale-in p-6 receive-main w-full card-hover">
+            <div class="receive-main-details w-full flex flex-col items-center gap-3 fade-in-delay-2">
+                @* Reusing an address links payments together. Shown only when the address on show is known to be used; never blocks copy or share. *@
+                @if (onShowUsed)
+                {
+                    <p class="w-full text-center text-[11px] leading-snug text-amber-600 dark:text-amber-400" role="note">
+                        @L.T("receive.used_warning")
+                    </p>
+                }
 
-            @* Reusing an address links payments together. Shown only when the address on show is known to be used; never blocks copy or share. *@
-            @if (onShowUsed)
-            {
-                <p class="w-full text-center text-[11px] leading-snug text-amber-600 dark:text-amber-400" role="note">
-                    @L.T("receive.used_warning")
-                </p>
-            }
-
-            <div class="w-full flex flex-col items-center gap-3 fade-in-delay-2">
                 @if (requestAmount is not null)
                 {
                     <p class="text-lg font-bold tabular-nums text-slate-900 dark:text-white" aria-live="polite">
@@ -73,11 +66,20 @@
                 <p class="addr-balance font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 w-full border border-slate-100 dark:border-dgb-800">
                     @address
                 </p>
-                <div class="flex gap-2 w-full">
-                    <button class="btn-primary btn-sm flex-1"
+                <div class="flex flex-wrap gap-2 w-full">
+                    @* With an amount set, the web payment link is the main action, as on Request (spec 030). *@
+                    <button class="@(requestAmount is not null ? "btn-secondary" : "btn-primary") btn-sm flex-1"
                             @onclick="CopyAddress">
                         @(copied ? L.T("receive.copied") : requestAmount is not null ? L.T("receive.copy_link") : L.T("receive.copy"))
                     </button>
+                    @if (requestAmount is not null)
+                    {
+                        @* A web link that opens Send for the payer, or shows the payment to pay from any wallet (spec 030). *@
+                        <button class="btn-primary btn-sm flex-1" data-testid="receive-copy-pay-link"
+                                @onclick="CopyPayLink">
+                            @(copiedPayLink ? L.T("receive.copied") : L.T("receive.copy_pay_link"))
+                        </button>
+                    }
                     <button class="btn-secondary btn-sm"
                             @onclick="ShareAddress">
                         @L.T("receive.share")
@@ -88,6 +90,17 @@
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                     @L.T("dd.receive.download")
                 </button>
+            </div>
+            <div class="receive-main-qr">
+                <div class="qr-frame">
+                    <img src="@qrDataUrl" alt="@L.T("receive.qr_alt")" class="w-48 h-48 rounded-lg" />
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="bg-white rounded-full p-1.5 shadow-md">
+                            <DigiLogo Size="32" />
+                        </div>
+                    </div>
+                </div>
+                <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
             </div>
         </div>
 
@@ -295,16 +308,24 @@
     private decimal? requestAmount;
     private string? requestError;
 
-    /// <summary>What the QR code, Copy and Share carry: a digibyte: payment link when an amount is set, else the bare address.</summary>
-    private string? Payload => address is null || requestAmount is null
-        ? address
+    private bool copiedPayLink;
+
+    // The request on show, when an amount is set.
+    private PaymentRequest? Request => address is null || requestAmount is null
+        ? null
         : new PaymentRequest
         {
             Id = "",
             Address = address,
             AmountDgb = requestAmount,
             Label = string.IsNullOrWhiteSpace(requestNote) ? null : requestNote.Trim(),
-        }.ToUri();
+        };
+
+    /// <summary>What the QR code and Copy carry: a digibyte: payment link when an amount is set, else the bare address.</summary>
+    private string? Payload => Request?.ToUri() ?? address;
+
+    /// <summary>The web payment link, when an amount is set (spec 030, FR-019). Its payment details are after the #.</summary>
+    private string? PayLink => Request is { } request ? PaymentLink.Create(new Uri(Nav.BaseUri), request) : null;
 
     private void ToggleRequest()
     {
@@ -631,11 +652,26 @@
         copied = false; StateHasChanged();
     }
 
+    private async Task CopyPayLink()
+    {
+        if (PayLink is not { } link) return;
+        await Clipboard.CopyAsync(link, toast: false);
+        copiedPayLink = true; StateHasChanged();
+        await Task.Delay(2000);
+        copiedPayLink = false; StateHasChanged();
+    }
+
+    // With an amount set, Share sends the web payment link, which works when clicked in a chat or an email.
     private async Task ShareAddress()
     {
-        if (Payload is not { } payload) return;
+        var link = PayLink;
+        if ((link ?? Payload) is not { } payload) return;
         try { await JS.InvokeVoidAsync("navigator.share", new { title = requestAmount is not null ? L.T("receive.share.request_title") : L.T("receive.share.address_title"), text = payload }); }
-        catch { await CopyAddress(); }
+        catch
+        {
+            if (link is not null) await CopyPayLink();
+            else await CopyAddress();
+        }
     }
 
     private async Task DownloadQr()

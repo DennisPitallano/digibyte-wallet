@@ -299,6 +299,8 @@ How to review:
 | ms.ui.recipient.nothing_to_paste | Nothing to paste, or the browser blocked clipboard access. You can type or scan the address instead. | No hay nada que pegar o el navegador bloqueó el acceso al portapapeles. Puedes escribir o escanear la dirección. | | |
 | ms.ui.recipient.psbt | That is a signed transaction (PSBT), not an address. Import it from Pending transactions instead. | Eso es una transacción firmada (PSBT), no una dirección. Impórtala desde Transacciones pendientes. | | |
 | ms.ui.recipient.not_address | That doesn't look like a DigiByte address or payment link. | Eso no parece una dirección ni un enlace de pago de DigiByte. | | |
+| scan.secret_cleared | This looks like a recovery phrase or private key. It was cleared and not used. | Esto parece una frase de recuperación o una clave privada. Se borró y no se usó. | | |
+| pay.any_wallet | Pay from any DigiByte wallet: copy the address and the amount, or scan the QR code. | Paga desde cualquier billetera DigiByte: copia la dirección y el monto, o escanea el código QR. | | |
 
 When every row is approved: add "The Spanish recovery-phrase, PIN and send warnings were reviewed by a native speaker." to the **Spanish** entry under Unreleased in `CHANGELOG.md`, then mark T055 done in `tasks.md`.
 

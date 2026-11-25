@@ -32,17 +32,15 @@
         }
         else
         {
-            <div class="card scale-in p-6 flex flex-col items-center gap-4 w-full">
-                <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            @* Wide screens lead with the address and its buttons; the QR code follows, smaller and captioned for a phone
+               (specs/032-desktop-receive-everywhere, FR-009). Phones keep the QR code on top through CSS order. *@
+            <div class="card scale-in p-6 receive-main w-full" data-testid="dd-receive-card">
+                @* The network stays on top at every width (order before the phone's QR code). *@
+                <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 receive-main-top">
                     <DigiDollarLogo Size="18" />
                     <span>@L.T("dd.receive.network", NetworkLabel)</span>
                 </div>
-                <div class="qr-frame">
-                    <img src="@qrDataUrl" alt="@L.T("dd.receive.qr")" class="w-48 h-48 rounded-lg" />
-                    <div class="absolute inset-0 flex items-center justify-center">
-                        <div class="bg-white rounded-full p-1.5 shadow-md"><DigiDollarLogo Size="32" /></div>
-                    </div>
-                </div>
+                <div class="receive-main-details w-full flex flex-col items-center gap-4">
                 <button type="button" class="group w-full text-left bg-slate-50 dark:bg-dgb-950 rounded-xl px-4 py-3 border border-slate-100 dark:border-dgb-800 hover:border-dgb-300 dark:hover:border-dgb-600 transition-colors"
                         aria-label="@L.T("dd.receive.copy")" @onclick="CopyAsync">
                     <span class="block font-mono text-xs text-slate-600 dark:text-slate-400 break-all text-center" aria-label="@L.T("dd.receive.address")">@current.Address</span>
@@ -68,6 +66,16 @@
                     </button>
                 </div>
                 <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center">@L.T("dd.receive.hint")</p>
+                </div>
+                <div class="receive-main-qr">
+                    <div class="qr-frame">
+                        <img src="@qrDataUrl" alt="@L.T("dd.receive.qr")" class="w-48 h-48 rounded-lg" />
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="bg-white rounded-full p-1.5 shadow-md"><DigiDollarLogo Size="32" /></div>
+                        </div>
+                    </div>
+                    <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
+                </div>
             </div>
 
             @if (addresses.Count > 1)
