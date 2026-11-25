@@ -13,11 +13,17 @@
     <link rel="apple-touch-icon" href="@Assets["digipay-logo-192.png"]" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["css/tailwind.css"]" />
+    @* Shared style layer from DigiByte.UI (spec 032): the wallet's fonts, tokens and components.
+       Loaded after Tailwind so the component classes win; served from this origin. *@
+    <link rel="stylesheet" href="@Assets["_content/DigiByte.UI/css/ui.css"]" />
+    @* Inter is used by every page, so fetch it early; JetBrains Mono loads on demand (FR-013a). *@
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="_content/DigiByte.UI/fonts/inter-latin-wght-normal.woff2" />
+    <meta name="theme-color" content="#f8fafc" />
     <link rel="stylesheet" href="@Assets["DigiByte.Pay.Web.styles.css"]" />
     <ImportMap />
     <HeadOutlet @rendermode="InteractiveServer"/>
-    @* Theme boot script — must run synchronously in <head> to set data-theme
-       on <html> before first paint. Prevents FOUC on the initial SSR render. *@
+    @* Theme boot script: runs synchronously in <head> and sets the `dark` class on <html>
+       before first paint, so no page flashes the wrong theme (FR-027). *@
     <script src="@Assets["theme.js"]"></script>
     @* Auth-state boot — same pattern, sets data-digipay-auth="yes|no" from
        localStorage so the nav can show Dashboard vs Sign-in via CSS alone. *@
@@ -34,6 +40,9 @@
     <script src="@Assets["pos-store.js"]"></script>
     @* Web Share API helper used by the dashboard's payment-links tab. *@
     <script src="@Assets["share-link.js"]"></script>
+    @* Copy buttons, confirmation dialogs and the skip link (spec 032). *@
+    <script src="@Assets["clipboard.js"]"></script>
+    <script src="@Assets["dialog.js"]"></script>
 </head>
 
 <body>

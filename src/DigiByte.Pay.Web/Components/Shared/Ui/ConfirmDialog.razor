@@ -1,0 +1,70 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Wallet-style confirmation for destructive actions (FR-025, FR-030): announced as a dialog
+   with its title, focus moves in and stays inside, Escape or Cancel closes it, and focus
+   returns to the button that opened it. *@
+@if (Open)
+{
+    <div class="ui-dialog-overlay" @onclick="CancelAsync">
+        <div id="@id" class="card-raised ui-dialog" role="dialog" aria-modal="true"
+             aria-labelledby="@(id)-title" aria-describedby="@(ChildContent is null ? null : id + "-body")"
+             @onclick:stopPropagation="true">
+            <h2 id="@(id)-title" class="block-title">@Title</h2>
+            @if (ChildContent is not null)
+            {
+                <div id="@(id)-body" class="ui-dialog-body">@ChildContent</div>
+            }
+            <div class="ui-dialog-actions">
+                <button type="button" class="btn-secondary" data-autofocus @onclick="CancelAsync" disabled="@Busy">@CancelLabel</button>
+                <button type="button" class="@(Danger ? "btn-danger" : "btn-primary")" @onclick="ConfirmAsync" disabled="@Busy" aria-busy="@(Busy ? "true" : null)">@ConfirmLabel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string ConfirmLabel { get; set; } = "Confirm";
+    [Parameter] public string CancelLabel { get; set; } = "Cancel";
+    [Parameter] public bool Danger { get; set; } = true;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private readonly string id = "dlg-" + Guid.NewGuid().ToString("N")[..8];
+    private DotNetObjectReference<ConfirmDialog>? self;
+    private bool jsOpen;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Open && !jsOpen)
+        {
+            self ??= DotNetObjectReference.Create(this);
+            jsOpen = true;
+            try { await JS.InvokeVoidAsync("digipayDialog.open", id, self); } catch (JSException) { } catch (JSDisconnectedException) { }
+        }
+        else if (!Open && jsOpen)
+        {
+            jsOpen = false;
+            try { await JS.InvokeVoidAsync("digipayDialog.close", id); } catch (JSException) { } catch (JSDisconnectedException) { }
+        }
+    }
+
+    [JSInvokable]
+    public Task OnEscape() => Busy ? Task.CompletedTask : CancelAsync();
+
+    private Task CancelAsync() => Busy ? Task.CompletedTask : OnCancel.InvokeAsync();
+    private Task ConfirmAsync() => OnConfirm.InvokeAsync();
+
+    public async ValueTask DisposeAsync()
+    {
+        if (jsOpen)
+        {
+            try { await JS.InvokeVoidAsync("digipayDialog.close", id); } catch { }
+        }
+        self?.Dispose();
+    }
+}

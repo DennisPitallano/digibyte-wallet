@@ -63,14 +63,14 @@ description: "Task list for the DigiPay UI refresh"
 
 ### 2b. DigiPay uses the shared layer (research R3, R6)
 
-- [ ] T015 Add `<ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />` to `src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj`.
-- [ ] T016 Update `src/DigiByte.Pay.Web/tailwind.config.js`:
+- [X] T015 Add `<ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />` to `src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj`.
+- [X] T016 Update `src/DigiByte.Pay.Web/tailwind.config.js`:
   - `darkMode: 'class'`;
   - `fontFamily.sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']`;
   - `fontFamily.mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']`.
 
   Rebuild and commit `wwwroot/css/tailwind.css`, because the Docker build has no Node.
-- [ ] T017 Rewrite `src/DigiByte.Pay.Web/wwwroot/theme.js` per data-model §1 and §2:
+- [X] T017 Rewrite `src/DigiByte.Pay.Web/wwwroot/theme.js` per data-model §1 and §2:
   - modes `light | dark | system`, key `dp-theme`; missing or invalid means `system`;
   - on `/pay/*`, a `?theme=light|dark` override (case-insensitive) that is never saved; other values are ignored;
   - on `/pos`, the key `digipay.pos.theme:v1`, where missing means `dark`;
@@ -86,36 +86,36 @@ description: "Task list for the DigiPay UI refresh"
   - `?theme=` on `/merchant` is ignored;
   - `/pos` defaults to dark;
   - device changes re-apply only in `system` mode.
-- [ ] T019 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ThemeResolver.cs`: a pure C# mirror of the T017 precedence, used for tests and for any server-side `<html>` class hint. Add `tests/DigiByte.Pay.Web.Tests/ThemePrecedenceTests.cs` with the same cases as T018.
-- [ ] T020 Update `src/DigiByte.Pay.Web/Components/App.razor`:
+- [X] T019 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ThemeResolver.cs`: a pure C# mirror of the T017 precedence, used for tests and for any server-side `<html>` class hint. Add `tests/DigiByte.Pay.Web.Tests/ThemePrecedenceTests.cs` with the same cases as T018.
+- [X] T020 Update `src/DigiByte.Pay.Web/Components/App.razor`:
   - add `<link rel="stylesheet" href="@Assets["_content/DigiByte.UI/css/ui.css"]" />` after `tailwind.css`;
   - add `<link rel="preload" as="font" type="font/woff2" crossorigin href="_content/DigiByte.UI/fonts/inter-latin-wght-normal.woff2">` and `<meta name="theme-color">`;
   - keep `theme.js` synchronous in `<head>`.
-- [ ] T021 Remove the duplicated base rules from `src/DigiByte.Pay.Web/wwwroot/css/tailwind-input.css` and `src/DigiByte.Pay.Web/wwwroot/app.css`: the font stack, focus styles, and any button or input base. Keep the `page-enter`, `slide-up-*`, `fade-in-*` and `card-hover` animations, with their reduced-motion opt-out.
-- [ ] T022 Update `src/DigiByte.Pay.Web/Components/Layout/MainLayout.razor`:
+- [X] T021 Remove the duplicated base rules from `src/DigiByte.Pay.Web/wwwroot/css/tailwind-input.css` and `src/DigiByte.Pay.Web/wwwroot/app.css`: the font stack, focus styles, and any button or input base. Keep the `page-enter`, `slide-up-*`, `fade-in-*` and `card-hover` animations, with their reduced-motion opt-out.
+- [X] T022 Update `src/DigiByte.Pay.Web/Components/Layout/MainLayout.razor`:
   - a "Skip to main content" link as the first focusable element, targeting `<main id="main" tabindex="-1">`;
   - a `<ToastHost />`;
   - a `<LiveRegion />` host.
-- [ ] T023 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ToastService.cs` (scoped; register it in `src/DigiByte.Pay.Web/Program.cs`) and `Toast.razor`/`ToastHost.razor`, per data-model §6:
+- [X] T023 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ToastService.cs` (scoped; register it in `src/DigiByte.Pay.Web/Program.cs`) and `Toast.razor`/`ToastHost.razor`, per data-model §6:
   - tones `success | info | warning | error`;
   - 3 s by default; `error` stays until dismissed;
   - `role=status` for success and info, `role=alert` for warning and error;
   - identical text within 2 s is merged;
   - an optional action button;
   - positioned clear of the bottom menu.
-- [ ] T024 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/CopyButton.razor`, plus `wwwroot/clipboard.js` loaded from `App.razor`:
+- [X] T024 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/CopyButton.razor`, plus `wwwroot/clipboard.js` loaded from `App.razor`:
   - copies `Value` with `navigator.clipboard.writeText`;
   - shows a success notice;
   - on failure, selects the target element's text and shows an info notice explaining manual copy;
   - `aria-label` comes from a `Label` parameter;
   - `btn-ghost btn-sm` or `icon-btn` variants.
-- [ ] T025 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ConfirmDialog.razor` and `wwwroot/dialog.js`:
+- [X] T025 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/ConfirmDialog.razor` and `wwwroot/dialog.js`:
   - `role="dialog"`, `aria-modal="true"` and `aria-labelledby` set to the title;
   - focus moves in and is trapped; Escape and Cancel close it; focus returns to the opener;
   - `card-raised` surface, with `btn-danger` and `btn-secondary` buttons.
-- [ ] T026 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/LiveRegion.razor` and `LiveAnnouncer.cs`: a scoped service with `Announce(string text, bool assertive = false)` that renders a visually hidden `aria-live` region.
-- [ ] T027 [P] Copy `support.webp`, `greeting.webp`, `idea.webp` and `thinking.webp` from `src/DigiByte.Web/wwwroot/images/mascot/poses/` to `src/DigiByte.UI/wwwroot/images/mascot/poses/` (copy, don't move; the wallet keeps its own). Create `src/DigiByte.Pay.Web/Components/Shared/Ui/Skeleton.razor` (shapes `line | block | row | card`, count, uses `skeleton`) and `EmptyState.razor` (title, text, an optional action, and an optional `BakuPose` parameter limited to `support | greeting | idea | thinking` that renders the Baku bubble from `_content/DigiByte.UI/images/mascot/poses/{pose}.webp`).
-- [ ] T028 [P] Add `tests/DigiByte.Pay.Web.Tests/CopyButtonTests.cs` (bUnit, mocked JS interop): success raises a success notice; failure selects the text and raises an info notice; there is an accessible name. Add `tests/DigiByte.Pay.Web.Tests/ConfirmDialogTests.cs`: role and label attributes, Cancel and Escape raise `OnCancel`, and Confirm raises `OnConfirm`.
+- [X] T026 [P] Create `src/DigiByte.Pay.Web/Components/Shared/Ui/LiveRegion.razor` and `LiveAnnouncer.cs`: a scoped service with `Announce(string text, bool assertive = false)` that renders a visually hidden `aria-live` region.
+- [X] T027 [P] Copy `support.webp`, `greeting.webp`, `idea.webp` and `thinking.webp` from `src/DigiByte.Web/wwwroot/images/mascot/poses/` to `src/DigiByte.UI/wwwroot/images/mascot/poses/` (copy, don't move; the wallet keeps its own). Create `src/DigiByte.Pay.Web/Components/Shared/Ui/Skeleton.razor` (shapes `line | block | row | card`, count, uses `skeleton`) and `EmptyState.razor` (title, text, an optional action, and an optional `BakuPose` parameter limited to `support | greeting | idea | thinking` that renders the Baku bubble from `_content/DigiByte.UI/images/mascot/poses/{pose}.webp`).
+- [X] T028 [P] Add `tests/DigiByte.Pay.Web.Tests/CopyButtonTests.cs` (bUnit, mocked JS interop): success raises a success notice; failure selects the text and raises an info notice; there is an accessible name. Add `tests/DigiByte.Pay.Web.Tests/ConfirmDialogTests.cs`: role and label attributes, Cancel and Escape raise `OnCancel`, and Confirm raises `OnConfirm`.
 
 **Checkpoint**: The wallet looks pixel-identical. DigiPay loads `ui.css`, the fonts and the new theme script. The shared wrappers exist and are tested. User stories can start.
 

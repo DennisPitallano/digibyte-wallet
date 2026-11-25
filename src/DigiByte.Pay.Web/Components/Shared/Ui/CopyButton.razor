@@ -1,0 +1,71 @@
+@inject IJSRuntime JS
+@inject ToastService Toasts
+
+@* Copies one value and confirms with a notice (FR-008). If the browser blocks copying, the value
+   in the element named by TargetId is selected so it can be copied by hand, and a notice says so.
+   Variants: "ghost" (icon + text, btn-ghost btn-sm) or "icon" (icon-only, icon-btn). *@
+@if (Variant == "icon")
+{
+    <button type="button" class="icon-btn @Class" aria-label="@Label" title="@Label" @onclick="CopyAsync" disabled="@string.IsNullOrEmpty(Value)">
+        <Icon Name="@(copied ? "check" : "copy")" Class="w-4 h-4" />
+    </button>
+}
+else
+{
+    <button type="button" class="btn-ghost btn-sm @Class" aria-label="@Label" @onclick="CopyAsync" disabled="@string.IsNullOrEmpty(Value)">
+        <Icon Name="@(copied ? "check" : "copy")" Class="w-4 h-4" />
+        <span>@(Text ?? "Copy")</span>
+    </button>
+}
+
+@code {
+    /// <summary>The exact text that goes to the clipboard.</summary>
+    [Parameter, EditorRequired] public string? Value { get; set; }
+
+    /// <summary>Accessible name, for example "Copy address".</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "Copy";
+
+    /// <summary>Visible text for the ghost variant (default "Copy").</summary>
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>Id of the element showing the value, selected when copying is blocked.</summary>
+    [Parameter] public string? TargetId { get; set; }
+
+    /// <summary>Notice shown after a successful copy (default "Copied").</summary>
+    [Parameter] public string SuccessText { get; set; } = "Copied";
+
+    [Parameter] public string Variant { get; set; } = "ghost";
+    [Parameter] public string Class { get; set; } = "";
+
+    private bool copied;
+
+    private async Task CopyAsync()
+    {
+        if (string.IsNullOrEmpty(Value)) return;
+
+        bool ok;
+        try { ok = await JS.InvokeAsync<bool>("digipayClipboard.copy", Value); }
+        catch (JSException) { ok = false; }
+        catch (JSDisconnectedException) { return; }
+
+        if (ok)
+        {
+            copied = true;
+            Toasts.Success(SuccessText);
+            StateHasChanged();
+            await Task.Delay(1500);
+            copied = false;
+            return;
+        }
+
+        var selected = false;
+        if (!string.IsNullOrEmpty(TargetId))
+        {
+            try { selected = await JS.InvokeAsync<bool>("digipayClipboard.select", TargetId); }
+            catch (JSException) { }
+        }
+        Toasts.Info(selected
+            ? "Your browser blocked copying. The text is selected: press Ctrl+C (or ⌘C) to copy it."
+            : "Your browser blocked copying. Select the text and copy it by hand.");
+    }
+}

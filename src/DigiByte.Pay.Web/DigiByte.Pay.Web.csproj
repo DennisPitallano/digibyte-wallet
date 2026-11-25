@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DigiByte.Crypto\DigiByte.Crypto.csproj" />
+    <ProjectReference Include="..\DigiByte.UI\DigiByte.UI.csproj" />
   </ItemGroup>
 
   <!-- Rebuild Tailwind CSS on build (purged & minified) -->

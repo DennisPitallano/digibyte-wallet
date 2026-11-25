@@ -1,0 +1,12 @@
+@implements IDisposable
+@inject LiveAnnouncer Announcer
+
+@* Visually hidden live regions. Rendered once by MainLayout; pages call LiveAnnouncer.Announce(). *@
+<div class="sr-only" aria-live="polite" aria-atomic="true">@Announcer.Polite</div>
+<div class="sr-only" aria-live="assertive" aria-atomic="true">@Announcer.Assertive</div>
+
+@code {
+    protected override void OnInitialized() => Announcer.Changed += OnChanged;
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Announcer.Changed -= OnChanged;
+}

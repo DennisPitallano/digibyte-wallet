@@ -20,6 +20,10 @@ builder.Services.AddRazorComponents()
 // JS interop singleton used by <ApexChart>.
 builder.Services.AddApexCharts();
 
+// Wallet-style notices and screen-reader announcements (spec 032). Scoped = one per circuit.
+builder.Services.AddScoped<DigiByte.Pay.Web.Components.Shared.Ui.ToastService>();
+builder.Services.AddScoped<DigiByte.Pay.Web.Components.Shared.Ui.LiveAnnouncer>();
+
 // Pay.Api base URL — the source of truth for sessions + SignalR.
 // Override with DigiPay:ApiUrl in production.
 var payApiUrl = builder.Configuration["DigiPay:ApiUrl"] ?? "http://localhost:5008";

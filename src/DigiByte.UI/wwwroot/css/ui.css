@@ -1013,3 +1013,156 @@ textarea.input { min-height: 96px; resize: vertical; }
     .nav-moved-tip { animation: none; }
 }
 
+
+/* =====================================================================================
+   Notices, dialogs, empty states and status badges (added for DigiPay, spec 032).
+   New selectors only: nothing above changes, so the wallet renders exactly as before.
+   ===================================================================================== */
+
+/* ----- Notices (toasts) ----- */
+.ui-toast-stack {
+    position: fixed;
+    z-index: 10000;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6rem);
+    transform: translateX(-50%);
+    width: min(28rem, calc(100vw - 2rem));
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+@media (min-width: 1024px) {
+    .ui-toast-stack { bottom: 1.5rem; }
+}
+.ui-toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.5rem 0.625rem 0.875rem;
+    border-radius: var(--ui-radius);
+    border: 1px solid var(--ui-border);
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    box-shadow: var(--ui-shadow-raised);
+    animation: scale-in var(--motion-base) var(--ease-out) both;
+}
+.ui-toast-icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+.ui-toast-text { flex: 1; min-width: 0; font-size: 0.9375rem; line-height: 1.4; }
+.ui-toast-action { flex-shrink: 0; }
+.ui-toast-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--ui-radius-sm);
+    color: var(--ui-text-muted);
+}
+.ui-toast-close:hover { background: var(--ui-ghost-hover); }
+.ui-toast-close:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.ui-toast-success .ui-toast-icon { color: #047857; }
+.ui-toast-info .ui-toast-icon { color: var(--ui-primary); }
+.ui-toast-warning .ui-toast-icon { color: #b45309; }
+.ui-toast-error { border-color: var(--ui-danger); }
+.ui-toast-error .ui-toast-icon { color: var(--ui-danger); }
+.dark .ui-toast-success .ui-toast-icon { color: #34d399; }
+.dark .ui-toast-info .ui-toast-icon { color: #80b3ff; }
+.dark .ui-toast-warning .ui-toast-icon { color: #fbbf24; }
+.dark .ui-toast-error .ui-toast-icon { color: #fca5a5; }
+
+/* ----- Confirmation dialog ----- */
+.ui-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 8, 20, 0.6);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    animation: backdrop-in 0.2s ease both;
+}
+.ui-dialog {
+    width: 100%;
+    max-width: 26rem;
+    padding: 1.5rem;
+    animation: scale-in var(--motion-base) var(--ease-out) both;
+}
+.ui-dialog-body { margin-top: 0.5rem; font-size: 0.9375rem; line-height: 1.5; color: var(--ui-text-muted); }
+.ui-dialog-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+.ui-dialog-actions > * { flex: 1; }
+
+/* ----- Empty state ----- */
+.ui-empty { display: flex; align-items: flex-start; gap: 1rem; padding: 1.25rem; }
+.ui-empty-baku { width: 72px; height: 72px; flex-shrink: 0; object-fit: contain; }
+.ui-empty-body { flex: 1; min-width: 0; }
+.ui-empty-text { margin-top: 0.25rem; font-size: 0.9375rem; line-height: 1.5; color: var(--ui-text-muted); }
+@media (max-width: 420px) {
+    .ui-empty { flex-direction: column; align-items: center; text-align: center; }
+}
+
+/* ----- Status badges (checkout and session states) ----- */
+.ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 28px;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.ui-badge svg { width: 0.95rem; height: 0.95rem; flex-shrink: 0; }
+.ui-badge-neutral { background: rgba(100, 116, 139, 0.14); color: #334155; }
+.ui-badge-info    { background: rgba(245, 158, 11, 0.16); color: #92400e; }
+.ui-badge-success { background: rgba(16, 185, 129, 0.16); color: #065f46; }
+.ui-badge-danger  { background: rgba(220, 38, 38, 0.12);  color: #991b1b; }
+.ui-badge-refund  { background: rgba(99, 102, 241, 0.14); color: #3730a3; }
+.dark .ui-badge-neutral { background: rgba(148, 163, 184, 0.16); color: #e2e8f0; }
+.dark .ui-badge-info    { background: rgba(245, 158, 11, 0.16);  color: #fbbf24; }
+.dark .ui-badge-success { background: rgba(16, 185, 129, 0.16);  color: #34d399; }
+.dark .ui-badge-danger  { background: rgba(248, 113, 113, 0.16); color: #fca5a5; }
+.dark .ui-badge-refund  { background: rgba(129, 140, 248, 0.18); color: #c7d2fe; }
+
+/* ----- Banners (warning and info strips inside pages) ----- */
+.ui-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--ui-radius);
+    border: 1px solid transparent;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+}
+.ui-banner svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; margin-top: 0.1rem; }
+.ui-banner-warning { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.35); color: #78350f; }
+.ui-banner-info    { background: rgba(0, 102, 204, 0.08);  border-color: rgba(0, 102, 204, 0.25);  color: #003d7a; }
+.ui-banner-danger  { background: rgba(220, 38, 38, 0.08);  border-color: rgba(220, 38, 38, 0.30);  color: #7f1d1d; }
+.dark .ui-banner-warning { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.30); color: #fde68a; }
+.dark .ui-banner-info    { background: rgba(77, 148, 255, 0.10); border-color: rgba(77, 148, 255, 0.30); color: #bfdbfe; }
+.dark .ui-banner-danger  { background: rgba(248, 113, 113, 0.10); border-color: rgba(248, 113, 113, 0.30); color: #fecaca; }
+
+/* ----- Skip link (first focusable element on every page) ----- */
+.ui-skip-link {
+    position: absolute;
+    left: 0.75rem;
+    top: -4rem;
+    z-index: 10001;
+    padding: 0.75rem 1rem;
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-primary);
+    color: #fff;
+    font-weight: 600;
+}
+.ui-skip-link:focus { top: 0.75rem; outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-toast, .ui-dialog, .ui-dialog-overlay { animation: none !important; }
+}

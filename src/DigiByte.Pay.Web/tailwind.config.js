@@ -1,9 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // Align with our theme.js which sets data-theme="dark" on <html>.
-  // 'selector' strategy (v3.4.1+) lets us pick any selector; we match
-  // either manual (data-theme="dark") or, if nothing's set, the OS via media.
-  darkMode: ['selector', '[data-theme="dark"]'],
+  // theme.js sets the `dark` class on <html>, the same mechanism as the wallet and the
+  // shared style layer (_content/DigiByte.UI/css/ui.css).
+  darkMode: 'class',
   content: [
     './**/*.razor',
     './**/*.html',
@@ -12,7 +11,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        // Self-hosted by DigiByte.UI (same fonts as the wallet).
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
       },
       // DigiByte brand blue palette — same as the wallet for visual continuity.
       colors: {
