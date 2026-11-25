@@ -7,9 +7,9 @@
 @using System.Text.Json
 
 @{
-    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
-    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
-    const string BtnGhost = "px-3 py-1.5 text-xs font-semibold rounded-lg border bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-dgb-800 disabled:opacity-50 transition-colors";
+    const string Card = "card p-5 sm:p-6 flex flex-col gap-3";
+    const string Muted = "dp-muted";
+    const string BtnGhost = "btn-secondary btn-sm";
 }
 
 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
@@ -31,21 +31,24 @@
 }
 else if (items is null)
 {
-    <section class="@Card">
-        <p class="@Muted m-0">Loading…</p>
+    <section class="@Card" aria-busy="true">
+        <span class="sr-only">Loading audit log</span>
+        <Skeleton Shape="row" Count="4" />
     </section>
 }
 else if (items.Count == 0)
 {
     <section class="@Card">
-        <p class="@Muted m-0">No audit events recorded yet. Perform a sensitive action (void, refund, store edit) to populate this log.</p>
+        <EmptyState Title="Nothing recorded yet"
+                    Text="Sensitive actions such as voids, refunds and store changes are recorded here."
+                    BakuPose="thinking" Class="border-0 shadow-none p-0" />
     </section>
 }
 else
 {
     <section class="@Card p-0 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="w-full text-sm border-collapse dp-stack-table">
                 <thead class="bg-slate-50 dark:bg-dgb-950 text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">
                     <tr>
                         <th class="text-left px-4 py-2.5 font-bold">When</th>
@@ -61,11 +64,11 @@ else
                     {
                         var expanded = expandedId == ev.Id;
                         <tr class="border-t border-slate-100 dark:border-dgb-800 align-top">
-                            <td class="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                            <td data-label="When" class="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
                                 <div class="font-mono text-xs">@ev.CreatedAt.ToLocalTime().ToString("MMM d, HH:mm:ss")</div>
                                 <div class="text-[0.6875rem] text-slate-400">@Relative(ev.CreatedAt)</div>
                             </td>
-                            <td class="px-4 py-3">
+                            <td data-label="Action" class="px-4 py-3">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold @ActionBadgeClass(ev.Action)">
                                     @ev.Action
                                 </span>
@@ -74,24 +77,24 @@ else
                                     <div class="@Muted mt-1 max-w-md truncate" title="@ev.Summary">@ev.Summary</div>
                                 }
                             </td>
-                            <td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
+                            <td data-label="Target" class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
                                 <div>@ev.TargetType</div>
                                 <div class="text-[0.6875rem] text-slate-400 truncate max-w-[14rem]" title="@ev.TargetId">@ev.TargetId</div>
                             </td>
-                            <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                            <td data-label="Actor" class="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
                                 <div class="font-semibold">@ev.ActorType</div>
                                 @if (!string.IsNullOrEmpty(ev.ActorId))
                                 {
                                     <div class="text-[0.6875rem] font-mono text-slate-400 truncate max-w-[10rem]" title="@ev.ActorId">@ev.ActorId</div>
                                 }
                             </td>
-                            <td class="px-4 py-3 text-xs font-mono text-slate-500 dark:text-slate-400">
+                            <td data-label="IP" class="px-4 py-3 text-xs font-mono text-slate-500 dark:text-slate-400">
                                 @(ev.ActorIp ?? "—")
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td data-label="" class="px-4 py-3 text-right">
                                 @if (!string.IsNullOrEmpty(ev.Metadata))
                                 {
-                                    <button class="@BtnGhost text-[0.6875rem] py-1 px-2"
+                                    <button class="@BtnGhost"
                                             @onclick="() => Toggle(ev.Id)">
                                         @(expanded ? "Hide" : "Details")
                                     </button>
@@ -102,7 +105,7 @@ else
                         {
                             <tr class="border-t border-slate-100 dark:border-dgb-800 bg-slate-50 dark:bg-dgb-950">
                                 <td colspan="6" class="px-4 py-3">
-                                    <pre class="bg-slate-900 text-slate-100 rounded-lg p-3 text-[0.6875rem] font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed">@PrettyJson(ev.Metadata)</pre>
+                                    <pre class="bg-slate-900 text-slate-100 rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed">@PrettyJson(ev.Metadata)</pre>
                                 </td>
                             </tr>
                         }

@@ -1,51 +1,70 @@
 @page "/pay/button"
 @using DigiByte.Crypto.Addresses
 
-<PageTitle>@(string.IsNullOrEmpty(Name) ? "Pay with DigiByte" : $"Tip {Name}")</PageTitle>
+<PageTitle>@(string.IsNullOrEmpty(Name) ? "Pay with DigiByte · DigiPay" : $"Tip {Name} · DigiPay")</PageTitle>
 
-<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans page-enter">
+@* Tip / donation page (spec 032, US1): same shared components and copy buttons as the checkout.
+   No Baku on shopper pages. *@
+<main class="ui-shopper-page page-enter">
     <div class="w-full max-w-md">
         @if (!isValid)
         {
-            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 text-center shadow-sm">
-                <h2 class="text-lg font-bold m-0 mb-2">Invalid donation link</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">Missing or invalid <code class="px-1 bg-slate-100 dark:bg-dgb-800 rounded">to</code> parameter.</p>
+            <div class="card ui-checkout ui-checkout-center">
+                <StatusBadge Status="@CheckoutStates.LoadFailed" />
+                <h1 class="page-title">This tip link doesn't work</h1>
+                <p class="ui-checkout-muted">The link is missing a valid DigiByte address. Ask the person who shared it for a new link.</p>
             </div>
         }
         else
         {
-            <div class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm">
+            <div class="card ui-checkout">
                 <div class="text-center">
-                    <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">TIP</div>
-                    <div class="text-sm font-bold">@(string.IsNullOrEmpty(Name) ? "DigiByte" : Name)</div>
+                    <p class="section-label">Tip</p>
+                    <h1 class="ui-checkout-label">@(string.IsNullOrEmpty(Name) ? "DigiByte" : Name)</h1>
                 </div>
 
                 @if (amount > 0)
                 {
-                    <div class="text-3xl sm:text-4xl font-bold tabular-nums">@amount.ToString("0.########") DGB</div>
+                    <div class="ui-checkout-amount">
+                        <p class="ui-checkout-big"><span id="donate-amount">@AmountText</span> <span class="ui-checkout-unit">DGB</span></p>
+                    </div>
                 }
 
-                @* QR with centred DigiByte mark. ECCLevel.H in GenerateQr()
-                   compensates for the punched-out centre so scanning stays reliable. *@
-                <div class="relative bg-white p-3 rounded-2xl shadow-inner">
-                    <img src="@qrDataUrl" alt="Scan to pay" class="block w-56 h-56 rounded-lg" />
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div class="bg-white rounded-xl p-1.5 shadow-md ring-1 ring-slate-200">
-                            <img src="/digibyte-logo.svg" alt="" class="block w-9 h-9" />
-                        </div>
-                    </div>
+                <div class="qr-frame">
+                    <img src="@qrDataUrl" alt="Scan to pay" width="224" height="224" class="w-56 h-56" />
+                    <span class="qr-frame-logo"><img src="/digibyte-logo.svg" alt="" width="32" height="32" class="block w-8 h-8" /></span>
                 </div>
 
-                <a href="@BipUri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
+                <a href="@BipUri" class="btn-primary w-full">Open in wallet</a>
 
-                <div class="w-full font-mono text-[0.6875rem] text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800">@To</div>
+                <div class="ui-checkout-copyrow">
+                    <div class="min-w-0 flex-1">
+                        <p class="section-label">Address</p>
+                        <p id="donate-address" class="ui-checkout-address">@To</p>
+                    </div>
+                    <CopyButton Value="@To" Label="Copy address" TargetId="donate-address" SuccessText="Address copied" Variant="icon" />
+                </div>
+                @if (amount > 0)
+                {
+                    <div class="ui-checkout-copyrow">
+                        <div class="min-w-0 flex-1">
+                            <p class="section-label">Amount</p>
+                            <p class="ui-checkout-address">@AmountText DGB</p>
+                        </div>
+                        <CopyButton Value="@AmountText" Label="Copy amount" TargetId="donate-amount" SuccessText="Amount copied" Variant="icon" />
+                    </div>
+                }
 
                 @if (!string.IsNullOrEmpty(Label))
                 {
-                    <p class="text-xs text-center text-slate-500 dark:text-slate-400 m-0">@Label</p>
+                    <p class="ui-checkout-muted text-center">@Label</p>
                 }
             </div>
         }
+        @* Light / Dark / Match my device for the shopper (FR-026). A shop-set ?theme= wins for this view. *@
+        <div class="ui-shopper-footer ui-no-print">
+            <ThemePicker Compact="true" />
+        </div>
     </div>
 </main>
 
@@ -59,6 +78,9 @@
     private decimal amount;
     private string? qrDataUrl;
     private string BipUri = "";
+
+    // Plain decimal for display and the clipboard (no separators), whatever the server culture.
+    private string AmountText => amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
 
     protected override void OnInitialized()
     {

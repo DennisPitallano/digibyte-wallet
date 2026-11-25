@@ -1,0 +1,46 @@
+@implements IDisposable
+@inject ToastService Toasts
+
+@* Wallet-style notices. Success and info are announced politely (role=status); warnings and
+   errors interrupt (role=alert). Sits clear of the dashboard's bottom menu and the safe area. *@
+<div class="ui-toast-stack" role="region" aria-label="Notifications">
+    @foreach (var t in Toasts.Items)
+    {
+        <div @key="t.Id" class="ui-toast ui-toast-@ToneClass(t.Tone)"
+             role="@(t.Tone is ToastTone.Warning or ToastTone.Error ? "alert" : "status")">
+            <Icon Name="@IconFor(t.Tone)" Class="ui-toast-icon" />
+            <p class="ui-toast-text">@t.Text</p>
+            @if (t.ActionLabel is not null)
+            {
+                <button type="button" class="btn-ghost btn-sm ui-toast-action" @onclick="() => Toasts.RunActionAsync(t.Id)">@t.ActionLabel</button>
+            }
+            <button type="button" class="ui-toast-close" aria-label="Dismiss notification" @onclick="() => Toasts.Dismiss(t.Id)">
+                <Icon Name="close" Class="w-4 h-4" />
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Toasts.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private static string ToneClass(ToastTone tone) => tone switch
+    {
+        ToastTone.Success => "success",
+        ToastTone.Warning => "warning",
+        ToastTone.Error => "error",
+        _ => "info",
+    };
+
+    private static string IconFor(ToastTone tone) => tone switch
+    {
+        ToastTone.Success => "check-circle",
+        ToastTone.Warning => "alert",
+        ToastTone.Error => "alert",
+        _ => "info",
+    };
+
+    public void Dispose() => Toasts.Changed -= OnChanged;
+}

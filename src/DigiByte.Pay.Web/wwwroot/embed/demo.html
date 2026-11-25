@@ -36,6 +36,17 @@
 DigiPay.close();</pre>
     <button onclick="DigiPay.checkout({ sessionId: document.getElementById('ses').value })">Open via DigiPay.checkout()</button>
 
+    <h2>2b. Match your shop's theme (optional)</h2>
+    <p>Pass <code>theme: 'light'</code> or <code>'dark'</code>, or add <code>data-theme</code> to an auto-bound element. Without it, the checkout follows the shopper's own choice or device. Any other value is ignored.</p>
+    <pre>DigiPay.checkout({ sessionId: 'ses_...', theme: 'light' });
+&lt;button data-digipay-checkout data-session-id="ses_..." data-theme="dark"&gt;Pay&lt;/button&gt;</pre>
+    <div class="row">
+        <button type="button" onclick="DigiPay.checkout({ sessionId: document.getElementById('ses').value, theme: 'light' })">Open light checkout</button>
+        <button type="button" onclick="DigiPay.checkout({ sessionId: document.getElementById('ses').value, theme: 'dark' })">Open dark checkout</button>
+    </div>
+    <p style="font-size:0.875rem;color:#475569">Tip buttons too:</p>
+    <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="1" data-name="Creator" data-theme="light">Tip 1 DGB (light)</span>
+
     <h2>3. Donation / tip button</h2>
     <pre>DigiPay.button({ address: 'dgb1...', amount: 5, name: 'Creator' });</pre>
     <div id="tipjar"></div>

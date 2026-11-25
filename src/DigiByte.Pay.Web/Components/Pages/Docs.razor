@@ -1,9 +1,8 @@
 @page "/docs"
+@layout SiteLayout
 
 <PageTitle>How it works — DigiPay</PageTitle>
 
-<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-    <SiteNav />
 
     <main class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
@@ -19,7 +18,7 @@
                clone. Surface both up-front so neither has to scroll the full
                tutorial to find their starting point. *@
             <div class="grid sm:grid-cols-2 gap-3 mb-10 slide-up-delay-2">
-                <a href="/merchant" class="card-hover flex items-start gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                <a href="/merchant" class="card card-hover flex items-start gap-3 p-4 no-underline">
                     <Icon Name="link" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
                     <div class="flex-1 min-w-0">
                         <div class="text-sm font-semibold text-slate-900 dark:text-white">Just need a link to share?</div>
@@ -28,7 +27,7 @@
                         </div>
                     </div>
                 </a>
-                <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples" target="_blank" rel="noopener" class="card-hover flex items-start gap-3 p-4 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-xl no-underline">
+                <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples" target="_blank" rel="noopener" class="card card-hover flex items-start gap-3 p-4 no-underline">
                     <Icon Name="package" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
                     <div class="flex-1 min-w-0">
                         <div class="text-sm font-semibold text-slate-900 dark:text-white">Building an integration?</div>
@@ -60,6 +59,13 @@
             <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"amount\": 12.5,\n    \"storeId\": \"sto_…\",       // optional — defaults to first store\n    \"label\": \"Order #4201\"\n  }'")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Redirect the buyer to the returned <InlineCode>checkout_url</InlineCode>, or open it in-page with the JS embed (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">live demo →</a>):</p>
             <CodeBlock>@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<button data-digipay-checkout data-session-id=\"ses_...\">Pay with DigiByte</button>")</CodeBlock>
+            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">
+                <strong>Match your shop's look (optional).</strong> The checkout follows the shopper's own light or dark choice.
+                To fix it to your shop's theme, add <InlineCode>data-theme="light"</InlineCode> or <InlineCode>"dark"</InlineCode> to the button,
+                pass <InlineCode>theme</InlineCode> to <InlineCode>DigiPay.checkout()</InlineCode>, or append <InlineCode>?theme=light</InlineCode>
+                to the <InlineCode>checkout_url</InlineCode> when you redirect. Any other value is ignored, and the shopper's own setting is never changed.
+            </p>
+            <CodeBlock Label="Copy the themed embed example">@("<button data-digipay-checkout data-session-id=\"ses_...\" data-theme=\"light\">Pay with DigiByte</button>\n<script>DigiPay.checkout({ sessionId: 'ses_...', theme: 'dark' });</script>\n<!-- or redirect to: https://pay.dgbwallet.app/pay/ses_...?theme=light -->")</CodeBlock>
 
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4">
                 <strong>Make retries safe.</strong> Pass an <InlineCode>Idempotency-Key</InlineCode> header on the create
@@ -107,5 +113,3 @@
         </article>
     </main>
 
-    <SiteFooter />
-</div>

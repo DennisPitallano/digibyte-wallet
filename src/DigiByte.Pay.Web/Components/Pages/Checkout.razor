@@ -2,262 +2,442 @@
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 @inject IHttpClientFactory HttpFactory
+@inject PersistentComponentState AppState
 @inject PayApiUrl PayApi
+@inject LiveAnnouncer Announcer
+@inject NavigationManager Nav
+@inject ILogger<Checkout> Log
 @using Microsoft.AspNetCore.SignalR.Client
 @using System.Net.Http.Json
 
 <PageTitle>@PageTitleText</PageTitle>
 
-<main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans page-enter">
+@* Hosted checkout (spec 032, US1). Built from the shared style layer: card, qr-frame, btn-primary,
+   copy buttons and status badges. Shoppers never see technical error text (FR-010), a dropped live
+   connection shows "Reconnecting" instead of a final state (FR-011), and every status change is
+   announced to screen readers (FR-009). No Baku on shopper pages (clarification 2). *@
+<main class="ui-shopper-page page-enter">
     <div class="w-full max-w-md">
-        @if (loadError != null)
+        @if (loadFailed)
         {
-            <div data-digipay-measure class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-6 text-center shadow-sm">
-                <h2 class="text-lg font-bold m-0 mb-2">Payment link unavailable</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 m-0">@loadError</p>
+            var failed = CheckoutStates.For(CheckoutStates.LoadFailed);
+            <div data-digipay-measure class="card ui-checkout ui-checkout-center">
+                <StatusBadge Status="@CheckoutStates.LoadFailed" />
+                <h1 class="page-title">@failed.Heading</h1>
+                <p class="ui-checkout-muted">@failed.Explanation</p>
+                <button type="button" class="btn-primary w-full" @onclick="RetryAsync" disabled="@loading">
+                    <Icon Name="refresh" Class="w-4 h-4" />
+                    <span>@(loading ? "Trying again…" : "Try again")</span>
+                </button>
             </div>
         }
         else if (session == null)
         {
-            <div data-digipay-measure class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-8 text-center shadow-sm">
+            <div data-digipay-measure class="card ui-checkout ui-checkout-center" aria-busy="true">
+                <h1 class="sr-only">Loading payment</h1>
                 <Loader Text="Loading payment…" />
             </div>
         }
         else
         {
-            <div data-digipay-measure class="bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-4 shadow-sm">
-                @* Header: session label (if provided) is the primary identity,
-                   store/merchant name sits smaller underneath. Falls back to just
-                   "PAY / Store" when no label is set on the session. *@
-                <header class="w-full flex items-start justify-between gap-4">
+            var state = CheckoutStates.For(session.Status);
+            var final = CheckoutStates.IsFinal(session.Status);
+            <div data-digipay-measure class="card ui-checkout">
+                <header class="ui-checkout-header">
                     <div class="min-w-0">
                         @if (!string.IsNullOrWhiteSpace(session.Label))
                         {
-                            <div class="text-base sm:text-lg font-bold leading-tight break-words">@session.Label</div>
-                            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                @(merchantName ?? "Merchant")
-                            </div>
+                            <h1 class="ui-checkout-label">@session.Label</h1>
+                            <p class="ui-checkout-merchant">@(merchantName ?? "Merchant")</p>
                         }
                         else
                         {
-                            <div class="text-[0.6875rem] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">PAY</div>
-                            <div class="text-sm font-bold">@(merchantName ?? "Merchant")</div>
+                            <p class="section-label">Pay</p>
+                            <h1 class="ui-checkout-label">@(merchantName ?? "Merchant")</h1>
                         }
                     </div>
-                    <CheckoutStatusPill Status="@session.Status" />
+                    <StatusBadge Status="@(reconnecting && !final ? CheckoutStates.Reconnecting : session.Status)" Class="shrink-0" />
                 </header>
 
                 @if (session.Currency == "DD" && session.AmountCentsDd is { } ddCents)
                 {
-                    @* DigiDollar session: amount is already USD ($1 = 1 DD).
-                       No fiat conversion, no volatility guard — the peg is the value.
-                       Sub-line surfaces it's a stablecoin payment so buyers who
-                       see "DD..." address prefix know what they're looking at. *@
-                    <div class="flex flex-col items-center gap-2">
+                    @* DigiDollar: the amount is already USD ($1 = 1 DD), so no conversion and no drift banner. *@
+                    <div class="ui-checkout-amount">
                         <img src="/images/digidollar-logo-128.png"
-                             srcset="/images/digidollar-logo-64.png 64w,
-                                     /images/digidollar-logo-96.png 96w,
-                                     /images/digidollar-logo-128.png 128w,
-                                     /images/digidollar-logo-192.png 192w,
-                                     /images/digidollar-logo-256.png 256w"
-                             sizes="56px" width="56" height="56"
-                             alt="DigiDollar" decoding="async"
-                             class="w-14 h-14 rounded-full"
+                             srcset="/images/digidollar-logo-64.png 64w, /images/digidollar-logo-96.png 96w, /images/digidollar-logo-128.png 128w, /images/digidollar-logo-192.png 192w, /images/digidollar-logo-256.png 256w"
+                             sizes="56px" width="56" height="56" alt="DigiDollar" decoding="async" class="w-14 h-14 rounded-full"
                              onerror="this.style.display='none'" />
-                        <div class="text-3xl sm:text-4xl font-bold tabular-nums">$@FormatUsdCents(ddCents) <span class="text-slate-500 dark:text-slate-400 text-2xl sm:text-3xl font-semibold">USD</span></div>
-                        <div class="text-sm text-slate-500 dark:text-slate-400">DigiDollar payment</div>
+                        <p class="ui-checkout-big"><span id="checkout-amount">@FormatUsdPlain(ddCents)</span> <span class="ui-checkout-unit">USD</span></p>
+                        <p class="ui-checkout-muted">DigiDollar payment</p>
                     </div>
                 }
                 else if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
                 {
-                    @* Fiat-priced session: merchant keyed in a fiat amount (e.g. 12.50 EUR)
-                       and we quoted a DGB equivalent at creation time. Lead with the fiat
-                       number the customer recognises; DGB sub-line is what actually gets paid. *@
-                    <div class="flex flex-col items-center gap-1">
-                        <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatFiat(fiatAmt) <span class="text-slate-500 dark:text-slate-400 text-2xl sm:text-3xl font-semibold">@session.FiatCurrency!.ToUpperInvariant()</span></div>
-                        <div class="text-sm text-slate-500 dark:text-slate-400 tabular-nums">≈ @FormatDgb(session.AmountSatoshis) DGB</div>
+                    @* Fiat-priced: lead with the number the shopper recognises; the DGB line is what gets paid. *@
+                    <div class="ui-checkout-amount">
+                        <p class="ui-checkout-big">@FormatFiat(fiatAmt) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
+                        <p class="ui-checkout-muted tabular-nums">≈ <span id="checkout-amount" class="font-mono">@FormatDgb(session.AmountSatoshis)</span> DGB</p>
                     </div>
                 }
                 else
                 {
-                    <div class="text-3xl sm:text-4xl font-bold tabular-nums">@FormatDgb(session.AmountSatoshis) DGB</div>
+                    <div class="ui-checkout-amount">
+                        <p class="ui-checkout-big"><span id="checkout-amount">@FormatDgb(session.AmountSatoshis)</span> <span class="ui-checkout-unit">DGB</span></p>
+                    </div>
                 }
 
-                @* Price-volatility notice. The DGB amount is locked at session
-                   creation, so if the live price has moved meaningfully the
-                   customer's fiat outlay differs from the sticker price — we
-                   surface the direction + magnitude so they can decide whether
-                   to pay now or ask the merchant to re-quote. Only meaningful
-                   for fiat-priced DGB sessions with a recorded quote — DD is
-                   already USD-denominated. *@
-                @if (session.Currency != "DD" && priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !IsTerminal(session.Status))
+                @* Price-volatility notice: the DGB amount was fixed when the invoice was created, so a big
+                   price move changes what the shopper pays in their own currency. A banner, not a state. *@
+                @if (session.Currency != "DD" && priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !final)
                 {
                     var pricierNow = drift > 0;
-                    <div class="w-full text-xs rounded-xl px-3 py-2 border flex items-start gap-2 @(pricierNow ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-200" : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-200")">
-                        <span aria-hidden="true">@(pricierNow ? "⚠" : "↓")</span>
-                        <span>
+                    <div class="ui-banner @(pricierNow ? "ui-banner-warning" : "ui-banner-info") w-full">
+                        <Icon Name="@(pricierNow ? "alert" : "info")" Class="" />
+                        <p>
                             DGB has moved <strong>@drift.ToString("+0.0;-0.0;0.0")%</strong> since this invoice was issued.
                             @if (pricierNow)
                             {
-                                <text> Paying now costs a bit more in @session.FiatCurrency!.ToUpperInvariant() than the sticker price.</text>
+                                <text> Paying now costs a bit more in @session.FiatCurrency!.ToUpperInvariant() than the price shown.</text>
                             }
                             else
                             {
-                                <text> Paying now is slightly cheaper in @session.FiatCurrency!.ToUpperInvariant() than the sticker price.</text>
+                                <text> Paying now costs slightly less in @session.FiatCurrency!.ToUpperInvariant() than the price shown.</text>
                             }
-                        </span>
+                        </p>
                     </div>
                 }
 
-                @if (IsTerminal(session.Status))
+                @if (final)
                 {
-                    <TerminalState Status="@session.Status" Txid="@session.PaidTxid" SessionId="@session.Id" ReturnUrl="@session.ReturnUrl" />
+                    <TerminalState Status="@session.Status" Txid="@session.PaidTxid" SessionId="@session.Id"
+                                   ReturnUrl="@session.ReturnUrl" ReceiptHref="@ReceiptHref"
+                                   ReceivedSatoshis="@session.ReceivedSatoshis" ExpectedSatoshis="@session.AmountSatoshis"
+                                   Currency="@session.Currency" />
                 }
                 else
                 {
-                    @* QR with DigiByte logo centered on top. The QR is generated with
-                       ECC level H (30% error correction) so the covered modules stay
-                       recoverable — the logo only occupies the middle ~18% of area. *@
-                    <div class="relative bg-white p-3 rounded-2xl shadow-inner">
-                        <img src="@qrDataUrl" alt="Scan to pay" class="block w-56 h-56 rounded-lg" />
-                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div class="bg-white rounded-xl p-1.5 shadow-sm">
-                                <img src="/digibyte-logo.svg" alt="" class="block w-9 h-9" />
-                            </div>
+                    @if (session.Status is "seen" or "paid")
+                    {
+                        <p class="ui-checkout-muted text-center">@state.Explanation</p>
+                    }
+                    @if (reconnecting)
+                    {
+                        <div class="ui-banner ui-banner-info w-full" role="status">
+                            <Icon Name="refresh" Class="" />
+                            <p>@CheckoutStates.For(CheckoutStates.Reconnecting).Explanation</p>
                         </div>
+                    }
+
+                    @* QR in the shared frame. ECC level H keeps the code readable with the logo, which stays
+                       under a fifth of the code's width. *@
+                    <div class="qr-frame">
+                        <img src="@qrDataUrl" alt="Scan to pay" width="224" height="224" class="w-56 h-56" />
+                        <span class="qr-frame-logo"><img src="/digibyte-logo.svg" alt="" width="32" height="32" class="block w-8 h-8" /></span>
                     </div>
-                    <a href="@session.Uri" class="w-full text-center py-3 px-4 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-xl no-underline transition-colors">Open in wallet</a>
-                    <div class="w-full font-mono text-[0.6875rem] text-center break-all bg-slate-50 dark:bg-dgb-950 text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-slate-100 dark:border-dgb-800">@session.Address</div>
-                    @* ISO-8601 UTC goes to the attribute; checkout-countdown.js rewrites
-                       the inner span's text every second. Avoids a server timer + circuit
-                       round-trip, which was broken inside the embed iframe. *@
-                    <div class="text-[0.6875rem] text-slate-500 dark:text-slate-400">
-                        Expires in <span data-digipay-expires="@session.ExpiresAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)">—</span>
+
+                    <a href="@session.Uri" class="btn-primary w-full">Open in wallet</a>
+
+                    <div class="ui-checkout-copyrow">
+                        <div class="min-w-0 flex-1">
+                            <p class="section-label">Address</p>
+                            <p id="checkout-address" class="ui-checkout-address">@session.Address</p>
+                        </div>
+                        <CopyButton Value="@session.Address" Label="Copy address" TargetId="checkout-address" SuccessText="Address copied" Variant="icon" />
                     </div>
+                    <div class="ui-checkout-copyrow">
+                        <div class="min-w-0 flex-1">
+                            <p class="section-label">Amount</p>
+                            <p class="ui-checkout-address">@AmountToCopy @(session.Currency == "DD" ? "DD" : "DGB")</p>
+                        </div>
+                        <CopyButton Value="@AmountToCopy" Label="Copy amount" TargetId="checkout-amount" SuccessText="Amount copied" Variant="icon" />
+                    </div>
+
+                    @* The countdown is pure JS (wwwroot/checkout-countdown.js) so it keeps ticking inside the
+                       embed iframe even when the interactive connection is slow to start. *@
+                    <p class="ui-checkout-muted text-center" data-digipay-countdown="This price has expired. Don't pay to this address.">
+                        Price expires in <span class="font-mono tabular-nums" data-digipay-expires="@session.ExpiresAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)">—</span>
+                    </p>
                 }
             </div>
         }
+        @* Light / Dark / Match my device for the shopper (FR-026). A shop-set ?theme= wins for this view. *@
+        <div class="ui-shopper-footer ui-no-print">
+            <ThemePicker Compact="true" />
+        </div>
     </div>
 </main>
 
 @code {
     [Parameter] public string SessionId { get; set; } = "";
 
+    /// <summary>A shop's ?theme=light|dark, carried into the receipt link (contract C3).</summary>
+    [SupplyParameterFromQuery(Name = "theme")] public string? Theme { get; set; }
+
     private SessionDto? session;
     private string? merchantName;
-    private string? loadError;
     private string? qrDataUrl;
-    // Drift between quote-time and current DGB price. Null until the live
-    // price is fetched; |value| > DriftThreshold pops the volatility banner.
-    // Recomputed on SignalR StatusChanged so a slow confirm also refreshes it.
+    private bool loadFailed;
+    private bool loading;
+    private bool reconnecting;
+    private string? lastAnnouncedStatus;
+
+    // Drift between the quote-time and the current DGB price; |value| ≥ DriftThreshold shows the banner.
     private decimal? priceDriftPct;
-    private const decimal DriftThreshold = 3m; // percent; ±3% feels right for 30-min windows
-    // Expiry countdown lives purely client-side (see wwwroot/checkout-countdown.js)
-    // because Blazor's InteractiveServer circuit doesn't reliably hydrate inside
-    // the embed iframe — a server-timer pattern leaves the user stuck on "—".
-    private Microsoft.AspNetCore.SignalR.Client.HubConnection? hub;
+    private const decimal DriftThreshold = 3m;
 
-    private string PageTitleText => merchantName is null ? "Pay" : $"Pay {merchantName}";
+    private HubConnection? hub;
+    private readonly CancellationTokenSource lifetime = new();
+    private Task? pollLoop;
+    private static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(10);
 
-    protected override async Task OnInitializedAsync()
+    private string PageTitleText => merchantName is null ? "Pay · DigiPay" : $"Pay {merchantName} · DigiPay";
+
+    private string AmountToCopy => session is null ? "" :
+        session.Currency == "DD" && session.AmountCentsDd is { } c ? FormatUsdPlain(c) : FormatDgb(session.AmountSatoshis);
+
+    private string ReceiptHref
     {
+        get
+        {
+            var t = Theme?.ToLowerInvariant();
+            var suffix = t is "light" or "dark" ? $"?theme={t}" : "";
+            return $"/pay/{Uri.EscapeDataString(SessionId)}/receipt{suffix}";
+        }
+    }
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    // The page is rendered on the server first (shopper pages, FR-013a). The session fetched then is
+    // handed to the interactive copy so it doesn't flash "Loading…" and fetch it again.
+    private const string PersistKey = "digipay-session";
+    private PersistingComponentStateSubscription? persisting;
+    private GetSessionResponse? loaded;
+
+    protected override void OnInitialized() =>
+        persisting = AppState.RegisterOnPersisting(() =>
+        {
+            if (loaded is not null) AppState.PersistAsJson(PersistKey, loaded);
+            return Task.CompletedTask;
+        });
+
+    private async Task LoadAsync()
+    {
+        loading = true;
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.GetFromJsonAsync<GetSessionResponse>($"/v1/pay/sessions/{SessionId}");
-            session = response?.Session;
-            merchantName = response?.MerchantName;
-            if (session == null) { loadError = "Session not found."; return; }
+            var response = AppState.TryTakeFromJson<GetSessionResponse>(PersistKey, out var restored) && restored?.Session is not null
+                ? restored
+                : await http.GetFromJsonAsync<GetSessionResponse>($"/v1/pay/sessions/{Uri.EscapeDataString(SessionId)}", lifetime.Token);
+            if (response?.Session is null)
+            {
+                Fail(null);
+                return;
+            }
+            loaded = response;
+            session = response.Session;
+            merchantName = response.MerchantName;
             qrDataUrl = GenerateQr(session.Uri);
+            loadFailed = false;
+            lastAnnouncedStatus = session.Status; // the first state is visible, not announced
             await RefreshPriceDriftAsync();
         }
-        catch (Exception ex) { loadError = $"Could not load session: {ex.Message}"; }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex) { Fail(ex); }
+        finally { loading = false; }
     }
 
-    // Fetch the live DGB price for the session's fiat and compare it to the
-    // quote recorded at session creation. Silent-fail — if the price service
-    // is down we just don't show the banner. No-op for pure-DGB sessions.
+    private void Fail(Exception? ex)
+    {
+        // Details go to the server log only, never to the page (FR-010).
+        if (ex is not null) Log.LogWarning(ex, "Checkout could not load session {SessionId}", SessionId);
+        else Log.LogInformation("Checkout session {SessionId} not found", SessionId);
+        loadFailed = true;
+        Announcer.Announce(CheckoutStates.For(CheckoutStates.LoadFailed).Announcement!, assertive: true);
+    }
+
+    private async Task RetryAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+        if (session is not null && !CheckoutStates.IsFinal(session.Status)) await ConnectHubAsync();
+    }
+
+    // Live DGB price vs the quote recorded at creation. Silent on failure: the banner just stays hidden.
     private async Task RefreshPriceDriftAsync()
     {
-        if (session is null) return;
-        // DD sessions are USD-denominated by definition — no drift to show.
-        if (session.Currency == "DD") return;
+        if (session is null || session.Currency == "DD") return;
         if (session.DgbPriceAtCreation is not { } quote || quote <= 0m) return;
-        if (string.IsNullOrWhiteSpace(session.FiatCurrency)) return;
-        if (IsTerminal(session.Status)) return;
+        if (string.IsNullOrWhiteSpace(session.FiatCurrency) || CheckoutStates.IsFinal(session.Status)) return;
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             var quoteDto = await http.GetFromJsonAsync<PriceQuoteDto>(
-                $"/v1/pay/public/price?currency={Uri.EscapeDataString(session.FiatCurrency)}");
+                $"/v1/pay/public/price?currency={Uri.EscapeDataString(session.FiatCurrency)}", lifetime.Token);
             if (quoteDto is null || quoteDto.DgbPrice <= 0m) return;
             priceDriftPct = (quoteDto.DgbPrice - quote) / quote * 100m;
         }
-        catch { /* swallow — banner just stays hidden */ }
+        catch { /* banner stays hidden */ }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || session is null || IsTerminal(session.Status)) return;
+        // Not just on the first render: that one happens while the session is still loading
+        // (session == null), so a firstRender-only check never connected live updates at all.
+        // Connect on the first render that has a live (non-final) session; ConnectHubAsync
+        // is a no-op once a connection exists.
+        if (hub is not null || session is null || CheckoutStates.IsFinal(session.Status)) return;
         await ConnectHubAsync();
     }
 
     private async Task ConnectHubAsync()
     {
         if (hub is not null) return;
-        hub = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
+        hub = new HubConnectionBuilder()
             .WithUrl($"{PayApi.Value}/hubs/checkout")
             .WithAutomaticReconnect()
             .Build();
         hub.On<StatusUpdate>("StatusChanged", OnStatusChanged);
-        await hub.StartAsync();
-        await hub.InvokeAsync("SubscribeToSession", SessionId);
+        hub.Reconnecting += _ => SetReconnectingAsync(true);
+        hub.Reconnected += async _ =>
+        {
+            await hub.InvokeAsync("SubscribeToSession", SessionId);
+            await RefreshSessionAsync(); // catch anything that happened while we were away
+            await SetReconnectingAsync(false);
+        };
+        hub.Closed += async _ =>
+        {
+            // Automatic reconnect gave up. Keep watching over plain HTTP; never show a final state
+            // just because the connection is gone (FR-011).
+            await SetReconnectingAsync(true);
+            StartPolling();
+        };
+
+        try
+        {
+            await hub.StartAsync(lifetime.Token);
+            await hub.InvokeAsync("SubscribeToSession", SessionId, lifetime.Token);
+            // A status change between the first load and the subscription would otherwise be
+            // missed until the next one; read the session once more now that updates flow.
+            await RefreshSessionAsync();
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Log.LogInformation(ex, "Checkout live updates unavailable for {SessionId}; polling instead", SessionId);
+            await SetReconnectingAsync(true);
+            StartPolling();
+        }
     }
 
-    private async Task OnStatusChanged(StatusUpdate update)
+    private void StartPolling()
     {
-        if (session == null) return;
+        if (pollLoop is { IsCompleted: false }) return;
+        pollLoop = PollAsync();
+    }
+
+    private async Task PollAsync()
+    {
+        var delay = PollEvery;
+        while (!lifetime.IsCancellationRequested && session is not null && !CheckoutStates.IsFinal(session.Status))
+        {
+            try { await Task.Delay(delay, lifetime.Token); }
+            catch (OperationCanceledException) { return; }
+
+            await RefreshSessionAsync();
+
+            // Try to get live updates back, backing off up to a minute.
+            if (hub is not null && hub.State == HubConnectionState.Disconnected)
+            {
+                try
+                {
+                    await hub.StartAsync(lifetime.Token);
+                    await hub.InvokeAsync("SubscribeToSession", SessionId, lifetime.Token);
+                    await SetReconnectingAsync(false);
+                    return;
+                }
+                catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
+                catch { delay = TimeSpan.FromSeconds(Math.Min(60, delay.TotalSeconds * 2)); }
+            }
+        }
+        await SetReconnectingAsync(false);
+    }
+
+    // Re-reads the session over HTTP. Only the server's answer can move the page to a final state.
+    private async Task RefreshSessionAsync()
+    {
+        if (session is null) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetFromJsonAsync<GetSessionResponse>($"/v1/pay/sessions/{Uri.EscapeDataString(SessionId)}", lifetime.Token);
+            if (response?.Session is { } fresh) await ApplyAsync(fresh.Status, fresh.ReceivedSatoshis, fresh.Confirmations, fresh.PaidTxid);
+        }
+        catch { /* still offline: keep the last known state */ }
+    }
+
+    private Task OnStatusChanged(StatusUpdate update) =>
+        ApplyAsync(update.Status, update.ReceivedSatoshis, update.Confirmations, update.Txid);
+
+    private async Task ApplyAsync(string status, long received, int confirmations, string? txid)
+    {
+        if (session is null) return;
         await InvokeAsync(() =>
         {
             session = session with
             {
-                Status = update.Status,
-                ReceivedSatoshis = update.ReceivedSatoshis,
-                Confirmations = update.Confirmations,
-                PaidTxid = update.Txid ?? session.PaidTxid,
+                Status = status,
+                ReceivedSatoshis = received,
+                Confirmations = confirmations,
+                PaidTxid = txid ?? session.PaidTxid,
             };
+            if (status != lastAnnouncedStatus)
+            {
+                lastAnnouncedStatus = status;
+                var announcement = CheckoutStates.For(status).Announcement;
+                if (announcement is not null) Announcer.Announce(announcement, assertive: status is "underpaid");
+            }
             StateHasChanged();
         });
-        // A pending → pending update (e.g. a periodic nudge) is a good moment
-        // to re-check drift; terminal transitions short-circuit inside.
         await RefreshPriceDriftAsync();
+    }
+
+    private async Task SetReconnectingAsync(bool value)
+    {
+        if (reconnecting == value) return;
+        await InvokeAsync(() =>
+        {
+            reconnecting = value;
+            if (value && session is not null && !CheckoutStates.IsFinal(session.Status))
+                Announcer.Announce(CheckoutStates.For(CheckoutStates.Reconnecting).Announcement!);
+            StateHasChanged();
+        });
     }
 
     private static string GenerateQr(string content)
     {
-        // ECC level H (30% error correction) so the DigiByte logo overlay in the
-        // UI covers the centre without making the code unscannable.
         using var gen = new QRCoder.QRCodeGenerator();
         using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.H);
         using var qr = new QRCoder.PngByteQRCode(data);
         return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(6))}";
     }
 
+    // Plain decimal strings: what a copy button puts on the clipboard (no symbol, no separators).
     private static string FormatDgb(long sats) =>
         (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string FormatFiat(decimal amount) =>
         amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static string FormatUsdCents(long cents) =>
-        (cents / 100m).ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
-
-    private static bool IsTerminal(string status) =>
-        status is "confirmed" or "expired" or "underpaid" or "refunded" or "voided";
+    private static string FormatUsdPlain(long cents) =>
+        (cents / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     public async ValueTask DisposeAsync()
     {
+        persisting?.Dispose();
+        lifetime.Cancel();
         if (hub != null) await hub.DisposeAsync();
+        lifetime.Dispose();
     }
 
     public record GetSessionResponse(SessionDto Session, string? MerchantName);
@@ -270,17 +450,13 @@
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl,
         // Optional merchant URL the buyer is sent back to once paid.
-        // Null for SDK / direct-API merchants who own the after-payment page.
         string? ReturnUrl = null,
-        // DigiDollar. Currency = "DGB" (default) or "DD". For DD sessions,
-        // AmountCentsDd carries the USD cents amount and AmountSatoshis is 0.
+        // DigiDollar: Currency = "DGB" (default) or "DD"; for DD, AmountCentsDd carries USD cents.
         string Currency = "DGB",
         long? AmountCentsDd = null);
 
     public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
 
-    // Minimal shape for /v1/pay/public/price — only the number we need, casing
-    // matches the API's camelCase JSON.
     public record PriceQuoteDto(
         [property: System.Text.Json.Serialization.JsonPropertyName("dgbPrice")] decimal DgbPrice);
 }

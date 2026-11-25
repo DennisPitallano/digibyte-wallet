@@ -19,6 +19,7 @@ COPY DigiByte.slnx .
 COPY src/DigiByte.Api/DigiByte.Api.csproj src/DigiByte.Api/
 COPY src/DigiByte.Wallet/DigiByte.Wallet.csproj src/DigiByte.Wallet/
 COPY src/DigiByte.Crypto/DigiByte.Crypto.csproj src/DigiByte.Crypto/
+COPY src/DigiByte.UI/DigiByte.UI.csproj src/DigiByte.UI/
 COPY src/DigiByte.P2P.Shared/DigiByte.P2P.Shared.csproj src/DigiByte.P2P.Shared/
 COPY src/DigiByte.NodeApi/DigiByte.NodeApi.csproj src/DigiByte.NodeApi/
 COPY src/DigiByte.Web/DigiByte.Web.csproj src/DigiByte.Web/

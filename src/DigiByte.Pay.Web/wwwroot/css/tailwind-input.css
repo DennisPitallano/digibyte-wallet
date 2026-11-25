@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 /* ---------- Entrance animations ---------- */
+/* The fade-in and scale-in keyframes come from the shared style layer
+   (_content/DigiByte.UI/css/ui.css), identical to the wallet's. */
 /* Portable across pages: apply the class on any element (card, row, heading)
    and it animates in on first render. Delay variants stagger children so a
    list of cards cascades instead of all popping at once.
@@ -19,10 +21,6 @@
 }
 .page-enter { animation: page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-@keyframes fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
 .fade-in         { animation: fade-in 0.4s ease both; }
 .fade-in-delay-1 { animation: fade-in 0.4s ease 0.08s both; }
 .fade-in-delay-2 { animation: fade-in 0.4s ease 0.16s both; }
@@ -40,10 +38,6 @@
 .slide-up-delay-4 { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both; }
 .slide-up-delay-5 { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.30s both; }
 
-@keyframes scale-in {
-    from { opacity: 0; transform: scale(0.95); }
-    to   { opacity: 1; transform: scale(1); }
-}
 .scale-in         { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .scale-in-delay-1 { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
 .scale-in-delay-2 { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both; }

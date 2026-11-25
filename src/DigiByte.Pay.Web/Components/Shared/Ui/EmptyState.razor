@@ -1,0 +1,45 @@
+@* Empty state for a dashboard section (FR-021): what belongs here and the next step.
+   Baku appears only in the dashboard, never on shopper pages (clarification 2), and only with
+   the four poses DigiPay ships: support, greeting, idea, thinking. *@
+<div class="card ui-empty @Class">
+    @if (BakuPose is not null && AllowedPoses.Contains(BakuPose))
+    {
+        <img src="_content/DigiByte.UI/images/mascot/poses/@(BakuPose).webp" alt="" width="72" height="72"
+             class="baku-pose ui-empty-baku" loading="lazy" decoding="async" />
+    }
+    <div class="ui-empty-body">
+        <h2 class="block-title">@Title</h2>
+        @if (!string.IsNullOrEmpty(Text))
+        {
+            <p class="ui-empty-text">@Text</p>
+        }
+        @if (ActionLabel is not null)
+        {
+            @if (ActionHref is not null)
+            {
+                <a class="btn-primary btn-sm mt-3" href="@ActionHref">@ActionLabel</a>
+            }
+            else
+            {
+                <button type="button" class="btn-primary btn-sm mt-3" @onclick="OnAction">@ActionLabel</button>
+            }
+        }
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    public static readonly IReadOnlySet<string> AllowedPoses = new HashSet<string> { "support", "greeting", "idea", "thinking" };
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? ActionLabel { get; set; }
+    [Parameter] public string? ActionHref { get; set; }
+    [Parameter] public EventCallback OnAction { get; set; }
+
+    /// <summary>support | greeting | idea | thinking, or null for no mascot.</summary>
+    [Parameter] public string? BakuPose { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string Class { get; set; } = "";
+}

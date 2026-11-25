@@ -1,6 +1,12 @@
 ﻿@inherits LayoutComponentBase
 
+@* First focusable element on every page (FR-029); dialog.js focuses the page's <main>. *@
+<a href="#main" class="ui-skip-link" data-skip-to-main>Skip to main content</a>
+
 @Body
+
+<ToastHost />
+<LiveRegion />
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

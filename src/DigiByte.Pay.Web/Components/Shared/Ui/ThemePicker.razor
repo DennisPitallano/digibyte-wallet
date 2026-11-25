@@ -1,0 +1,31 @@
+@* Light / Dark / Match my device, the wallet's three theme choices (FR-026), as a segmented
+   control. Plain HTML driven by theme.js, so it works on every page including the POS screen,
+   where theme.js stores the choice under the POS key instead. theme.js sets aria-pressed on the
+   current choice and keeps it in sync, so the markup leaves it out. *@
+<div class="segmented ui-theme-picker @Class" role="group" aria-label="Theme">
+    @foreach (var (mode, icon, label, shortLabel) in Choices)
+    {
+        <button type="button" class="segmented-item" data-dp-theme-choice="@mode"
+                onclick="@($"DigiPayTheme.setMode('{mode}')")"
+                title="@(Compact ? label : null)" aria-label="@(Compact ? label : null)">
+            <Icon Name="@icon" Class="w-4 h-4 shrink-0" />
+            @if (!Compact)
+            {
+                <span>@shortLabel</span>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    private static readonly (string Mode, string Icon, string Label, string ShortLabel)[] Choices =
+    [
+        ("light", "sun", "Light", "Light"),
+        ("dark", "moon", "Dark", "Dark"),
+        ("system", "monitor", "Match my device", "Match device"),
+    ];
+
+    /// <summary>Icons only (with accessible names), for tight spots such as the site menu bar.</summary>
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string Class { get; set; } = "";
+}

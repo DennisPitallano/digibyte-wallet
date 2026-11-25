@@ -14,7 +14,7 @@
 @* Full-bleed kiosk shell. Fixed dark theme so the tablet looks consistent
    regardless of the merchant's OS light/dark setting, and so the success
    flash-green actually reads as success on a countertop. No nav, no chrome. *@
-<div class="fixed inset-0 bg-slate-950 text-white font-sans flex flex-col select-none touch-manipulation overflow-hidden">
+<div class="dp-pos fixed inset-0 bg-slate-950 text-white font-sans flex flex-col select-none touch-manipulation overflow-hidden">
 
     @if (screen == Screen.Pair)
     {
@@ -40,7 +40,7 @@
                     <label class="text-[0.6875rem] font-bold uppercase tracking-widest text-slate-400 block">
                         Enter the 6-character code from your dashboard
                     </label>
-                    <input @bind="pairCode" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+                    <input aria-label="AB2C9D" @bind="pairCode" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
                            maxlength="8" placeholder="AB2C9D"
                            class="w-full text-center font-mono text-3xl tracking-[0.5em] uppercase bg-slate-900 border border-dgb-800 rounded-xl py-4 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
                     <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors flex items-center justify-center gap-2"
@@ -64,13 +64,13 @@
                     <label class="text-[0.6875rem] font-bold uppercase tracking-widest text-slate-400 block">
                         Paste an API key (dgp_…)
                     </label>
-                    <input @bind="manualApiKey" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                    <input aria-label="dgp_xxxx_xxxxxxxx" @bind="manualApiKey" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                            placeholder="dgp_xxxx_xxxxxxxx…"
                            class="w-full font-mono text-sm bg-slate-900 border border-dgb-800 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
                     <label class="text-[0.6875rem] font-bold uppercase tracking-widest text-slate-400 block">
                         Store ID (optional — leaves blank to use default store)
                     </label>
-                    <input @bind="manualStoreId" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                    <input aria-label="sto_" @bind="manualStoreId" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                            placeholder="sto_…"
                            class="w-full font-mono text-sm bg-slate-900 border border-dgb-800 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
                     <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors flex items-center justify-center gap-2"
@@ -115,7 +115,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <button class="w-9 h-9 flex items-center justify-center text-slate-300 border border-dgb-800 rounded-lg hover:bg-dgb-900 transition-colors"
-                        @onclick="OpenPinSettings" title="@(hasPin ? "Change / remove PIN" : "Set a manager PIN")" aria-label="PIN settings">
+                        @onclick="OpenPinSettings" title="@(hasPin ? "Change / remove PIN" : "Set a manager PIN")" aria-label="Tablet settings">
                     <Icon Name="@(hasPin ? "shield" : "settings")" Class="w-4 h-4" />
                 </button>
                 @* "Close shift" surfaces the today-so-far summary. Disabled on
@@ -191,15 +191,23 @@
 
                 @* Keypad *@
                 <section class="md:order-1 flex flex-col gap-3 min-h-0">
-                    <input @bind="labelInput" @bind:event="oninput" maxlength="60" placeholder="Label (optional — e.g. Order #42)"
+                    <input aria-label="Label (optional — Order #42)" @bind="labelInput" @bind:event="oninput" maxlength="60" placeholder="Label (optional — e.g. Order #42)"
                            class="w-full bg-slate-900 border border-dgb-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
                     <div class="grid grid-cols-3 gap-2 sm:gap-3 flex-1">
                         @foreach (var k in KeypadKeys)
                         {
                             var key = k;
-                            <button class="@KeyClass(key) text-2xl sm:text-3xl font-bold rounded-2xl transition-all active:scale-95"
+                            <button type="button" class="@KeyClass(key) min-h-16 text-2xl sm:text-3xl font-bold rounded-2xl transition-all active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dgb-500"
+                                    aria-label="@(key == "back" ? "Delete last digit" : key == "." ? "Decimal point" : null)"
                                     @onclick="() => PressKey(key)">
-                                @(key == "back" ? "⌫" : key)
+                                @if (key == "back")
+                                {
+                                    <Icon Name="backspace" Class="w-8 h-8 mx-auto" />
+                                }
+                                else
+                                {
+                                    @key
+                                }
                             </button>
                         }
                     </div>
@@ -240,10 +248,10 @@
             <main class="flex-1 grid grid-rows-[auto_1fr] md:grid-cols-2 md:grid-rows-1 gap-6 p-4 sm:p-6 min-h-0 items-center">
 
                 <section class="flex flex-col items-center gap-3 order-2 md:order-1">
-                    <div class="bg-white p-3 rounded-3xl shadow-2xl">
-                        <img src="@qrDataUrl" alt="Scan to pay" class="block w-64 h-64 sm:w-80 sm:h-80 rounded-xl" />
+                    <div class="qr-frame">
+                        <img src="@qrDataUrl" alt="Scan to pay" class="w-64 h-64 sm:w-80 sm:h-80" />
                     </div>
-                    <div class="font-mono text-[0.6875rem] text-slate-400 break-all max-w-xs text-center">@session.Address</div>
+                    <div class="font-mono text-xs text-slate-400 break-all max-w-xs text-center">@session.Address</div>
                 </section>
 
                 <section class="flex flex-col items-center md:items-start gap-4 order-1 md:order-2 text-center md:text-left">
@@ -305,8 +313,8 @@
             <main class="flex-1 flex items-center justify-center p-6">
                 @{
                     var success = resultStatus == "confirmed";
-                    var ring = success ? "bg-emerald-500" : (resultStatus == "underpaid" ? "bg-red-500" : "bg-slate-600");
-                    var icon = success ? "✓" : (resultStatus == "underpaid" ? "!" : "⏱");
+                    var ring = success ? "bg-emerald-600" : (resultStatus == "underpaid" ? "bg-red-600" : "bg-slate-600");
+                    var icon = success ? "check" : (resultStatus == "underpaid" ? "alert" : "timer-off");
                     var heading = success ? "Payment received" : resultStatus == "underpaid" ? "Underpaid" : "Expired";
                     var body = success
                         ? "Thank the customer — all done."
@@ -315,7 +323,7 @@
                             : "No payment received in time.";
                 }
                 <div class="w-full max-w-lg bg-dgb-900 border border-dgb-800 rounded-3xl p-8 flex flex-col items-center gap-5 shadow-2xl text-center">
-                    <div class="w-24 h-24 rounded-full flex items-center justify-center text-white text-5xl font-bold shadow-lg @ring">@icon</div>
+                    <div class="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-lg @ring" aria-hidden="true"><Icon Name="@icon" Class="w-12 h-12" /></div>
                     <div>
                         <h2 class="text-3xl font-extrabold m-0">@heading</h2>
                         <p class="text-sm text-slate-400 mt-2 m-0">@body</p>
@@ -344,12 +352,12 @@
 @if (showUnpair)
 {
     <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="() => showUnpair = false">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" @onclick:stopPropagation>
-            <h3 class="text-lg font-bold m-0 mb-2">Unpair this device?</h3>
+        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-unpair-title" @onclick:stopPropagation>
+            <h3 id="pos-unpair-title" class="text-lg font-bold m-0 mb-2">Unpair this device?</h3>
             <p class="text-sm text-slate-400 m-0 mb-4">The stored API key will be forgotten on this tablet. Revoke it from the dashboard too if it's lost or stolen.</p>
             <div class="flex gap-2">
                 <button class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm" @onclick="() => showUnpair = false">Cancel</button>
-                <button class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg text-sm" @onclick="UnpairAsync">Unpair</button>
+                <button class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm" @onclick="UnpairAsync">Unpair</button>
             </div>
         </div>
     </div>
@@ -510,19 +518,19 @@
 @if (showPinSettings)
 {
     <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="ClosePinSettings">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" @onclick:stopPropagation>
-            <h3 class="text-lg font-bold m-0 mb-1">@(hasPin ? "Change manager PIN" : "Set a manager PIN")</h3>
+        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-settings-title" @onclick:stopPropagation>
+            <h3 id="pos-settings-title" class="text-lg font-bold m-0 mb-1">@(hasPin ? "Change manager PIN" : "Set a manager PIN")</h3>
             <p class="text-sm text-slate-400 m-0 mb-4">
                 A 4–8 digit PIN gates destructive actions on this tablet (right now: unpairing).
                 The PIN never leaves the browser.
             </p>
             <label class="block text-xs font-semibold text-slate-300 mb-1">New PIN</label>
-            <input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+            <input aria-label="New manager PIN" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
                    maxlength="8"
                    class="w-full px-3 py-2.5 bg-slate-950 border border-dgb-800 rounded-lg text-white tracking-[0.4em] text-center mb-3"
                    @bind="pinNew" @bind:event="oninput" />
             <label class="block text-xs font-semibold text-slate-300 mb-1">Confirm PIN</label>
-            <input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+            <input aria-label="Confirm manager PIN" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
                    maxlength="8"
                    class="w-full px-3 py-2.5 bg-slate-950 border border-dgb-800 rounded-lg text-white tracking-[0.4em] text-center mb-3"
                    @bind="pinConfirm" @bind:event="oninput" />
@@ -539,6 +547,12 @@
             {
                 <button class="w-full py-2 text-xs font-semibold text-red-400 hover:text-red-300" @onclick="RemovePinAsync">Remove PIN</button>
             }
+            @* Screen theme for this tablet (FR-013). Stored under the POS key, so it doesn't
+               change the merchant's dashboard theme. Starts dark. *@
+            <div class="border-t border-dgb-800 mt-4 pt-4">
+                <p class="block text-xs font-semibold text-slate-300 mb-2">Screen theme</p>
+                <ThemePicker />
+            </div>
         </div>
     </div>
 }
@@ -549,10 +563,10 @@
 @if (showPinChallenge)
 {
     <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="CancelPinChallenge">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" @onclick:stopPropagation>
-            <h3 class="text-lg font-bold m-0 mb-1">Enter manager PIN</h3>
+        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-pin-title" @onclick:stopPropagation>
+            <h3 id="pos-pin-title" class="text-lg font-bold m-0 mb-1">Enter manager PIN</h3>
             <p class="text-sm text-slate-400 m-0 mb-4">@pinChallengePrompt</p>
-            <input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+            <input aria-label="Manager PIN" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
                    maxlength="8"
                    class="w-full px-3 py-2.5 bg-slate-950 border border-dgb-800 rounded-lg text-white tracking-[0.4em] text-center mb-3"
                    @bind="pinEntered" @bind:event="oninput"

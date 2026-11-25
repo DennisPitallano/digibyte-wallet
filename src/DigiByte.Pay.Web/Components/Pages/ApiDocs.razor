@@ -1,4 +1,5 @@
 @page "/docs/api"
+@layout SiteLayout
 @inject PayApiPublicUrl ApiPublic
 @inject NavigationManager Nav
 
@@ -30,8 +31,6 @@
     var apiPublic = ResolveApiPublic();
 }
 
-<div class="min-h-dvh flex flex-col bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-    <SiteNav />
 
     <main class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
@@ -61,14 +60,14 @@
                 </div>
                 <div class="flex flex-wrap gap-2 mt-4">
                     <a href="@($"{apiPublic}/scalar")" target="_blank" rel="noopener"
-                       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-dgb-500 hover:bg-dgb-600 text-white text-sm font-semibold transition-colors no-underline">
+                       class="btn-primary inline-flex items-center gap-2">
                         Open Scalar explorer
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                         </svg>
                     </a>
                     <a href="@($"{apiPublic}/openapi/v1.json")" target="_blank" rel="noopener"
-                       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-dgb-800 hover:bg-slate-50 dark:hover:bg-dgb-700 border border-slate-200 dark:border-dgb-700 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-colors no-underline">
+                       class="btn-secondary inline-flex items-center gap-2">
                         Download openapi.json
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -233,9 +232,9 @@
                 <a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">Try it live →</a>
             </p>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-2">Programmatic:</p>
-            <CodeBlock>@("DigiPay.checkout({ sessionId: 'ses_abc' });  // opens iframe modal\nDigiPay.close();                              // dismiss it\nconst a = DigiPay.button({ address: 'dgb1…', amount: 5, name: 'Shop' });\ndocument.body.appendChild(a);")</CodeBlock>
+            <CodeBlock>@("DigiPay.checkout({ sessionId: 'ses_abc' });  // opens iframe modal\nDigiPay.checkout({ sessionId: 'ses_abc', theme: 'light' });  // optional: 'light' | 'dark'\nDigiPay.close();                              // dismiss it\nconst a = DigiPay.button({ address: 'dgb1…', amount: 5, name: 'Shop' });\ndocument.body.appendChild(a);")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2">Declarative:</p>
-            <CodeBlock>@("<button data-digipay-checkout data-session-id=\"ses_abc\">Pay</button>\n<span data-digipay-button data-address=\"dgb1…\" data-amount=\"5\">Tip</span>")</CodeBlock>
+            <CodeBlock>@("<button data-digipay-checkout data-session-id=\"ses_abc\">Pay</button>\n<span data-digipay-button data-address=\"dgb1…\" data-amount=\"5\">Tip</span>\n<!-- optional on either: data-theme=\"light\" or \"dark\" -->")</CodeBlock>
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Auto-binds on <InlineCode>DOMContentLoaded</InlineCode>; call <InlineCode>DigiPay.bind(rootEl)</InlineCode> after injecting new elements dynamically.</p>
 
             <DocsHeading>Status codes</DocsHeading>
@@ -252,5 +251,3 @@
         </article>
     </main>
 
-    <SiteFooter />
-</div>

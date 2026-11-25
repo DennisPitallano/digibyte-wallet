@@ -13,11 +13,19 @@
     <link rel="apple-touch-icon" href="@Assets["digipay-logo-192.png"]" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["css/tailwind.css"]" />
+    @* Shared style layer from DigiByte.UI (spec 032): the wallet's fonts, tokens and components.
+       Loaded after Tailwind so the component classes win; served from this origin. *@
+    <link rel="stylesheet" href="@Assets["_content/DigiByte.UI/css/ui.css"]" />
+    @* DigiPay's own page layout, built from the shared tokens. *@
+    <link rel="stylesheet" href="@Assets["css/digipay.css"]" />
+    @* Inter is used by every page, so fetch it early; JetBrains Mono loads on demand (FR-013a). *@
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="_content/DigiByte.UI/fonts/inter-latin-wght-normal.woff2" />
+    <meta name="theme-color" content="#f8fafc" />
     <link rel="stylesheet" href="@Assets["DigiByte.Pay.Web.styles.css"]" />
     <ImportMap />
     <HeadOutlet @rendermode="InteractiveServer"/>
-    @* Theme boot script — must run synchronously in <head> to set data-theme
-       on <html> before first paint. Prevents FOUC on the initial SSR render. *@
+    @* Theme boot script: runs synchronously in <head> and sets the `dark` class on <html>
+       before first paint, so no page flashes the wrong theme (FR-027). *@
     <script src="@Assets["theme.js"]"></script>
     @* Auth-state boot — same pattern, sets data-digipay-auth="yes|no" from
        localStorage so the nav can show Dashboard vs Sign-in via CSS alone. *@
@@ -34,12 +42,34 @@
     <script src="@Assets["pos-store.js"]"></script>
     @* Web Share API helper used by the dashboard's payment-links tab. *@
     <script src="@Assets["share-link.js"]"></script>
+    @* Copy buttons, confirmation dialogs and the skip link (spec 032). *@
+    <script src="@Assets["clipboard.js"]"></script>
+    <script src="@Assets["dialog.js"]"></script>
 </head>
 
 <body>
-    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    @* Shopper pages (/pay/...) are rendered on the server first so the amount and QR code arrive in
+       the first HTML, then become interactive for live updates (spec 032, FR-013a, research R8).
+       Everything else keeps prerendering off: the dashboard and POS read the browser's storage
+       before they can draw anything. *@
+    <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private static readonly IComponentRenderMode ShopperMode = new InteractiveServerRenderMode(prerender: true);
+    private static readonly IComponentRenderMode AppMode = new InteractiveServerRenderMode(prerender: false);
+
+    private IComponentRenderMode PageRenderMode =>
+        IsShopperPage(HttpContext?.Request.Path.Value) ? ShopperMode : AppMode;
+
+    /// <summary>/pay/{id}, /pay/{id}/receipt and /pay/button.</summary>
+    internal static bool IsShopperPage(string? path) =>
+        path is not null && (path.Equals("/pay", StringComparison.OrdinalIgnoreCase)
+                             || path.StartsWith("/pay/", StringComparison.OrdinalIgnoreCase));
+}

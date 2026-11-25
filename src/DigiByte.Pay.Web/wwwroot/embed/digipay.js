@@ -9,8 +9,13 @@
  *
  * Usage (programmatic):
  *   DigiPay.checkout({ sessionId: 'ses_abc123' });
+ *   DigiPay.checkout({ sessionId: 'ses_abc123', theme: 'light' });   // optional: 'light' | 'dark'
  *   DigiPay.close();
- *   const el = DigiPay.button({ address: 'dgb1q…', amount: 5, name: 'Shop' });
+ *   const el = DigiPay.button({ address: 'dgb1q…', amount: 5, name: 'Shop', theme: 'dark' });
+ *
+ * Theme (optional): pass `theme` ('light' or 'dark'), or add data-theme="light|dark" to an
+ * auto-bound element, to match the checkout to your shop. Without it the checkout follows the
+ * shopper's own choice or device, exactly as before. Any other value is ignored.
  *   document.body.appendChild(el);
  *
  * The widget auto-derives the Pay host from its own <script src>, so you
@@ -30,8 +35,21 @@
 
     var activeModal = null;
 
-    function createModal(iframeSrc) {
+    // 'light' | 'dark' | null. Anything else is dropped silently (contract C3).
+    function normaliseTheme(value) {
+        var v = String(value || '').toLowerCase();
+        return v === 'light' || v === 'dark' ? v : null;
+    }
+
+    function withTheme(url, theme) {
+        var t = normaliseTheme(theme);
+        if (!t) return url;
+        return url + (url.indexOf('?') === -1 ? '?' : '&') + 'theme=' + t;
+    }
+
+    function createModal(iframeSrc, theme) {
         if (activeModal) closeModal();
+        var light = normaliseTheme(theme) === 'light';
 
         var overlay = document.createElement('div');
         overlay.className = 'digipay-modal';
@@ -47,7 +65,7 @@
         // page's body scrollHeight stabilises, at which point we shrink/grow.
         container.style.cssText =
             'position:relative;width:100%;max-width:460px;height:620px;max-height:90vh;' +
-            'background:#001529;border-radius:20px;overflow:hidden;' +
+            'background:' + (light ? '#f8fafc' : '#001529') + ';border-radius:20px;overflow:hidden;' +
             'box-shadow:0 24px 48px rgba(0,0,0,0.4);' +
             'transform-origin:center;' +
             'animation:digipayScaleIn 200ms cubic-bezier(0.16,1,0.3,1);' +
@@ -58,11 +76,11 @@
         closeBtn.setAttribute('aria-label', 'Close');
         closeBtn.style.cssText =
             'position:absolute;top:10px;right:12px;width:32px;height:32px;' +
-            'border:0;background:rgba(255,255,255,0.12);color:#fff;border-radius:9999px;' +
+            'border:0;background:' + (light ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.12)') + ';color:' + (light ? '#0f172a' : '#fff') + ';border-radius:9999px;' +
             'font:bold 22px/1 system-ui,sans-serif;cursor:pointer;z-index:1;' +
             'display:flex;align-items:center;justify-content:center;padding:0;';
-        closeBtn.addEventListener('mouseover', function () { this.style.background = 'rgba(255,255,255,0.22)'; });
-        closeBtn.addEventListener('mouseout', function () { this.style.background = 'rgba(255,255,255,0.12)'; });
+        closeBtn.addEventListener('mouseover', function () { this.style.background = light ? 'rgba(15,23,42,0.14)' : 'rgba(255,255,255,0.22)'; });
+        closeBtn.addEventListener('mouseout', function () { this.style.background = light ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.12)'; });
         closeBtn.addEventListener('click', closeModal);
 
         var iframe = document.createElement('iframe');
@@ -119,7 +137,7 @@
     function checkout(opts) {
         if (!opts || !opts.sessionId) throw new Error('DigiPay.checkout requires { sessionId }');
         requireOrigin();
-        createModal(origin + '/pay/' + encodeURIComponent(opts.sessionId));
+        createModal(withTheme(origin + '/pay/' + encodeURIComponent(opts.sessionId), opts.theme), opts.theme);
     }
 
     function button(opts) {
@@ -129,6 +147,7 @@
         if (opts.amount && Number(opts.amount) > 0) url += '&amount=' + encodeURIComponent(opts.amount);
         if (opts.name) url += '&name=' + encodeURIComponent(opts.name);
         if (opts.label) url += '&label=' + encodeURIComponent(opts.label);
+        url = withTheme(url, opts.theme);
 
         var a = document.createElement('a');
         a.href = url;
@@ -156,7 +175,7 @@
                 var sessionId = el.getAttribute('data-session-id') || el.getAttribute('data-digipay-session-id');
                 if (!sessionId) return;
                 e.preventDefault();
-                checkout({ sessionId: sessionId });
+                checkout({ sessionId: sessionId, theme: el.getAttribute('data-theme') });
             });
         });
         scope.querySelectorAll('[data-digipay-button]').forEach(function (el) {
@@ -167,6 +186,7 @@
                 amount: el.getAttribute('data-amount'),
                 name: el.getAttribute('data-name'),
                 label: el.getAttribute('data-label'),
+                theme: el.getAttribute('data-theme'),
                 text: el.textContent || undefined,
             });
             el.replaceWith(a);
@@ -184,6 +204,6 @@
         close: closeModal,
         button: button,
         bind: bindAll,
-        version: '0.1.0',
+        version: '0.2.0',
     };
 })(window);

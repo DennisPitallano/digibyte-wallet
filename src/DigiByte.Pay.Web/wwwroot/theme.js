@@ -1,64 +1,146 @@
 /*!
- * DigiPay theme toggle: light / dark with OS default.
- * Sets <html data-theme="..."> before first paint so there's no FOUC.
+ * DigiPay theme: light / dark / system, the same three choices as the wallet.
+ * Runs synchronously in <head> and sets the `dark` class on <html> before first paint,
+ * so the page never flashes the wrong theme. The shared style layer
+ * (_content/DigiByte.UI/css/ui.css) keys every themed value off `.dark`.
+ *
+ * Resolution, highest first (specs/032-digipay-ui-refresh/data-model.md §1–§2):
+ *   1. On /pay/* pages, ?theme=light|dark set by the shop. This page view only, never saved.
+ *   2. On /pos, the POS key `digipay.pos.theme:v1` (missing = dark). Set by the merchant
+ *      behind the manager PIN.
+ *   3. The saved choice `dp-theme` (light | dark | system; missing or invalid = system).
+ *   4. The device setting (prefers-color-scheme) when the choice is `system`.
  */
 (function (global) {
     'use strict';
 
     var KEY = 'dp-theme';
+    var POS_KEY = 'digipay.pos.theme:v1';
+    var COLORS = { dark: '#002352', light: '#f8fafc' };
+    var MODES = { light: 1, dark: 1, system: 1 };
 
+    function read(key) {
+        try { return global.localStorage.getItem(key); } catch (_) { return null; }
+    }
+
+    function write(key, value) {
+        try { global.localStorage.setItem(key, value); } catch (_) { }
+    }
+
+    function path() {
+        return (global.location && global.location.pathname || '/').toLowerCase();
+    }
+
+    function isPayPage(p) { return p === '/pay' || p.indexOf('/pay/') === 0; }
+    function isPosPage(p) { return p === '/pos' || p.indexOf('/pos/') === 0; }
+
+    // The shop's ?theme= on /pay/* pages, or null when absent or invalid.
+    function shopOverride() {
+        if (!isPayPage(path())) return null;
+        var search = (global.location && global.location.search) || '';
+        var m = /[?&]theme=([^&#]*)/i.exec(search);
+        if (!m) return null;
+        var v = decodeURIComponent(m[1] || '').toLowerCase();
+        return v === 'light' || v === 'dark' ? v : null;
+    }
+
+    function systemDark() {
+        return !!(global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+
+    // The saved choice for the current page: light | dark | system.
+    function getMode() {
+        if (isPosPage(path())) {
+            var pos = read(POS_KEY);
+            return MODES[pos] ? pos : 'dark';
+        }
+        var saved = read(KEY);
+        return MODES[saved] ? saved : 'system';
+    }
+
+    // The theme to show right now: light | dark.
     function resolve() {
-        var stored = null;
-        try { stored = localStorage.getItem(KEY); } catch (_) { }
-        if (stored === 'light' || stored === 'dark') return stored;
-        return (global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        var shop = shopOverride();
+        if (shop) return shop;
+        var mode = getMode();
+        if (mode === 'system') return systemDark() ? 'dark' : 'light';
+        return mode;
     }
 
     function apply(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        document.querySelectorAll('[data-dp-theme-toggle]').forEach(function (btn) {
-            btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
-            var label = btn.querySelector('[data-dp-theme-label]');
-            if (label) label.textContent = theme === 'dark' ? '☀' : '☾';
-        });
+        theme = theme === 'dark' || theme === 'light' ? theme : resolve();
+        var root = global.document.documentElement;
+        if (root.classList.contains('dark') !== (theme === 'dark')) {
+            root.classList.toggle('dark', theme === 'dark');
+        }
+        root.style.colorScheme = theme;
+        var meta = global.document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', COLORS[theme]);
+        syncPickers();
+        return theme;
     }
 
-    function toggle() {
-        var cur = document.documentElement.getAttribute('data-theme') || resolve();
-        var next = cur === 'dark' ? 'light' : 'dark';
-        try { localStorage.setItem(KEY, next); } catch (_) { }
-        apply(next);
+    // Marks the saved choice in every <ThemePicker> on the page (aria-pressed drives its style).
+    function syncPickers() {
+        if (!global.document.querySelectorAll) return;
+        var mode = getMode();
+        var buttons = global.document.querySelectorAll('[data-dp-theme-choice]');
+        for (var i = 0; i < buttons.length; i++) {
+            var pressed = buttons[i].getAttribute('data-dp-theme-choice') === mode ? 'true' : 'false';
+            if (buttons[i].getAttribute('aria-pressed') !== pressed) buttons[i].setAttribute('aria-pressed', pressed);
+        }
     }
 
-    // Run synchronously at script load time so the initial render matches.
-    apply(resolve());
+    // Saves the choice for this page type (website/dashboard/checkout, or the POS) and applies it.
+    function setMode(mode) {
+        if (!MODES[mode]) mode = 'system';
+        write(isPosPage(path()) ? POS_KEY : KEY, mode);
+        return apply();
+    }
 
-    // Blazor Web App's "enhanced navigation" swaps DOM content but the new
-    // server-rendered <html> has no data-theme attribute (server can't read
-    // localStorage). Blazor's diff strips our attribute during the swap.
-    // Watch <html>'s attributes and restore data-theme if it gets cleared.
+    apply();
+
+    // Blazor's enhanced navigation can replace <html> attributes with the server's copy,
+    // which has no theme class. Put it back whenever it drifts.
     try {
-        var observer = new MutationObserver(function () {
-            if (document.documentElement.getAttribute('data-theme') !== resolve()) {
-                apply(resolve());
-            }
+        var observer = new global.MutationObserver(function () {
+            var want = resolve() === 'dark';
+            if (global.document.documentElement.classList.contains('dark') !== want) apply();
         });
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        observer.observe(global.document.documentElement, { attributes: true, attributeFilter: ['class'] });
     } catch (_) { }
 
-    // Defensive: also reapply on every Blazor enhanced-nav event we know of.
+    // Pickers are rendered by Blazor after this script runs; mark the current choice whenever new
+    // ones appear (batched to one check per frame).
+    try {
+        var pending = false;
+        var pickerObserver = new global.MutationObserver(function () {
+            if (pending) return;
+            pending = true;
+            (global.requestAnimationFrame || setTimeout)(function () { pending = false; syncPickers(); });
+        });
+        var startPickerObserver = function () {
+            pickerObserver.observe(global.document.body || global.document.documentElement, { childList: true, subtree: true });
+            syncPickers();
+        };
+        if (global.document.body) startPickerObserver();
+        else global.document.addEventListener('DOMContentLoaded', startPickerObserver);
+    } catch (_) { }
+
     ['enhancedload', 'blazor-enhanced-load'].forEach(function (n) {
-        document.addEventListener(n, function () { apply(resolve()); });
+        global.document.addEventListener(n, function () { apply(); });
     });
 
-    // Keep following OS changes when the user hasn't opted out.
+    // Follow the device live while the choice is `system` (and no shop override applies).
     if (global.matchMedia) {
-        global.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
-            var stored = null;
-            try { stored = localStorage.getItem(KEY); } catch (_) { }
-            if (!stored) apply(resolve());
-        });
+        var q = global.matchMedia('(prefers-color-scheme: dark)');
+        var onChange = function () { if (!shopOverride() && getMode() === 'system') apply(); };
+        if (q.addEventListener) q.addEventListener('change', onChange);
+        else if (q.addListener) q.addListener(onChange);
     }
 
-    global.DigiPayTheme = { toggle: toggle, apply: apply, resolve: resolve };
+    // Flip between light and dark (used by older two-state toggles).
+    function toggle() { return setMode(resolve() === 'dark' ? 'light' : 'dark'); }
+
+    global.DigiPayTheme = { getMode: getMode, setMode: setMode, resolve: resolve, apply: apply, toggle: toggle };
 })(window);

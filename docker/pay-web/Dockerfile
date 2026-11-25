@@ -12,6 +12,7 @@ WORKDIR /src
 COPY DigiByte.slnx .
 COPY src/DigiByte.Pay.Web/DigiByte.Pay.Web.csproj src/DigiByte.Pay.Web/
 COPY src/DigiByte.Crypto/DigiByte.Crypto.csproj src/DigiByte.Crypto/
+COPY src/DigiByte.UI/DigiByte.UI.csproj src/DigiByte.UI/
 COPY src/DigiByte.P2P.Shared/DigiByte.P2P.Shared.csproj src/DigiByte.P2P.Shared/
 # Solution siblings — needed by restore to resolve references.
 COPY src/DigiByte.Pay.Api/DigiByte.Pay.Api.csproj src/DigiByte.Pay.Api/

@@ -6,23 +6,20 @@
 @using System.Net.Http.Json
 
 @{
-    const string Card = "bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-sm";
-    const string Muted = "text-xs text-slate-500 dark:text-slate-400";
-    const string H2 = "text-base font-bold text-slate-900 dark:text-white m-0";
+    const string Card = "card p-5 sm:p-6 flex flex-col gap-3";
+    const string Muted = "dp-muted";
+    const string H2 = "block-title";
 }
 
 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
-    <h1 class="text-xl sm:text-2xl font-bold tracking-tight m-0">Analytics</h1>
-    <div class="flex items-center gap-2">
+    <h1 class="page-title">Analytics</h1>
+    <div class="segmented" role="group" aria-label="Period">
         @foreach (var opt in new[] { 7, 30, 90 })
         {
             var o = opt;
-            var active = days == o;
-            <button type="button"
-                    class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors @(active ? "bg-dgb-500/10 text-dgb-500 border-dgb-500/30" : "bg-transparent hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-dgb-800")"
-                    @onclick="() => ChangeRangeAsync(o)"
-                    disabled="@loading">
-                Last @o d
+            <button type="button" class="segmented-item" aria-pressed="@(days == o ? "true" : "false")"
+                    @onclick="() => ChangeRangeAsync(o)" disabled="@loading" aria-label="@($"Last {o} days")">
+                @o days
             </button>
         }
     </div>
@@ -43,8 +40,9 @@
 }
 else if (data is null)
 {
-    <section class="@Card">
-        <p class="@Muted m-0">Loading…</p>
+    <section class="@Card" aria-busy="true">
+        <span class="sr-only">Loading analytics</span>
+        <Skeleton Shape="block" Count="2" />
     </section>
 }
 else
@@ -72,7 +70,9 @@ else
         </div>
         @if (data.Summary.TotalSessions == 0)
         {
-            <p class="@Muted m-0">No activity in this window yet.</p>
+            <EmptyState Title="No activity in this window yet"
+                        Text="Pick a longer period, or check back after your first payments."
+                        BakuPose="thinking" Class="border-0 shadow-none p-0" />
         }
         else
         {

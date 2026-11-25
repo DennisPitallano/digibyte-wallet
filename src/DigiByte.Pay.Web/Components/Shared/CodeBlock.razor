@@ -1,5 +1,33 @@
-<pre class="bg-slate-900 text-slate-100 rounded-lg p-3 sm:p-4 text-xs sm:text-sm overflow-x-auto my-3 leading-relaxed"><code>@ChildContent</code></pre>
+@inject IJSRuntime JS
+@inject ToastService Toasts
+
+@* Code sample with a copy button (FR-035): fixed-width font, and a notice confirms the copy.
+   The text comes from the rendered <code>, so callers keep passing the sample as child content. *@
+<div class="dp-code">
+    <pre id="@id" class="dp-code-pre" tabindex="0" role="region" aria-label="@(Label is null ? "Code sample" : Label.Replace("Copy ", ""))"><code>@ChildContent</code></pre>
+    <button type="button" class="dp-code-copy" aria-label="@(Label ?? "Copy code")" @onclick="CopyAsync">
+        <Icon Name="copy" Class="w-4 h-4" /><span>Copy</span>
+    </button>
+</div>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Accessible name for the copy button, for example "Copy the curl example".</summary>
+    [Parameter] public string? Label { get; set; }
+
+    private readonly string id = "code-" + Guid.NewGuid().ToString("N")[..8];
+
+    private async Task CopyAsync()
+    {
+        bool ok;
+        try { ok = await JS.InvokeAsync<bool>("digipayClipboard.copyFrom", id); }
+        catch (JSException) { ok = false; }
+        if (ok) Toasts.Success("Code copied");
+        else
+        {
+            try { await JS.InvokeAsync<bool>("digipayClipboard.select", id); } catch (JSException) { }
+            Toasts.Info("Your browser blocked copying. The code is selected: press Ctrl+C (or ⌘C) to copy it.");
+        }
+    }
 }

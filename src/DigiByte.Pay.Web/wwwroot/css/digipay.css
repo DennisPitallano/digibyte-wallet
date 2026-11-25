@@ -1,0 +1,431 @@
+/* =====================================================================================
+   DigiPay page layout (spec 032). Loaded after the shared style layer
+   (_content/DigiByte.UI/css/ui.css) and built only from its tokens, so it follows the
+   wallet's light and dark themes. Shared components (buttons, cards, fields, badges, QR
+   frame, notices) live in ui.css; this file only arranges DigiPay's own pages.
+   ===================================================================================== */
+
+/* ----- Shopper pages: checkout, receipt, donation page ----- */
+.ui-shopper-page {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: #f8fafc;
+    color: var(--ui-text);
+}
+.dark .ui-shopper-page { background: #001529; }
+
+/* Inside a shop's embedded window the page should hug its card; the embed script sizes the frame. */
+@media (max-width: 360px) {
+    .ui-shopper-page { padding: 0.5rem; }
+}
+
+.ui-checkout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 1.25rem;
+}
+@media (min-width: 480px) {
+    .ui-checkout { padding: 1.5rem; }
+}
+.ui-checkout-center { text-align: center; padding-block: 2rem; }
+.ui-checkout-header {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+.ui-checkout-label { font-size: 1.125rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.ui-checkout-merchant { margin-top: 0.125rem; font-size: 0.875rem; color: var(--ui-text-muted); overflow-wrap: anywhere; }
+.ui-checkout-amount { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
+.ui-checkout-big {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(1.75rem, 8vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.ui-checkout-unit { font-family: Inter, system-ui, sans-serif; font-size: 0.6em; font-weight: 600; color: var(--ui-text-muted); letter-spacing: 0; }
+.ui-checkout-muted { font-size: 0.9375rem; line-height: 1.5; color: var(--ui-text-muted); }
+
+/* A value a shopper may need to paste, with its copy button. */
+.ui-checkout-copyrow {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.875rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-input-bg, transparent);
+}
+.ui-checkout-address {
+    margin-top: 0.125rem;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    color: var(--ui-text);
+}
+
+/* Final states */
+.ui-terminal { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; text-align: center; padding-top: 0.25rem; }
+.ui-terminal-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 9999px;
+}
+.ui-terminal-amounts {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+.ui-terminal-amounts > div {
+    padding: 0.625rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+}
+.ui-terminal-amounts dt { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ui-text-muted); }
+.ui-terminal-amounts dd { margin-top: 0.125rem; font-size: 0.9375rem; font-weight: 600; overflow-wrap: anywhere; }
+
+/* Receipt and theme footer */
+.ui-shopper-footer { margin-top: 1rem; display: flex; justify-content: center; }
+
+/* Receipts print dark on white in either theme (FR-028). */
+@media print {
+    .ui-shopper-page, .dark .ui-shopper-page { background: #fff !important; color: #000 !important; min-height: 0; padding: 0; }
+    .ui-shopper-page .card, .ui-shopper-page .card-raised { background: #fff !important; color: #000 !important; box-shadow: none !important; border: 0 !important; }
+    .ui-shopper-page .ui-checkout-muted, .ui-shopper-page .section-label, .ui-shopper-page .ui-checkout-merchant { color: #334155 !important; }
+    .ui-shopper-page .ui-checkout-address, .ui-shopper-page .ui-checkout-big { color: #000 !important; }
+    .ui-shopper-page .ui-checkout-copyrow { border-color: #cbd5e1 !important; background: #fff !important; }
+    .ui-no-print, .ui-toast-stack, .ui-skip-link { display: none !important; }
+}
+
+/* Receipt facts (label / value pairs). */
+.ui-receipt-facts { width: 100%; display: grid; gap: 0.375rem; font-size: 0.875rem; }
+.ui-receipt-facts > div { display: flex; justify-content: space-between; gap: 1rem; }
+.ui-receipt-facts dt { color: var(--ui-text-muted); }
+.ui-receipt-facts dd { text-align: right; min-width: 0; }
+
+/* =====================================================================================
+   Merchant dashboard shell (spec 032, US2): a left rail from 1024px, like the wallet's
+   wide-screen menu; below that a top bar and the wallet-style floating bottom menu with a
+   raised main button and a More sheet.
+   ===================================================================================== */
+.dp-shell { min-height: 100dvh; background: #f8fafc; color: var(--ui-text); }
+.dark .dp-shell { background: #001529; }
+
+.dp-brand { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 800; font-size: 0.9375rem; letter-spacing: -0.01em; color: var(--ui-text); }
+
+/* Rail (wide screens) */
+.dp-rail { display: none; }
+.dp-rail-nav { display: flex; flex-direction: column; gap: 2px; }
+.dp-rail-group { border-top: 1px solid var(--ui-border); padding-top: 0.75rem; margin-top: 0.75rem; display: flex; flex-direction: column; gap: 2px; }
+.dp-rail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ui-text-muted);
+    transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+.dp-rail-item:hover { background: var(--ui-ghost-hover); color: var(--ui-text); }
+.dp-rail-item:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.dp-rail-item[aria-current="page"] { background: var(--ui-ghost-hover); color: var(--ui-ghost-text); font-weight: 600; }
+
+/* Top bar (phones and tablets) */
+.dp-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 56px;
+    padding: 0.5rem 1rem;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+    background: var(--ui-surface);
+    border-bottom: 1px solid var(--ui-border);
+}
+
+/* Content: wide for lists, tables, charts and logs (capped at 1280px); forms and single items
+   use the wallet's 480px column. */
+.dp-main {
+    width: 100%;
+    max-width: 1280px;
+    padding: 1rem 1rem calc(env(safe-area-inset-bottom, 0px) + 7rem);
+    box-sizing: border-box;
+}
+.dp-main-narrow { max-width: 480px; }
+@media (min-width: 640px) { .dp-main { padding-left: 1.5rem; padding-right: 1.5rem; } }
+
+/* Bottom menu (phones and tablets): a floating bar like the wallet's. */
+.dp-bottom {
+    position: fixed;
+    z-index: 20;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    transform: translateX(-50%);
+    width: min(28rem, calc(100vw - 1.5rem));
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: end;
+    padding: 0.375rem;
+    border-radius: 1.5rem;
+    border: 1px solid var(--ui-border);
+    background: color-mix(in srgb, var(--ui-surface) 88%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+    box-shadow: var(--ui-shadow-raised);
+}
+.dp-bottom-item, .dp-bottom-raised {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    min-height: 52px;
+    border-radius: 1.125rem;
+    color: var(--ui-text-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+}
+.dp-bottom-item:hover { color: var(--ui-text); }
+.dp-bottom-item:focus-visible, .dp-bottom-raised:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.dp-bottom-item[aria-current="page"] { color: var(--ui-ghost-text); background: var(--ui-ghost-hover); }
+.dp-bottom-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.125rem; }
+.dp-bottom-raised .dp-bottom-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    margin-top: -1.5rem;
+    border-radius: 9999px;
+    background: var(--ui-primary);
+    color: #fff;
+    box-shadow: var(--ui-primary-shadow);
+}
+.dp-bottom-raised { color: var(--ui-text); }
+.dp-bottom-raised[aria-current="page"] .dp-bottom-icon { background: var(--ui-primary-hover); }
+
+/* More sheet */
+.dp-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 8, 20, 0.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: backdrop-in 0.2s ease both;
+}
+.dp-sheet {
+    width: min(32rem, 100vw);
+    max-height: 85dvh;
+    overflow-y: auto;
+    padding: 1rem 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    border-radius: 1.5rem 1.5rem 0 0;
+    animation: sheet-up var(--motion-slow) var(--ease-out) both;
+}
+.dp-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.dp-sheet-list { display: flex; flex-direction: column; gap: 2px; }
+
+@media (min-width: 1024px) {
+    .dp-shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); }
+    .dp-rail {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        position: sticky;
+        top: 0;
+        height: 100dvh;
+        overflow-y: auto;
+        padding: 1rem 0.75rem;
+        background: var(--ui-surface);
+        border-right: 1px solid var(--ui-border);
+    }
+    .dp-rail > .dp-brand { padding: 0.25rem 0.75rem 0.75rem; border-bottom: 1px solid var(--ui-border); margin-bottom: 0.25rem; }
+    .dp-topbar, .dp-bottom, .dp-sheet-overlay { display: none; }
+    .dp-main { padding: 2rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dp-sheet, .dp-sheet-overlay { animation: none !important; }
+}
+
+/* Muted body text in dashboard sections (meets the style guide's contrast in both themes). */
+.dp-muted { font-size: 0.875rem; line-height: 1.5; color: var(--ui-text-muted); }
+
+/* The shared `input` class removes the native control look; for <select> keep the browser's
+   dropdown arrow so a select still reads as one (docs/UI_STYLE.md notes the gap). */
+select.input { -webkit-appearance: menulist; appearance: auto; padding-right: 0.75rem; }
+
+/* =====================================================================================
+   POS screen in the light theme (spec 032, FR-013). The kiosk keeps its layout and starts
+   dark; when the merchant picks Light (or Match my device on a light tablet), these rules map
+   its dark-only colours onto the shared light tokens. Scoped to .dp-pos so nothing else changes.
+   ===================================================================================== */
+html:not(.dark) .dp-pos.bg-slate-950 { background: #f8fafc; color: var(--ui-text); }
+html:not(.dark) .dp-pos .bg-slate-950 { background: #ffffff; }
+html:not(.dark) .dp-pos .bg-dgb-900,
+html:not(.dark) .dp-pos .bg-dgb-900\/60,
+html:not(.dark) .dp-pos .bg-slate-900 { background: var(--ui-surface); }
+html:not(.dark) .dp-pos .bg-slate-800,
+html:not(.dark) .dp-pos .bg-slate-800\/60,
+html:not(.dark) .dp-pos .bg-slate-800\/40,
+html:not(.dark) .dp-pos .bg-dgb-800 { background: #e2e8f0; }
+html:not(.dark) .dp-pos .hover\:bg-slate-700:hover,
+html:not(.dark) .dp-pos .hover\:bg-slate-800:hover,
+html:not(.dark) .dp-pos .hover\:bg-dgb-900:hover,
+html:not(.dark) .dp-pos .hover\:bg-dgb-800:hover,
+html:not(.dark) .dp-pos .hover\:bg-dgb-700:hover { background: #cbd5e1; }
+html:not(.dark) .dp-pos .bg-slate-600,
+html:not(.dark) .dp-pos .bg-slate-500\/20 { background: #cbd5e1; }
+html:not(.dark) .dp-pos .border-dgb-800,
+html:not(.dark) .dp-pos .border-dgb-800\/60,
+html:not(.dark) .dp-pos .border-dgb-700,
+html:not(.dark) .dp-pos .border-slate-700,
+html:not(.dark) .dp-pos .border-slate-700\/60,
+html:not(.dark) .dp-pos .border-slate-500\/30 { border-color: #cbd5e1; }
+/* Text: white on dark becomes the normal text colour, except on coloured buttons. */
+html:not(.dark) .dp-pos .text-white:not([class*="bg-dgb-5"]):not([class*="bg-red-"]):not([class*="bg-emerald-"]):not([class*="bg-amber-"]) { color: var(--ui-text); }
+html:not(.dark) .dp-pos .text-slate-200,
+html:not(.dark) .dp-pos .text-slate-300 { color: #334155; }
+html:not(.dark) .dp-pos .text-slate-400 { color: #475569; }
+html:not(.dark) .dp-pos .text-slate-500,
+html:not(.dark) .dp-pos .text-slate-600 { color: #64748b; }
+html:not(.dark) .dp-pos .text-dgb-100 { color: #003d7a; }
+html:not(.dark) .dp-pos .hover\:text-white:hover { color: var(--ui-text); }
+html:not(.dark) .dp-pos .disabled\:bg-slate-700:disabled { background: #e2e8f0; }
+html:not(.dark) .dp-pos .disabled\:text-slate-400:disabled { color: #64748b; }
+
+/* ----- Public site (spec 032, US7) ----- */
+.dp-sitenav { position: relative; z-index: 20; background: var(--ui-surface); border-bottom: 1px solid var(--ui-border); }
+.dp-sitenav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 40px;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ui-text-muted);
+}
+.dp-sitenav-link:hover { color: var(--ui-text); background: var(--ui-ghost-hover); }
+.dp-sitenav-link:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.dp-sitenav-link[aria-current="page"] { color: var(--ui-ghost-text); font-weight: 600; }
+/* The site sheet is used at every width below the md breakpoint, so it isn't hidden at 1024px. */
+@media (min-width: 1024px) { .dp-sheet-overlay.dp-sheet-overlay-site { display: flex; } }
+
+.dp-code { position: relative; margin: 0.75rem 0; }
+.dp-code-pre {
+    margin: 0;
+    padding: 0.875rem 1rem;
+    padding-right: 6rem;
+    border-radius: var(--ui-radius);
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+.dp-code-copy {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 36px;
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+.dp-code-copy:hover { background: rgba(255, 255, 255, 0.16); }
+.dp-code-copy:focus-visible { outline: 2px solid #80b3ff; outline-offset: 2px; }
+
+/* Public website frame (SiteLayout). */
+.dp-site { min-height: 100dvh; display: flex; flex-direction: column; background: #f8fafc; color: var(--ui-text); }
+.dark .dp-site { background: #001529; }
+.dp-site > main { flex: 1; }
+
+/* Tables stack into labelled rows on phones (spec 032, T061). Add data-label to each cell. */
+@media (max-width: 767px) {
+    .dp-stack-table thead { display: none; }
+    .dp-stack-table, .dp-stack-table tbody { display: block; }
+    .dp-stack-table tr { display: block; padding: 0.5rem 0; border-top: 1px solid var(--ui-border); }
+    .dp-stack-table td { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 0.375rem 1rem; text-align: right; }
+    .dp-stack-table td > * { min-width: 0; }
+    .dp-stack-table td[data-label]::before { content: attr(data-label); flex-shrink: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ui-text-muted); text-align: left; }
+    .dp-stack-table td[data-label=""]::before { content: none; }
+    .dp-stack-table td[colspan] { display: block; text-align: left; }
+}
+
+/* Grid and flex items shouldn't grow past their track on small screens because of long content. */
+.grid > .card, .grid > a.card { min-width: 0; }
+/* Public pages: cards never force their row wider than the screen. */
+.dp-site .card { min-width: 0; max-width: 100%; }
+/* Long tokens (file names, IDs) in public-page text wrap instead of widening the page. */
+.dp-site code, .dp-site .min-w-0 { overflow-wrap: anywhere; }
+/* Dashboard: long IDs, addresses and URLs wrap instead of widening the page on phones. */
+.dp-main { min-width: 0; }
+.dp-main .font-mono { overflow-wrap: anywhere; }
+/* Column flex children (page sections) shrink to the screen, so wide tables scroll inside their card. */
+.dp-site .flex-col > * { min-width: 0; }
+
+/* =====================================================================================
+   Contrast and link fixes from the axe pass (spec 032, T084). Tailwind colour utilities
+   used by older markup are remapped to shades that meet WCAG AA in each theme.
+   ===================================================================================== */
+/* DigiByte blue as text on navy (dark theme) is too dark: use a lighter shade of the same blue. */
+.dark .text-dgb-500, .dark .dark\:text-dgb-500, .dark .hover\:text-dgb-500:hover { color: #80b3ff; }
+/* Small grey text on light backgrounds. */
+html:not(.dark) .text-slate-500 { color: #475569; }
+html:not(.dark) .text-slate-400 { color: #475569; }
+.dark .dark\:text-slate-500 { color: #94a3b8; }
+.dark .text-slate-500 { color: #94a3b8; }
+/* Small red text on white. */
+html:not(.dark) .text-red-500 { color: #dc2626; }
+/* Telegram pill text. */
+.text-\[\#229ED9\] { color: #0b6c99; }
+/* Links inside running text are underlined, not told apart by colour alone. */
+p a:not([class*="btn"]), li a:not([class*="btn"]):not(.dp-rail-item):not(.dp-sitenav-link),
+.dp-muted a, figcaption a { text-decoration: underline; text-underline-offset: 2px; }
+/* Code samples can be scrolled with the keyboard; show where focus is. */
+.dp-code-pre:focus-visible { outline: 2px solid #80b3ff; outline-offset: 2px; }
+/* Light theme: accent text one shade darker so small labels and badges reach 4.5:1. */
+html:not(.dark) .text-dgb-500 { color: #0052a3; }
+html:not(.dark) .text-emerald-500, html:not(.dark) .text-emerald-600 { color: #047857; }
+html:not(.dark) .text-indigo-500 { color: #4338ca; }
+html:not(.dark) .text-amber-600 { color: #b45309; }
+html:not(.dark) .field-label .opacity-70 { opacity: 1; color: #475569; }
+/* Text links styled with hover:underline are underlined at rest too (they sit in running text). */
+.dp-site a.text-dgb-500.hover\:underline { text-decoration: underline; text-underline-offset: 2px; }
+.dark .text-indigo-500 { color: #a5b4fc; }
