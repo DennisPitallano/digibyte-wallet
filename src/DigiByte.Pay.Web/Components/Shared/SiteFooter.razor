@@ -3,29 +3,58 @@
     var telegramUrl = Config["Community:TelegramUrl"] ?? "https://t.me/+DPTlBcJeC4wyMGNl";
 }
 
-<footer class="border-t border-slate-200 dark:border-dgb-800 mt-16 py-8 px-4 text-center text-slate-500 dark:text-slate-400 text-[0.8125rem]">
-    @* Telegram subscribe pill. Visible on every page, sits above the
-       nav list so it reads as a distinct CTA rather than one more link. *@
-    <a href="@telegramUrl" target="_blank" rel="noopener"
-       class="inline-flex items-center gap-1.5 px-3 py-1.5 mb-3 rounded-full bg-[#229ED9]/10 hover:bg-[#229ED9]/15 text-[#229ED9] dark:text-[#4ec0e6] text-xs font-semibold no-underline transition-colors">
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0Zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.833.94Z" />
-        </svg>
-        Join on Telegram
-    </a>
-    <div class="space-x-2">
-        <a href="/" class="hover:text-slate-900 dark:hover:text-white no-underline">Home</a>·
-        <a href="/features" class="hover:text-slate-900 dark:hover:text-white no-underline">Features</a>·
-        <a href="/docs" class="hover:text-slate-900 dark:hover:text-white no-underline">How it works</a>·
-        <a href="/docs/pos" class="hover:text-slate-900 dark:hover:text-white no-underline">POS guide</a>·
-        <a href="/docs/api" class="hover:text-slate-900 dark:hover:text-white no-underline">Developers</a>·
-        <a href="/about" class="hover:text-slate-900 dark:hover:text-white no-underline">About</a>·
-        <a href="/merchant/signin" class="hover:text-slate-900 dark:hover:text-white no-underline">Sign in</a>·
-        <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="hover:text-slate-900 dark:hover:text-white no-underline">Wallet ↗</a>·
-        <a href="/pay/button?to=dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa&name=DigiPay&label=Thanks+for+supporting+DigiPay%21" target="_blank" rel="noopener" class="text-dgb-500 hover:underline no-underline">Tip us ❤</a>
+@* Site footer: three columns (Product, Developers, Project) that mirror the site menu's sections, so every
+   page, including the WooCommerce guide and the SDKs, is reachable from anywhere. Styles: digipay-docs.css. *@
+<footer class="dp-footer">
+    <div class="dp-footer-grid">
+        <div class="dp-footer-brand">
+            <a href="/" class="dp-brand">
+                <img src="/digipay-logo.svg" alt="" width="24" height="24" class="w-6 h-6 shrink-0" />
+                <span>Digi<span class="text-dgb-500">Pay</span></span>
+            </a>
+            <p>Non-custodial DigiByte payment gateway. Part of the <a href="https://dgbwallet.app" target="_blank" rel="noopener">dgbwallet.app</a> project.</p>
+            <a href="@telegramUrl" target="_blank" rel="noopener" class="dp-footer-telegram">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0Zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.833.94Z" />
+                </svg>
+                Join on Telegram<span class="sr-only"> (opens in a new tab)</span>
+            </a>
+        </div>
+
+        <nav class="dp-footer-col" aria-labelledby="dp-footer-product">
+            <h2 id="dp-footer-product">Product</h2>
+            <ul>
+                <li><a href="/features">Features</a></li>
+                <li><a href="/#how-it-works">How it works</a></li>
+                <li><a href="/docs/pos">Point of sale</a></li>
+                <li><a href="@ProductStatus.RoadmapHref">Roadmap</a></li>
+                <li data-auth-show="out"><a href="/merchant/signin">Sign in</a></li>
+                <li data-auth-show="in"><a href="/merchant">Dashboard</a></li>
+            </ul>
+        </nav>
+
+        <nav class="dp-footer-col" aria-labelledby="dp-footer-dev">
+            <h2 id="dp-footer-dev">Developers</h2>
+            <ul>
+                <li><a href="/docs#quickstart">Quickstart</a></li>
+                <li><a href="/docs/api">API reference</a></li>
+                <li><a href="/sdks">SDKs</a></li>
+                <li><a href="/docs/woocommerce">WooCommerce plugin</a></li>
+                <li><a href="/docs/pos">POS guide</a></li>
+            </ul>
+        </nav>
+
+        <nav class="dp-footer-col" aria-labelledby="dp-footer-project">
+            <h2 id="dp-footer-project">Project</h2>
+            <ul>
+                <li><a href="/about">About</a></li>
+                <li><a href="https://github.com/DennisPitallano/digibyte-wallet" target="_blank" rel="noopener">GitHub ↗<span class="sr-only"> (opens in a new tab)</span></a></li>
+                <li><a href="https://dgbwallet.app" target="_blank" rel="noopener">DigiByte Wallet ↗<span class="sr-only"> (opens in a new tab)</span></a></li>
+                <li><a href="/pay/button?to=dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa&name=DigiPay&label=Thanks+for+supporting+DigiPay%21" target="_blank" rel="noopener" class="text-dgb-500">Tip us ❤<span class="sr-only"> (opens in a new tab)</span></a></li>
+            </ul>
+        </nav>
     </div>
-    <div class="mt-2">DigiPay — non-custodial DigiByte payment gateway. Part of the <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="hover:text-slate-900 dark:hover:text-white">dgbwallet.app</a> project.</div>
-    <div class="mt-1 text-[0.6875rem]">
-        Built by <a href="https://dennispitallano.github.io" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">Dennis Pitallano</a>.
-    </div>
+    <p class="dp-footer-credit">
+        Built by <a href="https://dennispitallano.github.io" target="_blank" rel="noopener" class="text-dgb-500">Dennis Pitallano</a> and contributors. MIT licensed.
+    </p>
 </footer>

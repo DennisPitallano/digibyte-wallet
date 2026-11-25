@@ -8,10 +8,14 @@
         _        => ("bg-slate-100 dark:bg-slate-800",        "text-slate-700 dark:text-slate-300"),
     };
 }
-<div class="card my-5 p-4 sm:p-5">
+<div class="card my-5 p-4 sm:p-5 dp-endpoint" id="@Id">
     <div class="flex items-center gap-2 mb-3 font-mono text-[0.8125rem] sm:text-sm flex-wrap">
         <span class="@bg @fg px-2 py-0.5 rounded text-[0.6875rem] font-bold tracking-wider">@Method</span>
         <span class="break-all">@Path</span>
+        @if (!string.IsNullOrEmpty(Auth))
+        {
+            <span class="dp-endpoint-auth">@Auth</span>
+        }
     </div>
     @ChildContent
 </div>
@@ -20,4 +24,10 @@
     [Parameter] public string Method { get; set; } = "GET";
     [Parameter] public string Path { get; set; } = "";
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Optional anchor id for linking straight to this endpoint.</summary>
+    [Parameter] public string? Id { get; set; }
+
+    /// <summary>Who may call it, for example "API key", "No auth" or "Dashboard session".</summary>
+    [Parameter] public string? Auth { get; set; }
 }

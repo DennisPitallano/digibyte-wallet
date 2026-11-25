@@ -8,7 +8,8 @@
 
     <main class="flex-1 page-enter">
         @* Hero — stagger the eyebrow badge, headline, subhead, and CTA row
-           so the fold animates in like a single composed block. *@
+           so the fold animates in like a single composed block. Two paths: merchants
+           (sign in) and developers (quickstart / API reference). *@
         <section class="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-10 sm:pb-16 text-center">
             <div class="inline-block px-3 py-1 bg-dgb-500/10 text-dgb-500 rounded-full text-xs font-semibold mb-5 slide-up">
                 Non-custodial · Digi-ID auth · 15-second blocks
@@ -35,22 +36,21 @@
                     <Icon Name="dashboard" Class="w-4 h-4" />
                     Open dashboard →
                 </a>
-                <a href="/docs"
-                   class="btn-secondary inline-flex items-center justify-center">
-                    How it works
+                <a href="/docs#quickstart"
+                   class="btn-secondary inline-flex items-center justify-center gap-1.5">
+                    <Icon Name="code" Class="w-4 h-4" />
+                    Developer quickstart
                 </a>
             </div>
-            @* SDK availability strip — sits below the CTAs so integrators
-               scanning for their stack see "yes, there's a package for me"
-               immediately without clicking through to /sdks first. *@
+            @* Developer strip — integrators scanning for "is there an API / a package for my
+               stack" get a direct answer without scrolling. *@
             <div class="mt-5 flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-[0.6875rem] sm:text-xs text-slate-500 dark:text-slate-400 slide-up-delay-4">
-                <span class="font-semibold text-slate-700 dark:text-slate-300">SDKs:</span>
-                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">@("@dgbwallet/digipay")</a>
-                <span class="opacity-40">·</span>
-                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">digipay</a>
-                <span class="opacity-40">·</span>
-                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">DigiPay</a>
-                <a href="/sdks" class="text-dgb-500 hover:underline font-semibold">All three →</a>
+                <span class="font-semibold text-slate-700 dark:text-slate-300">For developers:</span>
+                <a href="/docs/api" class="hover:text-dgb-500 transition-colors no-underline">API reference</a>
+                <span class="opacity-40" aria-hidden="true">·</span>
+                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">SDKs for Node, Python, .NET</a>
+                <span class="opacity-40" aria-hidden="true">·</span>
+                <a href="/docs/woocommerce" class="hover:text-dgb-500 transition-colors no-underline">WooCommerce plugin</a>
             </div>
             @* Only pitch the wallet to signed-out visitors — signed-in merchants
                already have a wallet (they signed in with Digi-ID). *@
@@ -62,9 +62,9 @@
 
         @* Public stats strip. Aggregates only — no merchant ids, no sessions —
            so privacy is preserved while still giving visitors a read on momentum.
-           Fetched server-side during SSR; renders 0s if the API is down rather
-           than a spinner, so the strip layout doesn't shift on slow loads. *@
-        @if (stats is not null)
+           Fetched while the page is rendered on the server; skipped entirely if the
+           API is down rather than showing a spinner. *@
+        @if (Stats is { } stats)
         {
             <section class="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -142,7 +142,7 @@
                 <Feature IconName="shield" Title="Non-custodial"
                     Body="Payments go straight to your wallet. DigiPay never holds keys or funds — you don't need to trust us with anything." />
                 <Feature IconName="bell" Title="Signed webhooks"
-                    Body="HMAC-SHA256 POST on every state change: seen, paid, confirmed, expired, underpaid. Failed deliveries show in the dashboard with one-click replay." />
+                    Body="HMAC-SHA256 POST on every state change: seen, paid, confirmed, underpaid, expired, refunded, voided. Failed deliveries retry automatically, and any delivery can be replayed from the dashboard." />
                 <Feature IconName="gift" Title="Donation button"
                     Body="Zero-backend tip jar — paste a single anchor tag or a data-attribute on any page." />
                 <Feature IconName="package" Title="7 KB JS embed"
@@ -152,8 +152,8 @@
             </div>
         </section>
 
-        @* Steps *@
-        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        @* Steps — the site menu's "How it works" link lands here (/#how-it-works). *@
+        <section id="how-it-works" class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
             <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">How it works</p>
             <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">From zero to first payment in four steps</h2>
             <div class="grid gap-3 max-w-2xl mx-auto">
@@ -162,143 +162,55 @@
                 <Step N="2" Title="Paste an xpub or address"
                     Body="Account-level xpub gives you a fresh address per invoice (recommended). A single address works too for tip jars." />
                 <Step N="3" Title="Create a session"
-                    Body="One POST from your server returns a checkout_url. Redirect your buyer there, or open it as a modal with our 7 KB embed." />
+                    Body="One POST from your server returns a checkoutUrl. Redirect your buyer there, or open it as a modal with our 7 KB embed." />
                 <Step N="4" Title="Get paid, get notified"
                     Body="Buyer pays. DigiPay detects the tx in the mempool, tracks confirmations, and POSTs a signed webhook to your server at each state change." />
             </div>
             <div class="text-center mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-                <a href="/docs" class="btn-secondary inline-flex items-center justify-center">
-                    Read the tutorial
+                <a href="/docs#quickstart" class="btn-secondary inline-flex items-center justify-center">
+                    Developer quickstart
                 </a>
                 <a href="/embed/demo.html" target="_blank" class="btn-secondary inline-flex items-center justify-center">
-                    Live embed demo →
+                    Live embed demo →<span class="sr-only"> (opens in a new tab)</span>
                 </a>
             </div>
         </section>
 
-        @* Status + Roadmap — vertical timeline (same visual pattern as the main
-           wallet's /roadmap page). Gradient line down the left, status-coloured
-           dots, per-item checkmark / spinner / empty-circle markers. *@
+        @* Recently shipped — a short strip; the full roadmap lives in one place (ProductStatus,
+           rendered on /features#roadmap) so the two pages can't disagree. *@
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Status &amp; Roadmap</p>
-            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">What's shipped, what's next</h2>
-
-            @* Center-line alternating timeline on desktop (md+), single-column
-               stacked timeline with line on the left on mobile. Same visual
-               vocabulary as the wallet, reshaped for a marketing page where
-               horizontal breathing room is available. *@
-            <div class="max-w-4xl mx-auto relative px-1">
-                @* Gradient line: left-biased on mobile, dead-center on md+.
-                   Pushed one pixel left with -translate-x-1/2 on desktop so it
-                   lines up with the dots' centers. *@
-                <div class="absolute top-2 bottom-2 w-[2px] bg-gradient-to-b from-emerald-400 via-dgb-500 to-slate-300 dark:to-dgb-800
-                            left-[7px] md:left-1/2 md:-translate-x-1/2"></div>
-
-                @{
-                    var idx = 0;
-                }
-                @foreach (var m in milestones)
+            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Status</p>
+            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-2 tracking-tight">Recently shipped</h2>
+            <p class="text-center text-sm text-slate-500 dark:text-slate-400 mb-8">DigiPay is in @ProductStatus.Stage and open source.</p>
+            <ul class="dp-shipped-list max-w-5xl mx-auto">
+                @foreach (var item in ProductStatus.InStage(RoadmapStage.Shipped).Take(6))
                 {
-                    var i = idx++;
-                    var alignRight = i % 2 == 1;
-                    var dotColor = m.Status switch
-                    {
-                        RoadmapStatus.Done => "bg-emerald-500",
-                        RoadmapStatus.InProgress => "bg-dgb-500 animate-dp-pulse",
-                        _ => "bg-slate-300 dark:bg-dgb-800",
-                    };
-                    var cardBorder = m.Status switch
-                    {
-                        RoadmapStatus.Done => "border-emerald-100 dark:border-emerald-900/30",
-                        RoadmapStatus.InProgress => "border-dgb-200 dark:border-dgb-800",
-                        _ => "border-slate-200 dark:border-dgb-800/60",
-                    };
-                    var cardBg = m.Status switch
-                    {
-                        RoadmapStatus.Done => "bg-emerald-50/50 dark:bg-emerald-900/10",
-                        RoadmapStatus.InProgress => "bg-dgb-500/5 dark:bg-dgb-900/20",
-                        _ => "bg-white dark:bg-dgb-900/40",
-                    };
-                    var dateBadge = m.Status switch
-                    {
-                        RoadmapStatus.Done => "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30",
-                        RoadmapStatus.InProgress => "text-dgb-500 bg-dgb-500/10",
-                        _ => "text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-dgb-800",
-                    };
-                    @* Desktop alignment: odd index (2nd, 4th) sits on the right, others left.
-                       Mobile: always stacks with card to the right of the mobile-left line. *@
-                    var sideClasses = alignRight
-                        ? "md:pl-[calc(50%+1.5rem)]"
-                        : "md:pr-[calc(50%+1.5rem)]";
-
-                    <div class="relative pb-6 md:pb-10">
-                        @* Dot — positioned to the mobile-left line on sm, center on md+. *@
-                        <div class="absolute top-1.5 left-0 md:left-1/2 md:-translate-x-1/2 z-10">
-                            <div class="w-4 h-4 rounded-full border-2 border-slate-50 dark:border-dgb-950 @dotColor shadow-sm"></div>
-                        </div>
-
-                        <div class="pl-8 md:pl-0 @sideClasses">
-                            <div class="rounded-xl border @cardBorder @cardBg px-4 py-3">
-                                <div class="flex items-center gap-2 mb-1 flex-wrap">
-                                    <span class="text-[0.625rem] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md @dateBadge">@m.Date</span>
-                                    @if (m.Status == RoadmapStatus.InProgress)
-                                    {
-                                        <span class="text-[0.625rem] font-bold text-dgb-500 uppercase tracking-widest">In progress</span>
-                                    }
-                                </div>
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white leading-snug m-0">@m.Title</p>
-                                @if (m.Items.Length > 0)
-                                {
-                                    <ul class="mt-2 flex flex-col gap-1 list-none p-0 m-0">
-                                        @foreach (var item in m.Items)
-                                        {
-                                            <li class="flex items-start gap-2">
-                                                @if (m.Status == RoadmapStatus.Done)
-                                                {
-                                                    <svg class="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                                }
-                                                else if (m.Status == RoadmapStatus.InProgress)
-                                                {
-                                                    <div class="w-3 h-3 border-[1.5px] border-dgb-500 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5"></div>
-                                                }
-                                                else
-                                                {
-                                                    <div class="w-3 h-3 rounded-full border-[1.5px] border-slate-300 dark:border-dgb-700 shrink-0 mt-0.5"></div>
-                                                }
-                                                <span class="text-xs text-slate-600 dark:text-slate-400 leading-snug">@item</span>
-                                            </li>
-                                        }
-                                    </ul>
-                                }
-                            </div>
-                        </div>
-                    </div>
+                    <li class="card dp-shipped-item">
+                        <Icon Name="check-circle" Class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                        <div class="min-w-0"><strong>@item.Title</strong><span>@item.Description</span></div>
+                    </li>
                 }
-            </div>
-
-            <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4 max-w-2xl mx-auto">
-                DigiPay is open source. Roadmap order can shift based on merchant demand — if something here is blocking you, raise it on the repo and it climbs the list.
+            </ul>
+            <p class="text-center mt-6">
+                <a href="@ProductStatus.RoadmapHref" class="text-sm font-semibold text-dgb-500 hover:underline">See the full roadmap →</a>
             </p>
         </section>
 
-        @* Support card — doubles as a live demo of the donation button widget.
-           The <div data-digipay-button> below is replaced by digipay.js at
-           mount with the real production-styled button, so visitors literally
-           see (and can click) what their own site will look like. *@
+        @* Support card — doubles as a live demo of the donation button: the link goes to DigiPay's
+           own hosted tip page, the same page the embed's data-digipay-button opens. A plain link (not
+           the embed script) so it works before the live connection is up and survives re-rendering. *@
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
             <div class="card max-w-3xl mx-auto p-6 sm:p-8 text-center">
                 <p class="text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Support the project</p>
                 <h2 class="text-xl sm:text-2xl font-bold mb-3 tracking-tight">Built by humans, runs on DigiByte</h2>
                 <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed mb-6 max-w-xl mx-auto">
-                    If DigiPay saves you from writing a payment gateway yourself, throw us a few DGB. 100% of donations fund infrastructure and continued development — the button below uses DigiPay itself, so you're also seeing a live demo.
+                    If DigiPay saves you from writing a payment gateway yourself, throw us a few DGB. 100% of donations fund infrastructure and continued development — the button below uses DigiPay's own donation page, so you're also seeing a live demo.
                 </p>
                 <div class="flex justify-center">
-                    <div data-digipay-button
-                         data-address="dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa"
-                         data-name="DigiPay"
-                         data-label="Thanks for supporting DigiPay!">
-                        Tip DGB
-                    </div>
+                    <a href="/pay/button?to=dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa&name=DigiPay&label=Thanks+for+supporting+DigiPay%21"
+                       target="_blank" rel="noopener" class="dp-tip-button">
+                        Tip DGB<span class="sr-only"> (opens in a new tab)</span>
+                    </a>
                 </div>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-4">
                     Or copy the address: <span class="font-mono text-[0.6875rem] break-all">dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa</span>
@@ -307,8 +219,6 @@
                     <a href="/docs#donation-button" class="text-dgb-500 hover:underline">Want one of these on your own site?</a>
                 </p>
             </div>
-            @* Mount the widget so the placeholder above becomes a real button. *@
-            <script src="/embed/digipay.js"></script>
         </section>
 
         <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center">
@@ -324,6 +234,10 @@
                     <Icon Name="dashboard" Class="w-4 h-4" />
                     Open dashboard
                 </a>
+                <a href="/docs#quickstart"
+                   class="btn-secondary inline-flex items-center justify-center">
+                    Developer quickstart
+                </a>
                 <a href="/docs/api"
                    class="btn-secondary inline-flex items-center justify-center">
                     API reference
@@ -338,95 +252,26 @@
 
 
 @code {
-    private StatsDto? stats;
+    /// <summary>
+    /// Public counters. Fetched while the page is rendered on the server and carried over to the live
+    /// page (PersistentState), so they arrive in the first HTML and aren't fetched twice.
+    /// </summary>
+    [PersistentState]
+    public StatsDto? Stats { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        // Best-effort — if the API is unreachable during SSR we silently skip
-        // rendering the strip rather than blocking the home page load.
+        if (Stats is not null) return;
+        // Best-effort — if the API is unreachable we silently skip the strip rather
+        // than blocking the home page load.
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            stats = await http.GetFromJsonAsync<StatsDto>("/v1/pay/public/stats", cts.Token);
+            Stats = await http.GetFromJsonAsync<StatsDto>("/v1/pay/public/stats", cts.Token);
         }
         catch { /* swallow — strip just won't render */ }
     }
 
-    private record StatsDto(int Merchants, int Stores, int Sessions, int PaidSessions, decimal TotalDgb, DateTime GeneratedAt);
-
-    private enum RoadmapStatus { Done, InProgress, Planned }
-
-    private record Milestone(string Date, string Title, RoadmapStatus Status, string[] Items);
-
-    private Milestone[] milestones = new[]
-    {
-        new Milestone("Apr 2026", "v0 preview — available today", RoadmapStatus.Done, new[]
-        {
-            "Digi-ID sign-in with 30-day sessions",
-            "Multi-store dashboard (one account, many shops)",
-            "BIP84 xpub derivation + single-address modes",
-            "Hosted checkout with live status (SignalR) + QR + Open in wallet",
-            "Signed webhooks (HMAC-SHA256) with delivery log + one-click replay",
-            "Per-merchant API keys (create, revoke, show-once secret)",
-            "Donation button generator — hosted page, JS embed, raw BIP21",
-            "REST API + OpenAPI docs + 7 KB embed widget",
-            "Late-payment reconciliation (3-day grace window)",
-        }),
-        new Milestone("Apr 2026", "Production + DX polish", RoadmapStatus.Done, new[]
-        {
-            "Production deployment at pay.dgbwallet.app (Postgres-backed)",
-            "Rate limits on public sandbox endpoints (20 req/min per IP)",
-            "Fiat price lock at session creation (USD/EUR/GBP), locked amount enforced at settlement",
-            "Public OpenAPI 3.1 + Scalar reference at /scalar with Bearer security scheme and canonical error responses, grouped by tag (Sessions, Stores & webhooks, Public, Sandbox)",
-            "DemoDataJanitor — 24h sweep of sandbox merchants/stores/sessions so the DB doesn't grow forever",
-            "Distinct DigiPay + dgbwallet product logos (SVG + PNG) wired across favicons, nav, dashboard, PWA manifest",
-            "Unified dashboard header matching the public site's brand treatment; page-wide entrance animations (page-enter / slide-up / scale-in)",
-            "Sign-in page overhaul: DigiByte mark centred on the QR, 3-step checklist, live countdown, copy-challenge fallback",
-            "Webhook signature docs with Node/Python/PHP/C# examples",
-            "Telegram community group + site-wide join link in footer",
-        }),
-        new Milestone("Apr 2026", "v1 — public developer preview", RoadmapStatus.Done, new[]
-        {
-            "Automatic webhook retries — backoff schedule 1m / 5m / 30m / 2h / 6h then dead-letter; transient failures (network / 5xx / 408 / 429) auto-retry, permanent 4xx stays failed for manual replay",
-            "CSV export of sessions + deliveries for bookkeeping (?format=csv on both list endpoints; one-click download buttons in the dashboard)",
-        }),
-        new Milestone("Apr 2026", "First-party SDKs", RoadmapStatus.Done, new[]
-        {
-            "@dgbwallet/digipay on npm — Node 18+, ESM + CJS, zero deps",
-            "digipay on PyPI — Python 3.10+, py.typed, trusted-publisher releases",
-            "DigiPay on NuGet — net8.0 + net9.0 (forward-compatible with net10), SourceLink-enabled",
-            "Identical surface across all three: DigiPay client + webhook verifier + DigiPayError with HTTP status preserved; same 8-test behaviour-parity suite on each",
-            "Tag-triggered publishing (sdk-{lang}-v*) with version/tag guards and provenance attestations where the registry supports them",
-        }),
-        new Milestone("Apr 2026", "POS + merchant adoption", RoadmapStatus.Done, new[]
-        {
-            "POS mode — tablet pairing (6-char code, 10-min TTL), amount pad with currency cycler, tip presets, shift-close reports with collected/expired/underpaid breakdown",
-            "Refunds & voids — off-platform refund recording (you send DGB, stamp the txid) and void for unpaid sessions, both fanned out as webhooks",
-            "Dashboard analytics — KPI tiles (gross, sessions, conversion, refund rate), daily stacked-outcome chart, DGB volume chart",
-            "Append-only audit log — every void / refund / store / key mutation with actor + IP, paginated and exportable",
-            "End-to-end sample apps — single-file mini-stores for Express, Flask, and ASP.NET Core covering checkout + HMAC-verified webhooks",
-            "Payment links (no-code) — dashboard tab to mint a shareable checkout URL with QR + email/SMS/Web Share buttons; DGB or fiat priced",
-            "Idempotency keys + Postman collection — Stripe-style Idempotency-Key header on session creation (replay-safe within 24h, scoped per merchant), curated Postman 2.1 collection with auto-saved variables",
-            "WooCommerce plugin (PHP) — drop-in WordPress plugin with WC Blocks-checkout integration, CoinGecko-backed fiat pricing (USD/EUR/GBP/PHP/JPY), HMAC-signed webhooks with 5min replay window, merchant returnUrl round-trip + auto-redirect back to the WC thank-you page",
-        }),
-        new Milestone("Q3 2026", "v2 — CMS & webhook reach", RoadmapStatus.InProgress, new[]
-        {
-            "Email receipts — customer email on session.confirmed with txid + amount, opt-in per store; SMTP / SendGrid / Resend pluggable via configuration",
-            "Automated test suite (Pay.Api) — first xUnit project covering idempotency races, webhook HMAC verification, rate-limit policies, and pairing-code expiry",
-            "Refund helper (generates outgoing-tx URI — non-custodial so you sign it)",
-            "Per-key scopes (read:sessions vs write:sessions)",
-            "Invoice-level audit log (who viewed / paid / received the webhook)",
-            "Telegram payment notifications — per-store bot token + chat, fans out from the existing webhook dispatcher",
-        }),
-        new Milestone("Q4 2026+", "v3 — expansion", RoadmapStatus.Planned, new[]
-        {
-            "digipay listen — Stripe-CLI-shaped local webhook tunnel that forwards verified events to your localhost. Distributed via npm / PyPI / NuGet so devs can pick the runtime they already have",
-            "Shopify app",
-            "Subscriptions & recurring re-auth",
-            "Optional custodial settlement layer with fiat on-ramp partner",
-            "DigiAssets + smart contract payment flows",
-            "Telegram Mini App merchant dashboard — manage sessions and invoices inside Telegram",
-        }),
-    };
+    public sealed record StatsDto(int Merchants, int Stores, int Sessions, int PaidSessions, decimal TotalDgb, DateTime GeneratedAt);
 }

@@ -1,0 +1,22 @@
+@* One row of a <ParamList>: field name, type, required flag, and what it does. *@
+<div class="dp-param">
+    <dt>
+        <code class="dp-param-name">@Name</code>
+        @if (!string.IsNullOrEmpty(Type))
+        {
+            <span class="dp-param-type">@Type</span>
+        }
+        @if (Required)
+        {
+            <span class="dp-param-req">required</span>
+        }
+    </dt>
+    <dd>@ChildContent</dd>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public string? Type { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

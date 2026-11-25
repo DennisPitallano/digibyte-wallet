@@ -1,5 +1,40 @@
-<h2 class="text-lg sm:text-xl font-bold mt-10 mb-2 tracking-tight text-slate-900 dark:text-white">@ChildContent</h2>
+@inject NavigationManager Nav
+
+@* Section heading for the docs pages. With an Id it becomes a link target: the heading gets the id
+   (and a scroll margin, so it doesn't sit flush against the top of the window), and a "#" link that
+   appears on hover or keyboard focus gives readers a shareable address for the section. The link carries the page path because the
+   site's <base href="/"> would otherwise send a bare "#id" to the home page. *@
+@if (Level == 3)
+{
+    <h3 id="@Id" class="dp-docs-h dp-docs-h3">@ChildContent@Anchor</h3>
+}
+else
+{
+    <h2 id="@Id" class="dp-docs-h dp-docs-h2">@ChildContent@Anchor</h2>
+}
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Anchor id, for example "webhooks". Lowercase, words joined by hyphens.</summary>
+    [Parameter] public string? Id { get; set; }
+
+    /// <summary>2 (default) for a section, 3 for a sub-section.</summary>
+    [Parameter] public int Level { get; set; } = 2;
+
+    private RenderFragment? Anchor => string.IsNullOrEmpty(Id) ? null : builder =>
+    {
+        builder.OpenElement(0, "a");
+        builder.AddAttribute(1, "href", $"{CurrentPath()}#{Id}");
+        builder.AddAttribute(2, "class", "dp-docs-anchor");
+        builder.AddAttribute(3, "aria-label", "Link to this section");
+        builder.AddContent(4, "#");
+        builder.CloseElement();
+    };
+
+    private string CurrentPath()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath;
+        return path.Length > 1 ? path.TrimEnd('/') : path;
+    }
 }
