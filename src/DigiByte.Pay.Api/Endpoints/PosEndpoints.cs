@@ -3,7 +3,6 @@ using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Hubs;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace DigiByte.Pay.Api.Endpoints;
 
@@ -19,9 +18,11 @@ namespace DigiByte.Pay.Api.Endpoints;
 ///      freshly-minted API key + the target store id. The tablet stashes
 ///      those in localStorage and is now a working POS terminal.
 ///
-/// The pairing record lives in IMemoryCache (10-min TTL, single-use). The
-/// PayApiKey row is only persisted on claim — so an unclaimed pairing
-/// leaves no trail. Claim is rate-limited (see Program.cs) to prevent
+/// The pairing record is a PayPosPairing row (10-min TTL, single-use) so codes
+/// survive restarts and work across API instances; it holds a hash of the
+/// code and the key prefix, never the code or a secret. The PayApiKey row
+/// (and its secret) is only made on claim — an unclaimed pairing just expires
+/// and is swept. Claim is rate-limited (see Program.cs) to prevent
 /// brute-forcing the 6-char code.
 /// </summary>
 public static class PosEndpoints
@@ -31,18 +32,16 @@ public static class PosEndpoints
     // that's far beyond brute-force reach for a kiosk pairing flow.
     private const string CodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     private const int CodeLength = 6;
-    private const string CachePrefix = "pos:pair:";
     private static readonly TimeSpan PairingTtl = TimeSpan.FromMinutes(10);
 
     public static RouteGroupBuilder MapPosEndpoints(this RouteGroupBuilder group)
     {
-        // Merchant-authed: mint a pairing code. No DB write yet — the actual
-        // PayApiKey only lands when the tablet redeems the code.
+        // Merchant-authed: mint a pairing code. Only the pairing row is written —
+        // the actual PayApiKey only lands when the tablet redeems the code.
         group.MapPost("/pairings", async (
             CreatePairingRequest body,
             HttpRequest http,
-            DigiPayDbContext db,
-            IMemoryCache cache) =>
+            DigiPayDbContext db) =>
         {
             var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
             if (merchant is null) return Results.Unauthorized();
@@ -71,23 +70,48 @@ public static class PosEndpoints
                 : $"POS — {body.DeviceLabel.Trim()}";
             if (deviceLabel.Length > 80) deviceLabel = deviceLabel[..80];
 
-            var (prefix, secret, hash) = MerchantAuthenticator.GenerateApiKey();
+            // Only the prefix is fixed now; the secret is minted at claim time, so no
+            // secret ever sits in the pairing row.
+            var prefix = MerchantAuthenticator.GenerateApiKeyPrefix();
 
-            // Try a small number of rerolls if the human-readable code collides
-            // in-cache (probability ~1e-9 per attempt — effectively never).
+            // Opportunistic cleanup: expired codes can't be claimed, and clearing them
+            // first means they can't collide with a new code either.
+            var now = DateTime.UtcNow;
+            await db.PosPairings.Where(p => p.ExpiresAt <= now).ExecuteDeleteAsync();
+
+            // The unique index on CodeHash rejects a code that collides with a live one
+            // (probability ~1e-9 per attempt — effectively never); reroll a few times.
+            var expiresAt = now.Add(PairingTtl);
             string code;
             for (var attempt = 0; ; attempt++)
             {
                 code = GeneratePairingCode();
-                if (!cache.TryGetValue(CachePrefix + code, out _)) break;
-                if (attempt >= 5)
-                    return Results.Problem("Could not allocate pairing code, retry.");
+                var pairing = new PayPosPairing
+                {
+                    Id = $"pair_{RandomId(16)}",
+                    CodeHash = HashPairingCode(code),
+                    MerchantId = merchant.Id,
+                    StoreId = store.Id,
+                    StoreName = store.Name,
+                    MerchantName = merchant.DisplayName,
+                    DeviceLabel = deviceLabel,
+                    KeyPrefix = prefix,
+                    CreatedAt = now,
+                    ExpiresAt = expiresAt,
+                };
+                db.PosPairings.Add(pairing);
+                try
+                {
+                    await db.SaveChangesAsync();
+                    break;
+                }
+                catch (DbUpdateException)
+                {
+                    db.Entry(pairing).State = EntityState.Detached;
+                    if (attempt >= 5)
+                        return Results.Problem("Could not allocate pairing code, retry.");
+                }
             }
-
-            var expiresAt = DateTime.UtcNow.Add(PairingTtl);
-            cache.Set(CachePrefix + code, new PairingEntry(
-                merchant.Id, store.Id, store.Name, merchant.DisplayName,
-                prefix, secret, hash, deviceLabel, expiresAt), PairingTtl);
 
             return Results.Ok(new
             {
@@ -102,12 +126,12 @@ public static class PosEndpoints
             });
         });
 
-        // Unauthed redemption. Single-shot: first valid POST wins, cache entry
-        // is removed even on failure paths that got past lookup (store gone).
+        // Unauthed redemption. Single-shot: first valid POST wins (on any API
+        // instance), and the pairing row is deleted even on failure paths that
+        // got past lookup (store gone).
         group.MapPost("/claim", async (
             ClaimPairingRequest body,
-            DigiPayDbContext db,
-            IMemoryCache cache) =>
+            DigiPayDbContext db) =>
         {
             if (string.IsNullOrWhiteSpace(body.Code))
                 return Results.BadRequest(new { error = "code is required", reason = "missing" });
@@ -124,21 +148,33 @@ public static class PosEndpoints
                     reason = "malformed",
                 });
 
-            var cacheKey = CachePrefix + normalized;
-            if (!cache.TryGetValue<PairingEntry>(cacheKey, out var entry) || entry is null)
-                return Results.NotFound(new
-                {
-                    // Cache silently drops expired entries, so from here we can't
-                    // tell "never existed" from "expired or already claimed".
-                    // Bias the message to expiry — the most common case for a
-                    // correctly-formatted code that's no longer redeemable.
-                    error = "pairing code expired or already used — ask your manager for a fresh code",
-                    reason = "expired",
-                });
+            // Used and expired rows are deleted, so from here we can't tell
+            // "never existed" from "expired or already claimed". Bias the
+            // message to expiry — the most common case for a correctly-formatted
+            // code that's no longer redeemable.
+            static IResult Expired() => Results.NotFound(new
+            {
+                error = "pairing code expired or already used — ask your manager for a fresh code",
+                reason = "expired",
+            });
 
-            // Consume the code immediately — even if the DB write below throws,
-            // the code is spent. Prevents replay on transient errors.
-            cache.Remove(cacheKey);
+            var now = DateTime.UtcNow;
+            await db.PosPairings.Where(p => p.ExpiresAt <= now).ExecuteDeleteAsync();
+
+            var codeHash = HashPairingCode(normalized);
+            var entry = await db.PosPairings.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.CodeHash == codeHash && p.ExpiresAt > now);
+            if (entry is null) return Expired();
+
+            // Consume the code atomically before doing anything else: only the
+            // request whose DELETE removes the row may continue, so two claims
+            // racing (even on different API instances) can't both win. Even if
+            // the key write below throws, the code is spent — no replay on
+            // transient errors.
+            var consumed = await db.PosPairings
+                .Where(p => p.Id == entry.Id && p.ExpiresAt > now)
+                .ExecuteDeleteAsync();
+            if (consumed != 1) return Expired();
 
             // Re-verify the store still belongs to the merchant (defence-in-depth
             // in case something was revoked in the 0–10min window).
@@ -147,12 +183,13 @@ public static class PosEndpoints
             if (store is null)
                 return Results.BadRequest(new { error = "pairing target store is no longer available" });
 
+            var (secret, hash) = MerchantAuthenticator.GenerateApiKeySecret();
             db.ApiKeys.Add(new PayApiKey
             {
                 Id = $"key_{RandomId(16)}",
                 MerchantId = entry.MerchantId,
-                Prefix = entry.Prefix,
-                Hash = entry.Hash,
+                Prefix = entry.KeyPrefix,
+                Hash = hash,
                 Label = entry.DeviceLabel,
                 // A tablet key, bound to the store it was paired for (see Auth.ApiCaller).
                 Kind = ApiKeyKind.Pos,
@@ -162,8 +199,8 @@ public static class PosEndpoints
 
             return Results.Ok(new
             {
-                apiKey = $"{entry.Prefix}_{entry.Secret}",
-                prefix = entry.Prefix,
+                apiKey = $"{entry.KeyPrefix}_{secret}",
+                prefix = entry.KeyPrefix,
                 merchantId = entry.MerchantId,
                 merchantName = entry.MerchantName,
                 storeId = entry.StoreId,
@@ -474,16 +511,11 @@ public static class PosEndpoints
         return new string(chars);
     }
 
-    private sealed record PairingEntry(
-        string MerchantId,
-        string StoreId,
-        string StoreName,
-        string MerchantName,
-        string Prefix,
-        string Secret,
-        string Hash,
-        string DeviceLabel,
-        DateTime ExpiresAt);
+    /// <summary>
+    /// Lookup key stored for a normalised pairing code (SHA-256 hex), so a database dump
+    /// doesn't hand out live codes.
+    /// </summary>
+    public static string HashPairingCode(string normalizedCode) => MerchantAuthenticator.HashSecret(normalizedCode);
 }
 
 public record CreatePairingRequest(string? StoreId, string? DeviceLabel);

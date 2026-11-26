@@ -105,9 +105,22 @@ public static class MerchantAuthenticator
 
     public static (string Prefix, string Secret, string Hash) GenerateApiKey()
     {
-        var prefix = $"dgp_{RandomId(10)}";
+        var prefix = GenerateApiKeyPrefix();
+        var (secret, hash) = GenerateApiKeySecret();
+        return (prefix, secret, hash);
+    }
+
+    /// <summary>A fresh "dgp_…" API key prefix (the non-secret half of a key).</summary>
+    public static string GenerateApiKeyPrefix() => $"dgp_{RandomId(10)}";
+
+    /// <summary>
+    /// A fresh API key secret and its stored hash, for a prefix chosen earlier (POS pairing
+    /// fixes the prefix when the code is made but only mints the secret when it is claimed).
+    /// </summary>
+    public static (string Secret, string Hash) GenerateApiKeySecret()
+    {
         var secret = RandomId(32);
-        return (prefix, secret, HashSecret(secret));
+        return (secret, HashSecret(secret));
     }
 
     private static string RandomId(int lengthChars)

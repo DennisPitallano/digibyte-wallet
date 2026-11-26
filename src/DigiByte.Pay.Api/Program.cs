@@ -343,6 +343,24 @@ using (var scope = app.Services.CreateScope())
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"ApiKeys\" ADD COLUMN \"StoreId\" VARCHAR(32) NULL"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Sessions\" ADD COLUMN \"Simulated\" INTEGER NOT NULL DEFAULT 0"); } catch { }
         if (kindAdded) await db.Database.ExecuteSqlRawAsync(DigiByte.Pay.Api.Data.ApiKeyKindBackfill.Sql);
+
+        // ...and before AddPosPairings: the table that holds open POS pairing codes.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PosPairings" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_PosPairings" PRIMARY KEY,
+                "CodeHash" TEXT NOT NULL,
+                "MerchantId" TEXT NOT NULL,
+                "StoreId" TEXT NOT NULL,
+                "StoreName" TEXT NOT NULL,
+                "MerchantName" TEXT NOT NULL,
+                "DeviceLabel" TEXT NOT NULL,
+                "KeyPrefix" TEXT NOT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                "ExpiresAt" TEXT NOT NULL
+            )
+            """);
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_PosPairings_CodeHash\" ON \"PosPairings\" (\"CodeHash\")");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_PosPairings_ExpiresAt\" ON \"PosPairings\" (\"ExpiresAt\")");
     }
 
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.
