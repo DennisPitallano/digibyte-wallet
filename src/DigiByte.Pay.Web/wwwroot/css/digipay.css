@@ -772,3 +772,9 @@ input[inputmode="numeric"] {
 /* Blazor focuses the page heading after each navigation (FocusOnNavigate) so screen readers start there. That
    focus isn't a keyboard user's, so don't draw the browser's ring around the heading. */
 h1[tabindex="-1"]:focus { outline: none; }
+
+/* Wallet buttons on the checkout and tip page (Shared/Ui/WalletButtons). */
+.ui-wallet-buttons { width: 100%; display: flex; flex-direction: column; gap: 0.5rem; }
+.ui-wallet-web { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
+.ui-wallet-web-logo { width: 1.125rem; height: 1.125rem; border-radius: 0.25rem; }
+.ui-wallet-hint { margin: 0; text-align: center; font-size: 0.75rem; color: var(--ui-text-muted); }

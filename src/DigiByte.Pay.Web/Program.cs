@@ -36,6 +36,8 @@ var payApiPublicUrl = builder.Configuration["DigiPay:ApiPublicUrl"] ?? payApiUrl
 builder.Services.AddHttpClient("PayApi", c => c.BaseAddress = new Uri(payApiUrl));
 builder.Services.AddSingleton(new PayApiUrl(payApiUrl));
 builder.Services.AddSingleton(new PayApiPublicUrl(payApiPublicUrl));
+// The DigiByte Wallet's web address, for "Pay with DigiByte Wallet" on the checkout and tip page.
+builder.Services.AddSingleton(new WalletAppUrl(builder.Configuration["DigiPay:WalletUrl"] ?? WalletAppUrl.Default));
 
 var app = builder.Build();
 
@@ -100,3 +102,9 @@ app.Run();
 
 public record PayApiUrl(string Value);
 public record PayApiPublicUrl(string Value);
+
+/// <summary>The DigiByte Wallet's web address (payment links open its /pay page). Config: DigiPay:WalletUrl.</summary>
+public record WalletAppUrl(string Value)
+{
+    public const string Default = "https://dgbwallet.app";
+}

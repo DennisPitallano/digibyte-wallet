@@ -1,0 +1,29 @@
+@inject IServiceProvider Services
+@* The ways to pay a digibyte: request from this page: an installed wallet app (the digibyte: link), or the DigiByte
+   Wallet in the browser (dgbwallet.app), which opens its Send screen with the address and amount filled in. The
+   request goes after the # of the wallet link, so the wallet's server never sees it (the wallet's payment links,
+   DigiByte.Wallet PaymentLink). *@
+<div class="ui-wallet-buttons">
+    <a href="@Uri" class="btn-primary w-full">Open in wallet</a>
+    <a href="@WebWalletHref" target="_blank" rel="noopener" class="btn-secondary w-full ui-wallet-web">
+        <img src="/dgbwallet-logo.svg" alt="" width="18" height="18" class="ui-wallet-web-logo" />
+        <span>Pay with DigiByte Wallet</span>
+        <Icon Name="external-link" Class="w-4 h-4 opacity-70" />
+        <span class="sr-only">(dgbwallet.app, opens in a new tab)</span>
+    </a>
+    <p class="ui-wallet-hint">No wallet app? The DigiByte Wallet works in your browser.</p>
+</div>
+
+@code {
+    /// <summary>The digibyte: request, e.g. digibyte:dgb1…?amount=5&amp;label=…</summary>
+    [Parameter, EditorRequired] public string Uri { get; set; } = "";
+
+    private string WebWalletHref
+    {
+        get
+        {
+            var baseUrl = (Services.GetService(typeof(WalletAppUrl)) as WalletAppUrl)?.Value ?? WalletAppUrl.Default;
+            return $"{baseUrl.TrimEnd('/')}/pay#{Uri}";
+        }
+    }
+}
