@@ -239,6 +239,22 @@
         createModal(withTheme(origin + '/pay/' + encodeURIComponent(opts.sessionId), opts.theme), opts.theme, opts);
     }
 
+    /** Resolves a button logo: 'dgb' → DigiPay's DigiByte logo; otherwise only absolute http(s) URLs. */
+    function resolveLogo(logo) {
+        if (!logo) return null;
+        logo = String(logo).trim();
+        if (logo.toLowerCase() === 'dgb') return origin + '/digibyte-logo.svg';
+        return /^https?:\/\//i.test(logo) ? logo : null;
+    }
+
+    /**
+     * Builds a donation button (an <a> to the hosted tip page).
+     *
+     * opts.address  (required) DigiByte address to pay.
+     * opts.amount / opts.name / opts.label / opts.theme  optional, passed to the tip page.
+     * opts.text     optional button text (default 'Pay with DigiByte').
+     * opts.logo     optional image shown before the text: 'dgb' for the DigiByte logo, or an http(s) URL.
+     */
     function button(opts) {
         if (!opts || !opts.address) throw new Error('DigiPay.button requires { address }');
         requireOrigin();
@@ -252,7 +268,17 @@
         a.href = url;
         a.target = '_blank';
         a.rel = 'noopener';
-        a.textContent = opts.text || 'Pay with DigiByte';
+        var logoUrl = resolveLogo(opts.logo);
+        if (logoUrl) {
+            var img = document.createElement('img');
+            img.src = logoUrl;
+            img.alt = '';
+            img.width = 20;
+            img.height = 20;
+            img.style.cssText = 'width:20px;height:20px;object-fit:contain;border-radius:50%;flex-shrink:0;';
+            a.appendChild(img);
+        }
+        a.appendChild(document.createTextNode(opts.text || 'Pay with DigiByte'));
         a.style.cssText =
             'display:inline-flex;align-items:center;gap:8px;padding:10px 18px;' +
             'background:#0066ff;color:#fff;border-radius:10px;text-decoration:none;' +
@@ -286,7 +312,8 @@
                 name: el.getAttribute('data-name'),
                 label: el.getAttribute('data-label'),
                 theme: el.getAttribute('data-theme'),
-                text: el.textContent || undefined,
+                logo: el.getAttribute('data-logo'),
+                text: (el.textContent || '').trim() || undefined,
             });
             el.replaceWith(a);
         });
