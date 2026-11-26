@@ -14,6 +14,7 @@ public class DigiPayDbContext : DbContext
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<PayPosPairing> PosPairings => Set<PayPosPairing>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +128,22 @@ public class DigiPayDbContext : DbContext
             e.Property(r => r.MerchantId).HasMaxLength(32).IsRequired();
             e.Property(r => r.Key).HasMaxLength(255).IsRequired();
             e.Property(r => r.SessionId).HasMaxLength(32).IsRequired();
+        });
+
+        modelBuilder.Entity<PayPosPairing>(e =>
+        {
+            e.HasKey(p => p.Id);
+            // Unique: a freshly generated code that collides with a live one is rerolled.
+            e.HasIndex(p => p.CodeHash).IsUnique();
+            e.HasIndex(p => p.ExpiresAt);
+            e.Property(p => p.Id).HasMaxLength(32);
+            e.Property(p => p.CodeHash).HasMaxLength(64).IsRequired();
+            e.Property(p => p.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(p => p.StoreId).HasMaxLength(32).IsRequired();
+            e.Property(p => p.StoreName).HasMaxLength(120).IsRequired();
+            e.Property(p => p.MerchantName).HasMaxLength(120).IsRequired();
+            e.Property(p => p.DeviceLabel).HasMaxLength(80).IsRequired();
+            e.Property(p => p.KeyPrefix).HasMaxLength(32).IsRequired();
         });
     }
 }
