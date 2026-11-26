@@ -89,29 +89,44 @@
             <CodeBlock Lang="json" Label="Copy the session response example">@("{\n  \"id\": \"ses_8kq2x7m4n9p3r6t1\",\n  \"storeId\": \"sto_4fj8w2k9m3n7p5q1\",\n  \"address\": \"dgb1qexampleaddress\",\n  \"amount\": 12.5,\n  \"status\": \"pending\",\n  \"uri\": \"digibyte:dgb1qexampleaddress?amount=12.5&label=Order%20%234201\",\n  \"checkoutUrl\": \"https://pay.dgbwallet.app/pay/ses_8kq2x7m4n9p3r6t1\",\n  \"expiresAt\": \"2026-11-26T12:30:00Z\"\n}")</CodeBlock>
             <p class="@P">Send the buyer to <InlineCode>checkoutUrl</InlineCode>, or show <InlineCode>uri</InlineCode> as a QR code in your own page. Keep <InlineCode>id</InlineCode> with your order.</p>
 
-            <DocsHeading Id="qs-simulate" Level="3">4. Watch a checkout move, without paying</DocsHeading>
+            <DocsHeading Id="qs-simulate" Level="3">4. Pay it on a testnet store, without real coins</DocsHeading>
             <p class="@P">
-                The public sandbox walks a demo session through every state so you can see the hosted checkout react. It needs no key
-                (20 requests per minute per address):
+                Make a second store on <InlineCode>testnet</InlineCode> (or <InlineCode>regtest</InlineCode>), give it a testnet address and your
+                webhook URL, and create the session there. The sandbox can then play the buyer: each <InlineCode>advance</InlineCode> call moves
+                the session one step, <InlineCode>pending → seen → paid → confirmed</InlineCode>, sends the same webhooks a real payment would and
+                updates any open checkout.
             </p>
-            <CodeBlock Lang="bash" Label="Copy the sandbox example">@("# 1. Make a throwaway demo session (5 DGB, its own demo store)\ncurl -X POST https://api.pay.dgbwallet.app/v1/pay/test/demo-session\n# -> { \"sessionId\": \"ses_demo_...\", \"storeId\": \"sto_demo_...\", \"merchantId\": \"mer_demo_...\" }\n\n# 2. Open https://pay.dgbwallet.app/pay/ses_demo_... in a browser, then advance it.\n#    Each call moves it one step: pending -> seen -> paid -> confirmed\ncurl -X POST https://api.pay.dgbwallet.app/v1/pay/test/sessions/ses_demo_.../advance")</CodeBlock>
+            <CodeBlock Lang="bash" Label="Copy the testnet flow example">@TestnetFlow</CodeBlock>
+            <p class="@P">
+                To jump straight to a step, send a body. <InlineCode>to</InlineCode> is <InlineCode>seen</InlineCode>, <InlineCode>paid</InlineCode> or
+                <InlineCode>confirmed</InlineCode>; <InlineCode>confirmations</InlineCode> sets the count (6 is final):
+            </p>
+            <CodeBlock Lang="json" Label="Copy the advance body example">@("{\n  \"to\": \"paid\",\n  \"confirmations\": 3\n}")</CodeBlock>
+            <p class="@P">Every call answers with where the session is now:</p>
+            <CodeBlock Lang="json" Label="Copy the advance response example">@("{\n  \"id\": \"ses_8kq2x7m4n9p3r6t1\",\n  \"status\": \"paid\",\n  \"confirmations\": 3,\n  \"receivedSatoshis\": 1250000000,\n  \"paidTxid\": \"c4de7f12a34bc6de3e9f1d7b5a2c3f7e8b4d1a6c9e5f2a8d3b7c1e4f6a9d2c5\"\n}")</CodeBlock>
             <div class="dp-callout dp-callout-warn">
-                <p><strong>The sandbox only moves demo sessions.</strong> <InlineCode>advance</InlineCode> refuses any id that doesn't start with
-                    <InlineCode>ses_demo_</InlineCode>, and demo stores have no webhook URL, so it never calls your server. Use step 5 to test your
-                    webhook receiver, and a <a href="/docs#testing">testnet store</a> to run the real sequence end to end.</p>
+                <p><strong>Only test stores.</strong> Advancing a session on a <InlineCode>mainnet</InlineCode> store answers <InlineCode>400</InlineCode>
+                    (<InlineCode>advance only works on testnet or regtest stores</InlineCode>), so it can never fake a real payment. The call needs the
+                    API key of the account that owns the session.</p>
+                <p><strong>No account yet?</strong> <InlineCode>POST /v1/pay/test/demo-session</InlineCode> makes a throwaway <InlineCode>ses_demo_…</InlineCode>
+                    session that anyone can advance without a key. It's for watching the checkout; demo stores have no webhook.</p>
             </div>
 
-            <DocsHeading Id="qs-webhook" Level="3">5. Receive and verify a webhook</DocsHeading>
-            <p class="@P">Ask DigiPay to send a signed <InlineCode>webhook.test</InlineCode> event to your store's URL right now. The response tells you what your server answered:</p>
-            <CodeBlock Lang="bash" Label="Copy the webhook test example">@("curl -X POST https://api.pay.dgbwallet.app/v1/pay/stores/$STORE_ID/webhook/test \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\"\n# -> { \"ok\": true, \"webhookUrl\": \"https://shop.example/digipay/webhook\", \"deliveryId\": \"wdel_...\", \"statusCode\": 200, \"error\": null }")</CodeBlock>
+            <DocsHeading Id="qs-webhook" Level="3">5. Receive and verify the webhooks</DocsHeading>
             <p class="@P">
-                On your side, check the <InlineCode>X-DigiPay-Signature</InlineCode> header against an HMAC-SHA256 of the <em>raw</em> request body
-                before you parse it. Reject anything that doesn't match with <InlineCode>401</InlineCode>:
+                The calls in step 4 sent <InlineCode>session.seen</InlineCode>, <InlineCode>session.paid</InlineCode> and
+                <InlineCode>session.confirmed</InlineCode> to your webhook URL. On your side, check the <InlineCode>X-DigiPay-Signature</InlineCode>
+                header against an HMAC-SHA256 of the <em>raw</em> request body before you parse it. Reject anything that doesn't match with
+                <InlineCode>401</InlineCode>:
             </p>
             <CodeBlock Lang="js" Label="Copy the Node verification example">@NodeVerify</CodeBlock>
             <p class="@P">
-                That's a working integration. When a real payment lands you'll receive <InlineCode>session.seen</InlineCode>,
-                <InlineCode>session.paid</InlineCode> and <InlineCode>session.confirmed</InlineCode> the same way.
+                Nothing arrived? Ask DigiPay to send a signed <InlineCode>webhook.test</InlineCode> event right now. The response tells you what your
+                server answered, and the dashboard's <em>Webhooks</em> tab lists every delivery:
+            </p>
+            <CodeBlock Lang="bash" Label="Copy the webhook test example">@("curl -X POST https://api.pay.dgbwallet.app/v1/pay/stores/$TEST_STORE_ID/webhook/test \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\"\n# -> { \"ok\": true, \"webhookUrl\": \"https://shop.example/digipay/webhook\", \"deliveryId\": \"wdel_...\", \"statusCode\": 200, \"error\": null }")</CodeBlock>
+            <p class="@P">
+                That's a working integration. When a real payment lands on your mainnet store you'll receive the same events the same way.
                 Python, PHP and C# versions are in the <a href="/docs/api#verify-signature" class="text-dgb-500 hover:underline">API reference</a>,
                 and the <a href="/sdks" class="text-dgb-500 hover:underline">SDKs</a> ship a ready-made verifier.
             </p>
@@ -119,17 +134,25 @@
             @* ===================== Testing ===================== *@
             <DocsHeading Id="testing">Testing without real money</DocsHeading>
             <ul class="@Ul">
-                <li><strong>Sandbox</strong> (step 4): see the checkout UI change state. No key, no webhooks.</li>
-                <li><strong>Test webhook</strong> (step 5): check that your receiver is reachable and verifies signatures. Test events are sent once and never retried.</li>
                 <li>
-                    <strong>Testnet store</strong>: the full flow, webhooks included, with DigiByte testnet coins. Create a second store with
-                    <InlineCode>POST /v1/pay/stores</InlineCode> and <InlineCode>{ "name": "Testnet", "network": "testnet" }</InlineCode>, give it a testnet
-                    address or extended public key with <InlineCode>PATCH</InlineCode>, and pass its <InlineCode>storeId</InlineCode> when you create sessions.
-                    DigiPay watches testnet for that store, so a testnet payment produces the same states and events as a real one.
-                    Receive addresses are checked against the store's network.
+                    <strong>Testnet store + sandbox</strong> (step 4): the full flow, webhooks included, with no coins at all.
+                    <InlineCode>advance</InlineCode> moves your own testnet or regtest sessions and fires the real events.
                 </li>
+                <li>
+                    <strong>Testnet coins</strong>: the same store also takes real DigiByte testnet payments. DigiPay watches testnet for it, so a
+                    testnet payment produces the same states and events as a mainnet one. Receive addresses are checked against the store's network.
+                </li>
+                <li><strong>Test webhook</strong> (step 5): check that your receiver is reachable and verifies signatures. Test events are sent once and never retried.</li>
+                <li><strong>Demo sessions</strong>: see the checkout UI change state without an account. No key, no webhooks (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">try it<span class="sr-only"> (opens in a new tab)</span></a>).</li>
                 <li><strong>A small real payment</strong>: the final check before you go live. You can record a refund afterwards (see <a href="/docs/api#refund-session">refunds</a>).</li>
             </ul>
+
+            <DocsHeading Id="local-dev" Level="3">Developing locally</DocsHeading>
+            <p class="@P">
+                Running DigiPay yourself? Start the API in <InlineCode>Development</InlineCode> with <InlineCode>DigiPay:DevSignIn=true</InlineCode> and the
+                sign-in page shows a <em>Sign in as dev merchant</em> button, so you can use the dashboard without a Digi-ID wallet. The button
+                never appears outside Development. Create a regtest or testnet store there and step 4 works the same against your local API.
+            </p>
 
             @* ===================== Guide ===================== *@
             <DocsHeading Id="lifecycle">How a payment flows</DocsHeading>
@@ -173,9 +196,16 @@
             </p>
             <CodeBlock Lang="html" Label="Copy the themed embed example">@("<button data-digipay-checkout data-session-id=\"ses_...\" data-theme=\"light\">Pay with DigiByte</button>\n<script>DigiPay.checkout({ sessionId: 'ses_...', theme: 'dark' });</script>\n<!-- or redirect to: https://pay.dgbwallet.app/pay/ses_...?theme=light -->")</CodeBlock>
             <p class="@P">
-                The embedded checkout tells your page when the status changes, so you can update your UI (see
-                <a href="/docs/api#embed" class="text-dgb-500 hover:underline">embed events</a>). Fulfil orders from the webhook, not from the browser.
-                Pass <InlineCode>returnUrl</InlineCode> when you create the session and the checkout offers a <em>Return to merchant</em> button once payment confirms.
+                <strong>Know when it's paid.</strong> Give <InlineCode>DigiPay.checkout()</InlineCode> an <InlineCode>onStatus</InlineCode> callback to follow
+                every status change, and <InlineCode>onSuccess</InlineCode> to act once the payment is confirmed. The modal stays open for
+                <InlineCode>closeDelay</InlineCode> milliseconds (2500 by default) so the buyer sees "Payment confirmed", then closes:
+            </p>
+            <CodeBlock Lang="js" Label="Copy the embed callbacks example">@EmbedCallbacks</CodeBlock>
+            <p class="@P">
+                Without <InlineCode>onSuccess</InlineCode>, the modal closes and the page goes to the session's <InlineCode>returnUrl</InlineCode>, if you
+                set one when creating it. A browser callback is a hint, not proof: fulfil orders from the webhook (or check
+                <InlineCode>GET /v1/pay/sessions/{id}</InlineCode>). All options and the raw <a href="/docs/api#embed" class="text-dgb-500 hover:underline">embed messages</a>
+                are in the API reference.
             </p>
 
             <DocsHeading Id="retries">Safe retries</DocsHeading>
@@ -258,9 +288,10 @@
         new("qs-key", "1. Get an API key", true),
         new("qs-receive", "2. Set a receive address", true),
         new("qs-session", "3. Create a session", true),
-        new("qs-simulate", "4. Watch a checkout move", true),
-        new("qs-webhook", "5. Verify a webhook", true),
+        new("qs-simulate", "4. Pay it on testnet", true),
+        new("qs-webhook", "5. Verify the webhooks", true),
         new("testing", "Testing without real money"),
+        new("local-dev", "Developing locally", true),
         new("lifecycle", "How a payment flows"),
         new("stores", "Stores and receive addresses"),
         new("checkout", "Hosted checkout and the embed"),
@@ -272,6 +303,41 @@
         new("pos", "Selling in person"),
         new("next", "Next"),
     ];
+
+    /// <summary>Quickstart step 4: a testnet store, a session on it, and the sandbox playing the buyer.</summary>
+    private const string TestnetFlow =
+        "# 1. A testnet store (note its id), then its address and your webhook URL\n" +
+        "curl -X POST https://api.pay.dgbwallet.app/v1/pay/stores \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\" -H \"Content-Type: application/json\" \\\n" +
+        "  -d '{ \"name\": \"Testnet\", \"network\": \"testnet\" }'\n" +
+        "curl -X PATCH https://api.pay.dgbwallet.app/v1/pay/stores/$TEST_STORE_ID \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\" -H \"Content-Type: application/json\" \\\n" +
+        "  -d '{ \"addressOrXpub\": \"dgbt1q...\", \"webhookUrl\": \"https://shop.example/digipay/webhook\" }'\n\n" +
+        "# 2. A session on that store (note its id)\n" +
+        "curl -X POST https://api.pay.dgbwallet.app/v1/pay/sessions \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\" -H \"Content-Type: application/json\" \\\n" +
+        "  -d '{ \"amount\": 12.5, \"storeId\": \"sto_...\" }'\n\n" +
+        "# 3. Play the buyer. Run it three times: seen, paid (1 confirmation), confirmed (6)\n" +
+        "curl -X POST https://api.pay.dgbwallet.app/v1/pay/test/sessions/$SESSION_ID/advance \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\"";
+
+    /// <summary>The embed's browser callbacks (digipay.js 0.3.0).</summary>
+    internal const string EmbedCallbacks =
+        "<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n" +
+        "<script>\n" +
+        "  DigiPay.checkout({\n" +
+        "    sessionId: 'ses_...',\n" +
+        "    // Every status change: pending, seen, paid, confirmed, underpaid, expired, refunded, voided\n" +
+        "    onStatus: function (e) {\n" +
+        "      document.getElementById('order-status').textContent = e.status;\n" +
+        "    },\n" +
+        "    // Once, when the payment is confirmed (6 confirmations)\n" +
+        "    onSuccess: function (e) {\n" +
+        "      window.location.href = '/orders/thanks?session=' + encodeURIComponent(e.sessionId);\n" +
+        "    },\n" +
+        "    closeDelay: 1500 // ms the modal stays open after \"confirmed\"\n" +
+        "  });\n" +
+        "</script>";
 
     /// <summary>Shared with the API reference: rejects a missing or wrong-length header before the constant-time compare.</summary>
     internal const string NodeVerify =

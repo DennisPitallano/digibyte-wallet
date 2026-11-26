@@ -57,6 +57,17 @@ public class ReceiptRenderTests : BunitContext
     }
 
     [Fact]
+    public void Once_interactive_paid_at_is_in_the_shoppers_own_zone_with_its_offset()
+    {
+        UseSession("confirmed", 6);
+        JSInterop.SetupModule("/js/digipay-dashboard.js").Setup<string?>("timeZone").SetResult("Asia/Kolkata");
+        var cut = Render<Receipt>(p => p.Add(x => x.SessionId, "ses_4jarxgkthx5hk86s"));
+        // 21:42 UTC is 03:12 the next day in India (UTC+5:30).
+        cut.WaitForAssertion(() => Assert.Contains("26 Nov 2026, 03:12 UTC+5:30", cut.Markup));
+        Assert.DoesNotContain("21:42 UTC", cut.Markup);
+    }
+
+    [Fact]
     public void A_receipt_still_confirming_shows_its_progress()
     {
         UseSession("paid", 3);

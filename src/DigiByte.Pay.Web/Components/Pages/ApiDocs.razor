@@ -339,9 +339,36 @@
             <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2">From markup:</p>
             <CodeBlock Lang="html" Label="Copy the embed markup example">@("<button data-digipay-checkout data-session-id=\"ses_abc\">Pay</button>\n<span data-digipay-button data-address=\"dgb1...\" data-amount=\"5\">Tip</span>\n<!-- optional on either: data-theme=\"light\" or \"dark\" -->")</CodeBlock>
             <p class="@P">Elements are bound on <InlineCode>DOMContentLoaded</InlineCode>; call <InlineCode>DigiPay.bind(rootEl)</InlineCode> after adding new ones.</p>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3 mb-2"><strong>Status events.</strong> The embedded checkout posts a message to your page each time the session's status changes:</p>
+
+            <DocsHeading Id="embed-callbacks" Level="3">Callbacks</DocsHeading>
+            <p class="@P">Options for <InlineCode>DigiPay.checkout(options)</InlineCode>:</p>
+            <ParamList>
+                <Param Name="sessionId" Type="string" Required="true">The session to pay.</Param>
+                <Param Name="theme" Type="string"><InlineCode>light</InlineCode> or <InlineCode>dark</InlineCode>. Without it the checkout follows the buyer's own setting.</Param>
+                <Param Name="onStatus" Type="function">Called with <InlineCode>{ sessionId, status }</InlineCode> on every status change the checkout shows: <InlineCode>pending</InlineCode>, <InlineCode>seen</InlineCode>, <InlineCode>paid</InlineCode>, <InlineCode>confirmed</InlineCode>, <InlineCode>underpaid</InlineCode>, <InlineCode>expired</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>.</Param>
+                <Param Name="onSuccess" Type="function">Called once with <InlineCode>{ sessionId, status }</InlineCode> when the payment is <InlineCode>confirmed</InlineCode>. With it, you decide what happens next; without it the widget goes to the session's <InlineCode>returnUrl</InlineCode> (if any) after closing.</Param>
+                <Param Name="closeDelay" Type="number">Milliseconds the modal stays open after <InlineCode>confirmed</InlineCode>, so the buyer sees it. Default 2500.</Param>
+            </ParamList>
+            <CodeBlock Lang="js" Label="Copy the embed callbacks example">@Docs.EmbedCallbacks</CodeBlock>
+            <p class="@Small">An error thrown inside a callback is caught and logged, so it can't break the checkout.</p>
+
+            <DocsHeading Id="embed-messages" Level="3">Messages from the checkout</DocsHeading>
+            <p class="@P">
+                The callbacks are built on messages the checkout iframe posts to your page with <InlineCode>postMessage</InlineCode>. Listen for them
+                yourself if you embed the checkout without <InlineCode>digipay.js</InlineCode>:
+            </p>
+            <div class="dp-table-wrap">
+                <table class="dp-table">
+                    <thead><tr><th scope="col"><InlineCode>type</InlineCode></th><th scope="col">Other fields</th><th scope="col">Sent when</th></tr></thead>
+                    <tbody>
+                        <tr><td><InlineCode>digipay-checkout-status</InlineCode></td><td><InlineCode>sessionId</InlineCode>, <InlineCode>status</InlineCode>, <InlineCode>returnUrl</InlineCode></td><td>The status changes (and once when the checkout loads).</td></tr>
+                        <tr><td><InlineCode>digipay-checkout-return</InlineCode></td><td><InlineCode>sessionId</InlineCode>, <InlineCode>status</InlineCode>, <InlineCode>url</InlineCode></td><td>The buyer chose to go back to the shop. Navigate your page to <InlineCode>url</InlineCode>.</td></tr>
+                        <tr><td><InlineCode>digipay-checkout-escape</InlineCode></td><td>none</td><td>The buyer pressed Escape inside the checkout. Close it.</td></tr>
+                    </tbody>
+                </table>
+            </div>
             <CodeBlock Lang="js" Label="Copy the status event example">@("window.addEventListener('message', (e) => {\n  if (e.origin !== 'https://pay.dgbwallet.app') return;\n  const msg = e.data;\n  if (!msg || msg.type !== 'digipay-checkout-status') return;\n  // msg.sessionId, msg.status: 'seen' | 'paid' | 'confirmed' | 'expired' | ...\n  if (msg.status === 'paid') showThankYou();\n});")</CodeBlock>
-            <p class="@Small">Use these messages for your page's UI only. Anyone can post messages to a window, and the buyer's browser can close at any moment, so fulfil orders from the webhook.</p>
+            <p class="@Small">Use callbacks and messages for your page's UI only. Anyone can post messages to a window, and the buyer's browser can close at any moment, so fulfil orders from the webhook.</p>
 
             @* ===================== Account ===================== *@
             <DocsHeading Id="account">Account and audit log</DocsHeading>
@@ -421,12 +448,33 @@
 
             @* ===================== Sandbox ===================== *@
             <DocsHeading Id="sandbox">Sandbox</DocsHeading>
-            <p class="@P">No key needed; 20 requests per minute per address. These endpoints drive demo sessions through the checkout so you can watch it react. They never touch real sessions and never send webhooks. See <a href="/docs#testing" class="text-dgb-500 hover:underline">testing without real money</a> for the other options.</p>
-            <Endpoint Method="POST" Path="/v1/pay/test/demo-session" Auth="No auth · 20/min" Id="demo-session">
-                <p class="@Small m-0">Creates a throwaway demo account, store and 5 DGB session, and returns <InlineCode>{ sessionId, storeId, merchantId }</InlineCode>. Open <InlineCode>https://pay.dgbwallet.app/pay/{sessionId}</InlineCode> to see it. Demo data is swept away within a day.</p>
+            <p class="@P">
+                Pretend a buyer paid, without coins: on your own <strong>testnet or regtest</strong> store, or on a throwaway demo session.
+                20 requests per minute per address. The <a href="/docs#qs-simulate" class="text-dgb-500 hover:underline">quickstart</a> walks through the
+                whole flow, and <a href="/docs#testing" class="text-dgb-500 hover:underline">testing without real money</a> lists the other options.
+            </p>
+            <Endpoint Method="POST" Path="/v1/pay/test/sessions/{id}/advance" Auth="API key (demo sessions: no auth) · 20/min" Id="advance-session">
+                <p class="@Small">
+                    Moves a session one step per call: <InlineCode>pending → seen → paid</InlineCode> (1 confirmation) <InlineCode>→ confirmed</InlineCode> (6),
+                    with a made-up txid. It sends the same webhooks as a real payment (<InlineCode>session.seen</InlineCode>, <InlineCode>session.paid</InlineCode>,
+                    <InlineCode>session.confirmed</InlineCode>, signed as usual) and updates any open checkout. The body is optional:
+                </p>
+                <CodeBlock Lang="json" Label="Copy the advance body">@("{\n  \"to\": \"confirmed\",\n  \"confirmations\": 6\n}")</CodeBlock>
+                <ParamList>
+                    <Param Name="to" Type="string"><InlineCode>seen</InlineCode>, <InlineCode>paid</InlineCode> or <InlineCode>confirmed</InlineCode>: jump straight there instead of one step.</Param>
+                    <Param Name="confirmations" Type="integer">Set the confirmation count, for example 3 to watch a payment part way to final.</Param>
+                </ParamList>
+                <p class="@Small">Returns where the session is now:</p>
+                <CodeBlock Lang="json" Label="Copy the advance response">@("{\n  \"id\": \"ses_8kq2x7m4n9p3r6t1\",\n  \"status\": \"confirmed\",\n  \"confirmations\": 6,\n  \"receivedSatoshis\": 1250000000,\n  \"paidTxid\": \"c4de7f12a34bc6de3e9f1d7b5a2c3f7e8b4d1a6c9e5f2a8d3b7c1e4f6a9d2c5\"\n}")</CodeBlock>
+                <p class="@Small m-0">
+                    <strong>Who can advance what.</strong> Your own sessions need the usual <InlineCode>Authorization</InlineCode> header (an API key or session
+                    token of the account that owns the session), and the session's store must be on testnet or regtest: a mainnet store answers
+                    <InlineCode>400</InlineCode> <InlineCode>advance only works on testnet or regtest stores</InlineCode>. Demo sessions
+                    (<InlineCode>ses_demo_…</InlineCode>) need no auth and never send webhooks.
+                </p>
             </Endpoint>
-            <Endpoint Method="POST" Path="/v1/pay/test/sessions/{id}/advance" Auth="No auth · 20/min" Id="advance-session">
-                <p class="@Small m-0">Moves a demo session one step: <InlineCode>pending → seen → paid → confirmed</InlineCode> (with a made-up txid), and pushes the change to any open checkout. Returns <InlineCode>{ id, status, confirmations, receivedSatoshis, paidTxid }</InlineCode>. Ids that don't start with <InlineCode>ses_demo_</InlineCode> get <InlineCode>400</InlineCode>.</p>
+            <Endpoint Method="POST" Path="/v1/pay/test/demo-session" Auth="No auth · 20/min" Id="demo-session">
+                <p class="@Small m-0">Creates a throwaway demo account, store and 5 DGB session, and returns <InlineCode>{ sessionId, storeId, merchantId }</InlineCode>. Open <InlineCode>https://pay.dgbwallet.app/pay/{sessionId}</InlineCode> to watch it while you advance it. Demo stores have no webhook, and demo data is swept away within a day.</p>
             </Endpoint>
 
             @* ===================== Errors ===================== *@
@@ -487,11 +535,14 @@
         new("webhook-retries", "Retries", true),
         new("verify-signature", "Verify the signature", true),
         new("embed", "Embed script"),
+        new("embed-callbacks", "Callbacks", true),
+        new("embed-messages", "Messages", true),
         new("account", "Account and audit log"),
         new("api-keys", "API keys"),
         new("digi-id", "Digi-ID sign-in"),
         new("public", "Public data"),
         new("sandbox", "Sandbox"),
+        new("advance-session", "Advance a session", true),
         new("errors", "Status codes"),
         new("rate-limits", "Rate limits", true),
     ];

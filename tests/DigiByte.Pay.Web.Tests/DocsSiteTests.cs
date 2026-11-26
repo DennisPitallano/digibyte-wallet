@@ -164,6 +164,34 @@ public class DocsSiteTests : BunitContext
         Assert.DoesNotContain("checkout_url", markup);
     }
 
+    [Fact]
+    public void The_embed_callbacks_and_messages_are_documented()
+    {
+        var api = Render(Page("api")).Markup;
+        foreach (var name in new[] { "onStatus", "onSuccess", "closeDelay", "digipay-checkout-status", "digipay-checkout-return", "digipay-checkout-escape" })
+            Assert.Contains(name, api);
+        var guide = Render(Page("docs")).Markup;
+        Assert.Contains("onSuccess", guide);
+        Assert.Contains("closeDelay", guide);
+    }
+
+    [Fact]
+    public void The_quickstart_runs_end_to_end_on_a_testnet_store()
+    {
+        var guide = Render(Page("docs")).Markup;
+        Assert.Contains("\"network\": \"testnet\"", System.Net.WebUtility.HtmlDecode(guide));
+        Assert.Contains("/v1/pay/test/sessions/$SESSION_ID/advance", guide);
+        Assert.Contains("advance only works on testnet or regtest stores", guide);
+        Assert.Contains("Sign in as dev merchant", guide);
+        Assert.Contains("DigiPay:DevSignIn=true", guide);
+        // The old workaround (advance refuses every non-demo id) is gone.
+        Assert.DoesNotContain("refuses any id", guide);
+
+        var api = Render(Page("api")).Markup;
+        Assert.Contains("advance only works on testnet or regtest stores", api);
+        Assert.DoesNotContain("never touch real sessions", api);
+    }
+
     // ----- "On this page" -----
 
     public static TheoryData<string> AllDocsPages => new() { "docs", "api", "pos", "woocommerce" };
