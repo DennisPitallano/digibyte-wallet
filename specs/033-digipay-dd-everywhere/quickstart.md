@@ -61,6 +61,7 @@ dotnet run --project src/DigiByte.Pay.Web
 | 11 | Dashboard donation tab: generate a button with DD, opening on DD with a suggested $5. Open it. | The page opens on DD with 5.00 DD and the store's fixed DD address (same after reload). Switching to DGB shows the DGB address with no amount unless one was set. | Story 4, FR-010 to FR-012 |
 | 12 | Turn DD off for the store and reload the step 11 tip page. | DGB only. | Story 4, scenario 3 |
 | 13 | Turn buyer choice off for the store (`buyerChoiceEnabled:false`) and create a new USD link. | No switch on checkout. | FR-029 |
+| 14 | Turn buyer choice back on. Open a new USD link, switch to DD and don't pay. In the Dashboard, turn DigiDollar off for the store, then reload the checkout. | The DD choice is gone and the page is back on DGB, with a note. Paying in DGB still works. | Spec edge case "DD turned off while a buyer is on checkout", research R10 |
 
 ## Release step
 

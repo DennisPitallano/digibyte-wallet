@@ -313,7 +313,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 - [ ] T069 [P] Final docs check across every surface: read `ApiDocs.razor`, `Docs.razor`, `Features.razor`, `docs/PROCESS_FLOWS.md`, `docs/ARCHITECTURE.md`, the digipay.js README and `CHANGELOG.md` together and fix any gaps or contradictions left between stories (FR-019).
 - [ ] T070 [P] Add a Playwright case to `tests/DigiByte.Pay.E2E/tests/pos.spec.mjs`: a fiat charge's DGB/DD switch shows a different QR per currency and the same DD address after switching back. Assert the new amount and QR appear within 2 s of the tap (SC-008), and that a DD till charge reaches the QR within 10 s more than a DGB charge (SC-002).
 - [ ] T071 Run `dotnet build`, then `dotnet test tests/DigiByte.Pay.Api.Tests` and `dotnet test tests/DigiByte.Pay.Web.Tests`, then `npm test --prefix src/DigiByte.Pay.Web`. Fix any failures.
-- [ ] T072 Follow [quickstart.md](quickstart.md) steps 1 to 13 on testnet. Record results in the PR, including the SC-002 and SC-008 timings on testnet, and flag the PR as auth-relevant: two new anonymous endpoints (plan, Constitution Check).
+- [ ] T072 Follow [quickstart.md](quickstart.md) steps 1 to 14 on testnet. Record results in the PR, including the SC-002 and SC-008 timings on testnet, and flag the PR as auth-relevant: two new anonymous endpoints (plan, Constitution Check).
 
 ---
 
