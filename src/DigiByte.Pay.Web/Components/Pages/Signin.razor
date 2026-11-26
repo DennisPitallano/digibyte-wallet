@@ -6,6 +6,7 @@
 @inject IJSRuntime JS
 @inject ILogger<Signin> Log
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+@inject IServiceProvider Services
 @using System.Net.Http.Json
 
 <PageTitle>Sign in — DigiPay</PageTitle>
@@ -105,9 +106,18 @@
                     <span>Waiting for signature · expires in <span class="font-mono">@FormatRemaining()</span></span>
                 </div>
 
-                @* Secondary: copy URI. Removed the "Open in wallet" deeplink — Digi-ID
-                   is a scan-from-another-device flow, and offering a same-device link
-                   muddled the primary instruction. *@
+                @* No wallet app to scan with? Approve in the DigiByte Wallet in the browser. It opens in a new tab at
+                   the wallet's Digi-ID page with this challenge (the same link its installed app handles); the
+                   wallet shows the site and asks before signing, and this page signs in as soon as it's approved. *@
+                <a href="@WalletSignInHref" target="_blank" rel="noopener" class="btn-secondary w-full dp-signin-wallet">
+                    <img src="/dgbwallet-logo.svg" alt="" width="18" height="18" class="ui-wallet-web-logo" />
+                    <span>Sign in with DigiByte Wallet</span>
+                    <Icon Name="external-link" Class="w-4 h-4 opacity-70" />
+                    <span class="sr-only">(dgbwallet.app, opens in a new tab)</span>
+                </a>
+                <p class="ui-wallet-hint">Wallet on this computer? Approve there and come back to this tab.</p>
+
+                @* Copy the challenge, for wallets that take a pasted Digi-ID link. *@
                 <button type="button" @onclick="CopyUriAsync"
                         class="inline-flex items-center gap-2 text-[0.75rem] font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 dark:hover:text-dgb-400 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
@@ -295,6 +305,16 @@
         // Back to where the merchant was going, but only to a local dashboard address
         // (open-redirect guard, contracts/dashboard-routes.md). A full load picks up the token.
         await InvokeAsync(() => Nav.NavigateTo(ReturnUrlGuard.Sanitize(ReturnTo), forceLoad: true));
+    }
+
+    /// <summary>The DigiByte Wallet's Digi-ID page with this challenge (DigiPay:WalletUrl, default dgbwallet.app).</summary>
+    private string WalletSignInHref
+    {
+        get
+        {
+            var wallet = (Services.GetService(typeof(WalletAppUrl)) as WalletAppUrl)?.Value ?? WalletAppUrl.Default;
+            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}";
+        }
     }
 
     private async Task CopyUriAsync()

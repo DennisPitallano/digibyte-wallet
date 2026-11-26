@@ -63,6 +63,19 @@ public class SigninDevButtonTests : BunitContext
         Assert.Contains("digipay-merchant-id=mer_devmerchant000001", stored);
     }
 
+    [Fact]
+    public void The_challenge_can_be_approved_in_the_digibyte_wallet_in_the_browser()
+    {
+        Use("Production");
+        var cut = Render<Signin>();
+
+        var link = cut.WaitForElement("a.dp-signin-wallet");
+        Assert.Equal("https://dgbwallet.app/identity?uri=" + Uri.EscapeDataString("digiid://localhost/v1/pay/auth/callback?x=n1&u=1"),
+            link.GetAttribute("href"));
+        Assert.Equal("_blank", link.GetAttribute("target")); // this tab keeps polling and signs in
+        Assert.Contains("Sign in with DigiByte Wallet", link.TextContent);
+    }
+
     private sealed class FakeEnvironment(string name) : IWebHostEnvironment
     {
         public string EnvironmentName { get; set; } = name;
