@@ -1,0 +1,202 @@
+@* A small per-day chart drawn as inline SVG (no chart library): an area line or bars, with an
+   optional second series stacked on the bars. The plot scales to its container; text (axis
+   labels, the tooltip) is HTML so it never stretches.
+   Accessibility: the SVG is role="img" with a one-sentence summary; the plot is one tab stop,
+   and the left and right arrow keys move a tooltip across the days (hover does the same), read
+   out through a polite live region; every value is also in a table under "Show as a table".
+   Motion: bars grow and the area fades in, unless the visitor prefers reduced motion (CSS). *@
+@using System.Globalization
+
+<figure class="dchart @(Kind == "bars" ? "dchart-bars" : "dchart-area")">
+    <div class="dchart-frame">
+        <div class="dchart-axis" aria-hidden="true">
+            <span style="top:4%">@AxisLabel(Max)</span>
+            <span style="top:52%">@AxisLabel(Max / 2)</span>
+            <span style="top:100%">0</span>
+        </div>
+        <div class="dchart-plot" tabindex="0" role="group" aria-label="@($"{Title}. Use the left and right arrow keys to read each day.")"
+             @onkeydown="OnKey" @onfocus="OnFocus" @onblur="OnBlur" @onmouseleave="OnLeave">
+            <svg class="dchart-svg" viewBox="0 0 @(N * Col) 100" preserveAspectRatio="none" role="img" aria-label="@Summary" focusable="false">
+                <line class="dchart-grid" x1="0" x2="@(N * Col)" y1="4" y2="4" vector-effect="non-scaling-stroke" />
+                <line class="dchart-grid" x1="0" x2="@(N * Col)" y1="52" y2="52" vector-effect="non-scaling-stroke" />
+                <line class="dchart-base" x1="0" x2="@(N * Col)" y1="100" y2="100" vector-effect="non-scaling-stroke" />
+                @if (Kind == "bars")
+                {
+                    @for (var i = 0; i < N; i++)
+                    {
+                        var p = Points[i];
+                        var h1 = H(p.Value);
+                        var h2 = H(p.Value + p.Stacked) - h1;
+                        <g class="dchart-col @(active == i ? "is-active" : "")">
+                            @if (h1 > 0) { <rect class="dchart-bar dchart-bar-primary" x="@F(i * Col + Gap)" y="@F(100 - h1)" width="@F(Col - 2 * Gap)" height="@F(h1)" /> }
+                            @if (h2 > 0) { <rect class="dchart-bar dchart-bar-stacked" x="@F(i * Col + Gap)" y="@F(100 - h1 - h2)" width="@F(Col - 2 * Gap)" height="@F(h2)" /> }
+                        </g>
+                    }
+                }
+                else
+                {
+                    <path class="dchart-fill" d="@AreaPath()" />
+                    <path class="dchart-line" d="@LinePath()" vector-effect="non-scaling-stroke" />
+                    @if (active is int a)
+                    {
+                        <line class="dchart-cursor" x1="@F(a * Col + Col / 2)" x2="@F(a * Col + Col / 2)" y1="0" y2="100" vector-effect="non-scaling-stroke" />
+                    }
+                }
+                @* Full-height hover targets, one per day. *@
+                @for (var i = 0; i < N; i++)
+                {
+                    var idx = i;
+                    <rect class="dchart-hit" x="@F(i * Col)" y="0" width="@F(Col)" height="100" @onmouseover="() => Show(idx)" />
+                }
+            </svg>
+            @if (active is int t && t < N)
+            {
+                var pt = Points[t];
+                @if (Kind != "bars")
+                {
+                    <span class="dchart-dot" aria-hidden="true" style="@($"left:{Pct((t + 0.5m) / N)};top:{Pct((100 - H(pt.Value)) / 100)}")"></span>
+                }
+                <div class="dchart-tip @TipEdge(t)" aria-hidden="true" style="@($"left:{Pct((t + 0.5m) / N)}")">
+                    <span class="dchart-tip-day">@pt.Date.ToString("ddd d MMM", CultureInfo.InvariantCulture)</span>
+                    <span class="dchart-tip-value tabular-nums">@pt.Tip</span>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="dchart-x" aria-hidden="true">
+        @if (N > 0)
+        {
+            <span>@DayLabel(Points[0].Date)</span>
+            @if (N > 2) { <span>@DayLabel(Points[N / 2].Date)</span> }
+            <span>@DayLabel(Points[N - 1].Date)</span>
+        }
+    </div>
+    <p class="sr-only" aria-live="polite">@LiveText</p>
+    <details class="dchart-table">
+        <summary>Show as a table</summary>
+        <div class="dchart-table-wrap">
+            <table>
+                <caption class="sr-only">@Title</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Day</th>
+                        @foreach (var c in Columns) { <th scope="col" class="is-num">@c</th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Points)
+                    {
+                        <tr>
+                            <th scope="row">@p.Date.ToString("ddd d MMM yyyy", CultureInfo.InvariantCulture)</th>
+                            @foreach (var cell in p.Cells) { <td class="is-num tabular-nums">@cell</td> }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </details>
+</figure>
+
+@code {
+    /// <summary>One day: the value drawn, an optional value stacked on top (bars), the tooltip text and the table cells.</summary>
+    public sealed record Point(DateOnly Date, decimal Value, decimal Stacked, string Tip, IReadOnlyList<string> Cells);
+
+    [Parameter, EditorRequired] public IReadOnlyList<Point> Points { get; set; } = [];
+    /// <summary>"area" (a line with a fill) or "bars".</summary>
+    [Parameter] public string Kind { get; set; } = "area";
+    /// <summary>What the chart shows, e.g. "Revenue per day"; names the plot and the table.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    /// <summary>One sentence describing the data for screen readers (the SVG's label).</summary>
+    [Parameter, EditorRequired] public string Summary { get; set; } = "";
+    /// <summary>The table's value column headers, matching each point's <see cref="Point.Cells"/>.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> Columns { get; set; } = [];
+    /// <summary>Formats an axis value (the top and middle grid lines).</summary>
+    [Parameter] public Func<decimal, string>? FormatAxis { get; set; }
+
+    private const decimal Col = 10m;
+    private decimal Gap => N > 45 ? 1.5m : 2m;
+    private int N => Points.Count;
+    private int? active;
+    private bool focused;
+
+    /// <summary>The top of the scale: the biggest day (bars include the stacked part), never zero.</summary>
+    private decimal Max
+    {
+        get
+        {
+            var m = Points.Count == 0 ? 0 : Points.Max(p => p.Value + (Kind == "bars" ? p.Stacked : 0));
+            return m > 0 ? m : 1;
+        }
+    }
+
+    /// <summary>Height in plot units (0–96 of 100, leaving room at the top).</summary>
+    private decimal H(decimal v) => v <= 0 ? 0 : Math.Round(v / Max * 96m, 3);
+
+    private string AxisLabel(decimal v) => FormatAxis?.Invoke(v) ?? v.ToString("#,0.##", CultureInfo.InvariantCulture);
+
+    private string LiveText => active is int i && i < N && focused
+        ? $"{Points[i].Date.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}: {Points[i].Tip}"
+        : "";
+
+    protected override void OnParametersSet()
+    {
+        if (active is int i && i >= N) active = N > 0 ? N - 1 : null;
+    }
+
+    private void Show(int i) => active = i;
+
+    private void OnFocus()
+    {
+        focused = true;
+        active ??= N > 0 ? N - 1 : null; // start on today
+    }
+
+    private void OnBlur()
+    {
+        focused = false;
+        active = null;
+    }
+
+    private void OnLeave()
+    {
+        if (!focused) active = null;
+    }
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (N == 0) return;
+        var i = active ?? N - 1;
+        active = e.Key switch
+        {
+            "ArrowLeft" => Math.Max(0, i - 1),
+            "ArrowRight" => Math.Min(N - 1, i + 1),
+            "Home" => 0,
+            "End" => N - 1,
+            _ => active,
+        };
+    }
+
+    private string LinePath()
+    {
+        if (N == 0) return "";
+        if (N == 1) return $"M0 {F(100 - H(Points[0].Value))} H{F(Col)}";
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < N; i++)
+            sb.Append(i == 0 ? "M" : " L").Append(F(i * Col + Col / 2)).Append(' ').Append(F(100 - H(Points[i].Value)));
+        return sb.ToString();
+    }
+
+    private string AreaPath()
+    {
+        if (N == 0) return "";
+        if (N == 1) return $"M0 100 V{F(100 - H(Points[0].Value))} H{F(Col)} V100 Z";
+        return $"{LinePath()} L{F((N - 1) * Col + Col / 2)} 100 L{F(Col / 2)} 100 Z";
+    }
+
+    /// <summary>Keeps the tooltip inside the chart near the edges.</summary>
+    private string TipEdge(int i) => N < 4 ? "" : i < N / 6 ? "is-start" : i >= N - N / 6 ? "is-end" : "";
+
+    private static string F(decimal v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+    private static string Pct(decimal fraction) => (fraction * 100).ToString("0.###", CultureInfo.InvariantCulture) + "%";
+    private static string DayLabel(DateOnly d) => d.ToString("d MMM", CultureInfo.InvariantCulture);
+}

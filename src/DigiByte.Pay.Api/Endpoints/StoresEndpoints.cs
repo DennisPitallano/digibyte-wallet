@@ -462,6 +462,65 @@ public static class StoresEndpoints
             });
         });
 
+        // GET /v1/pay/stores/{storeId}/stats/daily?days=30&tz=Europe/Amsterdam
+        // Sales per day for the dashboard's Overview, on the merchant's own calendar days: one entry
+        // per local day (zero days included), totals for the window, and the same totals for the
+        // period just before it, so the page can say "+12% vs previous 30 days". `previous` is null
+        // when the store didn't exist yet before the window (nothing fair to compare with).
+        group.MapGet("/{storeId}/stats/daily", async (
+            string storeId, HttpRequest http, DigiPayDbContext db, int? days, string? tz) =>
+        {
+            var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
+            if (err is not null) return err;
+            var n = days ?? 30;
+            if (n is < 1 or > DailyStats.MaxDays)
+                return Results.BadRequest(new { error = $"days must be between 1 and {DailyStats.MaxDays}" });
+            if (!DailyStats.TryZone(tz, out var zone))
+                return Results.BadRequest(new { error = "tz must be a time zone name such as Europe/Amsterdam" });
+
+            var window = DailyStats.WindowFor(DateTime.UtcNow, n, zone);
+            var hasPrevious = store!.CreatedAt < window.FromUtc;
+            var since = hasPrevious ? window.PreviousFromUtc : window.FromUtc;
+            // Only the columns the totals need, for a UTC range; the local-day bucketing happens in
+            // DailyStats so no provider-specific date SQL is needed (SQLite has no zone support).
+            var rows = (await db.Sessions.AsNoTracking()
+                    .Where(s => s.StoreId == store.Id && s.CreatedAt >= since && s.CreatedAt < window.ToUtc)
+                    .Select(s => new { s.CreatedAt, s.Status, s.AmountSatoshis, s.Currency })
+                    .ToListAsync())
+                .Select(r => new DailyStats.Row(r.CreatedAt, r.Status, r.AmountSatoshis, r.Currency));
+            var (series, current, previous) = DailyStats.Aggregate(rows, window, zone);
+            var storeHasPayments = current.Payments > 0
+                || await db.Sessions.AsNoTracking().AnyAsync(s => s.StoreId == store.Id);
+
+            return Results.Ok(new
+            {
+                storeId = store.Id,
+                days = n,
+                timeZone = zone.Id,
+                from = window.From,
+                to = window.To,
+                fromUtc = window.FromUtc,
+                toUtc = window.ToUtc,
+                storeHasPayments,
+                totals = current,
+                previous = hasPrevious
+                    ? new { from = window.PreviousFrom, to = window.From.AddDays(-1), totals = previous }
+                    : null,
+                series = series.Select(d => new
+                {
+                    date = d.Date,
+                    d.Totals.Payments,
+                    d.Totals.Paid,
+                    d.Totals.Open,
+                    d.Totals.Expired,
+                    d.Totals.Underpaid,
+                    d.Totals.Refunded,
+                    d.Totals.Voided,
+                    d.Totals.RevenueDgb,
+                }),
+            });
+        });
+
         return group;
     }
 
