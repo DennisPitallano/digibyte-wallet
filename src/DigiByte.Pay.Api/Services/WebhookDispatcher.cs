@@ -49,6 +49,8 @@ public class WebhookDispatcher
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        // Timestamps always carry a "Z", whatever the database returned.
+        Converters = { new UtcDateTimeConverter() },
     };
 
     private readonly IHttpClientFactory _httpFactory;

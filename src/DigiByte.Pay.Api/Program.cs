@@ -106,7 +106,9 @@ builder.Services.AddOpenApi(options =>
         return Task.CompletedTask;
     });
 });
-builder.Services.AddSignalR();
+// Every DateTime goes out as UTC with a "Z" (SQLite returns values without a kind; see UtcDateTimeConverter).
+builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new DigiByte.Pay.Api.UtcDateTimeConverter()));
+builder.Services.AddSignalR().AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new DigiByte.Pay.Api.UtcDateTimeConverter()));
 builder.Services.AddMemoryCache();
 
 // Rate limiter — layered policies keyed to the threat model:
