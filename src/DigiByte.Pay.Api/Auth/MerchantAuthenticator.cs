@@ -17,7 +17,24 @@ public static class MerchantAuthenticator
     // 30-day session lifetime; bumped to this on every successful use.
     public static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(30);
 
-    public static async Task<PayMerchant?> AuthenticateAsync(HttpRequest http, DigiPayDbContext db)
+    private const string CallerItemKey = "digipay.caller";
+
+    public static async Task<PayMerchant?> AuthenticateAsync(HttpRequest http, DigiPayDbContext db) =>
+        (await GetCallerAsync(http, db))?.Merchant;
+
+    /// <summary>
+    /// Resolves the caller (merchant + API key kind/store/label) once per request and caches
+    /// it on HttpContext.Items, so the POS guard and the handler share one lookup.
+    /// </summary>
+    public static async Task<ApiCaller?> GetCallerAsync(HttpRequest http, DigiPayDbContext db)
+    {
+        if (http.HttpContext.Items.TryGetValue(CallerItemKey, out var cached)) return cached as ApiCaller;
+        var caller = await ResolveCallerAsync(http, db);
+        http.HttpContext.Items[CallerItemKey] = caller;
+        return caller;
+    }
+
+    private static async Task<ApiCaller?> ResolveCallerAsync(HttpRequest http, DigiPayDbContext db)
     {
         var header = http.Headers.Authorization.ToString();
         if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return null;
@@ -30,32 +47,13 @@ public static class MerchantAuthenticator
         var hash = HashSecret(secret);
 
         if (prefix.StartsWith("dps_", StringComparison.Ordinal))
-            return await AuthenticateSessionAsync(prefix, hash, db);
+        {
+            var merchant = await AuthenticateSessionAsync(prefix, hash, db);
+            return merchant is null ? null : new ApiCaller(merchant, null, null, null);
+        }
         if (prefix.StartsWith("dgp_", StringComparison.Ordinal))
             return await AuthenticateApiKeyAsync(prefix, hash, db);
         return null;
-    }
-
-    /// <summary>
-    /// Returns the label of the API key that authenticated the current request,
-    /// or null if the caller used a session token (dps_) or the request is
-    /// unauthenticated. Used by session creation to stamp Source="pos" on
-    /// sessions minted from a POS-paired key.
-    /// </summary>
-    public static async Task<string?> GetAuthenticatingApiKeyLabelAsync(HttpRequest http, DigiPayDbContext db)
-    {
-        var header = http.Headers.Authorization.ToString();
-        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return null;
-        var token = header["Bearer ".Length..].Trim();
-        var underscore = token.LastIndexOf('_');
-        if (underscore <= 0 || underscore == token.Length - 1) return null;
-
-        var prefix = token[..underscore];
-        if (!prefix.StartsWith("dgp_", StringComparison.Ordinal)) return null;
-
-        var key = await db.ApiKeys.AsNoTracking()
-            .FirstOrDefaultAsync(k => k.Prefix == prefix && k.RevokedAt == null);
-        return key?.Label;
     }
 
     private static async Task<PayMerchant?> AuthenticateSessionAsync(string prefix, string hash, DigiPayDbContext db)
@@ -76,7 +74,7 @@ public static class MerchantAuthenticator
         return await db.Merchants.FirstOrDefaultAsync(m => m.Id == session.MerchantId);
     }
 
-    private static async Task<PayMerchant?> AuthenticateApiKeyAsync(string prefix, string hash, DigiPayDbContext db)
+    private static async Task<ApiCaller?> AuthenticateApiKeyAsync(string prefix, string hash, DigiPayDbContext db)
     {
         // Active (non-revoked) keys only. Multiple keys per merchant are allowed;
         // each is independently revocable without disturbing the others.
@@ -86,7 +84,8 @@ public static class MerchantAuthenticator
 
         key.LastUsedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        return await db.Merchants.FirstOrDefaultAsync(m => m.Id == key.MerchantId);
+        var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.Id == key.MerchantId);
+        return merchant is null ? null : new ApiCaller(merchant, key.Kind, key.StoreId, key.Label);
     }
 
     public static string HashSecret(string secret) =>

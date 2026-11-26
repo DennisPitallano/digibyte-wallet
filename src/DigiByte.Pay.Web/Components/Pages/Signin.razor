@@ -5,6 +5,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ILogger<Signin> Log
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @using System.Net.Http.Json
 
 <PageTitle>Sign in — DigiPay</PageTitle>
@@ -115,6 +116,25 @@
             }
         </div>
 
+        @* Development only: sign in as a fixed testnet "Dev merchant" without a wallet. Shown
+           only when this app runs in Development AND the API answers /v1/pay/dev/status
+           (it maps that only in Development with DigiPay:DevSignIn=true). *@
+        @if (devSignInAvailable && signed == null)
+        {
+            <div class="mt-4 flex flex-col items-center gap-2 text-center">
+                <button type="button" @onclick="DevSignInAsync" disabled="@devSigningIn"
+                        aria-busy="@(devSigningIn ? "true" : "false")" data-testid="dev-signin"
+                        class="btn-secondary w-full">
+                    Sign in as dev merchant (local testing)
+                </button>
+                <p class="text-[0.6875rem] text-amber-600 m-0">Development only. Uses a testnet store; never shown in production.</p>
+                @if (devError != null)
+                {
+                    <p class="text-[0.6875rem] text-red-500 m-0" role="alert">@devError</p>
+                }
+            </div>
+        }
+
         @* Soft footer — where to get a wallet that supports Digi-ID *@
         <p class="text-center text-[0.6875rem] text-slate-400 dark:text-slate-500 mt-6 m-0">
             Don't have a wallet?
@@ -135,10 +155,61 @@
     private bool copied;
     private System.Threading.Timer? poller;
     private System.Threading.Timer? ticker;
+    private bool devSignInAvailable;
+    private bool devSigningIn;
+    private string? devError;
 
     protected override async Task OnInitializedAsync()
     {
         await StartChallengeAsync();
+        await CheckDevSignInAsync();
+    }
+
+    // The dev button needs both sides in Development: this app's environment, and the API
+    // advertising /v1/pay/dev/status. Never asked (so never shown) outside Development.
+    private async Task CheckDevSignInAsync()
+    {
+        if (!Env.IsDevelopment()) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetAsync("/v1/pay/dev/status");
+            if (!response.IsSuccessStatusCode) return;
+            var status = await response.Content.ReadFromJsonAsync<DevStatusResponse>();
+            devSignInAvailable = status?.Enabled == true;
+        }
+        catch (Exception ex)
+        {
+            Log.LogDebug(ex, "Sign-in: dev sign-in status unavailable");
+        }
+    }
+
+    private async Task DevSignInAsync()
+    {
+        if (!devSignInAvailable || devSigningIn) return;
+        devSigningIn = true;
+        devError = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.PostAsync("/v1/pay/dev/signin", null);
+            var body = response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<SignedResponse>() : null;
+            if (body is null)
+            {
+                devError = "Dev sign-in didn't work. Check the API runs in Development with DigiPay:DevSignIn set to true.";
+                return;
+            }
+            await CompleteSignInAsync(body);
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(ex, "Sign-in: dev sign-in failed");
+            devError = "Dev sign-in couldn't reach the API. Check it's running and try again.";
+        }
+        finally
+        {
+            devSigningIn = false;
+        }
     }
 
     private async Task StartChallengeAsync()
@@ -202,22 +273,28 @@
             {
                 var body = await response.Content.ReadFromJsonAsync<SignedResponse>();
                 if (body is null) return;
-                poller?.Dispose(); poller = null;
-                ticker?.Dispose(); ticker = null;
-                await InvokeAsync(async () =>
-                {
-                    signed = body;
-                    await JS.InvokeVoidAsync("localStorage.setItem", "digipay-token", body.Token);
-                    await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
-                    StateHasChanged();
-                });
-                await Task.Delay(1200);
-                // Back to where the merchant was going, but only to a local dashboard address
-                // (open-redirect guard, contracts/dashboard-routes.md). A full load picks up the token.
-                await InvokeAsync(() => Nav.NavigateTo(ReturnUrlGuard.Sanitize(ReturnTo), forceLoad: true));
+                await CompleteSignInAsync(body);
             }
         }
         catch { /* transient — keep polling */ }
+    }
+
+    // Shared by Digi-ID and dev sign-in: store the session token, show "Signed in", go on.
+    private async Task CompleteSignInAsync(SignedResponse body)
+    {
+        poller?.Dispose(); poller = null;
+        ticker?.Dispose(); ticker = null;
+        await InvokeAsync(async () =>
+        {
+            signed = body;
+            await JS.InvokeVoidAsync("localStorage.setItem", "digipay-token", body.Token);
+            await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
+            StateHasChanged();
+        });
+        await Task.Delay(1200);
+        // Back to where the merchant was going, but only to a local dashboard address
+        // (open-redirect guard, contracts/dashboard-routes.md). A full load picks up the token.
+        await InvokeAsync(() => Nav.NavigateTo(ReturnUrlGuard.Sanitize(ReturnTo), forceLoad: true));
     }
 
     private async Task CopyUriAsync()
@@ -270,4 +347,5 @@
 
     private record ChallengeResponse(string Nonce, string Uri, DateTime ExpiresAt);
     private record SignedResponse(string Status, string MerchantId, string DisplayName, string Token);
+    private record DevStatusResponse(bool Enabled);
 }

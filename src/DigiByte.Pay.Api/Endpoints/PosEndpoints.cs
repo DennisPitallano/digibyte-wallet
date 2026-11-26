@@ -151,6 +151,9 @@ public static class PosEndpoints
                 Prefix = entry.Prefix,
                 Hash = entry.Hash,
                 Label = entry.DeviceLabel,
+                // A tablet key, bound to the store it was paired for (see Auth.ApiCaller).
+                Kind = ApiKeyKind.Pos,
+                StoreId = entry.StoreId,
             });
             await db.SaveChangesAsync();
 
@@ -164,9 +167,9 @@ public static class PosEndpoints
                 storeName = entry.StoreName,
                 deviceLabel = entry.DeviceLabel,
             });
-        });
+        }).AllowPosKey(); // unauthenticated
 
-        // Convenience: list POS-labeled keys so the dashboard can show
+        // Convenience: list POS tablet keys (Kind "pos") so the dashboard can show
         // previously-paired devices and their last-seen timestamp.
         group.MapGet("/devices", async (HttpRequest http, DigiPayDbContext db) =>
         {
@@ -175,13 +178,15 @@ public static class PosEndpoints
 
             var devices = await db.ApiKeys.AsNoTracking()
                 .Where(k => k.MerchantId == merchant.Id && k.RevokedAt == null
-                    && (k.Label != null && k.Label.StartsWith("POS")))
+                    && k.Kind == ApiKeyKind.Pos)
                 .OrderByDescending(k => k.LastUsedAt ?? k.CreatedAt)
                 .Select(k => new
                 {
                     id = k.Id,
                     label = k.Label,
                     prefix = k.Prefix,
+                    // Null for legacy tablets paired before keys were bound to a store.
+                    storeId = k.StoreId,
                     createdAt = k.CreatedAt,
                     lastUsedAt = k.LastUsedAt,
                 })
@@ -203,10 +208,12 @@ public static class PosEndpoints
             string storeId,
             DateTime? since = null) =>
         {
-            var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
-            if (merchant is null) return Results.Unauthorized();
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
+            var merchant = caller.Merchant;
             if (string.IsNullOrWhiteSpace(storeId))
                 return Results.BadRequest(new { error = "storeId is required" });
+            if (!caller.CanUseStore(storeId)) return ApiCaller.OutsideStore();
 
             // Verify the store belongs to the caller — don't leak counts
             // across merchants if a storeId is guessed.
@@ -323,7 +330,7 @@ public static class PosEndpoints
                     total = rows.Count,
                 },
             });
-        });
+        }).AllowPosKey();
 
         return group;
     }
@@ -364,8 +371,9 @@ public static class PosEndpoints
             DigiPayDbContext db,
             CheckoutNotifier notifier) =>
         {
-            var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
-            if (merchant is null) return Results.Unauthorized();
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
+            var merchant = caller.Merchant;
 
             if (!Enum.TryParse<PaySessionStatus>(body.Status, ignoreCase: true, out var target))
                 return Results.BadRequest(new { error = "status must be one of: pending, seen, paid, confirmed, expired, underpaid" });
@@ -373,6 +381,7 @@ public static class PosEndpoints
             var session = await db.Sessions.FirstOrDefaultAsync(s => s.Id == id && s.MerchantId == merchant.Id);
             // 404 (not 403) keeps us from leaking that someone else's session exists.
             if (session is null) return Results.NotFound(new { error = "session not found" });
+            if (!caller.CanUseStore(session.StoreId)) return ApiCaller.OutsideStore();
 
             var now = DateTime.UtcNow;
             session.Status = target;
@@ -425,7 +434,7 @@ public static class PosEndpoints
                 session.ReceivedSatoshis,
                 session.PaidTxid,
             });
-        });
+        }).AllowPosKey();
 
         return group;
     }

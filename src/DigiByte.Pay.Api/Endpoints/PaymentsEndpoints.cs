@@ -98,7 +98,7 @@ public static class PaymentsEndpoints
                 apiKey = $"{keyPrefix}_{keySecret}", // shown once
                 webhookSecret,
             });
-        }).RequireRateLimiting("register");
+        }).RequireRateLimiting("register").AllowPosKey(); // unauthenticated
 
         // POST /v1/pay/sessions — create a payment session.
         // Auth: Bearer {apiKey}. The apiKey is split "{prefix}_{secret}"; we look up
@@ -115,9 +115,16 @@ public static class PaymentsEndpoints
             DigiPayDbContext db,
             DigiDollarNodeClient ddNode) =>
         {
-            var merchant = await AuthenticateAsync(http, db);
-            if (merchant is null)
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null)
                 return Results.Unauthorized();
+            var merchant = caller.Merchant;
+            // A store-bound POS tablet only sells for its own store; no storeId means that store.
+            if (!string.IsNullOrWhiteSpace(body.StoreId) && !caller.CanUseStore(body.StoreId))
+                return ApiCaller.OutsideStore();
+            var requestedStoreId = string.IsNullOrWhiteSpace(body.StoreId) && caller.IsStoreScoped
+                ? caller.KeyStoreId
+                : body.StoreId;
 
             var currency = string.IsNullOrWhiteSpace(body.Currency)
                 ? "DGB"
@@ -184,6 +191,7 @@ public static class PaymentsEndpoints
                         .FirstOrDefaultAsync(s => s.Id == existing.SessionId);
                     if (prior is not null)
                     {
+                        if (!caller.CanUseStore(prior.StoreId)) return ApiCaller.OutsideStore();
                         var checkoutBase0 = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
                         return Results.Ok(ToDto(prior, $"{checkoutBase0}/pay/{prior.Id}"));
                     }
@@ -195,9 +203,9 @@ public static class PaymentsEndpoints
             // Resolve target store. Explicit storeId wins; otherwise fall back to the
             // merchant's first (default) store so older integrations keep working.
             PayStore? store;
-            if (!string.IsNullOrWhiteSpace(body.StoreId))
+            if (!string.IsNullOrWhiteSpace(requestedStoreId))
             {
-                store = await db.Stores.FirstOrDefaultAsync(s => s.Id == body.StoreId && s.MerchantId == merchant.Id);
+                store = await db.Stores.FirstOrDefaultAsync(s => s.Id == requestedStoreId && s.MerchantId == merchant.Id);
                 if (store is null) return Results.BadRequest(new { error = "store not found for this merchant" });
             }
             else
@@ -252,29 +260,10 @@ public static class PaymentsEndpoints
                 ? (long)Math.Round(body.Amount!.Value * 100_000_000m)
                 : 0L;
 
-            // Stamp the session's origin when it was created by a POS-paired
-            // API key (label starts with "POS"). Lets the dashboard separate
-            // countertop sales from online/SDK orders without a second table.
-            // Pairing keys are labelled either "POS" (no device name) or
-            // "POS — Front counter"; we strip the "POS — " prefix so the
-            // Source column ends up as "pos" or "pos:Front counter".
-            var keyLabel = await MerchantAuthenticator.GetAuthenticatingApiKeyLabelAsync(http, db);
-            string? source = null;
-            if (keyLabel is not null && keyLabel.StartsWith("POS", StringComparison.OrdinalIgnoreCase))
-            {
-                const string sep = "POS — ";
-                if (keyLabel.StartsWith(sep, StringComparison.OrdinalIgnoreCase) && keyLabel.Length > sep.Length)
-                {
-                    var device = keyLabel[sep.Length..].Trim();
-                    // Source column is 32 chars — leave room for the "pos:" prefix.
-                    if (device.Length > 27) device = device[..27];
-                    source = $"pos:{device}";
-                }
-                else
-                {
-                    source = "pos";
-                }
-            }
+            // Stamp the session's origin when it was created by a POS tablet key
+            // ("pos" or "pos:Front counter"). Lets the dashboard separate countertop
+            // sales from online/SDK orders without a second table.
+            var source = caller.SessionSource;
 
             var session = new PaySession
             {
@@ -339,7 +328,7 @@ public static class PaymentsEndpoints
 
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
             return Results.Ok(ToDto(session, $"{checkoutBase}/pay/{session.Id}"));
-        });
+        }).AllowPosKey();
 
         // GET /v1/pay/sessions — list sessions for the authenticated merchant.
         // Filters: ?status=pending|seen|paid|confirmed|expired|underpaid
@@ -355,8 +344,15 @@ public static class PaymentsEndpoints
             int skip = 0,
             string? format = null) =>
         {
-            var merchant = await AuthenticateAsync(http, db);
-            if (merchant is null) return Results.Unauthorized();
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
+            var merchant = caller.Merchant;
+            // A store-bound POS tablet only ever sees its own store's sessions.
+            if (caller.IsStoreScoped)
+            {
+                if (!string.IsNullOrWhiteSpace(storeId) && !caller.CanUseStore(storeId)) return ApiCaller.OutsideStore();
+                storeId = caller.KeyStoreId;
+            }
 
             var wantsCsv = string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase);
             take = wantsCsv ? Math.Clamp(take, 1, 10_000) : Math.Clamp(take, 1, 100);
@@ -422,7 +418,7 @@ public static class PaymentsEndpoints
                 skip,
                 sessions = rows.Select(s => ToDto(s, $"{checkoutBase}/pay/{s.Id}")),
             });
-        });
+        }).AllowPosKey();
 
         // GET /v1/pay/sessions/{id} — public read of session status.
         // Safe to expose without auth because id is random and contains no secret.
@@ -439,7 +435,7 @@ public static class PaymentsEndpoints
                 Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}"),
                 MerchantName = merchant?.DisplayName,
             });
-        });
+        }).AllowPosKey(); // public read
 
         // POST /v1/pay/sessions/{id}/refund — record an off-platform refund.
         //
@@ -511,11 +507,13 @@ public static class PaymentsEndpoints
             AuditLogger audit,
             VoidRequest? body) =>
         {
-            var merchant = await AuthenticateAsync(http, db);
-            if (merchant is null) return Results.Unauthorized();
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
+            var merchant = caller.Merchant;
 
             var session = await db.Sessions.FirstOrDefaultAsync(s => s.Id == id && s.MerchantId == merchant.Id);
             if (session is null) return Results.NotFound();
+            if (!caller.CanUseStore(session.StoreId)) return ApiCaller.OutsideStore();
 
             if (session.Status is not (PaySessionStatus.Pending or PaySessionStatus.Seen))
                 return Results.Conflict(new { error = $"session is {session.Status.ToString().ToLowerInvariant()} and cannot be voided" });
@@ -545,7 +543,7 @@ public static class PaymentsEndpoints
 
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
             return Results.Ok(ToDto(session, $"{checkoutBase}/pay/{session.Id}"));
-        });
+        }).AllowPosKey();
 
         return group;
     }

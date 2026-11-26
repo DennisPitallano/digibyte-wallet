@@ -21,14 +21,15 @@ public static class StoresEndpoints
     {
         group.MapGet("", async (HttpRequest http, DigiPayDbContext db) =>
         {
-            var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
-            if (merchant is null) return Results.Unauthorized();
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
             var stores = await db.Stores.AsNoTracking()
-                .Where(s => s.MerchantId == merchant.Id)
+                .Where(s => s.MerchantId == caller.Merchant.Id)
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync();
-            return Results.Ok(stores.Select(MerchantMeEndpoints.StoreDto));
-        });
+            // A store-bound POS tablet only sees its own store.
+            return Results.Ok(stores.Where(s => caller.CanUseStore(s.Id)).Select(MerchantMeEndpoints.StoreDto));
+        }).AllowPosKey();
 
         group.MapPost("", async (CreateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
@@ -62,8 +63,10 @@ public static class StoresEndpoints
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db);
             if (err is not null) return err;
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is not null && !caller.CanUseStore(store!.Id)) return ApiCaller.OutsideStore();
             return Results.Ok(MerchantMeEndpoints.StoreDto(store!));
-        });
+        }).AllowPosKey();
 
         group.MapPatch("/{storeId}", async (
             string storeId, UpdateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit,
