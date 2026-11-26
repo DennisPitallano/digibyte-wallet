@@ -3,7 +3,8 @@
 @inject BakuService Baku
 @inject LocalizationService L
 @* A send that went out: the same raised card as the first-payment celebration (docs/UI_STYLE.md). The page that shows it
-   moves on by itself after a moment, so there is nothing to press. *@
+   moves on by itself after a moment, so there is nothing to press, except when a site asked for the payment
+   (ReturnTo): then the card stays and offers "Return to {host}" and a way to stay in the wallet. *@
 
 <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="tx-success-title" data-testid="tx-success">
     <div class="card-raised celebrate-card">
@@ -51,6 +52,14 @@
             <p class="celebrate-txid" title="@TxId" data-testid="tx-success-txid">@ShortTxId</p>
         }
 
+        @if (ReturnTo is not null)
+        {
+            <div class="w-full flex flex-col gap-2 mt-2">
+                <SiteReturnButton ReturnTo="@ReturnTo" />
+                <button type="button" class="btn-ghost w-full" data-testid="site-return-stay" @onclick="OnStay">@L.T("return_to_site.stay")</button>
+            </div>
+        }
+
         @* Baku approves, only when the mascot is fully on. Its catalog title repeats the heading, so only the sentence shows. *@
         @if (Baku.Mode == BakuMode.Full && BakuCatalog.Find("send.done") is { } line)
         {
@@ -78,6 +87,12 @@
 
     /// <summary>An extra line under the amount, such as "sent, not yet confirmed by peers".</summary>
     [Parameter] public string? Note { get; set; }
+
+    /// <summary>The site that asked for this payment; when set the card stays until the person chooses.</summary>
+    [Parameter] public DigiByte.Wallet.Services.SiteReturn? ReturnTo { get; set; }
+
+    /// <summary>"Stay in the wallet", shown with <see cref="ReturnTo"/>.</summary>
+    [Parameter] public EventCallback OnStay { get; set; }
 
     /// <summary>Re-render when the language changes (spec 028).</summary>
     [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }

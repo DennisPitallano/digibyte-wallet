@@ -146,7 +146,7 @@
                         <span class="qr-frame-logo"><img src="/digibyte-logo.svg" alt="" width="32" height="32" class="block w-8 h-8" /></span>
                     </div>
 
-                    <WalletButtons Uri="@session.Uri" />
+                    <WalletButtons Uri="@session.Uri" ReturnUrl="@SelfUrl" />
 
                     <div class="ui-checkout-copyrow">
                         <div class="min-w-0 flex-1">
@@ -207,15 +207,12 @@
     private string AmountToCopy => session is null ? "" :
         session.Currency == "DD" && session.AmountCentsDd is { } c ? FormatUsdPlain(c) : FormatDgb(session.AmountSatoshis);
 
-    private string ReceiptHref
-    {
-        get
-        {
-            var t = Theme?.ToLowerInvariant();
-            var suffix = t is "light" or "dark" ? $"?theme={t}" : "";
-            return $"/pay/{Uri.EscapeDataString(SessionId)}/receipt{suffix}";
-        }
-    }
+    private string ThemeSuffix => Theme?.ToLowerInvariant() is "light" or "dark" ? $"?theme={Theme.ToLowerInvariant()}" : "";
+
+    private string ReceiptHref => $"/pay/{Uri.EscapeDataString(SessionId)}/receipt{ThemeSuffix}";
+
+    /// <summary>This checkout's absolute address (with the shop's ?theme=), for the wallet's "Return to" button.</summary>
+    private string SelfUrl => Nav.ToAbsoluteUri($"/pay/{Uri.EscapeDataString(SessionId)}{ThemeSuffix}").AbsoluteUri;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 

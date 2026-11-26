@@ -76,4 +76,40 @@ public class PaymentHandoffTests
 
         Assert.Equal("dgb1qpersonal", handoff.Take()?.Address);
     }
+
+    // ─── The site's return address travels with the payment (/pay?return=…) ───
+
+    [Fact]
+    public void The_return_address_is_taken_with_the_payment_then_gone()
+    {
+        var handoff = new PaymentHandoff();
+        var back = new SiteReturn("https://pay.dgbwallet.app/checkout/abc", "pay.dgbwallet.app");
+        handoff.Set(Link("dgb1qexample", 2m), null, back);
+
+        Assert.NotNull(handoff.Take(null, out var returnTo));
+        Assert.Equal(back, returnTo);
+        Assert.Null(handoff.Take(null, out returnTo));
+        Assert.Null(returnTo);
+    }
+
+    [Fact]
+    public void A_payment_without_a_return_address_has_none()
+    {
+        var handoff = new PaymentHandoff();
+        handoff.Set(Link("dgb1qfirst", 1m), null, new SiteReturn("https://a.example/", "a.example"));
+        handoff.Set(Link("dgb1qsecond", 5m)); // replaces the first, return address included
+
+        Assert.Equal("dgb1qsecond", handoff.Take(null, out var returnTo)?.Address);
+        Assert.Null(returnTo);
+    }
+
+    [Fact]
+    public void Another_Send_never_gets_the_return_address()
+    {
+        var handoff = new PaymentHandoff();
+        handoff.Set(Link("dgb1qexample", 2m), "ms1", new SiteReturn("https://a.example/", "a.example"));
+
+        Assert.Null(handoff.Take(null, out var returnTo));
+        Assert.Null(returnTo);
+    }
 }

@@ -661,7 +661,8 @@ else
     @* Success overlay *@
     @if (sentTxId != null)
     {
-        <TxSuccessOverlay Amount="@(isBatchMode ? BatchTotal : amountDgb)" TxId="@sentTxId" RecipientCount="@(isBatchMode ? batchRecipients.Count : 1)" Note="@sentNote" />
+        <TxSuccessOverlay Amount="@(isBatchMode ? BatchTotal : amountDgb)" TxId="@sentTxId" RecipientCount="@(isBatchMode ? batchRecipients.Count : 1)" Note="@sentNote"
+                          ReturnTo="@siteReturn" OnStay="@(() => Nav.NavigateTo("/?refresh=1"))" />
     }
 
     <QrScannerModal IsOpen="@showScanner" OnScanned="OnQrScanned" OnClosed="() => showScanner = false" />
@@ -937,7 +938,9 @@ else
     // Checked again here with the same rules as the address query; any note stays off the memo.
     private bool TryTakeHandoff()
     {
-        if (PayHandoff.Take() is not { } link) return false;
+        if (PayHandoff.Take(null, out var returnTo) is not { } link) return false;
+        // The site that opened the payment link, offered as "Return to {host}" once this payment is sent.
+        siteReturn = returnTo;
         if (link.Address.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(link.Address))
         {
             destinationAddress = link.Address;
@@ -1289,6 +1292,8 @@ else
 
     private string? sentTxId;
     private string? sentNote;
+    // Set only when the payment came from a payment link with a checked ?return= address (Pay.razor).
+    private DigiByte.Wallet.Services.SiteReturn? siteReturn;
 
     // The slide control on the confirm card. It locks after one confirmation; Reset() unlocks it when a send fails.
     private SlideToConfirm? sendSlide;
@@ -1341,6 +1346,8 @@ else
                 : null;
             showConfirm = false;
             StateHasChanged();
+            // A payment a site asked for stays on the success card, which offers "Return to {host}" (never automatic).
+            if (siteReturn is not null) return;
             // Show success briefly, then go home and trigger a fresh fetch
             await Task.Delay(1200);
             Nav.NavigateTo("/?refresh=1", forceLoad: false);

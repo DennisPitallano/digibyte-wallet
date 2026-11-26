@@ -13,6 +13,9 @@
     is after the #, which the browser never sends to the web host. With a wallet on this device the payment goes to
     Send in memory (through Unlock if needed); without one, this page shows it so it can be paid from any wallet.
     No control on this page can move funds.
+    A site that opened the link may add ?return=<its address> before the # (/pay?return=https%3A%2F%2F…#digibyte:…).
+    It is checked (SiteReturnUrl.ForPayment), handed to Send with the payment, and offered as "Return to {host}"
+    once the payment is sent; an address that fails the check is ignored.
 *@
 
 <PageTitle>@L.T("pay.title") — DigiByte Wallet</PageTitle>
@@ -148,8 +151,10 @@ else if (state == State.ReadOnly && link is not null)
 
         if (hasWallet)
         {
-            // Never in a URL: Send takes it from memory, after Unlock when the wallet is locked (FR-021).
-            Handoff.Set(link);
+            // Never in a URL: Send takes it from memory, after Unlock when the wallet is locked (FR-021). The return
+            // address goes the same way, so it survives Unlock too.
+            var returnTo = SiteReturnUrl.ForPayment(System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query)["return"]);
+            Handoff.Set(link, null, returnTo);
             Nav.NavigateTo(WalletService.IsUnlocked ? "/send" : "/unlock?returnUrl=%2Fsend", replace: true);
             return;
         }

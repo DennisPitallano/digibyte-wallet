@@ -313,7 +313,10 @@
         get
         {
             var wallet = (Services.GetService(typeof(WalletAppUrl)) as WalletAppUrl)?.Value ?? WalletAppUrl.Default;
-            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}";
+            // &return= is this sign-in page; after approval the wallet offers "Return to {host}" (it closes its tab
+            // when this page opened it, else comes back here). The wallet only accepts it on the same site as the
+            // challenge's Digi-ID domain (pay.dgbwallet.app, or localhost on any port in development).
+            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}&return={Uri.EscapeDataString(Nav.Uri)}";
         }
     }
 
