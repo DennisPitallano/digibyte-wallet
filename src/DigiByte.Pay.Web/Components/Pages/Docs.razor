@@ -275,7 +275,8 @@
             <CodeBlock Lang="html" Label="Copy the donation link example">@("<a href=\"https://pay.dgbwallet.app/pay/button?to=dgb1q...&name=My%20Blog&label=Thanks!\">Tip in DGB</a>")</CodeBlock>
             <CodeBlock Lang="html" Label="Copy the donation button example">@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<span data-digipay-button data-address=\"dgb1q...\" data-name=\"My Blog\" data-amount=\"5\">Tip DGB</span>")</CodeBlock>
             <p class="@P">
-                The embed swaps the element for a button that opens the tip page in a new tab (add <InlineCode>data-theme</InlineCode> to fix its theme).
+                The embed swaps the element for a button that opens the tip page in a new tab (add <InlineCode>data-theme</InlineCode> to fix its theme,
+                and <InlineCode>data-logo="dgb"</InlineCode> or <InlineCode>data-logo="https://…"</InlineCode> to show the DigiByte logo or your own image on it).
                 Using an xpub store? <InlineCode>GET /v1/pay/stores/{id}/donation-address</InlineCode> returns a stable address reserved for donations,
                 and the dashboard's <em>Donation</em> tab builds the snippet for you.
             </p>

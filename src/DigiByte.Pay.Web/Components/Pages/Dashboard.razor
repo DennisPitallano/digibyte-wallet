@@ -543,6 +543,23 @@ else
                                 <label class="field-label" for="don-button">Button text</label>
                                 <input id="don-button" @bind="donButtonText" @bind:event="oninput" placeholder="Tip DGB" class="@Input" maxlength="40" />
                             </div>
+                            <div class="field">
+                                <label class="field-label" for="don-logo">Logo <span class="font-normal opacity-70">(optional)</span></label>
+                                <select id="don-logo" @bind="donLogo" class="@Input">
+                                    <option value="none">None</option>
+                                    <option value="dgb">DigiByte logo</option>
+                                    <option value="custom">Custom image URL</option>
+                                </select>
+                            </div>
+                            @if (donLogo == "custom")
+                            {
+                                <div class="field">
+                                    <label class="field-label" for="don-logo-url">Image URL</label>
+                                    <input id="don-logo-url" @bind="donLogoUrl" @bind:event="oninput" type="url" inputmode="url" placeholder="https://example.com/logo.png" class="@Input" maxlength="500"
+                                           aria-describedby="don-logo-url-hint" aria-invalid="@(DonationLogoUrlInvalid ? "true" : "false")" />
+                                    <p id="don-logo-url-hint" class="@Muted m-0 mt-1 text-xs">@(DonationLogoUrlInvalid ? "Use a full https:// image link." : "A square image works best; it's shown at 20×20.")</p>
+                                </div>
+                            }
                         </div>
                     </section>
 
@@ -558,7 +575,8 @@ else
                         <div class="@Eyebrow mt-1">Preview</div>
                         <div class="p-4 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-center">
                             <a href="@DonationHostedUrl" target="_blank" rel="noopener"
-                               class="inline-block px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg no-underline text-sm">
+                               class="inline-flex items-center gap-2 px-4 py-2 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg no-underline text-sm">
+                                @if (DonationLogoUrl is { } hostedLogo) { <img src="@hostedLogo" alt="" width="20" height="20" class="w-5 h-5 object-contain rounded-full shrink-0" /> }
                                 @DonationButtonLabel
                             </a>
                         </div>
@@ -576,6 +594,7 @@ else
                             @* The widget's real output uses inline styles — match them so preview = reality. *@
                             <a href="@DonationHostedUrl" target="_blank" rel="noopener"
                                style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:#0066ff;color:#fff;border-radius:10px;text-decoration:none;font:600 14px system-ui,-apple-system,Segoe UI,sans-serif;">
+                                @if (DonationLogoUrl is { } widgetLogo) { <img src="@widgetLogo" alt="" width="20" height="20" style="width:20px;height:20px;object-fit:contain;border-radius:50%;flex-shrink:0;" /> }
                                 @DonationButtonLabel
                             </a>
                         </div>
@@ -591,7 +610,8 @@ else
                         <div class="@Eyebrow mt-1">Preview</div>
                         <div class="p-4 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg text-center">
                             <a href="@DonationBip21Uri"
-                               class="inline-block px-4 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-900 dark:text-white font-semibold rounded-lg no-underline text-sm border border-slate-200 dark:border-dgb-800">
+                               class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-dgb-800 text-slate-900 dark:text-white font-semibold rounded-lg no-underline text-sm border border-slate-200 dark:border-dgb-800">
+                                @if (DonationLogoUrl is { } bip21Logo) { <img src="@bip21Logo" alt="" width="20" height="20" class="w-5 h-5 object-contain rounded-full shrink-0" /> }
                                 @DonationButtonLabel
                             </a>
                         </div>
@@ -1553,6 +1573,9 @@ else
     private string donName = "";
     private string donLabel = "";
     private string donButtonText = "Tip DGB";
+    /// <summary>Button logo: "none", "dgb" (DigiPay-hosted DigiByte logo) or "custom" (donLogoUrl).</summary>
+    private string donLogo = "none";
+    private string donLogoUrl = "";
     /// <summary>Which variant's snippet was last copied.</summary>
     private string copiedSnippet = "";
 
@@ -1950,9 +1973,37 @@ else
         }
     }
 
+    /// <summary>Custom logo URL, when it's an absolute http(s) link; null otherwise.</summary>
+    private string? DonationCustomLogoUrl
+    {
+        get
+        {
+            var url = donLogoUrl.Trim();
+            return Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+                ? url : null;
+        }
+    }
+
+    private bool DonationLogoUrlInvalid =>
+        donLogo == "custom" && !string.IsNullOrWhiteSpace(donLogoUrl) && DonationCustomLogoUrl is null;
+
+    /// <summary>Absolute URL of the button logo, or null for no logo.</summary>
+    private string? DonationLogoUrl => donLogo switch
+    {
+        "dgb" => $"{WebBase}/digibyte-logo.svg",
+        "custom" => DonationCustomLogoUrl,
+        _ => null,
+    };
+
+    /// <summary>Inline &lt;img&gt; for the plain-HTML snippets (empty when no logo).</summary>
+    private string DonationLogoImgHtml =>
+        DonationLogoUrl is { } logo
+            ? $"<img src=\"{System.Net.WebUtility.HtmlEncode(logo)}\" alt=\"\" width=\"20\" height=\"20\" style=\"vertical-align:middle;margin-right:6px;border-radius:50%\">"
+            : "";
+
     // Snippet strings — exactly what the merchant pastes into their site.
     private string DonationHostedSnippet =>
-        $"<a href=\"{DonationHostedUrl}\" target=\"_blank\" rel=\"noopener\">{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</a>";
+        $"<a href=\"{System.Net.WebUtility.HtmlEncode(DonationHostedUrl)}\" target=\"_blank\" rel=\"noopener\">{DonationLogoImgHtml}{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</a>";
 
     private string DonationWidgetSnippet
     {
@@ -1966,14 +2017,18 @@ else
                 attrs.Append(" data-name=\"").Append(System.Net.WebUtility.HtmlEncode(donName)).Append('"');
             if (!string.IsNullOrWhiteSpace(donLabel))
                 attrs.Append(" data-label=\"").Append(System.Net.WebUtility.HtmlEncode(donLabel)).Append('"');
+            // "dgb" lets the widget resolve the logo from its own origin.
+            var logo = donLogo == "dgb" ? "dgb" : donLogo == "custom" ? DonationCustomLogoUrl : null;
+            if (logo is not null)
+                attrs.Append(" data-logo=\"").Append(System.Net.WebUtility.HtmlEncode(logo)).Append('"');
             return
-                $"<script src=\"{WebBase}/embed/digipay.js?v=0.1\"></script>\n" +
+                $"<script src=\"{WebBase}/embed/digipay.js?v=0.2\"></script>\n" +
                 $"<div data-digipay-button{attrs}>{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</div>";
         }
     }
 
     private string DonationBip21Snippet =>
-        $"<a href=\"{System.Net.WebUtility.HtmlEncode(DonationBip21Uri)}\">{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</a>";
+        $"<a href=\"{System.Net.WebUtility.HtmlEncode(DonationBip21Uri)}\">{DonationLogoImgHtml}{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</a>";
 
     /// <summary>Copies a snippet or link and confirms with a notice (FR-022); explains when the browser blocks it.</summary>
     private async Task CopySnippetAsync(string variant, string snippet)

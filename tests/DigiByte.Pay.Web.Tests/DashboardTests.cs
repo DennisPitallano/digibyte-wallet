@@ -385,6 +385,37 @@ public class DashboardTests : BunitContext
         Assert.DoesNotContain("Loading the donation address", cut.Markup);
     }
 
+    [Fact]
+    public void The_donation_button_can_show_the_DigiByte_logo()
+    {
+        var cut = RenderSection("donation");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#don-logo")));
+        Assert.DoesNotContain("digibyte-logo.svg", cut.Markup);
+
+        cut.Find("#don-logo").Change("dgb");
+
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("pre"), p => p.TextContent.Contains("data-logo=\"dgb\""))); // widget snippet
+        Assert.Contains("digibyte-logo.svg", cut.Markup);                                     // previews + plain snippets
+        Assert.Equal(3, cut.FindAll("a img[src$='/digibyte-logo.svg']").Count);
+    }
+
+    [Fact]
+    public void A_custom_donation_logo_must_be_an_http_link()
+    {
+        var cut = RenderSection("donation");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#don-logo")));
+        cut.Find("#don-logo").Change("custom");
+
+        cut.Find("#don-logo-url").Input("javascript:alert(1)");
+        cut.WaitForAssertion(() => Assert.Contains("Use a full https:// image link.", cut.Markup));
+        Assert.DoesNotContain("javascript:alert", cut.Markup.Replace("value=\"javascript:alert(1)\"", ""));
+        Assert.Empty(cut.FindAll("a img[width='20']"));
+
+        cut.Find("#don-logo-url").Input("https://example.com/logo.png");
+        cut.WaitForAssertion(() => Assert.Equal(3, cut.FindAll("a img[src='https://example.com/logo.png']").Count));
+        Assert.Contains(cut.FindAll("pre"), p => p.TextContent.Contains("data-logo=\"https://example.com/logo.png\""));
+    }
+
     // ----- 12. Plain errors -----
 
     [Fact]
