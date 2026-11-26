@@ -99,3 +99,62 @@
 .dash-currency-btn { display: flex; align-items: center; gap: 0.5rem; text-align: left; cursor: pointer; }
 .dash-currency-code { font-weight: 700; }
 .dash-currency-name { flex: 1; min-width: 0; font-size: 0.8125rem; color: var(--ui-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* =====================================================================================
+   Collapsible rail (DashboardShell, wide screens). Collapsed, it is a 76px strip of icons;
+   labels stay in the markup for screen readers and show as tooltips on hover/focus.
+   ===================================================================================== */
+.dp-rail-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.dp-rail-toggle { flex-shrink: 0; }
+.dp-rail-avatar { display: none; }
+.dp-rail-store { justify-content: center; }
+
+@media (min-width: 1024px) {
+    .dp-shell { transition: grid-template-columns 220ms cubic-bezier(.22, 1, .36, 1); }
+    .dp-rail-head { padding: 0.25rem 0.25rem 0.75rem 0.75rem; border-bottom: 1px solid var(--ui-border); margin-bottom: 0.25rem; }
+    .dp-rail-head > .dp-brand { padding: 0; border: 0; margin: 0; }
+
+    .dp-shell.is-rail-collapsed { grid-template-columns: 76px minmax(0, 1fr); }
+    .is-rail-collapsed .dp-rail { padding-left: 0.625rem; padding-right: 0.625rem; }
+    .is-rail-collapsed .dp-rail-head { flex-direction: column; padding: 0.25rem 0 0.75rem; }
+    .is-rail-collapsed .dp-rail-label,
+    .is-rail-collapsed .dash-nav-heading,
+    .is-rail-collapsed .dp-rail-account-text,
+    .is-rail-collapsed .dp-rail-theme {
+        /* Visually hidden, still read out. */
+        position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    .is-rail-collapsed .dash-nav-list + .dash-nav-heading { margin-top: 0; }
+    .is-rail-collapsed .dash-nav-list { padding-bottom: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--ui-border); }
+    .is-rail-collapsed .dash-nav-list:last-child { border-bottom: 0; }
+    .is-rail-collapsed .dp-rail-item { justify-content: center; gap: 0; padding-left: 0; padding-right: 0; }
+    .is-rail-collapsed .dp-rail-item > svg:not(:first-child) { display: none; } /* external-link marks */
+    .is-rail-collapsed .dp-rail-account { align-items: center; }
+    .is-rail-collapsed .dp-rail-avatar {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+        font-weight: 700; font-size: 0.875rem;
+        color: var(--ui-ghost-text); background: var(--ui-ghost-hover);
+    }
+    .is-rail-collapsed .dp-rail-account-actions { padding: 0.5rem 0 0; justify-content: center; }
+    .is-rail-collapsed .dp-rail-signout { flex: 0 0 auto; width: 2.75rem; padding-left: 0; padding-right: 0; justify-content: center; }
+
+    /* The rail scrolls vertically, so tooltips are drawn outside it (digipay-dashboard.js). */
+    .is-rail-collapsed .dp-rail { overflow-x: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dp-shell, .dp-rail-tip { transition: none !important; }
+}
+
+/* Tooltip for the collapsed rail: one fixed element positioned next to the hovered/focused icon. */
+.dp-rail-tip {
+    position: fixed; z-index: 80; pointer-events: none;
+    padding: 0.375rem 0.625rem; border-radius: var(--ui-radius-sm);
+    background: var(--ui-text); color: var(--ui-surface);
+    font-size: 0.8125rem; font-weight: 600; white-space: nowrap;
+    box-shadow: var(--ui-shadow-raised);
+    opacity: 0; transform: translate(-4px, -50%);
+    transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.dp-rail-tip.is-shown { opacity: 1; transform: translate(0, -50%); }

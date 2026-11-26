@@ -6,39 +6,64 @@
 @* The merchant dashboard's frame: the rail on wide screens, the top bar, bottom menu and More
    sheet on phones, and the store switcher. Used by the dashboard sections and the payment page,
    so every merchant page shows the same navigation. The page supplies its content. *@
-<div class="dp-shell">
+<div class="dp-shell @(railCollapsed ? "is-rail-collapsed" : "")">
     @* Wide screens (1024px and up): a left rail with every section, like the wallet's
        wide-screen menu (FR-016). Phones and tablets get the top bar + bottom menu below. *@
-    <aside class="dp-rail" aria-label="Dashboard">
-        <a href="/" class="dp-brand">
-            <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
-            <span>Digi<span class="text-dgb-500">Pay</span></span>
-        </a>
+    <aside id="dp-rail" class="dp-rail" aria-label="Dashboard" @ref="railRef">
+        <div class="dp-rail-head">
+            <a href="/" class="dp-brand" aria-label="DigiPay home">
+                <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
+                <span class="dp-rail-label">Digi<span class="text-dgb-500">Pay</span></span>
+            </a>
+            @* Collapse to an icon strip (remembered in this browser). Labels stay for screen readers
+               and show as tooltips on hover or keyboard focus. *@
+            <button type="button" class="icon-btn dp-rail-toggle" aria-controls="dp-rail"
+                    aria-expanded="@(railCollapsed ? "false" : "true")"
+                    aria-label="@(railCollapsed ? "Expand menu" : "Collapse menu")" title="@(railCollapsed ? "Expand menu" : "Collapse menu")"
+                    @onclick="ToggleRailAsync">
+                <Icon Name="@(railCollapsed ? "panel-open" : "panel-close")" Class="w-5 h-5" />
+            </button>
+        </div>
 
-        @StoreSwitcher("rail")
+        @if (railCollapsed)
+        {
+            @if (ActiveStore is not null)
+            {
+                @* The store picker needs room: tapping the store expands the menu. *@
+                <button type="button" class="dp-rail-item dp-rail-store" data-label="@($"Store: {ActiveStore.Name}")"
+                        aria-label="@($"Store: {ActiveStore.Name}. Expand the menu to switch")" @onclick="ToggleRailAsync">
+                    <Icon Name="store" Class="w-5 h-5 shrink-0" />
+                </button>
+            }
+        }
+        else
+        {
+            @StoreSwitcher("rail")
+        }
 
         <nav aria-label="Sections" class="dp-rail-nav">
             @SectionLinks(DashboardSections.All, "rail", false)
         </nav>
 
         <div class="dp-rail-group">
-            <p class="section-label px-3">Resources</p>
+            <p class="section-label px-3 dp-rail-label">Resources</p>
             @ResourceLinks
         </div>
 
-        <div class="dp-rail-group">
-            <div class="px-3">
+        <div class="dp-rail-group dp-rail-account">
+            <span class="dp-rail-avatar" aria-hidden="true" title="@AccountName">@Initial</span>
+            <div class="px-3 dp-rail-account-text">
                 <p class="text-sm font-semibold truncate">@AccountName</p>
                 @if (!string.IsNullOrEmpty(DigiIdAddress))
                 {
                     <p class="font-mono text-xs ui-checkout-muted">@(DigiIdAddress.Length > 14 ? DigiIdAddress[..8] + "…" + DigiIdAddress[^4..] : DigiIdAddress)</p>
                 }
             </div>
-            <div class="flex gap-2 items-center px-3 pt-2">
-                <button type="button" class="btn-secondary btn-sm flex-1" @onclick="SignOutAsync">
-                    <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
+            <div class="flex gap-2 items-center px-3 pt-2 dp-rail-account-actions">
+                <button type="button" class="btn-secondary btn-sm flex-1 dp-rail-signout" data-label="Sign out" aria-label="Sign out" @onclick="SignOutAsync">
+                    <Icon Name="logout" Class="w-4 h-4" /><span class="dp-rail-label">Sign out</span>
                 </button>
-                <ThemePicker Compact="true" />
+                <span class="dp-rail-theme"><ThemePicker Compact="true" /></span>
             </div>
         </div>
     </aside>
@@ -136,6 +161,33 @@
     [Parameter] public RenderFragment? Overlays { get; set; }
 
     private bool moreOpen;
+    private bool railCollapsed;
+    private ElementReference railRef;
+
+    private string Initial => string.IsNullOrWhiteSpace(AccountName) ? "D" : AccountName.Trim()[..1].ToUpperInvariant();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
+            await module.InvokeVoidAsync("bindRailTips", railRef);
+            if (await module.InvokeAsync<bool>("railCollapsed")) { railCollapsed = true; StateHasChanged(); }
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { } catch (InvalidOperationException) { /* prerendering */ }
+    }
+
+    private async Task ToggleRailAsync()
+    {
+        railCollapsed = !railCollapsed;
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
+            await module.InvokeVoidAsync("setRailCollapsed", railCollapsed);
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { }
+    }
     private string? shownKey;
     private DotNetObjectReference<DashboardShell>? selfRef;
 
@@ -232,14 +284,14 @@
 
     private RenderFragment ResourceLinks => __builder =>
     {
-        <a href="/docs" target="_blank" rel="noopener" class="dp-rail-item">
-            <Icon Name="book" Class="w-5 h-5 shrink-0" /><span class="flex-1">How it works</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        <a href="/docs" target="_blank" rel="noopener" class="dp-rail-item" data-label="How it works">
+            <Icon Name="book" Class="w-5 h-5 shrink-0" /><span class="flex-1 dp-rail-label">How it works</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
         </a>
-        <a href="/docs/api" target="_blank" rel="noopener" class="dp-rail-item">
-            <Icon Name="code" Class="w-5 h-5 shrink-0" /><span class="flex-1">API reference</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        <a href="/docs/api" target="_blank" rel="noopener" class="dp-rail-item" data-label="API reference">
+            <Icon Name="code" Class="w-5 h-5 shrink-0" /><span class="flex-1 dp-rail-label">API reference</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
         </a>
-        <a href="/embed/demo.html" target="_blank" rel="noopener" class="dp-rail-item">
-            <Icon Name="gift" Class="w-5 h-5 shrink-0" /><span class="flex-1">Embed demo</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        <a href="/embed/demo.html" target="_blank" rel="noopener" class="dp-rail-item" data-label="Embed demo">
+            <Icon Name="gift" Class="w-5 h-5 shrink-0" /><span class="flex-1 dp-rail-label">Embed demo</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
         </a>
     };
 
@@ -265,8 +317,8 @@
                         }
                         else
                         {
-                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)">
-                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
+                            <a href="@HrefFor(sec)" class="dp-rail-item" data-label="@sec.Label" aria-current="@(IsCurrent(sec) ? "page" : null)">
+                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span class="dp-rail-label">@sec.Label</span>
                             </a>
                         }
                     </li>

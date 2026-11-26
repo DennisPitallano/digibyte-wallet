@@ -1,0 +1,66 @@
+using DigiByte.Pay.Web.Components.Shared;
+using DigiByte.Pay.Web.Components.Shared.Ui;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace DigiByte.Pay.Web.Tests;
+
+// The dashboard menu (rail) collapses to an icon strip and remembers that in this browser.
+public class DashboardRailTests : BunitContext
+{
+    private IRenderedComponent<DashboardShell> RenderShell(bool storedCollapsed)
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var module = JSInterop.SetupModule("/js/digipay-dashboard.js");
+        module.Setup<bool>("railCollapsed").SetResult(storedCollapsed);
+        module.SetupVoid("setRailCollapsed", _ => true).SetVoidResult();
+        Services.AddSingleton<IHttpClientFactory>(new NoHttp());
+        Services.AddScoped<ToastService>();
+        return Render<DashboardShell>(p => p
+            .Add(x => x.ActiveKey, "overview")
+            .Add(x => x.AccountName, "Dev merchant")
+            .Add(x => x.Stores, new[] { new DashboardShell.StoreOption("sto_1", "Main store") })
+            .Add(x => x.ActiveStoreId, "sto_1"));
+    }
+
+    [Fact]
+    public void The_menu_starts_expanded_and_collapses_to_icons_with_labels_kept()
+    {
+        var cut = RenderShell(storedCollapsed: false);
+        var toggle = cut.Find(".dp-rail-toggle");
+        Assert.Equal("true", toggle.GetAttribute("aria-expanded"));
+        Assert.Equal("Collapse menu", toggle.GetAttribute("aria-label"));
+
+        toggle.Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("is-rail-collapsed", cut.Find(".dp-shell").ClassName));
+        Assert.Equal("false", cut.Find(".dp-rail-toggle").GetAttribute("aria-expanded"));
+        Assert.Equal("Expand menu", cut.Find(".dp-rail-toggle").GetAttribute("aria-label"));
+        // Every rail link keeps its name (screen readers) and a tooltip label.
+        var overview = cut.FindAll(".dp-rail a.dp-rail-item").First(a => a.GetAttribute("data-label") == "Overview");
+        Assert.Contains("Overview", overview.TextContent);
+        // The store picker gives way to a store button that expands the menu again.
+        Assert.Empty(cut.FindAll("#store-switch-rail"));
+        cut.Find(".dp-rail-store").Click();
+        cut.WaitForAssertion(() => Assert.DoesNotContain("is-rail-collapsed", cut.Find(".dp-shell").ClassName));
+    }
+
+    [Fact]
+    public void Collapsing_is_remembered()
+    {
+        var cut = RenderShell(storedCollapsed: false);
+        cut.Find(".dp-rail-toggle").Click();
+        cut.WaitForAssertion(() => Assert.Contains(JSInterop.Invocations, i => i.Identifier == "setRailCollapsed" && (bool)i.Arguments[0]! == true));
+    }
+
+    [Fact]
+    public void A_remembered_collapsed_menu_starts_collapsed()
+    {
+        var cut = RenderShell(storedCollapsed: true);
+        cut.WaitForAssertion(() => Assert.Contains("is-rail-collapsed", cut.Find(".dp-shell").ClassName));
+    }
+
+    private sealed class NoHttp : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new() { BaseAddress = new Uri("http://127.0.0.1:1") };
+    }
+}

@@ -745,3 +745,17 @@ input[inputmode="numeric"] {
 .dgb-loader-text::after { content: ""; display: inline-block; width: 1.1em; text-align: left; animation: dgb-loader-dots 1.4s steps(4, end) infinite; }
 @keyframes dgb-loader-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 @media (prefers-reduced-motion: reduce) { .dgb-loader-text::after { animation: none; content: "…"; } }
+
+/* =====================================================================================
+   Thin scrollbars everywhere (like the wallet's .thin-scrollbar): a slim rounded thumb on a
+   clear track, in both themes. Firefox and current Chromium use scrollbar-width/-color;
+   older WebKit uses the pseudo-elements.
+   ===================================================================================== */
+:root { --dp-scroll-thumb: rgba(100, 116, 139, 0.35); --dp-scroll-thumb-hover: rgba(100, 116, 139, 0.6); }
+.dark { --dp-scroll-thumb: rgba(148, 163, 184, 0.28); --dp-scroll-thumb-hover: rgba(148, 163, 184, 0.5); }
+* { scrollbar-width: thin; scrollbar-color: var(--dp-scroll-thumb) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--dp-scroll-thumb); border-radius: 9999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--dp-scroll-thumb-hover); }
+*::-webkit-scrollbar-corner { background: transparent; }
