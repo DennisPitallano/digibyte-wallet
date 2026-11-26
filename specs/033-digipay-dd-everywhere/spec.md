@@ -122,11 +122,11 @@ The merchant reading the DigiDollar setting in the Dashboard can see exactly whe
 - **More than two decimals**: DD amounts are limited to cents. Input beyond two decimals isn't accepted.
 - **Underpaid or overpaid DD payment**: shown the same way as for DGB payments today, in DD units.
 - **Saved till currency of DD on a device whose store has DD turned off**: falls back to the store default (see Story 1, scenario 5).
-- **Buyer pays in both currencies**: once funds arrive in one currency the choice locks. If funds still arrive at the other currency's address before the payment expires, they're recorded on the same payment as an extra payment for the merchant to refund, and the Dashboard flags it. They're never silently ignored.
+- **Buyer pays in both currencies**: once funds arrive in one currency the choice locks. If funds still arrive at the other currency's address before the payment expires, or within the 3-day late-payment window after it, they're recorded on the same payment as an extra payment for the merchant to refund, and the Dashboard flags it. They're never silently ignored.
 - **DD unavailable at checkout**: the DD choice shows as unavailable with a short note. DGB keeps working, and a buyer already on DD is moved back to DGB with an explanation, unless they've already started paying in DD.
 - **Converted DD amount outside the limits**: if a non-USD price converts to less than 1.00 or more than 100,000.00 DD, the DD choice isn't offered for that payment.
 - **No exchange rate available for a non-USD price**: the DD choice is unavailable for that payment until a rate is available. DGB is unaffected.
-- **DD turned off while a buyer is on checkout**: the DD choice disappears on the next refresh, unless the buyer has already started paying in DD, in which case that payment completes.
+- **DD turned off while a buyer is on checkout** (by the merchant or by the DD surfaces switch): the DD choice disappears on the next refresh, even if the buyer had already opened the DD option, unless the buyer has already started paying in DD, in which case that payment completes.
 - **Expiry**: the payment expires at the same time whichever currency the buyer picks. Switching currencies doesn't extend it.
 - **Payments open when this ships**: payments created before buyer choice existed stay DGB-only. Only payments created afterwards offer the choice.
 
@@ -159,7 +159,7 @@ The merchant reading the DigiDollar setting in the Dashboard can see exactly whe
 - **FR-022**: The DD amount MUST equal the USD price at 1:1. For any other currency it MUST be the price converted to US dollars at the rate when the buyer first picks DD, rounded up to the cent, with the rate shown. That DD amount MUST then stay fixed until the payment expires, including when the buyer switches away and back. The DGB amount MUST be worked out as it is today.
 - **FR-023**: Each currency MUST get at most one address per payment. Switching back and forth MUST show the same address and amount for a currency rather than creating new ones.
 - **FR-024**: Once funds for the payment are seen in one currency, the choice MUST lock to that currency and the payment MUST complete in it.
-- **FR-025**: Funds that arrive in the other currency before the payment expires MUST be recorded on the same payment as an extra payment to refund and flagged to the merchant. Extra DD is paid out to the merchant with the store's other DD, labelled "extra payment, refund the buyer" (spec 034 FR-029); DigiPay doesn't refund buyers itself.
+- **FR-025**: Funds that arrive in the other currency before the payment expires, or within the 3-day window DigiPay already watches for late payments, MUST be recorded on the same payment as an extra payment to refund and flagged to the merchant. Extra DD is paid out to the merchant with the store's other DD, labelled "extra payment, refund the buyer" (spec 034 FR-029); DigiPay doesn't refund buyers itself.
 - **FR-026**: A payment the merchant created explicitly in DD, or with an amount typed in DGB, MUST NOT offer a choice.
 - **FR-027**: A payment MUST stay one payment with one order reference whichever currency the buyer picks. The payment details, receipt, notifications to the merchant's systems and totals MUST show the currency and amount actually paid.
 - **FR-028**: Payments created by a merchant's own code MUST offer the choice only when that code asks for it, so existing integrations that expect DGB keep working unchanged.
@@ -227,7 +227,7 @@ The merchant reading the DigiDollar setting in the Dashboard can see exactly whe
 - Two ways to get a DD payment: the merchant picks DD when creating it (fixed DD), or the merchant prices it in a regular currency and the buyer picks DGB or DD at checkout. Payments with an amount typed in DGB stay DGB-only, because their price is set in DGB.
 - 1 DD = 1 USD. DD amounts are entered in US dollars and stored in cents, with the API's existing limits (1.00 to 100,000.00).
 - When the merchant switches the till or link form to DD, there's no conversion: only a USD amount carries over and other amounts are cleared. Conversion happens only for buyer choice on a non-USD price, at the rate in effect when the buyer first picks DD (then fixed until the payment expires), using the same price source DigiPay already uses.
-- The DD address for a buyer-choice payment is created only when the buyer first picks DD, so payments paid in DGB never use up a DD address.
+- The DD address for a buyer-choice payment is created only when the buyer first picks DD, so payments paid in DGB never use up a DD address. The exception is a store whose default currency is DD: its payments start on DD, so the DD address is created with the payment.
 - DD donations go to the same DigiPay-held DD funds as DD payments and are paid out the same way once payouts exist. Donations aren't watched as individual payments, matching how DGB donations work today.
 - Network fees for DD stay covered by DigiPay, as the current setting already says.
 - Webhooks, the API and the checkout and receipt pages already handle fixed DD payments. Buyer choice adds to them: a payment's paid currency can now differ from what was offered first, so these places must report the currency actually paid.

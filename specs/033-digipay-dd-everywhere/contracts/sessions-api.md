@@ -36,11 +36,12 @@ Response `{ session, merchantName }` gains:
 
 | Field | Type | Notes |
 |---|---|---|
-| `ddAvailable` | bool | From `DdAvailability` (30 s cache). Only present when `session.buyerChoice`. |
+| `ddAvailable` | bool | Only present when `session.buyerChoice`. False when the store has DigiDollar off, the gate is off, or `DdAvailability` (30 s cache) reports the node down. |
+| `ddReason` | string? | `dd_disabled` or `unavailable` when `ddAvailable` is false. |
 
 ## POST /v1/pay/sessions/{id}/options/dd (new, anonymous)
 
-Creates or returns the session's DD option. Rate limit: `checkout-option`, per IP, 30 a minute.
+Creates or returns the session's DD option. Rate limit: `checkout-option`, 30 a minute per client address (`TrustedClient.AddressOf`, so Pay.Web must forward the buyer's address with the trusted-client headers).
 
 | Result | Status | Body |
 |---|---|---|

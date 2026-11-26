@@ -57,7 +57,7 @@ Everything ships behind a server gate (`DIGIPAY_DD_SURFACES`) that stays off unt
 
 **Constraints**:
 - DD amounts run from 1.00 to 100,000.00 in whole cents.
-- DGB creation and monitoring must never wait on the DD node (Principle V, FR-015).
+- DGB creation and monitoring must never wait on the DD node (Principle V, FR-015). The one node call at creation (stores whose default is DD) is skipped when `DdAvailability` reports down and is capped at 3 s otherwise.
 - Existing API integrations see no behaviour change (SC-010).
 - The monitor is single-instance (10 s loop), as today.
 
@@ -78,7 +78,7 @@ Everything ships behind a server gate (`DIGIPAY_DD_SURFACES`) that stays off unt
 | IV. Boundary discipline | Yes | Pay.Web and Pay.Api reuse `DigiByte.Crypto` validators. The node is reached only through NodeApi. The USD rate comes from the existing `DgbPriceService`, not a second rate source. **PASS** |
 | V. Resilience | **Yes** | Every surface has a defined DD-down state (FR-014, research R10). DGB paths don't call the DD node: a buyer-choice session creates its DD option lazily, and the monitor skips DD errors per tick. **PASS** |
 | Address handling | Yes | Every DD address the tip page shows is validated client-side before it's displayed. Merchants never type DD addresses in this feature. **PASS** |
-| Auth boundary | **Yes** | Two new anonymous endpoints: the DD option and donation options. Both are rate-limited (`checkout-option`). They can only create a receive address bound to an existing session, or read public donation data. Neither can move funds, change merchant data or read keys. The notice dismiss endpoint needs a `dps_` session. No reliance on network position. Flag the PR as auth-relevant. **PASS** |
+| Auth boundary | **Yes** | Two new anonymous endpoints: the DD option and donation options. Neither is a merchant API (merchant data still needs `dgp_` or `dps_`) nor a wallet-to-backend call, the two cases the rule covers. Anonymous registration (`POST /merchants`) is the precedent for a public endpoint that writes. Rate limits count through `TrustedClient.AddressOf`, and Pay.Web forwards the buyer's address with the trusted-client headers. Both are rate-limited (`checkout-option`). They can only create a receive address bound to an existing session, or read public donation data. Neither can move funds, change merchant data or read keys. The notice dismiss endpoint needs a `dps_` session. No reliance on network position. Flag the PR as auth-relevant. **PASS** |
 | Secret hygiene | Yes | No new secrets. `DIGIPAY_DD_SURFACES` is a plain flag. **PASS** |
 | Docs | Yes | Update `ApiDocs.razor` (`buyerChoice`, options endpoint, webhook), `Docs.razor` and `Features.razor` (POS, links, tip page), the digipay.js README and embed demo, `docs/PROCESS_FLOWS.md` (buyer-choice flow), `docs/ARCHITECTURE.md`, the Postman collections and `CHANGELOG.md` (FR-019). |
 
@@ -164,12 +164,14 @@ tests/DigiByte.Pay.E2E/tests/      # pos.spec.mjs buyer-choice case
 
 ## Delivery order
 
+Each step's PR carries its own docs updates (constitution, Documentation rule).
+
 1. **Gate, availability, error messages and FR-017/FR-031 setting copy.** These are safe to ship first: with the gate off they change only text.
 2. **Fixes to existing DD display**: `TerminalState` cents, shift totals, `DailyStats`, CSV.
 3. **POS DD till and Dashboard DD link and new-payment forms** (Stories 1 and 2).
 4. **Buyer choice**: data model, options endpoint, monitor lock and extra payments, checkout and POS switch, webhooks, notice (Story 3).
 5. **Donations** (Story 4).
-6. **Docs.**
+6. **Final docs check** across every surface.
 
 Steps 1 and 2 can land before 034. Steps 3 to 5 need 034 merged (research R14).
 

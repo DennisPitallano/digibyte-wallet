@@ -37,7 +37,7 @@ Each item records the decision, why, and what else was considered. File referenc
 
 - **Decision**: Lazily, the first time the buyer picks DD, through a new anonymous endpoint `POST /v1/pay/sessions/{id}/options/dd`. It returns the existing option if there is one, so there is at most one DD address per session (FR-023). The DGB address is allocated at creation, as today.
 - **Rationale**: The spec assumption says payments paid in DGB never use up a DD address. Node calls happen only on demand, and a DD outage can't block creating DGB-priced payments (Principle V).
-- **Abuse limits**: it's anonymous because the checkout page is anonymous. It can create at most one address per session, only for sessions that are Pending, unlocked, unexpired and have buyer choice. It uses a new per-IP rate-limit policy, `checkout-option` (30 a minute).
+- **Abuse limits**: it's anonymous because the checkout page is anonymous. Rate limits count through `TrustedClient.AddressOf`, as every `PerIp` policy does, so Pay.Web's server-side calls must send the trusted-client headers with the buyer's address, or every buyer shares Pay.Web's own bucket. It can create at most one address per session, only for sessions that are Pending, unlocked, unexpired and have buyer choice. It uses a new per-IP rate-limit policy, `checkout-option` (30 a minute).
 - **Alternatives considered**:
   - Creating both addresses at session creation. Rejected: it burns DD addresses on every POS sale and makes DGB creation depend on the DD node.
   - Merchant-authenticated creation. Not possible, because the buyer's browser has no merchant credentials.
@@ -60,7 +60,7 @@ Each item records the decision, why, and what else was considered. File referenc
     - the session's fields switch to that option (R1)
     - `LockedAt` is set
     - the normal status flow carries on from there
-  - After the lock, and until the 3-day late window ends, the other options' addresses are checked on each tick. Funds found there are recorded on the session as an extra payment (`ExtraCurrency`, `ExtraAmount`, `ExtraTxid`, `ExtraSeenAt`). They raise the new webhook `session.extra_payment` and the audit row `session.extra_payment`, and the Dashboard shows them.
+  - After the lock, and until the 3-day late window ends (spec FR-025), the other options' addresses are checked on each tick. Funds found there are recorded on the session as an extra payment (`ExtraCurrency`, `ExtraAmount`, `ExtraTxid`, `ExtraSeenAt`). They raise the new webhook `session.extra_payment` and the audit row `session.extra_payment`, and the Dashboard shows them.
   - If both addresses show funds in the same tick, DGB wins the lock, so the DD becomes the extra and can be paid out for refund through 034.
 - **Rationale**: This reuses the existing loop and grace window. A DD-node error during the unlocked check is logged and skipped, so the DGB option keeps being watched (FR-015).
 - **Alternatives considered**: locking only on the buyer's click. Rejected: a buyer can scan a QR without clicking, and the spec locks on funds seen.
@@ -77,7 +77,8 @@ Each item records the decision, why, and what else was considered. File referenc
   Otherwise the flag is ignored and the session is created as it is today.
   - The POS and Dashboard always send `buyerChoice: true` on fiat-priced payments.
   - API integrations opt in by sending it (FR-028).
-  - The session's starting currency (FR-021) is DD when the store's default currency is DD. The DD option is then created at session creation, because it's what the buyer sees first, and a node outage falls back to starting on DGB.
+  - The session's starting currency (FR-021) is DD when the store's default currency is DD. The DD option is then created at session creation, because it's what the buyer sees first (the spec's assumption allows this exception).
+  - Before calling the node, creation checks `DdAvailability` (R10). If it reports down, the session starts on DGB straight away. Otherwise the `GenerateAddressAsync` call gets a 3-second timeout, and on failure the session starts on DGB. A POS charge never waits the client's full 15 s on a down node (SC-002, Principle V).
 - **Rationale**: Existing integrations see no change (SC-010). Payments with an amount typed in DGB have no fiat price, so they're excluded (FR-026).
 
 ## R6. DD on the POS till
@@ -136,13 +137,13 @@ Each item records the decision, why, and what else was considered. File referenc
 ## R10. Knowing whether DD is available
 
 - **Decision**: A new singleton `DdAvailability` wraps `DigiDollarNodeClient.IsHealthyAsync()` with a 30-second cache and a 3-second timeout. It's used by:
-  - the public session GET (`ddAvailable` field)
+  - the public session GET (`ddAvailable` and `ddReason`). `ddAvailable` is also false, with `ddReason:"dd_disabled"`, when the store has DigiDollar off or the gate is off, so a store turning DD off removes the DD choice even after an option was created (spec edge case). Otherwise the node-down reason is `unavailable`.
   - donation-options
   - `/v1/pay/me`
 
   Session creation still relies on the real call failing (503) rather than on the cache.
   - `ApiError` maps `digidollar_node_unavailable` to "DigiDollar is temporarily unavailable. Try again, or take this payment in DGB."
-  - The checkout hides the DD choice when `ddAvailable` is false and no DD option exists yet. A buyer already on DD who hasn't paid is moved back to DGB with a note (edge case).
+  - When `ddAvailable` is false, checkout hides the DD choice for an unlocked session, whether or not a DD option exists. A buyer looking at DD who hasn't paid is moved back to DGB with a note (edge case). A locked DD session isn't affected.
 - **Rationale**: DGB checkout and session creation never wait on the DD health check (Principle V).
 
 ## R11. Telling the checkout page about the lock
