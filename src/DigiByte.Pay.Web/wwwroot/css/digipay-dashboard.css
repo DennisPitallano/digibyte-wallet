@@ -119,7 +119,6 @@
    ===================================================================================== */
 .dp-rail-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .dp-rail-toggle { flex-shrink: 0; }
-.dp-rail-avatar { display: none; }
 .dp-rail-store { justify-content: center; }
 
 @media (min-width: 1024px) {
@@ -145,15 +144,6 @@
     .is-rail-collapsed .dash-nav-group:last-child .dash-nav-list { border-bottom: 0; }
     .is-rail-collapsed .dp-rail-item { justify-content: center; gap: 0; padding-left: 0; padding-right: 0; }
     .is-rail-collapsed .dp-rail-item > svg:not(:first-child) { display: none; } /* external-link marks */
-    .is-rail-collapsed .dp-rail-account { align-items: center; }
-    .is-rail-collapsed .dp-rail-avatar {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 2.25rem; height: 2.25rem; border-radius: 9999px;
-        font-weight: 700; font-size: 0.875rem;
-        color: var(--ui-ghost-text); background: var(--ui-ghost-hover);
-    }
-    .is-rail-collapsed .dp-rail-account-actions { padding: 0.5rem 0 0; justify-content: center; }
-    .is-rail-collapsed .dp-rail-signout { flex: 0 0 auto; width: 2.75rem; padding-left: 0; padding-right: 0; justify-content: center; }
 
     /* The rail scrolls vertically, so tooltips are drawn outside it (digipay-dashboard.js). */
     .is-rail-collapsed .dp-rail { overflow-x: hidden; }
@@ -173,3 +163,36 @@
     transition: opacity 120ms ease-out, transform 120ms ease-out;
 }
 .dp-rail-tip.is-shown { opacity: 1; transform: translate(0, -50%); }
+
+/* Menu footer: avatar, name and Digi-ID, a sign-out icon, then the theme at full width. */
+.dp-rail-account {
+    margin-top: auto;               /* pinned to the bottom of the rail */
+    padding: 0.75rem 0.25rem 0.25rem;
+    border-top: 1px solid var(--ui-border);
+    display: flex; flex-direction: column; gap: 0.625rem;
+}
+.dp-rail-me { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.dp-rail-avatar {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+    font-weight: 700; font-size: 0.875rem;
+    color: #fff; background: linear-gradient(135deg, var(--ui-primary), color-mix(in srgb, var(--ui-primary) 55%, #7c3aed));
+    box-shadow: 0 0 0 2px var(--ui-surface), 0 0 0 3px color-mix(in srgb, var(--ui-primary) 35%, transparent);
+}
+.dp-rail-account-text { flex: 1; min-width: 0; }
+.dp-rail-name { margin: 0; font-size: 0.875rem; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-rail-address { margin: 0.125rem 0 0; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.6875rem; color: var(--ui-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-rail-signout { flex-shrink: 0; color: var(--ui-text-muted); }
+.dp-rail-signout:hover { color: var(--ui-danger, #dc2626); background: color-mix(in srgb, var(--ui-danger, #dc2626) 10%, transparent); }
+.dp-rail-theme-picker { width: 100%; display: flex; }
+.dp-rail-theme-picker > .segmented-item { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 36px; padding: 0 0.25rem; font-size: 0.71875rem; gap: 0.25rem; }
+.dp-rail-theme-picker > .segmented-item > svg { width: 0.875rem; height: 0.875rem; }
+.dp-rail-theme-picker { padding: 3px; }
+.dp-rail-theme-picker > .segmented-item > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (min-width: 1024px) {
+    /* Tooltips are drawn outside the rail, so it never needs to scroll sideways. */
+    .dp-rail { overflow-x: hidden; }
+    .is-rail-collapsed .dp-rail-account { align-items: center; padding-left: 0; padding-right: 0; }
+    .is-rail-collapsed .dp-rail-me { flex-direction: column; gap: 0.5rem; }
+}

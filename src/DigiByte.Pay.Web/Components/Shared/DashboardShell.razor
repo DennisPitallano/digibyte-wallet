@@ -50,20 +50,23 @@
             @ResourceLinks
         </div>
 
-        <div class="dp-rail-group dp-rail-account">
-            <span class="dp-rail-avatar" aria-hidden="true" title="@AccountName">@Initial</span>
-            <div class="px-3 dp-rail-account-text">
-                <p class="text-sm font-semibold truncate">@AccountName</p>
-                @if (!string.IsNullOrEmpty(DigiIdAddress))
-                {
-                    <p class="font-mono text-xs ui-checkout-muted">@(DigiIdAddress.Length > 14 ? DigiIdAddress[..8] + "…" + DigiIdAddress[^4..] : DigiIdAddress)</p>
-                }
-            </div>
-            <div class="flex gap-2 items-center px-3 pt-2 dp-rail-account-actions">
-                <button type="button" class="btn-secondary btn-sm flex-1 dp-rail-signout" data-label="Sign out" aria-label="Sign out" @onclick="SignOutAsync">
-                    <Icon Name="logout" Class="w-4 h-4" /><span class="dp-rail-label">Sign out</span>
+        @* Who is signed in, sign out, and the theme. Pinned to the bottom of the menu. *@
+        <div class="dp-rail-account">
+            <div class="dp-rail-me">
+                <span class="dp-rail-avatar" aria-hidden="true">@Initial</span>
+                <div class="dp-rail-account-text">
+                    <p class="dp-rail-name">@AccountName</p>
+                    @if (!string.IsNullOrEmpty(DigiIdAddress))
+                    {
+                        <p class="dp-rail-address" title="@DigiIdAddress">@(DigiIdAddress.Length > 14 ? DigiIdAddress[..8] + "…" + DigiIdAddress[^4..] : DigiIdAddress)</p>
+                    }
+                </div>
+                <button type="button" class="icon-btn dp-rail-signout" data-label="Sign out" aria-label="Sign out" title="Sign out" @onclick="SignOutAsync">
+                    <Icon Name="logout" Class="w-4 h-4" />
                 </button>
-                <span class="dp-rail-theme"><ThemePicker Compact="true" /></span>
+            </div>
+            <div class="dp-rail-theme">
+                <ThemePicker Class="dp-rail-theme-picker" ShortLabels="true" />
             </div>
         </div>
     </aside>
