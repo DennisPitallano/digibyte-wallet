@@ -401,6 +401,17 @@ public class DashboardTests : BunitContext
     }
 
     /// <summary>A small in-memory Pay API: one merchant, one store, generated sessions.</summary>
+    [Fact]
+    public void Overview_shows_the_sales_charts_for_the_active_store_in_the_browsers_zone()
+    {
+        api.DefaultCurrency = "EUR";
+        var cut = RenderSection(null);
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("section.sales")));
+        // No browser zone in the test: UTC. The store's currency asks for today's rate.
+        cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r == "GET /v1/pay/stores/sto_1/stats/daily?days=30&tz=UTC"));
+        cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r == "GET /v1/pay/public/price?currency=eur"));
+    }
+
     private sealed class FakePayApi : HttpMessageHandler, IHttpClientFactory
     {
         public List<string> Requests { get; } = [];

@@ -98,6 +98,11 @@ else
                         <Stat Label="Expired" Value="@CountText(Sum("expired"))" Href="@PaymentsHref("expired")" Hint="Closed unpaid" />
                     </div>
 
+                    @* How sales are trending: revenue and payments per day on the merchant's own days, with the
+                       outcome split and a comparison with the period before (GET /stores/{id}/stats/daily). *@
+                    <SalesOverview Token="@(token ?? string.Empty)" StoreId="@activeStoreId" TimeZoneId="@clock.Zone.Id"
+                                   Currency="@activeStore.DefaultCurrency" />
+
                     <section class="@Card scale-in-delay-2">
                         <h2 class="@H2">New payment</h2>
                         <p class="@Muted m-0">Create a payment and show its QR code to your customer.</p>

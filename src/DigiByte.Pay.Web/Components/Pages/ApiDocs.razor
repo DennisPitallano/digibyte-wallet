@@ -244,6 +244,25 @@
                 </p>
             </Endpoint>
 
+            <Endpoint Method="GET" Path="/v1/pay/stores/{id}/stats/daily" Auth="API key" Id="daily-stats">
+                <p class="@Small">Sales per day on your own calendar days, for the dashboard's Overview charts:
+                    <InlineCode>{ storeId, days, timeZone, from, to, fromUtc, toUtc, storeHasPayments, totals, previous, series }</InlineCode>.</p>
+                <ParamList Title="Query parameters">
+                    <Param Name="days" Type="integer">1 to 365, default 30. The window ends today (in <InlineCode>tz</InlineCode>) and includes it. Anything else answers <InlineCode>400</InlineCode>.</Param>
+                    <Param Name="tz" Type="string">The time zone whose calendar days to count in, such as <InlineCode>Europe/Amsterdam</InlineCode>. Default UTC; an unknown zone answers <InlineCode>400</InlineCode>.</Param>
+                </ParamList>
+                <p class="@Small">
+                    <InlineCode>totals</InlineCode> counts the window's sessions by creation day: <InlineCode>payments</InlineCode>, <InlineCode>paid</InlineCode> (paid or confirmed), <InlineCode>open</InlineCode> (waiting or detected),
+                    <InlineCode>expired</InlineCode>, <InlineCode>underpaid</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>, and <InlineCode>revenueDgb</InlineCode>, the DGB amount of the paid and confirmed DGB sessions.
+                    <InlineCode>series</InlineCode> has one entry per day, oldest first and including days with nothing, each with <InlineCode>date</InlineCode> (<InlineCode>yyyy-MM-dd</InlineCode>) and the same fields.
+                </p>
+                <p class="@Small m-0">
+                    <InlineCode>previous</InlineCode> is <InlineCode>{ from, to, totals }</InlineCode> for the same number of days just before the window, for "+12% vs previous 30 days";
+                    it is <InlineCode>null</InlineCode> when the store didn't exist yet before the window. <InlineCode>fromUtc</InlineCode> and <InlineCode>toUtc</InlineCode> are the window's start and (exclusive) end as UTC instants.
+                    <InlineCode>storeHasPayments</InlineCode> says whether the store has ever had a session, to tell a new store from a quiet period.
+                </p>
+            </Endpoint>
+
             @* ===================== Webhooks ===================== *@
             <DocsHeading Id="webhooks">Webhooks</DocsHeading>
             <p class="@P">
