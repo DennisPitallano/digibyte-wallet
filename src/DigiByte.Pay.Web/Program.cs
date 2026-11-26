@@ -33,6 +33,8 @@ var payApiUrl = builder.Configuration["DigiPay:ApiUrl"] ?? "http://localhost:500
 // so prod deployments should set DigiPay:ApiPublicUrl to api.pay.dgbwallet.app.
 // Falls back to the internal URL if not configured (fine in dev).
 var payApiPublicUrl = builder.Configuration["DigiPay:ApiPublicUrl"] ?? payApiUrl;
+// The sign-in page reads the visitor's address from its connection (DigiPay:TrustedClientKey).
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient("PayApi", c => c.BaseAddress = new Uri(payApiUrl));
 builder.Services.AddSingleton(new PayApiUrl(payApiUrl));
 builder.Services.AddSingleton(new PayApiPublicUrl(payApiPublicUrl));

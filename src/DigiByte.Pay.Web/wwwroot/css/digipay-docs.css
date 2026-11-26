@@ -111,6 +111,9 @@
     letter-spacing: 0.1em;
     color: var(--ui-primary);
 }
+/* The brand blue is too dark to read on the dark background at this size; use the lighter blue the site's other
+   dark-mode accents use (digipay.css). */
+.dark .dp-docs-eyebrow { color: #80b3ff; }
 .dp-docs-title { margin: 0 0 0.75rem; font-size: 1.75rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; color: var(--ui-text); }
 @media (min-width: 640px) { .dp-docs-title { font-size: 2.25rem; } }
 .dp-docs-lead { margin: 0 0 1.5rem; font-size: 1.0625rem; line-height: 1.6; color: var(--ui-text-muted); }
@@ -141,6 +144,7 @@
 /* ----- Body text helpers ----- */
 .dp-docs-article p, .dp-docs-article li { overflow-wrap: anywhere; }
 .dp-docs-article a:not([class]) { color: var(--ui-primary); }
+.dark .dp-docs-article a:not([class]) { color: #80b3ff; } /* readable on the dark background, like .dp-docs-eyebrow */
 .dp-docs-article a:not([class]):hover { text-decoration: underline; }
 
 .dp-callout {

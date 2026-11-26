@@ -50,7 +50,8 @@ jobs:
 
   # DigiPay end to end: starts Pay.Api (fresh SQLite, dev sign-in) and Pay.Web, then drives them in Chromium:
   # the merchant and POS journeys, the public site at phone/desktop widths in both themes, and axe accessibility
-  # checks. Then Lighthouse for the home page and /docs. See tests/DigiByte.Pay.E2E.
+  # checks. Then Lighthouse for the home page and /docs on a Release publish of Pay.Web (fails below the
+  # performance, accessibility, SEO and best-practices floors in scripts/lighthouse.mjs). See tests/DigiByte.Pay.E2E.
   digipay-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30

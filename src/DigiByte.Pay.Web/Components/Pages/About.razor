@@ -4,6 +4,7 @@
 @inject IConfiguration Config
 
 <PageTitle>About — DigiPay</PageTitle>
+<HeadContent><meta name="description" content="About DigiPay, the open-source, non-custodial DigiByte payment gateway that pays merchants straight to their own wallet." /></HeadContent>
 
 @{
     // Configurable so the canonical group can be swapped without a code change
@@ -12,7 +13,7 @@
 }
 
 
-    <main class="flex-1 page-enter">
+    <main id="main" class="flex-1 page-enter">
         <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8">
 
             @* Hero — same visual language as the wallet About page (logo +

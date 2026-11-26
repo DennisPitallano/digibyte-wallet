@@ -9,13 +9,19 @@
     is still open behind it and already shows the result (DigiPay's sign-in page polls and signs in; its checkout
     watches the payment), so the best way back is to close this tab. Browsers only let a page close a tab a script
     opened, and may refuse even then; when the tab is still open a moment later, or there is no opener (a link with
-    rel=noopener, a scanned code), the tab goes to the return address instead.
+    rel=noopener, a scanned code), the tab goes to the return address instead. In the installed app (home screen or
+    desktop app window) going there would open the site inside the wallet's window, so it opens in the browser instead
+    and the wallet says so.
 *@
 @if (ReturnTo is not null)
 {
     <button type="button" class="@Class" data-testid="site-return" @onclick="ReturnAsync">
         @L.T("return_to_site.button", ReturnTo.Host)
     </button>
+    @if (openedInBrowser)
+    {
+        <p class="text-xs text-center mt-2 m-0" role="status" data-testid="site-return-opened">@L.T("return_to_site.opened_in_browser", ReturnTo.Host)</p>
+    }
 }
 
 @code {
@@ -27,12 +33,14 @@
     /// <summary>Re-render when the language changes (spec 028).</summary>
     [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
+    private bool openedInBrowser;
+
     private async Task ReturnAsync()
     {
         if (ReturnTo is null) return;
         try
         {
-            await JS.InvokeVoidAsync("domHelpers.returnToSite", ReturnTo.Url);
+            openedInBrowser = await JS.InvokeAsync<string>("domHelpers.returnToSite", ReturnTo.Url) == "browser";
         }
         catch (JSException)
         {

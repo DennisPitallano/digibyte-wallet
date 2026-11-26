@@ -130,7 +130,7 @@ builder.Services.AddRateLimiter(options =>
     static System.Threading.RateLimiting.RateLimitPartition<string> PerIp(
         HttpContext ctx, int permit, TimeSpan window)
     {
-        var key = DigiByte.Server.Shared.ClientAddress.Of(ctx);
+        var key = DigiByte.Pay.Api.Auth.TrustedClient.AddressOf(ctx);
         return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             key,
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
@@ -170,6 +170,13 @@ builder.Services.AddRateLimiter(options =>
     }
     options.AddPolicy("sandbox",       ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
     options.AddPolicy("auth",          ctx => PerIp(ctx, 10, TimeSpan.FromMinutes(1)));
+    // The sign-in page asks "signed yet?" every second while it waits. Counting those under "auth" ran out of the 10 a
+    // minute after a few seconds, so an approved sign-in sat unanswered until the minute reset (30 s or more). And
+    // Pay.Web asks from its own server, so every merchant signing in shared one budget. The nonce is an unguessable
+    // one-time secret, so each challenge gets its own allowance instead; creating challenges stays under "auth".
+    options.AddPolicy("auth-poll",     ctx => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+        "poll:" + ctx.Request.Path.Value,
+        _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     // 5 merchant registrations per hour per client (specs/008-security-hardening, T030); RateLimits:RegisterPerHour lets tests widen it.
     options.AddPolicy("register",      ctx => PerIp(ctx, ctx.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimits:RegisterPerHour", 5), TimeSpan.FromHours(1)));
     options.AddPolicy("claim",         ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));

@@ -58,6 +58,7 @@ public static class ApiError
             if (Has("label must be")) return "Keep the label to 80 characters or fewer.";
             if (Has("name is required") || Has("name must be")) return "Enter a name of up to 120 characters.";
             if (Has("amount") && Has("> 0")) return "Enter an amount greater than zero.";
+            if (Has("defaultCurrency")) return "Choose DGB or one of the listed currencies (such as USD, EUR or PHP), or clear the default.";
             if (Has("unsupported currency")) return "That currency isn't supported.";
             if (Has("digidollar_not_enabled")) return "DigiDollar isn't turned on for this store. Turn it on in Settings.";
         }

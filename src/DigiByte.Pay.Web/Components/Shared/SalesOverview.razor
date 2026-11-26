@@ -1,0 +1,333 @@
+@* Overview sales charts: how the store is trending, not just its totals. One request per period
+   to GET /v1/pay/stores/{id}/stats/daily (per-day totals on the merchant's own calendar days, in
+   the browser's time zone), plus today's DGB price when the store has a fiat default currency.
+   Headline numbers compare with the period before when there is one; the charts are DayChart. *@
+@inject IHttpClientFactory HttpFactory
+@inject ILogger<SalesOverview> Log
+@using System.Globalization
+@using System.Net.Http.Json
+
+<section class="sales mb-6" aria-labelledby="sales-title" aria-busy="@(data is null && error is null ? "true" : "false")">
+    <div class="sales-head">
+        <h2 id="sales-title" class="block-title">Sales</h2>
+        <div class="segmented sales-period" role="group" aria-label="Period">
+            @foreach (var opt in Periods)
+            {
+                var o = opt;
+                <button type="button" class="segmented-item" aria-pressed="@(days == o ? "true" : "false")"
+                        aria-label="@($"Last {o} days")" @onclick="() => ChangePeriodAsync(o)">@o days</button>
+            }
+        </div>
+    </div>
+    <p class="dp-muted sales-window">
+        @if (data is not null)
+        {
+            <span>Last @data.Days days, @RangeText(data.From, data.To).</span>
+            <span> @(IsUtcZone(data.TimeZone) ? "Days are UTC days." : $"Days follow your time zone ({data.TimeZone}).")</span>
+        }
+        else
+        {
+            <span>Last @days days.</span>
+        }
+    </p>
+
+    @if (error is not null)
+    {
+        <div class="card p-5 flex flex-col gap-3">
+            <p class="m-0">@error</p>
+            <button type="button" class="btn-secondary btn-sm self-start" @onclick="LoadAsync">Try again</button>
+        </div>
+    }
+    else if (data is null)
+    {
+        <div class="sales-loading">
+            <span class="sr-only" role="status">Loading sales</span>
+            <div class="sales-kpis">
+                <Skeleton Shape="card" Count="1" /><Skeleton Shape="card" Count="1" /><Skeleton Shape="card" Count="1" />
+            </div>
+            <div class="card p-5 mt-3"><Skeleton Shape="block" Count="2" /></div>
+        </div>
+    }
+    else if (!data.StoreHasPayments)
+    {
+        <EmptyState Title="No sales yet"
+                    Text="Your sales charts fill in here once customers start paying: revenue per day, payments per day and how they turned out."
+                    BakuPose="idea" />
+    }
+    else if (data.Totals.Payments == 0)
+    {
+        <EmptyState Title="@($"No payments in the last {data.Days} days")"
+                    Text="@(data.Days < Periods[^1] ? "Pick a longer period to see earlier sales." : "Your earlier sales are in Payments.")"
+                    BakuPose="thinking" />
+    }
+    else
+    {
+        var t = data.Totals;
+        var prev = data.Previous?.Totals;
+        <div class="sales-kpis">
+            @Kpi("Revenue", $"{Dgb(t.RevenueDgb)} DGB", FiatLine(t.RevenueDgb), Change(t.RevenueDgb, prev?.RevenueDgb))
+            @Kpi("Payments", Count(t.Payments), null, Change(t.Payments, prev?.Payments))
+            @Kpi("Paid", Count(t.Paid), $"{Percent(t.Paid, t.Payments)} of payments", Change(t.Paid, prev?.Paid))
+        </div>
+
+        <div class="card sales-card">
+            <div class="sales-card-head">
+                <h3 class="sales-card-title">Revenue per day</h3>
+                <span class="dp-muted">DGB from paid payments@(FiatCode is not null && price is not null ? $", ≈ {FiatCode} at today's rate" : "")</span>
+            </div>
+            <DayChart Kind="area" Title="Revenue per day" Summary="@RevenueSummary" Points="@RevenuePoints"
+                      Columns="@RevenueColumns" FormatAxis="@(v => Dgb(v))" />
+        </div>
+
+        <div class="sales-pair">
+            <div class="card sales-card">
+                <div class="sales-card-head">
+                    <h3 class="sales-card-title">Payments per day</h3>
+                    <span class="sales-legend" aria-hidden="true">
+                        <span><i class="sales-swatch is-paid"></i>Paid</span>
+                        <span><i class="sales-swatch is-other"></i>Not paid</span>
+                    </span>
+                </div>
+                <DayChart Kind="bars" Title="Payments per day" Summary="@PaymentsSummary" Points="@PaymentPoints"
+                          Columns="@(new[] { "Payments", "Paid", "Not paid" })" FormatAxis="@(v => Math.Round(v).ToString("#,0", CultureInfo.InvariantCulture))" />
+            </div>
+
+            <div class="card sales-card">
+                <div class="sales-card-head">
+                    <h3 class="sales-card-title">How payments turned out</h3>
+                </div>
+                <div class="sales-split" role="img" aria-label="@SplitSummary">
+                    @foreach (var o in Outcomes.Where(o => o.Count > 0))
+                    {
+                        <span class="sales-split-part is-@o.Key" style="@($"flex-grow:{o.Count}")"></span>
+                    }
+                </div>
+                <ul class="sales-outcomes">
+                    @foreach (var o in Outcomes.Where(o => o.Count > 0 || o.Always))
+                    {
+                        <li>
+                            <i class="sales-swatch is-@o.Key" aria-hidden="true"></i>
+                            <span class="sales-outcome-label">@o.Label</span>
+                            <span class="sales-outcome-count tabular-nums">@Count(o.Count)</span>
+                            <span class="sales-outcome-pct tabular-nums">@Percent(o.Count, t.Payments)</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Token { get; set; } = "";
+    [Parameter, EditorRequired] public string StoreId { get; set; } = "";
+    /// <summary>The browser's time zone (LocalClock), so days are the merchant's own days. Null or "UTC" for UTC.</summary>
+    [Parameter] public string? TimeZoneId { get; set; }
+    /// <summary>The store's default currency; a fiat code adds the fiat equivalent at today's rate.</summary>
+    [Parameter] public string? Currency { get; set; }
+
+    private static readonly int[] Periods = [7, 30, 90];
+
+    private int days = 30;
+    private StatsDto? data;
+    private string? error;
+    private decimal? price;
+    private string? loadedKey;
+    private string? priceFor;
+    private int version;
+
+    /// <summary>The fiat code to show alongside DGB, or null (no default, or DGB).</summary>
+    private string? FiatCode => string.IsNullOrWhiteSpace(Currency) || Currency.Equals("DGB", StringComparison.OrdinalIgnoreCase)
+        ? null : Currency.Trim().ToUpperInvariant();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{StoreId}|{TimeZoneId}";
+        var tasks = new List<Task>();
+        if (key != loadedKey)
+        {
+            loadedKey = key;
+            data = null;
+            tasks.Add(LoadAsync());
+        }
+        if (FiatCode != priceFor)
+        {
+            priceFor = FiatCode;
+            price = null;
+            if (FiatCode is not null) tasks.Add(LoadPriceAsync(FiatCode));
+        }
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task ChangePeriodAsync(int d)
+    {
+        if (d == days) return;
+        days = d;
+        data = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrEmpty(Token) || string.IsNullOrEmpty(StoreId)) return;
+        var mine = ++version;
+        error = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var path = $"/v1/pay/stores/{Uri.EscapeDataString(StoreId)}/stats/daily?days={days}"
+                + (string.IsNullOrWhiteSpace(TimeZoneId) ? "" : $"&tz={Uri.EscapeDataString(TimeZoneId)}");
+            using var req = new HttpRequestMessage(HttpMethod.Get, path);
+            req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {Token}");
+            var response = await http.SendAsync(req);
+            if (mine != version) return; // a newer period or store was asked for meanwhile
+            if (!response.IsSuccessStatusCode)
+            {
+                error = $"Sales couldn't be loaded. {await ApiError.ReadAsync(response)}";
+                return;
+            }
+            var dto = await response.Content.ReadFromJsonAsync<StatsDto>();
+            if (mine == version) data = dto;
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(ex, "Overview: loading sales failed");
+            if (mine == version) error = ApiError.Network;
+        }
+    }
+
+    private async Task LoadPriceAsync(string code)
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var resp = await http.GetAsync($"/v1/pay/public/price?currency={Uri.EscapeDataString(code.ToLowerInvariant())}");
+            if (!resp.IsSuccessStatusCode) return; // no rate: DGB only
+            var quote = await resp.Content.ReadFromJsonAsync<PriceQuote>();
+            if (priceFor == code && quote is { DgbPrice: > 0 }) price = quote.DgbPrice;
+        }
+        catch (Exception ex) { Log.LogWarning(ex, "Overview: loading the DGB price failed"); }
+    }
+
+    // ----- Figures -----
+
+    /// <summary>DGB with grouping: two decimals from 1 DGB up, up to eight below it.</summary>
+    internal static string Dgb(decimal v) =>
+        v.ToString(Math.Abs(v) >= 1 || v == 0 ? "#,0.##" : "0.########", CultureInfo.InvariantCulture);
+
+    private static string Count(int n) => n.ToString("N0", CultureInfo.InvariantCulture);
+
+    private static string Percent(int part, int whole) =>
+        whole == 0 ? "0%" : Math.Round(part * 100m / whole, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "%";
+
+    /// <summary>"≈ €12.34 EUR at today's rate", or null without a fiat currency or a rate.</summary>
+    private string? FiatLine(decimal dgb) => FiatAmount(dgb) is { } f ? $"≈ {f} at today's rate" : null;
+
+    private string? FiatAmount(decimal dgb) =>
+        FiatCode is { } code && price is decimal p ? Fiat.FormatWithCode(dgb * p, code) : null;
+
+    private sealed record ChangeInfo(string Text, string Tone);
+
+    /// <summary>"+12% vs previous 30 days": only with a previous period that had something to compare with.</summary>
+    private ChangeInfo? Change(decimal current, decimal? previous)
+    {
+        if (data is null || previous is not decimal p || p <= 0) return null;
+        var pct = Math.Round((current - p) / p * 100m, MidpointRounding.AwayFromZero);
+        var sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
+        var tone = pct > 0 ? "is-up" : pct < 0 ? "is-down" : "is-flat";
+        return new ChangeInfo($"{sign}{Math.Abs(pct).ToString("#,0", CultureInfo.InvariantCulture)}% vs previous {data.Days} days", tone);
+    }
+
+    private RenderFragment Kpi(string label, string value, string? hint, ChangeInfo? change) => __builder =>
+    {
+        <div class="card dash-stat p-3 sm:p-4 sales-kpi">
+            <div class="text-[0.6875rem] uppercase tracking-widest font-bold text-slate-500 dark:text-slate-400">@label</div>
+            <div class="text-2xl font-bold tabular-nums mt-1 text-slate-900 dark:text-white">@value</div>
+            @if (hint is not null) { <div class="dash-stat-hint tabular-nums">@hint</div> }
+            @if (change is not null)
+            {
+                <div class="sales-change @change.Tone">
+                    <span aria-hidden="true">@(change.Tone == "is-up" ? "▲" : change.Tone == "is-down" ? "▼" : "■")</span>
+                    <span class="tabular-nums">@change.Text</span>
+                </div>
+            }
+        </div>
+    };
+
+    // ----- Chart data -----
+
+    private string[] RevenueColumns => FiatCode is not null && price is not null ? ["DGB", $"≈ {FiatCode}"] : ["DGB"];
+
+    private IReadOnlyList<DayChart.Point> RevenuePoints => data!.Series.Select(d =>
+    {
+        var fiat = FiatAmount(d.RevenueDgb);
+        var tip = $"{Dgb(d.RevenueDgb)} DGB" + (fiat is null ? "" : $" · ≈ {fiat}");
+        IReadOnlyList<string> cells = fiat is null ? [Dgb(d.RevenueDgb)] : [Dgb(d.RevenueDgb), fiat];
+        return new DayChart.Point(d.Date, d.RevenueDgb, 0, tip, cells);
+    }).ToList();
+
+    private IReadOnlyList<DayChart.Point> PaymentPoints => data!.Series.Select(d =>
+    {
+        var other = d.Payments - d.Paid;
+        var tip = $"{Plural(d.Payments, "payment")}, {d.Paid} paid";
+        return new DayChart.Point(d.Date, d.Paid, other, tip, [Count(d.Payments), Count(d.Paid), Count(other)]);
+    }).ToList();
+
+    private string RevenueSummary
+    {
+        get
+        {
+            var best = data!.Series.MaxBy(d => d.RevenueDgb)!;
+            var total = $"Revenue per day over the last {data.Days} days: {Dgb(data.Totals.RevenueDgb)} DGB in total";
+            return best.RevenueDgb > 0
+                ? $"{total}; the best day was {LongDay(best.Date)} with {Dgb(best.RevenueDgb)} DGB."
+                : $"{total}.";
+        }
+    }
+
+    private string PaymentsSummary
+    {
+        get
+        {
+            var busiest = data!.Series.MaxBy(d => d.Payments)!;
+            return $"Payments per day over the last {data.Days} days: {Plural(data.Totals.Payments, "payment")}, {data.Totals.Paid} paid; "
+                + $"the busiest day was {LongDay(busiest.Date)} with {Plural(busiest.Payments, "payment")}.";
+        }
+    }
+
+    private sealed record Outcome(string Key, string Label, int Count, bool Always);
+
+    /// <summary>The period's outcomes, labelled as in the Payments filter. Paid, expired and underpaid always show.</summary>
+    private IReadOnlyList<Outcome> Outcomes =>
+    [
+        new("paid", "Paid", data!.Totals.Paid, true),
+        new("open", "Waiting", data.Totals.Open, false),
+        new("underpaid", "Underpaid", data.Totals.Underpaid, true),
+        new("expired", "Expired", data.Totals.Expired, true),
+        new("refunded", "Refunded", data.Totals.Refunded, false),
+        new("voided", "Cancelled", data.Totals.Voided, false),
+    ];
+
+    private string SplitSummary =>
+        $"How {Plural(data!.Totals.Payments, "payment")} turned out: "
+        + string.Join(", ", Outcomes.Where(o => o.Count > 0).Select(o => $"{o.Label.ToLowerInvariant()} {o.Count} ({Percent(o.Count, data.Totals.Payments)})"))
+        + ".";
+
+    private static string Plural(int n, string word) => $"{Count(n)} {word}{(n == 1 ? "" : "s")}";
+    private static string LongDay(DateOnly d) => d.ToString("d MMMM", CultureInfo.InvariantCulture);
+    private static bool IsUtcZone(string? id) => string.IsNullOrEmpty(id) || id is "UTC" or "Etc/UTC" or "Coordinated Universal Time";
+
+    private static string RangeText(DateOnly from, DateOnly to) =>
+        from.Year == to.Year
+            ? $"{from.ToString("d MMM", CultureInfo.InvariantCulture)} – {to.ToString("d MMM yyyy", CultureInfo.InvariantCulture)}"
+            : $"{from.ToString("d MMM yyyy", CultureInfo.InvariantCulture)} – {to.ToString("d MMM yyyy", CultureInfo.InvariantCulture)}";
+
+    // ----- API shapes -----
+
+    public sealed record TotalsDto(int Payments, int Paid, int Open, int Expired, int Underpaid, int Refunded, int Voided, decimal RevenueDgb);
+    public sealed record PreviousDto(DateOnly From, DateOnly To, TotalsDto Totals);
+    public sealed record DayDto(DateOnly Date, int Payments, int Paid, int Open, int Expired, int Underpaid, int Refunded, int Voided, decimal RevenueDgb);
+    public sealed record StatsDto(string StoreId, int Days, string TimeZone, DateOnly From, DateOnly To,
+        bool StoreHasPayments, TotalsDto Totals, PreviousDto? Previous, List<DayDto> Series);
+    private sealed record PriceQuote(string Currency, decimal DgbPrice);
+}

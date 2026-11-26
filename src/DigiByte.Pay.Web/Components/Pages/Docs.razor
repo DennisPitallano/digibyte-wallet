@@ -2,6 +2,7 @@
 @layout SiteLayout
 
 <PageTitle>Developer docs: quickstart and guide — DigiPay</PageTitle>
+<HeadContent><meta name="description" content="DigiPay developer docs: a quickstart for accepting DigiByte, the hosted checkout, the JavaScript embed, the donation button and signed webhooks." /></HeadContent>
 
 @{
     const string P = "leading-relaxed text-slate-700 dark:text-slate-300 mb-3";
@@ -9,7 +10,7 @@
     const string Ol = "space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-decimal pl-5 mb-3";
 }
 
-<main class="flex-1 page-enter">
+<main id="main" class="flex-1 page-enter">
     <DocsLayout Current="/docs" Toc="toc">
         <article class="dp-docs-article">
             <p class="dp-docs-eyebrow">Developer docs</p>
@@ -154,6 +155,12 @@
                 never appears outside Development. Create a regtest or testnet store there and step 4 works the same against your local API.
             </p>
             <p class="@P">
+                The web app asks the API from its own server, so to the API every merchant signing in looks like one client. Set the same secret as
+                <InlineCode>DigiPay:TrustedClientKey</InlineCode> on both the API and the web app, and the web app passes on each visitor's address,
+                so the sign-in limit (10 a minute) counts each visitor separately. Without it, everyone signing in through the web app shares that
+                limit. The Development settings of both apps already set a local key.
+            </p>
+            <p class="@P">
                 The <em>Pay with DigiByte Wallet</em> and <em>Sign in with DigiByte Wallet</em> buttons open <InlineCode>https://dgbwallet.app</InlineCode>.
                 To point them at another deployment of the wallet (for example a staging one), set <InlineCode>DigiPay:WalletUrl</InlineCode> on the web app.
                 The wallet checks the address network, so the mainnet dgbwallet.app can't pay a testnet store; scan the QR code with a testnet wallet instead.
@@ -161,8 +168,8 @@
             </p>
             <p class="@P">
                 Both buttons tell the wallet how to come back: the pay link is <InlineCode>{wallet}/pay?return={this page}#digibyte:…</InlineCode> and the
-                sign-in link adds <InlineCode>&amp;return={this page}</InlineCode>. Once the payment is sent or the sign-in approved, the wallet shows
-                <em>Return to {host}</em>; it never goes back by itself. It accepts only https addresses (http only on localhost), and for sign-in only an
+                sign-in link adds <InlineCode>&amp;return={the dashboard page being signed in to}</InlineCode>. Once the payment is sent or the sign-in approved, the wallet shows
+                <em>Return to {host}</em>; it never goes back by itself. In the installed wallet app it opens that page in the browser, not inside the wallet. It accepts only https addresses (http only on localhost), and for sign-in only an
                 address on the same site as the Digi-ID domain (localhost may use another port, so web on 5252 and API on 5008 work).
             </p>
 

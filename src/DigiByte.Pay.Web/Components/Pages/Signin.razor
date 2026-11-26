@@ -7,11 +7,13 @@
 @inject ILogger<Signin> Log
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @inject IServiceProvider Services
+@inject IConfiguration Config
+@inject IHttpContextAccessor HttpAccessor
 @using System.Net.Http.Json
 
 <PageTitle>Sign in — DigiPay</PageTitle>
 
-<main class="min-h-dvh flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-slate-50 to-dgb-50 dark:from-dgb-950 dark:via-dgb-950 dark:to-dgb-900 text-slate-900 dark:text-white font-sans page-enter">
+<main id="main" class="min-h-dvh flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-slate-50 to-dgb-50 dark:from-dgb-950 dark:via-dgb-950 dark:to-dgb-900 text-slate-900 dark:text-white font-sans page-enter">
     @* Brand-as-back-link. This page doesn't carry the full SiteNav (it's a
        focused, one-job surface) but visitors still need a one-click way out —
        tapping "DigiPay" returns to the marketing home. *@
@@ -169,10 +171,39 @@
     private bool devSigningIn;
     private string? devError;
 
+    // The visitor's address, read once when the page starts. This page isn't prerendered (App.razor), so it runs on the
+    // live connection, whose request (the browser's WebSocket to this server) is the visitor's.
+    private string? VisitorAddress;
+
     protected override async Task OnInitializedAsync()
     {
+        VisitorAddress = HttpAccessor.HttpContext is { } context ? VisitorAddressOf(context) : null;
         await StartChallengeAsync();
         await CheckDevSignInAsync();
+    }
+
+    // Behind the hosting proxy the visitor is the rightmost X-Forwarded-For entry (the proxy appends it; anything to its
+    // left is what the caller claimed), as the API reads it (DigiByte.Server.Shared ClientAddress). Otherwise the socket.
+    public static string? VisitorAddressOf(HttpContext context)
+    {
+        var forwarded = context.Request.Headers["X-Forwarded-For"].ToString();
+        var last = forwarded.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
+        if (last is not null && System.Net.IPAddress.TryParse(last, out var ip)) return ip.ToString();
+        return context.Connection.RemoteIpAddress?.ToString();
+    }
+
+    // Sign-in requests to the API. With DigiPay:TrustedClientKey set (on both apps) they carry the visitor's address, so
+    // the API's sign-in limit counts each visitor rather than this server, which every merchant signs in through.
+    private HttpRequestMessage SignInRequest(HttpMethod method, string path)
+    {
+        var request = new HttpRequestMessage(method, path);
+        var key = Config["DigiPay:TrustedClientKey"];
+        if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(VisitorAddress))
+        {
+            request.Headers.TryAddWithoutValidation("X-DigiPay-Client-Address", VisitorAddress);
+            request.Headers.TryAddWithoutValidation("X-DigiPay-Client-Key", key);
+        }
+        return request;
     }
 
     // The dev button needs both sides in Development: this app's environment, and the API
@@ -202,7 +233,7 @@
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.PostAsync("/v1/pay/dev/signin", null);
+            var response = await http.SendAsync(SignInRequest(HttpMethod.Post, "/v1/pay/dev/signin"));
             var body = response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<SignedResponse>() : null;
             if (body is null)
             {
@@ -233,7 +264,14 @@
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            challenge = await http.GetFromJsonAsync<ChallengeResponse>("/v1/pay/auth/challenge");
+            using var response = await http.SendAsync(SignInRequest(HttpMethod.Get, "/v1/pay/auth/challenge"));
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                loadError = "Too many sign-in attempts. Wait a minute and try again.";
+                return;
+            }
+            response.EnsureSuccessStatusCode();
+            challenge = await response.Content.ReadFromJsonAsync<ChallengeResponse>();
             if (challenge != null) qrDataUrl = GenerateQr(challenge.Uri);
         }
         catch (Exception ex)
@@ -247,9 +285,10 @@
     protected override void OnAfterRender(bool firstRender)
     {
         if (!firstRender || challenge is null) return;
-        poller ??= new System.Threading.Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
-        // Re-render every second so the "expires in" countdown ticks without
-        // coupling it to the 2s poll cadence.
+        // Ask every second, so an approval in the wallet shows here within about a second. The API allows each
+        // challenge its own polls ("auth-poll"), so this never runs into the sign-in rate limit.
+        poller ??= new System.Threading.Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        // Re-render every second so the "expires in" countdown ticks.
         ticker ??= new System.Threading.Timer(async _ =>
         {
             await InvokeAsync(StateHasChanged);
@@ -262,7 +301,7 @@
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.GetAsync($"/v1/pay/auth/poll/{challenge.Nonce}");
+            var response = await http.SendAsync(SignInRequest(HttpMethod.Get, $"/v1/pay/auth/poll/{challenge.Nonce}"));
             if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await InvokeAsync(() => { pollCount++; StateHasChanged(); });
@@ -313,10 +352,13 @@
         get
         {
             var wallet = (Services.GetService(typeof(WalletAppUrl)) as WalletAppUrl)?.Value ?? WalletAppUrl.Default;
-            // &return= is this sign-in page; after approval the wallet offers "Return to {host}" (it closes its tab
-            // when this page opened it, else comes back here). The wallet only accepts it on the same site as the
-            // challenge's Digi-ID domain (pay.dgbwallet.app, or localhost on any port in development).
-            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}&return={Uri.EscapeDataString(Nav.Uri)}";
+            // &return= is where this page goes once signed in (the dashboard, or its ?return=); after approval the wallet
+            // offers "Return to {host}". It closes its tab when this page opened it; otherwise it opens that address,
+            // in the browser when the wallet is the installed app. By then this tab has stored the sign-in, so the
+            // dashboard opens signed in, rather than a second sign-in page with a new code. The wallet only accepts it
+            // on the same site as the challenge's Digi-ID domain (pay.dgbwallet.app, or localhost on any port in development).
+            var afterSignIn = Nav.ToAbsoluteUri(ReturnUrlGuard.Sanitize(ReturnTo)).ToString();
+            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}&return={Uri.EscapeDataString(afterSignIn)}";
         }
     }
 

@@ -169,17 +169,37 @@ window.domHelpers = {
     // When a script opened this tab (window.opener is set), the site's tab is still open behind it and already shows
     // the result, so try to close this one. Browsers only allow closing a tab a script opened and may still refuse;
     // if the tab is still open a moment later, or there was no opener, go to the return address instead.
+    // Returns what it did: 'browser' (opened in the browser from the installed app), 'closing' (asked to close this
+    // tab, going to the site if that is refused), 'navigated', or 'refused' (not an http(s) address).
     returnToSite: function (url) {
         var target;
-        try { target = new URL(url); } catch (e) { return; }
-        if (target.protocol !== 'https:' && target.protocol !== 'http:') return;
+        try { target = new URL(url); } catch (e) { return 'refused'; }
+        if (target.protocol !== 'https:' && target.protocol !== 'http:') return 'refused';
+        // In the installed app (home screen or desktop app window) going to the site would open it inside the wallet's
+        // own window. Open it in the browser instead, where the site's tab is, and leave the wallet where it is.
+        if (this.isInstalledApp()) {
+            window.open(target.href, '_blank', 'noopener,noreferrer');
+            return 'browser';
+        }
         var go = function () { window.location.assign(target.href); };
         if (window.opener) {
             try { window.close(); } catch (e) { /* blocked */ }
             setTimeout(function () { if (!window.closed) go(); }, 300);
-            return;
+            return 'closing';
         }
         go();
+        return 'navigated';
+    },
+
+    // True when the wallet runs as an installed app rather than in a browser tab (as pwa-install.js checks it).
+    isInstalledApp: function () {
+        try {
+            if (window.navigator && window.navigator.standalone === true) return true; // iOS home screen
+            if (typeof window.matchMedia !== 'function') return false;
+            return ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay'].some(function (mode) {
+                return window.matchMedia('(display-mode: ' + mode + ')').matches;
+            });
+        } catch (e) { return false; }
     }
 };
 

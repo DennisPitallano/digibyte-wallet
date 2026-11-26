@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Text;
 using DigiByte.Pay.Web.Components.Pages;
@@ -12,12 +13,16 @@ namespace DigiByte.Pay.Web.Tests;
 public class SigninDevButtonTests : BunitContext
 {
     private readonly FakeApi api = new();
+    private readonly Microsoft.AspNetCore.Http.HttpContextAccessor accessor = new();
 
-    private void Use(string environment)
+    private void Use(string environment, string? trustedClientKey = null)
     {
+        Services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["DigiPay:TrustedClientKey"] = trustedClientKey }).Build());
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddLogging();
         Services.AddSingleton<IHttpClientFactory>(api);
+        Services.AddSingleton<Microsoft.AspNetCore.Http.IHttpContextAccessor>(accessor);
         Services.AddSingleton<IWebHostEnvironment>(new FakeEnvironment(environment));
     }
 
@@ -70,26 +75,79 @@ public class SigninDevButtonTests : BunitContext
         var cut = Render<Signin>();
 
         var link = cut.WaitForElement("a.dp-signin-wallet");
-        // &return= is this sign-in page, so the wallet can offer "Return to localhost" after approving.
+        // &return= is where the page goes once signed in (the dashboard), so the wallet's "Return to localhost" opens
+        // it signed in rather than a second sign-in page with a new code.
         Assert.Equal("https://dgbwallet.app/identity?uri=" + Uri.EscapeDataString("digiid://localhost/v1/pay/auth/callback?x=n1&u=1")
-            + "&return=" + Uri.EscapeDataString("http://localhost/"),
+            + "&return=" + Uri.EscapeDataString("http://localhost/merchant"),
             link.GetAttribute("href"));
         Assert.Equal("_blank", link.GetAttribute("target")); // this tab keeps polling and signs in
         Assert.Contains("Sign in with DigiByte Wallet", link.TextContent);
     }
 
     [Fact]
-    public void The_return_address_is_the_full_sign_in_address_with_its_own_return()
+    public void The_return_address_is_the_page_the_sign_in_was_for()
     {
         Use("Production");
         Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()
-            .NavigateTo("/merchant/signin?return=%2Fdashboard%2Fsessions");
+            .NavigateTo("/merchant/signin?return=%2Fmerchant%2Fpayments%3Fstatus%3Dpaid");
         var cut = Render<Signin>();
 
         var href = cut.WaitForElement("a.dp-signin-wallet").GetAttribute("href")!;
         var query = System.Web.HttpUtility.ParseQueryString(new Uri(href).Query);
         Assert.Equal("digiid://localhost/v1/pay/auth/callback?x=n1&u=1", query["uri"]);
-        Assert.Equal("http://localhost/merchant/signin?return=%2Fdashboard%2Fsessions", query["return"]);
+        Assert.Equal("http://localhost/merchant/payments?status=paid", query["return"]);
+    }
+
+    // Pay.Web asks the API from its own server, so it names the visitor (with the shared key) for the sign-in limit.
+    [Fact]
+    public void With_a_trusted_client_key_sign_in_requests_name_the_visitor()
+    {
+        Use("Production", trustedClientKey: "k1");
+        var http = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        http.Request.Headers["X-Forwarded-For"] = "10.0.0.1, 203.0.113.9"; // the proxy appended the real visitor
+        accessor.HttpContext = http;
+        var cut = Render<Signin>();
+
+        cut.WaitForAssertion(() => Assert.Contains("/v1/pay/auth/challenge", api.Requests));
+        var sent = api.Headers["/v1/pay/auth/challenge"];
+        Assert.Equal("203.0.113.9", sent["X-DigiPay-Client-Address"]);
+        Assert.Equal("k1", sent["X-DigiPay-Client-Key"]);
+    }
+
+    [Fact]
+    public void Without_a_key_the_visitor_is_not_sent()
+    {
+        Use("Production");
+        var http = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        http.Request.Headers["X-Forwarded-For"] = "203.0.113.9";
+        accessor.HttpContext = http;
+        var cut = Render<Signin>();
+
+        cut.WaitForAssertion(() => Assert.Contains("/v1/pay/auth/challenge", api.Requests));
+        Assert.Empty(api.Headers["/v1/pay/auth/challenge"]);
+    }
+
+    [Fact]
+    public void A_refused_sign_in_says_to_wait_rather_than_blaming_the_connection()
+    {
+        api.ChallengeLimited = true;
+        Use("Production");
+        var cut = Render<Signin>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Too many sign-in attempts. Wait a minute and try again.", cut.Markup));
+        Assert.DoesNotContain("Check your connection", cut.Markup);
+    }
+
+    [Theory]
+    [InlineData("198.51.100.1, 203.0.113.9", "203.0.113.9")] // rightmost entry: what the proxy appended
+    [InlineData("not-an-ip", "192.0.2.5")]                    // unusable header: the socket address
+    [InlineData(null, "192.0.2.5")]
+    public void The_visitor_address_is_read_like_the_api_reads_it(string? forwarded, string expected)
+    {
+        var http = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        http.Connection.RemoteIpAddress = IPAddress.Parse("192.0.2.5");
+        if (forwarded is not null) http.Request.Headers["X-Forwarded-For"] = forwarded;
+        Assert.Equal(expected, Signin.VisitorAddressOf(http));
     }
 
     private sealed class FakeEnvironment(string name) : IWebHostEnvironment
@@ -105,7 +163,9 @@ public class SigninDevButtonTests : BunitContext
     private sealed class FakeApi : IHttpClientFactory
     {
         public bool DevEnabled { get; set; } = true;
+        public bool ChallengeLimited { get; set; }
         public List<string> Requests { get; } = new();
+        public Dictionary<string, Dictionary<string, string>> Headers { get; } = new();
 
         public HttpClient CreateClient(string name) => new(new Handler(this)) { BaseAddress = new Uri("http://pay-api.test") };
 
@@ -114,9 +174,14 @@ public class SigninDevButtonTests : BunitContext
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
             {
                 var path = request.RequestUri!.AbsolutePath;
-                lock (api.Requests) api.Requests.Add(path);
+                lock (api.Requests)
+                {
+                    api.Requests.Add(path);
+                    api.Headers[path] = request.Headers.Where(h => h.Key.StartsWith("X-DigiPay-")).ToDictionary(h => h.Key, h => string.Join(",", h.Value));
+                }
                 var (status, json) = path switch
                 {
+                    "/v1/pay/auth/challenge" when api.ChallengeLimited => ((HttpStatusCode)429, """{}"""),
                     "/v1/pay/auth/challenge" => (HttpStatusCode.OK, """{"nonce":"n1","uri":"digiid://localhost/v1/pay/auth/callback?x=n1&u=1","expiresAt":"2030-01-01T00:00:00Z"}"""),
                     "/v1/pay/dev/status" when api.DevEnabled => (HttpStatusCode.OK, """{"enabled":true}"""),
                     "/v1/pay/dev/signin" when api.DevEnabled => (HttpStatusCode.OK, """{"status":"signed","merchantId":"mer_devmerchant000001","displayName":"Dev merchant","token":"dps_dev_secret"}"""),
