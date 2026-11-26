@@ -167,13 +167,13 @@ tests/DigiByte.Pay.E2E/tests/      # pos.spec.mjs buyer-choice case
 Each step's PR carries its own docs updates (constitution, Documentation rule).
 
 1. **Gate, availability, error messages and FR-017/FR-031 setting copy.** These are safe to ship first: with the gate off they change only text.
-2. **Fixes to existing DD display**: `TerminalState` cents, shift totals, `DailyStats`, CSV.
+2. **Fixes to existing DD display**: `TerminalState` cents, shift totals, `DailyStats`, CSV. These ship inside step 3's stories (tasks US1 and US2).
 3. **POS DD till and Dashboard DD link and new-payment forms** (Stories 1 and 2).
 4. **Buyer choice**: data model, options endpoint, monitor lock and extra payments, checkout and POS switch, webhooks, notice (Story 3).
 5. **Donations** (Story 4).
 6. **Final docs check** across every surface.
 
-Steps 1 and 2 can land before 034. Steps 3 to 5 need 034 merged (research R14).
+Step 1 can land before 034. The step 2 fixes ride with the stories that need them (TerminalState and shift totals with the POS DD till, `DailyStats` and CSV with the DD link forms), so they land after 034 with steps 3 to 5 (research R14).
 
 ## Complexity Tracking
 

@@ -84,6 +84,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
   - A DD charge posts `currency:"DD"`, `amountCentsDd` and an `Idempotency-Key` header.
   - A saved DD till currency on a store with DD off falls back to the store default and shows a toast.
   - A `503 digidollar_node_unavailable` keeps the typed amount and offers "Charge in DGB".
+  - Switching the till to DD keeps a USD amount as is and clears an amount typed in another fiat currency or in DGB, never converting it (spec edge case).
 - [ ] T017 [P] [US1] Test `tests/DigiByte.Pay.Web.Tests/TerminalStateTests.cs` (new): `Currency="DD"` with `ReceivedSatoshis=1250` renders "12.50 DD". DGB rendering is unchanged.
 
 ### Implementation for User Story 1
@@ -95,6 +96,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
   - Show DD in the `CurrencyPicker` only when the store has DigiDollar on and `ddSurfacesEnabled` is set.
   - A DD till takes dollars with 2 decimals and has no price lookup or drift warning.
   - Reject amounts outside 1.00 to 100,000.00 before submitting, showing the limit (FR-016).
+  - Switching the till to DD keeps a USD amount as is and clears any other amount (another fiat currency or DGB). It never converts it (spec edge case and Assumptions).
 - [ ] T022 [US1] Update `ChargeAsync` in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
   - A DD charge posts `{currency:"DD", amountCentsDd, storeId, label}`.
   - Every charge, DGB included, sends an `Idempotency-Key` header (a new GUID per charge attempt, reused on retry).
@@ -128,6 +130,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
   - The link form shows a DD price mode only with DD on and the gate on, and posts `currency:"DD"` with `amountCentsDd`.
   - The new-payment form's DGB/DD switch works.
   - A stored DD default opens the link form on USD while DD is off.
+  - Switching either form to DD keeps a USD amount as is and clears an amount in another fiat currency or in DGB.
 
 ### Implementation for User Story 2
 
@@ -138,6 +141,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
   - The payment-link price mode gains `"dd"` (a USD amount, 2 decimals, limits 1.00 to 100,000.00, no price lookup). `CreatePaymentLinkAsync` posts `currency:"DD"` and `amountCentsDd` in that mode.
   - The new-payment form gains a DGB/DD switch with the same rules, and `CreateSessionAsync` posts it.
   - Both are shown only with DD on and `ddSurfacesEnabled`.
+  - Switching either form to DD keeps a USD amount as is and clears any other amount. It never converts it.
 - [ ] T034 [US2] Update `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`:
   - The default-currency picker offers DD only with DD on and the gate on.
   - The link form and POS start from `defaultCurrencyEffective`.
@@ -203,7 +207,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 - [ ] T043 [US3] Update session creation in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs`:
   - Accept `buyerChoice` in `CreateSessionRequest`.
   - Apply research R5's conditions, set `BuyerChoice`, and call `CreateDgbOptionAsync`.
-  - When the store's effective default is DD, also create the DD option and lock the session's live fields to it **without** setting `LockedAt`. Skip this when `DdAvailability` reports down, and cap the `GenerateAddressAsync` call at 3 s. On any failure, stay on DGB.
+  - When the store's effective default is DD, also create the DD option and start the session on it (copy its address and amounts to the session's live fields) without locking: `LockedAt` stays null. Skip this when `DdAvailability` reports down, and cap the `GenerateAddressAsync` call at 3 s. On any failure, stay on DGB.
 - [ ] T044 [US3] Extend `ToDto` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` with `buyerChoice`, `lockedAt`, `options` (`OptionDto` with `uri` from the existing BIP21 builder) and `extra`. Add `ddAvailable` and `ddReason` to the public `GET /v1/pay/sessions/{id}` response when `buyerChoice` is set: false with `dd_disabled` when the store has DigiDollar off or the gate is off, false with `unavailable` when `DdAvailability` reports down (contract C1).
 - [ ] T045 [US3] Map anonymous `POST /v1/pay/sessions/{id}/options/dd` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` with `.RequireRateLimiting("checkout-option")`. It calls `SessionOptionService` and maps results to the statuses in contract C1. The policy counts through `TrustedClient.AddressOf`. Check that Pay.Web's `PayApi` HttpClient sends `X-DigiPay-Client-Key` and `X-DigiPay-Client-Address` (the buyer's address) on checkout and POS calls, and add them if not.
 - [ ] T046 [US3] Update `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs`:
