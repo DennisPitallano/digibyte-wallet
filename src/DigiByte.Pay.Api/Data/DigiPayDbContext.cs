@@ -38,6 +38,7 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.Network).HasMaxLength(20).IsRequired();
             e.Property(s => s.Xpub).HasMaxLength(200);
             e.Property(s => s.ReceiveAddress).HasMaxLength(80);
+            e.Property(s => s.DefaultCurrency).HasMaxLength(8);
         });
 
         modelBuilder.Entity<PaySession>(e =>

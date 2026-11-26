@@ -355,7 +355,7 @@ else
                                         <span class="dash-currency-name">@Fiat.Name(linkFiatCurrency)</span>
                                         <Icon Name="chevron-down" Class="w-4 h-4" />
                                     </button>
-                                    <CurrencyPicker Id="link-currency-picker" IsOpen="linkPickerOpen" Selected="@linkFiatCurrency"
+                                    <CurrencyPicker Id="link-currency-picker" IsOpen="linkPickerOpen" Selected="@linkFiatCurrency" Preferred="@StoreFiatDefault"
                                                     Title="Price the link in" Hint="The customer pays the DGB equivalent at the live price when the link is created."
                                                     OnSelected="PickLinkCurrencyAsync" OnClosed="() => linkPickerOpen = false" />
                                 </div>
@@ -1050,6 +1050,38 @@ else
                     @if (storeNameError != null) { <p class="field-error" role="alert">@storeNameError</p> }
                 </section>
 
+                <section class="@Card mt-4">
+                    <h2 class="@H2">Default currency</h2>
+                    <p class="@Muted m-0">Payment links and newly paired POS tablets start in this currency. A cashier can still pick another on each tablet.</p>
+                    <div class="field">
+                        <label class="field-label" for="store-currency">Currency</label>
+                        <button id="store-currency" type="button" class="@Input dash-currency-btn" aria-haspopup="dialog" disabled="@defaultCurrencyBusy"
+                                aria-label="@($"Default currency: {DefaultCurrencyName(activeStore.DefaultCurrency)}, change")" @onclick="() => defaultCurrencyPickerOpen = true">
+                            @if (activeStore.DefaultCurrency is { } current)
+                            {
+                                <CurrencyFlag Code="@current" />
+                                <span class="dash-currency-code">@current</span>
+                                <span class="dash-currency-name">@DefaultCurrencyName(current)</span>
+                            }
+                            else
+                            {
+                                <span class="dash-currency-name">Not set: links and new tablets start in DGB</span>
+                            }
+                            <Icon Name="chevron-down" Class="w-4 h-4" />
+                        </button>
+                        <CurrencyPicker Id="store-currency-picker" IsOpen="defaultCurrencyPickerOpen" Selected="@activeStore.DefaultCurrency" IncludeDgb="true"
+                                        Title="Default currency" Hint="Payment links and new POS tablets for this store start in this currency."
+                                        OnSelected="SaveDefaultCurrencyAsync" OnClosed="() => defaultCurrencyPickerOpen = false" />
+                    </div>
+                    @if (activeStore.DefaultCurrency is not null)
+                    {
+                        <button class="@BtnGhost self-start" @onclick="() => SaveDefaultCurrencyAsync(null)" disabled="@defaultCurrencyBusy">
+                            @(defaultCurrencyBusy ? "Saving…" : "Clear default")
+                        </button>
+                    }
+                    @if (defaultCurrencyError != null) { <p class="field-error" role="alert">@defaultCurrencyError</p> }
+                </section>
+
                 <section id="receive" class="@Card mt-4" tabindex="-1">
                     <h2 class="@H2">Where you receive payments</h2>
                     @if (activeStore.HasReceive)
@@ -1441,6 +1473,56 @@ else
         await LoadLinkPriceAsync();
     }
     private string linkFiatCurrency = "USD";
+
+    /// <summary>The active store's default when it is a fiat code (offered first in the link picker).</summary>
+    private string? StoreFiatDefault => activeStore?.DefaultCurrency is { } c && c != "DGB" ? c : null;
+
+    /// <summary>
+    /// Starts the payment-link form from the store's default currency: a fiat code prices the link in
+    /// that currency, "DGB" in DGB, and no default keeps the old start (DGB, with USD as the fiat choice).
+    /// </summary>
+    private async Task ApplyStoreDefaultToLinkFormAsync()
+    {
+        var code = activeStore?.DefaultCurrency;
+        if (string.IsNullOrEmpty(code) || code == "DGB")
+        {
+            linkPriceMode = "dgb";
+            linkFiatCurrency = "USD";
+            linkDgbPrice = null;
+            return;
+        }
+        linkPriceMode = "fiat";
+        linkFiatCurrency = code;
+        await LoadLinkPriceAsync();
+    }
+
+    // Settings: the store's default currency.
+    private bool defaultCurrencyPickerOpen;
+    private bool defaultCurrencyBusy;
+    private string? defaultCurrencyError;
+
+    private static string DefaultCurrencyName(string? code) =>
+        code is null ? "not set" : code == "DGB" ? "DigiByte (no conversion)" : Fiat.Name(code);
+
+    /// <summary>Saves the store's default currency (null clears it) and restarts the link form from it.</summary>
+    private async Task SaveDefaultCurrencyAsync(string? code)
+    {
+        defaultCurrencyPickerOpen = false;
+        if (activeStore is null || code == activeStore.DefaultCurrency) return;
+        defaultCurrencyBusy = true; defaultCurrencyError = null; StateHasChanged();
+        try
+        {
+            var (ok, error, _) = await PatchStoreAsync(new { defaultCurrency = code ?? "" });
+            if (!ok) { defaultCurrencyError = error; return; }
+            await RefreshStoreAsync();
+            Toasts.Success(activeStore?.DefaultCurrency is { } c
+                ? $"Default currency is now {c}."
+                : "Default currency cleared.");
+            await ApplyStoreDefaultToLinkFormAsync();
+        }
+        catch (Exception ex) { defaultCurrencyError = Plain(ex, "defaultCurrencyError"); }
+        finally { defaultCurrencyBusy = false; StateHasChanged(); }
+    }
     private string linkLabel = "";
     private string linkMemo = "";
     private int? linkExpiryMinutes;
@@ -1607,6 +1689,7 @@ else
         webhookInput = activeStore.WebhookUrl ?? "";
         expiryInput = activeStore.DefaultSessionExpiryMinutes;
         ddEnabledInput = activeStore.DigiDollarEnabled;
+        await ApplyStoreDefaultToLinkFormAsync();
         await Task.WhenAll(LoadSessionsAsync(), LoadCountsAsync());
         await LoadDeliveriesAsync();
         if (activeStore.HasReceive) await LoadDonationAddressAsync();
@@ -1632,6 +1715,8 @@ else
         webhookMessage = webhookError = null;
         expiryMessage = expiryError = null;
         ddMessage = ddError = null;
+        defaultCurrencyError = null;
+        defaultCurrencyPickerOpen = false;
         await LoadActiveStoreContextAsync();
         StateHasChanged();
     }
@@ -2596,7 +2681,7 @@ else
         string ReceiveMode, bool HasReceive, string? ReceivePreview,
         string? WebhookUrl, bool HasWebhookSecret,
         int? DefaultSessionExpiryMinutes, DateTime CreatedAt,
-        bool DigiDollarEnabled = false);
+        bool DigiDollarEnabled = false, string? DefaultCurrency = null);
 
     /// <summary>What PATCH /stores/{id} returns that the page needs: the secret, the first time one is made.</summary>
     private record StoreUpdateDto(string Id, string? WebhookSecret = null);

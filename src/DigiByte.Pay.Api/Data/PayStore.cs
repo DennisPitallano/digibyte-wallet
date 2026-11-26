@@ -35,5 +35,12 @@ public class PayStore
     /// </summary>
     public bool DigiDollarEnabled { get; set; }
 
+    /// <summary>
+    /// The currency the dashboard's payment links and a newly paired POS tablet start in:
+    /// "DGB" or a fiat code from <see cref="DigiByte.Wallet.Models.FiatCurrencies"/>, upper case.
+    /// Null = not set (payment links start in USD, a new tablet in DGB).
+    /// </summary>
+    public string? DefaultCurrency { get; set; }
+
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }

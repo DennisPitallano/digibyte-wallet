@@ -76,6 +76,8 @@
     [Parameter] public string? Selected { get; set; }
     [Parameter] public bool IncludeDgb { get; set; }
     [Parameter] public IReadOnlyList<string>? Recent { get; set; }
+    /// <summary>A code to offer first in the top row (e.g. the store's default currency), before DGB and Recent.</summary>
+    [Parameter] public string? Preferred { get; set; }
     [Parameter] public string Title { get; set; } = "Currency";
     [Parameter] public string? Hint { get; set; }
     [Parameter] public string Id { get; set; } = "currency-picker";
@@ -110,6 +112,11 @@
     private IEnumerable<string> TopCodes()
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(Preferred))
+        {
+            var p = Preferred.Trim().ToUpperInvariant();
+            if ((p == "DGB" ? IncludeDgb : FiatCurrencies.Find(p) is not null) && seen.Add(p)) yield return p;
+        }
         if (IncludeDgb && seen.Add("DGB")) yield return "DGB";
         var source = Recent is { Count: > 0 } ? Recent : new[] { "USD", "EUR", "GBP" };
         foreach (var c in source)
