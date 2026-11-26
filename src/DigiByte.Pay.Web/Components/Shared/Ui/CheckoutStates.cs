@@ -23,6 +23,12 @@ public static class CheckoutStates
     public const string Reconnecting = "reconnecting";
     public const string LoadFailed = "load-failed";
 
+    /// <summary>Blocks a payment needs before the Pay API marks it confirmed (InvoiceMonitor.ConfirmedAt).</summary>
+    public const int ConfirmationsRequired = 6;
+
+    /// <summary>True once the shopper has paid and the page only tracks confirmations ("seen", "paid").</summary>
+    public static bool IsConfirming(string? status) => status is "seen" or "paid";
+
     private static readonly CheckoutState Pending = new(
         "pending", "Waiting for payment", BadgeTone.Neutral, "clock", null,
         "Waiting for payment",
@@ -40,7 +46,7 @@ public static class CheckoutStates
         ["paid"] = new("paid", "Payment received", BadgeTone.Success, "check",
             "Payment received.",
             "Payment received",
-            "The merchant has your payment. It becomes final after a few network confirmations.",
+            "The merchant has your payment. It's final after 6 network confirmations; you can close this page.",
             false),
         ["confirmed"] = new("confirmed", "Confirmed", BadgeTone.Success, "check-circle",
             "Payment confirmed.",

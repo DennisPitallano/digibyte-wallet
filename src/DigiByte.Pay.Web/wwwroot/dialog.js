@@ -66,4 +66,25 @@
         main.focus();
         if (main.scrollIntoView) main.scrollIntoView({ block: 'start' });
     });
+
+    // Dashboard store picker (DashboardShell): focus the active store when the menu opens, and move with the
+    // arrow keys, Home and End between the menu's items.
+    window.digipayStoreMenu = {
+        focusActive(menuId) {
+            const menu = document.getElementById(menuId);
+            if (!menu) return;
+            const item = menu.querySelector('[aria-checked="true"]') || menu.querySelector('[role^="menuitem"]');
+            if (item) item.focus();
+        },
+        move(menuId, key) {
+            const menu = document.getElementById(menuId);
+            if (!menu) return;
+            const items = Array.from(menu.querySelectorAll('[role^="menuitem"]'));
+            if (!items.length) return;
+            const i = items.indexOf(document.activeElement);
+            const next = key === 'Home' ? 0 : key === 'End' ? items.length - 1
+                : key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+            items[next].focus();
+        },
+    };
 })();

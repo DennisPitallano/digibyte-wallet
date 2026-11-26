@@ -1,0 +1,22 @@
+@using DigiByte.Wallet.Models
+@* A currency's flag (the wallet's bundled SVGs, so nothing is fetched from a third party). DGB shows the DigiByte mark;
+   currencies with no single flag (the CFA francs) and unknown codes show a badge with the symbol. *@
+@if (string.Equals(Code, "DGB", StringComparison.OrdinalIgnoreCase))
+{
+    <img src="/digibyte-logo.svg" alt="" width="24" height="24" class="ui-flag ui-flag-round @Class" />
+}
+else if (FiatCurrencies.FlagFor(Code) is { } flag)
+{
+    <img src="/images/flags/@(flag).svg" alt="" loading="lazy" width="24" height="18" class="ui-flag @Class" />
+}
+else
+{
+    <span class="ui-flag ui-flag-badge @Class" aria-hidden="true">@Badge</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Code { get; set; } = "";
+    [Parameter] public string Class { get; set; } = "";
+
+    private string Badge => Fiat.Symbol(Code) is { Length: > 0 and <= 3 } s ? s : "¤";
+}

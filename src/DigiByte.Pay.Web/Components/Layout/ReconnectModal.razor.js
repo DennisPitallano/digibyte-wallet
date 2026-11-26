@@ -15,6 +15,9 @@ function handleReconnectStateChanged(event) {
         reconnectModal.close();
     } else if (event.detail.state === "failed") {
         document.addEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
+        // A POS tablet usually has nobody at it to press "Try again": keep checking for the server and reload
+        // the till as soon as it answers (it reconnects with a fresh page, picking up any update).
+        if (location.pathname.startsWith("/pos")) waitForServerThenReload();
     } else if (event.detail.state === "rejected") {
         location.reload();
     }
@@ -60,4 +63,15 @@ async function retryWhenDocumentBecomesVisible() {
     if (document.visibilityState === "visible") {
         await retry();
     }
+}
+
+let serverWatch = null;
+function waitForServerThenReload() {
+    if (serverWatch) return;
+    serverWatch = setInterval(async () => {
+        try {
+            const r = await fetch("/api/build", { cache: "no-store" });
+            if (r.ok) { clearInterval(serverWatch); location.reload(); }
+        } catch { /* still down */ }
+    }, 10000);
 }

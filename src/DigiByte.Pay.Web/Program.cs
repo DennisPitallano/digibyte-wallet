@@ -36,6 +36,8 @@ var payApiPublicUrl = builder.Configuration["DigiPay:ApiPublicUrl"] ?? payApiUrl
 builder.Services.AddHttpClient("PayApi", c => c.BaseAddress = new Uri(payApiUrl));
 builder.Services.AddSingleton(new PayApiUrl(payApiUrl));
 builder.Services.AddSingleton(new PayApiPublicUrl(payApiPublicUrl));
+// The DigiByte Wallet's web address, for "Pay with DigiByte Wallet" on the checkout and tip page.
+builder.Services.AddSingleton(new WalletAppUrl(builder.Configuration["DigiPay:WalletUrl"] ?? WalletAppUrl.Default));
 
 var app = builder.Build();
 
@@ -84,6 +86,14 @@ app.MapGet("/api/health", () => Results.Ok(new
     timestamp = DateTime.UtcNow,
 }));
 
+// The build this server runs. Open pages compare it with the one they were loaded with (pos-store.js), so a
+// POS tablet left open for days reloads itself after an update instead of running old code.
+app.MapGet("/api/build", (HttpContext ctx) =>
+{
+    ctx.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(new { build = DigiByte.Pay.Web.BuildInfo.Id });
+});
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
@@ -92,3 +102,9 @@ app.Run();
 
 public record PayApiUrl(string Value);
 public record PayApiPublicUrl(string Value);
+
+/// <summary>The DigiByte Wallet's web address (payment links open its /pay page). Config: DigiPay:WalletUrl.</summary>
+public record WalletAppUrl(string Value)
+{
+    public const string Default = "https://dgbwallet.app";
+}

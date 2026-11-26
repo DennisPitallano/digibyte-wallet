@@ -44,11 +44,85 @@
     }
     setInterval(update, 1000);
 
+    // Inside the embed widget's iframe (DigiPay.checkout on a shop's page)?
+    var inFrame = !!window.parent && window.parent !== window;
+
+    function postToParent(msg) {
+        try { window.parent.postMessage(msg, '*'); } catch (_) { /* parent gone: nothing to tell */ }
+    }
+
+    // The checkout card says which session it shows and its status (Checkout.razor).
+    function checkoutCard() {
+        return document.querySelector('[data-digipay-status]');
+    }
+
+    // ---------------------------------------------------------------------
+    // Status to the embedding page.
+    //
+    // In the embed iframe, every status change is posted to the parent as
+    //   { type: 'digipay-checkout-status', sessionId, status, returnUrl }
+    // so the shop's page learns the outcome (digipay.js closes the modal on
+    // "confirmed" and calls the merchant's onStatus / onSuccess callbacks).
+    // ---------------------------------------------------------------------
+    var lastPostedStatus = null;
+    function tickStatus() {
+        if (!inFrame) return;
+        var card = checkoutCard();
+        if (!card) return;
+        var status = card.getAttribute('data-digipay-status');
+        if (!status || status === lastPostedStatus) return;
+        lastPostedStatus = status;
+        postToParent({
+            type: 'digipay-checkout-status',
+            sessionId: card.getAttribute('data-digipay-session') || null,
+            status: status,
+            returnUrl: card.getAttribute('data-digipay-return-url') || null,
+        });
+    }
+    setInterval(tickStatus, 500);
+
+    // Going back to the shop. Standalone, the page navigates itself. In the embed iframe it must
+    // not (the shop would load inside the modal): it asks the parent to go there instead with
+    //   { type: 'digipay-checkout-return', sessionId, status, url }
+    function returnToShop(url) {
+        if (inFrame) {
+            var card = checkoutCard();
+            postToParent({
+                type: 'digipay-checkout-return',
+                sessionId: card ? card.getAttribute('data-digipay-session') : null,
+                status: card ? card.getAttribute('data-digipay-status') : null,
+                url: url,
+            });
+            return;
+        }
+        // location.assign so the browser back button still works on the
+        // merchant's page (replace would lose the checkout page from history).
+        try { window.location.assign(url); }
+        catch (_) { window.location.href = url; }
+    }
+
+    // "Back to the shop" links (TerminalState, Receipt) carry data-digipay-return-link; in the
+    // embed iframe a click becomes a request to the parent rather than an in-frame navigation.
+    document.addEventListener('click', function (e) {
+        if (!inFrame) return;
+        var link = e.target && e.target.closest && e.target.closest('a[data-digipay-return-link]');
+        if (!link) return;
+        var url = link.getAttribute('href');
+        if (!url) return;
+        e.preventDefault();
+        returnToShop(url);
+    });
+
+    // Escape inside the iframe never reaches the parent's key handler, so pass it on.
+    document.addEventListener('keydown', function (e) {
+        if (inFrame && e.key === 'Escape') postToParent({ type: 'digipay-checkout-escape' });
+    });
+
     // ---------------------------------------------------------------------
     // Return-to-merchant countdown.
     //
-    // Same idiom as the expiry countdown above: poll the DOM each second for
-    // a self-describing element rather than rely on an inline <script>. An
+    // Same idiom as the expiry countdown above: poll the DOM for a
+    // self-describing element rather than rely on an inline <script>. An
     // inline script wouldn't fire when Blazor's InteractiveServer circuit
     // patches a "Payment confirmed" panel into the page — browsers don't
     // re-execute scripts injected via DOM diff. Polling sidesteps that.
@@ -57,19 +131,32 @@
     // and the session has a returnUrl):
     //   <div data-digipay-return-merchant
     //        data-digipay-return-url="https://shop.example/orders/42/thanks"
-    //        data-digipay-return-seconds="5">
+    //        data-digipay-return-seconds="8">
     //     ...
-    //     <span data-digipay-return-countdown>5</span>
+    //     <span data-digipay-return-countdown>8</span>
     //   </div>
     //
     // We arm the timer the first time we see an un-armed element, then leave
-    // it alone — re-renders don't reset the countdown.
+    // it alone — re-renders don't reset the countdown. While the shopper is
+    // pointing at or focused on an element marked data-digipay-return-pause
+    // (the "View receipt" link), the countdown holds so they can reach it.
     // ---------------------------------------------------------------------
+    function returnPaused() {
+        var active = document.activeElement;
+        var pausers = document.querySelectorAll('[data-digipay-return-pause]');
+        for (var i = 0; i < pausers.length; i++) {
+            var el = pausers[i];
+            if (el === active || (active && el.contains && el.contains(active))) return true;
+            try { if (el.matches && el.matches(':hover')) return true; } catch (_) { }
+        }
+        return false;
+    }
+
     function tickReturnMerchant() {
         var hosts = document.querySelectorAll('[data-digipay-return-merchant]:not([data-digipay-return-armed])');
         hosts.forEach(function (host) {
             var url = host.getAttribute('data-digipay-return-url');
-            var seconds = parseInt(host.getAttribute('data-digipay-return-seconds') || '5', 10);
+            var seconds = parseInt(host.getAttribute('data-digipay-return-seconds') || '8', 10);
             if (!url || !(seconds > 0)) return;
             host.setAttribute('data-digipay-return-armed', '1');
 
@@ -78,15 +165,17 @@
             if (counter) counter.textContent = String(remaining);
 
             var t = setInterval(function () {
+                if (host.isConnected === false) { clearInterval(t); return; }
+                if (returnPaused()) {
+                    host.setAttribute('data-digipay-return-paused', '1');
+                    return;
+                }
+                host.removeAttribute('data-digipay-return-paused');
                 remaining -= 1;
-                if (counter) counter.textContent = String(remaining);
+                if (counter) counter.textContent = String(Math.max(0, remaining));
                 if (remaining <= 0) {
                     clearInterval(t);
-                    // location.assign so browser back-button still works on
-                    // the merchant's page (replace would lose the checkout
-                    // page from history).
-                    try { window.location.assign(url); }
-                    catch (_) { window.location.href = url; }
+                    returnToShop(url);
                 }
             }, 1000);
         });
@@ -94,8 +183,10 @@
     setInterval(tickReturnMerchant, 500);
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', tickReturnMerchant);
+        document.addEventListener('DOMContentLoaded', tickStatus);
     } else {
         tickReturnMerchant();
+        tickStatus();
     }
 
     // When the checkout runs inside the embed widget's iframe, post our

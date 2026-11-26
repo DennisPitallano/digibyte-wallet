@@ -4,98 +4,84 @@
 @inject IHttpClientFactory HttpFactory
 @inject PayApiUrl PayApi
 @inject IJSRuntime JS
+@inject LiveAnnouncer Announcer
+@inject ILogger<Pos> Log
 @using Microsoft.AspNetCore.SignalR.Client
 @using System.Globalization
 @using System.Net.Http.Json
 @using System.Text.Json.Serialization
+@using DigiByte.Wallet.Models
 
 <PageTitle>@(device?.StoreName is { Length: > 0 } s ? $"{s} — POS" : "DigiPay POS")</PageTitle>
 
-@* Full-bleed kiosk shell. Fixed dark theme so the tablet looks consistent
-   regardless of the merchant's OS light/dark setting, and so the success
-   flash-green actually reads as success on a countertop. No nav, no chrome. *@
-<div class="dp-pos fixed inset-0 bg-slate-950 text-white font-sans flex flex-col select-none touch-manipulation overflow-hidden">
+@* Full-bleed kiosk shell. No nav, no chrome. Starts dark (so the tablet looks the same whatever the device's
+   setting); the merchant can pick Light or Match my device per tablet in settings. Colours come from the --pos-*
+   tokens in digipay-pos.css, set for both themes. The root stays put while <main> scrolls, so nothing is cut off on
+   short (landscape phone) screens. Layout, keypad order, keypad side and the customer display are data attributes
+   on this root, styled in digipay-pos.css, so every layout shares one set of markup. *@
+<div class="dp-pos fixed inset-0 font-sans flex flex-col select-none touch-manipulation overflow-hidden"
+     data-layout="@prefs.Layout" data-keypad="@prefs.Keypad" data-side="@prefs.Side" data-waiting="@prefs.Waiting"
+     data-haptics="@(prefs.Haptics ? "on" : "off")" data-screen="@screen.ToString().ToLowerInvariant()"
+     data-idle="@(IsIdle ? "true" : "false")">
 
     @if (screen == Screen.Pair)
     {
-        <div class="flex-1 flex items-center justify-center p-6">
-            <div class="w-full max-w-md bg-dgb-900 border border-dgb-800 rounded-3xl p-6 sm:p-8 flex flex-col gap-4 shadow-2xl">
+        <div class="flex-1 flex items-center justify-center p-6 dp-pos-main">
+            <div class="dp-pos-pair w-full max-w-md flex flex-col gap-4">
                 <header class="flex items-center gap-3 pb-2">
                     <img src="/digipay-logo.svg" alt="" class="w-10 h-10" />
                     <div>
                         <div class="text-lg font-extrabold tracking-tight">Digi<span class="text-dgb-500">Pay</span> POS</div>
-                        <div class="text-xs text-slate-400">Pair this device to start taking payments</div>
+                        <div class="dp-pos-muted dp-pos-small">Pair this device to start taking payments</div>
                     </div>
                 </header>
 
-                <div class="flex rounded-xl bg-slate-900 p-1 text-sm font-semibold">
-                    <button class="flex-1 py-2 rounded-lg transition-colors @(pairMode == "code" ? "bg-dgb-500 text-white" : "text-slate-400")"
+                <div class="segmented">
+                    <button type="button" class="segmented-item" aria-pressed="@(pairMode == "code" ? "true" : "false")"
                             @onclick="@(() => pairMode = "code")">Pairing code</button>
-                    <button class="flex-1 py-2 rounded-lg transition-colors @(pairMode == "key" ? "bg-dgb-500 text-white" : "text-slate-400")"
+                    <button type="button" class="segmented-item" aria-pressed="@(pairMode == "key" ? "true" : "false")"
                             @onclick="@(() => pairMode = "key")">API key</button>
                 </div>
 
                 @if (pairMode == "code")
                 {
-                    <label class="text-[0.6875rem] font-bold uppercase tracking-widest text-slate-400 block">
+                    <label for="pos-pair-code" class="section-label block">
                         Enter the 6-character code from your dashboard
                     </label>
-                    <input aria-label="AB2C9D" @bind="pairCode" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-                           maxlength="8" placeholder="AB2C9D"
-                           class="w-full text-center font-mono text-3xl tracking-[0.5em] uppercase bg-slate-900 border border-dgb-800 rounded-xl py-4 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
-                    <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors flex items-center justify-center gap-2"
+                    <input id="pos-pair-code" @bind="pairCode" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+                           maxlength="8" placeholder="AB2C9D" enterkeyhint="go"
+                           @onkeydown="@(e => { if (e.Key == "Enter" && !busy && !string.IsNullOrWhiteSpace(pairCode)) _ = ClaimPairingAsync(); })"
+                           class="input dp-pos-pair-code" />
+                    <button class="btn-primary w-full" aria-busy="@(busy ? "true" : null)"
                             @onclick="ClaimPairingAsync" disabled="@(busy || string.IsNullOrWhiteSpace(pairCode))">
-                        @if (busy)
-                        {
-                            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.25"></circle>
-                                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
-                            </svg>
-                            <span>Pairing…</span>
-                        }
-                        else
-                        {
-                            <span>Pair this device</span>
-                        }
+                        @(busy ? "Pairing…" : "Pair this device")
                     </button>
                 }
                 else
                 {
-                    <label class="text-[0.6875rem] font-bold uppercase tracking-widest text-slate-400 block">
+                    <label for="pos-pair-key" class="section-label block">
                         Paste an API key (dgp_…)
                     </label>
-                    <input aria-label="dgp_xxxx_xxxxxxxx" @bind="manualApiKey" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                           placeholder="dgp_xxxx_xxxxxxxx…"
-                           class="w-full font-mono text-sm bg-slate-900 border border-dgb-800 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
-                    <label class="text-[0.6875rem] font-bold uppercase tracking-widest text-slate-400 block">
-                        Store ID (optional — leaves blank to use default store)
+                    <input id="pos-pair-key" @bind="manualApiKey" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                           @onkeydown="@(e => { if (e.Key == "Enter" && !busy && !string.IsNullOrWhiteSpace(manualApiKey)) _ = ApplyManualKeyAsync(); })"
+                           placeholder="dgp_xxxx_xxxxxxxx…" class="input font-mono" />
+                    <label for="pos-pair-store" class="section-label block">
+                        Store ID (optional — leave blank to use default store)
                     </label>
-                    <input aria-label="sto_" @bind="manualStoreId" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                           placeholder="sto_…"
-                           class="w-full font-mono text-sm bg-slate-900 border border-dgb-800 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
-                    <button class="w-full py-3 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/40 text-white font-bold rounded-xl text-base transition-colors flex items-center justify-center gap-2"
+                    <input id="pos-pair-store" @bind="manualStoreId" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                           placeholder="sto_…" class="input font-mono" />
+                    <button class="btn-primary w-full" aria-busy="@(busy ? "true" : null)"
                             @onclick="ApplyManualKeyAsync" disabled="@(busy || string.IsNullOrWhiteSpace(manualApiKey))">
-                        @if (busy)
-                        {
-                            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.25"></circle>
-                                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
-                            </svg>
-                            <span>Checking…</span>
-                        }
-                        else
-                        {
-                            <span>Use this key</span>
-                        }
+                        @(busy ? "Checking…" : "Use this key")
                     </button>
                 }
 
                 @if (pairError != null)
                 {
-                    <p class="text-sm text-red-400 text-center m-0">@pairError</p>
+                    <p class="dp-pos-error text-center" role="alert">@pairError</p>
                 }
 
-                <p class="text-[0.6875rem] text-slate-500 text-center m-0 mt-2">
+                <p class="dp-pos-muted dp-pos-small text-center mt-2">
                     Tip: add this page to your home screen for a full-screen experience.
                 </p>
             </div>
@@ -103,503 +89,608 @@
     }
     else
     {
-        @* Top bar — merchant + store + "lock / unpair" access. Minimal so the
-           keypad and QR dominate the viewport. *@
-        <header class="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-dgb-800/60 shrink-0">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <img src="/digipay-logo.svg" alt="" class="w-7 h-7 shrink-0" />
-                <div class="min-w-0">
-                    <div class="text-sm font-bold truncate">@(device?.StoreName ?? "Store")</div>
-                    <div class="text-[0.6875rem] text-slate-500 truncate">@(device?.MerchantName ?? "")</div>
+        @* Top bar: who this till belongs to, whether it is live, and one menu for everything else, so the keypad
+           and QR dominate the screen. *@
+        <header class="dp-pos-bar">
+            <div class="dp-pos-store">
+                <span class="dp-pos-avatar" aria-hidden="true">@StoreInitial</span>
+                <div class="dp-pos-store-text">
+                    <div class="dp-pos-store-name">@(device?.StoreName ?? "Store")</div>
+                    @if (!string.IsNullOrWhiteSpace(device?.MerchantName))
+                    {
+                        <div class="dp-pos-store-sub">@device!.MerchantName</div>
+                    }
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <button class="w-9 h-9 flex items-center justify-center text-slate-300 border border-dgb-800 rounded-lg hover:bg-dgb-900 transition-colors"
-                        @onclick="OpenPinSettings" title="@(hasPin ? "Change / remove PIN" : "Set a manager PIN")" aria-label="Tablet settings">
-                    <Icon Name="@(hasPin ? "shield" : "settings")" Class="w-4 h-4" />
+            <div class="dp-pos-bar-actions">
+                <span class="dp-pos-conn is-@ConnectionTone" title="@ConnectionHint">
+                    <span class="dp-pos-conn-dot" aria-hidden="true"></span>
+                    <span><span class="sr-only">Connection: </span>@ConnectionLabel</span>
+                </span>
+                <button type="button" class="icon-btn dp-pos-menu-btn" @onclick="OpenMenu"
+                        aria-label="Till menu" aria-haspopup="dialog" aria-expanded="@(showMenu ? "true" : "false")">
+                    <Icon Name="menu" Class="w-5 h-5" />
                 </button>
-                @* "Close shift" surfaces the today-so-far summary. Disabled on
-                   anything but the keypad screen so we don't yank the cashier
-                   out of a sale mid-flow. *@
-                <button class="px-3 py-1.5 text-xs font-semibold text-slate-300 border border-dgb-800 rounded-lg hover:bg-dgb-900 transition-colors disabled:opacity-40"
-                        @onclick="OpenShiftReportAsync" disabled="@(screen != Screen.Keypad)" title="Today's totals">Close shift</button>
-                <button class="px-3 py-1.5 text-xs font-semibold text-slate-300 border border-dgb-800 rounded-lg hover:bg-dgb-900 transition-colors"
-                        @onclick="ShowUnpairAsync" title="Unpair this device">Unpair</button>
             </div>
         </header>
 
+        @* A late payment on an expired sale (InvoiceMonitor keeps reconciling them for days). The
+           till keeps watching expired sales for a while so the cashier finds out. *@
+        @if (latePaymentNotice is not null)
+        {
+            <div class="dp-pos-late ui-banner ui-banner-warning" role="alert">
+                <Icon Name="zap" Class="" />
+                <p>@latePaymentNotice</p>
+                <button type="button" class="dp-pos-late-close" @onclick="DismissLateNotice" aria-label="Dismiss late payment notice">
+                    <Icon Name="close" Class="w-4 h-4" />
+                </button>
+            </div>
+        }
+
         @if (screen == Screen.Keypad)
         {
-            <main class="flex-1 grid grid-rows-[auto_1fr_auto] md:grid-cols-2 md:grid-rows-1 gap-4 p-4 sm:p-6 min-h-0">
+            var readout = Readout();
+            <main class="dp-pos-main dp-pos-keypad">
 
-                @* Amount readout *@
-                <section class="md:order-2 flex flex-col items-center justify-center bg-dgb-900/60 border border-dgb-800 rounded-3xl p-6 min-h-[8rem] relative">
+                @* Amount panel: what the customer will be asked for. *@
+                <section class="dp-pos-readout" aria-label="Sale amount">
+                    <div class="dp-pos-readout-top">
+                        @* Currency: opens the wallet's currency picker. The amount is kept when it fits the new
+                           currency; otherwise the till asks before clearing it. *@
+                        <button type="button" class="dp-pos-currency" @onclick="OpenCurrencyPicker"
+                                aria-label="@($"Currency: {currency}, change")" aria-haspopup="dialog">
+                            <CurrencyFlag Code="@currency" />
+                            <span>@currency</span>
+                            <Icon Name="chevron-down" Class="w-4 h-4" />
+                        </button>
+                        @if (amount.Length > 0)
+                        {
+                            <button type="button" class="dp-pos-clear" @onclick="ClearAmount">
+                                <Icon Name="close" Class="w-4 h-4" />
+                                <span>Clear</span>
+                            </button>
+                        }
+                    </div>
 
-                    @* Currency cycler — small pill in the corner so the primary
-                       readout is uncluttered. Tap to rotate DGB → USD → EUR → … *@
-                    <button class="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[0.625rem] font-bold tracking-wider bg-dgb-800 hover:bg-dgb-700 border border-dgb-700 text-dgb-100 transition-colors"
-                            @onclick="CycleCurrencyAsync" title="Cycle currency">
-                        @currency
-                    </button>
-
-                    <div class="text-[0.6875rem] uppercase tracking-widest text-slate-400 mb-2">Total</div>
-                    <div class="text-5xl sm:text-6xl md:text-7xl font-bold tabular-nums">
-                        @(tipPercent > 0 && TotalDecimal is decimal tot ? FormatAmount(tot) : FormattedAmount) <span class="text-dgb-500">@currency</span>
+                    <div class="dp-pos-caption">@(tipPercent > 0 ? "Total with tip" : "Amount")</div>
+                    <div class="dp-pos-amount tabular-nums @PosEntry.SizeClass(readout.Symbol + readout.Number + readout.Unit) @(readout.Empty ? "is-empty" : "")"
+                         aria-live="polite" aria-atomic="true">
+                        @if (readout.Symbol.Length > 0)
+                        {
+                            <span class="dp-pos-sym @(PosEntry.SymbolIsWord(currency) ? "is-word" : "")">@readout.Symbol</span>
+                        }
+                        <span class="dp-pos-num">@readout.Number</span>
+                        @if (readout.Unit.Length > 0)
+                        {
+                            <span class="dp-pos-unit">@readout.Unit</span>
+                        }
                     </div>
 
                     @if (tipPercent > 0 && SubtotalDecimal is decimal subTotal)
                     {
-                        @* Tip breakdown: shown only when a tip is applied so the
-                           cashier / customer can see exactly how the total was
-                           built. Doesn't exist as separate fields on the invoice
-                           — the charge amount is just subtotal + tip folded in. *@
-                        <div class="text-xs text-slate-400 mt-2">
-                            @FormatAmount(subTotal) + @FormatAmount(TipDecimal) tip (@tipPercent%)
+                        @* The tip folds into the charged amount; this shows how the total was built. *@
+                        <div class="dp-pos-breakdown tabular-nums">
+                            @PosEntry.Money(subTotal, currency) + @PosEntry.Money(TipDecimal, currency) tip (@tipPercent%)
                         </div>
                     }
 
                     @if (IsFiat)
                     {
-                        @* Secondary line: live DGB conversion. Keeps the cashier
-                           honest about what's actually being invoiced and gives
-                           a fallback to sanity-check the rate. *@
-                        <div class="text-xs text-slate-400 mt-2 h-4">
-                            @if (priceError != null)
+                        <div class="dp-pos-quote">
+                            @if (quote is { } q)
                             {
-                                <span class="text-amber-400">@priceError</span>
-                            }
-                            else if (DgbEquivalent is decimal d)
-                            {
-                                <span>≈ @d.ToString("0.########") DGB</span>
-                                @if (dgbPrice is decimal p)
+                                @if (DgbEquivalent is decimal d)
                                 {
-                                    <span class="text-slate-600 ml-2">· 1 DGB = @p.ToString("0.########") @currency</span>
+                                    <div class="dp-pos-equiv tabular-nums">≈ @PosEntry.FormatDgb(d) <span class="dp-pos-unit">DGB</span></div>
+                                }
+                                <div class="dp-pos-rate">
+                                    <span class="tabular-nums">1 DGB = @Fiat.Rate(q.DgbPrice, currency)</span>
+                                    @if (q.Source == "coingecko+fx")
+                                    {
+                                        <span class="dp-pos-rate-via">via USD</span>
+                                    }
+                                    <span class="dp-pos-rate-age">updated @PosEntry.Ago(QuoteAge)</span>
+                                </div>
+                                @if (QuoteIsStale)
+                                {
+                                    <p class="dp-pos-note is-amber" role="status">
+                                        <Icon Name="clock" Class="w-4 h-4" />
+                                        <span>Last known price, @PosEntry.Ago(QuoteAge)</span>
+                                    </p>
                                 }
                             }
-                            else if (dgbPrice is null && !string.IsNullOrEmpty(amount))
+                            else if (priceFailed)
                             {
-                                <span>Fetching price…</span>
+                                <div class="dp-pos-noprice" role="alert">
+                                    <p>No DGB price for @currency right now, so this till can't charge in @currency. Try again, or switch to DGB.</p>
+                                    <button type="button" class="btn-secondary btn-sm dp-pos-retry" @onclick="RetryPriceAsync" disabled="@priceLoading"
+                                            aria-busy="@(priceLoading ? "true" : null)">
+                                        <Icon Name="refresh" Class="w-4 h-4" />
+                                        <span>@(priceLoading ? "Retrying…" : "Retry")</span>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="dp-pos-rate">Fetching price…</div>
                             }
                         </div>
                     }
 
                     @if (!string.IsNullOrWhiteSpace(labelInput))
                     {
-                        <div class="text-xs text-slate-400 mt-3 truncate max-w-full">@labelInput</div>
+                        <div class="dp-pos-label-preview">@labelInput</div>
                     }
                 </section>
 
-                @* Keypad *@
-                <section class="md:order-1 flex flex-col gap-3 min-h-0">
-                    <input aria-label="Label (optional — Order #42)" @bind="labelInput" @bind:event="oninput" maxlength="60" placeholder="Label (optional — e.g. Order #42)"
-                           class="w-full bg-slate-900 border border-dgb-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-dgb-500/50" />
-                    <div class="grid grid-cols-3 gap-2 sm:gap-3 flex-1">
-                        @foreach (var k in KeypadKeys)
-                        {
-                            var key = k;
-                            <button type="button" class="@KeyClass(key) min-h-16 text-2xl sm:text-3xl font-bold rounded-2xl transition-all active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dgb-500"
-                                    aria-label="@(key == "back" ? "Delete last digit" : key == "." ? "Decimal point" : null)"
-                                    @onclick="() => PressKey(key)">
-                                @if (key == "back")
-                                {
-                                    <Icon Name="backspace" Class="w-8 h-8 mx-auto" />
-                                }
-                                else
-                                {
-                                    @key
-                                }
-                            </button>
-                        }
-                    </div>
-                    @* Gratuity pill row — only makes sense once the cashier has
-                       entered a base amount, so hide the whole strip until then
-                       to keep the quick-sale (no-tip) flow uncluttered. *@
-                    @if (HasAmount)
+                @* Keypad. A hardware keyboard works too: digits, ".", Backspace, Delete to clear and Enter to charge
+                   (pos-store.js, only while no text field has focus). *@
+                <section class="dp-pos-pad" aria-label="Keypad">
+                    <label for="pos-sale-label" class="sr-only">Sale label (optional)</label>
+                    <input id="pos-sale-label" @bind="labelInput" @bind:event="oninput" maxlength="60" placeholder="Label (optional — e.g. Order #42)"
+                           class="input dp-pos-label-input" />
+
+                    @if (prefs.QuickAmountsFor(currency) is { Count: > 0 } quick)
                     {
-                        <div class="flex gap-2" role="group" aria-label="Tip">
-                            @foreach (var pct in TipPresets)
+                        <div class="dp-pos-quick" role="group" aria-label="Quick amounts">
+                            @foreach (var qa in quick)
                             {
-                                var p = pct;
-                                var selected = tipPercent == p;
-                                var cls = selected
-                                    ? "bg-dgb-500 text-white border-dgb-500"
-                                    : "bg-slate-900 hover:bg-slate-800 text-slate-300 border-dgb-800";
-                                <button type="button"
-                                        class="flex-1 py-2 text-sm font-bold rounded-xl border transition-colors @cls"
-                                        @onclick="() => SetTip(p)">
-                                    @(p == 0 ? "No tip" : $"{p}%")
+                                var value = qa;
+                                <button type="button" class="dp-pos-quick-btn tabular-nums" @onclick="() => UseQuickAmount(value)">
+                                    @PosEntry.Money(value, currency)
                                 </button>
                             }
                         </div>
                     }
-                    <button class="w-full py-5 bg-dgb-500 hover:bg-dgb-600 disabled:bg-dgb-500/30 disabled:text-white/50 text-white font-extrabold rounded-2xl text-xl transition-colors active:scale-[0.99]"
-                            @onclick="ChargeAsync" disabled="@(busy || !HasAmount)">
-                        @(busy ? "Creating…" : "Charge")
+
+                    <div class="dp-pos-keys @(BottomRow.Length == 4 ? "has-wide-bottom" : "")">
+                        @foreach (var k in Keys)
+                        {
+                            var key = k;
+                            var bottom = BottomRow.Contains(key);
+                            @if (key == "back")
+                            {
+                                <button type="button" class="dp-pos-key is-alt is-bottom" data-pos-haptic
+                                        aria-label="Delete last digit (hold to clear)"
+                                        @onclick="() => PressKey(key)"
+                                        @onpointerdown="BackDown" @onpointerup="BackUp" @onpointerleave="BackUp" @onpointercancel="BackUp">
+                                    <Icon Name="backspace" Class="w-7 h-7" />
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="dp-pos-key tabular-nums @(key is "." or "00" ? "is-alt" : "") @(bottom ? "is-bottom" : "")" data-pos-haptic
+                                        aria-label="@(key == "." ? "Decimal point" : key == "00" ? "Double zero" : null)"
+                                        disabled="@(key == "." && MaxDecimals == 0)"
+                                        @onclick="() => PressKey(key)">@key</button>
+                            }
+                        }
+                    </div>
+
+                    @* Tip: only once there is an amount, so the quick no-tip sale stays uncluttered. *@
+                    @if (HasAmount)
+                    {
+                        <div class="segmented dp-pos-tips" role="group" aria-label="Tip">
+                            @foreach (var pct in TipPresets)
+                            {
+                                var p = pct;
+                                <button type="button" class="segmented-item dp-pos-tip"
+                                        aria-pressed="@(tipPercent == p ? "true" : "false")"
+                                        @onclick="() => SetTip(p)">@(p == 0 ? "No tip" : $"{p}%")</button>
+                            }
+                        </div>
+                    }
+
+                    <button type="button" class="dp-pos-charge" @onclick="ChargeAsync" disabled="@(!CanCharge)"
+                            aria-busy="@(busy ? "true" : null)">
+                        <span class="dp-pos-charge-main tabular-nums">@ChargeLabel</span>
+                        @if (!busy && IsFiat && HasAmount && DgbEquivalent is decimal dgbSub)
+                        {
+                            <span class="dp-pos-charge-sub tabular-nums">≈ @PosEntry.FormatDgb(dgbSub) DGB</span>
+                        }
                     </button>
                     @if (chargeError != null)
                     {
-                        <p class="text-sm text-red-400 text-center m-0">@chargeError</p>
+                        <p class="dp-pos-error text-center" role="alert">@chargeError</p>
                     }
                 </section>
             </main>
         }
         else if (screen == Screen.Waiting && session != null)
         {
-            <main class="flex-1 grid grid-rows-[auto_1fr] md:grid-cols-2 md:grid-rows-1 gap-6 p-4 sm:p-6 min-h-0 items-center">
+            var confirming = CheckoutStates.IsConfirming(session.Status);
+            var hasFiat = session.FiatAmount is decimal && !string.IsNullOrEmpty(session.FiatCurrency);
+            <main class="dp-pos-main dp-pos-waiting">
 
-                <section class="flex flex-col items-center gap-3 order-2 md:order-1">
-                    <div class="qr-frame">
-                        <img src="@qrDataUrl" alt="Scan to pay" class="w-64 h-64 sm:w-80 sm:h-80" />
-                    </div>
-                    <div class="font-mono text-xs text-slate-400 break-all max-w-xs text-center">@session.Address</div>
-                </section>
-
-                <section class="flex flex-col items-center md:items-start gap-4 order-1 md:order-2 text-center md:text-left">
-                    <div>
-                        <div class="text-[0.6875rem] uppercase tracking-widest text-slate-400">Asking</div>
-                        @if (session.FiatAmount is decimal fa && !string.IsNullOrEmpty(session.FiatCurrency))
+                @* Customer-facing: what to pay, the code to scan, how long the price holds. *@
+                <section class="dp-pos-customer" aria-label="Payment for the customer">
+                    <div class="dp-pos-due">
+                        <div class="dp-pos-caption">Amount due</div>
+                        @if (hasFiat)
                         {
-                            @* Fiat-quoted sale: lead with the fiat number (what the
-                               cashier rang up) and put the DGB equivalent underneath
-                               so the customer can reconcile with what their wallet shows. *@
-                            <div class="text-5xl sm:text-6xl md:text-7xl font-bold tabular-nums mt-1">
-                                @fa.ToString("0.##") <span class="text-dgb-500">@session.FiatCurrency</span>
-                            </div>
-                            <div class="text-sm text-slate-400 mt-1">≈ @FormatDgb(session.AmountSatoshis) DGB</div>
+                            @* Fiat-quoted sale: the number the cashier rang up, with the DGB the wallet will show under it. *@
+                            var fiatText = Fiat.Format(session.FiatAmount!.Value, session.FiatCurrency);
+                            <div class="dp-pos-amount dp-pos-amount-due tabular-nums @PosEntry.SizeClass(fiatText)">@fiatText</div>
+                            <div class="dp-pos-equiv tabular-nums">≈ @PosEntry.FormatDgb(session.AmountSatoshis) <span class="dp-pos-unit">DGB</span></div>
                         }
                         else
                         {
-                            <div class="text-5xl sm:text-6xl md:text-7xl font-bold tabular-nums mt-1">
-                                @FormatDgb(session.AmountSatoshis) <span class="text-dgb-500">DGB</span>
+                            var dgbText = PosEntry.FormatDgb(session.AmountSatoshis);
+                            <div class="dp-pos-amount dp-pos-amount-due tabular-nums @PosEntry.SizeClass(dgbText + " DGB")">
+                                <span class="dp-pos-num">@dgbText</span> <span class="dp-pos-unit">DGB</span>
                             </div>
                         }
                         @if (!string.IsNullOrWhiteSpace(session.Label))
                         {
-                            <div class="text-sm text-slate-300 mt-2">@session.Label</div>
+                            <div class="dp-pos-label-preview">@session.Label</div>
                         }
                     </div>
 
-                    @{
-                        var statusColour = session.Status switch
+                    <div class="dp-pos-pay">
+                        @if (confirming)
                         {
-                            "seen" => "bg-amber-500/20 text-amber-300 border-amber-500/30",
-                            "paid" => "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-                            _ => "bg-slate-500/20 text-slate-300 border-slate-500/30",
-                        };
-                        var statusText = session.Status switch
+                            @* Paid: the customer is done, so stop showing a code to pay and show how close the
+                               payment is to final instead (same component as the hosted checkout). *@
+                            <div class="dp-pos-confirm">
+                                <ConfirmationProgress Status="@session.Status" Confirmations="@session.Confirmations"
+                                                      Txid="@session.PaidTxid" Currency="DGB" />
+                            </div>
+                        }
+                        else
                         {
-                            "pending" => "Waiting for scan…",
-                            "seen" => "Transaction detected — confirming",
-                            "paid" => $"Paid · {session.Confirmations} conf",
-                            _ => session.Status,
-                        };
+                            <div class="qr-frame dp-pos-qr-frame">
+                                <img src="@qrDataUrl" alt="Scan to pay" class="dp-pos-qr" />
+                                <span class="qr-frame-logo"><img src="/digibyte-logo.svg" alt="" width="32" height="32" class="dp-pos-qr-logo" /></span>
+                            </div>
+                        }
+                    </div>
+
+                    @if (!confirming)
+                    {
+                        <div class="dp-pos-scan">
+                            <p class="dp-pos-scan-hint">Scan with any DigiByte wallet</p>
+                            @* checkout-countdown.js replaces the whole line once the window closes, so it never
+                               reads "Expires in expired". *@
+                            <p class="dp-pos-countdown" data-digipay-countdown="This price has expired.">
+                                <Icon Name="clock" Class="w-4 h-4" />
+                                <span>Expires in <span class="tabular-nums" data-digipay-expires="@session.ExpiresAt.ToString("o", CultureInfo.InvariantCulture)">—</span></span>
+                            </p>
+                            <p class="dp-pos-address font-mono">@session.Address</p>
+                        </div>
                     }
-                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold @statusColour">
-                        <span class="w-2 h-2 rounded-full bg-current animate-pulse"></span>
-                        @statusText
-                    </div>
-
-                    <div class="text-xs text-slate-500">
-                        Expires in <span data-digipay-expires="@session.ExpiresAt.ToString("o", CultureInfo.InvariantCulture)">—</span>
-                    </div>
-
-                    <button class="mt-2 px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-sm transition-colors"
-                            @onclick="CancelChargeAsync">Cancel sale</button>
                 </section>
+
+                @* Cashier controls, kept secondary. *@
+                <aside class="dp-pos-cashier" aria-label="Cashier">
+                    @if (reconnecting)
+                    {
+                        <div class="ui-banner ui-banner-info dp-pos-cashier-banner" role="status">
+                            <Icon Name="refresh" Class="" />
+                            <p>Reconnecting… payment is still being watched.</p>
+                        </div>
+                    }
+                    <StatusBadge Status="@session.Status" Class="dp-pos-status" />
+                    @* Cancelling voids the session on the server, so the customer can no longer pay it.
+                       Not offered once the payment is in a block. *@
+                    @if (CanCancelSale)
+                    {
+                        <button type="button" class="btn-secondary btn-sm dp-pos-cancel" aria-busy="@(cancelling ? "true" : null)"
+                                @onclick="RequestCancelSale" disabled="@cancelling">
+                            @(cancelling ? "Cancelling…" : "Cancel sale")
+                        </button>
+                    }
+                    @if (cancelError != null)
+                    {
+                        <p class="dp-pos-error dp-pos-cashier-error" role="alert">@cancelError</p>
+                    }
+                </aside>
             </main>
         }
-        else if (screen == Screen.Result)
+        else if (screen == Screen.Result && session != null)
         {
-            <main class="flex-1 flex items-center justify-center p-6">
-                @{
-                    var success = resultStatus == "confirmed";
-                    var ring = success ? "bg-emerald-600" : (resultStatus == "underpaid" ? "bg-red-600" : "bg-slate-600");
-                    var icon = success ? "check" : (resultStatus == "underpaid" ? "alert" : "timer-off");
-                    var heading = success ? "Payment received" : resultStatus == "underpaid" ? "Underpaid" : "Expired";
-                    var body = success
-                        ? "Thank the customer — all done."
-                        : resultStatus == "underpaid"
-                            ? "Amount received was less than requested."
-                            : "No payment received in time.";
-                }
-                <div class="w-full max-w-lg bg-dgb-900 border border-dgb-800 rounded-3xl p-8 flex flex-col items-center gap-5 shadow-2xl text-center">
-                    <div class="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-lg @ring" aria-hidden="true"><Icon Name="@icon" Class="w-12 h-12" /></div>
-                    <div>
-                        <h2 class="text-3xl font-extrabold m-0">@heading</h2>
-                        <p class="text-sm text-slate-400 mt-2 m-0">@body</p>
-                    </div>
-                    @if (success && resultAmount != null)
-                    {
-                        <div class="text-4xl font-bold tabular-nums">@FormatDgb(resultAmount.Value) <span class="text-dgb-500">DGB</span></div>
-                    }
-                    @if (!string.IsNullOrEmpty(resultTxid))
-                    {
-                        <div class="font-mono text-[0.625rem] text-slate-500 break-all max-w-full">@resultTxid</div>
-                    }
-                    <button class="w-full py-4 bg-dgb-500 hover:bg-dgb-600 text-white font-extrabold rounded-2xl text-lg transition-colors mt-2"
-                            @onclick="NewSale">New sale</button>
+            var state = CheckoutStates.For(resultStatus);
+            var success = resultStatus == "confirmed";
+            var hasFiat = session.FiatAmount is decimal && !string.IsNullOrEmpty(session.FiatCurrency);
+            const double circumference = 2 * Math.PI * 52;
+            var ring = circumference.ToString("0.##", CultureInfo.InvariantCulture);
+            <main class="dp-pos-main dp-pos-result-main">
+                <div class="dp-pos-result">
+                    @* Same seal and ring as the checkout's final state (TerminalState). *@
                     @if (success)
                     {
-                        <p class="text-[0.6875rem] text-slate-500 m-0">Auto-returning in @autoReturnSeconds…</p>
+                        <div class="ui-confirm-ring ui-terminal-ring dp-pos-ring" aria-hidden="true">
+                            <svg viewBox="0 0 120 120" width="120" height="120">
+                                <circle class="ui-confirm-ring-track" cx="60" cy="60" r="52" />
+                                <circle class="ui-confirm-ring-fill ui-terminal-ring-draw" cx="60" cy="60" r="52"
+                                        stroke-dasharray="@ring" style="--ui-ring-length: @ring" />
+                            </svg>
+                            <span class="ui-confirm-ring-center"><Icon Name="check" Class="ui-terminal-check" /></span>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="ui-receipt-seal dp-pos-seal @SealClass(state.Tone)" aria-hidden="true"><Icon Name="@state.Icon" Class="w-10 h-10" /></span>
+                    }
+                    <div>
+                        <h2 class="dp-pos-result-title">@state.Heading</h2>
+                        <p class="dp-pos-muted dp-pos-result-text">@CashierExplanation(resultStatus)</p>
+                    </div>
+                    @if (success)
+                    {
+                        var received = session.ReceivedSatoshis > 0 ? session.ReceivedSatoshis : session.AmountSatoshis;
+                        @* Fiat sale: the number the cashier rang up first, the DGB that arrived under it. *@
+                        @if (hasFiat)
+                        {
+                            <div>
+                                <div class="dp-pos-result-amount tabular-nums">@Fiat.Format(session.FiatAmount!.Value, session.FiatCurrency)</div>
+                                <div class="dp-pos-equiv tabular-nums">@PosEntry.FormatDgb(received) DGB</div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="dp-pos-result-amount tabular-nums">@PosEntry.FormatDgb(received) <span class="dp-pos-unit">DGB</span></div>
+                        }
+                        <p class="ui-terminal-final dp-pos-final">
+                            <span class="ui-receipt-dots" aria-hidden="true">
+                                @for (var i = 0; i < CheckoutStates.ConfirmationsRequired; i++)
+                                {
+                                    <span class="is-done"></span>
+                                }
+                            </span>
+                            <span>@CheckoutStates.ConfirmationsRequired of @CheckoutStates.ConfirmationsRequired confirmations · Final</span>
+                        </p>
+                    }
+                    @if (resultStatus == "underpaid")
+                    {
+                        <dl class="ui-terminal-amounts">
+                            <div><dt>Received</dt><dd class="font-mono tabular-nums">@PosEntry.FormatDgb(session.ReceivedSatoshis) DGB</dd></div>
+                            <div>
+                                <dt>Expected</dt>
+                                <dd class="font-mono tabular-nums">@PosEntry.FormatDgb(session.AmountSatoshis) DGB</dd>
+                                @if (hasFiat)
+                                {
+                                    <dd class="dp-pos-dd-sub tabular-nums">@Fiat.Format(session.FiatAmount!.Value, session.FiatCurrency)</dd>
+                                }
+                            </div>
+                        </dl>
+                    }
+                    @if (!string.IsNullOrEmpty(session.PaidTxid))
+                    {
+                        <div class="dp-pos-txid font-mono">@session.PaidTxid</div>
+                    }
+                    <div class="dp-pos-result-actions">
+                        @if (CanChargeAgain)
+                        {
+                            <button type="button" class="btn-secondary dp-pos-again" aria-busy="@(busy ? "true" : null)"
+                                    @onclick="ChargeAgainAsync" disabled="@busy">
+                                <Icon Name="refresh" Class="w-5 h-5" />
+                                <span>@(busy ? "Creating…" : "Charge again")</span>
+                            </button>
+                        }
+                        <button type="button" class="btn-primary dp-pos-new" @onclick="NewSale">New sale</button>
+                    </div>
+                    @if (success)
+                    {
+                        <p class="dp-pos-muted dp-pos-small">Auto-returning in @autoReturnSeconds…</p>
                     }
                 </div>
             </main>
         }
     }
-</div>
+
+@* Till menu: settings, close shift and unpair in one place. *@
+@if (showMenu)
+{
+    <div class="dp-pos-overlay is-sheet" @onclick="CloseMenu">
+        <div id="pos-menu-dialog" class="dp-pos-dialog dp-pos-menu" role="dialog" aria-modal="true" aria-labelledby="pos-menu-title" @onclick:stopPropagation>
+            <div class="dp-pos-dialog-head">
+                <div class="dp-pos-store">
+                    <span class="dp-pos-avatar" aria-hidden="true">@StoreInitial</span>
+                    <div class="dp-pos-store-text">
+                        <h2 id="pos-menu-title" class="dp-pos-store-name">@(device?.StoreName ?? "Store")</h2>
+                        <div class="dp-pos-store-sub">@(device?.DeviceLabel is { Length: > 0 } l ? l : "This till")</div>
+                    </div>
+                </div>
+                <button type="button" class="icon-btn dp-pos-dialog-close" @onclick="CloseMenu" aria-label="Close menu"><Icon Name="close" Class="w-5 h-5" /></button>
+            </div>
+            <ul class="dp-pos-menu-list">
+                <li>
+                    <button type="button" class="dp-pos-menu-item" @onclick="OpenSettingsFromMenu">
+                        <Icon Name="@(hasPin ? "shield" : "settings")" Class="w-5 h-5" />
+                        <span><strong>Tablet settings</strong><small>Display, keypad, theme and manager PIN</small></span>
+                    </button>
+                </li>
+                <li>
+                    <button type="button" class="dp-pos-menu-item" @onclick="OpenShiftFromMenuAsync" disabled="@(screen != Screen.Keypad)">
+                        <Icon Name="receipt" Class="w-5 h-5" />
+                        <span><strong>Close shift</strong><small>@(screen == Screen.Keypad ? "Today's totals for this till" : "Finish the current sale first")</small></span>
+                    </button>
+                </li>
+                <li>
+                    <button type="button" class="dp-pos-menu-item is-danger" @onclick="UnpairFromMenuAsync">
+                        <Icon Name="logout" Class="w-5 h-5" />
+                        <span><strong>Unpair this device</strong><small>@(hasPin ? "Needs the manager PIN" : "Forget the API key on this tablet")</small></span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+}
 
 @* Unpair confirmation *@
 @if (showUnpair)
 {
-    <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="() => showUnpair = false">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-unpair-title" @onclick:stopPropagation>
-            <h3 id="pos-unpair-title" class="text-lg font-bold m-0 mb-2">Unpair this device?</h3>
-            <p class="text-sm text-slate-400 m-0 mb-4">The stored API key will be forgotten on this tablet. Revoke it from the dashboard too if it's lost or stolen.</p>
-            <div class="flex gap-2">
-                <button class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm" @onclick="() => showUnpair = false">Cancel</button>
-                <button class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm" @onclick="UnpairAsync">Unpair</button>
+    <div class="dp-pos-overlay" @onclick="() => showUnpair = false">
+        <div id="pos-unpair-dialog" class="dp-pos-dialog dp-pos-panel-dialog is-narrow" role="dialog" aria-modal="true" aria-labelledby="pos-unpair-title" @onclick:stopPropagation>
+            <h2 id="pos-unpair-title" class="block-title">Unpair this device?</h2>
+            <p class="dp-pos-muted">The stored API key will be forgotten on this tablet. Revoke it from the dashboard too if it's lost or stolen.</p>
+            <div class="dp-pos-dialog-actions">
+                <button type="button" class="btn-secondary" data-autofocus @onclick="() => showUnpair = false">Cancel</button>
+                <button type="button" class="btn-danger" @onclick="UnpairAsync">Unpair</button>
             </div>
         </div>
     </div>
 }
 
-@* Shift close / end-of-day summary.
-   Pulls from /v1/pay/pos/shift-report?since=<shiftStartedAt>. The "since"
-   timestamp is kept in localStorage per-tablet so resetting the shift only
-   affects this till, not the merchant's aggregate dashboard numbers. *@
+@* Shift close / end-of-day summary. The "since" timestamp is kept in localStorage per tablet, so starting a new
+   shift only affects this till, not the merchant's dashboard numbers. *@
 @if (showShiftReport)
 {
-    <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="() => showShiftReport = false">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-md w-full text-white" @onclick:stopPropagation>
-            <div class="flex items-start justify-between gap-2 mb-4">
-                <div>
-                    <h3 class="text-lg font-bold m-0">Shift summary</h3>
-                    @if (shiftReport is not null)
-                    {
-                        <p class="text-xs text-slate-400 m-0 mt-0.5">@shiftReport.From.ToLocalTime().ToString("dd MMM, HH:mm") → @shiftReport.To.ToLocalTime().ToString("HH:mm")</p>
-                    }
-                </div>
-                <button class="text-slate-400 hover:text-white text-lg leading-none p-1" @onclick="() => showShiftReport = false" aria-label="Close">×</button>
+    <PosShiftReport Report="@shiftReport" Error="@shiftReportError"
+                    OnClose="() => showShiftReport = false" OnStartNewShift="StartNewShiftAsync" />
+}
+
+@* Tablet settings: display (layout, keypad, customer display, quick amounts, theme) and the manager PIN. Stored
+   per tablet, never on the server. *@
+@if (showSettings)
+{
+    <div class="dp-pos-overlay" @onclick="CloseSettings">
+        <div id="pos-settings-dialog" class="dp-pos-dialog dp-pos-panel-dialog dp-pos-settings" role="dialog" aria-modal="true" aria-labelledby="pos-settings-title" @onclick:stopPropagation>
+            <div class="dp-pos-dialog-head">
+                <h2 id="pos-settings-title" class="block-title">Tablet settings</h2>
+                <button type="button" class="icon-btn dp-pos-dialog-close" @onclick="CloseSettings" aria-label="Close settings"><Icon Name="close" Class="w-5 h-5" /></button>
             </div>
 
-            @if (shiftReportError is not null)
-            {
-                <p class="text-sm text-red-400 m-0">@shiftReportError</p>
-            }
-            else if (shiftReport is null)
-            {
-                <p class="text-sm text-slate-400 m-0">Loading…</p>
-            }
-            else
-            {
-                var totals = shiftReport.Totals;
-                var outcomes = shiftReport.Outcomes;
-                <div class="space-y-4">
-                    @* Collected / totals block. DGB total is always shown (it's
-                       the one number that survives across currencies); fiat
-                       buckets are listed only when present so a DGB-only till
-                       doesn't render an empty section. *@
-                    <div>
-                        <div class="text-[0.6875rem] uppercase tracking-widest text-slate-400 mb-1">Collected</div>
-                        <div class="text-3xl font-bold tabular-nums">@FormatDgb8(totals.CollectedDgb) <span class="text-dgb-500 text-xl">DGB</span></div>
-                        <div class="text-xs text-slate-400 mt-0.5">across @outcomes.Collected @(outcomes.Collected == 1 ? "sale" : "sales")</div>
-                        @if (totals.Fiat is { Count: > 0 })
+            <section class="dp-pos-set-section" aria-labelledby="pos-set-display">
+                <h3 id="pos-set-display" class="section-label">Display</h3>
+
+                @Choice("pos-set-layout", "Layout", "Auto splits the screen on a wide landscape tablet and stacks it otherwise.",
+                        prefs.Layout, [("auto", "Auto"), ("split", "Split"), ("stacked", "Stacked"), ("compact", "Compact")], v => prefs.Layout = v)
+                @Choice("pos-set-keypad", "Keypad order", null,
+                        prefs.Keypad, [("phone", "Phone 1-2-3"), ("calculator", "Calculator 7-8-9")], v => prefs.Keypad = v)
+                @Choice("pos-set-side", "Keypad side (split layout)", null,
+                        prefs.Side, [("right", "Right"), ("left", "Left")], v => prefs.Side = v)
+                @Choice("pos-set-waiting", "Customer display while waiting", "Full-screen QR fills the screen with the amount and the code; Cancel stays in a small bar.",
+                        prefs.Waiting, [("standard", "Standard"), ("fullscreen", "Full-screen QR")], v => prefs.Waiting = v)
+
+                <label class="dp-pos-switch">
+                    <span class="dp-pos-switch-text"><strong>"00" key</strong><small>For currencies with cents; replaces "." for currencies with none.</small></span>
+                    <input type="checkbox" role="switch" checked="@prefs.DoubleZero" @onchange="e => SetPrefAsync(() => prefs.DoubleZero = e.Value is true)" />
+                </label>
+                <label class="dp-pos-switch">
+                    <span class="dp-pos-switch-text"><strong>Vibrate on key press</strong><small>A short tick, on devices that support it.</small></span>
+                    <input type="checkbox" role="switch" checked="@prefs.Haptics" @onchange="e => SetPrefAsync(() => prefs.Haptics = e.Value is true)" />
+                </label>
+
+                <div class="field dp-pos-set-field">
+                    <label class="field-label" for="pos-set-quick">Quick amounts for @currency</label>
+                    <input id="pos-set-quick" class="input tabular-nums" inputmode="decimal" autocomplete="off" spellcheck="false"
+                           placeholder="@(IsFiat ? "e.g. 100, 200, 500" : "e.g. 10, 50, 100")" aria-describedby="pos-set-quick-hint"
+                           value="@quickAmountsText" @onchange="SaveQuickAmountsAsync" />
+                    <p id="pos-set-quick-hint" class="field-hint">Up to six, separated by commas. Tapping one on the keypad fills the amount. Each currency keeps its own list.</p>
+                </div>
+
+                <div class="dp-pos-set-field">
+                    <p class="field-label">Screen theme</p>
+                    <ThemePicker />
+                </div>
+            </section>
+
+            <section class="dp-pos-set-section" aria-labelledby="pos-set-security">
+                <h3 id="pos-set-security" class="section-label">Manager PIN</h3>
+                <p class="dp-pos-muted dp-pos-small">
+                    @(hasPin ? "A PIN is set." : "No PIN set.") A 4–8 digit PIN gates destructive actions on this tablet (right now: unpairing).
+                    The PIN never leaves the browser.
+                </p>
+                @if (pinFormOpen)
+                {
+                    <div class="dp-pos-pin-form">
+                        <div class="field">
+                            <label for="pos-pin-new" class="field-label">New PIN</label>
+                            <input id="pos-pin-new" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+                                   maxlength="8" class="input dp-pos-pin-input" @bind="pinNew" @bind:event="oninput" />
+                        </div>
+                        <div class="field">
+                            <label for="pos-pin-confirm" class="field-label">Confirm PIN</label>
+                            <input id="pos-pin-confirm" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
+                                   maxlength="8" class="input dp-pos-pin-input" @bind="pinConfirm" @bind:event="oninput" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(pinSettingsError))
                         {
-                            <div class="mt-2 flex flex-wrap gap-1.5">
-                                @foreach (var kv in totals.Fiat.OrderBy(k => k.Key))
-                                {
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 text-xs font-semibold tabular-nums">
-                                        @kv.Value.ToString("0.##") @kv.Key
-                                    </span>
-                                }
-                            </div>
+                            <p class="dp-pos-error" role="alert">@pinSettingsError</p>
+                        }
+                        <div class="dp-pos-dialog-actions">
+                            <button type="button" class="btn-secondary btn-sm" @onclick="ClosePinForm">Cancel</button>
+                            <button type="button" class="btn-primary btn-sm" @onclick="SavePinAsync" disabled="@(!CanSavePin)">Save PIN</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="dp-pos-dialog-actions is-start">
+                        <button type="button" class="btn-secondary btn-sm" @onclick="OpenPinForm">
+                            <Icon Name="shield" Class="w-4 h-4" />
+                            <span>@(hasPin ? "Change PIN" : "Set a manager PIN")</span>
+                        </button>
+                        @if (hasPin)
+                        {
+                            <button type="button" class="btn-ghost btn-sm dp-pos-remove-pin" @onclick="RequestRemovePin">Remove PIN</button>
                         }
                     </div>
-
-                    @if (totals.Tips is { Count: > 0 })
-                    {
-                        <div>
-                            <div class="text-[0.6875rem] uppercase tracking-widest text-slate-400 mb-1">Tips</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                @foreach (var kv in totals.Tips.OrderBy(k => k.Key))
-                                {
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-xs font-semibold tabular-nums border border-emerald-500/20">
-                                        @kv.Value.ToString("0.##") @kv.Key
-                                    </span>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                    <div>
-                        <div class="text-[0.6875rem] uppercase tracking-widest text-slate-400 mb-1">Outcomes</div>
-                        <div class="grid grid-cols-4 gap-2 text-center">
-                            <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-lg py-1.5">
-                                <div class="text-lg font-bold tabular-nums text-emerald-300">@outcomes.Collected</div>
-                                <div class="text-[0.625rem] uppercase tracking-wider text-emerald-300/80">Paid</div>
-                            </div>
-                            <div class="bg-slate-800/60 border border-slate-700 rounded-lg py-1.5">
-                                <div class="text-lg font-bold tabular-nums">@outcomes.Pending</div>
-                                <div class="text-[0.625rem] uppercase tracking-wider text-slate-400">Pending</div>
-                            </div>
-                            <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg py-1.5">
-                                <div class="text-lg font-bold tabular-nums text-amber-300">@outcomes.Underpaid</div>
-                                <div class="text-[0.625rem] uppercase tracking-wider text-amber-300/80">Underpaid</div>
-                            </div>
-                            <div class="bg-slate-800/60 border border-slate-700 rounded-lg py-1.5">
-                                <div class="text-lg font-bold tabular-nums">@outcomes.Expired</div>
-                                <div class="text-[0.625rem] uppercase tracking-wider text-slate-400">Expired</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    @* Missed revenue — only when there's something to show, so a
-                       clean shift doesn't render a dead section. Same shape as
-                       collected so the cashier can compare at a glance. *@
-                    @if (shiftReport.Missed is { } missed
-                        && (missed.Expired.Count > 0 || missed.Underpaid.Count > 0))
-                    {
-                        <div>
-                            <div class="text-[0.6875rem] uppercase tracking-widest text-slate-400 mb-1">Missed revenue</div>
-                            <div class="grid grid-cols-2 gap-2">
-                                @if (missed.Expired.Count > 0)
-                                {
-                                    <div class="bg-slate-800/40 border border-slate-700/60 rounded-lg p-2">
-                                        <div class="text-[0.625rem] uppercase tracking-wider text-slate-400 mb-0.5">Expired (@missed.Expired.Count)</div>
-                                        <div class="text-sm font-bold tabular-nums">@FormatDgb8(missed.Expired.Dgb) <span class="text-slate-500 text-xs">DGB</span></div>
-                                        @if (missed.Expired.Fiat is { Count: > 0 })
-                                        {
-                                            <div class="mt-1 flex flex-wrap gap-1">
-                                                @foreach (var kv in missed.Expired.Fiat.OrderBy(k => k.Key))
-                                                {
-                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 text-[0.625rem] font-semibold tabular-nums">
-                                                        @kv.Value.ToString("0.##") @kv.Key
-                                                    </span>
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                                @if (missed.Underpaid.Count > 0)
-                                {
-                                    <div class="bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
-                                        <div class="text-[0.625rem] uppercase tracking-wider text-amber-300/80 mb-0.5">Underpaid (@missed.Underpaid.Count)</div>
-                                        <div class="text-sm font-bold tabular-nums text-amber-200">@FormatDgb8(missed.Underpaid.Dgb) <span class="text-amber-300/70 text-xs">DGB</span></div>
-                                        @if (missed.Underpaid.Fiat is { Count: > 0 })
-                                        {
-                                            <div class="mt-1 flex flex-wrap gap-1">
-                                                @foreach (var kv in missed.Underpaid.Fiat.OrderBy(k => k.Key))
-                                                {
-                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-200 text-[0.625rem] font-semibold tabular-nums">
-                                                        @kv.Value.ToString("0.##") @kv.Key
-                                                    </span>
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-
-                <div class="flex gap-2 mt-5">
-                    <button class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm" @onclick="() => showShiftReport = false">Close</button>
-                    <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-600 text-white font-semibold rounded-lg text-sm" @onclick="StartNewShiftAsync">Start new shift</button>
-                </div>
-            }
+                }
+            </section>
         </div>
     </div>
 }
 
-@* PIN settings (set / change / remove).
-   Kept as a dedicated modal so a busy cashier can't toggle security in passing —
-   the "Save" button is only enabled when both fields match and length is valid. *@
-@if (showPinSettings)
-{
-    <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="ClosePinSettings">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-settings-title" @onclick:stopPropagation>
-            <h3 id="pos-settings-title" class="text-lg font-bold m-0 mb-1">@(hasPin ? "Change manager PIN" : "Set a manager PIN")</h3>
-            <p class="text-sm text-slate-400 m-0 mb-4">
-                A 4–8 digit PIN gates destructive actions on this tablet (right now: unpairing).
-                The PIN never leaves the browser.
-            </p>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">New PIN</label>
-            <input aria-label="New manager PIN" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
-                   maxlength="8"
-                   class="w-full px-3 py-2.5 bg-slate-950 border border-dgb-800 rounded-lg text-white tracking-[0.4em] text-center mb-3"
-                   @bind="pinNew" @bind:event="oninput" />
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Confirm PIN</label>
-            <input aria-label="Confirm manager PIN" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password"
-                   maxlength="8"
-                   class="w-full px-3 py-2.5 bg-slate-950 border border-dgb-800 rounded-lg text-white tracking-[0.4em] text-center mb-3"
-                   @bind="pinConfirm" @bind:event="oninput" />
-            @if (!string.IsNullOrEmpty(pinSettingsError))
-            {
-                <p class="text-sm text-red-400 m-0 mb-3">@pinSettingsError</p>
-            }
-            <div class="flex gap-2 mb-2">
-                <button class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm" @onclick="ClosePinSettings">Cancel</button>
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-400 disabled:bg-slate-700 disabled:text-slate-400 text-white font-semibold rounded-lg text-sm"
-                        @onclick="SavePinAsync" disabled="@(!CanSavePin)">Save PIN</button>
-            </div>
-            @if (hasPin)
-            {
-                <button class="w-full py-2 text-xs font-semibold text-red-400 hover:text-red-300" @onclick="RemovePinAsync">Remove PIN</button>
-            }
-            @* Screen theme for this tablet (FR-013). Stored under the POS key, so it doesn't
-               change the merchant's dashboard theme. Starts dark. *@
-            <div class="border-t border-dgb-800 mt-4 pt-4">
-                <p class="block text-xs font-semibold text-slate-300 mb-2">Screen theme</p>
-                <ThemePicker />
-            </div>
-        </div>
-    </div>
-}
-
-@* PIN challenge — shown before executing a guarded action.
-   Currently only gates Unpair; structured so future actions (lock, switch store)
-   can reuse it by setting pinChallengePending to a different callback. *@
+@* PIN challenge — shown before executing a guarded action (unpair, changing or removing the PIN). *@
 @if (showPinChallenge)
 {
-    <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" @onclick="CancelPinChallenge">
-        <div class="bg-dgb-900 border border-dgb-800 rounded-2xl p-6 max-w-sm w-full text-white" role="dialog" aria-modal="true" aria-labelledby="pos-pin-title" @onclick:stopPropagation>
-            <h3 id="pos-pin-title" class="text-lg font-bold m-0 mb-1">Enter manager PIN</h3>
-            <p class="text-sm text-slate-400 m-0 mb-4">@pinChallengePrompt</p>
-            <input aria-label="Manager PIN" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
-                   maxlength="8"
-                   class="w-full px-3 py-2.5 bg-slate-950 border border-dgb-800 rounded-lg text-white tracking-[0.4em] text-center mb-3"
+    <div class="dp-pos-overlay is-top" @onclick="CancelPinChallenge">
+        <div id="pos-pin-dialog" class="dp-pos-dialog dp-pos-panel-dialog is-narrow" role="dialog" aria-modal="true" aria-labelledby="pos-pin-title" @onclick:stopPropagation>
+            <h2 id="pos-pin-title" class="block-title">Enter manager PIN</h2>
+            <p id="pos-pin-prompt" class="dp-pos-muted">@pinChallengePrompt</p>
+            <label for="pos-pin-entry" class="sr-only">Manager PIN</label>
+            <input id="pos-pin-entry" aria-describedby="pos-pin-prompt" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                   maxlength="8" class="input dp-pos-pin-input"
                    @bind="pinEntered" @bind:event="oninput"
                    @onkeydown="@(e => { if (e.Key == "Enter") _ = VerifyPinChallengeAsync(); })" />
             @if (!string.IsNullOrEmpty(pinChallengeError))
             {
-                <p class="text-sm text-red-400 m-0 mb-3">@pinChallengeError</p>
+                <p class="dp-pos-error" role="alert">@pinChallengeError</p>
             }
-            <div class="flex gap-2">
-                <button class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm" @onclick="CancelPinChallenge">Cancel</button>
-                <button class="flex-1 py-2.5 bg-dgb-500 hover:bg-dgb-400 text-white font-semibold rounded-lg text-sm" @onclick="VerifyPinChallengeAsync">Continue</button>
+            <div class="dp-pos-dialog-actions">
+                <button type="button" class="btn-secondary" @onclick="CancelPinChallenge">Cancel</button>
+                <button type="button" class="btn-primary" @onclick="VerifyPinChallengeAsync">Continue</button>
             </div>
         </div>
     </div>
 }
 
+@* Currency picker: DGB and every wallet currency, with the last four used on this tablet as "Recent". *@
+<CurrencyPicker IsOpen="@showCurrencyPicker" Selected="@currency" IncludeDgb="true" Recent="@recentCurrencies"
+                Id="pos-currency-dialog" Title="Till currency"
+                Hint="The amount you type is in this currency. Anything other than DGB is converted at the live price when you charge."
+                OnSelected="SelectCurrencyAsync" OnClosed="CloseCurrencyPicker" />
+
+@* A switch the typed amount can't survive (too many decimals for the new currency): ask before clearing it. *@
+<ConfirmDialog Open="@(pendingCurrency is not null)" Title="@($"Switch to {pendingCurrency}?")" Danger="false"
+               ConfirmLabel="Clear and switch" CancelLabel="@($"Keep {currency}")"
+               OnConfirm="ConfirmCurrencySwitchAsync" OnCancel="() => pendingCurrency = null">
+    @amount @currency doesn't fit @pendingCurrency (@(PosEntry.DecimalsFor(pendingCurrency) == 0 ? "no decimals" : $"{PosEntry.DecimalsFor(pendingCurrency)} decimals")). Switching clears the amount.
+</ConfirmDialog>
+
+@* Cancelling a sale whose payment is already on its way needs a second look: the money may still
+   arrive, and the session can no longer be paid once it is voided. *@
+<ConfirmDialog Open="@confirmCancelSeen" Title="Cancel this sale?" ConfirmLabel="Cancel sale" CancelLabel="Keep waiting"
+               Busy="@cancelling" OnConfirm="CancelSaleAsync" OnCancel="() => confirmCancelSeen = false">
+    A payment for this sale has already been detected. If you cancel, the sale is voided; any money that still arrives has to be refunded from the dashboard.
+</ConfirmDialog>
+</div>
+
 @code {
     private enum Screen { Pair, Keypad, Waiting, Result }
 
-    // Keypad layout — "." at bottom-left accepts a single decimal point, and
-    // "back" is a soft backspace (keeps the keypad 3x4 without a clear button,
-    // which staff kept mis-tapping on the prototype).
-    private static readonly string[] KeypadKeys = new[]
-    {
-        "1","2","3",
-        "4","5","6",
-        "7","8","9",
-        ".","0","back",
-    };
+    private static readonly string[][] PhoneRows = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"]];
+    private static readonly string[][] CalculatorRows = [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"]];
 
     private Screen screen = Screen.Pair;
     private string pairMode = "code";
     private string pairCode = "";
+
+    /// <summary>Nothing in progress: the keypad with no amount, no dialog, nothing being created. pos-store.js only
+    /// reloads the till for a new version while this is true (the data-idle attribute on the root).</summary>
+    private bool IsIdle => screen == Screen.Keypad && string.IsNullOrEmpty(amount) && !AnyDialogOpen && !busy;
     private string manualApiKey = "";
     private string manualStoreId = "";
     private string? pairError;
@@ -607,53 +698,89 @@
     private PairedDevice? device;
     private bool busy;
 
-    // Keypad state — amount is stored as a string so we can display
-    // the user's literal input (e.g. "10." → they're about to type decimals).
+    // Keypad state — the amount is kept as typed so "10." shows the cashier is about to type decimals.
     private string amount = "";
     private string labelInput = "";
     private string? chargeError;
 
-    // Currency mode. "DGB" means the cashier is typing a raw DGB amount
-    // (8 decimals allowed). Anything else is a fiat code like "EUR" / "USD"
-    // — the cashier types a fiat amount (2 decimals), we convert live using
-    // the cached /v1/pay/public/price quote. Persisted in localStorage via
-    // digipayPos.setCurrency so each tablet remembers its till currency.
-    //
-    // SupportedCurrencies is intentionally narrow and mirrors the server's
-    // allow-list in PublicEndpoints so an operator can't pick a currency
-    // the price endpoint will reject.
-    private static readonly string[] SupportedCurrencies =
-        new[] { "DGB", "USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "PHP", "NGN", "ZAR" };
-    private string currency = "DGB";
-    private decimal? dgbPrice;          // null while loading or on error
-    private DateTime? dgbPriceFetchedAt;
-    private string? priceError;
-    private System.Threading.Timer? priceTimer;
+    // Display settings for this tablet (pos-store.js).
+    private PosPrefs prefs = new();
+    private string quickAmountsText = "";
 
+    // Till currency: "DGB" (the cashier types DGB, 8 decimals) or any wallet currency (typed in that currency with its
+    // own decimals and converted at the live price). Remembered per tablet, with the last four as "Recent".
+    private string currency = PosEntry.Dgb;
+    // True once this tablet has a till currency of its own (saved earlier, or picked now); until then the till
+    // follows the store's default currency.
+    private bool currencyChosenHere;
+    private List<string> recentCurrencies = new();
+    private bool showCurrencyPicker;
+    private string? pendingCurrency;    // a switch waiting for "Clear and switch"
+
+    // Price quote for the till currency (GET /v1/pay/public/price). Refreshed every minute while in fiat, and again
+    // just before charging when the one on screen is over a minute old.
+    private static readonly TimeSpan QuoteRefreshEvery = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan QuoteStaleAfter = TimeSpan.FromMinutes(10);
+    private PriceQuote? quote;
+    private DateTime quoteLoadedAt;
+    private DateTime lastPriceAttempt;
+    private bool priceLoading;
+    private bool priceFailed;
+    private System.Threading.Timer? tickTimer;
+
+    // Connection: false after a request to DigiPay failed outright, or the browser reported it is offline.
+    private bool apiReachable = true;
+
+    // Long-press on backspace clears the amount.
+    private CancellationTokenSource? holdCts;
+
+    // The sale on screen (waiting or result). Kept on the result screen so "Charge again", the
+    // fiat amount and the underpaid figures can be shown, and so a late payment can revive it.
     private CreatedSession? session;
     private string? qrDataUrl;
+
+    // Live updates. One hub connection for the page; every watched session (the current sale and
+    // recently expired ones) is subscribed on it. A dropped connection never shows a final state:
+    // the page says "Reconnecting…" and polls over HTTP until live updates are back (as Checkout).
     private HubConnection? hub;
+    private readonly CancellationTokenSource lifetime = new();
+    private Task? pollLoop;
+    private bool reconnecting;
+    private static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(10);
+    private string? lastAnnouncedStatus;
+    private int lastAnnouncedConfirmations;
+
+    // Expired sales the till keeps an eye on. The server still reconciles a payment that lands
+    // after expiry (InvoiceMonitor, days of grace); the till only needs to know for a while.
+    private static readonly TimeSpan LatePaymentWatch = TimeSpan.FromMinutes(30);
+    private readonly List<LateWatch> lateWatches = new();
+    private string? latePaymentNotice;
+    private sealed record LateWatch(string SessionId, string Description, DateTime Until);
+
+    private bool cancelling;
+    private bool confirmCancelSeen;
+    private string? cancelError;
 
     private string? resultStatus;
-    private string? resultTxid;
-    private long? resultAmount;
     private int autoReturnSeconds = 5;
     private CancellationTokenSource? autoReturnCts;
 
+    private DotNetObjectReference<Pos>? selfRef;
+    private string? jsDialogId;
+    private bool keysBound;
+
+    private bool showMenu;
     private bool showUnpair;
 
-    // Shift-report (end-of-day summary) state. shiftReport stays null until
-    // the modal fetches — we use that as the "loading" signal in the UI.
-    // shiftStartedAt is kept in localStorage (see pos-store.js) so "Start
-    // new shift" resets the clock per-tablet without touching the API.
+    // Shift report: null while loading. The shift start is per tablet (pos-store.js).
     private bool showShiftReport;
     private ShiftReport? shiftReport;
     private string? shiftReportError;
 
-    // Manager PIN state. hasPin is mirrored from localStorage so the gear
-    // icon can show "shield" when set and "settings" when not.
+    // Settings and manager PIN.
+    private bool showSettings;
     private bool hasPin;
-    private bool showPinSettings;
+    private bool pinFormOpen;
     private bool showPinChallenge;
     private string pinNew = "";
     private string pinConfirm = "";
@@ -669,88 +796,97 @@
         && pinNew.All(char.IsDigit)
         && pinNew == pinConfirm;
 
-    private bool IsFiat => currency != "DGB";
+    private bool IsFiat => !PosEntry.IsDgb(currency);
 
-    // Decimal precision allowed in the current currency. DGB supports 8
-    // (satoshi); fiat only needs 2; JPY has no sub-unit.
-    private int MaxDecimals => currency switch
-    {
-        "DGB" => 8,
-        "JPY" => 0,
-        _ => 2,
-    };
+    private int MaxDecimals => PosEntry.DecimalsFor(currency);
 
-    private bool HasAmount => decimal.TryParse(amount, NumberStyles.Number, CultureInfo.InvariantCulture, out var a) && a > 0;
-    private string FormattedAmount => string.IsNullOrEmpty(amount) ? "0" : amount;
+    private bool HasAmount => PosEntry.Parse(amount) is not null;
 
-    // Gratuity. Stored as an integer percentage of the subtotal so the rate is
-    // obvious in receipts/reports. 0 = no tip. We only support presets for now
-    // (10/15/20) — custom-amount / custom-% can be added later without schema
-    // changes because the tip is folded into the total before it ever hits the
-    // API.
-    private static readonly int[] TipPresets = new[] { 0, 10, 15, 20 };
+    private string StoreInitial =>
+        device?.StoreName?.FirstOrDefault(char.IsLetterOrDigit) is char c and not '\0' ? char.ToUpperInvariant(c).ToString() : "D";
+
+    // ----- Keypad layout ------------------------------------------------------------------
+
+    private bool ShowDoubleZero => prefs.DoubleZero && IsFiat && MaxDecimals is 0 or 2;
+
+    private string[] BottomRow =>
+        !ShowDoubleZero ? [".", "0", "back"]
+        : MaxDecimals == 0 ? ["00", "0", "back"]
+        : [".", "0", "00", "back"];
+
+    private IEnumerable<string> Keys =>
+        (prefs.Keypad == "calculator" ? CalculatorRows : PhoneRows).SelectMany(r => r).Concat(BottomRow);
+
+    // ----- Amounts ------------------------------------------------------------------------
+
+    // Gratuity, as a whole percentage of the subtotal. 0 = no tip. Folded into the charged amount.
+    private static readonly int[] TipPresets = [0, 10, 15, 20];
     private int tipPercent;
 
-    private decimal? SubtotalDecimal =>
-        decimal.TryParse(amount, NumberStyles.Number, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : null;
+    private decimal? SubtotalDecimal => PosEntry.Parse(amount);
 
-    // Tip is computed off the subtotal in whatever currency the cashier is in,
-    // then rounded to the currency's display precision so "10% of 12.50 EUR"
-    // is a clean 1.25 instead of banker-rounded nonsense.
-    private decimal TipDecimal
+    // Tip in the till currency, rounded to its decimals ("10% of ₱12.50" is ₱1.25, "10% of ¥155" is ¥16).
+    private decimal TipDecimal =>
+        tipPercent <= 0 || SubtotalDecimal is not decimal sub ? 0m : PosEntry.Round(sub * tipPercent / 100m, currency);
+
+    private decimal? TotalDecimal => SubtotalDecimal is decimal sub ? PosEntry.Round(sub + TipDecimal, currency) : null;
+
+    // DGB the customer pays for the fiat total, on the satoshi grid (Fiat.ToDgb rounds half away from zero).
+    private decimal? DgbEquivalent =>
+        IsFiat && quote is { DgbPrice: > 0 } q && TotalDecimal is decimal fiat && fiat > 0 ? Fiat.ToDgb(fiat, q.DgbPrice) : null;
+
+    private sealed record ReadoutParts(string Symbol, string Number, string Unit, bool Empty);
+
+    private ReadoutParts Readout()
+    {
+        var unit = IsFiat ? "" : "DGB";
+        if (tipPercent > 0 && TotalDecimal is decimal total)
+            return new(PosEntry.Symbol(currency), PosEntry.Number(total, currency), unit, false);
+        return new(PosEntry.Symbol(currency), PosEntry.TypedNumber(amount, currency), unit, amount.Length == 0);
+    }
+
+    private bool CanCharge => !busy && HasAmount && (!IsFiat || quote is not null);
+
+    private string ChargeLabel
     {
         get
         {
-            if (tipPercent <= 0 || SubtotalDecimal is not decimal sub) return 0m;
-            var raw = sub * tipPercent / 100m;
-            return Math.Round(raw, MaxDecimals, MidpointRounding.AwayFromZero);
+            if (busy) return "Creating…";
+            if (!HasAmount || TotalDecimal is not decimal total) return "Charge";
+            return $"Charge {PosEntry.Money(total, currency)}";
         }
     }
 
-    private decimal? TotalDecimal => SubtotalDecimal is decimal sub ? sub + TipDecimal : null;
+    // ----- Quote freshness ----------------------------------------------------------------
 
-    // String form the "Charge" button actually commits. Uses the subtotal's
-    // literal string when tipPercent=0 so we don't round-trip "12.5" → "12.50"
-    // and surprise the cashier; otherwise formats the computed total.
-    private string AmountForCharge
+    private TimeSpan QuoteAge
     {
         get
         {
-            if (tipPercent == 0) return amount;
-            if (TotalDecimal is decimal t)
-            {
-                return MaxDecimals == 0
-                    ? t.ToString("0", CultureInfo.InvariantCulture)
-                    : t.ToString("0." + new string('#', MaxDecimals), CultureInfo.InvariantCulture);
-            }
-            return amount;
+            if (quote is null) return TimeSpan.Zero;
+            var at = quote.FetchedAt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(quote.FetchedAt, DateTimeKind.Utc) : quote.FetchedAt.ToUniversalTime();
+            var age = DateTime.UtcNow - at;
+            return age < TimeSpan.Zero ? TimeSpan.Zero : age;
         }
     }
 
-    // Live DGB equivalent of the fiat amount the cashier has typed. Used for
-    // the secondary readout on the keypad + for the charge payload. Returns
-    // null if we don't have a price yet or the amount is empty / invalid.
-    // When a tip is applied, converts the total (subtotal + tip) so what the
-    // customer sees on the QR matches what their wallet will ask them to sign.
-    private decimal? DgbEquivalent
-    {
-        get
-        {
-            if (!IsFiat || dgbPrice is not decimal p || p <= 0) return null;
-            if (TotalDecimal is not decimal fiat || fiat <= 0) return null;
-            // Round to 8dp (satoshi grid). Banker's rounding would bias us, so
-            // use AwayFromZero — customers paying fiat-quoted invoices expect
-            // "no less than" the quote, and InvoiceMonitor has a 1% slack
-            // either way, so a half-sat rounding up can't trip underpayment.
-            return Math.Round(fiat / p, 8, MidpointRounding.AwayFromZero);
-        }
-    }
+    private bool QuoteIsStale => quote is not null && (quote.Stale || QuoteAge > QuoteStaleAfter);
+
+    // ----- Connection status --------------------------------------------------------------
+
+    private string ConnectionTone => !apiReachable ? "offline" : reconnecting ? "reconnecting" : "live";
+    private string ConnectionLabel => !apiReachable ? "Offline" : reconnecting ? "Reconnecting" : "Live";
+    private string ConnectionHint => !apiReachable
+        ? "DigiPay can't be reached from this tablet. Sales already on screen are still watched once it's back."
+        : reconnecting ? "Live updates dropped; checking for payments every few seconds." : "Connected to DigiPay.";
+
+    // ----- Lifecycle ----------------------------------------------------------------------
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await SyncJsAsync();
         if (!firstRender) return;
-        // Load a previously paired device from localStorage so returning
-        // cashiers don't see the pair screen every session.
+        // Load a previously paired device from localStorage so returning cashiers don't see the pair screen every session.
         var stored = await JS.InvokeAsync<PairedDevice?>("digipayPos.load");
         if (stored is { ApiKey.Length: > 0, StoreId.Length: > 0 })
         {
@@ -758,135 +894,312 @@
             screen = Screen.Keypad;
         }
         hasPin = await JS.InvokeAsync<bool>("digipayPos.hasPin");
-        // Remember the last-selected currency so a JPY till stays on JPY
-        // across reloads.
-        var storedCurrency = await JS.InvokeAsync<string?>("digipayPos.loadCurrency");
-        if (!string.IsNullOrWhiteSpace(storedCurrency)
-            && SupportedCurrencies.Contains(storedCurrency))
-        {
-            currency = storedCurrency;
-        }
+        // The till currency, checked against the wallet's list (an old or edited value falls back to DGB).
+        var savedCurrency = PosEntry.NormalizeCurrency(await JS.InvokeAsync<string?>("digipayPos.loadCurrency"));
+        currencyChosenHere = savedCurrency is not null;
+        currency = savedCurrency ?? PosEntry.Dgb;
+        recentCurrencies = PosEntry.NormalizeRecent(await SafeLoadAsync<string[]>("digipayPos.loadRecent"));
+        prefs = PosPrefs.Normalize(await SafeLoadAsync<PosPrefs>("digipayPos.loadPrefs"));
+        StartTicker();
         if (IsFiat) _ = RefreshPriceAsync();
+        // No currency picked on this tablet yet: start in the store's default currency.
+        if (!currencyChosenHere && device is not null) _ = ApplyStoreDefaultCurrencyAsync();
         StateHasChanged();
     }
 
-    private string KeyClass(string key) => key switch
+    private async Task<T?> SafeLoadAsync<T>(string fn) where T : class
     {
-        "back" => "bg-slate-800 hover:bg-slate-700 text-slate-300",
-        "." => "bg-slate-800 hover:bg-slate-700 text-slate-300",
-        _ => "bg-dgb-900 hover:bg-dgb-800 border border-dgb-800 text-white",
-    };
+        try { return await JS.InvokeAsync<T?>(fn); }
+        catch (JSException) { return null; }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
+    // Wires the hardware keyboard and the dialogs' focus handling (dialog.js) after each render.
+    private async Task SyncJsAsync()
+    {
+        try
+        {
+            selfRef ??= DotNetObjectReference.Create(this);
+            if (!keysBound)
+            {
+                keysBound = true;
+                await JS.InvokeVoidAsync("digipayPos.bindKeys", selfRef);
+            }
+
+            // One dialog at a time: Escape closes it, focus moves to its first field and comes back
+            // to where it was when it closes.
+            var wanted = showPinChallenge ? "pos-pin-dialog"
+                : showSettings ? "pos-settings-dialog"
+                : showCurrencyPicker ? "pos-currency-dialog"
+                : showShiftReport ? "pos-shift-dialog"
+                : showUnpair ? "pos-unpair-dialog"
+                : showMenu ? "pos-menu-dialog"
+                : null;
+            if (wanted == jsDialogId) return;
+            if (jsDialogId is not null) await JS.InvokeVoidAsync("digipayDialog.close", jsDialogId);
+            jsDialogId = wanted;
+            if (wanted is not null) await JS.InvokeVoidAsync("digipayDialog.open", wanted, selfRef);
+            // The picker's first control is its close button; start in the search field instead.
+            if (wanted == "pos-currency-dialog") await JS.InvokeVoidAsync("digipayPos.focus", "#pos-currency-dialog input[type=search]");
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { /* prerendering */ }
+    }
+
+    /// <summary>Escape in an open dialog (dialog.js).</summary>
+    [JSInvokable]
+    public Task OnEscape() => InvokeAsync(() =>
+    {
+        if (showPinChallenge) CancelPinChallenge();
+        else if (showSettings) CloseSettings();
+        else if (showCurrencyPicker) CloseCurrencyPicker();
+        else if (showShiftReport) showShiftReport = false;
+        else if (showUnpair) showUnpair = false;
+        else if (showMenu) showMenu = false;
+        StateHasChanged();
+    });
+
+    private bool AnyDialogOpen =>
+        showPinChallenge || showSettings || showCurrencyPicker || showShiftReport || showUnpair || showMenu
+        || confirmCancelSeen || pendingCurrency is not null;
+
+    /// <summary>
+    /// A key from a hardware keyboard while the keypad is showing and no text field has focus
+    /// (pos-store.js filters the rest): digits, ".", Backspace, Delete (clear), and Enter to charge.
+    /// </summary>
+    [JSInvokable]
+    public Task OnKeypadKey(string key) => InvokeAsync(async () =>
+    {
+        if (screen != Screen.Keypad || AnyDialogOpen || busy) return;
+        switch (key)
+        {
+            case "Enter":
+                if (CanCharge) await ChargeAsync();
+                break;
+            case "Backspace":
+                PressKey("back");
+                break;
+            case "Delete":
+                ClearAmount();
+                break;
+            case "." or ",":
+                PressKey(".");
+                break;
+            case { Length: 1 } when char.IsAsciiDigit(key[0]):
+                PressKey(key);
+                break;
+            default:
+                return;
+        }
+        StateHasChanged();
+    });
+
+    /// <summary>The browser went on or offline (pos-store.js).</summary>
+    [JSInvokable]
+    public Task OnNetworkChanged(bool online) => InvokeAsync(() =>
+    {
+        apiReachable = online;
+        if (online && IsFiat && screen == Screen.Keypad) _ = RefreshPriceAsync();
+        StateHasChanged();
+    });
 
     private void PressKey(string key)
     {
         chargeError = null;
-        if (key == "back")
-        {
-            if (amount.Length > 0) amount = amount[..^1];
-            return;
-        }
-        if (key == ".")
-        {
-            // Currencies with no sub-unit (JPY) don't get a decimal point at all.
-            if (MaxDecimals == 0) return;
-            if (amount.Contains('.')) return;
-            amount = amount.Length == 0 ? "0." : amount + ".";
-            return;
-        }
-        // Numeric
-        // Prevent leading-zero weirdness ("007" stays "7") but keep "0.x"
-        if (amount == "0") { amount = key == "0" ? "0" : key; return; }
-        // Cap decimal precision per currency (8 for DGB, 2 for fiat, 0 for JPY).
-        var dot = amount.IndexOf('.');
-        if (dot >= 0 && amount.Length - dot - 1 >= MaxDecimals) return;
-        // Cap total length to avoid absurd inputs
-        if (amount.Length >= 16) return;
-        amount += key;
+        amount = PosEntry.Press(amount, key, MaxDecimals);
     }
 
-    private async Task CycleCurrencyAsync()
+    private void ClearAmount()
     {
-        var i = Array.IndexOf(SupportedCurrencies, currency);
-        currency = SupportedCurrencies[(i + 1) % SupportedCurrencies.Length];
-        // Reset the typed amount — switching precision mid-entry ("12.345" in
-        // USD) is more confusing than starting fresh. Tip clears with it so the
-        // cashier isn't silently carrying "20%" over to a different till mode.
+        chargeError = null;
+        if (amount.Length == 0) return;
         amount = "";
         tipPercent = 0;
+        Announcer.Announce("Amount cleared.");
+    }
+
+    private void BackDown(PointerEventArgs e)
+    {
+        holdCts?.Cancel();
+        holdCts = new CancellationTokenSource();
+        _ = HoldToClearAsync(holdCts.Token);
+    }
+
+    private void BackUp() => holdCts?.Cancel();
+
+    private async Task HoldToClearAsync(CancellationToken ct)
+    {
+        try { await Task.Delay(600, ct); }
+        catch (OperationCanceledException) { return; }
+        await InvokeAsync(() =>
+        {
+            ClearAmount();
+            StateHasChanged();
+        });
+    }
+
+    private void UseQuickAmount(decimal value)
+    {
         chargeError = null;
-        await JS.InvokeVoidAsync("digipayPos.saveCurrency", currency);
-        if (IsFiat) _ = RefreshPriceAsync();
-        else { dgbPrice = null; priceError = null; StopPriceTimer(); }
+        amount = PosEntry.Typed(value, currency);
     }
 
     private void SetTip(int percent)
     {
-        // Tapping the already-active preset clears it (acts as a toggle). Lets
-        // the cashier "unselect" 15% without a dedicated clear button.
+        // Tapping the active preset clears it, so there is no separate clear button.
         tipPercent = tipPercent == percent ? 0 : percent;
         chargeError = null;
     }
 
-    // Formats a number using the current currency's display precision, without
-    // trailing zeros except for JPY where we always show integers.
-    private string FormatAmount(decimal value) => MaxDecimals switch
+    // ----- Currency -----------------------------------------------------------------------
+
+    private void OpenCurrencyPicker()
     {
-        0 => value.ToString("0", CultureInfo.InvariantCulture),
-        _ => value.ToString("0." + new string('#', MaxDecimals), CultureInfo.InvariantCulture),
-    };
+        pendingCurrency = null;
+        showCurrencyPicker = true;
+    }
+
+    private void CloseCurrencyPicker() => showCurrencyPicker = false;
+
+    // Picking a currency keeps the typed amount (and tip) when it fits the new currency's precision; otherwise the
+    // till asks before clearing it, so nothing vanishes silently.
+    private async Task SelectCurrencyAsync(string picked)
+    {
+        if (PosEntry.NormalizeCurrency(picked) is not { } code) return;
+        CloseCurrencyPicker();
+        if (code == currency) return;
+        if (!PosEntry.Fits(amount, PosEntry.DecimalsFor(code))) { pendingCurrency = code; return; }
+        await SwitchCurrencyAsync(code, clearAmount: false);
+    }
+
+    private Task ConfirmCurrencySwitchAsync() =>
+        pendingCurrency is { } code ? SwitchCurrencyAsync(code, clearAmount: true) : Task.CompletedTask;
+
+    private async Task SwitchCurrencyAsync(string code, bool clearAmount)
+    {
+        currency = code;
+        currencyChosenHere = true;
+        pendingCurrency = null;
+        if (clearAmount)
+        {
+            amount = "";
+            tipPercent = 0;
+        }
+        else if (amount.EndsWith('.') && MaxDecimals == 0)
+        {
+            amount = amount.TrimEnd('.');
+        }
+        chargeError = null;
+        quote = null;
+        priceFailed = false;
+        recentCurrencies = PosEntry.PushRecent(recentCurrencies, code);
+        try
+        {
+            await JS.InvokeVoidAsync("digipayPos.saveCurrency", currency);
+            await JS.InvokeVoidAsync("digipayPos.saveRecent", recentCurrencies);
+        }
+        catch (JSException) { }
+        if (IsFiat) _ = RefreshPriceAsync();
+    }
+
+    /// <summary>
+    /// The store's default currency (GET /v1/pay/stores/{id} with the tablet key, unless <paramref name="known"/>
+    /// already has it) as the till currency, for a tablet where no currency was picked yet. It isn't saved, so the
+    /// tablet keeps following the store default until the cashier picks a currency here. Anything already typed,
+    /// or a currency picked meanwhile, wins.
+    /// </summary>
+    private async Task ApplyStoreDefaultCurrencyAsync(string? known = null)
+    {
+        if (currencyChosenHere || device is null) return;
+        var code = known;
+        if (code is null)
+        {
+            try
+            {
+                var http = HttpFactory.CreateClient("PayApi");
+                using var req = new HttpRequestMessage(HttpMethod.Get, $"/v1/pay/stores/{Uri.EscapeDataString(device.StoreId)}");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
+                using var resp = await http.SendAsync(req, lifetime.Token);
+                if (!resp.IsSuccessStatusCode) return;
+                code = (await resp.Content.ReadFromJsonAsync<StoreDefaultsDto>(lifetime.Token))?.DefaultCurrency;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log.LogInformation(ex, "POS could not load the store's default currency");
+                return;
+            }
+            catch (OperationCanceledException) { return; }
+        }
+        if (PosEntry.NormalizeCurrency(code) is not { } normalized) return;
+        if (currencyChosenHere || amount.Length > 0 || normalized == currency) return;
+        currency = normalized;
+        quote = null;
+        priceFailed = false;
+        chargeError = null;
+        if (IsFiat) _ = RefreshPriceAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ----- Price --------------------------------------------------------------------------
+
+    private Task RetryPriceAsync() => RefreshPriceAsync();
 
     private async Task RefreshPriceAsync()
     {
-        if (!IsFiat) return;
+        if (!IsFiat || priceLoading) return;
+        var code = currency;
+        priceLoading = true;
+        lastPriceAttempt = DateTime.UtcNow;
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var resp = await http.GetAsync($"/v1/pay/public/price?currency={currency.ToLowerInvariant()}");
-            if (!resp.IsSuccessStatusCode)
+            var resp = await http.GetAsync($"/v1/pay/public/price?currency={Uri.EscapeDataString(code.ToLowerInvariant())}", lifetime.Token);
+            apiReachable = true;
+            if (code != currency) return;
+            var body = resp.IsSuccessStatusCode ? await resp.Content.ReadFromJsonAsync<PriceQuote>(lifetime.Token) : null;
+            if (code != currency) return;
+            if (body is { DgbPrice: > 0 })
             {
-                priceError = "Price feed unavailable — switch to DGB or try again.";
-                dgbPrice = null;
-                return;
+                quote = body;
+                quoteLoadedAt = DateTime.UtcNow;
+                priceFailed = false;
             }
-            var body = await resp.Content.ReadFromJsonAsync<PriceQuote>();
-            if (body is null || body.DgbPrice <= 0)
+            else
             {
-                priceError = "Price feed returned nothing.";
-                dgbPrice = null;
-                return;
+                // Keep a previous quote (its age shows as "last known price"); without one, charging pauses.
+                priceFailed = true;
             }
-            dgbPrice = body.DgbPrice;
-            dgbPriceFetchedAt = body.FetchedAt;
-            priceError = null;
-            StartPriceTimer();
         }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            priceError = $"Price feed error: {ex.Message}";
-            dgbPrice = null;
+            Log.LogInformation(ex, "POS could not fetch the {Currency} price", code);
+            if (ex is HttpRequestException) apiReachable = false;
+            if (code == currency) priceFailed = true;
         }
         finally
         {
-            await InvokeAsync(StateHasChanged);
+            priceLoading = false;
+            try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
         }
     }
 
-    private void StartPriceTimer()
+    // One timer for the page: refreshes the quote every minute while in fiat (and retries a missing one), and
+    // re-renders now and then so "updated 12s ago" stays true.
+    private void StartTicker()
     {
-        // Refresh every 60s, matching the server's fresh cache window. The
-        // server single-flights concurrent requests, so even a busy fleet of
-        // tablets costs CoinGecko at most 1 call/currency/minute.
-        priceTimer ??= new System.Threading.Timer(async _ =>
+        tickTimer ??= new System.Threading.Timer(_ => _ = InvokeAsync(async () =>
         {
-            if (IsFiat && screen == Screen.Keypad) await RefreshPriceAsync();
-        }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
+            if (lifetime.IsCancellationRequested || screen != Screen.Keypad || !IsFiat) return;
+            var now = DateTime.UtcNow;
+            var due = quote is null ? now - lastPriceAttempt >= QuoteRefreshEvery : now - quoteLoadedAt >= QuoteRefreshEvery;
+            if (due) await RefreshPriceAsync();
+            else StateHasChanged();
+        }), null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
     }
 
-    private void StopPriceTimer()
-    {
-        priceTimer?.Dispose();
-        priceTimer = null;
-    }
+    // ----- Pairing ------------------------------------------------------------------------
 
     private async Task ClaimPairingAsync()
     {
@@ -898,8 +1211,7 @@
             var response = await http.PostAsJsonAsync("/v1/pay/pos/claim", new { code = pairCode.Trim() });
             if (!response.IsSuccessStatusCode)
             {
-                // The API surfaces a structured `error`/`reason` for claim
-                // failures so we can render typo-vs-expired distinctly.
+                // The API surfaces a structured `error`/`reason` for claim failures so we can render typo-vs-expired distinctly.
                 ClaimErrorDto? err = null;
                 try { err = await response.Content.ReadFromJsonAsync<ClaimErrorDto>(); } catch { }
                 pairError = !string.IsNullOrWhiteSpace(err?.Error)
@@ -913,6 +1225,8 @@
                 dto.ApiKey, dto.StoreId, dto.StoreName,
                 dto.MerchantName, dto.DeviceLabel));
             screen = Screen.Keypad;
+            if (IsFiat) _ = RefreshPriceAsync();
+            _ = ApplyStoreDefaultCurrencyAsync();
         }
         catch (Exception ex) { pairError = $"Pairing failed: {ex.Message}"; }
         finally { busy = false; }
@@ -929,8 +1243,7 @@
             var key = manualApiKey.Trim();
             if (!key.StartsWith("dgp_")) { pairError = "API key should start with \"dgp_\"."; return; }
             var http = HttpFactory.CreateClient("PayApi");
-            // Resolve the merchant + stores for this key so we can prefill
-            // name/store info without asking the user to type them.
+            // Resolve the merchant + stores for this key so we can prefill name/store info without asking the user to type them.
             var req = new HttpRequestMessage(HttpMethod.Get, "/v1/pay/me");
             req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
             var resp = await http.SendAsync(req);
@@ -950,6 +1263,8 @@
             await SaveDeviceAsync(new PairedDevice(
                 key, target.Id, target.Name, me?.DisplayName ?? "", "Manual pairing"));
             screen = Screen.Keypad;
+            if (IsFiat) _ = RefreshPriceAsync();
+            if (target.DefaultCurrency is { Length: > 0 } storeDefault) await ApplyStoreDefaultCurrencyAsync(storeDefault);
         }
         catch (Exception ex) { pairError = $"Could not verify key: {ex.Message}"; }
         finally { busy = false; }
@@ -961,51 +1276,55 @@
         await JS.InvokeVoidAsync("digipayPos.save", d);
     }
 
+    // ----- Charging -----------------------------------------------------------------------
+
     private async Task ChargeAsync()
     {
         chargeError = null;
-        if (!HasAmount || device is null) return;
-
-        // In fiat mode the cashier typed a fiat amount — convert to DGB for
-        // the on-chain invoice and stash the fiat context on the session so
-        // the dashboard / receipt / CSV can show both. When a tip is applied
-        // it's already folded into TotalDecimal / DgbEquivalent, so the
-        // conversion below uses the combined number.
-        decimal dgbAmount;
-        decimal? fiatAmount = null;
-        string? fiatCurrency = null;
-        decimal? priceSnapshot = null;
-        if (IsFiat)
-        {
-            if (DgbEquivalent is not decimal d || TotalDecimal is not decimal totalFiat)
-            {
-                chargeError = priceError ?? "Price feed unavailable — cannot charge in fiat.";
-                return;
-            }
-            dgbAmount = d;
-            fiatAmount = totalFiat;
-            fiatCurrency = currency;
-            priceSnapshot = dgbPrice;
-        }
-        else
-        {
-            dgbAmount = decimal.Parse(AmountForCharge, CultureInfo.InvariantCulture);
-        }
-
-        // When tipped, annotate the session label so the breakdown survives in
-        // the dashboard, webhooks, exports, and receipts without needing an
-        // extra column on PaySession. Keeps the tip visible to the merchant
-        // even though the on-chain amount is "total only".
-        string? label = string.IsNullOrWhiteSpace(labelInput) ? null : labelInput.Trim();
-        if (tipPercent > 0 && SubtotalDecimal is decimal subtotalForLabel)
-        {
-            var tipNote = $"Tip {tipPercent}% ({FormatAmount(TipDecimal)} {currency})";
-            label = string.IsNullOrEmpty(label) ? tipNote : $"{label} · {tipNote}";
-        }
-
+        if (!HasAmount || device is null || busy) return;
         busy = true;
         try
         {
+            // In fiat the cashier typed a fiat amount: convert it to DGB for the on-chain invoice and keep the fiat
+            // context on the session so the dashboard, receipt and CSV show both. A quote over a minute old is
+            // refreshed first. A stale one (the price feed is down) is still used: the note on screen says so.
+            decimal dgbAmount;
+            decimal? fiatAmount = null;
+            string? fiatCurrency = null;
+            decimal? priceSnapshot = null;
+            if (IsFiat)
+            {
+                if (quote is null || DateTime.UtcNow - quoteLoadedAt > QuoteRefreshEvery)
+                {
+                    busy = false;
+                    await RefreshPriceAsync();
+                    busy = true;
+                }
+                if (quote is not { DgbPrice: > 0 } q || TotalDecimal is not decimal totalFiat)
+                {
+                    chargeError = $"No DGB price for {currency} right now — try again or switch to DGB.";
+                    return;
+                }
+                fiatAmount = Fiat.Round(totalFiat, currency);
+                dgbAmount = Fiat.ToDgb(fiatAmount.Value, q.DgbPrice);
+                fiatCurrency = currency;
+                priceSnapshot = q.DgbPrice;
+                if (dgbAmount <= 0) { chargeError = "That amount is too small to charge in DGB."; return; }
+            }
+            else
+            {
+                dgbAmount = TotalDecimal ?? 0m;
+            }
+
+            // When tipped, the label carries the breakdown so it survives in the dashboard, webhooks, exports and
+            // receipts without an extra column on the session.
+            string? label = string.IsNullOrWhiteSpace(labelInput) ? null : labelInput.Trim();
+            if (tipPercent > 0 && SubtotalDecimal is not null)
+            {
+                var tipNote = $"Tip {tipPercent}% ({PosEntry.Money(TipDecimal, currency)})";
+                label = string.IsNullOrEmpty(label) ? tipNote : $"{label} · {tipNote}";
+            }
+
             var http = HttpFactory.CreateClient("PayApi");
             var req = new HttpRequestMessage(HttpMethod.Post, "/v1/pay/sessions")
             {
@@ -1021,6 +1340,7 @@
             };
             req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
             var resp = await http.SendAsync(req);
+            apiReachable = true;
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
                 chargeError = "Pairing was revoked — unpair and re-pair this device.";
@@ -1031,59 +1351,303 @@
                 chargeError = $"Could not create session ({(int)resp.StatusCode}).";
                 return;
             }
-            session = await resp.Content.ReadFromJsonAsync<CreatedSession>();
-            if (session is null) { chargeError = "Empty response from server."; return; }
-            qrDataUrl = GenerateQr(session.Uri);
+            var created = await resp.Content.ReadFromJsonAsync<CreatedSession>();
+            if (created is null) { chargeError = "Empty response from server."; return; }
+            autoReturnCts?.Cancel();
+            session = created;
+            resultStatus = null;
+            cancelError = null;
+            lastAnnouncedStatus = created.Status;
+            lastAnnouncedConfirmations = created.Confirmations;
+            qrDataUrl = GenerateQr(created.Uri);
             screen = Screen.Waiting;
-            await ConnectHubAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            apiReachable = false;
+            chargeError = $"Couldn't reach DigiPay: {ex.Message}";
         }
         catch (Exception ex) { chargeError = $"Failed: {ex.Message}"; }
         finally { busy = false; }
+
+        if (screen == Screen.Waiting && session is not null)
+        {
+            StateHasChanged();
+            await WatchAsync(session.Id);
+        }
     }
 
-    private async Task ConnectHubAsync()
+    // ----- Live updates -------------------------------------------------------------------
+
+    private IEnumerable<string> WatchedSessionIds()
     {
-        if (hub is not null) await hub.DisposeAsync();
-        hub = new HubConnectionBuilder()
-            .WithUrl($"{PayApi.Value}/hubs/checkout")
-            .WithAutomaticReconnect()
-            .Build();
-        hub.On<StatusUpdate>("StatusChanged", OnStatusChangedAsync);
-        await hub.StartAsync();
-        if (session != null)
-            await hub.InvokeAsync("SubscribeToSession", session.Id);
+        if (session is not null) yield return session.Id;
+        foreach (var w in lateWatches)
+            if (w.SessionId != session?.Id) yield return w.SessionId;
+    }
+
+    private bool HasAnythingToWatch
+    {
+        get
+        {
+            PruneLateWatches();
+            return (session is not null && !CheckoutStates.IsFinal(session.Status)) || lateWatches.Count > 0;
+        }
+    }
+
+    private void PruneLateWatches() => lateWatches.RemoveAll(w => w.Until <= DateTime.UtcNow);
+
+    // Starts (or reuses) the page's hub connection and subscribes to a session. A status change
+    // between creating the session and subscribing is caught by reading it once more afterwards.
+    private async Task WatchAsync(string sessionId)
+    {
+        if (hub is null)
+        {
+            hub = new HubConnectionBuilder()
+                .WithUrl($"{PayApi.Value}/hubs/checkout")
+                .WithAutomaticReconnect()
+                .Build();
+            hub.On<StatusUpdate>("StatusChanged", OnStatusChangedAsync);
+            hub.Reconnecting += _ => SetReconnectingAsync(true);
+            hub.Reconnected += async _ =>
+            {
+                await SubscribeAllAsync();
+                await RefreshWatchedAsync(); // catch anything that happened while we were away
+                await SetReconnectingAsync(false);
+            };
+            hub.Closed += async _ =>
+            {
+                // Automatic reconnect gave up. Keep watching over plain HTTP; a dropped connection
+                // never ends a sale on its own.
+                if (lifetime.IsCancellationRequested) return;
+                await SetReconnectingAsync(true);
+                StartPolling();
+            };
+        }
+
+        try
+        {
+            if (hub.State == HubConnectionState.Disconnected)
+            {
+                await hub.StartAsync(lifetime.Token);
+                await SubscribeAllAsync();
+            }
+            else if (hub.State == HubConnectionState.Connected)
+            {
+                await hub.InvokeAsync("SubscribeToSession", sessionId, lifetime.Token);
+            }
+            // Connecting / Reconnecting: Reconnected re-subscribes everything, and polling covers us.
+            await RefreshSessionAsync(sessionId);
+            if (hub.State != HubConnectionState.Connected)
+            {
+                await SetReconnectingAsync(true);
+                StartPolling();
+            }
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Log.LogInformation(ex, "POS live updates unavailable for {SessionId}; polling instead", sessionId);
+            await SetReconnectingAsync(true);
+            await RefreshSessionAsync(sessionId);
+            StartPolling();
+        }
+    }
+
+    private async Task SubscribeAllAsync()
+    {
+        if (hub is null) return;
+        foreach (var id in WatchedSessionIds().ToList())
+            await hub.InvokeAsync("SubscribeToSession", id, lifetime.Token);
+    }
+
+    private void StartPolling()
+    {
+        if (pollLoop is { IsCompleted: false }) return;
+        pollLoop = PollAsync();
+    }
+
+    private async Task PollAsync()
+    {
+        var delay = PollEvery;
+        while (!lifetime.IsCancellationRequested && HasAnythingToWatch)
+        {
+            try { await Task.Delay(delay, lifetime.Token); }
+            catch (OperationCanceledException) { return; }
+
+            await RefreshWatchedAsync();
+
+            // Try to get live updates back, backing off up to a minute.
+            if (hub is not null && hub.State == HubConnectionState.Disconnected)
+            {
+                try
+                {
+                    await hub.StartAsync(lifetime.Token);
+                    await SubscribeAllAsync();
+                    await SetReconnectingAsync(false);
+                    return;
+                }
+                catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
+                catch { delay = TimeSpan.FromSeconds(Math.Min(60, delay.TotalSeconds * 2)); }
+            }
+            else if (hub is not null && hub.State == HubConnectionState.Connected)
+            {
+                await SetReconnectingAsync(false);
+                return;
+            }
+        }
+        await SetReconnectingAsync(false);
+    }
+
+    private async Task RefreshWatchedAsync()
+    {
+        foreach (var id in WatchedSessionIds().ToList())
+            await RefreshSessionAsync(id);
+    }
+
+    // Re-reads one session over HTTP (the public read the checkout uses). Only the server's answer
+    // can move the till to a final state.
+    private async Task RefreshSessionAsync(string sessionId)
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetFromJsonAsync<SessionEnvelope>($"/v1/pay/sessions/{Uri.EscapeDataString(sessionId)}", lifetime.Token);
+            if (!apiReachable) await InvokeAsync(() => { apiReachable = true; StateHasChanged(); });
+            if (response?.Session is { } s)
+                await OnStatusChangedAsync(new StatusUpdate(s.Id, s.Status, s.ReceivedSatoshis, s.Confirmations, s.PaidTxid));
+        }
+        catch (HttpRequestException)
+        {
+            if (apiReachable) await InvokeAsync(() => { apiReachable = false; StateHasChanged(); });
+        }
+        catch { /* still offline: keep the last known state */ }
+    }
+
+    private async Task SetReconnectingAsync(bool value)
+    {
+        if (reconnecting == value) return;
+        await InvokeAsync(() =>
+        {
+            reconnecting = value;
+            if (value && screen == Screen.Waiting)
+                Announcer.Announce("Reconnecting. The payment is still being watched.");
+            StateHasChanged();
+        });
     }
 
     private async Task OnStatusChangedAsync(StatusUpdate u)
     {
-        if (session is null) return;
-        await InvokeAsync(() =>
+        await InvokeAsync(async () =>
         {
-            session = session with
-            {
-                Status = u.Status,
-                ReceivedSatoshis = u.ReceivedSatoshis,
-                Confirmations = u.Confirmations,
-                PaidTxid = u.Txid ?? session.PaidTxid,
-            };
-            if (IsTerminal(u.Status)) _ = ShowResultAsync(u.Status, u.Txid, u.ReceivedSatoshis);
-            else StateHasChanged();
+            if (session is not null && session.Id == u.SessionId) await ApplyToCurrentAsync(u);
+            else if (lateWatches.FirstOrDefault(w => w.SessionId == u.SessionId) is { } late) await ApplyLateAsync(late, u.Status);
         });
     }
 
-    private async Task ShowResultAsync(string status, string? txid, long received)
+    private async Task ApplyToCurrentAsync(StatusUpdate u)
+    {
+        if (session is null) return;
+        var wasExpiredResult = screen == Screen.Result && resultStatus == "expired";
+        session = session with
+        {
+            Status = u.Status,
+            ReceivedSatoshis = u.ReceivedSatoshis,
+            Confirmations = u.Confirmations,
+            PaidTxid = u.Txid ?? session.PaidTxid,
+        };
+
+        if (u.Status != lastAnnouncedStatus)
+        {
+            lastAnnouncedStatus = u.Status;
+            lastAnnouncedConfirmations = u.Confirmations;
+            var announcement = CheckoutStates.For(u.Status).Announcement;
+            if (announcement is not null) Announcer.Announce(announcement, assertive: u.Status is "underpaid");
+        }
+        else if (u.Status == "paid" && u.Confirmations > lastAnnouncedConfirmations)
+        {
+            lastAnnouncedConfirmations = u.Confirmations;
+            Announcer.Announce($"{u.Confirmations} of {CheckoutStates.ConfirmationsRequired} confirmations.");
+        }
+
+        if (wasExpiredResult && u.Status != "expired")
+        {
+            // A late payment on the sale still on screen: say so, and follow it to the end.
+            lateWatches.RemoveAll(w => w.SessionId == session.Id);
+            ShowLateNotice(u.Status, Describe(session));
+        }
+
+        if (CheckoutStates.IsFinal(u.Status))
+        {
+            if (screen != Screen.Result || resultStatus != u.Status) await ShowResultAsync(u.Status);
+            else StateHasChanged();
+        }
+        else
+        {
+            if (screen == Screen.Result) { autoReturnCts?.Cancel(); screen = Screen.Waiting; resultStatus = null; }
+            StateHasChanged();
+        }
+    }
+
+    private Task ApplyLateAsync(LateWatch late, string status)
+    {
+        if (status is "expired" or "voided" or "pending") return Task.CompletedTask;
+        lateWatches.Remove(late);
+        ShowLateNotice(status, late.Description);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ShowLateNotice(string status, string description)
+    {
+        latePaymentNotice = status == "underpaid"
+            ? $"Late partial payment received for {description}. Check the dashboard."
+            : $"Late payment received for {description}.";
+        Announcer.Announce(latePaymentNotice, assertive: true);
+        _ = BeepAsync();
+    }
+
+    private void DismissLateNotice() => latePaymentNotice = null;
+
+    private async Task BeepAsync()
+    {
+        try { await JS.InvokeVoidAsync("digipayPos.beep"); } catch { }
+    }
+
+    // How a sale is named in a late-payment notice: its label, else its amount.
+    private static string Describe(CreatedSession s)
+    {
+        var label = s.Label;
+        if (!string.IsNullOrWhiteSpace(label))
+        {
+            // Drop the tip annotation ChargeAsync appends; the cashier typed the first part.
+            var cut = label.IndexOf(" · Tip ", StringComparison.Ordinal);
+            if (cut > 0) label = label[..cut];
+            if (!label.StartsWith("Tip ", StringComparison.Ordinal)) return label;
+        }
+        return s.FiatAmount is decimal fa && !string.IsNullOrEmpty(s.FiatCurrency)
+            ? $"the {Fiat.FormatWithCode(fa, s.FiatCurrency)} sale"
+            : $"the {PosEntry.FormatDgb(s.AmountSatoshis)} DGB sale";
+    }
+
+    private async Task ShowResultAsync(string status)
     {
         resultStatus = status;
-        resultTxid = txid;
-        resultAmount = received;
         screen = Screen.Result;
+        cancelError = null;
+        confirmCancelSeen = false;
         StateHasChanged();
-        // Tear down the hub — we're done with this session.
-        if (hub is not null) { try { await hub.DisposeAsync(); } catch { } hub = null; }
+
+        if (status == "expired" && session is not null)
+        {
+            // Keep watching: a payment can still land after the price window closed.
+            lateWatches.RemoveAll(w => w.SessionId == session.Id);
+            lateWatches.Add(new LateWatch(session.Id, Describe(session), DateTime.UtcNow + LatePaymentWatch));
+        }
 
         if (status == "confirmed")
         {
-            await JS.InvokeVoidAsync("digipayPos.beep").ConfigureAwait(false);
+            await BeepAsync();
             autoReturnCts?.Cancel();
             autoReturnCts = new CancellationTokenSource();
             var ct = autoReturnCts.Token;
@@ -1105,13 +1669,84 @@
         }
     }
 
-    private async Task CancelChargeAsync()
+    // ----- Cancelling a sale --------------------------------------------------------------
+
+    /// <summary>Not once the payment is in a block: from then on it is the merchant's money.</summary>
+    private bool CanCancelSale => session is { Status: "pending" or "seen" };
+
+    private bool CanChargeAgain => resultStatus is "expired" or "underpaid" or "voided";
+
+    private Task RequestCancelSale()
     {
-        if (hub is not null) { try { await hub.DisposeAsync(); } catch { } hub = null; }
-        session = null;
-        qrDataUrl = null;
-        tipPercent = 0;
-        screen = Screen.Keypad;
+        cancelError = null;
+        if (session?.Status == "seen")
+        {
+            confirmCancelSeen = true;
+            return Task.CompletedTask;
+        }
+        return CancelSaleAsync();
+    }
+
+    // Voids the session on the server so the customer can no longer pay it (the POS key is a
+    // merchant API key, so POST /v1/pay/sessions/{id}/void accepts it).
+    private async Task CancelSaleAsync()
+    {
+        if (session is null || device is null) return;
+        var target = session;
+        cancelling = true;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var req = new HttpRequestMessage(HttpMethod.Post, $"/v1/pay/sessions/{Uri.EscapeDataString(target.Id)}/void")
+            {
+                Content = JsonContent.Create(new { note = "Cancelled at the till" }),
+            };
+            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
+            var resp = await http.SendAsync(req, lifetime.Token);
+            if (resp.IsSuccessStatusCode)
+            {
+                Announcer.Announce("Sale cancelled.");
+                confirmCancelSeen = false;
+                session = null;
+                qrDataUrl = null;
+                tipPercent = 0;
+                screen = Screen.Keypad;
+                return;
+            }
+            confirmCancelSeen = false;
+            if (resp.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                // Paid (or otherwise final) in the meantime: show what really happened.
+                cancelError = "This sale can no longer be cancelled.";
+                await RefreshSessionAsync(target.Id);
+                return;
+            }
+            cancelError = resp.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                ? "Pairing was revoked — the sale could not be cancelled."
+                : $"Could not cancel the sale ({(int)resp.StatusCode}). Try again.";
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Log.LogInformation(ex, "POS could not void {SessionId}", target.Id);
+            confirmCancelSeen = false;
+            cancelError = "Could not reach DigiPay to cancel the sale. Check the connection and try again.";
+        }
+        finally { cancelling = false; }
+    }
+
+    // Same amount, label and tip as the sale on screen, at a fresh price.
+    private async Task ChargeAgainAsync()
+    {
+        if (busy) return;
+        autoReturnCts?.Cancel();
+        if (IsFiat) await RefreshPriceAsync();
+        await ChargeAsync();
+        if (screen == Screen.Result && chargeError is not null)
+        {
+            // Couldn't create it: back to the keypad, where the amount is ready and the error shows.
+            screen = Screen.Keypad;
+        }
     }
 
     private void NewSale()
@@ -1123,17 +1758,38 @@
         session = null;
         qrDataUrl = null;
         resultStatus = null;
-        resultTxid = null;
-        resultAmount = null;
+        cancelError = null;
         screen = Screen.Keypad;
         StateHasChanged();
     }
 
+    // ----- Menu, shift, unpair ------------------------------------------------------------
+
+    private void OpenMenu() => showMenu = true;
+
+    private void CloseMenu() => showMenu = false;
+
+    private void OpenSettingsFromMenu()
+    {
+        showMenu = false;
+        OpenSettings();
+    }
+
+    private Task OpenShiftFromMenuAsync()
+    {
+        showMenu = false;
+        return OpenShiftReportAsync();
+    }
+
+    private Task UnpairFromMenuAsync()
+    {
+        showMenu = false;
+        return ShowUnpairAsync();
+    }
+
     private Task ShowUnpairAsync()
     {
-        // If a manager PIN is set, require it before even showing the confirm
-        // dialog. Keeps staff from accidentally (or deliberately) disarming
-        // the tablet while the owner is away.
+        // If a manager PIN is set, require it before even showing the confirm dialog.
         if (hasPin)
         {
             return PromptPinAsync("Enter the manager PIN to unpair this device.", () =>
@@ -1149,9 +1805,8 @@
 
     private async Task OpenShiftReportAsync()
     {
-        if (device is null) return;
-        // Reset state every time so a stale report from a previous open never
-        // flashes. Show the modal immediately and let the fetch populate.
+        if (device is null || screen != Screen.Keypad) return;
+        // Reset every time so a stale report never flashes. Show the dialog at once and let the fetch fill it.
         shiftReport = null;
         shiftReportError = null;
         showShiftReport = true;
@@ -1180,39 +1835,94 @@
 
     private async Task StartNewShiftAsync()
     {
-        // Stamp "now" so the next report only shows sales from this moment
-        // onward. Per-tablet by design — the dashboard keeps the merchant-
-        // wide picture, this is purely a cashier convenience.
+        // Stamp "now" so the next report only shows sales from this moment on. Per tablet by design.
         var nowIso = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
         await JS.InvokeVoidAsync("digipayPos.saveShiftStart", nowIso);
         showShiftReport = false;
         shiftReport = null;
     }
 
-    private void OpenPinSettings()
+    // ----- Settings -----------------------------------------------------------------------
+
+    private void OpenSettings()
+    {
+        quickAmountsText = string.Join(", ", prefs.QuickAmountsFor(currency).Select(a => PosEntry.Typed(a, currency)));
+        ClosePinForm();
+        showSettings = true;
+    }
+
+    private void CloseSettings()
+    {
+        showSettings = false;
+        ClosePinForm();
+    }
+
+    // A labelled set of mutually exclusive choices (aria-pressed buttons).
+    private RenderFragment Choice(string id, string label, string? hint, string current, (string Value, string Text)[] options, Action<string> set) => __builder =>
+    {
+        <div class="dp-pos-set-field">
+            <p id="@id" class="field-label">@label</p>
+            <div class="segmented dp-pos-set-choice" role="group" aria-labelledby="@id" aria-describedby="@(hint is null ? null : id + "-hint")">
+                @foreach (var (value, text) in options)
+                {
+                    var v = value;
+                    <button type="button" class="segmented-item" data-value="@v" aria-pressed="@(current == v ? "true" : "false")"
+                            @onclick="() => SetPrefAsync(() => set(v))">@text</button>
+                }
+            </div>
+            @if (hint is not null)
+            {
+                <p id="@(id)-hint" class="field-hint">@hint</p>
+            }
+        </div>
+    };
+
+    private async Task SetPrefAsync(Action change)
+    {
+        change();
+        prefs = PosPrefs.Normalize(prefs);
+        await SavePrefsAsync();
+    }
+
+    private async Task SavePrefsAsync()
+    {
+        try { await JS.InvokeVoidAsync("digipayPos.savePrefs", prefs); }
+        catch (JSException) { }
+    }
+
+    private async Task SaveQuickAmountsAsync(ChangeEventArgs e)
+    {
+        var list = PosEntry.ParseQuickAmounts(e.Value?.ToString(), currency);
+        if (list.Count == 0) prefs.QuickAmounts.Remove(currency);
+        else prefs.QuickAmounts[currency] = list;
+        quickAmountsText = string.Join(", ", list.Select(a => PosEntry.Typed(a, currency)));
+        await SavePrefsAsync();
+    }
+
+    // ----- Manager PIN --------------------------------------------------------------------
+
+    private void OpenPinForm()
     {
         pinNew = "";
         pinConfirm = "";
         pinSettingsError = null;
-
-        // If a PIN already exists, the "Change" flow must first verify the
-        // old PIN so a walk-up attacker can't silently rotate it.
+        // Changing an existing PIN first asks for the current one, so a walk-up can't silently rotate it.
         if (hasPin)
         {
             _ = PromptPinAsync("Enter the current manager PIN to change it.", () =>
             {
-                showPinSettings = true;
+                pinFormOpen = true;
                 StateHasChanged();
                 return Task.CompletedTask;
             });
             return;
         }
-        showPinSettings = true;
+        pinFormOpen = true;
     }
 
-    private void ClosePinSettings()
+    private void ClosePinForm()
     {
-        showPinSettings = false;
+        pinFormOpen = false;
         pinNew = "";
         pinConfirm = "";
         pinSettingsError = null;
@@ -1229,16 +1939,21 @@
         var ok = await JS.InvokeAsync<bool>("digipayPos.setPin", pinNew);
         if (!ok) { pinSettingsError = "Could not save PIN — try again."; return; }
         hasPin = true;
-        ClosePinSettings();
+        ClosePinForm();
+        Announcer.Announce("Manager PIN saved.");
     }
+
+    // Removing the PIN is itself guarded by the current PIN.
+    private Task RequestRemovePin() =>
+        PromptPinAsync("Enter the current manager PIN to remove it.", RemovePinAsync);
 
     private async Task RemovePinAsync()
     {
-        // Removing a PIN is itself a guarded action — require the current PIN
-        // before we wipe it. Same reasoning as change-PIN.
         await JS.InvokeVoidAsync("digipayPos.clearPin");
         hasPin = false;
-        ClosePinSettings();
+        ClosePinForm();
+        Announcer.Announce("Manager PIN removed.");
+        StateHasChanged();
     }
 
     private Task PromptPinAsync(string prompt, Func<Task> onSuccess)
@@ -1248,6 +1963,7 @@
         pinEntered = "";
         pinChallengePending = onSuccess;
         showPinChallenge = true;
+        StateHasChanged();
         return Task.CompletedTask;
     }
 
@@ -1280,6 +1996,8 @@
         screen = Screen.Pair;
     }
 
+    // ----- Helpers ------------------------------------------------------------------------
+
     private static string GenerateQr(string content)
     {
         using var gen = new QRCoder.QRCodeGenerator();
@@ -1288,20 +2006,38 @@
         return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(8))}";
     }
 
-    private static string FormatDgb(long sats) =>
-        (sats / 100_000_000m).ToString("0.########", CultureInfo.InvariantCulture);
+    private static string SealClass(BadgeTone tone) => tone switch
+    {
+        BadgeTone.Success => "",
+        BadgeTone.Danger => "is-danger",
+        BadgeTone.Refund => "is-refund",
+        BadgeTone.Info => "is-pending",
+        _ => "is-neutral",
+    };
 
-    private static string FormatDgb8(decimal dgb) =>
-        dgb.ToString("0.########", CultureInfo.InvariantCulture);
-
-    private static bool IsTerminal(string status) =>
-        status is "confirmed" or "expired" or "underpaid";
+    // The result screen talks to the cashier; CheckoutStates' explanations talk to a shopper.
+    private static string CashierExplanation(string? status) => status switch
+    {
+        "confirmed" => "Thank the customer — all done.",
+        "underpaid" => "Less than the full amount arrived. Collect the difference with a new sale, or refund what arrived from the dashboard.",
+        "expired" => "No payment arrived in time. Charge again for a fresh price; if a late payment lands, this till will tell you.",
+        "voided" => "This sale was cancelled, so it can't be paid. Nothing was charged.",
+        "refunded" => "This payment was refunded from the dashboard.",
+        _ => CheckoutStates.For(status).Explanation,
+    };
 
     public async ValueTask DisposeAsync()
     {
         autoReturnCts?.Cancel();
-        StopPriceTimer();
+        holdCts?.Cancel();
+        lifetime.Cancel();
+        tickTimer?.Dispose();
+        tickTimer = null;
+        try { if (keysBound) await JS.InvokeVoidAsync("digipayPos.unbindKeys"); } catch { }
+        try { if (jsDialogId is not null) await JS.InvokeVoidAsync("digipayDialog.close", jsDialogId); } catch { }
         if (hub != null) { try { await hub.DisposeAsync(); } catch { } }
+        selfRef?.Dispose();
+        lifetime.Dispose();
     }
 
     // DTOs
@@ -1316,7 +2052,10 @@
         string ApiKey, string Prefix, string MerchantId, string MerchantName,
         string StoreId, string StoreName, string DeviceLabel);
 
-    public record MeStoreDto(string Id, string Name);
+    public record MeStoreDto(string Id, string Name, string? DefaultCurrency = null);
+
+    // GET /v1/pay/stores/{id}: only what the till needs from the store.
+    private sealed record StoreDefaultsDto(string Id, string? DefaultCurrency = null);
     public record MeResponse(string Id, string DisplayName, List<MeStoreDto> Stores);
 
     public record CreatedSession(
@@ -1328,14 +2067,22 @@
 
     public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
 
+    // GET /v1/pay/sessions/{id}: the fields the till needs to follow a sale.
+    public record SessionEnvelope(SessionStatusDto Session);
+    public record SessionStatusDto(string Id, string Status, long ReceivedSatoshis, int Confirmations, string? PaidTxid);
+
+    // GET /v1/pay/public/price: the price of 1 DGB in the currency, when it was fetched upstream, and how
+    // ("coingecko" directly, or "coingecko+fx" through the USD price and an exchange rate).
     public record PriceQuote(
         [property: JsonPropertyName("currency")] string Currency,
         [property: JsonPropertyName("dgbPrice")] decimal DgbPrice,
-        [property: JsonPropertyName("fetchedAt")] DateTime FetchedAt);
+        [property: JsonPropertyName("fetchedAt")] DateTime FetchedAt,
+        [property: JsonPropertyName("source")] string? Source = null,
+        [property: JsonPropertyName("decimals")] int? Decimals = null,
+        [property: JsonPropertyName("symbol")] string? Symbol = null,
+        [property: JsonPropertyName("stale")] bool Stale = false);
 
-    // /v1/pay/pos/shift-report payload. Flattened to what the modal needs;
-    // deliberately loose on Fiat/Tips — they're optional dictionaries keyed
-    // by currency code ("EUR" → 23.00).
+    // /v1/pay/pos/shift-report payload, flattened to what the dialog needs. Fiat/Tips are keyed by currency code.
     public record ShiftReport(
         [property: JsonPropertyName("from")] DateTime From,
         [property: JsonPropertyName("to")] DateTime To,

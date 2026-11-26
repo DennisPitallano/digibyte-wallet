@@ -40,27 +40,37 @@ public sealed class PayFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"digipay-test-{Guid.NewGuid():N}.db");
     private readonly Dictionary<string, string?> _settings;
+    private readonly string _environment;
 
     public FakeReceiver Receiver { get; } = new();
     public FakeResolver Resolver { get; } = new();
 
-    public PayFactory() : this(false, 1000) { }
+    public PayFactory() : this(false, 1000, "Production", null) { }
 
-    public static PayFactory Create(bool allowLoopback = false, int registerPerHour = 1000) => new(allowLoopback, registerPerHour);
+    /// <param name="environment">Host environment; "Development" also loads appsettings.Development.json.</param>
+    /// <param name="settings">Extra configuration values (win over the defaults below).</param>
+    public static PayFactory Create(bool allowLoopback = false, int registerPerHour = 1000,
+        string environment = "Production", IDictionary<string, string?>? settings = null) =>
+        new(allowLoopback, registerPerHour, environment, settings);
 
-    private PayFactory(bool allowLoopback, int registerPerHour)
+    private PayFactory(bool allowLoopback, int registerPerHour, string environment, IDictionary<string, string?>? settings)
     {
+        _environment = environment;
         _settings = new()
         {
             ["DigiPay:DbPath"] = _dbPath,
+            // appsettings.Development.json points at a local Postgres; tests always use the SQLite file.
+            ["DigiPay:ConnectionString"] = "",
             ["Outbound:AllowLoopback"] = allowLoopback ? "true" : "false",
             ["RateLimits:RegisterPerHour"] = registerPerHour.ToString(),
         };
+        if (settings is not null)
+            foreach (var (key, value) in settings) _settings[key] = value;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Production");
+        builder.UseEnvironment(_environment);
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(_settings));
         foreach (var (key, value) in _settings) builder.UseSetting(key, value);
         builder.ConfigureServices(services =>
@@ -121,6 +131,13 @@ public sealed class PayFactory : WebApplicationFactory<Program>
         store.WebhookUrl = url;
         store.WebhookSecret = secret;
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>Runs <paramref name="work"/> against the app's database in its own scope.</summary>
+    public async Task WithDb(Func<DigiPayDbContext, Task> work)
+    {
+        using var scope = Services.CreateScope();
+        await work(scope.ServiceProvider.GetRequiredService<DigiPayDbContext>());
     }
 
     public async Task<List<WebhookDelivery>> LoadDeliveries(string storeId)

@@ -1,115 +1,378 @@
 @page "/docs"
 @layout SiteLayout
 
-<PageTitle>How it works — DigiPay</PageTitle>
+<PageTitle>Developer docs: quickstart and guide — DigiPay</PageTitle>
 
+@{
+    const string P = "leading-relaxed text-slate-700 dark:text-slate-300 mb-3";
+    const string Ul = "space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3";
+    const string Ol = "space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-decimal pl-5 mb-3";
+}
 
-    <main class="flex-1 page-enter">
-        <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-            <h1 class="text-2xl sm:text-4xl font-bold tracking-tight mb-2 slide-up">How it works</h1>
-            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-6 slide-up-delay-1">
-                A DigiPay invoice flows through five states: <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">pending → seen → paid → confirmed</code>,
-                plus <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">expired</code> or <code class="px-1.5 py-0.5 bg-white dark:bg-dgb-900 border border-slate-200 dark:border-dgb-800 rounded text-xs font-mono">underpaid</code> as terminal error cases.
-                Here's the full lifecycle, from merchant sign-up to webhook delivery.
+<main class="flex-1 page-enter">
+    <DocsLayout Current="/docs" Toc="toc">
+        <article class="dp-docs-article">
+            <p class="dp-docs-eyebrow">Developer docs</p>
+            <h1 class="dp-docs-title slide-up">Accept DigiByte from your own code</h1>
+            <p class="dp-docs-lead slide-up-delay-1">
+                Start with the five-minute quickstart, then read how a payment moves from <InlineCode>pending</InlineCode> to
+                <InlineCode>confirmed</InlineCode> and what your server hears along the way. Every endpoint, field and status code is in the
+                <a href="/docs/api" class="text-dgb-500 hover:underline">API reference</a>.
             </p>
 
-            @* Quick paths for the two most common readers — non-devs who just
-               want a shareable link, and devs who want a working integration to
-               clone. Surface both up-front so neither has to scroll the full
-               tutorial to find their starting point. *@
-            <div class="grid sm:grid-cols-2 gap-3 mb-10 slide-up-delay-2">
+            @* Quick paths for the two most common readers: non-developers who just want a shareable link, and
+               developers who'd rather start from a working app. *@
+            <div class="grid sm:grid-cols-2 gap-3 mb-4 slide-up-delay-2">
                 <a href="/merchant" class="card card-hover flex items-start gap-3 p-4 no-underline">
                     <Icon Name="link" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
                     <div class="flex-1 min-w-0">
                         <div class="text-sm font-semibold text-slate-900 dark:text-white">Just need a link to share?</div>
                         <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                            Open the dashboard's <strong class="text-slate-700 dark:text-slate-300">Payment links</strong> tab — no code, generates a checkout URL + QR + email/SMS share buttons.
+                            The dashboard's <strong class="text-slate-700 dark:text-slate-300">Payment links</strong> tab makes a checkout link with a QR code and share buttons. No code.
                         </div>
                     </div>
                 </a>
                 <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples" target="_blank" rel="noopener" class="card card-hover flex items-start gap-3 p-4 no-underline">
                     <Icon Name="package" Class="w-5 h-5 text-dgb-500 shrink-0 mt-0.5" />
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm font-semibold text-slate-900 dark:text-white">Building an integration?</div>
+                        <div class="text-sm font-semibold text-slate-900 dark:text-white">Rather start from an app?</div>
                         <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                            Clone a single-file <strong class="text-slate-700 dark:text-slate-300">mini-store sample</strong> for Express, Flask, or ASP.NET — checkout + verified webhook in ~150 lines.
+                            Clone a single-file <strong class="text-slate-700 dark:text-slate-300">sample store</strong> for Express, Flask or ASP.NET: checkout plus a verified webhook.<span class="sr-only"> (opens in a new tab)</span>
                         </div>
                     </div>
                 </a>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 -mt-6 mb-10 slide-up-delay-2">
-                Or just poke at the API: <a href="/digipay.postman_collection.json" download class="text-dgb-500 hover:underline">download the Postman collection</a>
-                — variables for <InlineCode>baseUrl</InlineCode> + <InlineCode>apiKey</InlineCode>, requests for every endpoint below, no code required.
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                Prefer clicking to curl? <a href="/digipay.postman_collection.json" download class="text-dgb-500 hover:underline">Download the Postman collection</a>
+                (variables for <InlineCode>baseUrl</InlineCode> and <InlineCode>apiKey</InlineCode>).
             </p>
 
-            <DocsHeading>1. Sign up with Digi-ID</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">There's no password flow. You scan a QR with your DigiByte wallet, the wallet signs a challenge URI, and DigiPay creates a merchant record keyed by your Digi-ID address.</p>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300">Your Digi-ID address is just a public address — not a spending key — so this is purely for identity. No funds are ever linked to it.</p>
-
-            <DocsHeading>2. Configure a store</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Every account starts with a Default Store. Add more if you run multiple shops — each store has its own receive address, webhook, and sessions. For each store, set a receive target in one of two modes:</p>
-            <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5">
-                <li><strong>Xpub (recommended).</strong> Paste your BIP84 account-level extended public key (<InlineCode>xpub6...</InlineCode>). DigiPay derives a fresh address at <InlineCode>m/0/n</InlineCode> for every invoice — no reuse, proper per-invoice isolation.</li>
-                <li><strong>Single address.</strong> Paste one <InlineCode>dgb1…</InlineCode>. All invoices share it. Simpler but your tx history is linked. Fine for a tip jar.</li>
-            </ul>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">You can copy the xpub from your DigiByte Wallet app: <em>Settings → Share xpub (watch-only)</em>.</p>
-
-            <DocsHeading>3. Create a session</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Create an API key from the dashboard's <em>API keys</em> tab (the raw secret is shown once — save it). From your server, POST to <InlineCode>/v1/pay/sessions</InlineCode> with the amount in DGB. You get back an invoice URL your buyer can load, plus a BIP21 URI any DigiByte wallet understands.</p>
-            <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"amount\": 12.5,\n    \"storeId\": \"sto_…\",       // optional — defaults to first store\n    \"label\": \"Order #4201\"\n  }'")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Redirect the buyer to the returned <InlineCode>checkout_url</InlineCode>, or open it in-page with the JS embed (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">live demo →</a>):</p>
-            <CodeBlock>@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<button data-digipay-checkout data-session-id=\"ses_...\">Pay with DigiByte</button>")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">
-                <strong>Match your shop's look (optional).</strong> The checkout follows the shopper's own light or dark choice.
-                To fix it to your shop's theme, add <InlineCode>data-theme="light"</InlineCode> or <InlineCode>"dark"</InlineCode> to the button,
-                pass <InlineCode>theme</InlineCode> to <InlineCode>DigiPay.checkout()</InlineCode>, or append <InlineCode>?theme=light</InlineCode>
-                to the <InlineCode>checkout_url</InlineCode> when you redirect. Any other value is ignored, and the shopper's own setting is never changed.
+            @* ===================== Quickstart ===================== *@
+            <DocsHeading Id="quickstart">Quickstart — 5 minutes</DocsHeading>
+            <p class="@P">
+                The API lives at <InlineCode>https://api.pay.dgbwallet.app</InlineCode>; the hosted checkout and the JS embed are served from
+                <InlineCode>https://pay.dgbwallet.app</InlineCode>. Every request body is JSON, and authenticated calls send
+                <InlineCode>Authorization: Bearer &lt;your API key&gt;</InlineCode>.
             </p>
-            <CodeBlock Label="Copy the themed embed example">@("<button data-digipay-checkout data-session-id=\"ses_...\" data-theme=\"light\">Pay with DigiByte</button>\n<script>DigiPay.checkout({ sessionId: 'ses_...', theme: 'dark' });</script>\n<!-- or redirect to: https://pay.dgbwallet.app/pay/ses_...?theme=light -->")</CodeBlock>
 
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-4">
-                <strong>Make retries safe.</strong> Pass an <InlineCode>Idempotency-Key</InlineCode> header on the create
-                call (any opaque string up to 255 chars — an order id is a natural fit) and DigiPay will return the
-                <em>same</em> session if you call it again with the same key within 24h. Stripe-shaped: a customer
-                double-clicking <em>Buy</em> won't mint two invoices.
+            <DocsHeading Id="qs-key" Level="3">1. Get an API key</DocsHeading>
+            <p class="@P">
+                <a href="/merchant/signin" class="text-dgb-500 hover:underline">Sign in with Digi-ID</a> (scan a QR with your DigiByte wallet; no password),
+                open the dashboard's <em>API keys</em> tab and create a key. The full key (<InlineCode>dgp_…</InlineCode>) is shown once: put it in your
+                secrets manager.
             </p>
-            <CodeBlock>@("curl -X POST https://pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Idempotency-Key: order-4201\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ \"amount\": 12.5, \"label\": \"Order #4201\" }'")</CodeBlock>
+            <p class="@P">
+                Setting up without a browser (self-hosting, CI)? One unauthenticated call creates an account, its first store and a key.
+                It is limited to 5 sign-ups per hour from one address.
+            </p>
+            <CodeBlock Lang="bash" Label="Copy the register example">@("curl -X POST https://api.pay.dgbwallet.app/v1/pay/merchants \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ \"displayName\": \"My Shop\", \"addressOrXpub\": \"dgb1q...\", \"webhookUrl\": \"https://shop.example/digipay/webhook\" }'")</CodeBlock>
+            <p class="@P">The response contains <InlineCode>apiKey</InlineCode>, <InlineCode>storeId</InlineCode> and, because a webhook URL was given, <InlineCode>webhookSecret</InlineCode>. Both secrets are shown only in this response. Accounts made this way already have a receive address, so skip to step 3.</p>
 
-            <DocsHeading>4. What the buyer sees</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">The hosted checkout shows a QR code, an "Open in wallet" deep link, a countdown to expiry (default 30 minutes), and a live status pill. The pill updates in real time via SignalR as the tx moves through states:</p>
-            <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5">
-                <li><strong>Waiting</strong> — no tx detected yet.</li>
-                <li><strong>Detected</strong> — tx is in the mempool.</li>
-                <li><strong>Paid</strong> — one confirmation. Usually ~15 seconds on DigiByte.</li>
-                <li><strong>Confirmed</strong> — six confirmations. Fully settled.</li>
+            <DocsHeading Id="qs-receive" Level="3">2. Set a receive address</DocsHeading>
+            <p class="@P">
+                A Digi-ID account starts with a <em>Default Store</em> that has nowhere to send money yet: creating a session now returns
+                <InlineCode>400</InlineCode> with <InlineCode>store has no receive address or xpub configured</InlineCode>. Get the store id from
+                <InlineCode>GET /v1/pay/stores</InlineCode>, then give it an account-level xpub (a fresh address for every invoice) or a single
+                <InlineCode>dgb1…</InlineCode> address, plus your webhook URL:
+            </p>
+            <CodeBlock Lang="bash" Label="Copy the store setup example">@("curl -X PATCH https://api.pay.dgbwallet.app/v1/pay/stores/$STORE_ID \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ \"addressOrXpub\": \"xpub6...\", \"webhookUrl\": \"https://shop.example/digipay/webhook\" }'")</CodeBlock>
+            <p class="@P">
+                The first time a webhook URL is saved, the response includes <InlineCode>webhookSecret</InlineCode>. Save it now: later responses
+                return <InlineCode>null</InlineCode>. Lost it? <a href="/docs/api#rotate-webhook-secret" class="text-dgb-500 hover:underline">Rotate the secret</a>
+                to get a new one. (The dashboard's <em>Store settings</em> and <em>Webhook</em> tabs do the same without curl.)
+            </p>
+
+            <DocsHeading Id="qs-session" Level="3">3. Create a session</DocsHeading>
+            <p class="@P">From your server, create a payment session with the amount in DGB:</p>
+            <CodeBlock Lang="bash" Label="Copy the create-session example">@("curl -X POST https://api.pay.dgbwallet.app/v1/pay/sessions \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\" \\\n  -H \"Idempotency-Key: order-4201\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ \"amount\": 12.5, \"label\": \"Order #4201\" }'")</CodeBlock>
+            <p class="@P">The response (shortened here) carries everything the buyer needs:</p>
+            <CodeBlock Lang="json" Label="Copy the session response example">@("{\n  \"id\": \"ses_8kq2x7m4n9p3r6t1\",\n  \"storeId\": \"sto_4fj8w2k9m3n7p5q1\",\n  \"address\": \"dgb1qexampleaddress\",\n  \"amount\": 12.5,\n  \"status\": \"pending\",\n  \"uri\": \"digibyte:dgb1qexampleaddress?amount=12.5&label=Order%20%234201\",\n  \"checkoutUrl\": \"https://pay.dgbwallet.app/pay/ses_8kq2x7m4n9p3r6t1\",\n  \"expiresAt\": \"2026-11-26T12:30:00Z\"\n}")</CodeBlock>
+            <p class="@P">Send the buyer to <InlineCode>checkoutUrl</InlineCode>, or show <InlineCode>uri</InlineCode> as a QR code in your own page. Keep <InlineCode>id</InlineCode> with your order.</p>
+
+            <DocsHeading Id="qs-simulate" Level="3">4. Pay it on a testnet store, without real coins</DocsHeading>
+            <p class="@P">
+                Make a second store on <InlineCode>testnet</InlineCode> (or <InlineCode>regtest</InlineCode>), give it a testnet address and your
+                webhook URL, and create the session there. The sandbox can then play the buyer: each <InlineCode>advance</InlineCode> call moves
+                the session one step, <InlineCode>pending → seen → paid → confirmed</InlineCode>, sends the same webhooks a real payment would and
+                updates any open checkout.
+            </p>
+            <CodeBlock Lang="bash" Label="Copy the testnet flow example">@TestnetFlow</CodeBlock>
+            <p class="@P">
+                To jump straight to a step, send a body. <InlineCode>to</InlineCode> is <InlineCode>seen</InlineCode>, <InlineCode>paid</InlineCode> or
+                <InlineCode>confirmed</InlineCode>; <InlineCode>confirmations</InlineCode> sets the count (6 is final):
+            </p>
+            <CodeBlock Lang="json" Label="Copy the advance body example">@("{\n  \"to\": \"paid\",\n  \"confirmations\": 3\n}")</CodeBlock>
+            <p class="@P">Every call answers with where the session is now:</p>
+            <CodeBlock Lang="json" Label="Copy the advance response example">@("{\n  \"id\": \"ses_8kq2x7m4n9p3r6t1\",\n  \"status\": \"paid\",\n  \"confirmations\": 3,\n  \"receivedSatoshis\": 1250000000,\n  \"paidTxid\": \"c4de7f12a34bc6de3e9f1d7b5a2c3f7e8b4d1a6c9e5f2a8d3b7c1e4f6a9d2c5\"\n}")</CodeBlock>
+            <div class="dp-callout dp-callout-warn">
+                <p><strong>Only test stores.</strong> Advancing a session on a <InlineCode>mainnet</InlineCode> store answers <InlineCode>400</InlineCode>
+                    (<InlineCode>advance only works on testnet or regtest stores</InlineCode>), so it can never fake a real payment. The call needs the
+                    API key of the account that owns the session.</p>
+                <p><strong>No account yet?</strong> <InlineCode>POST /v1/pay/test/demo-session</InlineCode> makes a throwaway <InlineCode>ses_demo_…</InlineCode>
+                    session that anyone can advance without a key. It's for watching the checkout; demo stores have no webhook.</p>
+            </div>
+
+            <DocsHeading Id="qs-webhook" Level="3">5. Receive and verify the webhooks</DocsHeading>
+            <p class="@P">
+                The calls in step 4 sent <InlineCode>session.seen</InlineCode>, <InlineCode>session.paid</InlineCode> and
+                <InlineCode>session.confirmed</InlineCode> to your webhook URL. On your side, check the <InlineCode>X-DigiPay-Signature</InlineCode>
+                header against an HMAC-SHA256 of the <em>raw</em> request body before you parse it. Reject anything that doesn't match with
+                <InlineCode>401</InlineCode>:
+            </p>
+            <CodeBlock Lang="js" Label="Copy the Node verification example">@NodeVerify</CodeBlock>
+            <p class="@P">
+                Nothing arrived? Ask DigiPay to send a signed <InlineCode>webhook.test</InlineCode> event right now. The response tells you what your
+                server answered, and the dashboard's <em>Webhooks</em> tab lists every delivery:
+            </p>
+            <CodeBlock Lang="bash" Label="Copy the webhook test example">@("curl -X POST https://api.pay.dgbwallet.app/v1/pay/stores/$TEST_STORE_ID/webhook/test \\\n  -H \"Authorization: Bearer $DIGIPAY_KEY\"\n# -> { \"ok\": true, \"webhookUrl\": \"https://shop.example/digipay/webhook\", \"deliveryId\": \"wdel_...\", \"statusCode\": 200, \"error\": null }")</CodeBlock>
+            <p class="@P">
+                That's a working integration. When a real payment lands on your mainnet store you'll receive the same events the same way.
+                Python, PHP and C# versions are in the <a href="/docs/api#verify-signature" class="text-dgb-500 hover:underline">API reference</a>,
+                and the <a href="/sdks" class="text-dgb-500 hover:underline">SDKs</a> ship a ready-made verifier.
+            </p>
+
+            @* ===================== Testing ===================== *@
+            <DocsHeading Id="testing">Testing without real money</DocsHeading>
+            <ul class="@Ul">
+                <li>
+                    <strong>Testnet store + sandbox</strong> (step 4): the full flow, webhooks included, with no coins at all.
+                    <InlineCode>advance</InlineCode> moves your own testnet or regtest sessions and fires the real events.
+                </li>
+                <li>
+                    <strong>Testnet coins</strong>: the same store also takes real DigiByte testnet payments. DigiPay watches testnet for it, so a
+                    testnet payment produces the same states and events as a mainnet one. Receive addresses are checked against the store's network.
+                </li>
+                <li><strong>Test webhook</strong> (step 5): check that your receiver is reachable and verifies signatures. Test events are sent once and never retried.</li>
+                <li><strong>Demo sessions</strong>: see the checkout UI change state without an account. No key, no webhooks (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">try it<span class="sr-only"> (opens in a new tab)</span></a>).</li>
+                <li><strong>A small real payment</strong>: the final check before you go live. You can record a refund afterwards (see <a href="/docs/api#refund-session">refunds</a>).</li>
             </ul>
 
-            <DocsHeading>5. Receive webhooks</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">Every state change hits the store's webhook URL with a signed POST. Every attempt is recorded in the dashboard's delivery log — if your receiver was down, hit <em>Replay</em> and DigiPay re-sends the exact same payload. Verify the signature with HMAC-SHA256 using the secret DigiPay generated when you saved the webhook URL:</p>
-            <CodeBlock>@("const expected = crypto.createHmac('sha256', secret)\n  .update(rawBody).digest('hex');\nconst provided = req.headers['x-digipay-signature'].replace('sha256=', '');\nif (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided))) {\n  return res.status(401).end();\n}")</CodeBlock>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mt-3">Headers on every webhook:</p>
-            <ul class="space-y-2 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5">
-                <li><InlineCode>X-DigiPay-Event</InlineCode> — <InlineCode>session.seen</InlineCode>, <InlineCode>session.paid</InlineCode>, <InlineCode>session.confirmed</InlineCode>, <InlineCode>session.expired</InlineCode>, <InlineCode>session.underpaid</InlineCode>.</li>
-                <li><InlineCode>X-DigiPay-Signature</InlineCode> — <InlineCode>sha256=…</InlineCode> of the raw body.</li>
-                <li><InlineCode>X-DigiPay-Delivery</InlineCode> — unique id for idempotency.</li>
+            <DocsHeading Id="local-dev" Level="3">Developing locally</DocsHeading>
+            <p class="@P">
+                Running DigiPay yourself? Start the API in <InlineCode>Development</InlineCode> with <InlineCode>DigiPay:DevSignIn=true</InlineCode> and the
+                sign-in page shows a <em>Sign in as dev merchant</em> button, so you can use the dashboard without a Digi-ID wallet. The button
+                never appears outside Development. Create a regtest or testnet store there and step 4 works the same against your local API.
+            </p>
+            <p class="@P">
+                The <em>Pay with DigiByte Wallet</em> and <em>Sign in with DigiByte Wallet</em> buttons open <InlineCode>https://dgbwallet.app</InlineCode>.
+                To point them at another deployment of the wallet (for example a staging one), set <InlineCode>DigiPay:WalletUrl</InlineCode> on the web app.
+                The wallet checks the address network, so the mainnet dgbwallet.app can't pay a testnet store; scan the QR code with a testnet wallet instead.
+                Sign-in through the wallet needs an API the wallet can reach, so it doesn't complete against <InlineCode>localhost</InlineCode>.
+            </p>
+            <p class="@P">
+                Both buttons tell the wallet how to come back: the pay link is <InlineCode>{wallet}/pay?return={this page}#digibyte:…</InlineCode> and the
+                sign-in link adds <InlineCode>&amp;return={this page}</InlineCode>. Once the payment is sent or the sign-in approved, the wallet shows
+                <em>Return to {host}</em>; it never goes back by itself. It accepts only https addresses (http only on localhost), and for sign-in only an
+                address on the same site as the Digi-ID domain (localhost may use another port, so web on 5252 and API on 5008 work).
+            </p>
+
+            @* ===================== Guide ===================== *@
+            <DocsHeading Id="lifecycle">How a payment flows</DocsHeading>
+            <p class="@P">Each session moves through these states. Your webhook hears every change.</p>
+            <div class="dp-table-wrap">
+                <table class="dp-table">
+                    <thead><tr><th scope="col">Status</th><th scope="col">Meaning</th><th scope="col">Checkout shows</th></tr></thead>
+                    <tbody>
+                        <tr><td><InlineCode>pending</InlineCode></td><td>Waiting for a payment.</td><td>Waiting</td></tr>
+                        <tr><td><InlineCode>seen</InlineCode></td><td>A payment is in the mempool, not yet in a block.</td><td>Detected</td></tr>
+                        <tr><td><InlineCode>paid</InlineCode></td><td>One confirmation (about 15 seconds on DigiByte). Safe to fulfil most orders.</td><td>Paid</td></tr>
+                        <tr><td><InlineCode>confirmed</InlineCode></td><td>Six confirmations. Fully settled.</td><td>Confirmed</td></tr>
+                        <tr><td><InlineCode>underpaid</InlineCode></td><td>Less than 99% of the amount arrived.</td><td>Underpaid</td></tr>
+                        <tr><td><InlineCode>expired</InlineCode></td><td>Nothing arrived before <InlineCode>expiresAt</InlineCode> (30 minutes unless the store or request sets another).</td><td>Expired</td></tr>
+                        <tr><td><InlineCode>refunded</InlineCode></td><td>You recorded a refund for a paid session.</td><td>Refunded</td></tr>
+                        <tr><td><InlineCode>voided</InlineCode></td><td>You cancelled an unpaid session.</td><td>Cancelled</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="@P">
+                The hosted checkout shows a QR code, an <em>Open in wallet</em> button for an installed wallet app, a
+                <em>Pay with DigiByte Wallet</em> button that opens the DigiByte Wallet in the browser with the address and amount filled in, a countdown
+                and a live status pill that updates as the transaction moves. Once a payment is detected the QR code is replaced by the confirmation
+                progress. DigiPay derives a fresh address for every invoice in xpub mode, so payments can't be linked to each other.
+            </p>
+
+            <DocsHeading Id="stores">Stores and receive addresses</DocsHeading>
+            <p class="@P">An account owns one or more stores. Each store has its own receive address, webhook, default expiry and sessions, which suits several shops, a tip jar, or a separate testnet store.</p>
+            <ul class="@Ul">
+                <li><strong>Xpub (recommended).</strong> Paste your BIP84 account-level extended public key (<InlineCode>xpub6…</InlineCode>). DigiPay derives a new address for every invoice: no reuse.</li>
+                <li><strong>Single address.</strong> Paste one <InlineCode>dgb1…</InlineCode>. Every invoice shares it, so your payment history is linked. Fine for a tip jar.</li>
             </ul>
+            <p class="@P">In the DigiByte Wallet app, copy the xpub from <em>Settings → Share xpub (watch-only)</em>. It can watch payments; it can't spend them.</p>
 
-            <DocsHeading>6. Late payments</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300">If a buyer pays after expiry, DigiPay still reconciles — we keep polling expired sessions for three days. The webhook fires with the normal <InlineCode>session.paid</InlineCode> event, so your server doesn't need special-case code for this.</p>
+            <DocsHeading Id="checkout">Hosted checkout and the embed</DocsHeading>
+            <p class="@P">Redirect the buyer to <InlineCode>checkoutUrl</InlineCode>, or open the checkout over your own page with the JS embed (<a href="/embed/demo.html" target="_blank" class="text-dgb-500 hover:underline">live demo<span class="sr-only"> (opens in a new tab)</span></a>):</p>
+            <CodeBlock Lang="html" Label="Copy the embed example">@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<button data-digipay-checkout data-session-id=\"ses_...\">Pay with DigiByte</button>")</CodeBlock>
+            <p class="@P">
+                <strong>Match your shop's theme (optional).</strong> The checkout follows the shopper's own light or dark setting. To fix it, add
+                <InlineCode>data-theme="light"</InlineCode> or <InlineCode>"dark"</InlineCode> to the button, pass <InlineCode>theme</InlineCode> to
+                <InlineCode>DigiPay.checkout()</InlineCode>, or append <InlineCode>?theme=light</InlineCode> to <InlineCode>checkoutUrl</InlineCode>.
+                Other values are ignored, and the shopper's own setting is never changed.
+            </p>
+            <CodeBlock Lang="html" Label="Copy the themed embed example">@("<button data-digipay-checkout data-session-id=\"ses_...\" data-theme=\"light\">Pay with DigiByte</button>\n<script>DigiPay.checkout({ sessionId: 'ses_...', theme: 'dark' });</script>\n<!-- or redirect to: https://pay.dgbwallet.app/pay/ses_...?theme=light -->")</CodeBlock>
+            <p class="@P">
+                <strong>Know when it's paid.</strong> Give <InlineCode>DigiPay.checkout()</InlineCode> an <InlineCode>onStatus</InlineCode> callback to follow
+                every status change, and <InlineCode>onSuccess</InlineCode> to act once the payment is confirmed. The modal stays open for
+                <InlineCode>closeDelay</InlineCode> milliseconds (2500 by default) so the buyer sees "Payment confirmed", then closes:
+            </p>
+            <CodeBlock Lang="js" Label="Copy the embed callbacks example">@EmbedCallbacks</CodeBlock>
+            <p class="@P">
+                Without <InlineCode>onSuccess</InlineCode>, the modal closes and the page goes to the session's <InlineCode>returnUrl</InlineCode>, if you
+                set one when creating it. A browser callback is a hint, not proof: fulfil orders from the webhook (or check
+                <InlineCode>GET /v1/pay/sessions/{id}</InlineCode>). All options and the raw <a href="/docs/api#embed" class="text-dgb-500 hover:underline">embed messages</a>
+                are in the API reference.
+            </p>
 
-            <DocsHeading>SDKs</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">If you're on Node, Python, or .NET, skip the hand-rolling — the <a href="/sdks" class="text-dgb-500 hover:underline">official SDKs</a> wrap everything described above (create session, verify webhook, list deliveries, replay, CSV export) behind a typed client. All three are zero-deps, behave identically, and map HTTP errors to a single <InlineCode>DigiPayError</InlineCode> so try/catch shape is portable.</p>
+            <DocsHeading Id="retries">Safe retries</DocsHeading>
+            <p class="@P">
+                Send an <InlineCode>Idempotency-Key</InlineCode> header on the create call (any string up to 255 characters; your order id is a natural fit).
+                Calling again with the same key within 24 hours returns the <em>same</em> session, so a double-clicked <em>Buy</em> button never makes two invoices.
+            </p>
+
+            <DocsHeading Id="webhooks">Webhooks</DocsHeading>
+            <p class="@P">
+                Every state change sends a signed <InlineCode>POST</InlineCode> to the store's webhook URL. Events:
+                <InlineCode>session.seen</InlineCode>, <InlineCode>session.paid</InlineCode>, <InlineCode>session.confirmed</InlineCode>,
+                <InlineCode>session.underpaid</InlineCode>, <InlineCode>session.expired</InlineCode>, <InlineCode>session.refunded</InlineCode>,
+                <InlineCode>session.voided</InlineCode>, and <InlineCode>webhook.test</InlineCode> when you ask for one.
+                The <a href="/docs/api#webhook-events" class="text-dgb-500 hover:underline">events table</a> says exactly when each fires.
+            </p>
+            <ul class="@Ul">
+                <li><InlineCode>X-DigiPay-Event</InlineCode>: the event name (also in the body as <InlineCode>event</InlineCode>).</li>
+                <li><InlineCode>X-DigiPay-Signature</InlineCode>: <InlineCode>sha256=</InlineCode> followed by the hex HMAC-SHA256 of the raw body, keyed with the store's webhook secret.</li>
+                <li><InlineCode>X-DigiPay-Delivery</InlineCode>: the id of this delivery attempt (<InlineCode>wdel_…</InlineCode>). Each retry or replay gets a new one, so use it for logging, not for de-duplication.</li>
+            </ul>
+            <p class="@P">
+                <strong>Retries.</strong> If your server can't be reached, times out, or answers <InlineCode>5xx</InlineCode>, <InlineCode>408</InlineCode> or
+                <InlineCode>429</InlineCode>, DigiPay tries again after 1 minute, 5 minutes, 30 minutes, 2 hours and 6 hours, then stops. Other
+                <InlineCode>4xx</InlineCode> answers aren't retried. Every attempt appears in the dashboard's delivery log, where <em>Replay</em> sends it again.
+            </p>
+            <p class="@P">
+                <strong>De-duplicate on the session.</strong> Retries and replays mean you can receive the same event more than once, and each one is rebuilt from
+                the session's current state. Treat <InlineCode>session.id</InlineCode> plus <InlineCode>event</InlineCode> as the key, and let
+                <InlineCode>session.status</InlineCode> decide what your order should look like. Answer <InlineCode>200</InlineCode> to events you don't use.
+            </p>
+
+            <DocsHeading Id="late-payments">Late payments</DocsHeading>
+            <p class="@P">
+                If a buyer pays after expiry, DigiPay still reconciles: it keeps watching expired sessions for three days. The session moves to
+                <InlineCode>paid</InlineCode> or <InlineCode>confirmed</InlineCode> and the usual event fires, so your server needs no special case.
+                If the payment already has six confirmations when DigiPay sees it, you get <InlineCode>session.confirmed</InlineCode> without a
+                <InlineCode>session.paid</InlineCode> first.
+            </p>
+
+            <DocsHeading Id="donation-button">Donation button</DocsHeading>
+            <p class="@P">
+                A tip jar needs no server and no session. Link to DigiPay's hosted tip page with your address, or let the embed script draw the button.
+                Only <InlineCode>to</InlineCode> is required; <InlineCode>amount</InlineCode> (DGB), <InlineCode>name</InlineCode> and <InlineCode>label</InlineCode> are optional.
+            </p>
+            <CodeBlock Lang="html" Label="Copy the donation link example">@("<a href=\"https://pay.dgbwallet.app/pay/button?to=dgb1q...&name=My%20Blog&label=Thanks!\">Tip in DGB</a>")</CodeBlock>
+            <CodeBlock Lang="html" Label="Copy the donation button example">@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<span data-digipay-button data-address=\"dgb1q...\" data-name=\"My Blog\" data-amount=\"5\">Tip DGB</span>")</CodeBlock>
+            <p class="@P">
+                The embed swaps the element for a button that opens the tip page in a new tab (add <InlineCode>data-theme</InlineCode> to fix its theme).
+                Using an xpub store? <InlineCode>GET /v1/pay/stores/{id}/donation-address</InlineCode> returns a stable address reserved for donations,
+                and the dashboard's <em>Donation</em> tab builds the snippet for you.
+            </p>
+
+            <DocsHeading Id="sdks">SDKs</DocsHeading>
+            <p class="@P">On Node, Python or .NET, the <a href="/sdks" class="text-dgb-500 hover:underline">official SDKs</a> wrap all of the above (sessions, stores, webhook verification, deliveries, CSV export) behind a typed client, and raise one <InlineCode>DigiPayError</InlineCode> type with the HTTP status.</p>
             <ul class="space-y-1 leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3">
-                <li><strong>Node</strong> — <InlineCode>npm install @("@dgbwallet/digipay")</InlineCode> (Node 18+, ESM + CJS)</li>
-                <li><strong>Python</strong> — <InlineCode>pip install digipay</InlineCode> (Python 3.10+, <InlineCode>py.typed</InlineCode>)</li>
-                <li><strong>.NET</strong> — <InlineCode>dotnet add package DigiPay</InlineCode> (net8.0 + net9.0, forward-compatible with net10)</li>
+                <li><strong>Node</strong>: <InlineCode>npm install @("@dgbwallet/digipay")</InlineCode> (Node 18+, ESM and CJS)</li>
+                <li><strong>Python</strong>: <InlineCode>pip install digipay</InlineCode> (Python 3.10+)</li>
+                <li><strong>.NET</strong>: <InlineCode>dotnet add package DigiPay</InlineCode> (net8.0 and net9.0)</li>
             </ul>
+            <p class="@P">Running WooCommerce? Use the <a href="/docs/woocommerce" class="text-dgb-500 hover:underline">WooCommerce plugin</a> instead of writing code.</p>
 
-            <DocsHeading>Running a counter? See the POS guide</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">If you're accepting DGB in-person rather than on a website, head to the <a href="/docs/pos" class="text-dgb-500 hover:underline">POS guide</a> — it walks through pairing a tablet, taking a payment, refunds, shift close, and the audit trail.</p>
+            <DocsHeading Id="pos">Selling in person</DocsHeading>
+            <p class="@P">Taking DGB at a counter rather than on a website? The <a href="/docs/pos" class="text-dgb-500 hover:underline">POS guide</a> covers pairing a tablet, taking a payment, refunds, closing a shift and the audit trail.</p>
 
-            <DocsHeading>Next</DocsHeading>
-            <p class="leading-relaxed text-slate-700 dark:text-slate-300">Ready to build? Pick an <a href="/sdks" class="text-dgb-500 hover:underline">SDK</a> for your stack, or go straight to the <a href="/docs/api" class="text-dgb-500 hover:underline">API reference</a> for the full endpoint list. Already decided? <a href="/merchant/signin" class="text-dgb-500 hover:underline">Sign in</a> and try it.</p>
+            <DocsHeading Id="next">Next</DocsHeading>
+            <ol class="@Ol">
+                <li>Read the <a href="/docs/api" class="text-dgb-500 hover:underline">API reference</a> for every endpoint and field.</li>
+                <li>Pick an <a href="/sdks" class="text-dgb-500 hover:underline">SDK</a>, or clone a <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">sample store<span class="sr-only"> (opens in a new tab)</span></a>.</li>
+                <li><a href="/merchant/signin" class="text-dgb-500 hover:underline">Sign in</a> and create your first key.</li>
+            </ol>
         </article>
-    </main>
+    </DocsLayout>
+</main>
 
+@code {
+    private static readonly DocsTocItem[] toc =
+    [
+        new("quickstart", "Quickstart — 5 minutes"),
+        new("qs-key", "1. Get an API key", true),
+        new("qs-receive", "2. Set a receive address", true),
+        new("qs-session", "3. Create a session", true),
+        new("qs-simulate", "4. Pay it on testnet", true),
+        new("qs-webhook", "5. Verify the webhooks", true),
+        new("testing", "Testing without real money"),
+        new("local-dev", "Developing locally", true),
+        new("lifecycle", "How a payment flows"),
+        new("stores", "Stores and receive addresses"),
+        new("checkout", "Hosted checkout and the embed"),
+        new("retries", "Safe retries"),
+        new("webhooks", "Webhooks"),
+        new("late-payments", "Late payments"),
+        new("donation-button", "Donation button"),
+        new("sdks", "SDKs"),
+        new("pos", "Selling in person"),
+        new("next", "Next"),
+    ];
+
+    /// <summary>Quickstart step 4: a testnet store, a session on it, and the sandbox playing the buyer.</summary>
+    private const string TestnetFlow =
+        "# 1. A testnet store (note its id), then its address and your webhook URL\n" +
+        "curl -X POST https://api.pay.dgbwallet.app/v1/pay/stores \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\" -H \"Content-Type: application/json\" \\\n" +
+        "  -d '{ \"name\": \"Testnet\", \"network\": \"testnet\" }'\n" +
+        "curl -X PATCH https://api.pay.dgbwallet.app/v1/pay/stores/$TEST_STORE_ID \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\" -H \"Content-Type: application/json\" \\\n" +
+        "  -d '{ \"addressOrXpub\": \"dgbt1q...\", \"webhookUrl\": \"https://shop.example/digipay/webhook\" }'\n\n" +
+        "# 2. A session on that store (note its id)\n" +
+        "curl -X POST https://api.pay.dgbwallet.app/v1/pay/sessions \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\" -H \"Content-Type: application/json\" \\\n" +
+        "  -d '{ \"amount\": 12.5, \"storeId\": \"sto_...\" }'\n\n" +
+        "# 3. Play the buyer. Run it three times: seen, paid (1 confirmation), confirmed (6)\n" +
+        "curl -X POST https://api.pay.dgbwallet.app/v1/pay/test/sessions/$SESSION_ID/advance \\\n" +
+        "  -H \"Authorization: Bearer $DIGIPAY_KEY\"";
+
+    /// <summary>The embed's browser callbacks (digipay.js 0.3.0).</summary>
+    internal const string EmbedCallbacks =
+        "<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n" +
+        "<script>\n" +
+        "  DigiPay.checkout({\n" +
+        "    sessionId: 'ses_...',\n" +
+        "    // Every status change: pending, seen, paid, confirmed, underpaid, expired, refunded, voided\n" +
+        "    onStatus: function (e) {\n" +
+        "      document.getElementById('order-status').textContent = e.status;\n" +
+        "    },\n" +
+        "    // Once, when the payment is confirmed (6 confirmations)\n" +
+        "    onSuccess: function (e) {\n" +
+        "      window.location.href = '/orders/thanks?session=' + encodeURIComponent(e.sessionId);\n" +
+        "    },\n" +
+        "    closeDelay: 1500 // ms the modal stays open after \"confirmed\"\n" +
+        "  });\n" +
+        "</script>";
+
+    /// <summary>Shared with the API reference: rejects a missing or wrong-length header before the constant-time compare.</summary>
+    internal const string NodeVerify =
+        "const crypto = require('crypto');\n" +
+        "const express = require('express');\n" +
+        "const app = express();\n\n" +
+        "function verifyDigiPay(rawBody, header, secret) {\n" +
+        "  if (typeof header !== 'string' || !header.startsWith('sha256=')) return false;\n" +
+        "  const expected = Buffer.from(\n" +
+        "    crypto.createHmac('sha256', secret).update(rawBody).digest('hex'));\n" +
+        "  const provided = Buffer.from(header.slice('sha256='.length));\n" +
+        "  // timingSafeEqual throws on different lengths, so check that first.\n" +
+        "  return provided.length === expected.length &&\n" +
+        "    crypto.timingSafeEqual(expected, provided);\n" +
+        "}\n\n" +
+        "app.post('/digipay/webhook', express.raw({ type: 'application/json' }), (req, res) => {\n" +
+        "  const ok = verifyDigiPay(req.body, req.headers['x-digipay-signature'],\n" +
+        "    process.env.DIGIPAY_WEBHOOK_SECRET);\n" +
+        "  if (!ok) return res.status(401).end();\n" +
+        "  const event = JSON.parse(req.body.toString('utf8'));\n" +
+        "  // De-duplicate on event.session.id + event.event, then update the order.\n" +
+        "  res.status(200).end();\n" +
+        "});";
+}

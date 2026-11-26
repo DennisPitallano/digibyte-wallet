@@ -18,9 +18,14 @@
     <link rel="stylesheet" href="@Assets["_content/DigiByte.UI/css/ui.css"]" />
     @* DigiPay's own page layout, built from the shared tokens. *@
     <link rel="stylesheet" href="@Assets["css/digipay.css"]" />
+    <link rel="stylesheet" href="@Assets["css/digipay-dashboard.css"]" />
+    <link rel="stylesheet" href="@Assets["css/digipay-pos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/digipay-docs.css"]" />
     @* Inter is used by every page, so fetch it early; JetBrains Mono loads on demand (FR-013a). *@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="_content/DigiByte.UI/fonts/inter-latin-wght-normal.woff2" />
     <meta name="theme-color" content="#f8fafc" />
+    @* The build this page came from; pos-store.js compares it with /api/build. *@
+    <meta name="digipay-build" content="@DigiByte.Pay.Web.BuildInfo.Id" />
     <link rel="stylesheet" href="@Assets["DigiByte.Pay.Web.styles.css"]" />
     <ImportMap />
     <HeadOutlet @rendermode="InteractiveServer"/>
@@ -50,8 +55,9 @@
 <body>
     @* Shopper pages (/pay/...) are rendered on the server first so the amount and QR code arrive in
        the first HTML, then become interactive for live updates (spec 032, FR-013a, research R8).
-       Everything else keeps prerendering off: the dashboard and POS read the browser's storage
-       before they can draw anything. *@
+       The public website (/, /features, /about, /sdks, /docs/...) is prerendered the same way.
+       The dashboard and POS keep prerendering off: they read the browser's storage before they can
+       draw anything. *@
     <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
@@ -65,11 +71,32 @@
     private static readonly IComponentRenderMode ShopperMode = new InteractiveServerRenderMode(prerender: true);
     private static readonly IComponentRenderMode AppMode = new InteractiveServerRenderMode(prerender: false);
 
-    private IComponentRenderMode PageRenderMode =>
-        IsShopperPage(HttpContext?.Request.Path.Value) ? ShopperMode : AppMode;
+    private IComponentRenderMode PageRenderMode => UsesPrerendering(HttpContext?.Request.Path.Value) ? ShopperMode : AppMode;
+
+    /// <summary>Shopper pages and the public website arrive as full HTML; the dashboard and POS don't.</summary>
+    public static bool UsesPrerendering(string? path) => IsShopperPage(path) || IsPublicPage(path);
 
     /// <summary>/pay/{id}, /pay/{id}/receipt and /pay/button.</summary>
-    internal static bool IsShopperPage(string? path) =>
+    public static bool IsShopperPage(string? path) =>
         path is not null && (path.Equals("/pay", StringComparison.OrdinalIgnoreCase)
                              || path.StartsWith("/pay/", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The public website: home, features, about, SDKs and every /docs page. These read nothing from the
+    /// browser before drawing, so they are rendered on the server first (readable before the live connection
+    /// is up, and visible to search engines), then become interactive for the menu, tabs and copy buttons.
+    /// </summary>
+    public static bool IsPublicPage(string? path)
+    {
+        if (path is null) return false;
+        var p = path.Length > 1 ? path.TrimEnd('/') : path;
+        if (p.Length == 0 || p == "/") return true;
+        foreach (var page in PublicPages)
+        {
+            if (p.Equals(page, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return p.StartsWith("/docs/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly string[] PublicPages = ["/features", "/use-cases", "/about", "/sdks", "/docs"];
 }

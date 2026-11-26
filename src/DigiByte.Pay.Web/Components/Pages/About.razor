@@ -28,7 +28,7 @@
                     A non-custodial DigiByte payment gateway. Drop it on any site and accept DGB in under a minute — DigiPay never holds your keys or funds.
                 </p>
                 <div class="flex flex-wrap justify-center gap-2 mt-1">
-                    <span class="text-[10px] font-bold text-dgb-500 bg-dgb-500/10 border border-dgb-500/20 px-2 py-1 rounded-full">v0 preview</span>
+                    <a href="@ProductStatus.RoadmapHref" class="text-[10px] font-bold text-dgb-500 bg-dgb-500/10 border border-dgb-500/20 px-2 py-1 rounded-full no-underline">@ProductStatus.Stage</a>
                     <span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-700/40 px-2 py-1 rounded-full">MIT License</span>
                     <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-dgb-800 border border-slate-200/60 dark:border-dgb-700/40 px-2 py-1 rounded-full">.NET 10 + Blazor SSR</span>
                     <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-dgb-800 border border-slate-200/60 dark:border-dgb-700/40 px-2 py-1 rounded-full">Non-custodial</span>
@@ -66,8 +66,8 @@
                         <Icon Name="book" Class="w-5 h-5" />
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">Documentation</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 m-0">Tutorial, API reference, embed guide</p>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white m-0">Developer docs</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 m-0">Quickstart, API reference, SDKs, WooCommerce and POS guides</p>
                     </div>
                 </a>
 
@@ -191,6 +191,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // The page is first drawn on the server (prerendered); fetch only once it is live, so the
+        // server render isn't held up by GitHub and GitHub isn't asked twice per visit.
+        if (!RendererInfo.IsInteractive) return;
         try
         {
             // Shared repo with the main wallet — same contributors graph.

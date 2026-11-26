@@ -4,6 +4,9 @@
 @inject IHttpClientFactory HttpFactory
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ILogger<Signin> Log
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+@inject IServiceProvider Services
 @using System.Net.Http.Json
 
 <PageTitle>Sign in — DigiPay</PageTitle>
@@ -85,8 +88,11 @@
                         <div class="w-7 h-7 rounded-full bg-dgb-500 text-white text-xs font-bold flex items-center justify-center">2</div>
                         <div class="text-[0.6875rem] font-semibold text-slate-700 dark:text-slate-300 leading-tight">Scan this<br />QR code</div>
                     </li>
-                    <li class="flex flex-col items-center gap-1.5">
-                        <div class="w-7 h-7 rounded-full @(pollCount > 0 ? "bg-emerald-500" : "bg-slate-300 dark:bg-dgb-700") text-white text-xs font-bold flex items-center justify-center transition-colors">3</div>
+                    @* Step 3 is never shown as done here: while this list shows, the wallet hasn't
+                       approved yet (the poll answers "still waiting"). Once it does, the page
+                       switches to "Signed in". *@
+                    <li class="flex flex-col items-center gap-1.5" aria-current="step">
+                        <div class="w-7 h-7 rounded-full bg-slate-300 dark:bg-dgb-700 text-white text-xs font-bold flex items-center justify-center">3</div>
                         <div class="text-[0.6875rem] font-semibold text-slate-700 dark:text-slate-300 leading-tight">Approve<br />in wallet</div>
                     </li>
                 </ol>
@@ -100,9 +106,18 @@
                     <span>Waiting for signature · expires in <span class="font-mono">@FormatRemaining()</span></span>
                 </div>
 
-                @* Secondary: copy URI. Removed the "Open in wallet" deeplink — Digi-ID
-                   is a scan-from-another-device flow, and offering a same-device link
-                   muddled the primary instruction. *@
+                @* No wallet app to scan with? Approve in the DigiByte Wallet in the browser. It opens in a new tab at
+                   the wallet's Digi-ID page with this challenge (the same link its installed app handles); the
+                   wallet shows the site and asks before signing, and this page signs in as soon as it's approved. *@
+                <a href="@WalletSignInHref" target="_blank" rel="noopener" class="btn-secondary w-full dp-signin-wallet">
+                    <img src="/dgbwallet-logo.svg" alt="" width="18" height="18" class="ui-wallet-web-logo" />
+                    <span>Sign in with DigiByte Wallet</span>
+                    <Icon Name="external-link" Class="w-4 h-4 opacity-70" />
+                    <span class="sr-only">(dgbwallet.app, opens in a new tab)</span>
+                </a>
+                <p class="ui-wallet-hint">Wallet on this computer? Approve there and come back to this tab.</p>
+
+                @* Copy the challenge, for wallets that take a pasted Digi-ID link. *@
                 <button type="button" @onclick="CopyUriAsync"
                         class="inline-flex items-center gap-2 text-[0.75rem] font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 dark:hover:text-dgb-400 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
@@ -110,6 +125,25 @@
                 </button>
             }
         </div>
+
+        @* Development only: sign in as a fixed testnet "Dev merchant" without a wallet. Shown
+           only when this app runs in Development AND the API answers /v1/pay/dev/status
+           (it maps that only in Development with DigiPay:DevSignIn=true). *@
+        @if (devSignInAvailable && signed == null)
+        {
+            <div class="mt-4 flex flex-col items-center gap-2 text-center">
+                <button type="button" @onclick="DevSignInAsync" disabled="@devSigningIn"
+                        aria-busy="@(devSigningIn ? "true" : "false")" data-testid="dev-signin"
+                        class="btn-secondary w-full">
+                    Sign in as dev merchant (local testing)
+                </button>
+                <p class="text-[0.6875rem] text-amber-600 m-0">Development only. Uses a testnet store; never shown in production.</p>
+                @if (devError != null)
+                {
+                    <p class="text-[0.6875rem] text-red-500 m-0" role="alert">@devError</p>
+                }
+            </div>
+        }
 
         @* Soft footer — where to get a wallet that supports Digi-ID *@
         <p class="text-center text-[0.6875rem] text-slate-400 dark:text-slate-500 mt-6 m-0">
@@ -131,10 +165,61 @@
     private bool copied;
     private System.Threading.Timer? poller;
     private System.Threading.Timer? ticker;
+    private bool devSignInAvailable;
+    private bool devSigningIn;
+    private string? devError;
 
     protected override async Task OnInitializedAsync()
     {
         await StartChallengeAsync();
+        await CheckDevSignInAsync();
+    }
+
+    // The dev button needs both sides in Development: this app's environment, and the API
+    // advertising /v1/pay/dev/status. Never asked (so never shown) outside Development.
+    private async Task CheckDevSignInAsync()
+    {
+        if (!Env.IsDevelopment()) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetAsync("/v1/pay/dev/status");
+            if (!response.IsSuccessStatusCode) return;
+            var status = await response.Content.ReadFromJsonAsync<DevStatusResponse>();
+            devSignInAvailable = status?.Enabled == true;
+        }
+        catch (Exception ex)
+        {
+            Log.LogDebug(ex, "Sign-in: dev sign-in status unavailable");
+        }
+    }
+
+    private async Task DevSignInAsync()
+    {
+        if (!devSignInAvailable || devSigningIn) return;
+        devSigningIn = true;
+        devError = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.PostAsync("/v1/pay/dev/signin", null);
+            var body = response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<SignedResponse>() : null;
+            if (body is null)
+            {
+                devError = "Dev sign-in didn't work. Check the API runs in Development with DigiPay:DevSignIn set to true.";
+                return;
+            }
+            await CompleteSignInAsync(body);
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(ex, "Sign-in: dev sign-in failed");
+            devError = "Dev sign-in couldn't reach the API. Check it's running and try again.";
+        }
+        finally
+        {
+            devSigningIn = false;
+        }
     }
 
     private async Task StartChallengeAsync()
@@ -153,7 +238,9 @@
         }
         catch (Exception ex)
         {
-            loadError = $"Could not start sign-in: {ex.Message}";
+            // Details to the server log; the page shows a plain message with Try again.
+            Log.LogWarning(ex, "Sign-in: challenge failed");
+            loadError = "Sign-in couldn't be started. Check your connection and try again.";
         }
     }
 
@@ -196,22 +283,41 @@
             {
                 var body = await response.Content.ReadFromJsonAsync<SignedResponse>();
                 if (body is null) return;
-                poller?.Dispose(); poller = null;
-                ticker?.Dispose(); ticker = null;
-                await InvokeAsync(async () =>
-                {
-                    signed = body;
-                    await JS.InvokeVoidAsync("localStorage.setItem", "digipay-token", body.Token);
-                    await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
-                    StateHasChanged();
-                });
-                await Task.Delay(1200);
-                // Back to where the merchant was going, but only to a local dashboard address
-                // (open-redirect guard, contracts/dashboard-routes.md). A full load picks up the token.
-                await InvokeAsync(() => Nav.NavigateTo(ReturnUrlGuard.Sanitize(ReturnTo), forceLoad: true));
+                await CompleteSignInAsync(body);
             }
         }
         catch { /* transient — keep polling */ }
+    }
+
+    // Shared by Digi-ID and dev sign-in: store the session token, show "Signed in", go on.
+    private async Task CompleteSignInAsync(SignedResponse body)
+    {
+        poller?.Dispose(); poller = null;
+        ticker?.Dispose(); ticker = null;
+        await InvokeAsync(async () =>
+        {
+            signed = body;
+            await JS.InvokeVoidAsync("localStorage.setItem", "digipay-token", body.Token);
+            await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
+            StateHasChanged();
+        });
+        await Task.Delay(1200);
+        // Back to where the merchant was going, but only to a local dashboard address
+        // (open-redirect guard, contracts/dashboard-routes.md). A full load picks up the token.
+        await InvokeAsync(() => Nav.NavigateTo(ReturnUrlGuard.Sanitize(ReturnTo), forceLoad: true));
+    }
+
+    /// <summary>The DigiByte Wallet's Digi-ID page with this challenge (DigiPay:WalletUrl, default dgbwallet.app).</summary>
+    private string WalletSignInHref
+    {
+        get
+        {
+            var wallet = (Services.GetService(typeof(WalletAppUrl)) as WalletAppUrl)?.Value ?? WalletAppUrl.Default;
+            // &return= is this sign-in page; after approval the wallet offers "Return to {host}" (it closes its tab
+            // when this page opened it, else comes back here). The wallet only accepts it on the same site as the
+            // challenge's Digi-ID domain (pay.dgbwallet.app, or localhost on any port in development).
+            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}&return={Uri.EscapeDataString(Nav.Uri)}";
+        }
     }
 
     private async Task CopyUriAsync()
@@ -264,4 +370,5 @@
 
     private record ChallengeResponse(string Nonce, string Uri, DateTime ExpiresAt);
     private record SignedResponse(string Status, string MerchantId, string DisplayName, string Token);
+    private record DevStatusResponse(bool Enabled);
 }

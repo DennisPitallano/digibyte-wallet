@@ -5,8 +5,8 @@
 @* Public site menu (spec 032, US7). Wide screens: inline links. Phones: a menu button that opens a
    wallet-style sheet (dialog: focus moves in, Escape or a tap outside closes it, focus returns). *@
 @{
-    var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
-    bool current(string p) => path == p;
+    var active = ActiveHref(new Uri(Nav.Uri).AbsolutePath);
+    bool current(string href) => href == active;
 }
 
 <nav class="dp-sitenav" aria-label="Site">
@@ -16,9 +16,9 @@
             <span>Digi<span class="text-dgb-500">Pay</span></span>
         </a>
         <div class="hidden md:flex gap-1 flex-1 items-center">
-            @foreach (var (href, label) in Links)
+            @foreach (var link in Links)
             {
-                <a href="@href" class="dp-sitenav-link" aria-current="@(current(href) ? "page" : null)">@label</a>
+                <a href="@link.Href" class="dp-sitenav-link" aria-current="@(current(link.Href) ? "page" : null)">@link.Label</a>
             }
             <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="dp-sitenav-link">
                 Wallet <Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
@@ -50,9 +50,9 @@
                 <button type="button" class="icon-btn" aria-label="Close menu" data-autofocus @onclick="CloseMenu"><Icon Name="close" Class="w-5 h-5" /></button>
             </div>
             <nav aria-label="Site pages" class="dp-sheet-list">
-                @foreach (var (href, label) in Links)
+                @foreach (var link in Links)
                 {
-                    <a href="@href" class="dp-rail-item" aria-current="@(current(href) ? "page" : null)" @onclick="CloseMenu">@label</a>
+                    <a href="@link.Href" class="dp-rail-item" aria-current="@(current(link.Href) ? "page" : null)" @onclick="CloseMenu">@link.Label</a>
                 }
                 <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="dp-rail-item">
                     <span class="flex-1">Wallet</span><Icon Name="external-link" Class="w-4 h-4 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
@@ -67,15 +67,47 @@
 }
 
 @code {
-    private static readonly (string Href, string Label)[] Links =
+    /// <summary>A menu entry. <see cref="Sections"/> are the address prefixes that count as "inside" it.</summary>
+    public sealed record SiteLink(string Href, string Label, string[] Sections);
+
+    public static readonly SiteLink[] Links =
     [
-        ("/features", "Features"),
-        ("/docs", "How it works"),
-        ("/docs/pos", "POS"),
-        ("/sdks", "SDKs"),
-        ("/docs/api", "API"),
-        ("/about", "About"),
+        new("/features", "Features", ["/features"]),
+        new("/use-cases", "Use cases", ["/use-cases"]),
+        new("/#how-it-works", "How it works", []),
+        new("/docs/pos", "POS", ["/docs/pos"]),
+        new("/docs", "Developers", ["/docs", "/sdks"]),
+        new("/about", "About", ["/about"]),
     ];
+
+    /// <summary>
+    /// Which menu entry to mark as the current page for an address. A sub-page lights up its parent
+    /// (/docs/api and /sdks → Developers); when two entries match, the longer prefix wins (/docs/pos → POS,
+    /// not Developers). The home page matches nothing, so it never lights up a section.
+    /// </summary>
+    public static string? ActiveHref(string? path)
+    {
+        var p = (path ?? "/").Split('?', '#')[0];
+        if (p.Length > 1) p = p.TrimEnd('/');
+        if (p.Length == 0 || p == "/") return null;
+
+        SiteLink? best = null;
+        var bestLength = -1;
+        foreach (var link in Links)
+        {
+            foreach (var section in link.Sections)
+            {
+                var inside = p.Equals(section, StringComparison.OrdinalIgnoreCase)
+                             || p.StartsWith(section + "/", StringComparison.OrdinalIgnoreCase);
+                if (inside && section.Length > bestLength)
+                {
+                    best = link;
+                    bestLength = section.Length;
+                }
+            }
+        }
+        return best?.Href;
+    }
 
     private bool menuOpen;
     private DotNetObjectReference<SiteNav>? self;

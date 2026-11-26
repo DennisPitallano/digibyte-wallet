@@ -28,3 +28,73 @@ jobs:
         working-directory: src/DigiByte.Web
       - run: dotnet publish src/DigiByte.Web -c Release -o publish --nologo
       - run: python3 tools/verify-sw-manifest.py publish/wwwroot
+
+  # DigiPay (merchant payments): the Pay API, the Pay web app (checkout, receipt, POS, dashboard, docs) and its
+  # browser scripts (checkout countdown, embed widget, POS storage). A separate job so it runs alongside the wallet
+  # and shows as its own check.
+  digipay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: dotnet test tests/DigiByte.Pay.Api.Tests
+      - run: dotnet test tests/DigiByte.Pay.Web.Tests
+      # node --test only: no packages to install.
+      - run: npm test
+        working-directory: src/DigiByte.Pay.Web
+
+  # DigiPay end to end: starts Pay.Api (fresh SQLite, dev sign-in) and Pay.Web, then drives them in Chromium:
+  # the merchant and POS journeys, the public site at phone/desktop widths in both themes, and axe accessibility
+  # checks. Then Lighthouse for the home page and /docs. See tests/DigiByte.Pay.E2E.
+  digipay-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: tests/DigiByte.Pay.E2E
+    env:
+      # Both servers are built once here; the test runner then starts them with --no-build.
+      E2E_SKIP_BUILD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/DigiByte.Pay.E2E/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build Pay.Api and Pay.Web
+        working-directory: .
+        run: |
+          dotnet build src/DigiByte.Pay.Web --nologo
+          dotnet build src/DigiByte.Pay.Api --nologo
+      - name: Journeys and accessibility
+        run: npx playwright test
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: digipay-e2e-report
+          path: |
+            tests/DigiByte.Pay.E2E/playwright-report
+            tests/DigiByte.Pay.E2E/test-results
+          retention-days: 14
+      - name: Lighthouse (home, /docs)
+        run: npm run lighthouse
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: digipay-lighthouse
+          path: tests/DigiByte.Pay.E2E/lighthouse-results
+          if-no-files-found: ignore
+          retention-days: 14

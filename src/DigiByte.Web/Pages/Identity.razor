@@ -244,6 +244,8 @@
                     <span class="text-[11px] text-green-700 dark:text-green-400">@DateTime.Now.ToString("h:mm:ss tt")</span>
                 </div>
             </div>
+            @* The site that opened this sign-in (?return=, same site as the request only): never automatic. *@
+            <SiteReturnButton ReturnTo="@siteReturn" />
             <button class="text-xs text-green-600 dark:text-green-400 font-medium hover:underline mt-1" @onclick="ResetState">@L.T("identity.success.another")</button>
         </div>
     }
@@ -362,6 +364,9 @@
     public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 
     private string? handledUri;
+    // The ?return= address the arriving code came with (unchecked), and the checked one shown after approval.
+    private string? incomingReturn;
+    private DigiByte.Wallet.Services.SiteReturn? siteReturn;
 
     private async Task HandleIncomingUriAsync()
     {
@@ -370,6 +375,7 @@
         var navUri = new Uri(Nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(navUri.Query);
         var incomingUri = query["uri"];
+        var returnParam = query["return"];
         
         if (!string.IsNullOrEmpty(incomingUri))
         {
@@ -383,6 +389,8 @@
                 if (!WalletService.IsUnlocked)
                 {
                     var back = "/identity?uri=" + Uri.EscapeDataString(incomingUri);
+                    // The site's return address comes back too; it is checked only after approval.
+                    if (!string.IsNullOrEmpty(returnParam)) back += "&return=" + Uri.EscapeDataString(returnParam);
                     Nav.NavigateTo("/unlock?returnUrl=" + Uri.EscapeDataString(back));
                     return;
                 }
@@ -390,6 +398,7 @@
                 // Each arriving code is acted on once, however many times the address is looked at.
                 if (incomingUri == handledUri) return;
                 handledUri = incomingUri;
+                incomingReturn = returnParam;
 
                 digiIdUri = incomingUri;
                 StateHasChanged();
@@ -499,6 +508,7 @@
     private void ResetState()
     {
         authResult = AuthResult.None;
+        siteReturn = null;
         parseError = null;
         authErrorTitle = null;
         authErrorDetail = null;
@@ -621,6 +631,10 @@
 
             // Success
             lastAuthDomain = pendingRequest.Domain;
+            // Offer the way back only for the code that arrived with it, and only to the same site as the request.
+            siteReturn = pendingRequest.OriginalUri == handledUri
+                ? DigiByte.Wallet.Services.SiteReturnUrl.ForDigiId(incomingReturn, pendingRequest.CallbackUrl)
+                : null;
             lastAuthAddress = response.Address;
 
             authHistory.Insert(0, new DigiIdLoginRecord

@@ -7,11 +7,11 @@
     {
         <button type="button" class="segmented-item" data-dp-theme-choice="@mode"
                 onclick="@($"DigiPayTheme.setMode('{mode}')")"
-                title="@(Compact ? label : null)" aria-label="@(Compact ? label : null)">
+                title="@(Compact || ShortLabels ? label : null)" aria-label="@(Compact || ShortLabels ? label : null)">
             <Icon Name="@icon" Class="w-4 h-4 shrink-0" />
             @if (!Compact)
             {
-                <span>@shortLabel</span>
+                <span aria-hidden="@(ShortLabels ? "true" : null)">@(ShortLabels ? TinyLabel(mode) : shortLabel)</span>
             }
         </button>
     }
@@ -28,4 +28,10 @@
     /// <summary>Icons only (with accessible names), for tight spots such as the site menu bar.</summary>
     [Parameter] public bool Compact { get; set; }
     [Parameter] public string Class { get; set; } = "";
+
+    /// <summary>One-word labels (Light / Dark / Device) for narrow spots such as the dashboard menu footer;
+    /// the full name stays as the accessible name and tooltip.</summary>
+    [Parameter] public bool ShortLabels { get; set; }
+
+    private static string TinyLabel(string mode) => mode switch { "system" => "Device", "dark" => "Dark", _ => "Light" };
 }

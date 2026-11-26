@@ -1,6 +1,5 @@
 @page "/features"
 @layout SiteLayout
-@rendermode InteractiveServer
 @inject NavigationManager Nav
 
 <PageTitle>Features tour — DigiPay</PageTitle>
@@ -20,14 +19,14 @@
     const string BtnGhost = "btn-secondary";
     const string Pill = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold";
     // Cache-bust screenshots — bump whenever images are regenerated so browsers pull the fresh version.
-    const string ImgV = "?v=2026-04-24";
+    const string ImgV = "?v=2026-11-26b";
 }
 
 
     <main class="flex-1 page-enter">
         @* ---------- Hero ---------- *@
         <section class="max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-6">
-            <div class="@Eyebrow mb-3 slide-up">Product tour · April 2026</div>
+            <div class="@Eyebrow mb-3 slide-up">Product tour</div>
             <h1 class="text-3xl sm:text-5xl font-bold tracking-tight mb-4 slide-up-delay-1">
                 Everything you can do with <span class="text-dgb-500">DigiPay</span>
             </h1>
@@ -45,12 +44,13 @@
 
         @* ---------- Tab navigator ---------- *@
         <section id="tour" class="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-10 scroll-mt-20">
-            <div class="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+            <div role="tablist" aria-label="Feature tour" class="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
                 @foreach (var t in tabs)
                 {
                     var key = t.Key;
                     var active = activeTab == key;
-                    <button type="button"
+                    <button type="button" role="tab" id="@($"tour-tab-{key}")" aria-selected="@(active ? "true" : "false")"
+                            aria-controls="tour-panel" tabindex="@(active ? 0 : -1)"
                             class="shrink-0 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap @(active ? "bg-dgb-500/10 text-dgb-500 border-dgb-500/30" : "bg-white dark:bg-dgb-900 hover:bg-slate-50 dark:hover:bg-dgb-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-dgb-800")"
                             @onclick="() => activeTab = key">
                         @t.Badge @t.Label
@@ -59,7 +59,7 @@
             </div>
 
             @* ---------- Tab panels ---------- *@
-            <div class="mt-6">
+            <div class="mt-6" role="tabpanel" id="tour-panel" aria-labelledby="@($"tour-tab-{activeTab}")" tabindex="0">
                 @if (activeTab == "checkout")
                 {
                     <FeaturePanel Eyebrow="Hosted checkout" Title="One link, one QR, paid."
@@ -71,7 +71,7 @@
                                 <li><strong>Live fiat conversion.</strong> Amount in EUR/USD/PHP/… is locked at invoice time using a public CoinGecko proxy.</li>
                                 <li><strong>Drift guard.</strong> If DGB price moves more than ±3% before payment, a banner warns the buyer before they confirm.</li>
                                 <li><strong>Late-payment grace window.</strong> We keep polling expired invoices for 3 days; if the buyer paid anyway, it still reconciles.</li>
-                                <li><strong>Embed or redirect.</strong> Redirect to <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">checkout_url</code>, or drop a button with our 4-line JS embed.</li>
+                                <li><strong>Embed or redirect.</strong> Redirect to <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">checkoutUrl</code>, or open the checkout over your page with a two-line JS embed.</li>
                             </ul>
                         </ChildContent>
                     </FeaturePanel>
@@ -108,7 +108,7 @@
                                 <li><strong>Refund</strong> — for Paid / Confirmed sessions. Record the refund txid + a note; the session flips to <span class="@Pill bg-indigo-500/10 text-indigo-500">Refunded</span>.</li>
                                 <li><strong>Void</strong> — for Pending / Seen sessions. Collapses the expiry so the chain monitor stops polling; session becomes <span class="@Pill bg-slate-500/15 text-slate-500">Voided</span>.</li>
                                 <li><strong>Webhooks fire.</strong> <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">session.refunded</code> and <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">session.voided</code> events go out on the store's webhook URL.</li>
-                                <li><strong>Everything audited.</strong> Actor, IP, and reason land in the <a href="#" @onclick='() => activeTab = "audit"' @onclick:preventDefault class="text-dgb-500 hover:underline">Audit log</a>.</li>
+                                <li><strong>Everything audited.</strong> Actor, IP, and reason land in the <button type="button" class="dp-linklike" @onclick='() => activeTab = "audit"'>Audit log</button>.</li>
                             </ul>
                         </ChildContent>
                     </FeaturePanel>
@@ -148,15 +148,15 @@
                 else if (activeTab == "webhooks")
                 {
                     <FeaturePanel Eyebrow="Webhooks" Title="Signed POSTs, replayable deliveries."
-                                  Summary="Every state change POSTs to your URL with an HMAC-SHA256 signature. Failed deliveries get automatic retries on a back-off schedule; any delivery is manually replayable from the dashboard with a single click."
+                                  Summary="Every state change POSTs to your URL with an HMAC-SHA256 signature. Failed deliveries retry automatically on a back-off schedule, and any delivery can be replayed from the dashboard with one click."
                                   ImgSrc="@($"/img/features/dashboard-webhook.png{ImgV}")"
                                   ImgAlt="Webhook configuration panel with delivery log and export CSV.">
                         <ChildContent>
                             <ul class="space-y-2 @Muted list-disc pl-5">
                                 <li><strong>HMAC signed.</strong> <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">X-DigiPay-Signature: sha256=…</code> — verify with <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">timingSafeEqual</code>.</li>
-                                <li><strong>Idempotency built in.</strong> Each delivery has a unique <code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">X-DigiPay-Delivery</code> id — dedupe on your side.</li>
-                                <li><strong>Automatic retries</strong> on 5xx / network errors with back-off; dead-letter visible in the log.</li>
-                                <li><strong>One-click replay</strong> — re-fires the exact same payload and adds a new audit row.</li>
+                                <li><strong>Safe to receive twice.</strong> Retries and replays can repeat an event, so de-duplicate on the session id plus the event name. (<code class="px-1 bg-slate-100 dark:bg-dgb-950 rounded">X-DigiPay-Delivery</code> is new on every attempt.)</li>
+                                <li><strong>Automatic retries</strong> on network errors, 5xx, 408 and 429: after 1 min, 5 min, 30 min, 2 h and 6 h. Then it waits in the log for a manual replay.</li>
+                                <li><strong>One-click replay</strong> — sends the event again, rebuilt from the session's current state, as a new logged delivery.</li>
                             </ul>
                         </ChildContent>
                     </FeaturePanel>
@@ -164,15 +164,16 @@
                 else if (activeTab == "security")
                 {
                     <FeaturePanel Eyebrow="Security & ops" Title="Production-ready from day one."
-                                  Summary="DigiPay is non-custodial — we never hold your keys. We ship with rate limiting, EF migrations, HTTPS redirect guards, and a fully documented OpenAPI 3.1 surface (rendered live with Scalar)."
+                                  Summary="DigiPay is non-custodial — we never hold your keys. It ships with rate limiting, database migrations, checks on every outgoing webhook address, and an OpenAPI 3.1 description of the integration endpoints, rendered live with Scalar."
                                   ImgSrc="@($"/img/features/dashboard-overview.png{ImgV}")"
                                   ImgAlt="Dashboard overview with store health stats.">
                         <ChildContent>
                             <ul class="space-y-2 @Muted list-disc pl-5">
                                 <li><strong>Non-custodial.</strong> Funds go straight to your xpub or single address. We never touch a private key.</li>
-                                <li><strong>Rate-limited.</strong> Auth (10/min), register (5/min), claim (20/min), sandbox (20/min) — all per-IP.</li>
+                                <li><strong>No DigiPay fees.</strong> DigiPay takes no cut of any payment. The shopper's wallet pays only the normal DigiByte network fee.</li>
+                                <li><strong>Rate-limited.</strong> Sign-in 10/min, sign-up 5/hour, POS pairing 20/min and sandbox 20/min per client address; merchant endpoints 120/min per API key.</li>
                                 <li><strong>EF migrations</strong> with automatic baselining — upgrade Postgres-backed deployments without downtime.</li>
-                                <li><strong>OpenAPI 3.1 + Scalar.</strong> Every public endpoint is <a href="/docs/api" class="text-dgb-500 hover:underline">browsable and callable in the browser</a>.</li>
+                                <li><strong>OpenAPI 3.1 + Scalar.</strong> The server-to-server endpoints (sessions, stores and webhooks, public, sandbox) are <a href="/docs/api" class="text-dgb-500 hover:underline">browsable and callable in the browser</a>.</li>
                             </ul>
                         </ChildContent>
                     </FeaturePanel>
@@ -327,26 +328,33 @@
             </div>
         </section>
 
-        @* ---------- Roadmap ---------- *@
-        <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
-            <div class="@Eyebrow mb-2">What's next</div>
+        @* ---------- Roadmap (the canonical one: ProductStatus) ---------- *@
+        <section id="roadmap" class="max-w-5xl mx-auto px-4 sm:px-6 py-10 scroll-mt-20">
+            <div class="@Eyebrow mb-2">Status</div>
             <h2 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Roadmap</h2>
             <p class="@Muted max-w-3xl mb-6">
-                Shipped this release, and what's coming. Priority-ordered by merchant impact.
+                DigiPay is in <strong>@ProductStatus.Stage</strong>. Here's what has shipped and what's coming, roughly in priority order.
+                Order can shift with merchant demand: if something here is blocking you, raise it on the
+                <a href="https://github.com/DennisPitallano/digibyte-wallet/issues" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">issue tracker<span class="sr-only"> (opens in a new tab)</span></a>.
             </p>
 
-            <div class="grid sm:grid-cols-2 gap-4">
-                @foreach (var item in roadmap)
-                {
-                    <div class="@Card">
-                        <div class="flex items-start justify-between gap-3 mb-2">
-                            <h3 class="text-base font-bold m-0">@item.Title</h3>
-                            <span class="@Pill @StatusClass(item.Status)">@item.Status</span>
-                        </div>
-                        <p class="@Muted m-0">@item.Description</p>
-                    </div>
-                }
-            </div>
+            @foreach (var (stage, heading) in RoadmapGroups)
+            {
+                <div class="dp-roadmap-group">
+                    <h3 class="text-base font-bold mb-3 flex items-center gap-2">
+                        <span class="@Pill @StatusClass(stage) text-xs">@heading</span>
+                    </h3>
+                    <ul class="dp-roadmap-list">
+                        @foreach (var item in ProductStatus.InStage(stage))
+                        {
+                            <li class="card dp-roadmap-item">
+                                <h4>@item.Title</h4>
+                                <p>@item.Description</p>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
         </section>
 
         @* ---------- CTA ---------- *@
@@ -374,7 +382,7 @@
         new Tab("pos",       "POS mode"),
         new Tab("refund",    "Refunds & voids"),
         new Tab("analytics", "Analytics"),
-        new Tab("audit",     "Audit log", "new"),
+        new Tab("audit",     "Audit log"),
         new Tab("webhooks",  "Webhooks"),
         new Tab("security",  "Security & ops"),
     };
@@ -468,33 +476,18 @@
         _ => "bg-slate-500/15 text-slate-500",
     };
 
-    // ---------- roadmap ----------
-    private record RoadmapItem(string Title, string Description, string Status);
-    private readonly RoadmapItem[] roadmap = new[]
-    {
-        new RoadmapItem("Hosted checkout", "One-link payments with live fiat conversion, drift guard, late-payment reconciliation.", "Shipped"),
-        new RoadmapItem("POS mode", "Tablet pairing, amount pad, tip presets, shift close reports.", "Shipped"),
-        new RoadmapItem("Refunds & voids", "Off-platform refund recording + void for unpaid sessions, with webhooks.", "Shipped"),
-        new RoadmapItem("Dashboard analytics", "KPI tiles, stacked daily outcome bar chart, DGB volume area chart.", "Shipped"),
-        new RoadmapItem("Audit log", "Append-only trail of void / refund / store / key mutations with actor + IP.", "Shipped"),
-        new RoadmapItem("Rate limiting + migrations", "Per-IP rate limits across auth/register/claim/sandbox, EF migrations with auto-baseline.", "Shipped"),
-        new RoadmapItem("Payment links (no-code)", "Dashboard tab to mint a shareable checkout URL — DGB or fiat priced, with QR + email/SMS/Web Share buttons.", "Shipped"),
-        new RoadmapItem("End-to-end sample apps", "Single-file mini-stores for Express, Flask, and ASP.NET Core covering checkout + HMAC webhook verification.", "Shipped"),
-        new RoadmapItem("Idempotency keys + Postman collection", "Stripe-style Idempotency-Key header on session creation (replay-safe within 24h), curated Postman 2.1 collection with auto-saved variables.", "Shipped"),
-        new RoadmapItem("CSV export expansion", "Shift reports, analytics windows, audit log — all downloadable.", "Next"),
-        new RoadmapItem("Email receipts", "Customer email on session.confirmed with txid + amount, opt-in per store. SMTP / SendGrid / Resend pluggable via configuration.", "Next"),
-        new RoadmapItem("Automated test suite (Pay.Api)", "First xUnit project covering idempotency races, webhook HMAC verification, rate-limit policies, and pairing-code expiry. Sets the regression net for everything above.", "Next"),
-        new RoadmapItem("digipay listen — webhook tunnel CLI", "Stripe-CLI-shaped local tunnel that forwards verified webhook events to a dev's localhost — no ngrok required. Distributed via npm / PyPI / NuGet.", "Planned"),
-        new RoadmapItem("Offline queue (POS)", "Tablet queues sessions locally when API unreachable, replays on reconnect.", "Planned"),
-        new RoadmapItem("Internationalisation", "Resource extraction across Pay.Web + POS kiosk.", "Planned"),
-        new RoadmapItem("Payout / sweep automation", "Auto-consolidate per-session addresses into merchant treasury.", "Planned"),
-    };
+    // ---------- roadmap (data lives in Shared/ProductStatus.cs) ----------
+    private static readonly (RoadmapStage Stage, string Heading)[] RoadmapGroups =
+    [
+        (RoadmapStage.Next, "Coming next"),
+        (RoadmapStage.Planned, "Planned"),
+        (RoadmapStage.Shipped, "Shipped"),
+    ];
 
-    private static string StatusClass(string status) => status switch
+    private static string StatusClass(RoadmapStage stage) => stage switch
     {
-        "Shipped" => "bg-emerald-500/10 text-emerald-500",
-        "Next"    => "bg-dgb-500/10 text-dgb-500",
-        "Planned" => "bg-slate-500/15 text-slate-500",
-        _         => "bg-slate-500/15 text-slate-500",
+        RoadmapStage.Shipped => "bg-emerald-500/10 text-emerald-500",
+        RoadmapStage.Next    => "bg-dgb-500/10 text-dgb-500",
+        _                    => "bg-slate-500/15 text-slate-500",
     };
 }

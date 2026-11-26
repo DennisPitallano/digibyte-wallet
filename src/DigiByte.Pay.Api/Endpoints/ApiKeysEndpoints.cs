@@ -23,8 +23,11 @@ public static class ApiKeysEndpoints
             var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
             if (merchant is null) return Results.Unauthorized();
 
+            // POS tablet keys (Kind "pos", the same rule as PosEndpoints /devices) are listed
+            // and unpaired under POS tablets, not here.
             var keys = await db.ApiKeys.AsNoTracking()
                 .Where(k => k.MerchantId == merchant.Id)
+                .Where(k => k.Kind != ApiKeyKind.Pos)
                 .OrderByDescending(k => k.CreatedAt)
                 .ToListAsync();
 

@@ -21,32 +21,16 @@
 }
 
 
-    <main class="flex-1 page-enter">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 grid lg:grid-cols-[220px,1fr] gap-8">
-
-            @* ----- Sidebar menu ----- *@
-            <aside class="lg:sticky lg:top-6 self-start">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 px-1">WooCommerce install</p>
-                <nav class="flex flex-col text-sm">
-                    <a href="/docs/woocommerce#before"   class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">Before you start</a>
-                    <a href="/docs/woocommerce#zip"      class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">1. Get the ZIP</a>
-                    <a href="/docs/woocommerce#upload"   class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">2. Upload + activate</a>
-                    <a href="/docs/woocommerce#account"  class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">3. Register a merchant</a>
-                    <a href="/docs/woocommerce#configure" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">4. Configure the plugin</a>
-                    <a href="/docs/woocommerce#verify"   class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">5. Verify at checkout</a>
-                    <a href="/docs/woocommerce#test"     class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">6. Place a test order</a>
-                    <a href="/docs/woocommerce#confirm"  class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">7. Confirm in WC admin</a>
-                    <a href="/docs/woocommerce#troubleshoot" class="px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-dgb-900 text-slate-700 dark:text-slate-300 no-underline">Troubleshooting</a>
-                    <div class="mt-4 border-t border-slate-200 dark:border-dgb-800 pt-3 flex flex-col gap-1">
-                        <a href="/sdks" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">← Back to SDKs &amp; integrations</a>
-                        <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/woocommerce-plugin" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">Plugin source on GitHub ↗</a>
-                        <a href="https://github.com/DennisPitallano/digibyte-wallet/blob/main/samples/woocommerce-plugin/docs/customer-flow.md" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-dgb-500 no-underline">Customer flow ↗</a>
-                    </div>
-                </nav>
-            </aside>
-
-            @* ----- Content ----- *@
-            <article class="max-w-3xl">
+<main class="flex-1 page-enter">
+    <DocsLayout Current="/docs/woocommerce" Toc="toc">
+        <Extra>
+            <div class="dp-docs-extra">
+                <a href="https://github.com/DennisPitallano/digibyte-wallet/tree/main/samples/woocommerce-plugin" target="_blank" rel="noopener" class="dp-docs-nav-link">Plugin source ↗<span class="sr-only"> (opens in a new tab)</span></a>
+                <a href="https://github.com/DennisPitallano/digibyte-wallet/blob/main/samples/woocommerce-plugin/docs/customer-flow.md" target="_blank" rel="noopener" class="dp-docs-nav-link">Customer flow ↗<span class="sr-only"> (opens in a new tab)</span></a>
+            </div>
+        </Extra>
+        <ChildContent>
+            <article class="dp-docs-article">
                 <p class="text-[10px] font-bold uppercase tracking-widest text-dgb-500 mb-2">WooCommerce install guide · v0.1.0</p>
                 <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3 slide-up">Accept DigiByte in WooCommerce</h1>
                 <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8 slide-up-delay-1">
@@ -281,5 +265,21 @@
                     </a>
                 </section>
             </article>
-        </div>
-    </main>
+        </ChildContent>
+    </DocsLayout>
+</main>
+
+@code {
+    private static readonly DocsTocItem[] toc =
+    [
+        new("before", "Before you start"),
+        new("zip", "1. Get the ZIP"),
+        new("upload", "2. Upload and activate"),
+        new("account", "3. Register a merchant"),
+        new("configure", "4. Configure the plugin"),
+        new("verify", "5. Verify at checkout"),
+        new("test", "6. Place a test order"),
+        new("confirm", "7. Confirm in WC admin"),
+        new("troubleshoot", "Troubleshooting"),
+    ];
+}

@@ -1,31 +1,48 @@
 ﻿<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
 
-<dialog id="components-reconnect-modal" data-nosnippet>
+@* Shown by Blazor when the live connection drops. Styled on the shared tokens (light and dark) with the DigiByte
+   loader. The ids and components-* classes are what Blazor and ReconnectModal.razor.js look for; keep them. *@
+<dialog id="components-reconnect-modal" data-nosnippet aria-labelledby="components-reconnect-title">
     <div class="components-reconnect-container">
-        <div class="components-rejoining-animation" aria-hidden="true">
-            <div></div>
-            <div></div>
+        <div class="dgb-loader components-rejoining-animation" aria-hidden="true">
+            <span class="dgb-loader-arc"></span>
+            <span class="dgb-loader-glow"></span>
+            <img src="/digibyte-logo.svg" alt="" class="dgb-loader-mark" width="36" height="36" />
         </div>
-        <p class="components-reconnect-first-attempt-visible">
-            Rejoining the server...
+        <span class="reconnect-icon components-reconnect-failed-visible components-resume-failed-visible" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="m16.2 16.2 2.9 2.9" /><path d="M12 18v4" /><path d="m4.9 19.1 2.9-2.9" /><path d="M2 12h4" /><path d="m4.9 4.9 2.9 2.9" />
+            </svg>
+        </span>
+
+        <h2 id="components-reconnect-title" class="reconnect-title">
+            <span class="components-reconnect-first-attempt-visible">Reconnecting…</span>
+            <span class="components-reconnect-repeated-attempt-visible">Still reconnecting…</span>
+            <span class="components-reconnect-failed-visible">Connection lost</span>
+            <span class="components-pause-visible">Session paused</span>
+            <span class="components-resume-failed-visible">Couldn't resume</span>
+        </h2>
+
+        <p class="reconnect-text components-reconnect-first-attempt-visible">
+            The live connection dropped. Nothing is lost; this page picks up where it left off.
         </p>
-        <p class="components-reconnect-repeated-attempt-visible">
-            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
+        <p class="reconnect-text components-reconnect-repeated-attempt-visible">
+            Trying again in <span id="components-seconds-to-next-attempt" class="tabular-nums"></span> seconds. Check your internet connection.
         </p>
-        <p class="components-reconnect-failed-visible">
-            Failed to rejoin.<br />Please retry or reload the page.
+        <p class="reconnect-text components-reconnect-failed-visible">
+            We couldn't reach DigiPay. Payments are still watched on the server; try again or reload the page.
         </p>
-        <button id="components-reconnect-button" class="components-reconnect-failed-visible">
-            Retry
-        </button>
-        <p class="components-pause-visible">
-            The session has been paused by the server.
+        <p class="reconnect-text components-pause-visible">
+            This page was paused to save resources. Resume to carry on.
         </p>
-        <p class="components-resume-failed-visible">
-            Failed to resume the session.<br />Please retry or reload the page.
+        <p class="reconnect-text components-resume-failed-visible">
+            The session couldn't be resumed. Reload the page to carry on.
         </p>
-        <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible">
-            Resume
-        </button>
+
+        <div class="reconnect-actions">
+            <button id="components-reconnect-button" type="button" class="btn-primary components-reconnect-failed-visible">Try again</button>
+            <button id="components-resume-button" type="button" class="btn-primary components-pause-visible components-resume-failed-visible">Resume</button>
+            <button type="button" class="btn-secondary components-reconnect-failed-visible components-resume-failed-visible" onclick="location.reload()">Reload page</button>
+        </div>
     </div>
 </dialog>

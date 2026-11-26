@@ -1,0 +1,20 @@
+{
+  "name": "digipay-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "End-to-end journeys, accessibility and Lighthouse checks for DigiPay (Pay.Api + Pay.Web).",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "lighthouse": "node scripts/lighthouse.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.56.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

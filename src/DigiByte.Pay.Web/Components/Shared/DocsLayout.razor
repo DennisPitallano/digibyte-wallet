@@ -1,0 +1,87 @@
+@* Frame shared by the developer docs pages (/docs, /docs/api, /docs/woocommerce, /docs/pos).
+   Wide screens: a sticky left menu listing every docs page, with this page's sections nested under it.
+   Phones and tablets: the menu folds into one "On this page" disclosure above the content, so the page
+   starts with its own text instead of a long list of links. Styles live in css/digipay-docs.css. *@
+<div class="dp-docs">
+    <aside class="dp-docs-side">
+        <nav class="dp-docs-nav" aria-label="Developer docs">
+            <p class="dp-docs-nav-title">Developer docs</p>
+            <ul>
+                @foreach (var (href, label) in Pages)
+                {
+                    var here = href == Current;
+                    <li>
+                        <a href="@href" class="dp-docs-nav-link" aria-current="@(here ? "page" : null)">@label</a>
+                        @if (here && Toc.Count > 0)
+                        {
+                            <ul class="dp-docs-toc" aria-label="On this page">
+                                @foreach (var item in Toc)
+                                {
+                                    <li><a href="@($"{Current}#{item.Id}")" class="@(item.Sub ? "dp-docs-toc-link dp-docs-toc-sub" : "dp-docs-toc-link")">@item.Label</a></li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ul>
+            @Extra
+        </nav>
+    </aside>
+
+    <div class="dp-docs-main">
+        <details class="dp-docs-mobile">
+            <summary>
+                <Icon Name="list" Class="w-4 h-4 shrink-0" />
+                <span class="flex-1">On this page</span>
+                <Icon Name="chevron-down" Class="w-4 h-4 shrink-0 dp-docs-mobile-chevron" />
+            </summary>
+            <div class="dp-docs-mobile-body">
+                @if (Toc.Count > 0)
+                {
+                    <nav aria-label="On this page (sections)">
+                        <ul class="dp-docs-toc">
+                            @foreach (var item in Toc)
+                            {
+                                <li><a href="@($"{Current}#{item.Id}")" class="@(item.Sub ? "dp-docs-toc-link dp-docs-toc-sub" : "dp-docs-toc-link")" onclick="this.closest('details').removeAttribute('open')">@item.Label</a></li>
+                            }
+                        </ul>
+                    </nav>
+                }
+                <nav aria-label="Developer docs (pages)">
+                    <p class="dp-docs-nav-title">Developer docs</p>
+                    <ul>
+                        @foreach (var (href, label) in Pages)
+                        {
+                            <li><a href="@href" class="dp-docs-nav-link" aria-current="@(href == Current ? "page" : null)">@label</a></li>
+                        }
+                    </ul>
+                </nav>
+            </div>
+        </details>
+
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    /// <summary>Every page in the developer docs, in reading order. Shared by the site menu and footer.</summary>
+    public static readonly (string Href, string Label)[] Pages =
+    [
+        ("/docs", "Quickstart & guide"),
+        ("/docs/api", "API reference"),
+        ("/sdks", "SDKs"),
+        ("/docs/woocommerce", "WooCommerce plugin"),
+        ("/docs/pos", "POS guide"),
+    ];
+
+    /// <summary>The address of the page being shown, for example "/docs/api".</summary>
+    [Parameter, EditorRequired] public string Current { get; set; } = "/docs";
+
+    /// <summary>This page's sections, in order. Each Id must match a heading or section id on the page.</summary>
+    [Parameter] public IReadOnlyList<DocsTocItem> Toc { get; set; } = [];
+
+    /// <summary>Optional links under the menu (source code, downloads).</summary>
+    [Parameter] public RenderFragment? Extra { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

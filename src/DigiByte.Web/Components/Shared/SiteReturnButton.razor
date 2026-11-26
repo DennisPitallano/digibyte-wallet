@@ -1,0 +1,42 @@
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject LocalizationService L
+@*
+    "Return to {host}": shown after a payment or Digi-ID sign-in that a site (such as DigiPay) opened with a checked
+    ?return= address (SiteReturnUrl). Never automatic: the person presses it.
+
+    domHelpers.returnToSite (dom-helpers.js): when a script opened this tab (window.opener is set), the site's own tab
+    is still open behind it and already shows the result (DigiPay's sign-in page polls and signs in; its checkout
+    watches the payment), so the best way back is to close this tab. Browsers only let a page close a tab a script
+    opened, and may refuse even then; when the tab is still open a moment later, or there is no opener (a link with
+    rel=noopener, a scanned code), the tab goes to the return address instead.
+*@
+@if (ReturnTo is not null)
+{
+    <button type="button" class="@Class" data-testid="site-return" @onclick="ReturnAsync">
+        @L.T("return_to_site.button", ReturnTo.Host)
+    </button>
+}
+
+@code {
+    /// <summary>The checked return address; nothing is shown when null.</summary>
+    [Parameter] public DigiByte.Wallet.Services.SiteReturn? ReturnTo { get; set; }
+
+    [Parameter] public string Class { get; set; } = "btn-primary w-full";
+
+    /// <summary>Re-render when the language changes (spec 028).</summary>
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    private async Task ReturnAsync()
+    {
+        if (ReturnTo is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("domHelpers.returnToSite", ReturnTo.Url);
+        }
+        catch (JSException)
+        {
+            Nav.NavigateTo(ReturnTo.Url, forceLoad: true);
+        }
+    }
+}

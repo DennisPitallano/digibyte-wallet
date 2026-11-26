@@ -3,6 +3,8 @@
    line overlay. Data comes from GET /v1/pay/stores/{id}/analytics?days=N
    and is re-fetched when StoreId or the range toggle changes. *@
 @inject IHttpClientFactory HttpFactory
+@inject IJSRuntime JS
+@inject ILogger<AnalyticsPanel> Log
 @using System.Net.Http.Json
 
 @{
@@ -28,17 +30,19 @@
     Sales and conversion trends for this store.
     @if (data is not null)
     {
-        <span> Window: <strong class="text-slate-900 dark:text-white">@data.Since.ToLocalTime().ToString("MMM d") – @data.Until.ToLocalTime().ToString("MMM d")</strong>.</span>
+        @* Days are UTC days (the API's buckets), so they are shown as dates, not converted. *@
+        <span> Window: <strong class="text-slate-900 dark:text-white">@DayLabel(data.Since, true) – @DayLabel(data.Until, true)</strong> (UTC days).</span>
     }
 </p>
 
 @if (error is not null)
 {
     <section class="@Card">
-        <p class="text-sm text-red-500 m-0">@error</p>
+        <p class="m-0" role="alert">@error</p>
+        <button type="button" class="btn-secondary btn-sm self-start" @onclick="LoadAsync" disabled="@loading">Try again</button>
     </section>
 }
-else if (data is null)
+else if (data is null || !themeReady)
 {
     <section class="@Card" aria-busy="true">
         <span class="sr-only">Loading analytics</span>
@@ -83,25 +87,25 @@ else
                                  Items="data.Series"
                                  Name="Paid"
                                  SeriesType="SeriesType.Bar"
-                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 XValue="@(e => DayLabel(e.Day))"
                                  YValue="@(e => (decimal)e.Paid)" />
                 <ApexPointSeries TItem="DayPoint"
                                  Items="data.Series"
                                  Name="Refunded"
                                  SeriesType="SeriesType.Bar"
-                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 XValue="@(e => DayLabel(e.Day))"
                                  YValue="@(e => (decimal)e.Refunded)" />
                 <ApexPointSeries TItem="DayPoint"
                                  Items="data.Series"
                                  Name="Voided"
                                  SeriesType="SeriesType.Bar"
-                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 XValue="@(e => DayLabel(e.Day))"
                                  YValue="@(e => (decimal)e.Voided)" />
                 <ApexPointSeries TItem="DayPoint"
                                  Items="data.Series"
                                  Name="Expired / underpaid"
                                  SeriesType="SeriesType.Bar"
-                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 XValue="@(e => DayLabel(e.Day))"
                                  YValue="@(e => (decimal)e.Failed)" />
             </ApexChart>
         }
@@ -125,7 +129,7 @@ else
                                  Items="data.Series"
                                  Name="DGB"
                                  SeriesType="SeriesType.Area"
-                                 XValue="@(e => e.Day.ToLocalTime().ToString("MMM d"))"
+                                 XValue="@(e => DayLabel(e.Day))"
                                  YValue="@(e => e.VolumeDgb)" />
             </ApexChart>
         }
@@ -146,11 +150,29 @@ else
     private ApexChartOptions<DayPoint> sessionsOptions = default!;
     private ApexChartOptions<DayPoint> volumeOptions = default!;
 
-    protected override void OnInitialized()
+    /// <summary>The charts are drawn once the page's theme is known, so they match it.</summary>
+    private bool themeReady;
+
+    protected override void OnInitialized() => BuildOptions(dark: false);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var dark = false;
+        try { dark = await JS.InvokeAsync<string?>("DigiPayTheme.resolve") == "dark"; }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException) { /* no theme script: light */ }
+        BuildOptions(dark);
+        themeReady = true;
+        StateHasChanged();
+    }
+
+    private void BuildOptions(bool dark)
     {
         // ApexCharts options are configured once — Items/series are bound in the
         // markup. Stacked bars + dgb-500 palette keeps it consistent with the
-        // rest of the dashboard branding.
+        // rest of the dashboard branding. Axis text and tooltips follow the theme.
+        var mode = dark ? Mode.Dark : Mode.Light;
+        var axis = dark ? "#94a3b8" : "#64748b";
         sessionsOptions = new ApexChartOptions<DayPoint>
         {
             Chart = new Chart
@@ -168,9 +190,9 @@ else
             DataLabels = new DataLabels { Enabled = false },
             Legend = new Legend { Position = LegendPosition.Top, HorizontalAlign = ApexCharts.Align.Right },
             Grid = new Grid { BorderColor = "rgba(148,163,184,0.2)" },
-            Xaxis = new XAxis { Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") } } },
-            Yaxis = new List<YAxis> { new() { Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") }, Formatter = "function(v){return v.toFixed(0);}" } } },
-            Theme = new Theme { Mode = Mode.Light },
+            Xaxis = new XAxis { Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(axis) } } },
+            Yaxis = new List<YAxis> { new() { Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(axis) }, Formatter = "function(v){return v.toFixed(0);}" } } },
+            Theme = new Theme { Mode = mode },
         };
 
         volumeOptions = new ApexChartOptions<DayPoint>
@@ -188,9 +210,9 @@ else
             Fill = new Fill { Type = new List<FillType> { FillType.Gradient }, Gradient = new FillGradient { OpacityFrom = 0.35, OpacityTo = 0.05 } },
             Legend = new Legend { Show = false },
             Grid = new Grid { BorderColor = "rgba(148,163,184,0.2)" },
-            Xaxis = new XAxis { Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") } } },
-            Yaxis = new List<YAxis> { new() { Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color("#64748b") }, Formatter = "function(v){return v.toFixed(2);}" } } },
-            Theme = new Theme { Mode = Mode.Light },
+            Xaxis = new XAxis { Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(axis) } } },
+            Yaxis = new List<YAxis> { new() { Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(axis) }, Formatter = "function(v){return v.toFixed(2);}" } } },
+            Theme = new Theme { Mode = mode },
         };
     }
 
@@ -223,20 +245,25 @@ else
             var response = await http.SendAsync(req);
             if (!response.IsSuccessStatusCode)
             {
-                error = $"Failed to load analytics ({(int)response.StatusCode}).";
+                error = $"Analytics couldn't be loaded. {await ApiError.ReadAsync(response)}";
                 return;
             }
             data = await response.Content.ReadFromJsonAsync<AnalyticsDto>();
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            Log.LogWarning(ex, "Analytics: load failed");
+            error = "Analytics couldn't be loaded. Check your connection and try again.";
         }
         finally
         {
             loading = false;
         }
     }
+
+    /// <summary>A UTC day bucket as "26 Nov" (or "26 Nov 2026"); not converted, since a day is a date.</summary>
+    private static string DayLabel(DateTime day, bool withYear = false) =>
+        day.ToString(withYear ? "d MMM yyyy" : "d MMM", System.Globalization.CultureInfo.InvariantCulture);
 
     public record AnalyticsDto(
         string StoreId,

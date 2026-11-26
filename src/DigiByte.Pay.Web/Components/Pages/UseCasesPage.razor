@@ -1,0 +1,64 @@
+@page "/use-cases"
+@layout SiteLayout
+
+<PageTitle>Use cases — DigiPay</PageTitle>
+
+@* Who DigiPay is for, and how each kind of merchant uses it. The cases come from UseCases.All (shared with the
+   home page). Every point describes something the product does today. *@
+<main id="main" class="flex-1 page-enter">
+    <section class="dp-uc-hero">
+        <p class="section-label">Use cases</p>
+        <h1 class="dp-uc-title">DigiPay fits the way you get paid</h1>
+        <p class="dp-uc-lead">
+            Online, at the counter, by invoice or as a tip: DigiByte goes straight to your own wallet. DigiPay watches the
+            chain and tells you when a payment lands. It never holds your money.
+        </p>
+        <nav class="dp-uc-jump" aria-label="Use cases on this page">
+            @foreach (var uc in UseCases.All)
+            {
+                <a href="@($"/use-cases#{uc.Key}")" class="dp-uc-chip"><Icon Name="@uc.Icon" Class="w-4 h-4" /><span>@uc.Title</span></a>
+            }
+        </nav>
+    </section>
+
+    <section class="dp-uc-list" aria-label="Use cases">
+        @foreach (var (uc, i) in UseCases.All.Select((u, i) => (u, i)))
+        {
+            <article id="@uc.Key" class="dp-uc-card" style="--i: @i" aria-labelledby="@($"{uc.Key}-title")">
+                <div class="dp-uc-card-head">
+                    <span class="dp-uc-icon" aria-hidden="true"><Icon Name="@uc.Icon" Class="w-6 h-6" /></span>
+                    <div>
+                        <p class="dp-uc-audience">@uc.Audience</p>
+                        <h2 id="@($"{uc.Key}-title")" class="dp-uc-card-title">@uc.Title</h2>
+                    </div>
+                </div>
+                <p class="dp-uc-summary">@uc.Summary</p>
+                <ul class="dp-uc-points">
+                    @foreach (var point in uc.Points)
+                    {
+                        <li><Icon Name="check" Class="w-4 h-4" /><span>@point</span></li>
+                    }
+                </ul>
+                <div class="dp-uc-foot">
+                    <div class="dp-uc-tools" aria-label="What you use">
+                        @foreach (var tool in uc.Tools)
+                        {
+                            <a href="@tool.Href" class="dp-uc-tool">@tool.Label</a>
+                        }
+                    </div>
+                    <a href="@uc.CtaHref" class="btn-primary btn-sm dp-uc-cta">@uc.CtaLabel <Icon Name="arrow-right" Class="w-4 h-4" /></a>
+                </div>
+            </article>
+        }
+    </section>
+
+    <section class="dp-uc-end">
+        <h2 class="dp-uc-end-title">Not sure where you fit?</h2>
+        <p class="dp-uc-lead">Every account can do all of the above: one sign-in with your DigiByte wallet, then add a store for each way you get paid.</p>
+        <div class="dp-uc-end-actions">
+            <a href="/merchant/signin" class="btn-primary" data-auth-show="out">Start accepting DGB</a>
+            <a href="/merchant" class="btn-primary" data-auth-show="in">Open dashboard</a>
+            <a href="/docs#quickstart" class="btn-secondary">Developer quickstart</a>
+        </div>
+    </section>
+</main>

@@ -1,0 +1,445 @@
+@implements IAsyncDisposable
+@inject IHttpClientFactory HttpFactory
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@* The merchant dashboard's frame: the rail on wide screens, the top bar, bottom menu and More
+   sheet on phones, and the store switcher. Used by the dashboard sections and the payment page,
+   so every merchant page shows the same navigation. The page supplies its content. *@
+<div class="dp-shell @(railCollapsed ? "is-rail-collapsed" : "")">
+    @* Wide screens (1024px and up): a left rail with every section, like the wallet's
+       wide-screen menu (FR-016). Phones and tablets get the top bar + bottom menu below. *@
+    <aside id="dp-rail" class="dp-rail" aria-label="Dashboard" @ref="railRef">
+        <div class="dp-rail-head">
+            <a href="/" class="dp-brand" aria-label="DigiPay home">
+                <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
+                <span class="dp-rail-label">Digi<span class="text-dgb-500">Pay</span></span>
+            </a>
+            @* Collapse to an icon strip (remembered in this browser). Labels stay for screen readers
+               and show as tooltips on hover or keyboard focus. *@
+            <button type="button" class="icon-btn dp-rail-toggle" aria-controls="dp-rail"
+                    aria-expanded="@(railCollapsed ? "false" : "true")"
+                    aria-label="@(railCollapsed ? "Expand menu" : "Collapse menu")" title="@(railCollapsed ? "Expand menu" : "Collapse menu")"
+                    @onclick="ToggleRailAsync">
+                <Icon Name="@(railCollapsed ? "panel-open" : "panel-close")" Class="w-5 h-5" />
+            </button>
+        </div>
+
+        @if (railCollapsed)
+        {
+            @if (ActiveStore is not null)
+            {
+                @* The store picker needs room: tapping the store expands the menu. *@
+                <button type="button" class="dp-rail-item dp-rail-store" data-label="@($"Store: {ActiveStore.Name}")"
+                        aria-label="@($"Store: {ActiveStore.Name}. Expand the menu to switch")" @onclick="ToggleRailAsync">
+                    <Icon Name="store" Class="w-5 h-5 shrink-0" />
+                </button>
+            }
+        }
+        else
+        {
+            @StoreSwitcher("rail")
+        }
+
+        <nav aria-label="Sections" class="dp-rail-nav">
+            @SectionLinks(DashboardSections.All, "rail", false)
+        </nav>
+
+        <div class="dp-rail-group">
+            <p class="section-label px-3 dp-rail-label">Resources</p>
+            @ResourceLinks
+        </div>
+
+        @* Who is signed in, sign out, and the theme. Pinned to the bottom of the menu. *@
+        <div class="dp-rail-account">
+            <div class="dp-rail-me">
+                <span class="dp-rail-avatar" aria-hidden="true">@Initial</span>
+                <div class="dp-rail-account-text">
+                    <p class="dp-rail-name">@AccountName</p>
+                    @if (!string.IsNullOrEmpty(DigiIdAddress))
+                    {
+                        <p class="dp-rail-address" title="@DigiIdAddress">@(DigiIdAddress.Length > 14 ? DigiIdAddress[..8] + "…" + DigiIdAddress[^4..] : DigiIdAddress)</p>
+                    }
+                </div>
+                <button type="button" class="icon-btn dp-rail-signout" data-label="Sign out" aria-label="Sign out" title="Sign out" @onclick="SignOutAsync">
+                    <Icon Name="logout" Class="w-4 h-4" />
+                </button>
+            </div>
+            <div class="dp-rail-theme">
+                <ThemePicker Class="dp-rail-theme-picker" ShortLabels="true" />
+            </div>
+        </div>
+    </aside>
+
+    @* Phones and tablets: a slim top bar (brand, account). Sections live in the bottom menu. *@
+    <header class="dp-topbar">
+        <a href="/" class="dp-brand">
+            <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
+            <span>Digi<span class="text-dgb-500">Pay</span></span>
+        </a>
+        <div class="flex-1"></div>
+        @if (Stores.Count > 1 && ActiveStore is not null)
+        {
+            @* Several stores: say which one the page is showing (the switcher is under More). *@
+            <button type="button" class="dash-topbar-store" @onclick="OpenMore" aria-label="@($"Store: {ActiveStore.Name}. Switch store")">
+                <Icon Name="store" Class="w-4 h-4 shrink-0" /><span class="truncate">@ActiveStore.Name</span>
+            </button>
+        }
+        else
+        {
+            <span class="dash-topbar-name truncate">@AccountName</span>
+        }
+    </header>
+
+    <main class="dp-main @(Narrow ? "dp-main-narrow" : "") page-enter">
+        @ChildContent
+    </main>
+
+    @* Phones and tablets: the wallet-style bottom menu (FR-017). The raised middle button
+       starts a new payment; More opens a sheet with every other section. *@
+    <nav class="dp-bottom" aria-label="Main sections">
+        @foreach (var sec in DashboardSections.BottomMenu)
+        {
+            <a href="@HrefFor(sec)" class="@(sec.Raised ? "dp-bottom-raised" : "dp-bottom-item")" aria-current="@(IsCurrent(sec) ? "page" : null)">
+                <span class="dp-bottom-icon"><Icon Name="@sec.Icon" Class="w-5 h-5" /></span>
+                <span class="dp-bottom-label">@sec.Label</span>
+            </a>
+        }
+        <button type="button" class="dp-bottom-item" aria-haspopup="dialog" aria-expanded="@(moreOpen ? "true" : "false")"
+                aria-current="@(DashboardSections.More.Any(IsCurrent) ? "page" : null)" @onclick="OpenMore">
+            <span class="dp-bottom-icon"><Icon Name="more" Class="w-5 h-5" /></span>
+            <span class="dp-bottom-label">More</span>
+        </button>
+    </nav>
+
+    @* Dialogs sit outside <main> so its entry animation never affects their position. *@
+    @Overlays
+
+    @if (moreOpen)
+    {
+        <div class="dp-sheet-overlay" @onclick="CloseMore">
+            <div id="dp-more-sheet" class="card-raised dp-sheet" role="dialog" aria-modal="true" aria-labelledby="dp-more-title" @onclick:stopPropagation="true">
+                <div class="dp-sheet-head">
+                    <h2 id="dp-more-title" class="block-title">More</h2>
+                    <button type="button" class="icon-btn" aria-label="Close" data-autofocus @onclick="CloseMore"><Icon Name="close" Class="w-5 h-5" /></button>
+                </div>
+                @StoreSwitcher("sheet")
+                <nav aria-label="More sections" class="dp-sheet-list">
+                    @SectionLinks(DashboardSections.More, "sheet", true)
+                </nav>
+                <div class="dp-rail-group">
+                    <p class="section-label px-3">Resources</p>
+                    @ResourceLinks
+                </div>
+                <div class="dp-rail-group">
+                    <p class="section-label px-3">Theme</p>
+                    <ThemePicker Class="mx-1" />
+                </div>
+                <div class="pt-3">
+                    <button type="button" class="btn-secondary btn-sm w-full" @onclick="SignOutAsync">
+                        <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>A store the merchant can switch to.</summary>
+    public sealed record StoreOption(string Id, string Name, string? Network = null);
+
+    /// <summary>The section shown as current (a <see cref="DashboardSection.Key"/>); null for none, e.g. a not-found page.</summary>
+    [Parameter] public string? ActiveKey { get; set; }
+    [Parameter] public string AccountName { get; set; } = "";
+    [Parameter] public string? DigiIdAddress { get; set; }
+    [Parameter] public IReadOnlyList<StoreOption> Stores { get; set; } = [];
+    [Parameter] public string? ActiveStoreId { get; set; }
+    /// <summary>The merchant picked another store in the switcher.</summary>
+    [Parameter] public EventCallback<string> OnStoreChanged { get; set; }
+    /// <summary>Forms and single items use the narrow column.</summary>
+    [Parameter] public bool Narrow { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    /// <summary>Dialogs that belong to the page, drawn outside the content column.</summary>
+    [Parameter] public RenderFragment? Overlays { get; set; }
+
+    private bool moreOpen;
+    private bool railCollapsed;
+    private readonly HashSet<string> foldedGroups = new(StringComparer.Ordinal);
+    private ElementReference railRef;
+
+    private string Initial => string.IsNullOrWhiteSpace(AccountName) ? "D" : AccountName.Trim()[..1].ToUpperInvariant();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
+            await module.InvokeVoidAsync("bindRailTips", railRef);
+            var folded = await module.InvokeAsync<string[]?>("foldedGroups");
+            if (folded is { Length: > 0 }) { foldedGroups.UnionWith(folded); StateHasChanged(); }
+            if (await module.InvokeAsync<bool>("railCollapsed")) { railCollapsed = true; StateHasChanged(); }
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { } catch (InvalidOperationException) { /* prerendering */ }
+    }
+
+    private async Task ToggleGroupAsync(string group)
+    {
+        if (!foldedGroups.Remove(group)) foldedGroups.Add(group);
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
+            // Wrapped: a bare string[] would be spread into separate arguments.
+            await module.InvokeVoidAsync("setFoldedGroups", new object[] { foldedGroups.ToArray() });
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+
+    private async Task ToggleRailAsync()
+    {
+        railCollapsed = !railCollapsed;
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
+            await module.InvokeVoidAsync("setRailCollapsed", railCollapsed);
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+    private string? shownKey;
+    private DotNetObjectReference<DashboardShell>? selfRef;
+
+    private StoreOption? ActiveStore => Stores.FirstOrDefault(s => s.Id == ActiveStoreId);
+
+    private bool IsCurrent(DashboardSection sec) => ActiveKey is not null && sec.Key == ActiveKey;
+
+    /// <summary>The section's address, keeping the chosen store when the merchant has several.</summary>
+    private string HrefFor(DashboardSection sec) =>
+        Stores.Count > 1 && !string.IsNullOrEmpty(ActiveStoreId)
+            ? $"{sec.Href}?store={Uri.EscapeDataString(ActiveStoreId)}"
+            : sec.Href;
+
+    protected override void OnParametersSet()
+    {
+        // Moving to another section closes the More sheet.
+        if (shownKey != ActiveKey) moreOpen = false;
+        shownKey = ActiveKey;
+    }
+
+    private async Task OpenMore()
+    {
+        moreOpen = true;
+        StateHasChanged();
+        await Task.Yield();
+        selfRef ??= DotNetObjectReference.Create(this);
+        try { await JS.InvokeVoidAsync("digipayDialog.open", "dp-more-sheet", selfRef); } catch (JSException) { }
+    }
+
+    private async Task CloseMore()
+    {
+        if (!moreOpen) return;
+        moreOpen = false;
+        try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-more-sheet"); } catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+
+    [JSInvokable]
+    public async Task OnEscape()
+    {
+        await CloseMore();
+        StateHasChanged();
+    }
+
+    /// <summary>Ends the session on the API (best effort), forgets the token and goes home.</summary>
+    private async Task SignOutAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string?>("localStorage.getItem", "digipay-token");
+            if (!string.IsNullOrEmpty(token))
+            {
+                var req = new HttpRequestMessage(HttpMethod.Delete, "/v1/pay/auth/session");
+                req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+                await HttpFactory.CreateClient("PayApi").SendAsync(req);
+            }
+        }
+        catch { }
+        await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
+        await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-merchant-id");
+        Nav.NavigateTo("/");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (moreOpen)
+        {
+            try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-more-sheet"); } catch { }
+        }
+        selfRef?.Dispose();
+    }
+
+    /// <summary>
+    /// The active-store picker: a button with the store's initial, name and network that opens a "Switch store" menu
+    /// (each store with its network, a check on the active one, and Manage stores). Arrow keys move through the list,
+    /// Escape or a tap outside closes it and focus returns to the button.
+    /// </summary>
+    private RenderFragment StoreSwitcher(string where) => __builder =>
+    {
+        if (Stores.Count == 0 || ActiveStore is not { } current) return;
+        var open = storeMenuFor == where;
+        var menuId = $"store-menu-{where}";
+        <div class="dash-store @(open ? "is-open" : "")" @onkeydown="e => OnStoreMenuKeyAsync(e, where)">
+            <p class="dash-store-label">Active store</p>
+            <button type="button" id="@($"store-switch-{where}")" class="dash-store-btn" data-store-id="@current.Id"
+                    aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")" aria-controls="@menuId"
+                    @onclick="() => ToggleStoreMenu(where)" @ref="storeButtons[where]">
+                @* Named by its content, not an aria-label, so the visible name and network are part of the
+                   accessible name (WCAG 2.5.3 Label in Name): "Active store: <name>, <network>. Switch store". *@
+                <span class="dash-store-avatar" style="--hue: @Hue(current.Id)" aria-hidden="true">@StoreInitial(current.Name)</span>
+                <span class="sr-only">Active store: </span>
+                <span class="dash-store-text">
+                    <span class="dash-store-name">@current.Name</span><span class="sr-only">, </span>
+                    <span class="dash-store-meta">@NetworkLabel(current.Network)@(Stores.Count > 1 ? $" · {Stores.Count} stores" : "")</span>
+                </span>
+                <span class="sr-only">. Switch store</span>
+                <span class="dash-store-caret" aria-hidden="true"><Icon Name="chevron-down" Class="w-4 h-4" /></span>
+            </button>
+            @if (open)
+            {
+                <div class="dash-store-scrim" @onclick="CloseStoreMenuAsync"></div>
+                <div id="@menuId" class="dash-store-menu" role="menu" aria-label="Switch store">
+                    <p class="dash-store-menu-title">Switch store</p>
+                    @foreach (var st in Stores)
+                    {
+                        var active = st.Id == current.Id;
+                        <button type="button" role="menuitemradio" aria-checked="@(active ? "true" : "false")"
+                                class="dash-store-option @(active ? "is-active" : "")" data-store-id="@st.Id"
+                                @onclick="() => PickStoreAsync(st.Id)">
+                            <span class="dash-store-avatar" style="--hue: @Hue(st.Id)" aria-hidden="true">@StoreInitial(st.Name)</span>
+                            <span class="dash-store-text">
+                                <span class="dash-store-name">@st.Name</span>
+                                <span class="dash-store-meta">@NetworkLabel(st.Network)</span>
+                            </span>
+                            @if (active) { <Icon Name="check" Class="w-4 h-4 dash-store-check" /> }
+                        </button>
+                    }
+                    <a href="/merchant/stores" class="dash-store-manage" role="menuitem" @onclick="CloseStoreMenuAsync">
+                        <Icon Name="settings" Class="w-4 h-4" /><span>Manage stores</span>
+                    </a>
+                </div>
+            }
+        </div>
+    };
+
+    private string? storeMenuFor;
+    private readonly Dictionary<string, ElementReference> storeButtons = new();
+
+    private static string StoreInitial(string name) => string.IsNullOrWhiteSpace(name) ? "S" : name.Trim()[..1].ToUpperInvariant();
+
+    // A stable colour per store, so several stores are easy to tell apart.
+    private static int Hue(string id) => (int)((uint)id.Aggregate(17, (h, c) => h * 31 + c) % 360);
+
+    private static string NetworkLabel(string? network) => network?.ToLowerInvariant() switch
+    {
+        "testnet" => "Testnet",
+        "regtest" => "Regtest",
+        "mainnet" => "Mainnet",
+        null or "" => "Store",
+        var n => char.ToUpperInvariant(n[0]) + n[1..],
+    };
+
+    private async Task ToggleStoreMenu(string where)
+    {
+        storeMenuFor = storeMenuFor == where ? null : where;
+        StateHasChanged();
+        if (storeMenuFor is not null)
+        {
+            await Task.Yield();
+            try { await JS.InvokeVoidAsync("digipayStoreMenu.focusActive", $"store-menu-{where}"); } catch (JSException) { } catch (JSDisconnectedException) { }
+        }
+    }
+
+    private async Task CloseStoreMenuAsync()
+    {
+        var where = storeMenuFor;
+        storeMenuFor = null;
+        if (where is not null && storeButtons.TryGetValue(where, out var button))
+        {
+            try { await button.FocusAsync(); } catch { /* gone */ }
+        }
+    }
+
+    private async Task PickStoreAsync(string id)
+    {
+        var changed = id != ActiveStoreId;
+        await CloseStoreMenuAsync();
+        await CloseMore();
+        if (changed) await OnStoreChanged.InvokeAsync(id);
+    }
+
+    private async Task OnStoreMenuKeyAsync(KeyboardEventArgs e, string where)
+    {
+        if (storeMenuFor != where) return;
+        if (e.Key == "Escape") { await CloseStoreMenuAsync(); return; }
+        if (e.Key is "ArrowDown" or "ArrowUp" or "Home" or "End")
+        {
+            try { await JS.InvokeVoidAsync("digipayStoreMenu.move", $"store-menu-{where}", e.Key); } catch (JSException) { } catch (JSDisconnectedException) { }
+        }
+    }
+
+    private RenderFragment ResourceLinks => __builder =>
+    {
+        <a href="/docs" target="_blank" rel="noopener" class="dp-rail-item" data-label="How it works">
+            <Icon Name="book" Class="w-5 h-5 shrink-0" /><span class="flex-1 dp-rail-label">How it works</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+        <a href="/docs/api" target="_blank" rel="noopener" class="dp-rail-item" data-label="API reference">
+            <Icon Name="code" Class="w-5 h-5 shrink-0" /><span class="flex-1 dp-rail-label">API reference</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+        <a href="/embed/demo.html" target="_blank" rel="noopener" class="dp-rail-item" data-label="Embed demo">
+            <Icon Name="gift" Class="w-5 h-5 shrink-0" /><span class="flex-1 dp-rail-label">Embed demo</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+    };
+
+    /// <summary>
+    /// Section links under their group headings (Payments, Insights, Developers, Account), for the
+    /// rail and the More sheet. Each heading folds its group (remembered in this browser); a folded
+    /// group still shows the page you're on, so the current place is never hidden.
+    /// </summary>
+    private RenderFragment SectionLinks(IEnumerable<DashboardSection> sections, string where, bool closesSheet) => __builder =>
+    {
+        foreach (var (group, items) in DashboardSections.Grouped(sections))
+        {
+            var g = group;
+            var headingId = $"nav-{where}-{g.ToLowerInvariant()}";
+            var listId = $"{headingId}-list";
+            var folded = foldedGroups.Contains(g);
+            <div class="dash-nav-group @(folded ? "is-folded" : "")">
+                <button type="button" id="@headingId" class="section-label dash-nav-heading dash-nav-toggle"
+                        aria-expanded="@(folded ? "false" : "true")" aria-controls="@listId"
+                        title="@(folded ? $"Show {g}" : $"Hide {g}")" @onclick="() => ToggleGroupAsync(g)">
+                    <span>@g</span>
+                    <Icon Name="chevron-down" Class="w-3.5 h-3.5 dash-nav-chevron" />
+                </button>
+                <ul id="@listId" class="dash-nav-list" aria-labelledby="@headingId">
+                    @foreach (var sec in items)
+                    {
+                        var current = IsCurrent(sec);
+                        <li class="@(current ? "is-current" : "")">
+                            @if (closesSheet)
+                            {
+                                <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(current ? "page" : null)" @onclick="CloseMore">
+                                    <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
+                                </a>
+                            }
+                            else
+                            {
+                                <a href="@HrefFor(sec)" class="dp-rail-item" data-label="@sec.Label" aria-current="@(current ? "page" : null)">
+                                    <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span class="dp-rail-label">@sec.Label</span>
+                                </a>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    };
+}

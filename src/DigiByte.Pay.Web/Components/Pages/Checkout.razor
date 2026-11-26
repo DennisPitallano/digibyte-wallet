@@ -40,9 +40,11 @@
         }
         else
         {
-            var state = CheckoutStates.For(session.Status);
             var final = CheckoutStates.IsFinal(session.Status);
-            <div data-digipay-measure class="card ui-checkout">
+            @* data-digipay-status/-session/-return-url: inside the embed iframe, checkout-countdown.js posts
+               each status change to the shop's page (digipay.js). *@
+            <div data-digipay-measure class="card ui-checkout" data-digipay-status="@session.Status"
+                 data-digipay-session="@session.Id" data-digipay-return-url="@session.ReturnUrl">
                 <header class="ui-checkout-header">
                     <div class="min-w-0">
                         @if (!string.IsNullOrWhiteSpace(session.Label))
@@ -75,7 +77,7 @@
                 {
                     @* Fiat-priced: lead with the number the shopper recognises; the DGB line is what gets paid. *@
                     <div class="ui-checkout-amount">
-                        <p class="ui-checkout-big">@FormatFiat(fiatAmt) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
+                        <p class="ui-checkout-big">@Fiat.Format(fiatAmt, session.FiatCurrency) <span class="ui-checkout-unit">@session.FiatCurrency!.ToUpperInvariant()</span></p>
                         <p class="ui-checkout-muted tabular-nums">≈ <span id="checkout-amount" class="font-mono">@FormatDgb(session.AmountSatoshis)</span> DGB</p>
                     </div>
                 }
@@ -88,7 +90,7 @@
 
                 @* Price-volatility notice: the DGB amount was fixed when the invoice was created, so a big
                    price move changes what the shopper pays in their own currency. A banner, not a state. *@
-                @if (session.Currency != "DD" && priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !final)
+                @if (session.Currency != "DD" && priceDriftPct is { } drift && Math.Abs(drift) >= DriftThreshold && !final && !CheckoutStates.IsConfirming(session.Status))
                 {
                     var pricierNow = drift > 0;
                     <div class="ui-banner @(pricierNow ? "ui-banner-warning" : "ui-banner-info") w-full">
@@ -114,12 +116,21 @@
                                    ReceivedSatoshis="@session.ReceivedSatoshis" ExpectedSatoshis="@session.AmountSatoshis"
                                    Currency="@session.Currency" />
                 }
+                else if (CheckoutStates.IsConfirming(session.Status))
+                {
+                    @* Paid: hide the QR, address and countdown so nobody pays twice; show progress instead. *@
+                    @if (reconnecting)
+                    {
+                        <div class="ui-banner ui-banner-info w-full" role="status">
+                            <Icon Name="refresh" Class="" />
+                            <p>@CheckoutStates.For(CheckoutStates.Reconnecting).Explanation</p>
+                        </div>
+                    }
+                    <ConfirmationProgress Status="@session.Status" Confirmations="@session.Confirmations"
+                                          Txid="@session.PaidTxid" Currency="@session.Currency" />
+                }
                 else
                 {
-                    @if (session.Status is "seen" or "paid")
-                    {
-                        <p class="ui-checkout-muted text-center">@state.Explanation</p>
-                    }
                     @if (reconnecting)
                     {
                         <div class="ui-banner ui-banner-info w-full" role="status">
@@ -135,7 +146,7 @@
                         <span class="qr-frame-logo"><img src="/digibyte-logo.svg" alt="" width="32" height="32" class="block w-8 h-8" /></span>
                     </div>
 
-                    <a href="@session.Uri" class="btn-primary w-full">Open in wallet</a>
+                    <WalletButtons Uri="@session.Uri" ReturnUrl="@SelfUrl" />
 
                     <div class="ui-checkout-copyrow">
                         <div class="min-w-0 flex-1">
@@ -180,6 +191,7 @@
     private bool loading;
     private bool reconnecting;
     private string? lastAnnouncedStatus;
+    private int lastAnnouncedConfirmations;
 
     // Drift between the quote-time and the current DGB price; |value| ≥ DriftThreshold shows the banner.
     private decimal? priceDriftPct;
@@ -195,15 +207,12 @@
     private string AmountToCopy => session is null ? "" :
         session.Currency == "DD" && session.AmountCentsDd is { } c ? FormatUsdPlain(c) : FormatDgb(session.AmountSatoshis);
 
-    private string ReceiptHref
-    {
-        get
-        {
-            var t = Theme?.ToLowerInvariant();
-            var suffix = t is "light" or "dark" ? $"?theme={t}" : "";
-            return $"/pay/{Uri.EscapeDataString(SessionId)}/receipt{suffix}";
-        }
-    }
+    private string ThemeSuffix => Theme?.ToLowerInvariant() is "light" or "dark" ? $"?theme={Theme.ToLowerInvariant()}" : "";
+
+    private string ReceiptHref => $"/pay/{Uri.EscapeDataString(SessionId)}/receipt{ThemeSuffix}";
+
+    /// <summary>This checkout's absolute address (with the shop's ?theme=), for the wallet's "Return to" button.</summary>
+    private string SelfUrl => Nav.ToAbsoluteUri($"/pay/{Uri.EscapeDataString(SessionId)}{ThemeSuffix}").AbsoluteUri;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -240,6 +249,7 @@
             qrDataUrl = GenerateQr(session.Uri);
             loadFailed = false;
             lastAnnouncedStatus = session.Status; // the first state is visible, not announced
+            lastAnnouncedConfirmations = session.Confirmations;
             await RefreshPriceDriftAsync();
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
@@ -394,8 +404,15 @@
             if (status != lastAnnouncedStatus)
             {
                 lastAnnouncedStatus = status;
+                lastAnnouncedConfirmations = confirmations;
                 var announcement = CheckoutStates.For(status).Announcement;
                 if (announcement is not null) Announcer.Announce(announcement, assertive: status is "underpaid");
+            }
+            else if (status == "paid" && confirmations > lastAnnouncedConfirmations)
+            {
+                // Each new block while confirming, so a screen-reader user hears progress too.
+                lastAnnouncedConfirmations = confirmations;
+                Announcer.Announce($"{confirmations} of {CheckoutStates.ConfirmationsRequired} confirmations.");
             }
             StateHasChanged();
         });
@@ -426,8 +443,6 @@
     private static string FormatDgb(long sats) =>
         (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static string FormatFiat(decimal amount) =>
-        amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string FormatUsdPlain(long cents) =>
         (cents / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);

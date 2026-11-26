@@ -716,6 +716,8 @@
   "send.slide.announce_cancelled": "Not confirmed.",
   "send.success.title": "Sent",
   "send.success.recipients": "to {0} recipients",
+  "return_to_site.button": "Return to {0}",
+  "return_to_site.stay": "Stay in the wallet",
   "scan.title": "QR Code Scanner",
   "scan.viewfinder": "Camera viewfinder",
   "scan.point_camera": "Point camera at QR code",

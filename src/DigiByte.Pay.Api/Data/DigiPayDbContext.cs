@@ -14,6 +14,7 @@ public class DigiPayDbContext : DbContext
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<PayPosPairing> PosPairings => Set<PayPosPairing>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +38,7 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.Network).HasMaxLength(20).IsRequired();
             e.Property(s => s.Xpub).HasMaxLength(200);
             e.Property(s => s.ReceiveAddress).HasMaxLength(80);
+            e.Property(s => s.DefaultCurrency).HasMaxLength(8);
         });
 
         modelBuilder.Entity<PaySession>(e =>
@@ -60,6 +62,7 @@ public class DigiPayDbContext : DbContext
             // stay valid; AmountCentsDd is nullable and only populated for DD
             // sessions.
             e.Property(s => s.Currency).HasMaxLength(8).IsRequired().HasDefaultValue("DGB");
+            e.Property(s => s.Simulated).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<MerchantSession>(e =>
@@ -81,6 +84,8 @@ public class DigiPayDbContext : DbContext
             e.Property(k => k.Prefix).HasMaxLength(32).IsRequired();
             e.Property(k => k.Hash).HasMaxLength(128).IsRequired();
             e.Property(k => k.Label).HasMaxLength(80);
+            e.Property(k => k.Kind).HasMaxLength(16).IsRequired().HasDefaultValue(ApiKeyKind.Merchant);
+            e.Property(k => k.StoreId).HasMaxLength(32);
         });
 
         modelBuilder.Entity<WebhookDelivery>(e =>
@@ -124,6 +129,22 @@ public class DigiPayDbContext : DbContext
             e.Property(r => r.MerchantId).HasMaxLength(32).IsRequired();
             e.Property(r => r.Key).HasMaxLength(255).IsRequired();
             e.Property(r => r.SessionId).HasMaxLength(32).IsRequired();
+        });
+
+        modelBuilder.Entity<PayPosPairing>(e =>
+        {
+            e.HasKey(p => p.Id);
+            // Unique: a freshly generated code that collides with a live one is rerolled.
+            e.HasIndex(p => p.CodeHash).IsUnique();
+            e.HasIndex(p => p.ExpiresAt);
+            e.Property(p => p.Id).HasMaxLength(32);
+            e.Property(p => p.CodeHash).HasMaxLength(64).IsRequired();
+            e.Property(p => p.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(p => p.StoreId).HasMaxLength(32).IsRequired();
+            e.Property(p => p.StoreName).HasMaxLength(120).IsRequired();
+            e.Property(p => p.MerchantName).HasMaxLength(120).IsRequired();
+            e.Property(p => p.DeviceLabel).HasMaxLength(80).IsRequired();
+            e.Property(p => p.KeyPrefix).HasMaxLength(32).IsRequired();
         });
     }
 }

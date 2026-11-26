@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Services;
@@ -19,14 +21,15 @@ public static class StoresEndpoints
     {
         group.MapGet("", async (HttpRequest http, DigiPayDbContext db) =>
         {
-            var merchant = await MerchantAuthenticator.AuthenticateAsync(http, db);
-            if (merchant is null) return Results.Unauthorized();
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
             var stores = await db.Stores.AsNoTracking()
-                .Where(s => s.MerchantId == merchant.Id)
+                .Where(s => s.MerchantId == caller.Merchant.Id)
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync();
-            return Results.Ok(stores.Select(MerchantMeEndpoints.StoreDto));
-        });
+            // A store-bound POS tablet only sees its own store.
+            return Results.Ok(stores.Where(s => caller.CanUseStore(s.Id)).Select(MerchantMeEndpoints.StoreDto));
+        }).AllowPosKey();
 
         group.MapPost("", async (CreateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
@@ -39,19 +42,23 @@ public static class StoresEndpoints
             if (network is not ("mainnet" or "testnet" or "regtest"))
                 return Results.BadRequest(new { error = "network must be mainnet | testnet | regtest" });
 
+            if (!TryNormaliseCurrency(body.DefaultCurrency, out var defaultCurrency, out var currencyError))
+                return Results.BadRequest(new { error = currencyError });
+
             var store = new PayStore
             {
                 Id = $"sto_{RandomId(16)}",
                 MerchantId = merchant.Id,
                 Name = body.Name.Trim(),
                 Network = network,
+                DefaultCurrency = defaultCurrency,
             };
             db.Stores.Add(store);
             await db.SaveChangesAsync();
 
             await audit.LogAsync(merchant.Id, "store.create", "Store", store.Id,
                 summary: $"Created store \"{store.Name}\" ({network})",
-                metadata: new { name = store.Name, network });
+                metadata: new { name = store.Name, network, defaultCurrency });
 
             return Results.Ok(MerchantMeEndpoints.StoreDto(store));
         });
@@ -60,8 +67,10 @@ public static class StoresEndpoints
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db);
             if (err is not null) return err;
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is not null && !caller.CanUseStore(store!.Id)) return ApiCaller.OutsideStore();
             return Results.Ok(MerchantMeEndpoints.StoreDto(store!));
-        });
+        }).AllowPosKey();
 
         group.MapPatch("/{storeId}", async (
             string storeId, UpdateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit,
@@ -71,6 +80,9 @@ public static class StoresEndpoints
             if (err is not null) return err;
 
             var changed = new List<string>();
+            // Set only when this request creates the store's first signing secret: it is returned
+            // once in the response and can't be read again (rotate it to get a new one).
+            string? createdSecret = null;
             if (body.Name is not null)
             {
                 var trimmed = body.Name.Trim();
@@ -132,9 +144,8 @@ public static class StoresEndpoints
                     store!.WebhookUrl = trimmed;
                     if (string.IsNullOrEmpty(store.WebhookSecret))
                     {
-                        Span<byte> bytes = stackalloc byte[24];
-                        RandomNumberGenerator.Fill(bytes);
-                        store.WebhookSecret = Convert.ToHexString(bytes).ToLowerInvariant();
+                        store.WebhookSecret = NewWebhookSecret();
+                        createdSecret = store.WebhookSecret;
                     }
                 }
                 changed.Add("webhook");
@@ -152,6 +163,17 @@ public static class StoresEndpoints
                 if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
                 store!.DigiDollarEnabled = body.DigiDollarEnabled.Value;
             }
+            // Absent = leave as is; null or "" = clear; otherwise DGB or a fiat code.
+            if (body.DefaultCurrency.ValueKind != JsonValueKind.Undefined)
+            {
+                if (body.DefaultCurrency.ValueKind is not (JsonValueKind.Null or JsonValueKind.String))
+                    return Results.BadRequest(new { error = "defaultCurrency must be a string or null" });
+                var requested = body.DefaultCurrency.ValueKind == JsonValueKind.String ? body.DefaultCurrency.GetString() : null;
+                if (!TryNormaliseCurrency(requested, out var currency, out var currencyError))
+                    return Results.BadRequest(new { error = currencyError });
+                if (store!.DefaultCurrency != currency) changed.Add("defaultCurrency");
+                store!.DefaultCurrency = currency;
+            }
 
             await db.SaveChangesAsync();
 
@@ -162,7 +184,26 @@ public static class StoresEndpoints
                     metadata: new { fields = changed });
             }
 
-            return Results.Ok(MerchantMeEndpoints.StoreDto(store!));
+            return Results.Ok(WithSecret(store!, createdSecret));
+        });
+
+        // POST /v1/pay/stores/{storeId}/webhook-secret/rotate
+        // Replaces the store's webhook signing secret and returns the new one, once.
+        // The old secret stops working at once: deliveries are signed with the new one.
+        group.MapPost("/{storeId}/webhook-secret/rotate", async (
+            string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
+        {
+            var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
+            if (err is not null) return err;
+
+            store!.WebhookSecret = NewWebhookSecret();
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant!.Id, "store.update", "Store", store.Id,
+                summary: $"Rotated the webhook signing secret of store \"{store.Name}\"",
+                metadata: new { fields = new[] { "webhookSecret" } });
+
+            return Results.Ok(new { webhookSecret = store.WebhookSecret });
         });
 
         group.MapDelete("/{storeId}", async (string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
@@ -469,6 +510,41 @@ public static class StoresEndpoints
         return (merchant, store, null);
     }
 
+    /// <summary>
+    /// Checks a store default currency: "DGB" or a fiat code the DigiByte wallet offers
+    /// (<see cref="DigiByte.Wallet.Models.FiatCurrencies"/>), any case. Null or blank means "not set".
+    /// </summary>
+    internal static bool TryNormaliseCurrency(string? value, out string? currency, out string? error)
+    {
+        currency = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        var code = value.Trim().ToUpperInvariant();
+        if (code != "DGB" && DigiByte.Wallet.Models.FiatCurrencies.Find(code) is null)
+        {
+            error = "defaultCurrency must be DGB or a supported fiat currency code (e.g. USD, EUR, PHP)";
+            return false;
+        }
+        currency = code;
+        return true;
+    }
+
+    /// <summary>A new webhook signing secret: 24 random bytes as lowercase hex.</summary>
+    private static string NewWebhookSecret()
+    {
+        Span<byte> bytes = stackalloc byte[24];
+        RandomNumberGenerator.Fill(bytes);
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    /// <summary>The store as the API returns it, plus <c>webhookSecret</c>: the new secret, or null.</summary>
+    private static JsonObject WithSecret(PayStore store, string? webhookSecret)
+    {
+        var node = JsonSerializer.SerializeToNode(MerchantMeEndpoints.StoreDto(store), JsonSerializerOptions.Web)!.AsObject();
+        node["webhookSecret"] = webhookSecret;
+        return node;
+    }
+
     private static string RandomId(int lengthChars)
     {
         const string alphabet = "abcdefghijkmnpqrstuvwxyz23456789";
@@ -480,11 +556,16 @@ public static class StoresEndpoints
     }
 }
 
-public record CreateStoreRequest(string Name, string? Network);
+public record CreateStoreRequest(string Name, string? Network, string? DefaultCurrency = null);
 public record UpdateStoreRequest(
     string? Name,
     string? Network,
     string? AddressOrXpub,
     string? WebhookUrl,
     int? DefaultSessionExpiryMinutes,
-    bool? DigiDollarEnabled);
+    bool? DigiDollarEnabled)
+{
+    /// <summary>"DGB" or a fiat code; null or "" clears it. A JsonElement so an explicit null (clear)
+    /// differs from a missing field (keep).</summary>
+    public JsonElement DefaultCurrency { get; init; }
+}

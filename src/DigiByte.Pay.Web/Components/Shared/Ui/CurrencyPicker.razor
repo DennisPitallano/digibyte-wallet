@@ -1,0 +1,164 @@
+@using DigiByte.Wallet.Models
+@* Choosing a currency, like the wallet's picker (CurrencyPickerSheet): search by code, name, symbol or country; grouped by
+   region; flags. Optionally offers DGB itself first and a "Recent" row. A sheet on phones, a centred dialog on wider
+   screens. Escape or a tap outside closes it. *@
+@if (IsOpen)
+{
+    <div class="ui-picker-overlay" @onclick="Close">
+        <div id="@Id" class="ui-picker" role="dialog" aria-modal="true" aria-labelledby="@($"{Id}-title")"
+             @onclick:stopPropagation="true" @onkeydown="OnKeyDown">
+            <div class="ui-picker-grip" aria-hidden="true"></div>
+            <div class="ui-picker-head">
+                <div>
+                    <h2 id="@($"{Id}-title")" class="block-title">@Title</h2>
+                    @if (!string.IsNullOrEmpty(Hint))
+                    {
+                        <p class="ui-picker-hint">@Hint</p>
+                    }
+                </div>
+                <button type="button" class="icon-btn" aria-label="Close" @onclick="Close"><Icon Name="close" Class="w-5 h-5" /></button>
+            </div>
+
+            <div class="ui-picker-search">
+                <Icon Name="search" Class="w-4 h-4" />
+                <input @ref="search" type="search" autocomplete="off" spellcheck="false"
+                       placeholder="Search currency, country or code" aria-label="Search currency"
+                       value="@query" @oninput="e => query = e.Value?.ToString() ?? string.Empty" />
+            </div>
+
+            <div class="ui-picker-body">
+                @{ var any = false; }
+                @if (string.IsNullOrWhiteSpace(query))
+                {
+                    var top = TopCodes().ToList();
+                    if (top.Count > 0)
+                    {
+                        any = true;
+                        <p class="ui-picker-group">@(Recent?.Count > 0 ? "Recent" : "Suggested")</p>
+                        <ul class="ui-picker-list">
+                            @foreach (var code in top)
+                            {
+                                @Row(code)
+                            }
+                        </ul>
+                    }
+                }
+                else if (IncludeDgb && MatchesDgb())
+                {
+                    any = true;
+                    <ul class="ui-picker-list">@Row("DGB")</ul>
+                }
+
+                @foreach (var region in FiatCurrencies.Regions)
+                {
+                    var items = FiatCurrencies.InRegion(region).Where(Matches).ToList();
+                    if (items.Count == 0) continue;
+                    any = true;
+                    <p class="ui-picker-group">@region</p>
+                    <ul class="ui-picker-list">
+                        @foreach (var c in items)
+                        {
+                            @Row(c.Code)
+                        }
+                    </ul>
+                }
+                @if (!any)
+                {
+                    <p class="ui-picker-empty">No currency matches "@query".</p>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string? Selected { get; set; }
+    [Parameter] public bool IncludeDgb { get; set; }
+    [Parameter] public IReadOnlyList<string>? Recent { get; set; }
+    /// <summary>A code to offer first in the top row (e.g. the store's default currency), before DGB and Recent.</summary>
+    [Parameter] public string? Preferred { get; set; }
+    [Parameter] public string Title { get; set; } = "Currency";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string Id { get; set; } = "currency-picker";
+    [Parameter] public EventCallback<string> OnSelected { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private string query = "";
+    private ElementReference search;
+    private bool wasOpen;
+
+    private RenderFragment Row(string cur) => __builder =>
+    {
+        var selected = string.Equals(cur, Selected, StringComparison.OrdinalIgnoreCase);
+        var isDgb = cur == "DGB";
+        <li>
+            <button type="button" class="ui-picker-row @(selected ? "is-selected" : "")" aria-pressed="@(selected ? "true" : "false")"
+                    @onclick="() => Pick(cur)">
+                <CurrencyFlag Code="@cur" />
+                <span class="ui-picker-names">
+                    <span class="ui-picker-code">@cur</span>
+                    <span class="ui-picker-name">@(isDgb ? "DigiByte (no conversion)" : Fiat.Name(cur))</span>
+                </span>
+                <span class="ui-picker-symbol">@(isDgb ? "DGB" : Fiat.Symbol(cur))</span>
+                @if (selected)
+                {
+                    <Icon Name="check" Class="w-4 h-4 ui-picker-check" />
+                }
+            </button>
+        </li>
+    };
+
+    private IEnumerable<string> TopCodes()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(Preferred))
+        {
+            var p = Preferred.Trim().ToUpperInvariant();
+            if ((p == "DGB" ? IncludeDgb : FiatCurrencies.Find(p) is not null) && seen.Add(p)) yield return p;
+        }
+        if (IncludeDgb && seen.Add("DGB")) yield return "DGB";
+        var source = Recent is { Count: > 0 } ? Recent : new[] { "USD", "EUR", "GBP" };
+        foreach (var c in source)
+            if ((c == "DGB" ? IncludeDgb : FiatCurrencies.Find(c) is not null) && seen.Add(c)) yield return c.ToUpperInvariant();
+    }
+
+    private bool MatchesDgb() =>
+        "DGB".Contains(query.Trim(), StringComparison.OrdinalIgnoreCase) || "DigiByte".Contains(query.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private bool Matches(FiatCurrency c)
+    {
+        var q = query.Trim();
+        if (q.Length == 0) return true;
+        return c.Code.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || c.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || c.Symbol.Trim().Equals(q, StringComparison.OrdinalIgnoreCase)
+            || FiatCurrencies.CountryNames(c.Code).Any(n => n.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && !wasOpen)
+        {
+            try { await search.FocusAsync(); } catch { /* not rendered yet or prerendering */ }
+        }
+        wasOpen = IsOpen;
+    }
+
+    private async Task Pick(string code)
+    {
+        query = "";
+        await OnSelected.InvokeAsync(code);
+    }
+
+    private async Task Close()
+    {
+        query = "";
+        await OnClosed.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Close();
+    }
+}

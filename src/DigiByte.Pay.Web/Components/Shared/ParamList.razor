@@ -1,0 +1,12 @@
+@* A list of request fields or query parameters for an endpoint in the API reference. Holds <Param> rows.
+   Notes about a field live here, never as comments inside a JSON sample (copied JSON must parse). *@
+<div class="dp-params">
+    <p class="dp-params-title">@Title</p>
+    <dl class="dp-params-list">@ChildContent</dl>
+</div>
+
+@code {
+    /// <summary>"Body", "Query parameters", "Response" and so on.</summary>
+    [Parameter] public string Title { get; set; } = "Body";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
