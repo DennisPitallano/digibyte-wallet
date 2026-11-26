@@ -146,7 +146,7 @@ public static class AuthEndpoints
                 }),
                 _ => Results.StatusCode(500),
             };
-        });
+        }).RequireRateLimiting("auth-poll"); // per challenge, not the group's per-address "auth" limit (Program.cs)
 
         return group;
     }
