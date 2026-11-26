@@ -2,7 +2,9 @@
 @* The ways to pay a digibyte: request from this page: an installed wallet app (the digibyte: link), or the DigiByte
    Wallet in the browser (dgbwallet.app), which opens its Send screen with the address and amount filled in. The
    request goes after the # of the wallet link, so the wallet's server never sees it (the wallet's payment links,
-   DigiByte.Wallet PaymentLink). *@
+   DigiByte.Wallet PaymentLink). With ReturnUrl the wallet link becomes {wallet}/pay?return={escaped}#{request}: once
+   the payment is sent, the wallet offers "Return to {host}" (it checks the address, https only, and never goes there
+   by itself). *@
 <div class="ui-wallet-buttons">
     <a href="@Uri" class="btn-primary w-full">Open in wallet</a>
     <a href="@WebWalletHref" target="_blank" rel="noopener" class="btn-secondary w-full ui-wallet-web">
@@ -18,12 +20,16 @@
     /// <summary>The digibyte: request, e.g. digibyte:dgb1…?amount=5&amp;label=…</summary>
     [Parameter, EditorRequired] public string Uri { get; set; } = "";
 
+    /// <summary>Optional absolute address of this page, offered by the wallet as "Return to {host}" after paying.</summary>
+    [Parameter] public string? ReturnUrl { get; set; }
+
     private string WebWalletHref
     {
         get
         {
             var baseUrl = (Services.GetService(typeof(WalletAppUrl)) as WalletAppUrl)?.Value ?? WalletAppUrl.Default;
-            return $"{baseUrl.TrimEnd('/')}/pay#{Uri}";
+            var query = string.IsNullOrEmpty(ReturnUrl) ? "" : "?return=" + System.Uri.EscapeDataString(ReturnUrl);
+            return $"{baseUrl.TrimEnd('/')}/pay{query}#{Uri}";
         }
     }
 }

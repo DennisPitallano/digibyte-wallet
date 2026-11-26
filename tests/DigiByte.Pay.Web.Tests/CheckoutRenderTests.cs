@@ -184,6 +184,20 @@ public class CheckoutRenderTests : BunitContext
     }
 
     [Fact]
+    public void The_digibyte_wallet_link_returns_to_this_checkout_with_its_theme()
+    {
+        UseSession("pending");
+        var nav = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+        nav.NavigateTo("/pay/ses_abc?theme=Dark&utm=x");
+        var cut = Render<Checkout>(p => p.Add(x => x.SessionId, "ses_abc"));
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("a.ui-wallet-web")));
+
+        var href = cut.Find("a.ui-wallet-web").GetAttribute("href")!;
+        Assert.Equal("https://dgbwallet.app/pay?return=" + Uri.EscapeDataString("http://localhost/pay/ses_abc?theme=dark")
+            + "#digibyte:dgb1qexampleaddress0000000000000000000000?amount=12345", href);
+    }
+
+    [Fact]
     public void The_status_uses_no_glyph_icons()
     {
         UseSession("underpaid");

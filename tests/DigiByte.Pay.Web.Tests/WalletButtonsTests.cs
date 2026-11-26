@@ -27,4 +27,29 @@ public class WalletButtonsTests : BunitContext
         var cut = Render<WalletButtons>(p => p.Add(x => x.Uri, Bip21));
         Assert.Equal("https://wallet.test/pay#" + Bip21, cut.Find("a.ui-wallet-web").GetAttribute("href"));
     }
+
+    [Fact]
+    public void A_return_address_goes_in_the_query_before_the_request()
+    {
+        const string back = "https://pay.dgbwallet.app/pay/ses_abc?theme=dark";
+        var cut = Render<WalletButtons>(p => p.Add(x => x.Uri, Bip21).Add(x => x.ReturnUrl, back));
+        // The wallet reads ?return= (offered as "Return to pay.dgbwallet.app" after paying); the request stays after the #.
+        Assert.Equal("https://dgbwallet.app/pay?return=" + Uri.EscapeDataString(back) + "#" + Bip21,
+            cut.Find("a.ui-wallet-web").GetAttribute("href"));
+        Assert.Equal(Bip21, cut.Find("a.btn-primary").GetAttribute("href")); // the installed-app link is unchanged
+    }
+
+    [Fact]
+    public void A_tip_page_passes_its_own_address()
+    {
+        const string to = "dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa";
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddScoped<ToastService>();
+        var nav = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+        nav.NavigateTo($"/pay/button?to={to}&amount=5");
+        var cut = Render<DigiByte.Pay.Web.Components.Pages.Donate>();
+
+        var href = cut.Find("a.ui-wallet-web").GetAttribute("href")!;
+        Assert.StartsWith("https://dgbwallet.app/pay?return=" + Uri.EscapeDataString($"http://localhost/pay/button?to={to}&amount=5") + "#digibyte:" + to, href);
+    }
 }

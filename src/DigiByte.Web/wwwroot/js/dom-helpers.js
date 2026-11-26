@@ -163,6 +163,23 @@ window.domHelpers = {
         } catch (e) {
             return false;
         }
+    },
+    // "Return to {host}" after a payment or Digi-ID sign-in a site opened (SiteReturnButton.razor). The address was
+    // checked in C# (SiteReturnUrl); only http(s) is followed here as a second guard.
+    // When a script opened this tab (window.opener is set), the site's tab is still open behind it and already shows
+    // the result, so try to close this one. Browsers only allow closing a tab a script opened and may still refuse;
+    // if the tab is still open a moment later, or there was no opener, go to the return address instead.
+    returnToSite: function (url) {
+        var target;
+        try { target = new URL(url); } catch (e) { return; }
+        if (target.protocol !== 'https:' && target.protocol !== 'http:') return;
+        var go = function () { window.location.assign(target.href); };
+        if (window.opener) {
+            try { window.close(); } catch (e) { /* blocked */ }
+            setTimeout(function () { if (!window.closed) go(); }, 300);
+            return;
+        }
+        go();
     }
 };
 

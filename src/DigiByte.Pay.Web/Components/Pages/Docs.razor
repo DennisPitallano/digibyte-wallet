@@ -159,6 +159,12 @@
                 The wallet checks the address network, so the mainnet dgbwallet.app can't pay a testnet store; scan the QR code with a testnet wallet instead.
                 Sign-in through the wallet needs an API the wallet can reach, so it doesn't complete against <InlineCode>localhost</InlineCode>.
             </p>
+            <p class="@P">
+                Both buttons tell the wallet how to come back: the pay link is <InlineCode>{wallet}/pay?return={this page}#digibyte:…</InlineCode> and the
+                sign-in link adds <InlineCode>&amp;return={this page}</InlineCode>. Once the payment is sent or the sign-in approved, the wallet shows
+                <em>Return to {host}</em>; it never goes back by itself. It accepts only https addresses (http only on localhost), and for sign-in only an
+                address on the same site as the Digi-ID domain (localhost may use another port, so web on 5252 and API on 5008 work).
+            </p>
 
             @* ===================== Guide ===================== *@
             <DocsHeading Id="lifecycle">How a payment flows</DocsHeading>

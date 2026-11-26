@@ -70,10 +70,26 @@ public class SigninDevButtonTests : BunitContext
         var cut = Render<Signin>();
 
         var link = cut.WaitForElement("a.dp-signin-wallet");
-        Assert.Equal("https://dgbwallet.app/identity?uri=" + Uri.EscapeDataString("digiid://localhost/v1/pay/auth/callback?x=n1&u=1"),
+        // &return= is this sign-in page, so the wallet can offer "Return to localhost" after approving.
+        Assert.Equal("https://dgbwallet.app/identity?uri=" + Uri.EscapeDataString("digiid://localhost/v1/pay/auth/callback?x=n1&u=1")
+            + "&return=" + Uri.EscapeDataString("http://localhost/"),
             link.GetAttribute("href"));
         Assert.Equal("_blank", link.GetAttribute("target")); // this tab keeps polling and signs in
         Assert.Contains("Sign in with DigiByte Wallet", link.TextContent);
+    }
+
+    [Fact]
+    public void The_return_address_is_the_full_sign_in_address_with_its_own_return()
+    {
+        Use("Production");
+        Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()
+            .NavigateTo("/merchant/signin?return=%2Fdashboard%2Fsessions");
+        var cut = Render<Signin>();
+
+        var href = cut.WaitForElement("a.dp-signin-wallet").GetAttribute("href")!;
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(href).Query);
+        Assert.Equal("digiid://localhost/v1/pay/auth/callback?x=n1&u=1", query["uri"]);
+        Assert.Equal("http://localhost/merchant/signin?return=%2Fdashboard%2Fsessions", query["return"]);
     }
 
     private sealed class FakeEnvironment(string name) : IWebHostEnvironment
