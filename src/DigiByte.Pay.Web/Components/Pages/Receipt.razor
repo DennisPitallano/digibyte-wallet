@@ -181,17 +181,12 @@
     private string BlockchairTxHref => $"https://blockchair.com/digibyte/transaction/{Uri.EscapeDataString(session?.PaidTxid ?? "")}";
     private string BlockchairPdfHref => BlockchairTxHref + ".pdf";
 
-    // When the payment landed (falls back to when it was requested). Rendered on the server, which
-    // doesn't know the shopper's time zone, so it says UTC rather than guessing.
-    private string PaidAtText
-    {
-        get
-        {
-            var at = session?.PaidAt ?? session?.CreatedAt ?? DateTime.UtcNow;
-            var utc = at.Kind == DateTimeKind.Local ? at.ToUniversalTime() : DateTime.SpecifyKind(at, DateTimeKind.Utc);
-            return utc.ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
-        }
-    }
+    // When the payment landed (falls back to when it was requested). The prerendered page can't
+    // know the shopper's time zone, so it says UTC; once interactive the browser's zone is used,
+    // with its offset ("UTC+1") so a printed receipt is still unambiguous.
+    private readonly LocalClock clock = new();
+
+    private string PaidAtText => clock.ShowWithZone(session?.PaidAt ?? session?.CreatedAt ?? DateTime.UtcNow);
 
     private string PageTitleText => merchantName is null ? "Receipt · DigiPay" : $"Receipt from {merchantName} · DigiPay";
 
@@ -258,8 +253,10 @@
     private readonly CancellationTokenSource lifetime = new();
     private Task? pollLoop;
 
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Show the time in the shopper's own zone (never runs while prerendering).
+        if (firstRender && await clock.InitAsync(JS)) StateHasChanged();
         if (pollLoop is null && session is not null && !CheckoutStates.IsFinal(session.Status))
             pollLoop = PollAsync();
     }

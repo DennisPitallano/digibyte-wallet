@@ -1,0 +1,277 @@
+@implements IAsyncDisposable
+@inject IHttpClientFactory HttpFactory
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@* The merchant dashboard's frame: the rail on wide screens, the top bar, bottom menu and More
+   sheet on phones, and the store switcher. Used by the dashboard sections and the payment page,
+   so every merchant page shows the same navigation. The page supplies its content. *@
+<div class="dp-shell">
+    @* Wide screens (1024px and up): a left rail with every section, like the wallet's
+       wide-screen menu (FR-016). Phones and tablets get the top bar + bottom menu below. *@
+    <aside class="dp-rail" aria-label="Dashboard">
+        <a href="/" class="dp-brand">
+            <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
+            <span>Digi<span class="text-dgb-500">Pay</span></span>
+        </a>
+
+        @StoreSwitcher("rail")
+
+        <nav aria-label="Sections" class="dp-rail-nav">
+            @SectionLinks(DashboardSections.All, "rail", false)
+        </nav>
+
+        <div class="dp-rail-group">
+            <p class="section-label px-3">Resources</p>
+            @ResourceLinks
+        </div>
+
+        <div class="dp-rail-group">
+            <div class="px-3">
+                <p class="text-sm font-semibold truncate">@AccountName</p>
+                @if (!string.IsNullOrEmpty(DigiIdAddress))
+                {
+                    <p class="font-mono text-xs ui-checkout-muted">@(DigiIdAddress.Length > 14 ? DigiIdAddress[..8] + "…" + DigiIdAddress[^4..] : DigiIdAddress)</p>
+                }
+            </div>
+            <div class="flex gap-2 items-center px-3 pt-2">
+                <button type="button" class="btn-secondary btn-sm flex-1" @onclick="SignOutAsync">
+                    <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
+                </button>
+                <ThemePicker Compact="true" />
+            </div>
+        </div>
+    </aside>
+
+    @* Phones and tablets: a slim top bar (brand, account). Sections live in the bottom menu. *@
+    <header class="dp-topbar">
+        <a href="/" class="dp-brand">
+            <img src="/digipay-logo.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0" />
+            <span>Digi<span class="text-dgb-500">Pay</span></span>
+        </a>
+        <div class="flex-1"></div>
+        @if (Stores.Count > 1 && ActiveStore is not null)
+        {
+            @* Several stores: say which one the page is showing (the switcher is under More). *@
+            <button type="button" class="dash-topbar-store" @onclick="OpenMore" aria-label="@($"Store: {ActiveStore.Name}. Switch store")">
+                <Icon Name="store" Class="w-4 h-4 shrink-0" /><span class="truncate">@ActiveStore.Name</span>
+            </button>
+        }
+        else
+        {
+            <span class="dash-topbar-name truncate">@AccountName</span>
+        }
+    </header>
+
+    <main class="dp-main @(Narrow ? "dp-main-narrow" : "") page-enter">
+        @ChildContent
+    </main>
+
+    @* Phones and tablets: the wallet-style bottom menu (FR-017). The raised middle button
+       starts a new payment; More opens a sheet with every other section. *@
+    <nav class="dp-bottom" aria-label="Main sections">
+        @foreach (var sec in DashboardSections.BottomMenu)
+        {
+            <a href="@HrefFor(sec)" class="@(sec.Raised ? "dp-bottom-raised" : "dp-bottom-item")" aria-current="@(IsCurrent(sec) ? "page" : null)">
+                <span class="dp-bottom-icon"><Icon Name="@sec.Icon" Class="w-5 h-5" /></span>
+                <span class="dp-bottom-label">@sec.Label</span>
+            </a>
+        }
+        <button type="button" class="dp-bottom-item" aria-haspopup="dialog" aria-expanded="@(moreOpen ? "true" : "false")"
+                aria-current="@(DashboardSections.More.Any(IsCurrent) ? "page" : null)" @onclick="OpenMore">
+            <span class="dp-bottom-icon"><Icon Name="more" Class="w-5 h-5" /></span>
+            <span class="dp-bottom-label">More</span>
+        </button>
+    </nav>
+
+    @* Dialogs sit outside <main> so its entry animation never affects their position. *@
+    @Overlays
+
+    @if (moreOpen)
+    {
+        <div class="dp-sheet-overlay" @onclick="CloseMore">
+            <div id="dp-more-sheet" class="card-raised dp-sheet" role="dialog" aria-modal="true" aria-labelledby="dp-more-title" @onclick:stopPropagation="true">
+                <div class="dp-sheet-head">
+                    <h2 id="dp-more-title" class="block-title">More</h2>
+                    <button type="button" class="icon-btn" aria-label="Close" data-autofocus @onclick="CloseMore"><Icon Name="close" Class="w-5 h-5" /></button>
+                </div>
+                @StoreSwitcher("sheet")
+                <nav aria-label="More sections" class="dp-sheet-list">
+                    @SectionLinks(DashboardSections.More, "sheet", true)
+                </nav>
+                <div class="dp-rail-group">
+                    <p class="section-label px-3">Resources</p>
+                    @ResourceLinks
+                </div>
+                <div class="dp-rail-group">
+                    <p class="section-label px-3">Theme</p>
+                    <ThemePicker Class="mx-1" />
+                </div>
+                <div class="pt-3">
+                    <button type="button" class="btn-secondary btn-sm w-full" @onclick="SignOutAsync">
+                        <Icon Name="logout" Class="w-4 h-4" /><span>Sign out</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>A store the merchant can switch to.</summary>
+    public sealed record StoreOption(string Id, string Name);
+
+    /// <summary>The section shown as current (a <see cref="DashboardSection.Key"/>); null for none, e.g. a not-found page.</summary>
+    [Parameter] public string? ActiveKey { get; set; }
+    [Parameter] public string AccountName { get; set; } = "";
+    [Parameter] public string? DigiIdAddress { get; set; }
+    [Parameter] public IReadOnlyList<StoreOption> Stores { get; set; } = [];
+    [Parameter] public string? ActiveStoreId { get; set; }
+    /// <summary>The merchant picked another store in the switcher.</summary>
+    [Parameter] public EventCallback<string> OnStoreChanged { get; set; }
+    /// <summary>Forms and single items use the narrow column.</summary>
+    [Parameter] public bool Narrow { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    /// <summary>Dialogs that belong to the page, drawn outside the content column.</summary>
+    [Parameter] public RenderFragment? Overlays { get; set; }
+
+    private bool moreOpen;
+    private string? shownKey;
+    private DotNetObjectReference<DashboardShell>? selfRef;
+
+    private StoreOption? ActiveStore => Stores.FirstOrDefault(s => s.Id == ActiveStoreId);
+
+    private bool IsCurrent(DashboardSection sec) => ActiveKey is not null && sec.Key == ActiveKey;
+
+    /// <summary>The section's address, keeping the chosen store when the merchant has several.</summary>
+    private string HrefFor(DashboardSection sec) =>
+        Stores.Count > 1 && !string.IsNullOrEmpty(ActiveStoreId)
+            ? $"{sec.Href}?store={Uri.EscapeDataString(ActiveStoreId)}"
+            : sec.Href;
+
+    protected override void OnParametersSet()
+    {
+        // Moving to another section closes the More sheet.
+        if (shownKey != ActiveKey) moreOpen = false;
+        shownKey = ActiveKey;
+    }
+
+    private async Task OnStoreSelectedAsync(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        await CloseMore();
+        if (!string.IsNullOrEmpty(id) && id != ActiveStoreId) await OnStoreChanged.InvokeAsync(id);
+    }
+
+    private async Task OpenMore()
+    {
+        moreOpen = true;
+        StateHasChanged();
+        await Task.Yield();
+        selfRef ??= DotNetObjectReference.Create(this);
+        try { await JS.InvokeVoidAsync("digipayDialog.open", "dp-more-sheet", selfRef); } catch (JSException) { }
+    }
+
+    private async Task CloseMore()
+    {
+        if (!moreOpen) return;
+        moreOpen = false;
+        try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-more-sheet"); } catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+
+    [JSInvokable]
+    public async Task OnEscape()
+    {
+        await CloseMore();
+        StateHasChanged();
+    }
+
+    /// <summary>Ends the session on the API (best effort), forgets the token and goes home.</summary>
+    private async Task SignOutAsync()
+    {
+        try
+        {
+            var token = await JS.InvokeAsync<string?>("localStorage.getItem", "digipay-token");
+            if (!string.IsNullOrEmpty(token))
+            {
+                var req = new HttpRequestMessage(HttpMethod.Delete, "/v1/pay/auth/session");
+                req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+                await HttpFactory.CreateClient("PayApi").SendAsync(req);
+            }
+        }
+        catch { }
+        await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
+        await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-merchant-id");
+        Nav.NavigateTo("/");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (moreOpen)
+        {
+            try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-more-sheet"); } catch { }
+        }
+        selfRef?.Dispose();
+    }
+
+    private RenderFragment StoreSwitcher(string where) => __builder =>
+    {
+        if (Stores.Count > 0)
+        {
+            <div class="field px-1 pb-2">
+                <label class="field-label" for="@("store-switch-" + where)">Active store</label>
+                <select id="@("store-switch-" + where)" class="input" value="@ActiveStoreId" @onchange="OnStoreSelectedAsync">
+                    @foreach (var st in Stores)
+                    {
+                        <option value="@st.Id" selected="@(st.Id == ActiveStoreId)">@st.Name</option>
+                    }
+                </select>
+            </div>
+        }
+    };
+
+    private RenderFragment ResourceLinks => __builder =>
+    {
+        <a href="/docs" target="_blank" rel="noopener" class="dp-rail-item">
+            <Icon Name="book" Class="w-5 h-5 shrink-0" /><span class="flex-1">How it works</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+        <a href="/docs/api" target="_blank" rel="noopener" class="dp-rail-item">
+            <Icon Name="code" Class="w-5 h-5 shrink-0" /><span class="flex-1">API reference</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+        <a href="/embed/demo.html" target="_blank" rel="noopener" class="dp-rail-item">
+            <Icon Name="gift" Class="w-5 h-5 shrink-0" /><span class="flex-1">Embed demo</span><Icon Name="external-link" Class="w-3.5 h-3.5 opacity-60" /><span class="sr-only">(opens in a new tab)</span>
+        </a>
+    };
+
+    /// <summary>
+    /// Section links under their group headings (Payments, Insights, Developers, Account), for the
+    /// rail and the More sheet. Headings are plain text; each list keeps its own landmark name.
+    /// </summary>
+    private RenderFragment SectionLinks(IEnumerable<DashboardSection> sections, string where, bool closesSheet) => __builder =>
+    {
+        foreach (var (group, items) in DashboardSections.Grouped(sections))
+        {
+            var headingId = $"nav-{where}-{group.ToLowerInvariant()}";
+            <p id="@headingId" class="section-label dash-nav-heading">@group</p>
+            <ul class="dash-nav-list" aria-labelledby="@headingId">
+                @foreach (var sec in items)
+                {
+                    <li>
+                        @if (closesSheet)
+                        {
+                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)" @onclick="CloseMore">
+                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)">
+                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
+                            </a>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    };
+}

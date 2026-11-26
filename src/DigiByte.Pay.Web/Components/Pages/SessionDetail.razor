@@ -20,17 +20,13 @@
     const string H1 = "page-title";
 }
 
-@if (bootstrapError != null)
+@if (account is null && bootstrapError != null)
 {
     <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-        <div class="@Card text-center max-w-md">
-            <h1 class="block-title">This payment couldn't be loaded</h1>
-            <p class="ui-checkout-muted">@bootstrapError</p>
-            <a href="@BackHref" class="btn-primary btn-sm">Back to payments</a>
-        </div>
+        @CouldNotLoad
     </main>
 }
-else if (session == null)
+else if (account is null)
 {
     <main class="min-h-dvh flex items-center justify-center p-4 bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
         <Loader Text="Loading payment…" />
@@ -38,9 +34,22 @@ else if (session == null)
 }
 else
 {
-    var state = CheckoutStates.For(session.Status);
-    <div class="min-h-dvh bg-slate-50 dark:bg-dgb-950 text-slate-900 dark:text-white font-sans">
-        <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 flex flex-col gap-4">
+    @* Inside the dashboard's navigation, with Payments as the current section. *@
+    <DashboardShell ActiveKey="sessions" AccountName="@account.DisplayName" DigiIdAddress="@account.DigiIdAddress"
+                    Stores="@ShellStores" ActiveStoreId="@(session?.StoreId)" OnStoreChanged="OnStoreSwitched">
+        <ChildContent>
+    @if (bootstrapError != null)
+    {
+        <div class="flex justify-center">@CouldNotLoad</div>
+    }
+    else if (session == null)
+    {
+        <div class="flex justify-center py-10"><Loader Text="Loading payment…" /></div>
+    }
+    else
+    {
+        var state = CheckoutStates.For(session.Status);
+        <div class="max-w-4xl flex flex-col gap-4">
             @* Header — the way back, the store this payment belongs to, status and refresh. *@
             <div class="flex flex-col gap-2 mb-2">
                 @* Back to the list the merchant came from (FR-018). *@
@@ -339,9 +348,10 @@ else
                     <p class="@Muted m-0">Nothing to do for this payment.</p>
                 }
             </section>
-        </main>
-    </div>
-
+        </div>
+    }
+        </ChildContent>
+        <Overlays>
     <ConfirmDialog Open="@showRefundDialog" Title="Record a refund" ConfirmLabel="@(submittingAction ? "Saving…" : "Record refund")"
                    Danger="false" Busy="@submittingAction" ConfirmDisabled="@string.IsNullOrWhiteSpace(refundTxid)"
                    OnConfirm="SubmitRefundAsync" OnCancel="CloseDialogs">
@@ -373,6 +383,8 @@ else
             <p class="field-error mt-3" role="alert">@actionError</p>
         }
     </ConfirmDialog>
+        </Overlays>
+    </DashboardShell>
 }
 
 @code {
@@ -411,6 +423,7 @@ else
 
     private readonly LocalClock clock = new();
     private string? token;
+    private AccountDto? account;
     private SessionDto? session;
     private StoreDto? store;
     private List<WebhookDeliveryDto>? deliveries;
@@ -430,6 +443,23 @@ else
     private string voidNote = "";
     private bool submittingAction;
     private string? actionError;
+
+    /// <summary>The merchant's stores for the shell's switcher.</summary>
+    private IReadOnlyList<DashboardShell.StoreOption> ShellStores =>
+        account?.Stores?.Select(s => new DashboardShell.StoreOption(s.Id, s.Name)).ToArray() ?? [];
+
+    /// <summary>Another store picked in the switcher: show that store's payments.</summary>
+    private void OnStoreSwitched(string storeId) =>
+        Nav.NavigateTo($"/merchant/sessions?store={Uri.EscapeDataString(storeId)}");
+
+    private RenderFragment CouldNotLoad => __builder =>
+    {
+        <div class="card p-5 sm:p-6 flex flex-col gap-3 text-center max-w-md">
+            <h1 class="block-title">This payment couldn't be loaded</h1>
+            <p class="ui-checkout-muted">@bootstrapError</p>
+            <a href="@BackHref" class="btn-primary btn-sm">Back to payments</a>
+        </div>
+    };
 
     private long Shortfall => session is null || session.Status is not "underpaid"
         ? 0
@@ -464,10 +494,14 @@ else
                 return;
             }
             await clock.InitAsync(JS);
+            if (!await LoadAccountAsync()) return;
             await LoadSessionAsync();
             if (session is not null)
             {
-                await Task.WhenAll(LoadStoreAsync(), LoadDeliveriesAsync());
+                // The store usually comes with the account; look it up only if it doesn't.
+                var mine = account?.Stores?.FirstOrDefault(s => s.Id == session.StoreId);
+                if (mine is not null) store = mine;
+                await Task.WhenAll(store is null ? LoadStoreAsync() : Task.CompletedTask, LoadDeliveriesAsync());
                 UpdatePolling();
             }
             StateHasChanged();
@@ -480,6 +514,23 @@ else
         var req = new HttpRequestMessage(method, path);
         req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
         return req;
+    }
+
+    /// <summary>The signed-in merchant and their stores, for the dashboard navigation. False when signed out.</summary>
+    private async Task<bool> LoadAccountAsync()
+    {
+        var http = HttpFactory.CreateClient("PayApi");
+        var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, "/v1/pay/me/"));
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
+            var here = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+            Nav.NavigateTo($"/merchant/signin?return={Uri.EscapeDataString(ReturnUrlGuard.Sanitize(here))}");
+            return false;
+        }
+        response.EnsureSuccessStatusCode();
+        account = await response.Content.ReadFromJsonAsync<AccountDto>();
+        return account is not null;
     }
 
     private async Task LoadSessionAsync()
@@ -675,6 +726,8 @@ else
     private record SessionResponse(SessionDto Session, string? MerchantName);
 
     private record StoreDto(string Id, string Name, string Network);
+
+    private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, List<StoreDto>? Stores);
 
     private record SessionDto(string Id, string StoreId, string Address, long AmountSatoshis, decimal Amount,
         string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,

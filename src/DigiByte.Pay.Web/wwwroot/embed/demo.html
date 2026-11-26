@@ -47,6 +47,24 @@ DigiPay.close();</pre>
     <p style="font-size:0.875rem;color:#475569">Tip buttons too:</p>
     <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="1" data-name="Creator" data-theme="light">Tip 1 DGB (light)</span>
 
+    <h2>2c. Know when it's paid: onStatus and onSuccess</h2>
+    <p><code>onStatus</code> gets <code>{ sessionId, status }</code> on every status change; <code>onSuccess</code> gets the same once, when the payment is confirmed. The modal closes <code>closeDelay</code> ms later (2500 by default). Fulfil orders from your webhook: a browser callback is a hint, not proof.</p>
+    <pre>DigiPay.checkout({
+    sessionId: 'ses_...',
+    onStatus: function (e) { console.log(e.sessionId, e.status); },
+    onSuccess: function (e) { showThankYou(e.sessionId); },
+    closeDelay: 1500,
+});</pre>
+    <div class="row">
+        <label style="display:flex;gap:0.5rem;align-items:center;font-size:0.875rem;color:#475569;">
+            <input type="checkbox" id="cb-simulate" checked style="width:auto;" />
+            Play the buyer (advances demo sessions every few seconds)
+        </label>
+        <button type="button" id="cb-open">Open with callbacks</button>
+    </div>
+    <pre id="cb-log" aria-live="polite">Callbacks appear here. Uses the session above, or creates a demo session.</pre>
+    <p id="cb-thanks" hidden style="padding:0.75rem 1rem;border-radius:0.5rem;background:#dcfce7;color:#166534;font-weight:600;"></p>
+
     <h2>3. Donation / tip button</h2>
     <pre>DigiPay.button({ address: 'dgb1...', amount: 5, name: 'Creator' });</pre>
     <div id="tipjar"></div>
@@ -57,8 +75,9 @@ DigiPay.close();</pre>
 
     <!-- Section 5 is a live sandbox. It hits /v1/pay/test/* which is public
          but guarded: /demo-session always mints a fresh ses_demo_* session,
-         and /advance refuses anything that isn't a ses_demo_* id so real
-         merchant sessions can never be mutated from here. -->
+         and /advance without a key only moves ses_demo_* ids (a merchant's own
+         testnet/regtest sessions need its API key), so nothing real can be
+         changed from here. -->
     <section id="sim-section">
         <h2>5. Full lifecycle simulation <span style="font-size: 0.75rem; font-weight: 500; color: #0369a1; background: #e0f2fe; padding: 0.125rem 0.5rem; border-radius: 0.25rem; vertical-align: middle;">live sandbox</span></h2>
         <p>Walks a fresh sandbox session through all its state transitions without needing a chain tx. Renders the checkout inline (not as a modal) so the Advance buttons stay reachable.</p>
@@ -131,6 +150,62 @@ DigiPay.close();</pre>
                 input.placeholder = 'Failed: ' + e.message;
             }
         });
+
+        // Section 2c: the checkout modal with onStatus / onSuccess. With "Play the buyer" on, a demo
+        // session is advanced every 4 seconds; the checkout picks up each step and the callbacks fire.
+        (function () {
+            var log = document.getElementById('cb-log');
+            var thanks = document.getElementById('cb-thanks');
+            var timer = null;
+
+            function write(line) {
+                log.textContent = (log.textContent.indexOf('Callbacks appear') === 0 ? '' : log.textContent + '\n') + line;
+            }
+            function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+            document.getElementById('cb-open').addEventListener('click', async function () {
+                stop();
+                thanks.hidden = true;
+                log.textContent = '';
+                var id = document.getElementById('ses').value.trim();
+                try {
+                    if (!id) {
+                        var r = await demoApiFetch('/v1/pay/test/demo-session', { method: 'POST' });
+                        if (!r.ok) throw new Error('HTTP ' + r.res.status);
+                        id = (await r.res.json()).sessionId;
+                        write('Created demo session ' + id);
+                    }
+                } catch (e) {
+                    write('Could not create a demo session: ' + e.message);
+                    return;
+                }
+
+                DigiPay.checkout({
+                    sessionId: id,
+                    onStatus: function (e) { write('onStatus  ' + e.status + '  (' + e.sessionId + ')'); },
+                    onSuccess: function (e) {
+                        stop();
+                        write('onSuccess ' + e.status + '  (' + e.sessionId + ')');
+                        thanks.textContent = 'Thank you! Payment ' + e.sessionId + ' is confirmed.';
+                        thanks.hidden = false;
+                    },
+                    closeDelay: 1500,
+                });
+
+                if (!document.getElementById('cb-simulate').checked || id.indexOf('ses_demo_') !== 0) return;
+                var steps = 0;
+                timer = setInterval(async function () {
+                    // pending -> seen -> paid -> confirmed takes 3 calls; stop after a few more regardless.
+                    if (++steps > 8) return stop();
+                    try {
+                        var r = await demoApiFetch('/v1/pay/test/sessions/' + encodeURIComponent(id) + '/advance', { method: 'POST' });
+                        if (!r.ok) return stop();
+                        var body = await r.res.json();
+                        if (body.status === 'confirmed') stop();
+                    } catch (_) { stop(); }
+                }, 4000);
+            });
+        })();
 
         // Programmatic tip-jar example.
         document.getElementById('tipjar').appendChild(

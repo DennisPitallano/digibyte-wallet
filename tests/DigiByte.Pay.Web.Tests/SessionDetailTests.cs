@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using DigiByte.Pay.Web.Components.Pages;
 using DigiByte.Pay.Web.Components.Shared.Ui;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DigiByte.Pay.Web.Tests;
@@ -15,15 +16,67 @@ public class SessionDetailTests : BunitContext
     private string? txid = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
     private long received = 100_000_000;
     private HttpStatusCode voidStatus = HttpStatusCode.OK;
+    private bool twoStores;
 
-    private IRenderedComponent<SessionDetail> RenderPage()
+    private IRenderedComponent<SessionDetail> RenderPage(string? back = null)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         JSInterop.Setup<string?>("localStorage.getItem", "digipay-token").SetResult("dps_test");
         Services.AddLogging();
         Services.AddScoped<ToastService>();
         Services.AddSingleton<IHttpClientFactory>(new Stub(this));
+        if (back is not null)
+        {
+            var nav = Services.GetRequiredService<NavigationManager>();
+            nav.NavigateTo(nav.GetUriWithQueryParameter("back", back));
+        }
         return Render<SessionDetail>(p => p.Add(x => x.SessionId, "ses_abc"));
+    }
+
+    // ----- Inside the dashboard navigation -----
+
+    [Fact]
+    public void The_payment_page_shows_the_dashboard_navigation_with_payments_current()
+    {
+        var cut = RenderPage();
+        cut.WaitForAssertion(() => Assert.Contains("Corner Café", cut.Markup));
+
+        Assert.NotNull(cut.Find(".dp-shell .dp-rail"));
+        var current = cut.FindAll(".dp-rail a[aria-current='page']");
+        Assert.Equal("Payments", Assert.Single(current).TextContent.Trim());
+        var bottom = cut.FindAll(".dp-bottom a[aria-current='page']");
+        Assert.Equal("Payments", Assert.Single(bottom).TextContent.Trim());
+        Assert.Contains("Test Shop", cut.Find(".dp-rail").TextContent);
+        // The payment itself sits in the shell's content column.
+        Assert.Contains("ses_abc", cut.Find(".dp-main").TextContent);
+    }
+
+    [Fact]
+    public void With_several_stores_the_navigation_keeps_the_payments_store()
+    {
+        twoStores = true;
+        var cut = RenderPage();
+        cut.WaitForAssertion(() => Assert.Contains("Corner Café", cut.Markup));
+
+        Assert.NotNull(cut.Find(".dp-rail a[href='/merchant/sessions?store=sto_1']"));
+        Assert.Equal("sto_1", cut.Find("#store-switch-rail").GetAttribute("value"));
+        Assert.Contains("Corner Café", cut.Find(".dash-topbar-store").TextContent);
+    }
+
+    [Fact]
+    public void The_back_link_returns_to_the_list_it_came_from()
+    {
+        var cut = RenderPage(back: "/merchant/sessions?status=paid");
+        cut.WaitForAssertion(() => Assert.Contains("Corner Café", cut.Markup));
+        Assert.NotNull(cut.Find("a.back-btn[href='/merchant/sessions?status=paid']"));
+    }
+
+    [Fact]
+    public void A_foreign_back_address_falls_back_to_payments()
+    {
+        var cut = RenderPage(back: "https://evil.example/merchant");
+        cut.WaitForAssertion(() => Assert.Contains("Corner Café", cut.Markup));
+        Assert.NotNull(cut.Find("a.back-btn[href='/merchant/sessions']"));
     }
 
     [Fact]
@@ -105,6 +158,11 @@ public class SessionDetailTests : BunitContext
                      "paidAt":"2026-11-25T10:02:00Z","receivedSatoshis":{{t.received}},"confirmations":{{(t.status == "confirmed" ? 6 : 1)}},
                      "paidTxid":{{(t.txid is null ? "null" : $"\"{t.txid}\"")}},"uri":"digibyte:dgb1qexample?amount=2",
                      "checkoutUrl":"http://pay.test/pay/ses_abc"},"merchantName":"Test Shop"}
+                    """));
+            if (method == "GET" && path == "/v1/pay/me/")
+                return Task.FromResult(Json($$"""
+                    {"id":"mer_1","displayName":"Test Shop","digiIdAddress":null,"stores":[
+                     {"id":"sto_1","name":"Corner Café","network":"{{t.network}}"}{{(t.twoStores ? ",{\"id\":\"sto_2\",\"name\":\"Market Stall\",\"network\":\"mainnet\"}" : "")}}]}
                     """));
             if (method == "GET" && path == "/v1/pay/stores/sto_1")
                 return Task.FromResult(Json($$"""{"id":"sto_1","name":"Corner Café","network":"{{t.network}}"}"""));

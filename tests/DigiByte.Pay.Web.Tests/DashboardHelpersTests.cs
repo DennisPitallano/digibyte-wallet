@@ -38,6 +38,20 @@ public class DashboardHelpersTests
     }
 
     [Theory]
+    [InlineData("Europe/Amsterdam", 2026, 11, "26 Nov 2026, 14:05 UTC+1")]
+    [InlineData("Europe/Amsterdam", 2026, 7, "26 Jul 2026, 15:05 UTC+2")] // summer time on that date
+    [InlineData("America/New_York", 2026, 11, "26 Nov 2026, 08:05 UTC-5")]
+    [InlineData("Asia/Kathmandu", 2026, 11, "26 Nov 2026, 18:50 UTC+5:45")]
+    [InlineData("Etc/UTC", 2026, 11, "26 Nov 2026, 13:05 UTC")]
+    [InlineData(null, 2026, 11, "26 Nov 2026, 13:05 UTC")]
+    public void A_time_with_its_zone_names_the_offset_on_that_date(string? zone, int year, int month, string expected)
+    {
+        var clock = new LocalClock();
+        clock.Use(zone);
+        Assert.Equal(expected, clock.ShowWithZone(new DateTime(year, month, 26, 13, 5, 0, DateTimeKind.Utc)));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("Not/AZone")]

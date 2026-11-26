@@ -4,7 +4,7 @@ using Microsoft.JSInterop;
 namespace DigiByte.Pay.Web.Components.Shared.Ui;
 
 /// <summary>
-/// Shows API times (UTC) in the merchant's own time zone. The page runs on the server, so
+/// Shows API times (UTC) in the viewer's own time zone (merchant dashboard, shopper receipt). The page runs on the server, so
 /// <c>ToLocalTime()</c> would use the server's zone; this asks the browser for its zone once
 /// (Intl.DateTimeFormat) and converts with <see cref="TimeZoneInfo"/>. If the zone is unknown,
 /// times stay in UTC and say so. One format everywhere: "d MMM yyyy, HH:mm".
@@ -59,6 +59,22 @@ public sealed class LocalClock
         ToLocal(utc).ToString(Format, CultureInfo.InvariantCulture) + (IsUtc ? " UTC" : "");
 
     public string Show(DateTime? utc) => utc is DateTime t ? Show(t) : "";
+
+    /// <summary>
+    /// "26 Nov 2026, 14:05 UTC+1": the time with its offset from UTC on that date (summer time
+    /// included), for pages read without other context, like a receipt. " UTC" when the zone isn't known.
+    /// </summary>
+    public string ShowWithZone(DateTime utc)
+    {
+        var local = ToLocal(utc);
+        var text = local.ToString(Format, CultureInfo.InvariantCulture);
+        var offset = IsUtc ? TimeSpan.Zero : Zone.GetUtcOffset(local);
+        if (offset == TimeSpan.Zero) return text + " UTC";
+        var sign = offset < TimeSpan.Zero ? "-" : "+";
+        var abs = offset.Duration();
+        var hours = ((int)abs.TotalHours).ToString(CultureInfo.InvariantCulture);
+        return $"{text} UTC{sign}{hours}" + (abs.Minutes == 0 ? "" : $":{abs.Minutes:00}");
+    }
 
     /// <summary>"26 Nov 2026".</summary>
     public string ShowDate(DateTime utc) => ToLocal(utc).ToString(DateFormat, CultureInfo.InvariantCulture);
