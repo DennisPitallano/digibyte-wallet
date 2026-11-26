@@ -240,4 +240,38 @@
         return key === 'Enter' || key === 'Backspace' || key === 'Delete' || key === '.' || key === ','
             || (typeof key === 'string' && key.length === 1 && key >= '0' && key <= '9');
     }
+
+    // ---------------------------------------------------------------------
+    // New versions. A till is often left open for days, so after an update it would keep running the page it
+    // loaded. Every few minutes the till asks the server which build it runs (/api/build); when that differs
+    // from the build this page came from (<meta name="digipay-build">), it reloads, but only while the till is
+    // idle (the POS root's data-idle="true": keypad, no amount, no dialog, no sale), so no sale is interrupted.
+    // ---------------------------------------------------------------------
+    const BUILD_CHECK_MS = 5 * 60 * 1000;
+    let newBuildWaiting = false;
+
+    async function checkBuild() {
+        const meta = document.querySelector('meta[name="digipay-build"]');
+        if (!meta || !meta.content) return;
+        if (!newBuildWaiting) {
+            try {
+                const r = await fetch('/api/build', { cache: 'no-store' });
+                if (!r.ok) return;
+                const body = await r.json();
+                newBuildWaiting = !!body.build && body.build !== meta.content;
+            } catch (_) { return; /* offline: try again later */ }
+        }
+        if (newBuildWaiting) reloadWhenIdle();
+    }
+
+    function reloadWhenIdle() {
+        const root = document.querySelector('.dp-pos');
+        if (root && root.getAttribute('data-idle') === 'true') location.reload();
+    }
+
+    if (typeof location !== 'undefined' && (location.pathname === '/pos' || location.pathname === '/pos/')) {
+        setInterval(checkBuild, BUILD_CHECK_MS);
+        // Once a new build is known, reload as soon as the till goes idle (checked every few seconds).
+        setInterval(() => { if (newBuildWaiting) reloadWhenIdle(); }, 5000);
+    }
 })();

@@ -983,6 +983,19 @@ else
                                             Paired @clock.Show(d.CreatedAt)
                                             @(d.LastUsedAt is null ? " · never used" : $" · last seen {clock.Show(d.LastUsedAt)}")
                                         </div>
+                                        @if (d.StoreId is null)
+                                        {
+                                            @* Paired before tablets were tied to a store: it can still act on every store in the
+                                               account. Re-pairing ties it to the store chosen above. *@
+                                            <p class="dash-legacy-tablet">
+                                                <Icon Name="alert" Class="w-4 h-4 shrink-0" />
+                                                <span>Paired before tablets were tied to one store, so it can still take and cancel payments for all your stores. Re-pair it to limit it to <strong>@activeStore?.Name</strong>.</span>
+                                            </p>
+                                        }
+                                        else if ((account?.Stores?.Count ?? 0) > 1)
+                                        {
+                                            <div class="@Muted">Store: @(account!.Stores!.FirstOrDefault(st => st.Id == d.StoreId)?.Name ?? "another store")</div>
+                                        }
                                     </div>
                                     <div class="flex gap-2 shrink-0">
                                     <button type="button" class="btn-secondary btn-sm" disabled="@posPairingBusy"
@@ -2575,7 +2588,7 @@ else
     }
 
     private record PosPairingDto(string Code, DateTime ExpiresAt, string StoreId, string StoreName, string DeviceLabel, string? Prefix = null);
-    private record PosDeviceDto(string Id, string? Label, string Prefix, DateTime CreatedAt, DateTime? LastUsedAt);
+    private record PosDeviceDto(string Id, string? Label, string Prefix, DateTime CreatedAt, DateTime? LastUsedAt, string? StoreId = null);
 
     private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, DateTime CreatedAt, List<StoreDto>? Stores);
 

@@ -24,6 +24,8 @@
     @* Inter is used by every page, so fetch it early; JetBrains Mono loads on demand (FR-013a). *@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="_content/DigiByte.UI/fonts/inter-latin-wght-normal.woff2" />
     <meta name="theme-color" content="#f8fafc" />
+    @* The build this page came from; pos-store.js compares it with /api/build. *@
+    <meta name="digipay-build" content="@DigiByte.Pay.Web.BuildInfo.Id" />
     <link rel="stylesheet" href="@Assets["DigiByte.Pay.Web.styles.css"]" />
     <ImportMap />
     <HeadOutlet @rendermode="InteractiveServer"/>

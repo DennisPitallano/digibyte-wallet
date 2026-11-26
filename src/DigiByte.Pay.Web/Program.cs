@@ -84,6 +84,14 @@ app.MapGet("/api/health", () => Results.Ok(new
     timestamp = DateTime.UtcNow,
 }));
 
+// The build this server runs. Open pages compare it with the one they were loaded with (pos-store.js), so a
+// POS tablet left open for days reloads itself after an update instead of running old code.
+app.MapGet("/api/build", (HttpContext ctx) =>
+{
+    ctx.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(new { build = DigiByte.Pay.Web.BuildInfo.Id });
+});
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

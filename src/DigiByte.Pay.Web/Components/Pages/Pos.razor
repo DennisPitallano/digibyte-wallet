@@ -21,7 +21,8 @@
    on this root, styled in digipay-pos.css, so every layout shares one set of markup. *@
 <div class="dp-pos fixed inset-0 font-sans flex flex-col select-none touch-manipulation overflow-hidden"
      data-layout="@prefs.Layout" data-keypad="@prefs.Keypad" data-side="@prefs.Side" data-waiting="@prefs.Waiting"
-     data-haptics="@(prefs.Haptics ? "on" : "off")" data-screen="@screen.ToString().ToLowerInvariant()">
+     data-haptics="@(prefs.Haptics ? "on" : "off")" data-screen="@screen.ToString().ToLowerInvariant()"
+     data-idle="@(IsIdle ? "true" : "false")">
 
     @if (screen == Screen.Pair)
     {
@@ -48,7 +49,8 @@
                         Enter the 6-character code from your dashboard
                     </label>
                     <input id="pos-pair-code" @bind="pairCode" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-                           maxlength="8" placeholder="AB2C9D"
+                           maxlength="8" placeholder="AB2C9D" enterkeyhint="go"
+                           @onkeydown="@(e => { if (e.Key == "Enter" && !busy && !string.IsNullOrWhiteSpace(pairCode)) _ = ClaimPairingAsync(); })"
                            class="input dp-pos-pair-code" />
                     <button class="btn-primary w-full" aria-busy="@(busy ? "true" : null)"
                             @onclick="ClaimPairingAsync" disabled="@(busy || string.IsNullOrWhiteSpace(pairCode))">
@@ -60,7 +62,8 @@
                     <label for="pos-pair-key" class="section-label block">
                         Paste an API key (dgp_…)
                     </label>
-                    <input id="pos-pair-key" @bind="manualApiKey" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                    <input id="pos-pair-key" @bind="manualApiKey" @bind:event="oninput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                           @onkeydown="@(e => { if (e.Key == "Enter" && !busy && !string.IsNullOrWhiteSpace(manualApiKey)) _ = ApplyManualKeyAsync(); })"
                            placeholder="dgp_xxxx_xxxxxxxx…" class="input font-mono" />
                     <label for="pos-pair-store" class="section-label block">
                         Store ID (optional — leave blank to use default store)
@@ -684,6 +687,10 @@
     private Screen screen = Screen.Pair;
     private string pairMode = "code";
     private string pairCode = "";
+
+    /// <summary>Nothing in progress: the keypad with no amount, no dialog, nothing being created. pos-store.js only
+    /// reloads the till for a new version while this is true (the data-idle attribute on the root).</summary>
+    private bool IsIdle => screen == Screen.Keypad && string.IsNullOrEmpty(amount) && !AnyDialogOpen && !busy;
     private string manualApiKey = "";
     private string manualStoreId = "";
     private string? pairError;

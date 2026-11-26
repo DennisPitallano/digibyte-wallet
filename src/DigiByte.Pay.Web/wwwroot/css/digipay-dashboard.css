@@ -236,3 +236,11 @@
     .dash-pair, .dash-pair-seal, .dash-pair-dot::after { animation: none !important; }
     .dash-pair-meter > span { transition: none; }
 }
+
+/* A tablet paired before tablets were tied to one store. */
+.dash-legacy-tablet {
+    margin: 0.375rem 0 0; display: flex; align-items: flex-start; gap: 0.375rem;
+    font-size: 0.75rem; line-height: 1.45; color: #92400e;
+}
+.dark .dash-legacy-tablet { color: #fbbf24; }
+.dash-legacy-tablet svg { margin-top: 0.1rem; }

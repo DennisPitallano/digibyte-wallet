@@ -132,9 +132,16 @@ public class SessionDetailTests : BunitContext
         received = 0;
         voidStatus = HttpStatusCode.Conflict;
         var cut = RenderPage();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("button.btn-danger")));
+        // Wait until the page has fully loaded (payment and the menu's account data), so a late re-render
+        // can't replace the button between finding and clicking it.
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(cut.FindAll(".dp-rail"));
+            Assert.Contains(cut.FindAll("button"), b => b.TextContent.Trim() == "Cancel payment");
+        });
 
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Cancel payment").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".ui-dialog .ui-dialog-actions .btn-danger")));
         cut.Find(".ui-dialog .ui-dialog-actions .btn-danger").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("may have just been paid", cut.Find(".ui-dialog").TextContent));

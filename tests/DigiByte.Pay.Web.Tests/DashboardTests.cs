@@ -288,6 +288,24 @@ public class DashboardTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains("old key has been revoked", cut.Markup), TimeSpan.FromSeconds(5));
     }
 
+    [Fact]
+    public void A_tablet_paired_before_store_binding_is_flagged_for_re_pairing()
+    {
+        api.Devices = 1;
+        api.DeviceStoreId = null; // paired before tablets were tied to a store
+        var cut = RenderSection("pos");
+        cut.WaitForAssertion(() => Assert.Contains("Re-pair it to limit it to", cut.Markup));
+    }
+
+    [Fact]
+    public void A_store_bound_tablet_is_not_flagged()
+    {
+        api.Devices = 1;
+        var cut = RenderSection("pos");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Unpair")));
+        Assert.DoesNotContain("Re-pair it to limit it to", cut.Markup);
+    }
+
     // ----- 5. Donation without a receive address -----
 
     [Fact]
@@ -328,6 +346,7 @@ public class DashboardTests : BunitContext
         public int ApiKeys { get; set; }
         public int Devices { get; set; }
         public bool Claimed;
+        public string? DeviceStoreId = "sto_1";
         public JsonObject? PairingBody;
         public JsonObject? CreatedSession { get; private set; }
         public (HttpStatusCode Status, string Body)? CreateError { get; set; }
@@ -403,9 +422,9 @@ public class DashboardTests : BunitContext
             if (method == "GET" && path == "/v1/pay/pos/devices")
             {
                 var devices = Enumerable.Range(0, Devices)
-                    .Select(i => new { id = $"key_pos{i}", label = "POS — Front", prefix = "dgp_p", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null })
+                    .Select(i => new { id = $"key_pos{i}", label = "POS — Front", prefix = "dgp_p", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null, storeId = DeviceStoreId })
                     .ToList();
-                if (Claimed) devices.Add(new { id = "key_new", label = "POS — Front", prefix = "dgp_new", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null });
+                if (Claimed) devices.Add(new { id = "key_new", label = "POS — Front", prefix = "dgp_new", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null, storeId = (string?)"sto_1" });
                 return Json(devices);
             }
 
