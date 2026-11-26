@@ -153,6 +153,12 @@
                 sign-in page shows a <em>Sign in as dev merchant</em> button, so you can use the dashboard without a Digi-ID wallet. The button
                 never appears outside Development. Create a regtest or testnet store there and step 4 works the same against your local API.
             </p>
+            <p class="@P">
+                The <em>Pay with DigiByte Wallet</em> and <em>Sign in with DigiByte Wallet</em> buttons open <InlineCode>https://dgbwallet.app</InlineCode>.
+                To point them at another deployment of the wallet (for example a staging one), set <InlineCode>DigiPay:WalletUrl</InlineCode> on the web app.
+                The wallet checks the address network, so the mainnet dgbwallet.app can't pay a testnet store; scan the QR code with a testnet wallet instead.
+                Sign-in through the wallet needs an API the wallet can reach, so it doesn't complete against <InlineCode>localhost</InlineCode>.
+            </p>
 
             @* ===================== Guide ===================== *@
             <DocsHeading Id="lifecycle">How a payment flows</DocsHeading>
@@ -173,8 +179,10 @@
                 </table>
             </div>
             <p class="@P">
-                The hosted checkout shows a QR code, an <em>Open in wallet</em> button, a countdown and a live status pill that updates as the
-                transaction moves. DigiPay derives a fresh address for every invoice in xpub mode, so payments can't be linked to each other.
+                The hosted checkout shows a QR code, an <em>Open in wallet</em> button for an installed wallet app, a
+                <em>Pay with DigiByte Wallet</em> button that opens the DigiByte Wallet in the browser with the address and amount filled in, a countdown
+                and a live status pill that updates as the transaction moves. Once a payment is detected the QR code is replaced by the confirmation
+                progress. DigiPay derives a fresh address for every invoice in xpub mode, so payments can't be linked to each other.
             </p>
 
             <DocsHeading Id="stores">Stores and receive addresses</DocsHeading>
