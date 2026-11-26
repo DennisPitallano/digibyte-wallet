@@ -88,3 +88,35 @@
         },
     };
 })();
+
+/*!
+ * Entrance animations after the first page (App.razor, tailwind-input.css). A page that arrived as full HTML
+ * carries data-dp-prerendered on <html>, which turns its entrance animations off: the content is shown as it
+ * is at the first paint, and not animated again when the live connection redraws it. The first click on a
+ * link (or Back/Forward) clears the attribute so the next page animates in as before. What is on screen at
+ * that moment is pinned to "no animation" first, so clearing the attribute doesn't replay it.
+ */
+(function () {
+    'use strict';
+    var root = document.documentElement;
+    if (!root.hasAttribute('data-dp-prerendered')) return;
+    var ANIMATED = '.page-enter, .fade-in, .fade-in-delay-1, .fade-in-delay-2, .fade-in-delay-3, .fade-in-delay-4, '
+        + '.slide-up, .slide-up-delay-1, .slide-up-delay-2, .slide-up-delay-3, .slide-up-delay-4, .slide-up-delay-5, '
+        + '.scale-in, .scale-in-delay-1, .scale-in-delay-2';
+
+    function release() {
+        document.removeEventListener('click', onClick, true);
+        window.removeEventListener('popstate', release);
+        var shown = document.querySelectorAll(ANIMATED);
+        for (var i = 0; i < shown.length; i++) shown[i].style.animation = 'none';
+        root.removeAttribute('data-dp-prerendered');
+    }
+
+    function onClick(e) {
+        var link = e.target && e.target.closest && e.target.closest('a[href]');
+        if (link && !link.hasAttribute('data-skip-to-main')) release();
+    }
+
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('popstate', release);
+})();

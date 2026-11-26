@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 
 <PageTitle>API reference — DigiPay</PageTitle>
+<HeadContent><meta name="description" content="DigiPay API reference: create payment sessions, check their status and verify the signed webhooks DigiPay sends to your server." /></HeadContent>
 
 @{
     // Resolve the public API base. If the configured value is absent or points
@@ -34,7 +35,7 @@
     const string Small = "text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3";
 }
 
-<main class="flex-1 page-enter">
+<main id="main" class="flex-1 page-enter">
     <DocsLayout Current="/docs/api" Toc="toc">
         <article class="dp-docs-article">
             <p class="dp-docs-eyebrow">Developer docs</p>

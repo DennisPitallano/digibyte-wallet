@@ -1,5 +1,8 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+@* data-dp-prerendered: this page arrived as full HTML. Its content is shown as it is, without the entrance
+   animations, and isn't animated a second time when the live connection redraws it (tailwind-input.css).
+   dialog.js removes the attribute on the first in-app navigation, so later page changes animate as before. *@
+<html lang="en" data-dp-prerendered="@(Prerendered ? "" : null)">
 
 <head>
     <meta charset="utf-8" />
@@ -18,8 +21,22 @@
     <link rel="stylesheet" href="@Assets["_content/DigiByte.UI/css/ui.css"]" />
     @* DigiPay's own page layout, built from the shared tokens. *@
     <link rel="stylesheet" href="@Assets["css/digipay.css"]" />
-    <link rel="stylesheet" href="@Assets["css/digipay-dashboard.css"]" />
-    <link rel="stylesheet" href="@Assets["css/digipay-pos.css"]" />
+    @if (Prerendered)
+    {
+        @* The dashboard and POS styles aren't used by pages that arrive as full HTML, so they load without
+           holding up the first paint; they are in place long before an in-app link opens the dashboard. *@
+        <link rel="stylesheet" href="@Assets["css/digipay-dashboard.css"]" media="print" onload="this.media='all'" />
+        <link rel="stylesheet" href="@Assets["css/digipay-pos.css"]" media="print" onload="this.media='all'" />
+        <noscript>
+            <link rel="stylesheet" href="@Assets["css/digipay-dashboard.css"]" />
+            <link rel="stylesheet" href="@Assets["css/digipay-pos.css"]" />
+        </noscript>
+    }
+    else
+    {
+        <link rel="stylesheet" href="@Assets["css/digipay-dashboard.css"]" />
+        <link rel="stylesheet" href="@Assets["css/digipay-pos.css"]" />
+    }
     <link rel="stylesheet" href="@Assets["css/digipay-docs.css"]" />
     @* Inter is used by every page, so fetch it early; JetBrains Mono loads on demand (FR-013a). *@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="_content/DigiByte.UI/fonts/inter-latin-wght-normal.woff2" />
@@ -36,20 +53,22 @@
        localStorage so the nav can show Dashboard vs Sign-in via CSS alone. *@
     <script src="@Assets["auth-state.js"]"></script>
     <link rel="stylesheet" href="@Assets["auth-state.css"]" />
+    @* The helpers below are `defer`: they download alongside the styles but don't hold up the first paint, and
+       run in this order once the page is parsed, before blazor.web.js (also deferred, at the end of <body>). *@
     @* Checkout countdown — pure JS so the timer works inside the embed iframe
        where Blazor's InteractiveServer circuit can't reliably hydrate. *@
-    <script src="@Assets["checkout-countdown.js"]"></script>
+    <script src="@Assets["checkout-countdown.js"]" defer></script>
     @* Browser-side blob → file download for the dashboard's CSV export buttons. *@
-    <script src="@Assets["download.js"]"></script>
+    <script src="@Assets["download.js"]" defer></script>
     @* Kiosk-side state for the POS page (/pos) — tiny localStorage wrapper
        + confirmation beep. Loaded site-wide so a reconnecting circuit can
        call window.digipayPos before the InteractiveServer hub is up. *@
-    <script src="@Assets["pos-store.js"]"></script>
+    <script src="@Assets["pos-store.js"]" defer></script>
     @* Web Share API helper used by the dashboard's payment-links tab. *@
-    <script src="@Assets["share-link.js"]"></script>
+    <script src="@Assets["share-link.js"]" defer></script>
     @* Copy buttons, confirmation dialogs and the skip link (spec 032). *@
-    <script src="@Assets["clipboard.js"]"></script>
-    <script src="@Assets["dialog.js"]"></script>
+    <script src="@Assets["clipboard.js"]" defer></script>
+    <script src="@Assets["dialog.js"]" defer></script>
 </head>
 
 <body>
@@ -60,7 +79,7 @@
        draw anything. *@
     <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["_framework/blazor.web.js"]" defer></script>
 </body>
 
 </html>
@@ -71,7 +90,9 @@
     private static readonly IComponentRenderMode ShopperMode = new InteractiveServerRenderMode(prerender: true);
     private static readonly IComponentRenderMode AppMode = new InteractiveServerRenderMode(prerender: false);
 
-    private IComponentRenderMode PageRenderMode => UsesPrerendering(HttpContext?.Request.Path.Value) ? ShopperMode : AppMode;
+    private bool Prerendered => UsesPrerendering(HttpContext?.Request.Path.Value);
+
+    private IComponentRenderMode PageRenderMode => Prerendered ? ShopperMode : AppMode;
 
     /// <summary>Shopper pages and the public website arrive as full HTML; the dashboard and POS don't.</summary>
     public static bool UsesPrerendering(string? path) => IsShopperPage(path) || IsPublicPage(path);
