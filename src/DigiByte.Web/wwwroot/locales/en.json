@@ -718,6 +718,7 @@
   "send.success.recipients": "to {0} recipients",
   "return_to_site.button": "Return to {0}",
   "return_to_site.stay": "Stay in the wallet",
+  "return_to_site.opened_in_browser": "{0} opened in your browser.",
   "scan.title": "QR Code Scanner",
   "scan.viewfinder": "Camera viewfinder",
   "scan.point_camera": "Point camera at QR code",

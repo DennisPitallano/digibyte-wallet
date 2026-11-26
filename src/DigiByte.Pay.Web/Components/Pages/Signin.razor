@@ -352,10 +352,13 @@
         get
         {
             var wallet = (Services.GetService(typeof(WalletAppUrl)) as WalletAppUrl)?.Value ?? WalletAppUrl.Default;
-            // &return= is this sign-in page; after approval the wallet offers "Return to {host}" (it closes its tab
-            // when this page opened it, else comes back here). The wallet only accepts it on the same site as the
-            // challenge's Digi-ID domain (pay.dgbwallet.app, or localhost on any port in development).
-            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}&return={Uri.EscapeDataString(Nav.Uri)}";
+            // &return= is where this page goes once signed in (the dashboard, or its ?return=); after approval the wallet
+            // offers "Return to {host}". It closes its tab when this page opened it; otherwise it opens that address,
+            // in the browser when the wallet is the installed app. By then this tab has stored the sign-in, so the
+            // dashboard opens signed in, rather than a second sign-in page with a new code. The wallet only accepts it
+            // on the same site as the challenge's Digi-ID domain (pay.dgbwallet.app, or localhost on any port in development).
+            var afterSignIn = Nav.ToAbsoluteUri(ReturnUrlGuard.Sanitize(ReturnTo)).ToString();
+            return $"{wallet.TrimEnd('/')}/identity?uri={Uri.EscapeDataString(challenge?.Uri ?? "")}&return={Uri.EscapeDataString(afterSignIn)}";
         }
     }
 

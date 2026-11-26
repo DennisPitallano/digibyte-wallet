@@ -75,26 +75,27 @@ public class SigninDevButtonTests : BunitContext
         var cut = Render<Signin>();
 
         var link = cut.WaitForElement("a.dp-signin-wallet");
-        // &return= is this sign-in page, so the wallet can offer "Return to localhost" after approving.
+        // &return= is where the page goes once signed in (the dashboard), so the wallet's "Return to localhost" opens
+        // it signed in rather than a second sign-in page with a new code.
         Assert.Equal("https://dgbwallet.app/identity?uri=" + Uri.EscapeDataString("digiid://localhost/v1/pay/auth/callback?x=n1&u=1")
-            + "&return=" + Uri.EscapeDataString("http://localhost/"),
+            + "&return=" + Uri.EscapeDataString("http://localhost/merchant"),
             link.GetAttribute("href"));
         Assert.Equal("_blank", link.GetAttribute("target")); // this tab keeps polling and signs in
         Assert.Contains("Sign in with DigiByte Wallet", link.TextContent);
     }
 
     [Fact]
-    public void The_return_address_is_the_full_sign_in_address_with_its_own_return()
+    public void The_return_address_is_the_page_the_sign_in_was_for()
     {
         Use("Production");
         Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()
-            .NavigateTo("/merchant/signin?return=%2Fdashboard%2Fsessions");
+            .NavigateTo("/merchant/signin?return=%2Fmerchant%2Fpayments%3Fstatus%3Dpaid");
         var cut = Render<Signin>();
 
         var href = cut.WaitForElement("a.dp-signin-wallet").GetAttribute("href")!;
         var query = System.Web.HttpUtility.ParseQueryString(new Uri(href).Query);
         Assert.Equal("digiid://localhost/v1/pay/auth/callback?x=n1&u=1", query["uri"]);
-        Assert.Equal("http://localhost/merchant/signin?return=%2Fdashboard%2Fsessions", query["return"]);
+        Assert.Equal("http://localhost/merchant/payments?status=paid", query["return"]);
     }
 
     // Pay.Web asks the API from its own server, so it names the visitor (with the shared key) for the sign-in limit.
