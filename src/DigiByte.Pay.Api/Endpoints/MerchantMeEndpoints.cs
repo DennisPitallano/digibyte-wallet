@@ -14,8 +14,9 @@ public static class MerchantMeEndpoints
     {
         group.MapGet("", async (HttpRequest http, DigiPayDbContext db) =>
         {
-            var merchant = await AuthenticateAsync(http, db);
-            if (merchant is null) return Results.Unauthorized();
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
+            var merchant = caller.Merchant;
             var stores = await db.Stores.AsNoTracking()
                 .Where(s => s.MerchantId == merchant.Id)
                 .OrderBy(s => s.CreatedAt)
@@ -26,9 +27,10 @@ public static class MerchantMeEndpoints
                 merchant.DisplayName,
                 merchant.DigiIdAddress,
                 merchant.CreatedAt,
-                Stores = stores.Select(StoreDto),
+                // A store-bound POS tablet only sees its own store.
+                Stores = stores.Where(s => caller.CanUseStore(s.Id)).Select(StoreDto),
             });
-        });
+        }).AllowPosKey();
 
         group.MapPatch("", async (UpdateMeRequest body, HttpRequest http, DigiPayDbContext db) =>
         {

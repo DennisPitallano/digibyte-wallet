@@ -327,6 +327,24 @@ using (var scope = app.Services.CreateScope())
         try { await db.Database.ExecuteSqlRawAsync(col); } catch { }
     }
 
+    // SQLite (EnsureCreated) dev DBs made before the AddApiKeyKindAndSimulatedSessions
+    // migration: add the columns, and run the one-off API key
+    // backfill only when the Kind column was really just added (Postgres runs the
+    // same backfill inside the migration).
+    if (!db.Database.IsNpgsql())
+    {
+        var kindAdded = false;
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"ApiKeys\" ADD COLUMN \"Kind\" VARCHAR(16) NOT NULL DEFAULT 'merchant'");
+            kindAdded = true;
+        }
+        catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"ApiKeys\" ADD COLUMN \"StoreId\" VARCHAR(32) NULL"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Sessions\" ADD COLUMN \"Simulated\" INTEGER NOT NULL DEFAULT 0"); } catch { }
+        if (kindAdded) await db.Database.ExecuteSqlRawAsync(DigiByte.Pay.Api.Data.ApiKeyKindBackfill.Sql);
+    }
+
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.
     // Seed a PayApiKey row for any merchant that doesn't yet have one, so existing
     // SDK integrations keep working after the auth lookup moved to PayApiKeys.
@@ -380,6 +398,8 @@ app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
 
 app.UseCors("PayWebClient");
 app.UseRateLimiter();
+// POS tablet keys bound to a store get 403 on every endpoint not marked AllowPosKey().
+app.UseStoreScopedKeyGuard();
 
 // Operational liveness probe. Excluded from the OpenAPI description — not
 // something integrators build against.
@@ -426,13 +446,19 @@ if (app.Environment.IsDevelopment())
     app.MapGroup("/v1/pay/pos").MapPosDevOnlyEndpoints().ExcludeFromDescription();
     app.MapGroup("/v1/pay/auth").MapDevOnlyAuthEndpoints().ExcludeFromDescription();
 }
-app.MapGroup("/v1/pay/public").MapPublicEndpoints().WithTags("Public");
+app.MapGroup("/v1/pay/public").MapPublicEndpoints().WithTags("Public").AllowPosKey();
 // Sandbox/demo endpoints. These are unauthenticated on purpose (they back
 // the /embed/demo.html harness so visitors can see the checkout flow end-to-end).
-// Safety comes from the endpoints themselves: /advance refuses any id that
-// isn't a ses_demo_* session, so real merchant sessions can't be flipped.
+// Safety comes from the endpoints themselves: /advance only flips a non-demo
+// session for its authenticated owner and only on a testnet/regtest store.
 app.MapGroup("/v1/pay/test").MapTestEndpoints().WithTags("Sandbox").RequireRateLimiting("sandbox");
-app.MapHub<CheckoutHub>("/hubs/checkout");
+// Local-testing sign-in as a fixed "Dev merchant" (no Digi-ID wallet needed). Only in
+// Development AND with DigiPay:DevSignIn=true; never in the OpenAPI description.
+if (DevSignInEndpoints.IsEnabled(app.Environment, app.Configuration))
+{
+    app.MapGroup("/v1/pay/dev").MapDevSignInEndpoints().ExcludeFromDescription().RequireRateLimiting("auth");
+}
+app.MapHub<CheckoutHub>("/hubs/checkout").AllowPosKey();
 
 app.Run();
 

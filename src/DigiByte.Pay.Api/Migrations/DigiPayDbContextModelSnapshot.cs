@@ -17,7 +17,7 @@ namespace DigiByte.Pay.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -165,6 +165,13 @@ namespace DigiByte.Pay.Api.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("merchant");
+
                     b.Property<string>("Label")
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
@@ -184,6 +191,10 @@ namespace DigiByte.Pay.Api.Migrations
 
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StoreId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.HasKey("Id");
 
@@ -316,6 +327,11 @@ namespace DigiByte.Pay.Api.Migrations
 
                     b.Property<DateTime?>("SeenAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Simulated")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Source")
                         .HasMaxLength(32)

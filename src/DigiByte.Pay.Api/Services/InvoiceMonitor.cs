@@ -64,14 +64,7 @@ public class InvoiceMonitor : BackgroundService
         var notifier = scope.ServiceProvider.GetRequiredService<CheckoutNotifier>();
 
         var now = DateTime.UtcNow;
-        var graceCutoff = now - LatePaymentGrace;
-        var sessions = await db.Sessions
-            .Where(s =>
-                s.Status == PaySessionStatus.Pending
-                || s.Status == PaySessionStatus.Seen
-                || s.Status == PaySessionStatus.Paid
-                || (s.Status == PaySessionStatus.Expired && s.ExpiresAt > graceCutoff))
-            .ToListAsync(ct);
+        var sessions = await SessionsToWatch(db, now).ToListAsync(ct);
 
         foreach (var session in sessions)
         {
@@ -81,6 +74,23 @@ public class InvoiceMonitor : BackgroundService
 
         if (db.ChangeTracker.HasChanges())
             await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Sessions each tick polls the chain for: open ones, plus expired ones still inside the
+    /// late-payment grace window. Sessions moved by the sandbox advance endpoint
+    /// (<see cref="PaySession.Simulated"/>) are left alone — the chain has no such payment,
+    /// so polling would expire or rewind them.
+    /// </summary>
+    public static IQueryable<PaySession> SessionsToWatch(DigiPayDbContext db, DateTime now)
+    {
+        var graceCutoff = now - LatePaymentGrace;
+        return db.Sessions.Where(s =>
+            !s.Simulated
+            && (s.Status == PaySessionStatus.Pending
+                || s.Status == PaySessionStatus.Seen
+                || s.Status == PaySessionStatus.Paid
+                || (s.Status == PaySessionStatus.Expired && s.ExpiresAt > graceCutoff)));
     }
 
     private async Task InspectSessionAsync(

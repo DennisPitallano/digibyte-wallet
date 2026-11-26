@@ -26,4 +26,25 @@ public class PayApiKey
     public DateTime? LastUsedAt { get; set; }
     /// <summary>Non-null = revoked; auth lookups filter these out.</summary>
     public DateTime? RevokedAt { get; set; }
+
+    /// <summary>
+    /// <see cref="ApiKeyKind.Merchant"/> (full account access) or <see cref="ApiKeyKind.Pos"/>
+    /// (a paired POS tablet). Tablets used to be recognised only by a "POS…" label; the
+    /// AddApiKeyKindAndSimulatedSessions migration backfilled this column from that label.
+    /// </summary>
+    public string Kind { get; set; } = ApiKeyKind.Merchant;
+
+    /// <summary>
+    /// The store a POS tablet key is bound to. A POS key with a store may only work on that
+    /// store (see <c>Auth.ApiCaller</c>). Null for merchant keys, and for legacy POS keys whose
+    /// store could not be worked out — those keep the old account-wide access.
+    /// </summary>
+    public string? StoreId { get; set; }
+}
+
+/// <summary>Values of <see cref="PayApiKey.Kind"/>.</summary>
+public static class ApiKeyKind
+{
+    public const string Merchant = "merchant";
+    public const string Pos = "pos";
 }

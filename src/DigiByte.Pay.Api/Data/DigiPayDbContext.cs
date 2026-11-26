@@ -60,6 +60,7 @@ public class DigiPayDbContext : DbContext
             // stay valid; AmountCentsDd is nullable and only populated for DD
             // sessions.
             e.Property(s => s.Currency).HasMaxLength(8).IsRequired().HasDefaultValue("DGB");
+            e.Property(s => s.Simulated).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<MerchantSession>(e =>
@@ -81,6 +82,8 @@ public class DigiPayDbContext : DbContext
             e.Property(k => k.Prefix).HasMaxLength(32).IsRequired();
             e.Property(k => k.Hash).HasMaxLength(128).IsRequired();
             e.Property(k => k.Label).HasMaxLength(80);
+            e.Property(k => k.Kind).HasMaxLength(16).IsRequired().HasDefaultValue(ApiKeyKind.Merchant);
+            e.Property(k => k.StoreId).HasMaxLength(32);
         });
 
         modelBuilder.Entity<WebhookDelivery>(e =>

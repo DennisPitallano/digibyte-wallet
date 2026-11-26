@@ -86,4 +86,11 @@ public class PaySession
     /// semantic clarity — cents and sats are different units.
     /// </summary>
     public long? AmountCentsDd { get; init; }
+
+    /// <summary>
+    /// True once the sandbox (POST /v1/pay/test/sessions/{id}/advance) has moved this
+    /// testnet/regtest session. InvoiceMonitor skips simulated sessions so the chain
+    /// (which has no such payment) never overwrites the simulated state.
+    /// </summary>
+    public bool Simulated { get; set; }
 }
