@@ -269,6 +269,9 @@
         if (root && root.getAttribute('data-idle') === 'true') location.reload();
     }
 
+    // Exposed for the tests (and so a page can ask for an immediate check).
+    if (window.digipayPos) window.digipayPos.checkBuild = checkBuild;
+
     if (typeof location !== 'undefined' && (location.pathname === '/pos' || location.pathname === '/pos/')) {
         setInterval(checkBuild, BUILD_CHECK_MS);
         // Once a new build is known, reload as soon as the till goes idle (checked every few seconds).
