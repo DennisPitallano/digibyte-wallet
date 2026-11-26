@@ -45,9 +45,14 @@ public class CheckoutRenderTests : BunitContext
         Assert.NotNull(copyAddress);
         Assert.NotNull(copyAmount);
 
+        // Click() doesn't wait for the handler: if the background "Reconnecting" render holds the
+        // dispatcher, the copy runs a moment later, so wait for it rather than assert at once.
         copyAmount.Click();
-        var call = Assert.Single(JSInterop.Invocations, i => i.Identifier == "digipayClipboard.copy");
-        Assert.Equal("12345", call.Arguments[0]); // no separators, no unit
+        cut.WaitForAssertion(() =>
+        {
+            var call = Assert.Single(JSInterop.Invocations, i => i.Identifier == "digipayClipboard.copy");
+            Assert.Equal("12345", call.Arguments[0]); // no separators, no unit
+        });
 
         // "Reconnecting…" once the (unreachable) live connection fails; either is correct here.
         Assert.Contains(cut.Find(".ui-badge").TextContent.Trim(), new[] { "Waiting for payment", "Reconnecting…" });

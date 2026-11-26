@@ -338,6 +338,7 @@
             signed = body;
             await JS.InvokeVoidAsync("localStorage.setItem", "digipay-token", body.Token);
             await JS.InvokeVoidAsync("localStorage.setItem", "digipay-merchant-id", body.MerchantId);
+            await JS.InvokeVoidAsync("DigiPayAuth.refresh");
             StateHasChanged();
         });
         await Task.Delay(1200);

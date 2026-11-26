@@ -524,6 +524,7 @@ else
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
+            await JS.InvokeVoidAsync("DigiPayAuth.refresh");
             var here = "/" + Nav.ToBaseRelativePath(Nav.Uri);
             Nav.NavigateTo($"/merchant/signin?return={Uri.EscapeDataString(ReturnUrlGuard.Sanitize(here))}");
             return false;

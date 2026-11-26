@@ -1679,6 +1679,7 @@ else
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
+            await JS.InvokeVoidAsync("DigiPayAuth.refresh");
             GoToSignIn();
             return;
         }

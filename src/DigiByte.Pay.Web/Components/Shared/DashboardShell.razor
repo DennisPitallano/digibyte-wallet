@@ -265,6 +265,8 @@
         catch { }
         await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-token");
         await JS.InvokeVoidAsync("localStorage.removeItem", "digipay-merchant-id");
+        // The storage event only reaches other tabs, so flip this tab's nav to "Sign in" ourselves.
+        await JS.InvokeVoidAsync("DigiPayAuth.refresh");
         Nav.NavigateTo("/");
     }
 
