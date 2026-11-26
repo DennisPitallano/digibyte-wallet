@@ -96,6 +96,9 @@ public static class PosEndpoints
                 storeId = store.Id,
                 storeName = store.Name,
                 deviceLabel,
+                // The key prefix the tablet will get (not secret: /devices lists it), so the dashboard can tell
+                // when this code has been used.
+                prefix,
             });
         });
 

@@ -251,6 +251,43 @@ public class DashboardTests : BunitContext
         Assert.True(api.Requests.Count(r => r == "GET /v1/pay/pos/devices") > before);
     }
 
+    // ----- 4b. Pairing codes -----
+
+    [Fact]
+    public void A_new_pairing_code_shows_with_copy_and_countdown_then_turns_into_paired()
+    {
+        var cut = RenderSection("pos");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Generate code")));
+
+        Buttons(cut, "Generate code").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("ABC234", cut.Find(".dash-pair-code").TextContent.Trim()));
+        Assert.NotEmpty(Buttons(cut, "Copy code"));
+        Assert.Matches(@"Expires in \d+:\d\d", cut.Find(".dash-pair").TextContent);
+        Assert.Contains("Waiting for the tablet", cut.Markup);
+
+        api.Claimed = true; // the tablet types the code in
+        cut.WaitForAssertion(() => Assert.Contains("Tablet paired", cut.Markup), TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
+    public void Re_pairing_a_tablet_reuses_its_name_and_revokes_the_old_key_once_paired()
+    {
+        api.Devices = 1;
+        var cut = RenderSection("pos");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Re-pair")));
+
+        Buttons(cut, "Re-pair").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Re-pair code for POS — Front", cut.Markup));
+        Assert.Equal("Front", api.PairingBody!["deviceLabel"]!.GetValue<string>());
+        Assert.DoesNotContain(api.Requests, r => r == "DELETE /v1/pay/api-keys/key_pos0");
+
+        api.Claimed = true;
+        cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r == "DELETE /v1/pay/api-keys/key_pos0"), TimeSpan.FromSeconds(15));
+        cut.WaitForAssertion(() => Assert.Contains("old key has been revoked", cut.Markup), TimeSpan.FromSeconds(5));
+    }
+
     // ----- 5. Donation without a receive address -----
 
     [Fact]
@@ -290,6 +327,8 @@ public class DashboardTests : BunitContext
         public decimal? Price { get; set; } = 0.01m;
         public int ApiKeys { get; set; }
         public int Devices { get; set; }
+        public bool Claimed;
+        public JsonObject? PairingBody;
         public JsonObject? CreatedSession { get; private set; }
         public (HttpStatusCode Status, string Body)? CreateError { get; set; }
 
@@ -353,8 +392,22 @@ public class DashboardTests : BunitContext
             if (method == "GET" && path == "/v1/pay/api-keys")
                 return Json(Enumerable.Range(0, ApiKeys).Select(i => new { id = $"key_{i}", label = "production", prefix = "dgp_x", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null, revokedAt = (DateTime?)null, isRevoked = false }));
 
+            if (method == "POST" && path == "/v1/pay/pos/pairings")
+            {
+                PairingBody = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!.AsObject();
+                var name = PairingBody["deviceLabel"]?.GetValue<string>();
+                return Json(new { code = "ABC234", expiresAt = DateTime.UtcNow.AddMinutes(10), storeId = "sto_1", storeName = "Corner Café",
+                    deviceLabel = name is null ? "POS device — today" : $"POS — {name}", prefix = "dgp_new" });
+            }
+
             if (method == "GET" && path == "/v1/pay/pos/devices")
-                return Json(Enumerable.Range(0, Devices).Select(i => new { id = $"key_pos{i}", label = "POS — Front", prefix = "dgp_p", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null }));
+            {
+                var devices = Enumerable.Range(0, Devices)
+                    .Select(i => new { id = $"key_pos{i}", label = "POS — Front", prefix = "dgp_p", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null })
+                    .ToList();
+                if (Claimed) devices.Add(new { id = "key_new", label = "POS — Front", prefix = "dgp_new", createdAt = DateTime.UtcNow, lastUsedAt = (DateTime?)null });
+                return Json(devices);
+            }
 
             if (method == "DELETE" && path.StartsWith("/v1/pay/api-keys/"))
                 return Json(new { ok = true });

@@ -80,3 +80,11 @@ export function setFoldedGroups(groups) {
         else localStorage.removeItem(GROUPS_KEY);
     } catch (_) { /* not remembered */ }
 }
+
+/** Scrolls an element into view (smoothly unless the user prefers reduced motion) and focuses it. */
+export function reveal(el) {
+    if (!el || !el.scrollIntoView) return;
+    const smooth = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' });
+    try { el.focus({ preventScroll: true }); } catch (_) { /* not focusable */ }
+}

@@ -916,10 +916,44 @@ else
                     @if (posPairingError != null) { <p class="field-error" role="alert">@posPairingError</p> }
                     @if (posPairing != null)
                     {
-                        <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg p-4 flex flex-col items-center gap-2">
-                            <div class="@Eyebrow text-emerald-700 dark:text-emerald-300">Pairing code</div>
-                            <div class="font-mono text-3xl sm:text-4xl tracking-[0.4em] font-bold text-emerald-700 dark:text-emerald-300">@posPairing.Code</div>
-                            <div class="@Muted">Expires @clock.Show(posPairing.ExpiresAt) · @posPairing.DeviceLabel</div>
+                        var left = PairingSecondsLeft;
+                        var expired = left <= 0 && posPairedDevice is null;
+                        @* The code stays here until a tablet uses it or it runs out, even if the merchant visits
+                           another section and comes back (kept in this tab's sessionStorage). *@
+                        <div @ref="pairingCard" tabindex="-1"
+                             class="dash-pair @(posPairedDevice is not null ? "is-paired" : expired ? "is-expired" : "")"
+                             role="status" aria-live="polite">
+                            @if (posPairedDevice is not null)
+                            {
+                                <span class="dash-pair-seal" aria-hidden="true"><Icon Name="check" Class="w-6 h-6" /></span>
+                                <p class="dash-pair-title">Tablet paired</p>
+                                <p class="@Muted m-0">@posPairedDevice.Label is ready to take payments for @posPairing.StoreName.@(posPairingReplaces is not null ? " Its old key has been revoked." : "")</p>
+                                <button type="button" class="btn-secondary btn-sm" @onclick="DismissPairing">Done</button>
+                            }
+                            else if (expired)
+                            {
+                                <p class="dash-pair-eyebrow">Code expired</p>
+                                <p class="dash-pair-code is-dim">@posPairing.Code</p>
+                                <p class="@Muted m-0">This code can no longer be used.</p>
+                                <div class="dash-pair-actions">
+                                    <button type="button" class="@Btn" @onclick="RegeneratePairingAsync">Get a new code</button>
+                                    <button type="button" class="btn-secondary" @onclick="DismissPairing">Dismiss</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="dash-pair-eyebrow">@(posPairingReplaces is not null ? $"Re-pair code for {posPairingReplaces.Label}" : "Pairing code")</p>
+                                <p class="dash-pair-code" aria-label="@string.Join(" ", posPairing.Code.ToCharArray())">@posPairing.Code</p>
+                                <div class="dash-pair-meter" aria-hidden="true"><span style="width: @(PairingProgress)%"></span></div>
+                                <p class="@Muted m-0 tabular-nums">Expires in @($"{left / 60}:{left % 60:00}") · @posPairing.DeviceLabel</p>
+                                <p class="dash-pair-wait"><span class="dash-pair-dot" aria-hidden="true"></span>Waiting for the tablet. On it, open <code class="font-mono text-xs">/pos</code> and type this code.</p>
+                                <div class="dash-pair-actions">
+                                    <button type="button" class="btn-secondary btn-sm" @onclick="CopyPairingCodeAsync">
+                                        <Icon Name="@(pairingCopied ? "check" : "copy")" Class="w-4 h-4" /><span>@(pairingCopied ? "Copied" : "Copy code")</span>
+                                    </button>
+                                    <button type="button" class="btn-secondary btn-sm" @onclick="DismissPairing">Cancel</button>
+                                </div>
+                            }
                         </div>
                     }
                 </section>
@@ -950,10 +984,17 @@ else
                                             @(d.LastUsedAt is null ? " · never used" : $" · last seen {clock.Show(d.LastUsedAt)}")
                                         </div>
                                     </div>
+                                    <div class="flex gap-2 shrink-0">
+                                    <button type="button" class="btn-secondary btn-sm" disabled="@posPairingBusy"
+                                            title="Make a new code for this tablet; its current key is revoked once the new pairing goes through"
+                                            @onclick="() => RepairTabletAsync(d)">
+                                        Re-pair
+                                    </button>
                                     <button class="btn-danger btn-sm shrink-0"
                                             @onclick='() => Ask("Unpair this tablet?", "The tablet signs out of POS mode and can\u2019t take payments until you pair it again.", "Unpair tablet", () => UnpairTabletAsync(d.Id), "Tablet unpaired")'>
                                         Unpair
                                     </button>
+                                    </div>
                                 </li>
                             }
                         </ul>
@@ -1111,7 +1152,8 @@ else
         statusFilter = filter;
         if (account is null) return; // bootstrap applies the section and store once loaded
         // POS: reload the paired devices on each visit so revoked ones fall off.
-        if (changed && sec.Key == "pos") _ = LoadPosDevicesAsync();
+        if (changed && sec.Key == "pos") { _ = LoadPosDevicesAsync(); _ = RestorePairingAsync(); }
+        if (sec.Key != "pos") StopPairingWatch();
         var storeChanged = await ApplyStoreParamAsync();
         // The store change already reloaded the list with the new filter.
         if (filterChanged && !storeChanged) await LoadSessionsAsync();
@@ -1253,6 +1295,7 @@ else
     {
         sessionPoller?.Dispose();
         sessionPoller = null;
+        StopPairingWatch();
         return ValueTask.CompletedTask;
     }
 
@@ -1465,6 +1508,17 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (revealPairing)
+        {
+            // A new pairing code: bring it into view so it isn't missed below the form.
+            revealPairing = false;
+            try
+            {
+                await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
+                await module.InvokeVoidAsync("reveal", pairingCard);
+            }
+            catch (JSException) { } catch (JSDisconnectedException) { }
+        }
         if (!firstRender || account != null || bootstrapError != null) return;
         await BootstrapAsync();
     }
@@ -1499,6 +1553,7 @@ else
             // count for the getting-started checklist.
             await LoadApiKeysAsync();
             await LoadPosDevicesAsync();
+            if (activeTab == "pos") await RestorePairingAsync();
             StateHasChanged();
         }
         catch (Exception ex)
@@ -2339,16 +2394,32 @@ else
     private PosPairingDto? posPairing;
     private List<PosDeviceDto>? posDevices;
 
-    private async Task CreatePosPairingAsync()
+    private Task CreatePosPairingAsync() =>
+        StartPairingAsync(string.IsNullOrWhiteSpace(newPosDeviceLabel) ? null : newPosDeviceLabel.Trim(), replaces: null);
+
+    /// <summary>A new code for a tablet that's already paired (reset, cleared or moved); its old key is revoked
+    /// once the new pairing goes through.</summary>
+    private Task RepairTabletAsync(PosDeviceDto device) => StartPairingAsync(TabletName(device.Label), replaces: device);
+
+    /// <summary>The same kind of code again, for the same tablet if it was a re-pair.</summary>
+    private Task RegeneratePairingAsync() =>
+        StartPairingAsync(posPairingReplaces is not null ? TabletName(posPairingReplaces.Label) : TabletName(posPairing?.DeviceLabel), posPairingReplaces);
+
+    // "POS — Front counter" → "Front counter"; the dated default name ("POS device — …") gets a fresh default.
+    private static string? TabletName(string? label) =>
+        label is not null && label.StartsWith("POS — ", StringComparison.Ordinal) ? label["POS — ".Length..] : null;
+
+    private async Task StartPairingAsync(string? label, PosDeviceDto? replaces)
     {
         if (activeStore is null) return;
         posPairingBusy = true;
         posPairingError = null;
+        StopPairingWatch();
         posPairing = null;
+        posPairedDevice = null;
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var label = string.IsNullOrWhiteSpace(newPosDeviceLabel) ? null : newPosDeviceLabel.Trim();
             var body = JsonContent.Create(new { storeId = activeStoreId, deviceLabel = label });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/pos/pairings", body));
             if (!response.IsSuccessStatusCode)
@@ -2357,11 +2428,138 @@ else
                 return;
             }
             posPairing = await response.Content.ReadFromJsonAsync<PosPairingDto>();
+            posPairingReplaces = replaces;
+            pairingCopied = false;
             newPosDeviceLabel = "";
-            await LoadPosDevicesAsync();
+            await SavePairingAsync();
+            StartPairingWatch();
+            revealPairing = true;
         }
         catch (Exception ex) { posPairingError = Plain(ex, "posPairingError"); }
-        finally { posPairingBusy = false; }
+        finally { posPairingBusy = false; StateHasChanged(); }
+    }
+
+    // ---- Watching a code: countdown every second, the device list every few seconds. ----
+    private PosDeviceDto? posPairingReplaces;
+    private PosDeviceDto? posPairedDevice;
+    private System.Threading.Timer? pairingTimer;
+    private int pairingTicks;
+    private bool pairingCopied;
+    private bool revealPairing;
+    private ElementReference pairingCard;
+    private static readonly TimeSpan PairingTtl = TimeSpan.FromMinutes(10);
+
+    private int PairingSecondsLeft => posPairing is null ? 0 : Math.Max(0, (int)Math.Ceiling((posPairing.ExpiresAt.ToUniversalTime() - DateTime.UtcNow).TotalSeconds));
+    private int PairingProgress => (int)Math.Clamp(PairingSecondsLeft * 100.0 / PairingTtl.TotalSeconds, 0, 100);
+
+    private void StartPairingWatch()
+    {
+        pairingTimer?.Dispose();
+        pairingTicks = 0;
+        pairingTimer = new System.Threading.Timer(_ => _ = InvokeAsync(PairingTickAsync), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void StopPairingWatch()
+    {
+        pairingTimer?.Dispose();
+        pairingTimer = null;
+    }
+
+    private async Task PairingTickAsync()
+    {
+        if (posPairing is null || posPairedDevice is not null) { StopPairingWatch(); return; }
+        if (PairingSecondsLeft <= 0)
+        {
+            StopPairingWatch();
+            await ClearSavedPairingAsync();
+            StateHasChanged();
+            return;
+        }
+        if (++pairingTicks % 3 == 0) await CheckPairedAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>Has a tablet used the code yet? Its new key shows up in the device list with the prefix the
+    /// pairing announced.</summary>
+    private async Task CheckPairedAsync()
+    {
+        if (posPairing is null || string.IsNullOrEmpty(posPairing.Prefix)) return;
+        await LoadPosDevicesAsync();
+        var paired = posDevices?.FirstOrDefault(d => d.Prefix == posPairing.Prefix);
+        if (paired is null) return;
+        posPairedDevice = paired;
+        StopPairingWatch();
+        await ClearSavedPairingAsync();
+        if (posPairingReplaces is not null && posPairingReplaces.Id != paired.Id)
+        {
+            var error = await RevokeKeyAsync(posPairingReplaces.Id);
+            if (error is not null) Toasts.Error($"The tablet paired, but its old key couldn't be revoked: {error} Unpair the old entry by hand.");
+            await LoadPosDevicesAsync();
+        }
+        Toasts.Success($"{paired.Label} paired.");
+    }
+
+    private async Task CopyPairingCodeAsync()
+    {
+        if (posPairing is null) return;
+        bool ok;
+        try { ok = await JS.InvokeAsync<bool>("digipayClipboard.copy", posPairing.Code); }
+        catch (JSException) { ok = false; }
+        pairingCopied = ok;
+        if (!ok) Toasts.Info("Your browser blocked copying. Read the code from the screen instead.");
+    }
+
+    private async Task DismissPairing()
+    {
+        StopPairingWatch();
+        posPairing = null;
+        posPairedDevice = null;
+        posPairingReplaces = null;
+        await ClearSavedPairingAsync();
+    }
+
+    // ---- Keeping an unused code across section visits (this tab only; cleared when used or expired). ----
+    private sealed record SavedPairing(PosPairingDto Pairing, PosDeviceDto? Replaces);
+    private const string PairingStoreKey = "digipay.dash.pairing:v1";
+
+    private async Task SavePairingAsync()
+    {
+        if (posPairing is null) return;
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(new SavedPairing(posPairing, posPairingReplaces));
+            await JS.InvokeVoidAsync("sessionStorage.setItem", PairingStoreKey, json);
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+
+    private async Task ClearSavedPairingAsync()
+    {
+        try { await JS.InvokeVoidAsync("sessionStorage.removeItem", PairingStoreKey); }
+        catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+
+    private async Task RestorePairingAsync()
+    {
+        if (posPairing is not null)
+        {
+            if (posPairedDevice is null && PairingSecondsLeft > 0) StartPairingWatch();
+            return;
+        }
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("sessionStorage.getItem", PairingStoreKey);
+            if (string.IsNullOrEmpty(json)) return;
+            var saved = System.Text.Json.JsonSerializer.Deserialize<SavedPairing>(json);
+            if (saved?.Pairing is null || saved.Pairing.StoreId != activeStoreId) return;
+            posPairing = saved.Pairing;
+            posPairingReplaces = saved.Replaces;
+            if (PairingSecondsLeft <= 0) { await ClearSavedPairingAsync(); return; }
+            await CheckPairedAsync();
+            if (posPairedDevice is null) StartPairingWatch();
+            StateHasChanged();
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { } catch (System.Text.Json.JsonException) { }
     }
 
     private async Task LoadPosDevicesAsync()
@@ -2376,7 +2574,7 @@ else
         catch { posDevices = new(); }
     }
 
-    private record PosPairingDto(string Code, DateTime ExpiresAt, string StoreId, string StoreName, string DeviceLabel);
+    private record PosPairingDto(string Code, DateTime ExpiresAt, string StoreId, string StoreName, string DeviceLabel, string? Prefix = null);
     private record PosDeviceDto(string Id, string? Label, string Prefix, DateTime CreatedAt, DateTime? LastUsedAt);
 
     private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, DateTime CreatedAt, List<StoreDto>? Stores);

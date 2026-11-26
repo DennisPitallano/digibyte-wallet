@@ -49,6 +49,22 @@ public class PosKeyScopeTests
     }
 
     [Fact]
+    public async Task A_pairing_says_which_key_prefix_the_tablet_will_get()
+    {
+        var factory = new PayFactory();
+        using var _ = factory;
+        var client = factory.CreateClient();
+        var (merchantKey, storeId) = await factory.RegisterMerchant(client);
+
+        var pairing = await client.SendAsync(PayFactory.Authed(HttpMethod.Post, "/v1/pay/pos/pairings", merchantKey, new { storeId }));
+        var body = await Json(pairing);
+        var prefix = body.GetProperty("prefix").GetString();
+        var claim = await client.PostAsJsonAsync("/v1/pay/pos/claim", new { code = body.GetProperty("code").GetString() });
+
+        Assert.Equal(prefix, (await Json(claim)).GetProperty("prefix").GetString());
+    }
+
+    [Fact]
     public async Task Pairing_creates_a_pos_key_bound_to_the_paired_store()
     {
         var s = await PairTablet();
