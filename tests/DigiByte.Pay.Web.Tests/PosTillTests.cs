@@ -14,7 +14,7 @@ public class PosTillTests : BunitContext
 {
     private readonly TillApi api = new();
 
-    private IRenderedComponent<Pos> RenderTill(string currency = "DGB", PosPrefs? prefs = null, string[]? recent = null)
+    private IRenderedComponent<Pos> RenderTill(string? currency = "DGB", PosPrefs? prefs = null, string[]? recent = null)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         JSInterop.Setup<Pos.PairedDevice?>("digipayPos.load")
@@ -55,6 +55,42 @@ public class PosTillTests : BunitContext
 
     private static void Choose(IRenderedComponent<Pos> cut, string group, string value) =>
         cut.Find($"[aria-labelledby='{group}'] button[data-value='{value}']").Click();
+
+    // ----- Store default currency -------------------------------------------------------
+
+    [Fact]
+    public void A_tablet_with_no_saved_currency_starts_in_the_stores_default()
+    {
+        api.StoreDefault = "PHP";
+        api.Price = new("PHP", 0.5m, "coingecko");
+        var cut = RenderTill(currency: null);
+
+        cut.WaitForAssertion(() => Assert.Contains("PHP", cut.Find("button.dp-pos-currency").TextContent));
+        // Read with the tablet's own key.
+        Assert.Contains("dgp_test_secret", api.StoreReads);
+        cut.WaitForAssertion(() => Assert.Contains("1 DGB = " + Fiat.Rate(0.5m, "PHP"), cut.Find(".dp-pos-rate").TextContent));
+    }
+
+    [Fact]
+    public void A_currency_saved_on_the_tablet_wins_over_the_store_default()
+    {
+        api.StoreDefault = "PHP";
+        api.Price = new("JPY", 2m, "coingecko");
+        var cut = RenderTill(currency: "JPY");
+
+        Assert.Contains("JPY", cut.Find("button.dp-pos-currency").TextContent);
+        Assert.Empty(api.StoreReads);
+    }
+
+    [Fact]
+    public void A_tablet_stays_in_dgb_when_the_store_has_no_default()
+    {
+        api.StoreDefault = null;
+        var cut = RenderTill(currency: null);
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(api.StoreReads));
+        Assert.Contains("DGB", cut.Find("button.dp-pos-currency").TextContent);
+    }
 
     // ----- Amount entry -----------------------------------------------------------------
 
@@ -346,6 +382,9 @@ public class PosTillTests : BunitContext
 
         public Quote? Price { get; set; }
         public List<string> Charges { get; } = new();
+        /// <summary>The store's defaultCurrency on GET /v1/pay/stores/sto_1.</summary>
+        public string? StoreDefault { get; set; }
+        public List<string> StoreReads { get; } = new();
 
         public HttpClient CreateClient(string name) => new(new Handler(this)) { BaseAddress = new Uri("http://pay-api.test") };
 
@@ -385,6 +424,11 @@ public class PosTillTests : BunitContext
                     var fc = r.GetProperty("fiatCurrency").ValueKind == JsonValueKind.String ? r.GetProperty("fiatCurrency").GetString() : null;
                     decimal? fa = r.GetProperty("fiatAmount").ValueKind == JsonValueKind.Number ? r.GetProperty("fiatAmount").GetDecimal() : null;
                     json = api.lastSession = api.Session(fc, fa, r.GetProperty("amount").GetDecimal());
+                }
+                else if (request.Method == HttpMethod.Get && path == "/v1/pay/stores/sto_1")
+                {
+                    lock (api.StoreReads) api.StoreReads.Add(request.Headers.Authorization?.Parameter ?? "");
+                    json = $$"""{"id":"sto_1","name":"Corner Shop","defaultCurrency":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreDefault}\"")}}}""";
                 }
                 else if (request.Method == HttpMethod.Get && path == "/v1/pay/sessions/ses_pos")
                     json = $$"""{"session":{{api.lastSession ?? api.Session(null, null, 12)}},"merchantName":"Demo Merchant"}""";

@@ -363,6 +363,9 @@ using (var scope = app.Services.CreateScope())
             """);
         await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_PosPairings_CodeHash\" ON \"PosPairings\" (\"CodeHash\")");
         await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_PosPairings_ExpiresAt\" ON \"PosPairings\" (\"ExpiresAt\")");
+
+        // ...and before AddStoreDefaultCurrency: the store's default currency (null = not set).
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Stores\" ADD COLUMN \"DefaultCurrency\" VARCHAR(8) NULL"); } catch { }
     }
 
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.

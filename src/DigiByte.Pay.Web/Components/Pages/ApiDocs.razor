@@ -183,7 +183,7 @@
             <p class="@P">A store owns its receive address or xpub, webhook URL and secret, default expiry and sessions. An account can run many: several shops, a tip jar, a testnet store. A store id that belongs to another account answers <InlineCode>404</InlineCode>.</p>
 
             <Endpoint Method="GET" Path="/v1/pay/stores" Auth="API key" Id="list-stores">
-                <p class="@Small m-0">All your stores. Each has <InlineCode>id</InlineCode>, <InlineCode>name</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>receiveMode</InlineCode> (<InlineCode>xpub</InlineCode>, <InlineCode>address</InlineCode> or <InlineCode>unconfigured</InlineCode>), <InlineCode>hasReceive</InlineCode>, <InlineCode>receivePreview</InlineCode>, <InlineCode>webhookUrl</InlineCode>, <InlineCode>hasWebhookSecret</InlineCode>, <InlineCode>defaultSessionExpiryMinutes</InlineCode>, <InlineCode>digiDollarEnabled</InlineCode> and <InlineCode>createdAt</InlineCode>.</p>
+                <p class="@Small m-0">All your stores. Each has <InlineCode>id</InlineCode>, <InlineCode>name</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>receiveMode</InlineCode> (<InlineCode>xpub</InlineCode>, <InlineCode>address</InlineCode> or <InlineCode>unconfigured</InlineCode>), <InlineCode>hasReceive</InlineCode>, <InlineCode>receivePreview</InlineCode>, <InlineCode>webhookUrl</InlineCode>, <InlineCode>hasWebhookSecret</InlineCode>, <InlineCode>defaultSessionExpiryMinutes</InlineCode>, <InlineCode>digiDollarEnabled</InlineCode>, <InlineCode>defaultCurrency</InlineCode> (<InlineCode>DGB</InlineCode>, a fiat code such as <InlineCode>EUR</InlineCode>, or <InlineCode>null</InlineCode> when not set) and <InlineCode>createdAt</InlineCode>.</p>
             </Endpoint>
 
             <Endpoint Method="POST" Path="/v1/pay/stores" Auth="API key" Id="create-store">
@@ -191,17 +191,18 @@
                 <ParamList>
                     <Param Name="name" Type="string" Required="true">Store name.</Param>
                     <Param Name="network" Type="string">mainnet (default), testnet or regtest. A testnet store is watched on DigiByte testnet.</Param>
+                    <Param Name="defaultCurrency" Type="string">Optional. The store's default currency, as on <InlineCode>PATCH</InlineCode>.</Param>
                 </ParamList>
                 <p class="@Small m-0">The new store has no receive address yet: <InlineCode>PATCH</InlineCode> one before creating sessions.</p>
             </Endpoint>
 
             <Endpoint Method="GET" Path="/v1/pay/stores/{id}" Auth="API key" Id="get-store">
-                <p class="@Small m-0">One store, in the same shape as the list.</p>
+                <p class="@Small m-0">One store, in the same shape as the list. A paired POS tablet's key can read its own store, which is how a new tablet learns the store's <InlineCode>defaultCurrency</InlineCode>.</p>
             </Endpoint>
 
             <Endpoint Method="PATCH" Path="/v1/pay/stores/{id}" Auth="API key" Id="update-store">
                 <p class="@Small">Change any subset of these fields; leave the rest out.</p>
-                <CodeBlock Lang="json" Label="Copy the update-store body">@("{\n  \"name\": \"Main Shop\",\n  \"network\": \"mainnet\",\n  \"addressOrXpub\": \"xpub6...\",\n  \"webhookUrl\": \"https://shop.example/digipay/webhook\",\n  \"defaultSessionExpiryMinutes\": 45,\n  \"digiDollarEnabled\": false\n}")</CodeBlock>
+                <CodeBlock Lang="json" Label="Copy the update-store body">@("{\n  \"name\": \"Main Shop\",\n  \"network\": \"mainnet\",\n  \"addressOrXpub\": \"xpub6...\",\n  \"webhookUrl\": \"https://shop.example/digipay/webhook\",\n  \"defaultSessionExpiryMinutes\": 45,\n  \"digiDollarEnabled\": false,\n  \"defaultCurrency\": \"EUR\"\n}")</CodeBlock>
                 <ParamList>
                     <Param Name="name" Type="string">1 to 120 characters.</Param>
                     <Param Name="network" Type="string">mainnet, testnet or regtest.</Param>
@@ -209,6 +210,7 @@
                     <Param Name="webhookUrl" Type="string">Public HTTPS URL for webhooks. The first time one is set, a webhook secret is created. An empty string removes the URL and deletes the secret.</Param>
                     <Param Name="defaultSessionExpiryMinutes" Type="integer">1 to 1440.</Param>
                     <Param Name="digiDollarEnabled" Type="boolean">Allow DigiDollar (DD) sessions on this store.</Param>
+                    <Param Name="defaultCurrency" Type="string"><InlineCode>DGB</InlineCode> or one of the DigiByte wallet's ~80 fiat codes (<InlineCode>USD</InlineCode>, <InlineCode>EUR</InlineCode>, <InlineCode>PHP</InlineCode> …), any case; stored upper case. Payment links in the dashboard and newly paired POS tablets start in it. An empty string or <InlineCode>null</InlineCode> clears it; any other value answers <InlineCode>400</InlineCode>.</Param>
                 </ParamList>
                 <p class="@Small m-0">
                     Returns the store, plus <InlineCode>webhookSecret</InlineCode>. It holds the secret only on the call that created it, and is

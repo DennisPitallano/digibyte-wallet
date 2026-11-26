@@ -97,6 +97,74 @@ public class DashboardTests : BunitContext
         Assert.Null(api.CreatedSession);
     }
 
+    // ----- 1b. The store's default currency -----
+
+    [Fact]
+    public void Settings_saves_the_default_currency_from_the_picker()
+    {
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.Contains("Not set", cut.Find("#store-currency").TextContent));
+
+        cut.Find("#store-currency").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#store-currency-picker")));
+        // DGB is offered alongside the fiat list.
+        Assert.Contains(cut.FindAll("#store-currency-picker .ui-picker-row"), b => b.TextContent.Contains("DigiByte (no conversion)"));
+        cut.Find("#store-currency-picker input[type=search]").Input("philipp");
+        cut.FindAll("#store-currency-picker .ui-picker-row").Single(b => b.TextContent.Contains("PHP")).Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("PHP", api.LastPatch?["defaultCurrency"]?.GetValue<string>()));
+        cut.WaitForAssertion(() => Assert.Contains("Philippine Peso", cut.Find("#store-currency").TextContent));
+        var toasts = Services.GetRequiredService<ToastService>();
+        Assert.Contains(toasts.Items, t => t.Tone == ToastTone.Success && t.Text.Contains("PHP"));
+
+        // Clearing sends an empty string.
+        Buttons(cut, "Clear default").Single().Click();
+        cut.WaitForAssertion(() => Assert.Equal("", api.LastPatch?["defaultCurrency"]?.GetValue<string>()));
+        cut.WaitForAssertion(() => Assert.Contains("Not set", cut.Find("#store-currency").TextContent));
+    }
+
+    [Fact]
+    public void A_rejected_default_currency_shows_a_plain_error()
+    {
+        api.PatchError = (HttpStatusCode.BadRequest, """{"error":"defaultCurrency must be DGB or a supported fiat currency code"}""");
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#store-currency")));
+
+        cut.Find("#store-currency").Click();
+        cut.FindAll("#store-currency-picker .ui-picker-row").First(b => b.TextContent.Contains("EUR")).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("[role=alert]"), a => a.TextContent.Contains("Check what you entered")));
+        Assert.Contains("Not set", cut.Find("#store-currency").TextContent);
+    }
+
+    [Fact]
+    public void Payment_links_start_in_the_stores_fiat_default()
+    {
+        api.DefaultCurrency = "EUR";
+        api.Price = 0.02m;
+        var cut = RenderSection("links");
+
+        cut.WaitForAssertion(() => Assert.Contains("EUR", cut.Find("#link-currency").TextContent));
+        Assert.Equal("true", Buttons(cut, "Your currency").Single().GetAttribute("aria-pressed"));
+        cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r.StartsWith("GET /v1/pay/public/price?currency=eur")));
+
+        // The store default is the first suggestion in the link's currency picker.
+        cut.Find("#link-currency").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-currency-picker")));
+        Assert.Contains("EUR", cut.FindAll("#link-currency-picker .ui-picker-row").First().TextContent);
+    }
+
+    [Fact]
+    public void Payment_links_start_in_dgb_when_that_is_the_store_default()
+    {
+        api.DefaultCurrency = "DGB";
+        var cut = RenderSection("links");
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-amount-dgb")));
+        Assert.Equal("true", Buttons(cut, "DGB").Single().GetAttribute("aria-pressed"));
+        Assert.DoesNotContain(api.Requests, r => r.StartsWith("GET /v1/pay/public/price"));
+    }
+
     // ----- 2. Totals and Load more -----
 
     [Fact]
@@ -340,6 +408,9 @@ public class DashboardTests : BunitContext
         public string? WebhookUrl { get; set; }
         public bool HasSecret { get; set; }
         public string? SecretOnPatch { get; set; }
+        public string? DefaultCurrency { get; set; }
+        public JsonObject? LastPatch { get; private set; }
+        public (HttpStatusCode Status, string Body)? PatchError { get; set; }
         public int Total { get; set; } = 3;
         public Dictionary<string, int> StatusTotals { get; } = new();
         public decimal? Price { get; set; } = 0.01m;
@@ -388,6 +459,13 @@ public class DashboardTests : BunitContext
             if (method == "PATCH" && path == "/v1/pay/stores/sto_1")
             {
                 var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!.AsObject();
+                LastPatch = body;
+                if (PatchError is { } pe) return new HttpResponseMessage(pe.Status) { Content = new StringContent(pe.Body, Encoding.UTF8, "application/json") };
+                if (body.ContainsKey("defaultCurrency"))
+                {
+                    var c = body["defaultCurrency"]?.GetValue<string>();
+                    DefaultCurrency = string.IsNullOrEmpty(c) ? null : c.ToUpperInvariant();
+                }
                 string? secret = null;
                 if (body["webhookUrl"] is JsonNode url)
                 {
@@ -444,6 +522,7 @@ public class DashboardTests : BunitContext
             receivePreview = HasReceive ? "dgb1qreceive" : null,
             webhookUrl = WebhookUrl, hasWebhookSecret = HasSecret,
             defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = false,
+            defaultCurrency = DefaultCurrency,
         };
 
         private static object Session(string id, string status) => new

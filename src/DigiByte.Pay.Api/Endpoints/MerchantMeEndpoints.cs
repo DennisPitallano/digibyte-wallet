@@ -115,6 +115,7 @@ public static class MerchantMeEndpoints
         HasWebhookSecret = !string.IsNullOrEmpty(s.WebhookSecret),
         s.DefaultSessionExpiryMinutes,
         s.DigiDollarEnabled,
+        s.DefaultCurrency,
         s.CreatedAt,
     };
 

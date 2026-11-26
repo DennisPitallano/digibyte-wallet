@@ -710,6 +710,9 @@
     // Till currency: "DGB" (the cashier types DGB, 8 decimals) or any wallet currency (typed in that currency with its
     // own decimals and converted at the live price). Remembered per tablet, with the last four as "Recent".
     private string currency = PosEntry.Dgb;
+    // True once this tablet has a till currency of its own (saved earlier, or picked now); until then the till
+    // follows the store's default currency.
+    private bool currencyChosenHere;
     private List<string> recentCurrencies = new();
     private bool showCurrencyPicker;
     private string? pendingCurrency;    // a switch waiting for "Clear and switch"
@@ -892,11 +895,15 @@
         }
         hasPin = await JS.InvokeAsync<bool>("digipayPos.hasPin");
         // The till currency, checked against the wallet's list (an old or edited value falls back to DGB).
-        currency = PosEntry.NormalizeCurrency(await JS.InvokeAsync<string?>("digipayPos.loadCurrency")) ?? PosEntry.Dgb;
+        var savedCurrency = PosEntry.NormalizeCurrency(await JS.InvokeAsync<string?>("digipayPos.loadCurrency"));
+        currencyChosenHere = savedCurrency is not null;
+        currency = savedCurrency ?? PosEntry.Dgb;
         recentCurrencies = PosEntry.NormalizeRecent(await SafeLoadAsync<string[]>("digipayPos.loadRecent"));
         prefs = PosPrefs.Normalize(await SafeLoadAsync<PosPrefs>("digipayPos.loadPrefs"));
         StartTicker();
         if (IsFiat) _ = RefreshPriceAsync();
+        // No currency picked on this tablet yet: start in the store's default currency.
+        if (!currencyChosenHere && device is not null) _ = ApplyStoreDefaultCurrencyAsync();
         StateHasChanged();
     }
 
@@ -1072,6 +1079,7 @@
     private async Task SwitchCurrencyAsync(string code, bool clearAmount)
     {
         currency = code;
+        currencyChosenHere = true;
         pendingCurrency = null;
         if (clearAmount)
         {
@@ -1093,6 +1101,44 @@
         }
         catch (JSException) { }
         if (IsFiat) _ = RefreshPriceAsync();
+    }
+
+    /// <summary>
+    /// The store's default currency (GET /v1/pay/stores/{id} with the tablet key, unless <paramref name="known"/>
+    /// already has it) as the till currency, for a tablet where no currency was picked yet. It isn't saved, so the
+    /// tablet keeps following the store default until the cashier picks a currency here. Anything already typed,
+    /// or a currency picked meanwhile, wins.
+    /// </summary>
+    private async Task ApplyStoreDefaultCurrencyAsync(string? known = null)
+    {
+        if (currencyChosenHere || device is null) return;
+        var code = known;
+        if (code is null)
+        {
+            try
+            {
+                var http = HttpFactory.CreateClient("PayApi");
+                using var req = new HttpRequestMessage(HttpMethod.Get, $"/v1/pay/stores/{Uri.EscapeDataString(device.StoreId)}");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
+                using var resp = await http.SendAsync(req, lifetime.Token);
+                if (!resp.IsSuccessStatusCode) return;
+                code = (await resp.Content.ReadFromJsonAsync<StoreDefaultsDto>(lifetime.Token))?.DefaultCurrency;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log.LogInformation(ex, "POS could not load the store's default currency");
+                return;
+            }
+            catch (OperationCanceledException) { return; }
+        }
+        if (PosEntry.NormalizeCurrency(code) is not { } normalized) return;
+        if (currencyChosenHere || amount.Length > 0 || normalized == currency) return;
+        currency = normalized;
+        quote = null;
+        priceFailed = false;
+        chargeError = null;
+        if (IsFiat) _ = RefreshPriceAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     // ----- Price --------------------------------------------------------------------------
@@ -1180,6 +1226,7 @@
                 dto.MerchantName, dto.DeviceLabel));
             screen = Screen.Keypad;
             if (IsFiat) _ = RefreshPriceAsync();
+            _ = ApplyStoreDefaultCurrencyAsync();
         }
         catch (Exception ex) { pairError = $"Pairing failed: {ex.Message}"; }
         finally { busy = false; }
@@ -1217,6 +1264,7 @@
                 key, target.Id, target.Name, me?.DisplayName ?? "", "Manual pairing"));
             screen = Screen.Keypad;
             if (IsFiat) _ = RefreshPriceAsync();
+            if (target.DefaultCurrency is { Length: > 0 } storeDefault) await ApplyStoreDefaultCurrencyAsync(storeDefault);
         }
         catch (Exception ex) { pairError = $"Could not verify key: {ex.Message}"; }
         finally { busy = false; }
@@ -2004,7 +2052,10 @@
         string ApiKey, string Prefix, string MerchantId, string MerchantName,
         string StoreId, string StoreName, string DeviceLabel);
 
-    public record MeStoreDto(string Id, string Name);
+    public record MeStoreDto(string Id, string Name, string? DefaultCurrency = null);
+
+    // GET /v1/pay/stores/{id}: only what the till needs from the store.
+    private sealed record StoreDefaultsDto(string Id, string? DefaultCurrency = null);
     public record MeResponse(string Id, string DisplayName, List<MeStoreDto> Stores);
 
     public record CreatedSession(

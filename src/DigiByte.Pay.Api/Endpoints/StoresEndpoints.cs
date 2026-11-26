@@ -42,19 +42,23 @@ public static class StoresEndpoints
             if (network is not ("mainnet" or "testnet" or "regtest"))
                 return Results.BadRequest(new { error = "network must be mainnet | testnet | regtest" });
 
+            if (!TryNormaliseCurrency(body.DefaultCurrency, out var defaultCurrency, out var currencyError))
+                return Results.BadRequest(new { error = currencyError });
+
             var store = new PayStore
             {
                 Id = $"sto_{RandomId(16)}",
                 MerchantId = merchant.Id,
                 Name = body.Name.Trim(),
                 Network = network,
+                DefaultCurrency = defaultCurrency,
             };
             db.Stores.Add(store);
             await db.SaveChangesAsync();
 
             await audit.LogAsync(merchant.Id, "store.create", "Store", store.Id,
                 summary: $"Created store \"{store.Name}\" ({network})",
-                metadata: new { name = store.Name, network });
+                metadata: new { name = store.Name, network, defaultCurrency });
 
             return Results.Ok(MerchantMeEndpoints.StoreDto(store));
         });
@@ -158,6 +162,17 @@ public static class StoresEndpoints
             {
                 if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
                 store!.DigiDollarEnabled = body.DigiDollarEnabled.Value;
+            }
+            // Absent = leave as is; null or "" = clear; otherwise DGB or a fiat code.
+            if (body.DefaultCurrency.ValueKind != JsonValueKind.Undefined)
+            {
+                if (body.DefaultCurrency.ValueKind is not (JsonValueKind.Null or JsonValueKind.String))
+                    return Results.BadRequest(new { error = "defaultCurrency must be a string or null" });
+                var requested = body.DefaultCurrency.ValueKind == JsonValueKind.String ? body.DefaultCurrency.GetString() : null;
+                if (!TryNormaliseCurrency(requested, out var currency, out var currencyError))
+                    return Results.BadRequest(new { error = currencyError });
+                if (store!.DefaultCurrency != currency) changed.Add("defaultCurrency");
+                store!.DefaultCurrency = currency;
             }
 
             await db.SaveChangesAsync();
@@ -495,6 +510,25 @@ public static class StoresEndpoints
         return (merchant, store, null);
     }
 
+    /// <summary>
+    /// Checks a store default currency: "DGB" or a fiat code the DigiByte wallet offers
+    /// (<see cref="DigiByte.Wallet.Models.FiatCurrencies"/>), any case. Null or blank means "not set".
+    /// </summary>
+    internal static bool TryNormaliseCurrency(string? value, out string? currency, out string? error)
+    {
+        currency = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        var code = value.Trim().ToUpperInvariant();
+        if (code != "DGB" && DigiByte.Wallet.Models.FiatCurrencies.Find(code) is null)
+        {
+            error = "defaultCurrency must be DGB or a supported fiat currency code (e.g. USD, EUR, PHP)";
+            return false;
+        }
+        currency = code;
+        return true;
+    }
+
     /// <summary>A new webhook signing secret: 24 random bytes as lowercase hex.</summary>
     private static string NewWebhookSecret()
     {
@@ -522,11 +556,16 @@ public static class StoresEndpoints
     }
 }
 
-public record CreateStoreRequest(string Name, string? Network);
+public record CreateStoreRequest(string Name, string? Network, string? DefaultCurrency = null);
 public record UpdateStoreRequest(
     string? Name,
     string? Network,
     string? AddressOrXpub,
     string? WebhookUrl,
     int? DefaultSessionExpiryMinutes,
-    bool? DigiDollarEnabled);
+    bool? DigiDollarEnabled)
+{
+    /// <summary>"DGB" or a fiat code; null or "" clears it. A JsonElement so an explicit null (clear)
+    /// differs from a missing field (keep).</summary>
+    public JsonElement DefaultCurrency { get; init; }
+}
