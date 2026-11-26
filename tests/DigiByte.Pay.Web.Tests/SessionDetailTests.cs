@@ -59,7 +59,7 @@ public class SessionDetailTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains("Corner Café", cut.Markup));
 
         Assert.NotNull(cut.Find(".dp-rail a[href='/merchant/sessions?store=sto_1']"));
-        Assert.Equal("sto_1", cut.Find("#store-switch-rail").GetAttribute("value"));
+        Assert.Equal("sto_1", cut.Find("#store-switch-rail").GetAttribute("data-store-id"));
         Assert.Contains("Corner Café", cut.Find(".dash-topbar-store").TextContent);
     }
 

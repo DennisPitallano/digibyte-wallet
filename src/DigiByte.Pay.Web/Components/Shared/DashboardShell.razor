@@ -147,7 +147,7 @@
 
 @code {
     /// <summary>A store the merchant can switch to.</summary>
-    public sealed record StoreOption(string Id, string Name);
+    public sealed record StoreOption(string Id, string Name, string? Network = null);
 
     /// <summary>The section shown as current (a <see cref="DashboardSection.Key"/>); null for none, e.g. a not-found page.</summary>
     [Parameter] public string? ActiveKey { get; set; }
@@ -226,13 +226,6 @@
         shownKey = ActiveKey;
     }
 
-    private async Task OnStoreSelectedAsync(ChangeEventArgs e)
-    {
-        var id = e.Value?.ToString();
-        await CloseMore();
-        if (!string.IsNullOrEmpty(id) && id != ActiveStoreId) await OnStoreChanged.InvokeAsync(id);
-    }
-
     private async Task OpenMore()
     {
         moreOpen = true;
@@ -284,21 +277,111 @@
         selfRef?.Dispose();
     }
 
+    /// <summary>
+    /// The active-store picker: a button with the store's initial, name and network that opens a "Switch store" menu
+    /// (each store with its network, a check on the active one, and Manage stores). Arrow keys move through the list,
+    /// Escape or a tap outside closes it and focus returns to the button.
+    /// </summary>
     private RenderFragment StoreSwitcher(string where) => __builder =>
     {
-        if (Stores.Count > 0)
-        {
-            <div class="field px-1 pb-2">
-                <label class="field-label" for="@("store-switch-" + where)">Active store</label>
-                <select id="@("store-switch-" + where)" class="input" value="@ActiveStoreId" @onchange="OnStoreSelectedAsync">
+        if (Stores.Count == 0 || ActiveStore is not { } current) return;
+        var open = storeMenuFor == where;
+        var menuId = $"store-menu-{where}";
+        <div class="dash-store @(open ? "is-open" : "")" @onkeydown="e => OnStoreMenuKeyAsync(e, where)">
+            <p class="dash-store-label">Active store</p>
+            <button type="button" id="@($"store-switch-{where}")" class="dash-store-btn" data-store-id="@current.Id"
+                    aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")" aria-controls="@menuId"
+                    aria-label="@($"Active store: {current.Name}. Switch store")"
+                    @onclick="() => ToggleStoreMenu(where)" @ref="storeButtons[where]">
+                <span class="dash-store-avatar" style="--hue: @Hue(current.Id)" aria-hidden="true">@StoreInitial(current.Name)</span>
+                <span class="dash-store-text">
+                    <span class="dash-store-name">@current.Name</span>
+                    <span class="dash-store-meta">@NetworkLabel(current.Network)@(Stores.Count > 1 ? $" · {Stores.Count} stores" : "")</span>
+                </span>
+                <span class="dash-store-caret" aria-hidden="true"><Icon Name="chevron-down" Class="w-4 h-4" /></span>
+            </button>
+            @if (open)
+            {
+                <div class="dash-store-scrim" @onclick="CloseStoreMenuAsync"></div>
+                <div id="@menuId" class="dash-store-menu" role="menu" aria-label="Switch store">
+                    <p class="dash-store-menu-title">Switch store</p>
                     @foreach (var st in Stores)
                     {
-                        <option value="@st.Id" selected="@(st.Id == ActiveStoreId)">@st.Name</option>
+                        var active = st.Id == current.Id;
+                        <button type="button" role="menuitemradio" aria-checked="@(active ? "true" : "false")"
+                                class="dash-store-option @(active ? "is-active" : "")" data-store-id="@st.Id"
+                                @onclick="() => PickStoreAsync(st.Id)">
+                            <span class="dash-store-avatar" style="--hue: @Hue(st.Id)" aria-hidden="true">@StoreInitial(st.Name)</span>
+                            <span class="dash-store-text">
+                                <span class="dash-store-name">@st.Name</span>
+                                <span class="dash-store-meta">@NetworkLabel(st.Network)</span>
+                            </span>
+                            @if (active) { <Icon Name="check" Class="w-4 h-4 dash-store-check" /> }
+                        </button>
                     }
-                </select>
-            </div>
-        }
+                    <a href="/merchant/stores" class="dash-store-manage" role="menuitem" @onclick="CloseStoreMenuAsync">
+                        <Icon Name="settings" Class="w-4 h-4" /><span>Manage stores</span>
+                    </a>
+                </div>
+            }
+        </div>
     };
+
+    private string? storeMenuFor;
+    private readonly Dictionary<string, ElementReference> storeButtons = new();
+
+    private static string StoreInitial(string name) => string.IsNullOrWhiteSpace(name) ? "S" : name.Trim()[..1].ToUpperInvariant();
+
+    // A stable colour per store, so several stores are easy to tell apart.
+    private static int Hue(string id) => (int)((uint)id.Aggregate(17, (h, c) => h * 31 + c) % 360);
+
+    private static string NetworkLabel(string? network) => network?.ToLowerInvariant() switch
+    {
+        "testnet" => "Testnet",
+        "regtest" => "Regtest",
+        "mainnet" => "Mainnet",
+        null or "" => "Store",
+        var n => char.ToUpperInvariant(n[0]) + n[1..],
+    };
+
+    private async Task ToggleStoreMenu(string where)
+    {
+        storeMenuFor = storeMenuFor == where ? null : where;
+        StateHasChanged();
+        if (storeMenuFor is not null)
+        {
+            await Task.Yield();
+            try { await JS.InvokeVoidAsync("digipayStoreMenu.focusActive", $"store-menu-{where}"); } catch (JSException) { } catch (JSDisconnectedException) { }
+        }
+    }
+
+    private async Task CloseStoreMenuAsync()
+    {
+        var where = storeMenuFor;
+        storeMenuFor = null;
+        if (where is not null && storeButtons.TryGetValue(where, out var button))
+        {
+            try { await button.FocusAsync(); } catch { /* gone */ }
+        }
+    }
+
+    private async Task PickStoreAsync(string id)
+    {
+        var changed = id != ActiveStoreId;
+        await CloseStoreMenuAsync();
+        await CloseMore();
+        if (changed) await OnStoreChanged.InvokeAsync(id);
+    }
+
+    private async Task OnStoreMenuKeyAsync(KeyboardEventArgs e, string where)
+    {
+        if (storeMenuFor != where) return;
+        if (e.Key == "Escape") { await CloseStoreMenuAsync(); return; }
+        if (e.Key is "ArrowDown" or "ArrowUp" or "Home" or "End")
+        {
+            try { await JS.InvokeVoidAsync("digipayStoreMenu.move", $"store-menu-{where}", e.Key); } catch (JSException) { } catch (JSDisconnectedException) { }
+        }
+    }
 
     private RenderFragment ResourceLinks => __builder =>
     {

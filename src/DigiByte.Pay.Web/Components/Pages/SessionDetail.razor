@@ -446,7 +446,7 @@ else
 
     /// <summary>The merchant's stores for the shell's switcher.</summary>
     private IReadOnlyList<DashboardShell.StoreOption> ShellStores =>
-        account?.Stores?.Select(s => new DashboardShell.StoreOption(s.Id, s.Name)).ToArray() ?? [];
+        account?.Stores?.Select(s => new DashboardShell.StoreOption(s.Id, s.Name, s.Network)).ToArray() ?? [];
 
     /// <summary>Another store picked in the switcher: show that store's payments.</summary>
     private void OnStoreSwitched(string storeId) =>

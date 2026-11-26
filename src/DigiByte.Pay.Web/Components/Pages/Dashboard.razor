@@ -1145,7 +1145,7 @@ else
 
     /// <summary>The merchant's stores for the shell's switcher.</summary>
     private IReadOnlyList<DashboardShell.StoreOption> ShellStores =>
-        stores.Select(s => new DashboardShell.StoreOption(s.Id, s.Name)).ToArray();
+        stores.Select(s => new DashboardShell.StoreOption(s.Id, s.Name, s.Network)).ToArray();
 
     /// <summary>The section's address, keeping the chosen store when the merchant has several.</summary>
     private string HrefFor(DashboardSection sec) =>

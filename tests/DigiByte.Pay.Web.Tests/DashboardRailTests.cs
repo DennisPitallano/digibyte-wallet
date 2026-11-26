@@ -7,7 +7,9 @@ namespace DigiByte.Pay.Web.Tests;
 // The dashboard menu (rail) collapses to an icon strip and remembers that in this browser.
 public class DashboardRailTests : BunitContext
 {
-    private IRenderedComponent<DashboardShell> RenderShell(bool storedCollapsed, string[]? folded = null)
+    private string? picked;
+
+    private IRenderedComponent<DashboardShell> RenderShell(bool storedCollapsed, string[]? folded = null, bool twoStores = false)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         var module = JSInterop.SetupModule("/js/digipay-dashboard.js");
@@ -21,8 +23,11 @@ public class DashboardRailTests : BunitContext
         return Render<DashboardShell>(p => p
             .Add(x => x.ActiveKey, "overview")
             .Add(x => x.AccountName, "Dev merchant")
-            .Add(x => x.Stores, new[] { new DashboardShell.StoreOption("sto_1", "Main store") })
-            .Add(x => x.ActiveStoreId, "sto_1"));
+            .Add(x => x.Stores, twoStores
+                ? new[] { new DashboardShell.StoreOption("sto_1", "Main store", "mainnet"), new DashboardShell.StoreOption("sto_2", "Pop-up", "testnet") }
+                : new[] { new DashboardShell.StoreOption("sto_1", "Main store", "mainnet") })
+            .Add(x => x.ActiveStoreId, "sto_1")
+            .Add(x => x.OnStoreChanged, (string id) => picked = id));
     }
 
     [Fact]
@@ -86,6 +91,39 @@ public class DashboardRailTests : BunitContext
         var cut = RenderShell(storedCollapsed: false, folded: ["Developers"]);
         cut.WaitForAssertion(() => Assert.Equal("false", cut.Find("#nav-rail-developers").GetAttribute("aria-expanded")));
         Assert.Equal("true", cut.Find("#nav-rail-payments").GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void The_store_picker_shows_the_store_and_switches_from_its_menu()
+    {
+        var cut = RenderShell(storedCollapsed: false, twoStores: true);
+        var button = cut.Find("#store-switch-rail");
+        Assert.Contains("Main store", button.TextContent);
+        Assert.Contains("Mainnet · 2 stores", button.TextContent);
+        Assert.Equal("false", button.GetAttribute("aria-expanded"));
+
+        button.Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("#store-switch-rail").GetAttribute("aria-expanded")));
+        var options = cut.FindAll("#store-menu-rail [role=menuitemradio]");
+        Assert.Equal(2, options.Count);
+        Assert.Equal("true", options[0].GetAttribute("aria-checked"));
+        Assert.Contains("Testnet", options[1].TextContent);
+        Assert.NotNull(cut.Find("#store-menu-rail a[href='/merchant/stores']"));
+
+        options[1].Click();
+        cut.WaitForAssertion(() => Assert.Equal("sto_2", picked));
+        Assert.Empty(cut.FindAll("#store-menu-rail"));
+    }
+
+    [Fact]
+    public void Escape_closes_the_store_menu()
+    {
+        var cut = RenderShell(storedCollapsed: false, twoStores: true);
+        cut.Find("#store-switch-rail").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#store-menu-rail")));
+        cut.Find(".dash-store").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#store-menu-rail")));
     }
 
     private sealed class NoHttp : IHttpClientFactory
