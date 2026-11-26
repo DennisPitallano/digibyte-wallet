@@ -41,7 +41,7 @@ A merchant with DigiDollar on opens the store's DigiDollar settings in the Dashb
 1. **Given** a store with DigiDollar on and no payout address, **When** the merchant opens the DigiDollar settings, **Then** they see that DigiPay is holding the store's DD and a prompt to add a payout address.
 2. **Given** the merchant pastes a valid DD address for the store's network, **When** they save, **Then** the Dashboard shows the address back (with its start and end highlighted) and asks them to confirm before it is saved.
 3. **Given** the merchant pastes a DGB address, a DD address for the other network, a mistyped address, or one of DigiPay's own DD payment addresses, **When** they try to save, **Then** it is refused with a message saying which of these it is, and nothing is saved.
-4. **Given** a payout address is in effect and payouts are set to "as soon as confirmed", **When** a DD payment to the store is confirmed, **Then** the full amount is sent to the payout address and appears in the store's payout list as sent, then confirmed.
+4. **Given** a payout address is in effect and payouts are set to "as soon as confirmed", **When** a DD payment to the store has 6 network confirmations (FR-014), **Then** the full amount is sent to the payout address and appears in the store's payout list as sent, then confirmed.
 5. **Given** a payout was sent, **When** the merchant opens it, **Then** they see the amount, the destination address, the payments it covers, the time sent, the network transaction link and its status.
 6. **Given** a payout is sent, **When** it is created and confirmed, **Then** the merchant's DD amount is never reduced by a network fee: the store receives exactly the DD it was paid.
 
