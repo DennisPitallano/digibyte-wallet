@@ -42,6 +42,15 @@
 .scale-in-delay-1 { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
 .scale-in-delay-2 { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both; }
 
+/* A page that arrived as full HTML (App.razor sets data-dp-prerendered on <html>) is shown as it is: its
+   content doesn't fade in after the first paint, and doesn't animate again when the live connection redraws it.
+   The first in-app navigation removes the attribute (dialog.js), so later page changes animate as above. */
+html[data-dp-prerendered] :is(.page-enter, .fade-in, .fade-in-delay-1, .fade-in-delay-2, .fade-in-delay-3, .fade-in-delay-4,
+    .slide-up, .slide-up-delay-1, .slide-up-delay-2, .slide-up-delay-3, .slide-up-delay-4, .slide-up-delay-5,
+    .scale-in, .scale-in-delay-1, .scale-in-delay-2) {
+    animation: none;
+}
+
 /* Card hover lift — subtle parallax cue on interactive cards. */
 .card-hover { transition: transform 0.18s ease, box-shadow 0.18s ease; }
 .card-hover:hover { transform: translateY(-1px); box-shadow: 0 8px 24px -8px rgba(0, 102, 204, 0.15); }

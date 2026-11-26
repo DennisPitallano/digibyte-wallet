@@ -130,7 +130,7 @@
         @if (screen == Screen.Keypad)
         {
             var readout = Readout();
-            <main class="dp-pos-main dp-pos-keypad">
+            <main id="main" class="dp-pos-main dp-pos-keypad">
 
                 @* Amount panel: what the customer will be asked for. *@
                 <section class="dp-pos-readout" aria-label="Sale amount">
@@ -300,7 +300,7 @@
         {
             var confirming = CheckoutStates.IsConfirming(session.Status);
             var hasFiat = session.FiatAmount is decimal && !string.IsNullOrEmpty(session.FiatCurrency);
-            <main class="dp-pos-main dp-pos-waiting">
+            <main id="main" class="dp-pos-main dp-pos-waiting">
 
                 @* Customer-facing: what to pay, the code to scan, how long the price holds. *@
                 <section class="dp-pos-customer" aria-label="Payment for the customer">
@@ -393,7 +393,7 @@
             var hasFiat = session.FiatAmount is decimal && !string.IsNullOrEmpty(session.FiatCurrency);
             const double circumference = 2 * Math.PI * 52;
             var ring = circumference.ToString("0.##", CultureInfo.InvariantCulture);
-            <main class="dp-pos-main dp-pos-result-main">
+            <main id="main" class="dp-pos-main dp-pos-result-main">
                 <div class="dp-pos-result">
                     @* Same seal and ring as the checkout's final state (TerminalState). *@
                     @if (success)
