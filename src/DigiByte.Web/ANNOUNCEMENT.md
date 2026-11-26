@@ -1,3 +1,39 @@
+# DigiByte Wallet v0.10.0 - Español, paste on desktop, payment links and CSV export
+
+> Release date: November 2026
+> Live at: https://dgbwallet.app
+> Release page: https://github.com/DennisPitallano/digibyte-wallet/releases/tag/wallet-v0.10.0
+
+## Short post (~280 chars)
+
+🟦 DigiByte Wallet v0.10.0: now in Español. Paste or drop a QR code on desktop, share payment links anyone can pay, export DGB and DigiDollar history to CSV, and pay up to 20 people from one multisig proposal.
+
+→ https://dgbwallet.app
+
+---
+
+## Medium post
+
+**Español, desktop-friendly scanning, payment links and CSV export**
+
+**Spanish is here.** Settings → Language now offers English and Español, and switches at once without a reload. A browser set to Spanish opens the wallet in Spanish on the first visit. Amounts and dates follow the wallet's language, and an amount like "1,234" asks whether you meant about one or about one thousand.
+
+**Paste / Scan on a computer.** With a mouse or no camera, the middle menu button opens a paste panel: paste a copied address, payment request, Digi-ID link or multisig code, paste a screenshot, drop a picture, or read the QR code shown in another tab. Pictures and screen frames are read in the browser and never sent anywhere. Phones still open the camera first.
+
+**Payment links.** Receive and Request can copy a link that opens Send with the address and amount filled in for anyone with this wallet, and a payment page with a QR code for everyone else. The payment details stay after the `#`, so the website never sees them, and nothing is sent until you review and slide.
+
+**Export CSV.** Activity and DigiDollar can save your history as a spreadsheet, with each day's price and value in your currency, for bookkeeping.
+
+**Multisig.** A shared wallet can pay 2 to 20 recipients in one proposal, signed once by each co-signer, and every co-signer sees each recipient before signing. Send now lists your own wallets and contacts.
+
+**Missing payments.** Recovery Tools can search up to 5,000 addresses for payments sent beyond the usual range, and a restored wallet that looks empty offers to search further.
+
+**DigiPay** now looks like the wallet, with a clearer checkout, a redesigned POS, sales charts, every wallet currency, and **Pay with DigiByte Wallet** right in the browser.
+
+Details: [`CHANGELOG.md`](https://github.com/DennisPitallano/digibyte-wallet/blob/main/CHANGELOG.md)
+
+---
+
 # DigiByte Wallet v0.9.0 - Multisig you can find your way around
 
 > Release date: November 2026
