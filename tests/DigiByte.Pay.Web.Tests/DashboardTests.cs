@@ -133,7 +133,7 @@ public class DashboardTests : BunitContext
         cut.Find("#store-currency").Click();
         cut.FindAll("#store-currency-picker .ui-picker-row").First(b => b.TextContent.Contains("EUR")).Click();
 
-        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("[role=alert]"), a => a.TextContent.Contains("Check what you entered")));
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("[role=alert]"), a => a.TextContent.Contains("Choose DGB or one of the listed currencies")));
         Assert.Contains("Not set", cut.Find("#store-currency").TextContent);
     }
 

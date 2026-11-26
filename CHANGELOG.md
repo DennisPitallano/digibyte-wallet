@@ -46,6 +46,7 @@ All notable changes to the DigiByte Wallet project.
 - **"Your addresses" on Receive lists the addresses the wallet checks** — After a far-off find it shows the first addresses, the found ones and those handed out since, not thousands of entries in between. For a wallet that has not used the search the list is unchanged.
 
 ### Fixed
+- **A clear message for an unsupported default currency** — Saving a store default currency DigiPay doesn't support now says to choose DGB or one of the listed currencies, or clear the default, instead of a generic "Check what you entered".
 - **DigiPay's checkout updates live again** — The checkout only tried to connect for live updates on its first render, which happens before the payment has loaded, so it never connected and shoppers had to reload to see a payment arrive. It now connects once the payment loads, catches up after connecting, shows "Reconnecting" when the connection drops, and keeps checking until the server says the payment is final.
 - **Payment links priced in your currency charged 1 DGB** — A link priced in, say, USD sent a placeholder of 1 DGB that was never converted, so the customer was asked for 1 DGB. Links are now converted at the live price, and can't be created without one.
 - **POS tablets can only act on their own store** — A paired tablet used an ordinary account key that worked on every store and could record refunds. Tablet keys are now tied to the store they were paired for; refunds and account settings are refused.

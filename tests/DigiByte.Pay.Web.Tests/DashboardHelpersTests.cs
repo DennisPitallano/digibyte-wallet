@@ -14,6 +14,10 @@ public class DashboardHelpersTests
     [InlineData(400, "something new and technical", "Check what you entered and try again.")]
     [InlineData(500, null, "DigiPay couldn't do that right now. Try again in a moment.")]
     [InlineData(429, null, "Too many attempts. Wait a minute and try again.")]
+    [InlineData(400, "defaultCurrency must be DGB or a supported fiat currency code (e.g. USD, EUR, PHP)",
+        "Choose DGB or one of the listed currencies (such as USD, EUR or PHP), or clear the default.")]
+    [InlineData(400, "defaultCurrency must be a string or null",
+        "Choose DGB or one of the listed currencies (such as USD, EUR or PHP), or clear the default.")]
     public void Api_errors_map_to_plain_sentences(int status, string? error, string expected) =>
         Assert.Equal(expected, ApiError.Plain(status, error));
 
