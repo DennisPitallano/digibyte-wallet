@@ -244,3 +244,10 @@
 }
 .dark .dash-legacy-tablet { color: #fbbf24; }
 .dash-legacy-tablet svg { margin-top: 0.1rem; }
+
+/* Audit log summary: wraps to at most two lines (full text in the tooltip) so the table fits its card
+   instead of pushing IP and Details off to the side. */
+.dash-audit-summary {
+    max-width: 28rem; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
