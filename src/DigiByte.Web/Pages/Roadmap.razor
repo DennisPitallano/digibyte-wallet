@@ -279,6 +279,19 @@
             "English and Spanish; mainnet and testnet26",
             "Built and tested; ships behind a feature switch",
         ]),
+        new("Nov 2026", "Español & Desktop (v0.10.0)", Status.Done, [
+            "Spanish across the wallet, switching without a reload; numbers and dates follow the wallet's language",
+            "Paste / Scan on a computer: paste codes or screenshots, drop pictures, read a QR code from another tab",
+            "Payment links that open Send for wallet users and a payment page for anyone else",
+            "CSV export of DGB and DigiDollar history with daily fiat values",
+            "Deep address search (up to 5,000 addresses) for payments beyond the usual range",
+        ]),
+        new("Nov 2026", "DigiPay Refresh", Status.Done, [
+            "DigiPay built on the wallet's shared styles, with Light, Dark or Match my device",
+            "Clearer checkout and receipt, a redesigned POS and every wallet currency",
+            "Bookmarkable merchant dashboard with sales charts and a default currency per store",
+            "Pay or sign in with the DigiByte Wallet in the browser, then return to the site",
+        ]),
         new("Ongoing", "Internationalization", Status.InProgress, [
             "Multi-language support — targeting 10 locales (2 shipped so far: en, es)",
         ]),
@@ -326,8 +339,8 @@
             "Share payment requests directly to Telegram chats (native share sheet)",
         ]),
         new("Later", "CI/CD & Testing", Status.Planned, [
-            "CI/CD pipeline (GitHub Actions)",
             "E2E test suite (Playwright)",
+            "CI already runs the wallet, API and DigiPay tests on every pull request and builds releases from tags",
         ]),
     ];
 }

@@ -27,7 +27,9 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **Digi-ID** — Passwordless authentication protocol (`digiid://` URI signing)
 - **Light & Dark Mode** — Official DigiByte branding with theme toggle
 - **Multi-network** — Mainnet, Testnet, and Regtest support
-- **Multi-currency** — USD, EUR, GBP, PHP, JPY with proper fiat symbols and CoinGecko pricing
+- **Multi-currency** — About 80 display currencies grouped by region, with proper symbols and decimals; CoinGecko pricing, or the USD price times an exchange rate where CoinGecko has no quote
+- **English and Español** — Settings → Language switches at once without a reload; number and date style follow the wallet's language
+- **CSV export** — DGB and DigiDollar history to a spreadsheet, with each day's price and value in your currency, built on the device
 - **OTP-style PIN** — 6-digit PIN with individual digit boxes, shake animation on error
 - **PIN lockout** — Brute-force protection with exponential backoff after 3 failed attempts
 - **Global error boundary** — Crash recovery with user-friendly error screen
@@ -37,7 +39,7 @@ A self-custodial DigiByte (DGB) wallet built as a Progressive Web App (PWA) with
 - **CSP compliant** — All assets self-hosted (Tailwind CSS, Inter font, jsQR), strict Content Security Policy
 - **Node API** — 87 RPC methods wrapped as REST endpoints with Scalar docs
 - **Docker** — Regtest (instant mining), Testnet, and Mainnet pruned node configs
-- **M-of-N multisig wallets** — Create multisig wallets, co-signer management, PSBT signing workflow, import via redeem script
+- **M-of-N multisig wallets** — Create multisig wallets, co-signer management, PSBT signing workflow, real-time signing rooms, 2 to 20 recipients per proposal, import via redeem script
 - **NFC tap-to-pay** — Web NFC API (experimental)
 - **Remittance** — Fee comparison with traditional services
 - **Analytics** — Market data, network stats, 7-day price chart from CoinGecko

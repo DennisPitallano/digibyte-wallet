@@ -46,6 +46,7 @@
 - [ ] Verify other participants' amounts in shared PSBTs (PSBT signing, Story 4)
 - [x] Import multisig wallet via redeem script (watch-only or signing)
 - [x] Pay several recipients (2 to 20) from one shared-wallet proposal; co-signers see and sign every line at once (specs/029)
+- [x] Pick your own wallets and saved contacts on a shared wallet's Send
 - [x] 6 multisig UI pages (list, create wizard, import, detail, send, pending)
 - [x] 52 unit tests (MultisigService, MultisigWalletService, MultisigModels)
 
@@ -65,6 +66,8 @@
 - [x] DigiByte favicon and app icons (SVG + PNG)
 - [x] OTP-style PIN input with auto-focus + shake animation
 - [x] QR code scanner (camera-based + file upload)
+- [x] Paste / Scan on desktop: paste codes or screenshots, drop pictures, read a QR code from another tab (specs/030)
+- [x] Payment links (`/pay#digibyte:…`) that open Send for wallet users and a read-only payment page for anyone else
 - [x] Recovery phrase input — masked textarea, word-by-word mode, BIP39 auto-suggest, multi-separator paste
 - [x] Loading skeletons (balance, price, transactions)
 - [x] Send page form disabled during loading
@@ -102,7 +105,7 @@
 ## In Progress
 
 ### Alpha Release Prep
-- [x] Spanish: language setting, live switch, core screens translated (specs/028-spanish-language-option)
+- [x] Spanish: language setting, live switch, core screens translated (specs/028-spanish-language-option) — shipped in 0.10.0
 - [ ] Node API OpenAPI/Swagger export
 - [ ] API usage examples in docs
 
@@ -136,12 +139,13 @@
 - [x] Transaction history CSV export (DGB and DigiDollar, daily fiat values; spec 031)
 - [ ] DigiAssets (custom token support)
 - [x] Watch-only wallets (xpub import)
+- [x] Deep address search for payments beyond the 20-address gap (up to 5,000 addresses)
 - [x] Spending limits / transaction alerts
 - [ ] Hardware wallet support (Ledger/Trezor)
 
 ### Technical Debt
 - [ ] PWA offline mode improvements (background sync for pending tx)
-- [ ] Service worker update notification
+- [x] Service worker update notification ("Update available" banner)
 - [x] Unit tests for WalletService + multisig + biometric + spending limits (233 total)
 - [ ] E2E test suite (Playwright)
 - [ ] Performance optimization (lazy loading)
@@ -149,5 +153,5 @@
 ### Deployment
 - [x] Railway production deployment (API + Web + Nginx)
 - [x] Docker production images (multi-stage builds)
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Automated testing on PR
+- [x] CI/CD pipeline (GitHub Actions): wallet release build and hash manifest on `wallet-v*` tags, SDK and plugin publishing
+- [x] Automated testing on PR (wallet, API and DigiPay test jobs; Lighthouse check for DigiPay)
