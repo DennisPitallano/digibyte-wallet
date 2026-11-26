@@ -88,6 +88,20 @@ public class DocsSiteTests : BunitContext
     }
 
     [Fact]
+    public void The_menu_moves_the_current_page_mark_when_navigating_without_a_reload()
+    {
+        // Regression: the nav stays mounted in the layout across in-app navigations and used to
+        // keep the mark of the page it was first drawn on.
+        GoTo("/");
+        var cut = Render<SiteNav>();
+        Assert.Empty(cut.FindAll("nav.dp-sitenav a[aria-current='page']"));
+
+        GoTo("/docs/woocommerce");
+        cut.WaitForAssertion(() =>
+            Assert.Equal("Developers", Assert.Single(cut.FindAll("nav.dp-sitenav a[aria-current='page']")).TextContent.Trim()));
+    }
+
+    [Fact]
     public void The_menu_names_the_developer_section_once_and_consistently()
     {
         var labels = SiteNav.Links.Select(l => l.Label).ToArray();
