@@ -30,8 +30,10 @@
                 </div>
 
                 <div class="dp-hf dp-hf-qr">
-                    <span class="dp-hf-qrcode"></span>
-                    <span class="dp-hf-sub">Scan to pay</span>
+                    @* A real DigiByte QR: DigiPay's own tip address (the footer's "Tip us"). Scanning opens a wallet with
+                       the address filled in; nothing is sent until the person confirms. *@
+                    <img class="dp-hf-qrcode" src="@TipQr" alt="" width="60" height="60" />
+                    <span class="dp-hf-sub">Tip DigiPay</span>
                 </div>
 
                 <div class="dp-hf dp-hf-toast">
@@ -323,6 +325,20 @@
     }
 
     private ElementReference statsRef;
+
+    // DigiPay's tip address (also in the footer and the tip section below), as a digibyte: payment request.
+    private const string TipUri = "digibyte:dgb1qvc2d6umstxzrs5xypmvw5wt33mchec4z7ejqaa?label=DigiPay";
+
+    /// <summary>The hero's QR tile: a real, scannable code for <see cref="TipUri"/>, made once per process.</summary>
+    private static readonly string TipQr = MakeQr(TipUri);
+
+    private static string MakeQr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var png = new QRCoder.PngByteQRCode(data);
+        return "data:image/png;base64," + Convert.ToBase64String(png.GetGraphic(4));
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
