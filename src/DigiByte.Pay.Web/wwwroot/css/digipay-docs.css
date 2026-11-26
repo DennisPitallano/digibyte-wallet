@@ -270,3 +270,82 @@
 }
 .dp-tip-button:hover { background: #0052cc; color: #fff; }
 .dp-tip-button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* =====================================================================================
+   Home page stats strip: a live pill, then four tiles with an icon badge, a counting number,
+   label and caption. Gradient border glow and lift on hover; staggered entrance.
+   ===================================================================================== */
+.dp-stats { max-width: 72rem; margin: 0 auto; padding: 1rem 1rem 1.5rem; }
+@media (min-width: 640px) { .dp-stats { padding: 1.5rem 1.5rem 2rem; } }
+.dp-stats-head { display: flex; align-items: center; justify-content: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.dp-stats-live {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.3rem 0.75rem; border-radius: 9999px;
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
+    color: #047857; background: color-mix(in srgb, #10b981 12%, transparent);
+    border: 1px solid color-mix(in srgb, #10b981 30%, transparent);
+}
+.dark .dp-stats-live { color: #6ee7b7; }
+.dp-stats-dot { position: relative; width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: #10b981; }
+.dp-stats-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 9999px; background: #10b981; opacity: 0.4; animation: dp-stats-ping 1.8s cubic-bezier(0, 0, .2, 1) infinite; }
+.dp-stats-updated { font-size: 0.75rem; color: var(--ui-text-muted); }
+
+.dp-stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+@media (min-width: 768px) { .dp-stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; } }
+
+.dp-stat {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem;
+    padding: 1.125rem 1.125rem 1rem;
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    box-shadow: var(--ui-shadow-card);
+    transition: transform 220ms cubic-bezier(.22, 1, .36, 1), box-shadow 220ms ease-out, border-color 220ms ease-out;
+    animation: dp-stat-in 600ms cubic-bezier(.22, 1, .36, 1) both;
+    animation-delay: calc(var(--i, 0) * 90ms);
+}
+/* Soft colour wash in the corner. */
+.dp-stat::before {
+    content: ""; position: absolute; z-index: -1; inset: auto -30% -60% auto; width: 75%; aspect-ratio: 1;
+    border-radius: 9999px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--ui-primary) 22%, transparent), transparent 70%);
+    transition: transform 400ms ease-out, opacity 400ms ease-out; opacity: 0.7;
+}
+/* Gradient border that lights up on hover. */
+.dp-stat::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: linear-gradient(135deg, var(--ui-primary), #10b981 50%, transparent 80%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0; transition: opacity 220ms ease-out;
+}
+@media (hover: hover) {
+    .dp-stat:hover { transform: translateY(-3px); box-shadow: var(--ui-shadow-raised); border-color: transparent; }
+    .dp-stat:hover::after { opacity: 1; }
+    .dp-stat:hover::before { transform: scale(1.25); opacity: 1; }
+}
+.dp-stat-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem; margin-bottom: 0.625rem; border-radius: 0.75rem;
+    color: var(--ui-primary);
+    background: color-mix(in srgb, var(--ui-primary) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 22%, transparent);
+}
+.dp-stat-icon img { width: 1.375rem; height: 1.375rem; }
+.dp-stat-value {
+    margin: 0; font-size: clamp(1.75rem, 4.5vw, 2.5rem); font-weight: 800; line-height: 1.05; letter-spacing: -0.03em;
+    background: linear-gradient(120deg, var(--ui-text) 30%, var(--ui-primary));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.dp-stat-value.is-done { animation: dp-stat-pop 420ms cubic-bezier(.34, 1.56, .64, 1); }
+.dp-stat-label { margin: 0.25rem 0 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ui-text); }
+.dp-stat-caption { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--ui-text-muted); }
+
+@keyframes dp-stat-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
+@keyframes dp-stat-pop { 40% { transform: scale(1.06); } }
+@keyframes dp-stats-ping { 75%, 100% { transform: scale(2.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .dp-stat, .dp-stat-value.is-done, .dp-stats-dot::after { animation: none !important; }
+    .dp-stat, .dp-stat::before, .dp-stat::after { transition: none !important; }
+}

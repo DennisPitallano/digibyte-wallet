@@ -1,6 +1,7 @@
 @page "/"
 @layout SiteLayout
 @inject IHttpClientFactory HttpFactory
+@inject IJSRuntime JS
 @using System.Net.Http.Json
 
 <PageTitle>DigiPay — accept DigiByte on your site</PageTitle>
@@ -66,24 +67,19 @@
            API is down rather than showing a spinner. *@
         @if (Stats is { } stats)
         {
-            <section class="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                    <div class="card px-4 py-3 text-center">
-                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Merchants.ToString("N0")</div>
-                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Merchants</div>
-                    </div>
-                    <div class="card px-4 py-3 text-center">
-                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Stores.ToString("N0")</div>
-                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Stores</div>
-                    </div>
-                    <div class="card px-4 py-3 text-center">
-                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.Sessions.ToString("N0")</div>
-                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Sessions</div>
-                    </div>
-                    <div class="card px-4 py-3 text-center">
-                        <div class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">@stats.TotalDgb.ToString("N0")</div>
-                        <div class="text-[0.6875rem] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">DGB processed</div>
-                    </div>
+            @* Live numbers: they count up once the page is live (wwwroot/js/count-up.js); the server-rendered HTML
+               already holds the real figures, for search engines and anyone without JavaScript. *@
+            <section class="dp-stats" aria-labelledby="dp-stats-title" @ref="statsRef">
+                <div class="dp-stats-head">
+                    <span class="dp-stats-live"><span class="dp-stats-dot" aria-hidden="true"></span>Live on DigiPay</span>
+                    <h2 id="dp-stats-title" class="sr-only">DigiPay in numbers</h2>
+                    <span class="dp-stats-updated">Updated @UpdatedText(stats.GeneratedAt)</span>
+                </div>
+                <div class="dp-stats-grid">
+                    @StatTile("users", null, stats.Merchants, 0, "Merchants", "accepting DigiByte", 0)
+                    @StatTile("store", null, stats.Stores, 0, "Stores", "online shops and counters", 1)
+                    @StatTile("receipt", null, stats.Sessions, 0, "Payments", $"{stats.PaidSessions:N0} paid so far", 2)
+                    @StatTile(null, "/digibyte-logo.svg", stats.TotalDgb, 0, "DGB processed", "straight to merchants' own wallets", 3)
                 </div>
             </section>
         }
@@ -272,6 +268,46 @@
         }
         catch { /* swallow — strip just won't render */ }
     }
+
+    private ElementReference statsRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The page is live: count the numbers up (skipped for reduced motion inside the script).
+        if (!firstRender || Stats is null) return;
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/count-up.js");
+            await module.InvokeVoidAsync("countUp", statsRef);
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { } catch (InvalidOperationException) { }
+    }
+
+    private static string UpdatedText(DateTime generatedAt)
+    {
+        var age = DateTime.UtcNow - DateTime.SpecifyKind(generatedAt, DateTimeKind.Utc);
+        return age.TotalMinutes < 1 ? "just now" : age.TotalHours < 1 ? $"{(int)age.TotalMinutes} min ago" : $"{(int)age.TotalHours} h ago";
+    }
+
+    private RenderFragment StatTile(string? icon, string? image, decimal value, int decimals, string label, string caption, int index) => __builder =>
+    {
+        var text = value.ToString("N" + decimals, System.Globalization.CultureInfo.InvariantCulture);
+        <div class="dp-stat" style="--i: @index">
+            <span class="dp-stat-icon" aria-hidden="true">
+                @if (image is not null)
+                {
+                    <img src="@image" alt="" width="22" height="22" />
+                }
+                else
+                {
+                    <Icon Name="@icon" Class="w-5 h-5" />
+                }
+            </span>
+            <p class="dp-stat-value tabular-nums" data-count-to="@value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-decimals="@decimals">@text</p>
+            <p class="dp-stat-label">@label</p>
+            <p class="dp-stat-caption">@caption</p>
+        </div>
+    };
 
     public sealed record StatsDto(int Merchants, int Stores, int Sessions, int PaidSessions, decimal TotalDgb, DateTime GeneratedAt);
 }
