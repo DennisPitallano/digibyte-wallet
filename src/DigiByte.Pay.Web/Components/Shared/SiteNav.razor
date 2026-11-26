@@ -112,6 +112,13 @@
     private bool menuOpen;
     private DotNetObjectReference<SiteNav>? self;
 
+    // The nav lives in the layout, which stays put when the router swaps pages, and it has no
+    // parameters, so nothing re-renders it: redraw on every navigation to move the current-page mark.
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+        => _ = InvokeAsync(StateHasChanged);
+
     private async Task OpenMenu()
     {
         menuOpen = true;
@@ -137,6 +144,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Nav.LocationChanged -= OnLocationChanged;
         if (menuOpen)
         {
             try { await JS.InvokeVoidAsync("digipayDialog.close", "dp-site-sheet"); } catch { }
