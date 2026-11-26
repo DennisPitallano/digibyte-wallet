@@ -62,3 +62,21 @@ export function bindRailTips(rail) {
     rail.addEventListener('scroll', hide, { passive: true });
     rail.addEventListener('click', hide);
 }
+
+const GROUPS_KEY = 'digipay.dash.foldedGroups:v1';
+
+/** Menu groups the merchant folded in this browser (e.g. ["Developers"]). */
+export function foldedGroups() {
+    try {
+        const v = JSON.parse(localStorage.getItem(GROUPS_KEY) || '[]');
+        return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+    } catch (_) { return []; }
+}
+
+/** Remembers which menu groups are folded. */
+export function setFoldedGroups(groups) {
+    try {
+        if (groups && groups.length) localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+        else localStorage.removeItem(GROUPS_KEY);
+    } catch (_) { /* not remembered */ }
+}

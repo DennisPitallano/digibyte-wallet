@@ -162,6 +162,7 @@
 
     private bool moreOpen;
     private bool railCollapsed;
+    private readonly HashSet<string> foldedGroups = new(StringComparer.Ordinal);
     private ElementReference railRef;
 
     private string Initial => string.IsNullOrWhiteSpace(AccountName) ? "D" : AccountName.Trim()[..1].ToUpperInvariant();
@@ -173,9 +174,23 @@
         {
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
             await module.InvokeVoidAsync("bindRailTips", railRef);
+            var folded = await module.InvokeAsync<string[]?>("foldedGroups");
+            if (folded is { Length: > 0 }) { foldedGroups.UnionWith(folded); StateHasChanged(); }
             if (await module.InvokeAsync<bool>("railCollapsed")) { railCollapsed = true; StateHasChanged(); }
         }
         catch (JSException) { } catch (JSDisconnectedException) { } catch (InvalidOperationException) { /* prerendering */ }
+    }
+
+    private async Task ToggleGroupAsync(string group)
+    {
+        if (!foldedGroups.Remove(group)) foldedGroups.Add(group);
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/digipay-dashboard.js");
+            // Wrapped: a bare string[] would be spread into separate arguments.
+            await module.InvokeVoidAsync("setFoldedGroups", new object[] { foldedGroups.ToArray() });
+        }
+        catch (JSException) { } catch (JSDisconnectedException) { }
     }
 
     private async Task ToggleRailAsync()
@@ -297,33 +312,45 @@
 
     /// <summary>
     /// Section links under their group headings (Payments, Insights, Developers, Account), for the
-    /// rail and the More sheet. Headings are plain text; each list keeps its own landmark name.
+    /// rail and the More sheet. Each heading folds its group (remembered in this browser); a folded
+    /// group still shows the page you're on, so the current place is never hidden.
     /// </summary>
     private RenderFragment SectionLinks(IEnumerable<DashboardSection> sections, string where, bool closesSheet) => __builder =>
     {
         foreach (var (group, items) in DashboardSections.Grouped(sections))
         {
-            var headingId = $"nav-{where}-{group.ToLowerInvariant()}";
-            <p id="@headingId" class="section-label dash-nav-heading">@group</p>
-            <ul class="dash-nav-list" aria-labelledby="@headingId">
-                @foreach (var sec in items)
-                {
-                    <li>
-                        @if (closesSheet)
-                        {
-                            <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(IsCurrent(sec) ? "page" : null)" @onclick="CloseMore">
-                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
-                            </a>
-                        }
-                        else
-                        {
-                            <a href="@HrefFor(sec)" class="dp-rail-item" data-label="@sec.Label" aria-current="@(IsCurrent(sec) ? "page" : null)">
-                                <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span class="dp-rail-label">@sec.Label</span>
-                            </a>
-                        }
-                    </li>
-                }
-            </ul>
+            var g = group;
+            var headingId = $"nav-{where}-{g.ToLowerInvariant()}";
+            var listId = $"{headingId}-list";
+            var folded = foldedGroups.Contains(g);
+            <div class="dash-nav-group @(folded ? "is-folded" : "")">
+                <button type="button" id="@headingId" class="section-label dash-nav-heading dash-nav-toggle"
+                        aria-expanded="@(folded ? "false" : "true")" aria-controls="@listId"
+                        title="@(folded ? $"Show {g}" : $"Hide {g}")" @onclick="() => ToggleGroupAsync(g)">
+                    <span>@g</span>
+                    <Icon Name="chevron-down" Class="w-3.5 h-3.5 dash-nav-chevron" />
+                </button>
+                <ul id="@listId" class="dash-nav-list" aria-labelledby="@headingId">
+                    @foreach (var sec in items)
+                    {
+                        var current = IsCurrent(sec);
+                        <li class="@(current ? "is-current" : "")">
+                            @if (closesSheet)
+                            {
+                                <a href="@HrefFor(sec)" class="dp-rail-item" aria-current="@(current ? "page" : null)" @onclick="CloseMore">
+                                    <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span>@sec.Label</span>
+                                </a>
+                            }
+                            else
+                            {
+                                <a href="@HrefFor(sec)" class="dp-rail-item" data-label="@sec.Label" aria-current="@(current ? "page" : null)">
+                                    <Icon Name="@sec.Icon" Class="w-5 h-5 shrink-0" /><span class="dp-rail-label">@sec.Label</span>
+                                </a>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
         }
     };
 }

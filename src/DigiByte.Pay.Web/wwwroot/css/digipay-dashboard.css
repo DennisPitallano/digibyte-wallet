@@ -6,7 +6,20 @@
 
 /* ----- Menu groups (rail and More sheet) ----- */
 .dash-nav-heading { padding: 0 0.75rem; margin: 0.75rem 0 0.25rem; }
-.dash-nav-heading:first-child { margin-top: 0.25rem; }
+.dash-nav-group:first-child .dash-nav-heading { margin-top: 0.25rem; }
+/* Group headings fold their group. */
+.dash-nav-toggle {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    min-height: 1.75rem; border-radius: var(--ui-radius-sm); background: transparent;
+    text-align: left; cursor: pointer;
+}
+.dash-nav-toggle:hover { color: var(--ui-text); background: var(--ui-ghost-hover); }
+.dash-nav-toggle:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 1px; }
+.dash-nav-chevron { flex-shrink: 0; transition: transform 160ms ease-out; }
+.dash-nav-group.is-folded .dash-nav-chevron { transform: rotate(-90deg); }
+/* Folded: only the page you're on stays visible. */
+.dash-nav-group.is-folded .dash-nav-list > li:not(.is-current) { display: none; }
+@media (prefers-reduced-motion: reduce) { .dash-nav-chevron { transition: none; } }
 .dash-nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 
 /* ----- Top bar (phones): the active store when there are several ----- */
@@ -125,9 +138,11 @@
         position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
         overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
-    .is-rail-collapsed .dash-nav-list + .dash-nav-heading { margin-top: 0; }
+    .is-rail-collapsed .dash-nav-group.is-folded .dash-nav-list > li { display: list-item; }
+    /* No fold buttons in the icon strip (no invisible tab stops); lists keep their group name via aria-labelledby. */
+    .is-rail-collapsed .dash-nav-toggle { display: none !important; }
     .is-rail-collapsed .dash-nav-list { padding-bottom: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--ui-border); }
-    .is-rail-collapsed .dash-nav-list:last-child { border-bottom: 0; }
+    .is-rail-collapsed .dash-nav-group:last-child .dash-nav-list { border-bottom: 0; }
     .is-rail-collapsed .dp-rail-item { justify-content: center; gap: 0; padding-left: 0; padding-right: 0; }
     .is-rail-collapsed .dp-rail-item > svg:not(:first-child) { display: none; } /* external-link marks */
     .is-rail-collapsed .dp-rail-account { align-items: center; }
