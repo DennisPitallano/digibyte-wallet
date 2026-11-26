@@ -112,20 +112,25 @@
             </div>
         </section>
 
-        @* Use cases — four concrete shapes so visitors self-identify immediately. *@
-        <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-            <p class="text-center text-[0.6875rem] sm:text-xs font-bold tracking-widest text-dgb-500 uppercase mb-2">Use cases</p>
-            <h2 class="text-center text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 tracking-tight">Who this is for</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-5 max-w-5xl mx-auto">
-                <Feature IconName="package" Title="Online storefronts"
-                    Body="Drop in a REST call from your checkout — create a session, redirect to the hosted page, listen for the session.paid webhook. Works with any stack: PHP, Node, Rust, Ruby — the API is plain HTTP." />
-                <Feature IconName="gift" Title="Creators and tip jars"
-                    Body="Two-line embed on your blog, Patreon, stream overlay. Static address (or rotating from xpub), optional default amount, live QR. Zero backend required." />
-                <Feature IconName="code" Title="SaaS & API-driven invoicing"
-                    Body="Headless: POST /v1/pay/sessions from your billing cron, attach the DGB amount to an existing invoice ID, reconcile on webhook. Late payments auto-reconcile up to 3 days." />
-                <Feature IconName="users" Title="Communities & events"
-                    Body="Multiple stores per account — run a tip jar, a merch shop, and an event ticket stand from one dashboard, each with its own address and webhook." />
+        @* Use cases: one card per way of getting paid (UseCases.All, shared with /use-cases), each opening its section. *@
+        <section class="dp-uc-teaser" aria-labelledby="uc-teaser-title">
+            <p class="text-center section-label mb-2">Use cases</p>
+            <h2 id="uc-teaser-title" class="text-center text-2xl sm:text-3xl font-bold mb-2 tracking-tight">Who this is for</h2>
+            <p class="dp-uc-lead text-center">Online, at the counter, by invoice or as a tip. Pick the one that sounds like you.</p>
+            <div class="dp-uc-teaser-grid">
+                @foreach (var (uc, i) in UseCases.All.Select((u, i) => (u, i)))
+                {
+                    <a href="@($"/use-cases#{uc.Key}")" class="dp-uc-mini" style="--i: @i">
+                        <span class="dp-uc-icon" aria-hidden="true"><Icon Name="@uc.Icon" Class="w-5 h-5" /></span>
+                        <span class="dp-uc-mini-text">
+                            <span class="dp-uc-mini-title">@uc.Title</span>
+                            <span class="dp-uc-mini-summary">@uc.Summary</span>
+                        </span>
+                        <Icon Name="arrow-right" Class="w-4 h-4 dp-uc-mini-arrow" />
+                    </a>
+                }
             </div>
+            <p class="text-center mt-5"><a href="/use-cases" class="btn-secondary btn-sm">See all use cases <Icon Name="arrow-right" Class="w-4 h-4" /></a></p>
         </section>
 
         @* Features *@

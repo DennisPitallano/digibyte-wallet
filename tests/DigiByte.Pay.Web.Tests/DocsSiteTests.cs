@@ -91,7 +91,7 @@ public class DocsSiteTests : BunitContext
     public void The_menu_names_the_developer_section_once_and_consistently()
     {
         var labels = SiteNav.Links.Select(l => l.Label).ToArray();
-        Assert.Equal(new[] { "Features", "How it works", "POS", "Developers", "About" }, labels);
+        Assert.Equal(new[] { "Features", "Use cases", "How it works", "POS", "Developers", "About" }, labels);
     }
 
     // ----- Prerendering -----
