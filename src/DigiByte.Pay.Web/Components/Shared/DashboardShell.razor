@@ -291,13 +291,16 @@
             <p class="dash-store-label">Active store</p>
             <button type="button" id="@($"store-switch-{where}")" class="dash-store-btn" data-store-id="@current.Id"
                     aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")" aria-controls="@menuId"
-                    aria-label="@($"Active store: {current.Name}. Switch store")"
                     @onclick="() => ToggleStoreMenu(where)" @ref="storeButtons[where]">
+                @* Named by its content, not an aria-label, so the visible name and network are part of the
+                   accessible name (WCAG 2.5.3 Label in Name): "Active store: <name>, <network>. Switch store". *@
                 <span class="dash-store-avatar" style="--hue: @Hue(current.Id)" aria-hidden="true">@StoreInitial(current.Name)</span>
+                <span class="sr-only">Active store: </span>
                 <span class="dash-store-text">
-                    <span class="dash-store-name">@current.Name</span>
+                    <span class="dash-store-name">@current.Name</span><span class="sr-only">, </span>
                     <span class="dash-store-meta">@NetworkLabel(current.Network)@(Stores.Count > 1 ? $" · {Stores.Count} stores" : "")</span>
                 </span>
+                <span class="sr-only">. Switch store</span>
                 <span class="dash-store-caret" aria-hidden="true"><Icon Name="chevron-down" Class="w-4 h-4" /></span>
             </button>
             @if (open)

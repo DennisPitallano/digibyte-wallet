@@ -307,7 +307,9 @@
 .ui-receipt-facts dd { text-align: right; min-width: 0; font-weight: 500; }
 .ui-receipt-wrap { overflow-wrap: anywhere; }
 .ui-receipt-status { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--ui-primary); }
-.ui-receipt-status.is-final { color: var(--ui-receipt-ok); }
+/* The status words need 4.5:1: emerald-700 on light (the #10b981 seal green is 2.5:1 on white); dark keeps the seal green. */
+.ui-receipt-status.is-final { color: #047857; }
+.dark .ui-receipt-status.is-final { color: var(--ui-receipt-ok); }
 .ui-receipt-dots { display: inline-flex; gap: 0.1875rem; }
 .ui-receipt-dots > span { width: 0.4375rem; height: 0.4375rem; border-radius: 9999px; background: var(--ui-receipt-idle); }
 .ui-receipt-dots > span.is-done { background: var(--ui-receipt-ok); }
@@ -324,7 +326,8 @@
 .ui-receipt-actions-row { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .ui-receipt-actions-row > * { white-space: nowrap; }
 @media (max-width: 420px) { .ui-receipt-actions-row { grid-template-columns: 1fr; } }
-.ui-receipt-via { font-size: 0.75rem; font-weight: 500; opacity: 0.75; }
+/* No fading: 12px text needs 4.5:1 on the primary button and its hover shade (opacity 0.75 gave 3.8:1). */
+.ui-receipt-via { font-size: 0.75rem; font-weight: 500; }
 
 @media (prefers-reduced-motion: reduce) { .ui-receipt-seal { animation: none !important; } }
 @media print {
