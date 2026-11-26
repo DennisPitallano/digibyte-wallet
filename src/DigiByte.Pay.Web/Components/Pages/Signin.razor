@@ -7,6 +7,8 @@
 @inject ILogger<Signin> Log
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @inject IServiceProvider Services
+@inject IConfiguration Config
+@inject IHttpContextAccessor HttpAccessor
 @using System.Net.Http.Json
 
 <PageTitle>Sign in — DigiPay</PageTitle>
@@ -169,10 +171,39 @@
     private bool devSigningIn;
     private string? devError;
 
+    // The visitor's address, read once when the page starts. This page isn't prerendered (App.razor), so it runs on the
+    // live connection, whose request (the browser's WebSocket to this server) is the visitor's.
+    private string? VisitorAddress;
+
     protected override async Task OnInitializedAsync()
     {
+        VisitorAddress = HttpAccessor.HttpContext is { } context ? VisitorAddressOf(context) : null;
         await StartChallengeAsync();
         await CheckDevSignInAsync();
+    }
+
+    // Behind the hosting proxy the visitor is the rightmost X-Forwarded-For entry (the proxy appends it; anything to its
+    // left is what the caller claimed), as the API reads it (DigiByte.Server.Shared ClientAddress). Otherwise the socket.
+    public static string? VisitorAddressOf(HttpContext context)
+    {
+        var forwarded = context.Request.Headers["X-Forwarded-For"].ToString();
+        var last = forwarded.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
+        if (last is not null && System.Net.IPAddress.TryParse(last, out var ip)) return ip.ToString();
+        return context.Connection.RemoteIpAddress?.ToString();
+    }
+
+    // Sign-in requests to the API. With DigiPay:TrustedClientKey set (on both apps) they carry the visitor's address, so
+    // the API's sign-in limit counts each visitor rather than this server, which every merchant signs in through.
+    private HttpRequestMessage SignInRequest(HttpMethod method, string path)
+    {
+        var request = new HttpRequestMessage(method, path);
+        var key = Config["DigiPay:TrustedClientKey"];
+        if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(VisitorAddress))
+        {
+            request.Headers.TryAddWithoutValidation("X-DigiPay-Client-Address", VisitorAddress);
+            request.Headers.TryAddWithoutValidation("X-DigiPay-Client-Key", key);
+        }
+        return request;
     }
 
     // The dev button needs both sides in Development: this app's environment, and the API
@@ -202,7 +233,7 @@
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.PostAsync("/v1/pay/dev/signin", null);
+            var response = await http.SendAsync(SignInRequest(HttpMethod.Post, "/v1/pay/dev/signin"));
             var body = response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<SignedResponse>() : null;
             if (body is null)
             {
@@ -233,7 +264,14 @@
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            challenge = await http.GetFromJsonAsync<ChallengeResponse>("/v1/pay/auth/challenge");
+            using var response = await http.SendAsync(SignInRequest(HttpMethod.Get, "/v1/pay/auth/challenge"));
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                loadError = "Too many sign-in attempts. Wait a minute and try again.";
+                return;
+            }
+            response.EnsureSuccessStatusCode();
+            challenge = await response.Content.ReadFromJsonAsync<ChallengeResponse>();
             if (challenge != null) qrDataUrl = GenerateQr(challenge.Uri);
         }
         catch (Exception ex)
@@ -263,7 +301,7 @@
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.GetAsync($"/v1/pay/auth/poll/{challenge.Nonce}");
+            var response = await http.SendAsync(SignInRequest(HttpMethod.Get, $"/v1/pay/auth/poll/{challenge.Nonce}"));
             if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await InvokeAsync(() => { pollCount++; StateHasChanged(); });

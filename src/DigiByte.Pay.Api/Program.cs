@@ -130,7 +130,7 @@ builder.Services.AddRateLimiter(options =>
     static System.Threading.RateLimiting.RateLimitPartition<string> PerIp(
         HttpContext ctx, int permit, TimeSpan window)
     {
-        var key = DigiByte.Server.Shared.ClientAddress.Of(ctx);
+        var key = DigiByte.Pay.Api.Auth.TrustedClient.AddressOf(ctx);
         return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             key,
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
