@@ -497,7 +497,16 @@
 select.input { -webkit-appearance: menulist; appearance: auto; padding-right: 0.75rem; }
 
 /* ----- Public site (spec 032, US7) ----- */
-.dp-sitenav { position: relative; z-index: 20; background: var(--ui-surface); border-bottom: 1px solid var(--ui-border); }
+/* Sticky: stays at the top while the page scrolls, slightly see-through with a blur behind it. */
+.dp-sitenav {
+    position: sticky; top: 0; z-index: 30;
+    background: color-mix(in srgb, var(--ui-surface) 82%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom: 1px solid var(--ui-border);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .dp-sitenav { background: var(--ui-surface); } }
+/* Anchors land below the sticky header on public pages. */
+html:has(.dp-site) { scroll-padding-top: 4.75rem; }
 .dp-sitenav-link {
     display: inline-flex;
     align-items: center;
@@ -759,3 +768,7 @@ input[inputmode="numeric"] {
 *::-webkit-scrollbar-thumb { background: var(--dp-scroll-thumb); border-radius: 9999px; }
 *::-webkit-scrollbar-thumb:hover { background: var(--dp-scroll-thumb-hover); }
 *::-webkit-scrollbar-corner { background: transparent; }
+
+/* Blazor focuses the page heading after each navigation (FocusOnNavigate) so screen readers start there. That
+   focus isn't a keyboard user's, so don't draw the browser's ring around the heading. */
+h1[tabindex="-1"]:focus { outline: none; }

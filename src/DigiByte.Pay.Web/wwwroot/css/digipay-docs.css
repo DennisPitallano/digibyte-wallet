@@ -24,9 +24,9 @@
     .dp-docs-side {
         display: block;
         position: sticky;
-        top: 1.5rem;
+        top: 5rem;              /* below the sticky site header */
         align-self: start;
-        max-height: calc(100vh - 3rem);
+        max-height: calc(100vh - 6rem);
         overflow-y: auto;
         padding-bottom: 1rem;
     }
@@ -116,7 +116,7 @@
 .dp-docs-lead { margin: 0 0 1.5rem; font-size: 1.0625rem; line-height: 1.6; color: var(--ui-text-muted); }
 
 /* ----- Headings with anchor links (DocsHeading) ----- */
-.dp-docs-h { position: relative; color: var(--ui-text); letter-spacing: -0.01em; scroll-margin-top: 1.5rem; }
+.dp-docs-h { position: relative; color: var(--ui-text); letter-spacing: -0.01em; scroll-margin-top: 1rem; }
 .dp-docs-h2 { margin: 2.5rem 0 0.5rem; font-size: 1.125rem; font-weight: 700; line-height: 1.3; }
 @media (min-width: 640px) { .dp-docs-h2 { font-size: 1.25rem; } }
 .dp-docs-h3 { margin: 1.75rem 0 0.5rem; font-size: 1rem; font-weight: 700; line-height: 1.35; }
@@ -136,7 +136,7 @@
 @media (hover: none) { .dp-docs-anchor { opacity: 0.45; } }
 
 /* Any linked target in the docs lands a little below the top of the window. */
-.dp-docs-article [id], .dp-site section[id] { scroll-margin-top: 1.5rem; }
+.dp-docs-article [id], .dp-site section[id] { scroll-margin-top: 1rem; }
 
 /* ----- Body text helpers ----- */
 .dp-docs-article p, .dp-docs-article li { overflow-wrap: anywhere; }
@@ -178,7 +178,7 @@
 .dark .dp-param-req { color: #fbbf24; }
 
 /* ----- Endpoint card extras ----- */
-.dp-endpoint { scroll-margin-top: 1.5rem; }
+.dp-endpoint { scroll-margin-top: 1rem; }
 .dp-endpoint-auth {
     margin-left: auto;
     padding: 0.125rem 0.5rem;
@@ -401,7 +401,7 @@
     .dp-uc-card:hover, .dp-uc-mini:hover { transform: translateY(-3px); box-shadow: var(--ui-shadow-raised); border-color: transparent; }
     .dp-uc-card:hover::after, .dp-uc-mini:hover::after { opacity: 1; }
 }
-.dp-uc-card { display: flex; flex-direction: column; gap: 0.875rem; padding: 1.25rem; scroll-margin-top: 5rem; }
+.dp-uc-card { display: flex; flex-direction: column; gap: 0.875rem; padding: 1.25rem; scroll-margin-top: 1rem; }
 @media (min-width: 640px) { .dp-uc-card { padding: 1.5rem; } }
 .dp-uc-card:target { border-color: var(--ui-primary); box-shadow: var(--ui-shadow-raised), 0 0 0 3px color-mix(in srgb, var(--ui-primary) 25%, transparent); }
 .dp-uc-card-head { display: flex; align-items: center; gap: 0.875rem; }
@@ -450,3 +450,47 @@
     .dp-uc-card, .dp-uc-mini { animation: none !important; transition: none !important; }
     .dp-uc-chip, .dp-uc-mini-arrow { transition: none !important; }
 }
+
+/* =====================================================================================
+   Home hero background: full width behind the hero. A soft blue/green glow, a grid that
+   fades out towards the edges, and three blurred shapes drifting slowly.
+   ===================================================================================== */
+.dp-hero-wrap { position: relative; isolation: isolate; overflow: hidden; }
+.dp-hero-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.dp-hero-bg::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+        radial-gradient(60% 55% at 50% 0%, color-mix(in srgb, var(--ui-primary) 20%, transparent), transparent 70%),
+        radial-gradient(40% 40% at 85% 30%, rgba(16, 185, 129, 0.12), transparent 70%),
+        radial-gradient(45% 45% at 10% 40%, rgba(124, 58, 237, 0.10), transparent 70%);
+}
+.dp-hero-grid {
+    position: absolute; inset: -1px;
+    background-image:
+        linear-gradient(to right, color-mix(in srgb, var(--ui-text) 7%, transparent) 1px, transparent 1px),
+        linear-gradient(to bottom, color-mix(in srgb, var(--ui-text) 7%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 65% at 50% 35%, #000 30%, transparent 75%);
+            mask-image: radial-gradient(ellipse 70% 65% at 50% 35%, #000 30%, transparent 75%);
+}
+.dark .dp-hero-grid {
+    background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+}
+.dp-hero-orb { position: absolute; border-radius: 9999px; filter: blur(60px); opacity: 0.45; will-change: transform; }
+.dp-hero-orb-a { width: 26rem; height: 26rem; left: -6rem; top: -8rem; background: var(--ui-primary); animation: dp-hero-drift-a 18s ease-in-out infinite alternate; }
+.dp-hero-orb-b { width: 20rem; height: 20rem; right: -5rem; top: 2rem; background: #10b981; opacity: 0.3; animation: dp-hero-drift-b 22s ease-in-out infinite alternate; }
+.dp-hero-orb-c { width: 18rem; height: 18rem; left: 40%; bottom: -10rem; background: #7c3aed; opacity: 0.22; animation: dp-hero-drift-c 26s ease-in-out infinite alternate; }
+html:not(.dark) .dp-hero-orb { opacity: 0.22; }
+html:not(.dark) .dp-hero-orb-c { opacity: 0.12; }
+@keyframes dp-hero-drift-a { to { transform: translate(6rem, 3rem) scale(1.1); } }
+@keyframes dp-hero-drift-b { to { transform: translate(-5rem, 4rem) scale(0.9); } }
+@keyframes dp-hero-drift-c { to { transform: translate(-6rem, -3rem) scale(1.15); } }
+/* Fade the bottom edge into the page so the stats strip sits on the plain background. */
+.dp-hero-wrap::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6rem; z-index: -1; pointer-events: none;
+    background: linear-gradient(to bottom, transparent, #f8fafc);
+}
+.dark .dp-hero-wrap::after { background: linear-gradient(to bottom, transparent, #001529); }
+@media (prefers-reduced-motion: reduce) { .dp-hero-orb { animation: none !important; } }

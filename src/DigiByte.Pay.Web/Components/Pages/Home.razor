@@ -11,55 +11,65 @@
         @* Hero — stagger the eyebrow badge, headline, subhead, and CTA row
            so the fold animates in like a single composed block. Two paths: merchants
            (sign in) and developers (quickstart / API reference). *@
-        <section class="dp-hero max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 text-center">
-            <div class="inline-block px-3 py-1 bg-dgb-500/10 text-dgb-500 rounded-full text-xs font-semibold mb-5 slide-up">
-                Non-custodial · Digi-ID auth · 15-second blocks
+        @* Hero on a full-width decorative background: a soft glow, a fading grid and slowly drifting shapes
+           (digipay-docs.css; still for reduced motion). *@
+        <div class="dp-hero-wrap">
+            <div class="dp-hero-bg" aria-hidden="true">
+                <span class="dp-hero-grid"></span>
+                <span class="dp-hero-orb dp-hero-orb-a"></span>
+                <span class="dp-hero-orb dp-hero-orb-b"></span>
+                <span class="dp-hero-orb dp-hero-orb-c"></span>
             </div>
-            <h1 class="text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight max-w-4xl mx-auto slide-up-delay-1">
-                Accept DigiByte on your site.<br class="hidden sm:block" />
-                <span class="sm:inline"> Without holding a cent of it.</span>
-            </h1>
-            <p class="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed slide-up-delay-2">
-                DigiPay derives a fresh address per invoice from your wallet's xpub, watches the chain,
-                and notifies your server the moment a payment lands. Sign in with Digi-ID, paste an
-                xpub, start accepting DGB in under a minute.
-            </p>
-            <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center slide-up-delay-3">
-                @* Primary CTA swaps based on auth state — boot script sets
-                   data-digipay-auth on <html> before paint, CSS hides whichever
-                   variant doesn't match. *@
-                <a href="/merchant/signin" data-auth-show="out"
-                   class="btn-primary inline-flex items-center justify-center gap-1.5">
-                    Start accepting DGB →
-                </a>
-                <a href="/merchant" data-auth-show="in"
-                   class="btn-primary inline-flex items-center justify-center gap-1.5">
-                    <Icon Name="dashboard" Class="w-4 h-4" />
-                    Open dashboard →
-                </a>
-                <a href="/docs#quickstart"
-                   class="btn-secondary inline-flex items-center justify-center gap-1.5">
-                    <Icon Name="code" Class="w-4 h-4" />
-                    Developer quickstart
-                </a>
-            </div>
-            @* Developer strip — integrators scanning for "is there an API / a package for my
-               stack" get a direct answer without scrolling. *@
-            <div class="mt-5 flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-[0.6875rem] sm:text-xs text-slate-500 dark:text-slate-400 slide-up-delay-4">
-                <span class="font-semibold text-slate-700 dark:text-slate-300">For developers:</span>
-                <a href="/docs/api" class="hover:text-dgb-500 transition-colors no-underline">API reference</a>
-                <span class="opacity-40" aria-hidden="true">·</span>
-                <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">SDKs for Node, Python, .NET</a>
-                <span class="opacity-40" aria-hidden="true">·</span>
-                <a href="/docs/woocommerce" class="hover:text-dgb-500 transition-colors no-underline">WooCommerce plugin</a>
-            </div>
-            @* Only pitch the wallet to signed-out visitors — signed-in merchants
-               already have a wallet (they signed in with Digi-ID). *@
-            <p class="mt-5 text-xs text-slate-500 dark:text-slate-400" data-auth-show="out">
-                New to DigiByte? Grab a wallet first —
-                <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a>.
-            </p>
-        </section>
+            <section class="dp-hero max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 text-center">
+                <div class="inline-block px-3 py-1 bg-dgb-500/10 text-dgb-500 rounded-full text-xs font-semibold mb-5 slide-up">
+                    Non-custodial · Digi-ID auth · 15-second blocks
+                </div>
+                <h1 class="text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight max-w-4xl mx-auto slide-up-delay-1">
+                    Accept DigiByte on your site.<br class="hidden sm:block" />
+                    <span class="sm:inline"> Without holding a cent of it.</span>
+                </h1>
+                <p class="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed slide-up-delay-2">
+                    DigiPay derives a fresh address per invoice from your wallet's xpub, watches the chain,
+                    and notifies your server the moment a payment lands. Sign in with Digi-ID, paste an
+                    xpub, start accepting DGB in under a minute.
+                </p>
+                <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center slide-up-delay-3">
+                    @* Primary CTA swaps based on auth state — boot script sets
+                       data-digipay-auth on <html> before paint, CSS hides whichever
+                       variant doesn't match. *@
+                    <a href="/merchant/signin" data-auth-show="out"
+                       class="btn-primary inline-flex items-center justify-center gap-1.5">
+                        Start accepting DGB →
+                    </a>
+                    <a href="/merchant" data-auth-show="in"
+                       class="btn-primary inline-flex items-center justify-center gap-1.5">
+                        <Icon Name="dashboard" Class="w-4 h-4" />
+                        Open dashboard →
+                    </a>
+                    <a href="/docs#quickstart"
+                       class="btn-secondary inline-flex items-center justify-center gap-1.5">
+                        <Icon Name="code" Class="w-4 h-4" />
+                        Developer quickstart
+                    </a>
+                </div>
+                @* Developer strip — integrators scanning for "is there an API / a package for my
+                   stack" get a direct answer without scrolling. *@
+                <div class="mt-5 flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-[0.6875rem] sm:text-xs text-slate-500 dark:text-slate-400 slide-up-delay-4">
+                    <span class="font-semibold text-slate-700 dark:text-slate-300">For developers:</span>
+                    <a href="/docs/api" class="hover:text-dgb-500 transition-colors no-underline">API reference</a>
+                    <span class="opacity-40" aria-hidden="true">·</span>
+                    <a href="/sdks" class="hover:text-dgb-500 transition-colors no-underline">SDKs for Node, Python, .NET</a>
+                    <span class="opacity-40" aria-hidden="true">·</span>
+                    <a href="/docs/woocommerce" class="hover:text-dgb-500 transition-colors no-underline">WooCommerce plugin</a>
+                </div>
+                @* Only pitch the wallet to signed-out visitors — signed-in merchants
+                   already have a wallet (they signed in with Digi-ID). *@
+                <p class="mt-5 text-xs text-slate-500 dark:text-slate-400" data-auth-show="out">
+                    New to DigiByte? Grab a wallet first —
+                    <a href="https://dgbwallet.app" target="_blank" rel="noopener" class="text-dgb-500 hover:underline">dgbwallet.app</a>.
+                </p>
+            </section>
+        </div>
 
         @* Public stats strip. Aggregates only — no merchant ids, no sessions —
            so privacy is preserved while still giving visitors a read on momentum.
