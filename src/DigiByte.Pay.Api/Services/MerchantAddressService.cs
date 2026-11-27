@@ -43,11 +43,19 @@ public class MerchantAddressService
     public static MerchantKeyKind? Classify(string addressOrXpub, string networkName, out string? error, out string? reason)
     {
         var trimmed = addressOrXpub.Trim();
-        if (AddressValidator.IsValid(trimmed))
+        var network = ResolveNetwork(networkName);
+        if (AddressValidator.IsValid(trimmed, network))
         {
             error = null;
             reason = null;
             return MerchantKeyKind.Address;
+        }
+        // An address for another DigiByte network is refused, like an xpub for one.
+        if (AddressValidator.IsValid(trimmed))
+        {
+            reason = HdKeyDerivation.XpubRefusal.WrongNetwork;
+            error = "The address is for a different network than this store.";
+            return null;
         }
         // Strict: the key's version bytes must be the store's network, and private keys are refused (specs/035 R2 follow-up).
         if (HdKeyDerivation.ParseXpubStrict(trimmed, ResolveNetwork(networkName), out var refusal) is not null)

@@ -70,6 +70,8 @@ public static class ApiError
             if (Has("original session")) return "That payment no longer exists, so its event can't be replayed.";
             if (Has("delivery not found")) return "That delivery no longer exists. Refresh the log.";
             if (Has("store not found")) return "That store no longer exists, or isn't one of yours.";
+            if (Has("The address is for a different network")) // a plain address for the other network
+                return "That address is for the other network. Use one from a wallet on this store's network.";
             if (Has("xpub") || Has("DigiByte address"))
                 return reason switch
                 {
@@ -79,6 +81,10 @@ public static class ApiError
                     _ => "That isn't a DigiByte address or BIP84 xpub this store can use. Check it is for the store's network.",
                 };
             if (Has("network must be")) return "Choose mainnet, testnet or regtest.";
+            if (Has("network_change_strands_keys"))
+                return reason == "dd_key"
+                    ? "This store's DigiDollar key is for its current network. Remove the DigiDollar key first, then change the network."
+                    : "This store's receive address or xpub is for its current network. Enter one for the new network at the same time.";
             if (Has("label must be")) return "Keep the label to 80 characters or fewer.";
             if (Has("name is required") || Has("name must be")) return "Enter a name of up to 120 characters.";
             if (Has("amount") && Has("> 0")) return "Enter an amount greater than zero.";
