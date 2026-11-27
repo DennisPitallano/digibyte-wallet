@@ -147,7 +147,7 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 - **FR-001**: A store MUST be able to have one DigiDollar account key, set from the Dashboard.
 - **FR-002**: The key MUST be an account-level public key for the store's network. A key for the other network, a private key, or anything else MUST be refused with a plain reason. A private key MUST never be stored, logged or echoed back.
 - **FR-003**: Before saving, the Dashboard MUST show the first DD receive address the key gives and ask the merchant to confirm it matches the address their wallet shows.
-- **FR-004**: DigiDollar MUST be turnable on for a store only when it has a DD key. This replaces spec 034's payout-address requirement.
+- **FR-004**: DigiDollar MUST be turnable on for a store only when it has a DD key. This replaces spec 034's payout-address requirement. Removing a store's DD key MUST turn DigiDollar off for it. Open DD payments are still watched until they finish.
 - **FR-005**: Replacing a store's DD key MUST affect only new DD addresses. Open payments keep their addresses and are still watched.
 - **FR-006**: Setting, replacing and removing a store's DD key MUST be recorded in the audit log.
 
