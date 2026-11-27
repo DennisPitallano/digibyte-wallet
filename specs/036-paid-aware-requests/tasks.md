@@ -290,7 +290,7 @@
   - DGB / person's-currency switch, starting from localStorage `dgb-request-currency` ("DGB" or "FIAT"). It starts in DGB the first time and whenever no price is available, without overwriting the remembered choice (FR-016a).
   - The digit grid, a "Request" button (an empty amount means any amount), an "Add a note" section for label and message (FR-023), and a list button.
 - [X] T053 [US4] Make `src/DigiByte.Web/Pages/Payments.razor` open on `RequestKeypad` (FR-022). Request → create → show the QR code in one step. Remove the old form and the "+" button; keep the DigiPay merchant card below the list.
-- [ ] T054 [US4] Run quickstart scenario 17 and US4's acceptance scenarios, and record the results.
+- [X] T054 [US4] Run quickstart scenario 17 and US4's acceptance scenarios, and record the results.
 
 ---
 
@@ -461,3 +461,26 @@ Run on 2026-11-28 in the browser preview:
 - Scenario 7 (the payer's side): **passed** for Send. A pay link with `fiat=12.50&currency=USD&expires=…` handed over to Send with the amount filled in and "≈ $12.50 · Price held until 5:06 AM"; with an expiry in the past, "The price for this request expired at 4:51 AM. The amount may be out of date.", and Send was not blocked. Pay's no-wallet card was not checked (it needs a device with no wallet).
 - Scenarios 5 and 6 (making a currency request, countdown, expiry, renew): **not run in the browser**, because there is no price locally. Covered by `PaymentRequestServiceTests` (create, renew, rest after a partial payment, refusals), `RequestAmountsTests` and the expiry cases in `RequestStatusCalculatorTests`.
 - Still to do for T048: scenarios 5 and 6 with a reachable price source, and Pay's no-wallet card.
+
+### 2026-11-28: US4, the keypad (T049 to T054)
+
+- After T053: 3,826 tests passing, none failing.
+- Departures from the task text:
+  - Extra keys `request.keypad.hide_note` and `request.keypad.back_to_keypad` ("New request", the way back to the keypad from the list or a request).
+  - The keypad has no "00" key (DigiPay's till has one); amounts are short here.
+  - The currency choice is remembered when a request is made, not on every switch, so it is "the currency of the last request" (FR-016a).
+
+### T054 (quickstart scenario 17, US4 acceptance scenarios 1 to 5): run
+
+Run on 2026-11-28 in the browser preview, test wallet, no price available locally:
+
+- Acceptance 1: the Request tab opens on the keypad with the amount display and the DGB / USD switch (USD disabled with the reason, as there is no price). **Passed.**
+- Acceptance 2: "Request" with nothing typed makes an any-amount request. Covered by the code path (`Parse("")` is null → any amount) and `RequestKeypadEntryTests`; typed amounts ("25", "7") made requests of 25 and 7 DGB. **Passed.**
+- Acceptance 3: "Add a note" is folded away at first and opens the label and message fields. **Passed.**
+- Acceptance 4: "Your requests" shows the list in one tap (5 requests), and "New request" returns to the keypad. **Passed.**
+- Acceptance 5: the message shows on a request (checked in US1). **Passed.**
+- Scenario 17 (SC-003, under 10 s and at most 4 taps): Home → Request tab → 2 → 5 → Request is 4 taps. **Mixed:**
+  - The first request after unlocking took 17 s from tapping Request to the QR code. Hand-out waits up to 20 s for the wallet's search for used addresses (as Receive's "new address" does, so a used address is never handed out), and locally every explorer is blocked, so that first search ran until it failed.
+  - The next request took about 1 s.
+  - With a reachable explorer the search starts at unlock and is normally done before the person taps Request. But on a slow network the very first request after unlocking can take as long as the search, up to 20 s. **Needs checking on a real network.** If it is slow there, the follow-up is to start the search when the Request tab opens, or to show progress while waiting; the wait itself protects against reusing an address and should stay.
+
