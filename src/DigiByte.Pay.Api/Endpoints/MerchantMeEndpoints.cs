@@ -54,6 +54,22 @@ public static class MerchantMeEndpoints
             return Results.Ok(new { merchant.Id, merchant.DisplayName, merchant.DigiIdAddress });
         });
 
+        // POST /v1/pay/me/notices/dd-choice/dismiss — clears the one-time "buyers can now pick DGB or DD" notice for
+        // good (specs/033 FR-030). Dashboard sessions only (dps_), never API keys; idempotent.
+        group.MapPost("/notices/dd-choice/dismiss", async (HttpRequest http, DigiPayDbContext db) =>
+        {
+            var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+            if (caller is null) return Results.Unauthorized();
+            if (caller.KeyKind is not null) return Results.StatusCode(StatusCodes.Status403Forbidden);
+            var merchant = await db.Merchants.FirstAsync(m => m.Id == caller.Merchant.Id);
+            if (merchant.DdChoiceNoticePending)
+            {
+                merchant.DdChoiceNoticePending = false;
+                await db.SaveChangesAsync();
+            }
+            return Results.NoContent();
+        });
+
         // GET /v1/pay/me/audit?limit=50&cursor={iso-utc}
         //
         // Merchant-scoped audit trail. Reverse-chronological, cursor-paginated

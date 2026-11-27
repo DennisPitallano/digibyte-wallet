@@ -249,6 +249,8 @@ builder.Services.AddHttpClient<DigiDollarNodeClient>(client =>
 builder.Services.AddSingleton<CheckoutNotifier>();
 builder.Services.AddSingleton<DdSurfacesGate>();
 builder.Services.AddSingleton<DdAvailability>();
+builder.Services.AddSingleton<IChainServiceProvider, ChainServiceProvider>();
+builder.Services.AddScoped<SessionOptionService>();
 builder.Services.AddSingleton<DgbPriceService>();
 builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();

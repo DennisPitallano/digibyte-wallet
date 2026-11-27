@@ -113,7 +113,8 @@ public static class PaymentsEndpoints
             CreateSessionRequest body,
             HttpRequest http,
             DigiPayDbContext db,
-            DigiDollarNodeClient ddNode) =>
+            DigiDollarNodeClient ddNode,
+            SessionOptionService options) =>
         {
             var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
             if (caller is null)
@@ -264,6 +265,8 @@ public static class PaymentsEndpoints
             // ("pos" or "pos:Front counter"). Lets the dashboard separate countertop
             // sales from online/SDK orders without a second table.
             var source = caller.SessionSource;
+            // specs/033 research R5: only honoured when every condition holds; otherwise ignored without an error.
+            var buyerChoice = options.Allowed(body, store, currency);
 
             var session = new PaySession
             {
@@ -284,9 +287,24 @@ public static class PaymentsEndpoints
                 ReturnUrl = returnUrl,
                 Currency = currency,
                 AmountCentsDd = currency == "DD" ? body.AmountCentsDd : null,
+                BuyerChoice = buyerChoice,
             };
 
             db.Sessions.Add(session);
+            var sessionOptions = new List<PaySessionOption>();
+            if (buyerChoice)
+            {
+                var dgbOption = SessionOptionService.DgbOption(session);
+                db.SessionOptions.Add(dgbOption);
+                sessionOptions.Add(dgbOption);
+                // A store whose default is DD starts its buyers on DD (FR-021); on any node trouble it starts on DGB.
+                if (store.DefaultCurrency == "DD"
+                    && await options.TryCreateAtCreationAsync(session, store) is { } ddOption)
+                {
+                    sessionOptions.Add(ddOption);
+                    SessionOptionService.StartOn(session, ddOption);
+                }
+            }
             // Every DD address DigiPay creates is recorded with its owner, so payouts can attribute the DD (specs/034 R4).
             if (session.Currency == "DD")
                 await DigiByte.Pay.Api.Services.Payouts.DdAddressRegistry.RegisterAsync(db, session.Address, merchant.Id, store.Id,
@@ -331,7 +349,7 @@ public static class PaymentsEndpoints
             }
 
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
-            return Results.Ok(ToDto(session, $"{checkoutBase}/pay/{session.Id}"));
+            return Results.Ok(ToDto(session, $"{checkoutBase}/pay/{session.Id}", sessionOptions));
         }).AllowPosKey();
 
         // GET /v1/pay/sessions — list sessions for the authenticated merchant.
@@ -437,19 +455,63 @@ public static class PaymentsEndpoints
         // GET /v1/pay/sessions/{id} — public read of session status.
         // Safe to expose without auth because id is random and contains no secret.
         // Used by the hosted checkout page for initial load.
-        group.MapGet("/sessions/{id}", async (string id, DigiPayDbContext db) =>
+        group.MapGet("/sessions/{id}", async (string id, DigiPayDbContext db, SessionOptionService optionService, DdAvailability availability) =>
         {
             var session = await db.Sessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
             if (session is null) return Results.NotFound();
 
             var merchant = await db.Merchants.AsNoTracking().FirstOrDefaultAsync(m => m.Id == session.MerchantId);
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
+            if (!session.BuyerChoice)
+            {
+                return Results.Ok(new
+                {
+                    Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}"),
+                    MerchantName = merchant?.DisplayName,
+                });
+            }
+
+            // specs/033 contract C1: whether the buyer can still pick DD. False when the store or the DD surfaces
+            // switch turned it off (even after a DD option was made), or when the node is down.
+            var sessionOptions = await db.SessionOptions.AsNoTracking().Where(o => o.SessionId == session.Id).ToListAsync();
+            var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == session.StoreId);
+            string? ddReason = store is null || !optionService.DdOffered(store) ? "dd_disabled"
+                : !await availability.IsAvailableAsync() ? "unavailable"
+                : null;
             return Results.Ok(new
             {
-                Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}"),
+                Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}", sessionOptions),
                 MerchantName = merchant?.DisplayName,
+                DdAvailable = ddReason is null,
+                DdReason = ddReason,
             });
         }).AllowPosKey(); // public read
+
+        // POST /v1/pay/sessions/{id}/options/dd — the buyer's first switch to DD on a buyer-choice payment
+        // (specs/033 contract C1). Anonymous like the checkout page; at most one DD option per session.
+        group.MapPost("/sessions/{id}/options/dd", async (string id, SessionOptionService optionService) =>
+        {
+            var result = await optionService.GetOrCreateDdOptionAsync(id, DateTime.UtcNow);
+            return result.Failure switch
+            {
+                SessionOptionService.Failure.None => Results.Ok(OptionDto(result.Option!, null, null)),
+                SessionOptionService.Failure.NotFound => Results.NotFound(new { error = "not_found" }),
+                SessionOptionService.Failure.NoChoice => Results.Conflict(new { error = "dd_option_not_allowed", reason = "no_choice" }),
+                SessionOptionService.Failure.Locked => Results.Conflict(new { error = "dd_option_not_allowed", reason = "locked" }),
+                SessionOptionService.Failure.NotPending => Results.Conflict(new { error = "dd_option_not_allowed", reason = "not_pending" }),
+                SessionOptionService.Failure.Expired => Results.Conflict(new { error = "dd_option_not_allowed", reason = "expired" }),
+                SessionOptionService.Failure.DdDisabled => Results.Conflict(new { error = "dd_option_unavailable", reason = "dd_disabled" }),
+                SessionOptionService.Failure.NoRate => Results.Conflict(new { error = "dd_option_unavailable", reason = "no_rate" }),
+                SessionOptionService.Failure.OutOfRange => Results.Conflict(new
+                {
+                    error = "dd_option_unavailable",
+                    reason = "out_of_range",
+                    minCents = SessionOptionService.MinCents,
+                    maxCents = SessionOptionService.MaxCents,
+                }),
+                _ => Results.Json(new { error = "digidollar_node_unavailable" }, statusCode: 503),
+            };
+        }).RequireRateLimiting("checkout-option").AllowAnonymous();
 
         // POST /v1/pay/sessions/{id}/refund — record an off-platform refund.
         //
@@ -596,7 +658,7 @@ public static class PaymentsEndpoints
         return new string(chars);
     }
 
-    private static object ToDto(PaySession s, string checkoutUrl) => new
+    private static object ToDto(PaySession s, string checkoutUrl, IReadOnlyList<PaySessionOption>? options = null) => new
     {
         s.Id,
         s.StoreId,
@@ -640,32 +702,52 @@ public static class PaymentsEndpoints
         s.AmountCentsDd,
         Uri = BuildBip21(s),
         CheckoutUrl = checkoutUrl,
+        // Buyer choice (specs/033 contract C1). The fields above describe the currency in effect; options lists every
+        // currency the payment can be paid in (empty without buyer choice).
+        s.BuyerChoice,
+        s.LockedAt,
+        Options = (options ?? []).OrderBy(o => o.Currency == "DGB" ? 0 : 1).Select(o => OptionDto(o, s.Label, s.Memo)).ToList(),
+        Extra = s.ExtraCurrency is null ? null : new { Currency = s.ExtraCurrency, Amount = s.ExtraAmount, Txid = s.ExtraTxid, SeenAt = s.ExtraSeenAt },
     };
 
-    private static string BuildBip21(PaySession s)
+    private static object OptionDto(PaySessionOption o, string? label, string? memo) => new
     {
-        var sb = new StringBuilder("digibyte:").Append(s.Address);
+        o.Currency,
+        o.Address,
+        o.AmountSatoshis,
+        o.AmountCentsDd,
+        o.UsdRate,
+        o.RateAt,
+        Uri = BuildBip21(o.Address, o.Currency, o.AmountSatoshis, o.AmountCentsDd, label, memo),
+    };
+
+    private static string BuildBip21(PaySession s) =>
+        BuildBip21(s.Address, s.Currency, s.AmountSatoshis, s.AmountCentsDd, s.Label, s.Memo);
+
+    private static string BuildBip21(string address, string currency, long amountSatoshis, long? amountCentsDd, string? label, string? memo)
+    {
+        var sb = new StringBuilder("digibyte:").Append(address);
         // DGB sessions carry an amount in DGB; DD sessions carry USD cents
         // with a currency hint so wallets that understand DigiDollar can
         // prompt for the right thing. Non-DD-aware wallets will show the
         // amount as DGB — the DD address prefix (DD/TD/RD) makes the mistake
         // hard to complete anyway.
-        if (s.Currency == "DD" && s.AmountCentsDd is > 0)
+        if (currency == "DD" && amountCentsDd is > 0)
         {
-            var usd = (s.AmountCentsDd.Value / 100m).ToString(
+            var usd = (amountCentsDd.Value / 100m).ToString(
                 "0.00##", System.Globalization.CultureInfo.InvariantCulture);
             sb.Append("?amount=").Append(usd).Append("&currency=USD");
         }
         else
         {
-            var amount = (s.AmountSatoshis / 100_000_000m).ToString(
+            var amount = (amountSatoshis / 100_000_000m).ToString(
                 "0.########", System.Globalization.CultureInfo.InvariantCulture);
             sb.Append("?amount=").Append(amount);
         }
-        if (!string.IsNullOrWhiteSpace(s.Label))
-            sb.Append("&label=").Append(Uri.EscapeDataString(s.Label));
-        if (!string.IsNullOrWhiteSpace(s.Memo))
-            sb.Append("&message=").Append(Uri.EscapeDataString(s.Memo));
+        if (!string.IsNullOrWhiteSpace(label))
+            sb.Append("&label=").Append(Uri.EscapeDataString(label));
+        if (!string.IsNullOrWhiteSpace(memo))
+            sb.Append("&message=").Append(Uri.EscapeDataString(memo));
         return sb.ToString();
     }
 }
@@ -691,7 +773,10 @@ public record CreateSessionRequest(
     // null. When Currency = "DD", AmountCentsDd carries the requested USD
     // amount in cents (10000 = $100.00) and Amount / FiatAmount are ignored.
     string? Currency = null,
-    long? AmountCentsDd = null);
+    long? AmountCentsDd = null,
+    // specs/033 FR-028: ask for the buyer's DGB/DD choice at checkout. Honoured only for a fiat-priced DGB payment at
+    // a store with DigiDollar and buyer choice on (and the DD surfaces switch on); ignored otherwise.
+    bool? BuyerChoice = null);
 
 public record RefundRequest(string? Txid, string? Note);
 public record VoidRequest(string? Note);

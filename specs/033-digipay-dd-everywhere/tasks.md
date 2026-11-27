@@ -36,7 +36,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 **Purpose**: Get the branch and the test doubles ready.
 
 - [ ] T001 Rebase `feature/digipay-dd-everywhere` onto `main` once spec 034 is merged. Confirm `src/DigiByte.Pay.Api/Data/DdAddress.cs` and `tests/DigiByte.Pay.Api.Tests` `FakeDdNode` exist. If 034 isn't merged yet, stop after Phase 2 and US5.
-- [ ] T002 [P] Extend the fake explorer used by `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` (`FakeReceiver`) so a test can script transactions per address and trigger one `InvoiceMonitor` tick on demand (needed by T036 and T037).
+- [X] T002 [P] Extend the fake explorer used by `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` (`FakeReceiver`) so a test can script transactions per address and trigger one `InvoiceMonitor` tick on demand (needed by T036 and T037).
 - [X] T003 [P] Extend `FakeDdNode` in `tests/DigiByte.Pay.Api.Tests` with scriptable `address/new` results (a sequence of addresses, or failure), per-address `balance` responses, and a `health` toggle.
 
 ---
@@ -161,13 +161,13 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 ### Tests for User Story 3
 
-- [ ] T036 [P] [US3] Test `tests/DigiByte.Pay.Api.Tests/BuyerChoiceSessionTests.cs`:
+- [X] T036 [P] [US3] Test `tests/DigiByte.Pay.Api.Tests/BuyerChoiceSessionTests.cs`:
   - `buyerChoice:true` is honoured only when every condition in research R5 holds, and is otherwise ignored (no error, empty `options`).
   - A DGB option is created at creation.
   - A store whose default is DD starts on DD, and falls back to DGB when the node fails. When `DdAvailability` reports down it starts on DGB without calling the node, and a node that doesn't answer is cut off after 3 s (SC-002).
   - An API request without `buyerChoice` gets the old response shape plus empty `options` (SC-010).
   - Payments with an amount typed in DGB never get the choice (FR-026).
-- [ ] T037 [P] [US3] Test `tests/DigiByte.Pay.Api.Tests/DdOptionEndpointTests.cs` (contract C1, `POST /sessions/{id}/options/dd`):
+- [X] T037 [P] [US3] Test `tests/DigiByte.Pay.Api.Tests/DdOptionEndpointTests.cs` (contract C1, `POST /sessions/{id}/options/dd`):
   - creates once, and returns the same option on repeat and concurrent calls
   - USD amounts at 1:1
   - PHP rounds **up** to the cent and stores `UsdRate` and `RateAt`
@@ -175,14 +175,14 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
   - a 503 when the node fails
   - writes a `DdAddress` row (`Kind = payment`, `SessionId`)
   - rate-limited
-- [ ] T038 [P] [US3] Test `tests/DigiByte.Pay.Api.Tests/InvoiceMonitorBuyerChoiceTests.cs`:
+- [X] T038 [P] [US3] Test `tests/DigiByte.Pay.Api.Tests/InvoiceMonitorBuyerChoiceTests.cs`:
   - Unlocked sessions watch both options. The first funds seen lock the session (`Currency`, `Address` and amounts copied from the option, `LockedAt` set).
   - DGB wins a same-tick tie.
   - A DD node error doesn't stop DGB detection.
   - After the lock, funds on the other option set `Extra*` once and send `session.extra_payment` once. Top-ups update `ExtraAmount` without another event.
   - Detection keeps running through the 3-day late window.
   - Switching never changes `ExpiresAt`.
-- [ ] T039 [P] [US3] Extend `tests/DigiByte.Pay.Api.Tests/WebhookDispatchTests.cs`: the session payload carries `buyerChoice`, `lockedAt` and `extra`, and events after the lock report the paid currency (contract C3).
+- [X] T039 [P] [US3] Extend `tests/DigiByte.Pay.Api.Tests/WebhookDispatchTests.cs`: the session payload carries `buyerChoice`, `lockedAt` and `extra`, and events after the lock report the paid currency (contract C3).
 - [ ] T040 [P] [US3] Tests in `tests/DigiByte.Pay.Web.Tests/CheckoutRenderTests.cs`:
   - The switch shows when `buyerChoice && !lockedAt`.
   - Switching to DD calls the options endpoint and redraws the amount and QR.
@@ -195,7 +195,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Add `SessionOptionService` in `src/DigiByte.Pay.Api/Services/SessionOptionService.cs`:
+- [X] T042 [US3] Add `SessionOptionService` in `src/DigiByte.Pay.Api/Services/SessionOptionService.cs`:
   - `CreateDgbOptionAsync(session)`, which copies the session's DGB address and amount.
   - `GetOrCreateDdOptionAsync(session)`:
     - Allowed only for sessions that are Pending, unlocked and unexpired, with the store's DD on and the gate on.
@@ -204,20 +204,20 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
     - Inserts `PaySessionOption` and a `DdAddress` (`Kind = payment`, `SessionId`, `StoreId`) in one transaction. On a unique-index conflict, re-reads the existing row.
     - Returns typed failures matching contract C1's reasons.
   - `LockTo(session, option)`, which copies `Currency`, `Address`, `AmountSatoshis` and `AmountCentsDd` from the option and sets `LockedAt`.
-- [ ] T043 [US3] Update session creation in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs`:
+- [X] T043 [US3] Update session creation in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs`:
   - Accept `buyerChoice` in `CreateSessionRequest`.
   - Apply research R5's conditions, set `BuyerChoice`, and call `CreateDgbOptionAsync`.
   - When the store's effective default is DD, also create the DD option and start the session on it (copy its address and amounts to the session's live fields) without locking: `LockedAt` stays null. Skip this when `DdAvailability` reports down, and cap the `GenerateAddressAsync` call at 3 s. On any failure, stay on DGB.
-- [ ] T044 [US3] Extend `ToDto` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` with `buyerChoice`, `lockedAt`, `options` (`OptionDto` with `uri` from the existing BIP21 builder) and `extra`. Add `ddAvailable` and `ddReason` to the public `GET /v1/pay/sessions/{id}` response when `buyerChoice` is set: false with `dd_disabled` when the store has DigiDollar off or the gate is off, false with `unavailable` when `DdAvailability` reports down (contract C1).
-- [ ] T045 [US3] Map anonymous `POST /v1/pay/sessions/{id}/options/dd` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` with `.RequireRateLimiting("checkout-option")`. It calls `SessionOptionService` and maps results to the statuses in contract C1. The policy counts through `TrustedClient.AddressOf`. Check that Pay.Web's `PayApi` HttpClient sends `X-DigiPay-Client-Key` and `X-DigiPay-Client-Address` (the buyer's address) on checkout and POS calls, and add them if not.
-- [ ] T046 [US3] Update `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs`:
+- [X] T044 [US3] Extend `ToDto` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` with `buyerChoice`, `lockedAt`, `options` (`OptionDto` with `uri` from the existing BIP21 builder) and `extra`. Add `ddAvailable` and `ddReason` to the public `GET /v1/pay/sessions/{id}` response when `buyerChoice` is set: false with `dd_disabled` when the store has DigiDollar off or the gate is off, false with `unavailable` when `DdAvailability` reports down (contract C1).
+- [X] T045 [US3] Map anonymous `POST /v1/pay/sessions/{id}/options/dd` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` with `.RequireRateLimiting("checkout-option")`. It calls `SessionOptionService` and maps results to the statuses in contract C1. The policy counts through `TrustedClient.AddressOf`. Check that Pay.Web's `PayApi` HttpClient sends `X-DigiPay-Client-Key` and `X-DigiPay-Client-Address` (the buyer's address) on checkout and POS calls, and add them if not.
+- [X] T046 [US3] Update `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs`:
   - For `BuyerChoice && LockedAt == null`, inspect every option: DGB through the explorer, DD through `GetBalanceAsync`, catching and logging DD errors per tick.
   - On the first funds, call `LockTo` and continue the normal status flow in the same tick. DGB wins a tie.
   - For locked sessions (Seen, Paid, Confirmed, or Expired inside the late window), check the non-locked options. Set `ExtraCurrency`, `ExtraAmount`, `ExtraTxid` and `ExtraSeenAt`, write audit `session.extra_payment`, and dispatch `session.extra_payment` only the first time.
-- [ ] T047 [P] [US3] Add `buyerChoice`, `lockedAt` and `extra` to the session payload in `src/DigiByte.Pay.Api/Services/WebhookDispatcher.cs`, plus the `session.extra_payment` event name (contract C3).
-- [ ] T048 [P] [US3] Add `Currency`, `LockedAt` and `AmountCentsDd` to `CheckoutStatusUpdate` in `src/DigiByte.Pay.Api/Hubs/CheckoutHub.cs`, and to every place `InvoiceMonitor` publishes it (research R11).
-- [ ] T049 [US3] Accept `buyerChoiceEnabled` (bool?, absent = keep, audit key `buyer_choice`) in PATCH in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` (FR-029).
-- [ ] T050 [US3] Add `POST /v1/pay/me/notices/dd-choice/dismiss` (`dps_` session only, 204, idempotent) in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. It clears `DdChoiceNoticePending` (FR-030).
+- [X] T047 [P] [US3] Add `buyerChoice`, `lockedAt` and `extra` to the session payload in `src/DigiByte.Pay.Api/Services/WebhookDispatcher.cs`, plus the `session.extra_payment` event name (contract C3).
+- [X] T048 [P] [US3] Add `Currency`, `LockedAt` and `AmountCentsDd` to `CheckoutStatusUpdate` in `src/DigiByte.Pay.Api/Hubs/CheckoutHub.cs`, and to every place `InvoiceMonitor` publishes it (research R11).
+- [X] T049 [US3] Accept `buyerChoiceEnabled` (bool?, absent = keep, audit key `buyer_choice`) in PATCH in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` (FR-029).
+- [X] T050 [US3] Add `POST /v1/pay/me/notices/dd-choice/dismiss` (`dps_` session only, 204, idempotent) in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. It clears `DdChoiceNoticePending` (FR-030).
 - [ ] T051 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`:
   - The DTO gets `BuyerChoice`, `LockedAt`, `Options`, `Extra` and `DdAvailable`.
   - Show a DGB/DD switch while unlocked. Picking DD calls the options endpoint and renders that option's amount, address and BIP21 QR. Switching back reuses the stored option.

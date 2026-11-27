@@ -173,6 +173,12 @@ public static class StoresEndpoints
                 if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
                 store!.DigiDollarEnabled = body.DigiDollarEnabled.Value;
             }
+            if (body.BuyerChoiceEnabled is bool choice && store!.BuyerChoiceEnabled != choice)
+            {
+                // specs/033 FR-029: the store's switch for the buyer's DGB/DD choice at checkout.
+                changed.Add("buyer_choice");
+                store!.BuyerChoiceEnabled = choice;
+            }
             // Absent = leave as is; null or "" = clear; otherwise DGB, a fiat code, or DD while the store can offer
             // DigiDollar (specs/033 FR-008). Turning DD off later keeps a saved "DD": readers treat it as USD.
             if (body.DefaultCurrency.ValueKind != JsonValueKind.Undefined)
@@ -648,7 +654,8 @@ public record UpdateStoreRequest(
     string? AddressOrXpub,
     string? WebhookUrl,
     int? DefaultSessionExpiryMinutes,
-    bool? DigiDollarEnabled)
+    bool? DigiDollarEnabled,
+    bool? BuyerChoiceEnabled = null)
 {
     /// <summary>"DGB" or a fiat code; null or "" clears it. A JsonElement so an explicit null (clear)
     /// differs from a missing field (keep).</summary>

@@ -179,6 +179,16 @@ public class WebhookDispatcher
                 // received cents — same field, unit implied by currency.
                 currency = session.Currency,
                 amountCentsDd = session.AmountCentsDd,
+                // specs/033 contract C3: buyer choice. Once locked, currency/amount* above are the currency paid.
+                buyerChoice = session.BuyerChoice,
+                lockedAt = session.LockedAt,
+                extra = session.ExtraCurrency is null ? null : new
+                {
+                    currency = session.ExtraCurrency,
+                    amount = session.ExtraAmount,
+                    txid = session.ExtraTxid,
+                    seenAt = session.ExtraSeenAt,
+                },
             },
         };
 
