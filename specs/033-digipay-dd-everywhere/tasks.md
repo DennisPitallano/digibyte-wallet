@@ -35,7 +35,8 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 **Purpose**: Get the branch and the test doubles ready.
 
-- [ ] T001 Rebase `feature/digipay-dd-everywhere` onto `main` once spec 034 is merged. Confirm `src/DigiByte.Pay.Api/Data/DdAddress.cs` and `tests/DigiByte.Pay.Api.Tests` `FakeDdNode` exist. If 034 isn't merged yet, stop after Phase 2 and US5.
+- [X] T001 Rebase `feature/digipay-dd-everywhere` onto `main` once spec 034 is merged. Confirm `src/DigiByte.Pay.Api/Data/DdAddress.cs` and `tests/DigiByte.Pay.Api.Tests` `FakeDdNode` exist. If 034 isn't merged yet, stop after Phase 2 and US5.
+  - **Status (2026-11-27):** Done by merging `feature/digipay-dd-payouts` into `feature/digipay-dd-buyer-choice` (commit 3bc2e57) instead of rebasing onto `main`, because spec 034 isn't on `main` yet.
 - [X] T002 [P] Extend the fake explorer used by `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` (`FakeReceiver`) so a test can script transactions per address and trigger one `InvoiceMonitor` tick on demand (needed by T036 and T037).
 - [X] T003 [P] Extend `FakeDdNode` in `tests/DigiByte.Pay.Api.Tests` with scriptable `address/new` results (a sequence of addresses, or failure), per-address `balance` responses, and a `health` toggle.
 
@@ -310,10 +311,13 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 ## Phase 8: Polish & cross-cutting concerns
 
-- [ ] T069 [P] Final docs check across every surface: read `ApiDocs.razor`, `Docs.razor`, `Features.razor`, `docs/PROCESS_FLOWS.md`, `docs/ARCHITECTURE.md`, the digipay.js README and `CHANGELOG.md` together and fix any gaps or contradictions left between stories (FR-019).
+- [X] T069 [P] Final docs check across every surface: read `ApiDocs.razor`, `Docs.razor`, `Features.razor`, `docs/PROCESS_FLOWS.md`, `docs/ARCHITECTURE.md`, the digipay.js README and `CHANGELOG.md` together and fix any gaps or contradictions left between stories (FR-019).
 - [ ] T070 [P] Add a Playwright case to `tests/DigiByte.Pay.E2E/tests/pos.spec.mjs`: a fiat charge's DGB/DD switch shows a different QR per currency and the same DD address after switching back. Assert the new amount and QR appear within 2 s of the tap (SC-008), and that a DD till charge reaches the QR within 10 s more than a DGB charge (SC-002).
-- [ ] T071 Run `dotnet build`, then `dotnet test tests/DigiByte.Pay.Api.Tests` and `dotnet test tests/DigiByte.Pay.Web.Tests`, then `npm test --prefix src/DigiByte.Pay.Web`. Fix any failures.
+  - **Status (2026-11-27):** Not done. The end-to-end harness has no DigiDollar node, a store can't turn DigiDollar on without a payout address that needs a Digi-ID step-up the dev sign-in can't do, and a fiat POS charge needs a live CoinGecko price. Doing it needs a fake NodeApi server in `servers.mjs`, a dev-only way to give the dev store a payout address, and a price stub. The switch itself is covered by bUnit (`PosTillTests.A_fiat_sale_lets_the_customer_switch_the_code_between_DGB_and_DD`, `CheckoutBuyerChoiceTests`).
+- [X] T071 Run `dotnet build`, then `dotnet test tests/DigiByte.Pay.Api.Tests` and `dotnet test tests/DigiByte.Pay.Web.Tests`, then `npm test --prefix src/DigiByte.Pay.Web`. Fix any failures.
+  - **Status (2026-11-27):** Solution builds with 0 errors. Pay.Api 221, Pay.Web 392, NodeApi 396, Api 258, Crypto 525, Server.Shared 116, SpvGateway 229 and the Pay.Web JS tests (42) all pass. Wallet.Tests: 3633 pass; 10 fail only when every project runs at once (7 live-explorer benchmarks that call public explorers, 3 timing tests that pass when run alone). This branch doesn't touch the wallet or crypto code.
 - [ ] T072 Follow [quickstart.md](quickstart.md) steps 1 to 14 on testnet. Record results in the PR, including the SC-002 and SC-008 timings on testnet, and flag the PR as auth-relevant: two new anonymous endpoints (plan, Constitution Check).
+  - **Status (2026-11-27):** Not done here: it needs a testnet node with the DigiDollar wallet loaded.
 
 ---
 

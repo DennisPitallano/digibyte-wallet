@@ -15,7 +15,7 @@ All notable changes to the DigiByte Wallet project.
 - **DigiDollar amounts on final payment screens** — The underpaid summary on the checkout and the POS showed DigiDollar cents as if they were satoshis (a $12.50 payment read 0.0000125 DD); it now shows dollars.
 
 ### Changed
-- **DigiPay's DigiDollar setting says where DD is offered** — The **Accept DigiDollar** setting in the DigiPay dashboard now lists only the places that really take DD (for now, sessions created through the API with `"currency": "DD"`), says plainly that DigiPay holds the DD buyers pay and that it can't be withdrawn yet, and its on and off messages name those places. The docs gain a DigiDollar section. `GET /v1/pay/me` gains `ddSurfacesEnabled` and `ddChoiceNoticePending`, and store objects gain `defaultCurrencyEffective`, `buyerChoiceEnabled` and `ddDonationAddress`, ahead of DD on the POS, payment links, checkout and the donation page (specs/033), which stay off behind `DIGIPAY_DD_SURFACES` until DD payouts are live.
+- **DigiPay's DigiDollar setting says where DD is offered** — The **Accept DigiDollar** setting in the DigiPay dashboard now lists only the places that really take DD (for now, sessions created through the API with `"currency": "DD"`), says plainly that DigiPay holds the DD buyers pay until it's paid out to the store's payout address, and its on and off messages name those places. The docs gain a DigiDollar section. `GET /v1/pay/me` gains `ddSurfacesEnabled` and `ddChoiceNoticePending`, and store objects gain `defaultCurrencyEffective`, `buyerChoiceEnabled` and `ddDonationAddress`, ahead of DD on the POS, payment links, checkout and the donation page (specs/033), which stay off behind `DIGIPAY_DD_SURFACES` until DD payouts are live.
 
 ## [0.10.0] - 2026-11-27
 

@@ -293,15 +293,16 @@
                 A store can also accept DigiDollar (DD), the USD-pegged stablecoin: 1 DD = $1. Turn it on in the dashboard's <em>Settings</em> under
                 <em>Accept DigiDollar</em>. For now, DD is offered only through the API: create a session with <InlineCode>"currency": "DD"</InlineCode>
                 and <InlineCode>amountCentsDd</InlineCode> (100 to 10,000,000 cents), and each session gets a fresh <InlineCode>DD…</InlineCode> address.
-                Once DigiPay offers DigiDollar beyond the API (after payouts are available), a store with it on also gets DD on the POS till, in payment links
+                Once DigiPay switches DigiDollar on beyond the API, a store with it on also gets DD on the POS till, in payment links
                 and one-off payments (priced in dollars, with no rate), as its default currency, and in the sales totals and CSV export, always kept apart
                 from DGB. Payments priced in a regular currency (payment links and POS sales, or your own code with <InlineCode>buyerChoice: true</InlineCode>)
                 also let the buyer pick DGB or DD at checkout: whichever they pay in locks the payment, and anything they send in the other currency is
-                flagged for you to refund. DD on the donation page will follow.
+                flagged for you to refund. The donation page can take DD tips too (see <a href="#donation-button" class="text-dgb-500 hover:underline">Donation button</a>).
             </p>
             <p class="@P">
                 Unlike DGB, which goes straight to your own address, DD payments go to addresses DigiPay controls: DigiPay holds the DD buyers pay
-                until it's paid out to you, and payouts to merchants aren't available yet, so the DD can't be withdrawn yet. DigiPay pays the DD network fees in DGB.
+                until it's paid out to the payout address you set in the dashboard's <em>DigiDollar payouts</em> section (a store needs one before DigiDollar can be
+                turned on). DigiPay pays the DD network fees in DGB.
             </p>
 
             <DocsHeading Id="sdks">SDKs</DocsHeading>
