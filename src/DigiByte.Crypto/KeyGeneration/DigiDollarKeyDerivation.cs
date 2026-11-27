@@ -121,6 +121,12 @@ public sealed class DigiDollarKeyDerivation
         return new DigiDollarKey(path, chain, index, extKey.PrivateKey);
     }
 
+    /// <summary>
+    /// The DigiDollar account public key at <c>m/86'/{coin}'/0'</c> (specs/035). A merchant gives this to DigiPay, which
+    /// derives the same receive addresses as <see cref="Derive"/> from it with <see cref="DigiDollarAccountKey"/>. It can't spend.
+    /// </summary>
+    public ExtPubKey GetAccountExtPubKey() => _master.Derive(new KeyPath($"m/{Purpose}'/{_coinType}'/0'")).Neuter();
+
     /// <summary>The DD address (Base58Check of the tweaked output key) for a derived key on this network.</summary>
     public string GetAddress(DigiDollarKey key)
     {

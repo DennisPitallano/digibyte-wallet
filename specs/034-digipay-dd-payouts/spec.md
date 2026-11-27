@@ -1,5 +1,7 @@
 # Feature Specification: DigiDollar payouts to merchants
 
+> **Superseded by [spec 035](../035-digipay-dd-merchant-keys/spec.md)** (2026-11-27). DigiPay no longer holds DigiDollar: DD goes straight to each merchant's own key, so there is nothing to pay out. This spec's code was removed from PR #131 before it merged.
+
 **Feature Branch**: `034-digipay-dd-payouts`
 
 **Created**: 2026-11-27

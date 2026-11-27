@@ -1,5 +1,10 @@
 # Feature Specification: DigiDollar on every DigiPay payment surface
 
+> **Changed by [spec 035](../035-digipay-dd-merchant-keys/spec.md)** (2026-11-27):
+> - DD addresses (explicit DD payments, the buyer's DD option and the DD donation address) now come from the store's own DigiDollar key, not a DigiPay node.
+> - "DD is available" comes from the public explorer's health.
+> - Turning DD on needs the store's DD key, not a payout address. Spec 034's payouts are gone.
+
 **Feature Branch**: `033-digipay-dd-everywhere`
 
 **Created**: 2026-11-27

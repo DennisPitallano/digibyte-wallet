@@ -1,5 +1,7 @@
 # Draft: constitution amendment for DigiPay-held DigiDollar (specs/034 research R12, task T003)
 
+> **Not applied: superseded by spec 035 (DigiPay holds no DigiDollar).** The constitution was never changed, and no amendment is needed.
+
 This is a draft for a **separate** pull request against `.specify/memory/constitution.md`. Nothing in spec 034 edits the constitution. It should be agreed before spec 034's payout code merges.
 
 ## Why

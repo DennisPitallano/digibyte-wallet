@@ -1,5 +1,7 @@
 # Implementation Plan: DigiDollar payouts to merchants
 
+> **Superseded by [spec 035](../035-digipay-dd-merchant-keys/plan.md)** (2026-11-27). Kept for history only.
+
 **Branch**: `034-digipay-dd-payouts` (planned; work is still on `main`) | **Date**: 2026-11-27 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `specs/034-digipay-dd-payouts/spec.md`
