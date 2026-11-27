@@ -13,7 +13,7 @@ public static class MerchantMeEndpoints
 {
     public static RouteGroupBuilder MapMerchantMeEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("", async (HttpRequest http, DigiPayDbContext db, DdSurfacesGate ddGate) =>
+        group.MapGet("", async (HttpRequest http, DigiPayDbContext db, DdSurfacesGate ddGate, DdAvailability ddAvailability) =>
         {
             var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
             if (caller is null) return Results.Unauthorized();
@@ -22,6 +22,10 @@ public static class MerchantMeEndpoints
                 .Where(s => s.MerchantId == merchant.Id)
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync();
+            // specs/035 US4: networks where the explorer can't confirm DD right now, for stores that take DD (cached).
+            var ddDown = new List<string>();
+            foreach (var network in stores.Where(s => s.DigiDollarEnabled).Select(s => s.Network == "mainnet" ? "mainnet" : "testnet").Distinct())
+                if (!await ddAvailability.IsAvailableAsync(network)) ddDown.Add(network);
             return Results.Ok(new
             {
                 merchant.Id,
@@ -32,6 +36,7 @@ public static class MerchantMeEndpoints
                 // buyer-choice notice (FR-030), which only shows once they are.
                 DdSurfacesEnabled = ddGate.Enabled,
                 merchant.DdChoiceNoticePending,
+                DdUnavailableNetworks = ddDown,
                 // A store-bound POS tablet only sees its own store.
                 Stores = stores.Where(s => caller.CanUseStore(s.Id)).Select(s => StoreDto(s, http)),
             });

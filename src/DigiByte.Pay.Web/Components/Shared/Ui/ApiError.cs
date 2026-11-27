@@ -11,7 +11,7 @@ public static class ApiError
 {
     public const string Network = "Something went wrong. Check your connection and try again.";
 
-    /// <summary>Shown when the DigiDollar node can't be reached (<c>digidollar_node_unavailable</c>).</summary>
+    /// <summary>Shown while the public explorer can't confirm DigiDollar (<c>dd_service_unavailable</c>, specs/035).</summary>
     public const string DdUnavailable = "DigiDollar is temporarily unavailable. Try again, or take this payment in DGB.";
 
     /// <summary>Reads the response's <c>error</c> field (if any) and returns the plain sentence for it.</summary>
@@ -78,11 +78,13 @@ public static class ApiError
             if (Has("defaultCurrency")) return "Choose DGB or one of the listed currencies (such as USD, EUR or PHP), or clear the default.";
             if (Has("unsupported currency")) return "That currency isn't supported.";
             // DigiDollar (specs/033 contract C1).
-            if (Has("digidollar_node_unavailable")) return DdUnavailable;
             if (Has("dd_option_unavailable"))
-                return reason == "out_of_range"
-                    ? "This amount is outside DigiDollar's limits ($1.00 to $100,000.00)."
-                    : "DigiDollar isn't available for this payment right now.";
+                return reason switch
+                {
+                    "out_of_range" => "This amount is outside DigiDollar's limits ($1.00 to $100,000.00).",
+                    "dd_service_unavailable" => DdUnavailable,
+                    _ => "DigiDollar isn't available for this payment right now.",
+                };
             if (Has("digidollar_not_enabled")) return "DigiDollar isn't turned on for this store. Turn it on in Settings.";
         }
 

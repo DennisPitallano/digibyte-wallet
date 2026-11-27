@@ -1246,6 +1246,11 @@ else
                                disabled="@(ddBusy || (activeStore.DdKey is null && !activeStore.DigiDollarEnabled))" class="w-5 h-5 accent-dgb-500" />
                         <span class="text-sm">Enable DigiDollar for this store</span>
                     </label>
+                    @if (activeStore.DigiDollarEnabled && DdDelayed(activeStore.Network))
+                    {
+                        @* specs/035 US4 scenario 3: payments are still created; their confirmations wait for the explorer. *@
+                        <p class="ui-banner ui-banner-warning m-0" role="status" data-dd-delayed>DigiDollar confirmations may be delayed: DigiPay can't reach the DigiDollar service right now. New DigiDollar payments still work and will confirm once it's back.</p>
+                    }
                     @if (activeStore.DdKey is null && !activeStore.DigiDollarEnabled)
                     {
                         <p class="@Muted m-0" data-dd-needs-key>Add your DigiDollar key first.</p>
@@ -2647,6 +2652,9 @@ else
         finally { expiryBusy = false; StateHasChanged(); }
     }
 
+    private bool DdDelayed(string network) =>
+        account?.DdUnavailableNetworks?.Contains(network == "mainnet" ? "mainnet" : "testnet") == true;
+
     // specs/035: the key card saved, replaced or removed the store's DigiDollar key; reload so the toggle follows.
     private async Task OnDdKeyChangedAsync()
     {
@@ -3034,7 +3042,7 @@ else
     private record PosDeviceDto(string Id, string? Label, string Prefix, DateTime CreatedAt, DateTime? LastUsedAt, string? StoreId = null);
 
     private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, DateTime CreatedAt, List<StoreDto>? Stores,
-        bool DdSurfacesEnabled = false, bool DdChoiceNoticePending = false);
+        bool DdSurfacesEnabled = false, bool DdChoiceNoticePending = false, List<string>? DdUnavailableNetworks = null);
 
     private record StoreDto(string Id, string MerchantId, string Name, string Network,
         string ReceiveMode, bool HasReceive, string? ReceivePreview,

@@ -467,7 +467,7 @@ public class PosTillTests : BunitContext
     }
 
     [Fact]
-    public void When_the_DD_node_is_down_the_amount_stays_and_the_same_dollars_can_be_charged_in_DGB()
+    public void When_DD_cant_be_charged_the_amount_stays_and_the_same_dollars_can_be_charged_in_DGB()
     {
         AllowDd();
         api.DdNodeDown = true;
@@ -477,7 +477,7 @@ public class PosTillTests : BunitContext
         cut.WaitForAssertion(() => Assert.False(cut.Find("button.dp-pos-charge").HasAttribute("disabled")));
         cut.Find("button.dp-pos-charge").Click();
 
-        cut.WaitForAssertion(() => Assert.Contains("DigiDollar is temporarily unavailable", cut.Find(".dp-pos-error").TextContent));
+        cut.WaitForAssertion(() => Assert.Contains("DigiDollar isn't turned on for this store", cut.Find(".dp-pos-error").TextContent));
         Assert.Equal("12.50DD", Readout(cut));
         Assert.Empty(cut.FindAll(".qr-frame")); // no payment was made
 
@@ -575,7 +575,7 @@ public class PosTillTests : BunitContext
         /// <summary>GET /v1/pay/me: the server's DD surfaces switch and whether the store has DigiDollar on.</summary>
         public bool DdSurfaces { get; set; }
         public bool DigiDollarEnabled { get; set; }
-        /// <summary>POST /v1/pay/sessions with currency DD answers 503 digidollar_node_unavailable.</summary>
+        /// <summary>POST /v1/pay/sessions with currency DD answers 400 digidollar_not_enabled_for_store (DD just turned off).</summary>
         public bool DdNodeDown { get; set; }
         public List<string?> IdempotencyKeys { get; } = new();
         public int OptionPosts;
@@ -638,9 +638,9 @@ public class PosTillTests : BunitContext
                     if (r.TryGetProperty("currency", out var cur) && cur.GetString() == "DD")
                     {
                         if (api.DdNodeDown)
-                            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                            return new HttpResponseMessage(HttpStatusCode.BadRequest)
                             {
-                                Content = new StringContent("""{"error":"digidollar_node_unavailable","detail":"down"}""", Encoding.UTF8, "application/json"),
+                                Content = new StringContent("""{"error":"digidollar_not_enabled_for_store"}""", Encoding.UTF8, "application/json"),
                             };
                         json = api.lastSession = api.DdSession(r.GetProperty("amountCentsDd").GetInt64());
                         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };

@@ -519,6 +519,27 @@ public class DashboardTests : BunitContext
         Assert.Empty(cut.FindAll("[data-dd-needs-key]"));
     }
 
+    [Fact]
+    public void While_DigiDollar_cant_be_confirmed_the_store_says_confirmations_may_be_delayed()
+    {
+        // specs/035 US4 scenario 3.
+        api.DigiDollarEnabled = true;
+        api.DdDown = true;
+        var cut = RenderSection("settings");
+
+        cut.WaitForAssertion(() => Assert.Contains("confirmations may be delayed", cut.Find("[data-dd-delayed]").TextContent));
+    }
+
+    [Fact]
+    public void The_delay_note_is_hidden_while_DigiDollar_is_available()
+    {
+        api.DigiDollarEnabled = true;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-key-card")));
+
+        Assert.Empty(cut.FindAll("[data-dd-delayed]"));
+    }
+
     // ----- DigiDollar links and one-off payments (specs/033 US2) -----
 
     private void AllowDd()
@@ -597,14 +618,15 @@ public class DashboardTests : BunitContext
     public void A_failed_DigiDollar_link_offers_the_same_dollars_in_DGB()
     {
         AllowDd();
-        api.CreateError = (HttpStatusCode.ServiceUnavailable, """{"error":"digidollar_node_unavailable"}""");
+        // specs/035: making a DD payment needs no outside service, so it fails only when DD can't be taken (turned off).
+        api.CreateError = (HttpStatusCode.BadRequest, """{"error":"digidollar_not_enabled_for_store"}""");
         var cut = RenderSection("links");
         cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
         Buttons(cut, "DigiDollar").Single().Click();
         cut.Find("#link-amount-dd").Input("40");
         Buttons(cut, "Create payment link").Single().Click();
 
-        cut.WaitForAssertion(() => Assert.Contains("DigiDollar is temporarily unavailable", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("DigiDollar isn't turned on for this store", cut.Markup));
         api.CreateError = null;
         api.Price = 0.01m;
         cut.Find("[data-dd-fallback]").Click();
@@ -806,6 +828,7 @@ public class DashboardTests : BunitContext
         public bool NoticeDismissed { get; private set; }
         public bool TwoStores { get; set; }
         public bool HasDdKey { get; set; } = true;
+        public bool DdDown { get; set; }
         /// <summary>Gives every listed payment an extra DD payment (specs/033 FR-025).</summary>
         public bool ExtraOnRows { get; set; }
         /// <summary>DELETE /v1/pay/stores/sto_2 answers 409 dd_held with these (specs/034 T060); null deletes it.</summary>
@@ -833,7 +856,7 @@ public class DashboardTests : BunitContext
             var q = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
 
             if (method == "GET" && path == "/v1/pay/me/")
-                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = !TwoStores ? new[] { Store() } : new[] { Store(), SecondStore() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending });
+                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = !TwoStores ? new[] { Store() } : new[] { Store(), SecondStore() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending, ddUnavailableNetworks = DdDown ? new[] { "mainnet" } : Array.Empty<string>() });
 
             if (method == "GET" && request.RequestUri.AbsolutePath == "/v1/pay/sessions")
             {

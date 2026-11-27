@@ -301,7 +301,7 @@
                     }
                     @if (ddFallbackOffered && IsDd && TotalDecimal is decimal fallbackUsd)
                     {
-                        @* The DD node is down: the same dollar amount, priced in USD and paid in DGB, in one tap (FR-014). *@
+                        @* DD couldn't be charged (turned off, say): the same dollar amount, priced in USD and paid in DGB, in one tap (FR-014). *@
                         <button type="button" class="btn-secondary w-full" data-dd-fallback @onclick="ChargeInDgbInsteadAsync" disabled="@busy">
                             Charge @Fiat.Format(fallbackUsd, "USD") in DGB instead
                         </button>
@@ -848,7 +848,7 @@
     // is on (FR-001, FR-032). Read from GET /v1/pay/me with the tablet key.
     private bool ddAvailable;
     private string? ddNotice;
-    // Shown after a failed DD charge (node down): charge the same dollars in DGB in one tap (FR-014).
+    // Shown after a failed DD charge: charge the same dollars in DGB in one tap (FR-014).
     private bool ddFallbackOffered;
     // Idempotency-Key for the charge being created; reused when the same request is retried after a network error.
     private string? chargeKey;
@@ -1553,7 +1553,7 @@
             {
                 chargeError = await ApiError.ReadAsync(resp);
                 chargeKey = null; // the server answered: a new attempt is a new charge
-                // DD node down (or DD just turned off): keep the amount and offer the same dollars in DGB (FR-014).
+                // DD couldn't be charged (DD just turned off, say): keep the amount and offer the same dollars in DGB (FR-014).
                 ddFallbackOffered = IsDd;
                 return;
             }

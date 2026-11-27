@@ -237,7 +237,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 **Independent test**: set `FakeDdExplorer.Down`, pay a DD payment, clear `Down`, and the payment goes to paid. DGB payments still work while it's down.
 
-- [ ] T043 [P] [US4] Write tests in `tests/DigiByte.Pay.Api.Tests/DdExplorerOutageTests.cs`:
+- [X] T043 [P] [US4] Write tests in `tests/DigiByte.Pay.Api.Tests/DdExplorerOutageTests.cs`:
   - While down, `GET /v1/pay/sessions/{id}` gives `ddAvailable: false` and `ddReason: "dd_service_unavailable"`.
   - `options/dd` gives 409 `dd_option_unavailable` / `dd_service_unavailable`.
   - Creating an explicit DD payment still succeeds.
@@ -248,7 +248,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 - [X] T045 [US4] In `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs`, skip DD addresses for a network whose `DdAvailability` is false during that tick, with no status change and no error log per address, logging one warning per outage instead. Make sure DGB processing never awaits DD health.
 
   Then delete `src/DigiByte.Pay.Api/Services/DigiDollarNodeClient.cs`. Its last callers are gone after T029, T031 and T044. Also remove its DI and the `DdNode` options from `src/DigiByte.Pay.Api/Program.cs`, and the `NODEAPI_BASE_URL` / `NODEAPI_WRITE_KEY` handling.
-- [ ] T046 [P] [US4] Update the unavailable copy in `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, `Donate.razor` and `Pos.razor` (and their tests in `tests/DigiByte.Pay.Web.Tests`) to "DigiDollar is temporarily unavailable". Show the merchant-side note "DigiDollar confirmations may be delayed" on the Dashboard DD card when DD is unavailable (US4 scenario 3).
+- [X] T046 [P] [US4] Update the unavailable copy in `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, `Donate.razor` and `Pos.razor` (and their tests in `tests/DigiByte.Pay.Web.Tests`) to "DigiDollar is temporarily unavailable". Show the merchant-side note "DigiDollar confirmations may be delayed" on the Dashboard DD card when DD is unavailable (US4 scenario 3).
 
 **Checkpoint**: outages are handled as the spec describes.
 

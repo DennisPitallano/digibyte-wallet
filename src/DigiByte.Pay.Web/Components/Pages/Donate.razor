@@ -169,8 +169,8 @@
             ddAmount = dd;
         }
 
-        // Opens on DD when asked and DD can be offered right now, or when DD is all there is. A down node falls
-        // back to DGB, which keeps working.
+        // Opens on DD when asked and DD can be offered right now, or when DD is all there is. While the explorer can't
+        // confirm DD the page falls back to DGB, which keeps working.
         viewDd = ddAddress is not null && ddAvailable
             && (string.Equals(Currency, "DD", StringComparison.OrdinalIgnoreCase) || dgbAddress is null);
 
