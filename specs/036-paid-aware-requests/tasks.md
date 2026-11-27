@@ -90,13 +90,13 @@
 
 ### The address hand-out (tests first)
 
-- [ ] T010 [P] [US1] Extend `tests/DigiByte.Wallet.Tests/ReceiveScanSetTests.cs` with `HandedOutTop` cases from data-model "ReceiveScanSet rules":
+- [X] T010 [P] [US1] Extend `tests/DigiByte.Wallet.Tests/ReceiveScanSetTests.cs` with `HandedOutTop` cases from data-model "ReceiveScanSet rules":
   - `HandedOutTop = null` gives exactly today's `NextNewIndex`, `BaseCount` and `Indexes`.
   - `NextNewIndex = max(shown + 1, Anchor, top + 1)`.
   - `BaseCount` counts `top + 1` only when `top` is not a watched entry.
   - `CanHandOutNew` turns false when `NextNewIndex == Anchor + 20`.
-- [ ] T011 [US1] Add `HandedOutTop int?` to `src/DigiByte.Wallet/Models/WalletInfo.cs` ("Null means it equals NextReceivingIndex… never lowered"). Pass it into `src/DigiByte.Wallet/Services/ReceiveScanSet.cs` (`From(...)` and its call sites in WalletService), apply the three formulas, and copy it in `PersistAddressIndexesAsync`. Makes T010 pass.
-- [ ] T012 [P] [US1] Write `tests/DigiByte.Wallet.Tests/RequestAddressHandOutTests.cs` using `ChangeAddressTests.Env` and `FakeChain`:
+- [X] T011 [US1] Add `HandedOutTop int?` to `src/DigiByte.Wallet/Models/WalletInfo.cs` ("Null means it equals NextReceivingIndex… never lowered"). Pass it into `src/DigiByte.Wallet/Services/ReceiveScanSet.cs` (`From(...)` and its call sites in WalletService), apply the three formulas, and copy it in `PersistAddressIndexesAsync`. Makes T010 pass.
+- [X] T012 [P] [US1] Write `tests/DigiByte.Wallet.Tests/RequestAddressHandOutTests.cs` using `ChangeAddressTests.Env` and `FakeChain`:
   - `HandOutRequestAddressAsync` returns a new SegWit address and index each call, and never changes `GetReceivingAddressAsync()`.
   - A later `GenerateNewReceivingAddressAsync` (Receive) skips the indexes given to requests, and raises `HandedOutTop`.
   - A non-contiguous index becomes an unpaid watched entry, and a contiguous one extends the base run.
@@ -106,7 +106,7 @@
     - A single-key wallet throws `SingleAddress`.
   - After a reload from storage, the handed-out request addresses are in `ReceiveScanSet.Indexes`, which covers SC-005.
   - `NextReceivingIndex` is unchanged by request hand-outs.
-- [ ] T013 [US1] In `src/DigiByte.Wallet/Services/WalletService.cs`, implement:
+- [X] T013 [US1] In `src/DigiByte.Wallet/Services/WalletService.cs`, implement:
   - `HandOutRequestAddressAsync()`: same gate (`AddressOnShowGate`), discovery retry, failures and persist-or-undo as `GenerateNewReceivingAddressAsync`.
   - `RecordHandOut(info, index)`.
   - Raising `HandedOutTop` in `GenerateNewReceivingAddressAsync`.

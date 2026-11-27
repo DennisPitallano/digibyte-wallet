@@ -23,7 +23,7 @@ public sealed class ReceiveScanSet
     private readonly List<WatchedReceiveIndex> _watched;
     private readonly int _shown;
 
-    private ReceiveScanSet(int shown, int used, int baseCount, List<WatchedReceiveIndex> watched)
+    private ReceiveScanSet(int shown, int top, int used, int baseCount, List<WatchedReceiveIndex> watched)
     {
         _shown = shown;
         _watched = watched;
@@ -35,7 +35,8 @@ public sealed class ReceiveScanSet
         MaxPaid = maxPaid;
 
         Anchor = maxPaid is { } max ? Math.Max(used, max + 1) : used;
-        NextNewIndex = Math.Max(shown + 1, Anchor);
+        // Past everything handed out, to Receive or to a request (spec 036), so no two ever share an index.
+        NextNewIndex = Math.Max(Math.Max(shown + 1, Anchor), top + 1);
 
         var indexes = new SortedSet<int>(Enumerable.Range(0, baseCount));
         foreach (var entry in watched) indexes.Add(entry.Index);
@@ -49,10 +50,15 @@ public sealed class ReceiveScanSet
     /// <param name="usedReceivingCount">One past the highest used index in the base run.</param>
     /// <param name="baseFloor">A lower bound on the base run, set when the address on show first left it.</param>
     /// <param name="watched">The saved watched entries, as saved.</param>
+    /// <param name="handedOutTop">
+    /// The highest index ever handed out, to Receive or to a payment request (spec 036). Null, or anything below the
+    /// address on show, means the address on show: exactly the set before spec 036.
+    /// </param>
     public static ReceiveScanSet From(int nextReceivingIndex, int usedReceivingCount, int baseFloor,
-        IReadOnlyList<WatchedReceiveIndex>? watched)
+        IReadOnlyList<WatchedReceiveIndex>? watched, int? handedOutTop = null)
     {
         var shown = Math.Max(0, nextReceivingIndex);
+        var top = Math.Max(shown, handedOutTop ?? shown);
         var used = Math.Max(0, usedReceivingCount);
         var floor = Math.Max(0, baseFloor);
         watched ??= [];
@@ -60,14 +66,21 @@ public sealed class ReceiveScanSet
         // Tested against the list as saved, before entries the base run covers are ignored: otherwise the address on show
         // would feed the base count through a definition that refers to itself.
         var shownIsWatched = false;
+        var topIsWatched = false;
         foreach (var entry in watched)
-            if (entry.Index == shown) { shownIsWatched = true; break; }
+        {
+            if (entry.Index == shown) shownIsWatched = true;
+            if (entry.Index == top) topIsWatched = true;
+        }
 
         // The one threshold, computed first. While the address on show is a watched entry it does not feed it, so being
         // found paid cannot turn every address up to it into the base run.
+        // The highest handed-out index feeds it the same way, so a request given the next address in line extends the
+        // base run just as Receive's address on show does.
         var baseCount = Math.Max(Math.Max(MinBaseCount, used), Math.Max(floor, shownIsWatched ? 0 : shown + 1));
+        baseCount = Math.Max(baseCount, topIsWatched ? 0 : top + 1);
 
-        return new ReceiveScanSet(shown, used, baseCount, Normalize(baseCount, watched));
+        return new ReceiveScanSet(shown, top, used, baseCount, Normalize(baseCount, watched));
     }
 
     /// <summary>Every receive index the wallet checks, ascending, no duplicates.</summary>

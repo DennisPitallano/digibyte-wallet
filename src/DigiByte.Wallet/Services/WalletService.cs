@@ -1107,7 +1107,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// chain has shown as used, the watched indexes beyond it, and the tail after the highest paid one (spec 027).
     /// </summary>
     private static ReceiveScanSet ScanSetOf(WalletInfo info) =>
-        ReceiveScanSet.From(info.NextReceivingIndex, info.UsedReceivingCount, info.ReceiveBaseFloor, info.WatchedReceiveIndexes);
+        ReceiveScanSet.From(info.NextReceivingIndex, info.UsedReceivingCount, info.ReceiveBaseFloor, info.WatchedReceiveIndexes,
+            info.HandedOutTop);
 
     /// <summary>
     /// Moves to a new receive address, saved before it is returned so that it stays scanned after a reload. Skips addresses
@@ -1144,7 +1145,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 throw TooManyUnused(set);
 
             index = set.NextNewIndex;
+            var previousTop = info.HandedOutTop;
             var undo = MoveAddressOnShow(info, index, index);
+            info.HandedOutTop = Math.Max(info.HandedOutTop ?? index, index);
             try
             {
                 await PersistAddressIndexesAsync(info);
@@ -1153,6 +1156,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             {
                 // Nothing has been shown yet, so fail: an address lost on reload could be paid and then never scanned.
                 undo();
+                info.HandedOutTop = previousTop;
                 throw new ReceiveAddressException(ReceiveAddressFailure.SaveFailed,
                     "Could not save the new address. Your current address is still good to use.", ex);
             }
@@ -1160,6 +1164,87 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         finally { session.AddressOnShowGate.Release(); }
 
         return (index, session.Hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString());
+    }
+
+    /// <summary>
+    /// Hands out a new receive address for a payment request without changing the address Receive shows (spec 036,
+    /// FR-001, FR-003). Same rules as <see cref="GenerateNewReceivingAddressAsync"/>: saved before it is returned, and
+    /// refused with <see cref="ReceiveAddressException"/> once <see cref="ReceiveGapLimit"/> unused addresses are out,
+    /// counting Receive's and requests' together (FR-005), or when the wallet has a single address.
+    /// </summary>
+    public async Task<(int Index, string Address)> HandOutRequestAddressAsync()
+    {
+        EnsureUnlocked();
+        var session = ActiveSession!;
+        if (session.Hd is null)
+            throw new ReceiveAddressException(ReceiveAddressFailure.SingleAddress, "This wallet has a single address.");
+        var info = session.Info;
+
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
+        if (!ScanSetOf(info).CanHandOutNew)
+        {
+            // Addresses handed out in this session may have been paid since the last lookup.
+            session.AddressDiscovery = null;
+            session.AddressDiscoveryRetryAfter = default;
+            await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
+            if (!ScanSetOf(info).CanHandOutNew)
+                throw TooManyUnused(ScanSetOf(info));
+        }
+
+        int index;
+        await session.AddressOnShowGate.WaitAsync();
+        try
+        {
+            var set = ScanSetOf(info);
+            if (!set.CanHandOutNew)
+                throw TooManyUnused(set);
+
+            index = set.NextNewIndex;
+            var undo = RecordHandOut(info, index);
+            try
+            {
+                await PersistAddressIndexesAsync(info);
+            }
+            catch (Exception ex)
+            {
+                undo();
+                throw new ReceiveAddressException(ReceiveAddressFailure.SaveFailed,
+                    "Could not save the new address. Your current address is still good to use.", ex);
+            }
+        }
+        finally { session.AddressOnShowGate.Release(); }
+
+        return (index, session.Hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString());
+    }
+
+    /// <summary>
+    /// Records a request's address as handed out (spec 036, data-model "Recording a request hand-out"). Follows the rules
+    /// of <see cref="MoveAddressOnShow"/> for the watched list and the floor, but never assigns
+    /// <see cref="WalletInfo.NextReceivingIndex"/>: only <see cref="WalletInfo.HandedOutTop"/> moves. Nothing is saved
+    /// here. Returns what undoes exactly these changes.
+    /// </summary>
+    private static Action RecordHandOut(WalletInfo info, int index)
+    {
+        var previousTop = info.HandedOutTop;
+        var previousFloor = info.ReceiveBaseFloor;
+        var baseCount = ScanSetOf(info).BaseCount;
+        var added = false;
+
+        if (index > baseCount && info.WatchedReceiveIndexes.All(w => w.Index != index))
+        {
+            info.ReceiveBaseFloor = Math.Max(info.ReceiveBaseFloor, baseCount);
+            info.WatchedReceiveIndexes.Add(new WatchedReceiveIndex(index, false));
+            info.WatchedReceiveIndexes.Sort((a, b) => a.Index.CompareTo(b.Index));
+            added = true;
+        }
+        info.HandedOutTop = index;
+
+        return () =>
+        {
+            info.HandedOutTop = previousTop;
+            info.ReceiveBaseFloor = previousFloor;
+            if (added) info.WatchedReceiveIndexes.RemoveAll(w => !w.Paid && w.Index == index);
+        };
     }
 
     /// <summary>
@@ -1754,6 +1839,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         stored.NextReceivingIndex = info.NextReceivingIndex;
         stored.UsedReceivingCount = info.UsedReceivingCount;
         stored.ReceiveBaseFloor = info.ReceiveBaseFloor;
+        stored.HandedOutTop = info.HandedOutTop;
         stored.ReceiveSearchedTo = info.ReceiveSearchedTo;
         stored.ReceiveSearchNoticeShown = info.ReceiveSearchNoticeShown;
         info.WatchedReceiveIndexes = ReceiveScanSet.Normalize(ScanSetOf(info).BaseCount, info.WatchedReceiveIndexes);
