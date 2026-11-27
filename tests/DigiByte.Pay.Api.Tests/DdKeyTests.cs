@@ -195,4 +195,39 @@ public class DdKeyTests
         Assert.Equal(HttpStatusCode.Forbidden, (await Put(c, tablet, storeId, TestDdKeys.Key(), TestDdKeys.Address(0))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await Remove(c, tablet, storeId)).StatusCode);
     }
+
+    [Fact]
+    public async Task The_unpaid_run_counts_addresses_since_the_last_paid_one_and_warns_past_500()
+    {
+        // specs/035 research R11 (T053).
+        using var f = Factory();
+        var (c, key, storeId) = await DdStore(f);
+        for (var i = 0; i < 3; i++)
+            (await Create(c, key, new { storeId, currency = "DD", amountCentsDd = 500 })).EnsureSuccessStatusCode();
+
+        async Task<System.Text.Json.JsonElement> DdKey() =>
+            (await Json(await c.SendAsync(PayFactory.Authed(HttpMethod.Get, $"/v1/pay/stores/{storeId}", key)))).GetProperty("ddKey");
+
+        Assert.Equal(3, (await DdKey()).GetProperty("unpaidRun").GetInt32());
+
+        // Index 1 gets paid: only index 2 is unpaid after it.
+        await f.WithDb(async db =>
+        {
+            (await db.DdAddresses.SingleAsync(a => a.Index == 1)).FirstPaidAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        });
+        Assert.Equal(1, (await DdKey()).GetProperty("unpaidRun").GetInt32());
+        Assert.False((await DdKey()).GetProperty("unpaidRunWarning").GetBoolean());
+
+        await f.WithDb(async db =>
+        {
+            (await db.DdKeySequences.SingleAsync()).NextIndex = 503;
+            await db.SaveChangesAsync();
+        });
+        var warned = await DdKey();
+        Assert.Equal(501, warned.GetProperty("unpaidRun").GetInt32());
+        Assert.True(warned.GetProperty("unpaidRunWarning").GetBoolean());
+        var me = await Json(await c.SendAsync(PayFactory.Authed(HttpMethod.Get, "/v1/pay/me", key)));
+        Assert.True(me.GetProperty("stores")[0].GetProperty("ddKey").GetProperty("unpaidRunWarning").GetBoolean());
+    }
 }

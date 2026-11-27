@@ -3,6 +3,8 @@
 description: "Task list for DigiDollar payouts to merchants"
 ---
 
+> **Superseded by [spec 035](../035-digipay-dd-merchant-keys/tasks.md)** (2026-11-28). This spec's code was removed from PR #131 before it merged; the open tasks below will never be done.
+
 # Tasks: DigiDollar payouts to merchants
 
 **Input**: Design documents in `specs/034-digipay-dd-payouts/`: plan.md, spec.md, research.md, data-model.md, contracts/ (C1–C5), quickstart.md
@@ -23,7 +25,7 @@ description: "Task list for DigiDollar payouts to merchants"
 
 **Purpose**: Confirm what the node actually returns, and add test scaffolding.
 
-- [ ] T001 Run quickstart Q0 against a testnet node with the `digipay-hot` wallet: call NodeApi `POST /api/digidollar/send` (1.00 DD, comment `test-q0`) and `GET /api/digidollar/transactions?category=send`. Record the raw `senddigidollar` result shape, and whether send entries include `comment`, `address`, `amount` and `time`, in `specs/034-digipay-dd-payouts/research.md` under R1 "Verified". Also record the RPC error code and message `senddigidollar` returns when the wallet's only DD is unconfirmed. Not done: needs a testnet node with the `digipay-hot` wallet. Until then `DigiDollarNodeClient.IsInsufficientFunds` matches "insufficient", "unconfirmed" and "dd-input-amounts-unknown".
+- [ ] T001 *(Moot: superseded by spec 035, no payouts.)* Run quickstart Q0 against a testnet node with the `digipay-hot` wallet: call NodeApi `POST /api/digidollar/send` (1.00 DD, comment `test-q0`) and `GET /api/digidollar/transactions?category=send`. Record the raw `senddigidollar` result shape, and whether send entries include `comment`, `address`, `amount` and `time`, in `specs/034-digipay-dd-payouts/research.md` under R1 "Verified". Also record the RPC error code and message `senddigidollar` returns when the wallet's only DD is unconfirmed. Not done: needs a testnet node with the `digipay-hot` wallet. Until then `DigiDollarNodeClient.IsInsufficientFunds` matches "insufficient", "unconfirmed" and "dd-input-amounts-unknown".
 - [X] T002 [P] Create `tests/DigiByte.Pay.Api.Tests/FakeDdNode.cs`: an `HttpMessageHandler` with scriptable responses and a call log for `/api/digidollar/health`, `/address/new`, `/balance`, `/balance/{addr}`, `/transactions`, `/send`, `/sends` and `/tx/{txid}/status`. Add a `PayFactory.Create` overload in `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` that registers it with `AddHttpClient<DigiDollarNodeClient>().ConfigurePrimaryHttpMessageHandler(() => fake)`, and sets `NODEAPI_WRITE_KEY` and `DIGIPAY_OPERATOR_KEY` test values (research R13).
 - [X] T003 [P] Draft the separate constitution amendment noted in research R12 (a MINOR change adding a DigiPay custodial-DD clause: hold DD only until payout, publish balances, keep full coverage, protect payout-address changes) as its own PR description in `specs/034-digipay-dd-payouts/constitution-amendment.md`. Don't edit `.specify/memory/constitution.md` in this feature. It belongs in Setup so the amendment can be reviewed before the payout code merges (Principle I asks for custody questions to be escalated before design).
 - [X] T004 [P] Add helpers to `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs`:
@@ -406,7 +408,7 @@ description: "Task list for DigiDollar payouts to merchants"
 - [X] T070 [P] Update `docs/RAILWAY_NODE.md` (production NodeApi needs `DIGIDOLLAR_WALLET=digipay-hot`, a funded DGB fee reserve, and a write key shared with Pay.Api), `docs/ARCHITECTURE.md` (the payout worker, the ledger and how they flow), `docs/SECURITY.md` (step-up grants and the operator key) and `SELF_CUSTODY.md` (DigiPay holds DD until payout).
 - [X] T071 [P] Add a `CHANGELOG.md` entry under Unreleased: DD payouts to merchants (beta).
 - [X] T072 Run `dotnet build` and `dotnet test` for `tests/DigiByte.Pay.Api.Tests`, `tests/DigiByte.Pay.Web.Tests` and `tests/DigiByte.NodeApi.Tests`. Fix any failures.
-- [ ] T073 Run quickstart Q0–Q10 on testnet and fill in its release checklist. Record the results in `specs/034-digipay-dd-payouts/quickstart.md`. Not done: needs a testnet node.
+- [ ] T073 *(Moot: superseded by spec 035, no payouts.)* Run quickstart Q0–Q10 on testnet and fill in its release checklist. Record the results in `specs/034-digipay-dd-payouts/quickstart.md`. Not done: needs a testnet node.
 
 ---
 

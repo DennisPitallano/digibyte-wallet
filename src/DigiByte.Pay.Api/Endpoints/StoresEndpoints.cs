@@ -76,7 +76,9 @@ public static class StoresEndpoints
             if (err is not null) return err;
             var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
             if (caller is not null && !caller.CanUseStore(store!.Id)) return ApiCaller.OutsideStore();
-            return Results.Ok(MerchantMeEndpoints.StoreDto(store!, http));
+            var runs = await MerchantMeEndpoints.DdUnpaidRunsAsync(db, [store!.DdKeyId]);
+            return Results.Ok(MerchantMeEndpoints.StoreDto(store!, http,
+                store.DdKeyId is { } k && runs.TryGetValue(k, out var run) ? run : 0));
         }).AllowPosKey();
 
         group.MapPatch("/{storeId}", async (

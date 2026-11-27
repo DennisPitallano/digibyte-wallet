@@ -23,6 +23,7 @@ public static class MerchantMeEndpoints
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync();
             // specs/035 US4: networks where the explorer can't confirm DD right now, for stores that take DD (cached).
+            var unpaidRuns = await DdUnpaidRunsAsync(db, stores.Select(s => s.DdKeyId));
             var ddDown = new List<string>();
             foreach (var network in stores.Where(s => s.DigiDollarEnabled).Select(s => s.Network == "mainnet" ? "mainnet" : "testnet").Distinct())
                 if (!await ddAvailability.IsAvailableAsync(network)) ddDown.Add(network);
@@ -38,7 +39,8 @@ public static class MerchantMeEndpoints
                 merchant.DdChoiceNoticePending,
                 DdUnavailableNetworks = ddDown,
                 // A store-bound POS tablet only sees its own store.
-                Stores = stores.Where(s => caller.CanUseStore(s.Id)).Select(s => StoreDto(s, http)),
+                Stores = stores.Where(s => caller.CanUseStore(s.Id))
+                    .Select(s => StoreDto(s, http, s.DdKeyId is { } k && unpaidRuns.TryGetValue(k, out var run) ? run : 0)),
             });
         }).AllowPosKey();
 
@@ -125,13 +127,29 @@ public static class MerchantMeEndpoints
     }
 
     /// <summary>The store as the API returns it. <paramref name="http"/> supplies the DD surfaces switch.</summary>
-    internal static object StoreDto(PayStore s, HttpRequest http)
+    internal static object StoreDto(PayStore s, HttpRequest http, int ddUnpaidRun = 0)
     {
         var ddSurfaces = http.HttpContext.RequestServices.GetRequiredService<DdSurfacesGate>().Enabled;
-        return StoreDto(s, ddSurfaces);
+        return StoreDto(s, ddSurfaces, ddUnpaidRun);
     }
 
-    internal static object StoreDto(PayStore s, bool ddSurfacesEnabled) => new
+    /// <summary>
+    /// For each DD key: how many addresses its sequence has given out since the highest-index one that ever received DD
+    /// (research R11). Counted per key across stores, since the merchant's wallet scans by key.
+    /// </summary>
+    internal static async Task<Dictionary<string, int>> DdUnpaidRunsAsync(DigiPayDbContext db, IEnumerable<string?> keyIds)
+    {
+        var ids = keyIds.OfType<string>().Distinct().ToList();
+        if (ids.Count == 0) return [];
+        var next = await db.DdKeySequences.AsNoTracking().Where(k => ids.Contains(k.Id))
+            .ToDictionaryAsync(k => k.Id, k => k.NextIndex);
+        var lastPaid = await db.DdAddresses.AsNoTracking().Where(a => ids.Contains(a.DdKeyId) && a.FirstPaidAt != null)
+            .GroupBy(a => a.DdKeyId).Select(g => new { Key = g.Key, Max = g.Max(a => a.Index) })
+            .ToDictionaryAsync(x => x.Key, x => x.Max);
+        return next.ToDictionary(kv => kv.Key, kv => kv.Value - (lastPaid.TryGetValue(kv.Key, out var max) ? max + 1 : 0));
+    }
+
+    internal static object StoreDto(PayStore s, bool ddSurfacesEnabled, int ddUnpaidRun = 0) => new
     {
         s.Id,
         s.MerchantId,
@@ -156,7 +174,7 @@ public static class MerchantMeEndpoints
         s.BuyerChoiceEnabled,
         s.DdDonationAddress,
         // specs/035 contract S4: the key itself is never returned, only enough to check it against the wallet.
-        DdKey = DdKeyDto(s),
+        DdKey = DdKeyDto(s, ddUnpaidRun),
         s.CreatedAt,
     };
 
