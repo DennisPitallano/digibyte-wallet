@@ -187,6 +187,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - **Key replaced (FR-005)**: a DD payment opened before the store's key is replaced (S2 with a new key) still goes to paid on its original address.
   - **Reorganised out**: as with DGB, when the paying transaction's confirmations drop, they're recalculated on the next tick while the payment is watched. When the transaction disappears from the explorer's history entirely, the status stays unchanged.
   - **Overpaid**: more DD than due goes to paid, with the full received amount recorded.
+  - **Paid in two parts**: the first part on one tick makes the payment underpaid, and the second part on a later tick makes it paid. An underpaid DD payment past the 3-day late window is no longer watched. A DGB underpaid payment is still not watched, as today.
   - **Key removed (FR-004)**: a DD payment opened before the key is removed (S3) still goes to paid and confirmed, while `digiDollarEnabled` is false.
 - [ ] T031 [US2] Rewrite the DD paths in `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs` to use `DdChainProvider.For(network).GetHistoryAsync` (R5):
   - `InspectDdSessionAsync`
@@ -194,6 +195,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - the extra-payment check
 
   Received is the sum of `DdOutputs` to the address. Confirmations come from the transaction that completed the amount due. Set `FirstPaidAt`.
+
+  In `SessionsToWatch`, also include DD payments (`Currency == "DD"`) with status `Underpaid` whose `ExpiresAt` is within the 3-day late window, so a second part can bring them to paid (R5). DGB payments aren't affected.
 - [ ] T032 [US2] Update the existing DD tests to the allocator and explorer fakes:
   - `tests/DigiByte.Pay.Api.Tests/DdOptionEndpointTests.cs`: replace the `DdNode.Addresses` and `address/new` asserts with derived-address asserts, and replace `A_down_node_is_503_and_makes_no_option` with the `dd_service_unavailable` case (C1).
   - `BuyerChoiceSessionTests.cs`, `InvoiceMonitorBuyerChoiceTests.cs`, `DonationOptionsTests.cs`, `DdSurfacesGateTests.cs`, `SessionsCsvDdTests.cs` and `PosShiftTotalsDdTests.cs`.
