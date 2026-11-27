@@ -1374,7 +1374,7 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 /* ── A payment request as a receipt (spec 036) ──────────────────────────────────────────────────────────────────────
    Paper with zig-zag top and bottom edges (a CSS mask, so it works on any page colour), a status stamp, itemised lines,
    a dashed tear line and the QR code on the stub below it. The shadow sits on the wrapper: a mask would clip it. */
-.receipt-wrap { width: 100%; max-width: 26rem; margin: 0 auto; filter: drop-shadow(0 8px 16px rgb(15 23 42 / 0.16)) drop-shadow(0 1px 2px rgb(15 23 42 / 0.12)); }
+.receipt-wrap { width: 100%; max-width: 26rem; margin: 0 auto; filter: drop-shadow(0 6px 14px rgb(15 23 42 / 0.07)) drop-shadow(0 1px 1px rgb(15 23 42 / 0.06)); }
 .dark .receipt-wrap { filter: drop-shadow(0 10px 20px rgb(0 0 0 / 0.32)); }
 
 /* Scalloped top and bottom edges in both themes: half-circle bites cut with a mask, so it works on any page colour.
