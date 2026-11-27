@@ -5,7 +5,14 @@
 @* A payment request's status (spec 036, FR-004): the status, a "+… arriving" note for unconfirmed money next to
    another status, and "Not up to date" when the last check is old (SC-007). *@
 <span class="inline-flex flex-wrap items-center gap-1.5 text-xs font-semibold" data-testid="request-status">
-    <span class="px-2 py-0.5 rounded-full @PillClass">@StatusText</span>
+    @if (ShowStatus)
+    {
+        <span class="px-2 py-0.5 rounded-full @PillClass">@StatusText</span>
+    }
+    else
+    {
+        <span class="sr-only">@StatusText</span>
+    }
     @if (ArrivingSatoshis > 0)
     {
         <span class="text-amber-600 dark:text-amber-400 font-medium">@L.T("request.arriving_note", Dgb(ArrivingSatoshis))</span>
@@ -18,6 +25,9 @@
 
 @code {
     [Parameter, EditorRequired] public PaymentRequest Request { get; set; } = default!;
+
+    /// <summary>False where something else shows the status (the receipt's stamp): it is then read out only.</summary>
+    [Parameter] public bool ShowStatus { get; set; } = true;
 
     // Only a request the watcher still checks can be out of date; a paid or long-closed one is settled (SC-007).
     private bool Stale => RequestWatcher.IsLive(Request, DateTime.UtcNow) && RequestWatcher.IsStale(Request, DateTime.UtcNow);
