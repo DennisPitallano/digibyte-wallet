@@ -99,14 +99,23 @@ public static class ScanRouter
     {
         // This wallet's own payment link (specs/030-desktop-paste-scan, FR-024). Any other web link goes nowhere.
         if (PayLink(data, appBaseUri) is { } link)
-            return new(link.Address, link.AmountDgb is > 0 ? link.AmountDgb : null, null, null);
+            return new PaymentLinkData(link.Address, link.AmountDgb is > 0 ? link.AmountDgb : null, null, null).WithPriceLockOf(link);
 
         // The multisig pages' own classifier: payment request or bare address.
         var result = MultisigSendHelper.ClassifyScan(data);
         if (result.Kind is ScanKind.Address or ScanKind.PaymentUri && result.Address is { } address && AddressValidator.IsValid(address.Trim()))
-            return new(address.Trim(), result.AmountDgb is > 0 ? result.AmountDgb : null, null, null);
+        {
+            var payment = new PaymentLinkData(address.Trim(), result.AmountDgb is > 0 ? result.AmountDgb : null, null, null);
+            // A bare request's price lock (spec 036, FR-027a): read by the link reader, which also takes a bare request.
+            return result.Kind == ScanKind.PaymentUri && PaymentLink.TryRead(data, PriceLockBase, null, out var read)
+                ? payment.WithPriceLockOf(read)
+                : payment;
+        }
         return null;
     }
+
+    // Any base will do for reading a bare digibyte: request, which is not a web link.
+    private static readonly Uri PriceLockBase = new("https://localhost/");
 
     // A payment opens the personal Send, or the open shared wallet's Send (FR-002a).
     private static string SendUrl(string address, decimal? amountDgb, string? sharedWalletId)

@@ -247,4 +247,105 @@ public class PaymentLinkTests
         Assert.Equal("Coffee", back!.Label);
         Assert.Equal("Thanks", back.Message);
     }
+
+    // ----- The price lock of a request made in the requester's currency (spec 036, FR-027a) -----
+
+    private static readonly DateTime Expires = new(2026, 11, 28, 12, 15, 0, DateTimeKind.Utc);
+    private static readonly long ExpiresUnix = new DateTimeOffset(Expires).ToUnixTimeSeconds();
+
+    private static PaymentRequest CurrencyRequest() => new()
+    {
+        Id = "r1",
+        Address = Address,
+        AmountDgb = 123.45678901m,
+        FiatAmount = 12.5m,
+        FiatCurrency = "USD",
+        ExpiresAt = Expires,
+    };
+
+    [Fact]
+    public void A_currency_request_link_carries_the_amount_in_the_currency_and_the_expiry()
+    {
+        var uri = CurrencyRequest().ToUri();
+
+        Assert.Contains("fiat=12.50", uri);
+        Assert.Contains("currency=USD", uri);
+        Assert.Contains($"expires={ExpiresUnix}", uri);
+    }
+
+    [Fact]
+    public void The_price_lock_round_trips_through_a_payment_link()
+    {
+        var link = Read(PaymentLink.Create(Base, CurrencyRequest()));
+
+        Assert.NotNull(link);
+        Assert.Equal(12.5m, link!.FiatAmount);
+        Assert.Equal("USD", link.FiatCurrency);
+        Assert.Equal(Expires, link.PriceExpiresAt);
+        Assert.Equal(123.45678901m, link.AmountDgb);
+    }
+
+    [Fact]
+    public void The_price_lock_round_trips_through_FromUri()
+    {
+        var back = PaymentRequest.FromUri(CurrencyRequest().ToUri())!;
+
+        Assert.Equal(12.5m, back.FiatAmount);
+        Assert.Equal("USD", back.FiatCurrency);
+        Assert.Equal(Expires, back.ExpiresAt);
+    }
+
+    [Fact]
+    public void A_request_in_DGB_writes_no_price_lock()
+    {
+        var uri = Request(5m, "Coffee").ToUri();
+
+        Assert.DoesNotContain("fiat=", uri);
+        Assert.DoesNotContain("currency=", uri);
+        Assert.DoesNotContain("expires=", uri);
+    }
+
+    [Theory]
+    [InlineData("&currency=USD&expires={E}")]                 // fiat missing
+    [InlineData("&fiat=12.50&expires={E}")]                   // currency missing
+    [InlineData("&fiat=12.50&currency=USD")]                  // expires missing
+    [InlineData("&fiat=abc&currency=USD&expires={E}")]
+    [InlineData("&fiat=12,50&currency=USD&expires={E}")]      // a comma decimal
+    [InlineData("&fiat=1,250.00&currency=USD&expires={E}")]   // grouping
+    [InlineData("&fiat=-1&currency=USD&expires={E}")]
+    [InlineData("&fiat=0&currency=USD&expires={E}")]
+    [InlineData("&fiat=12.505&currency=USD&expires={E}")]     // more decimals than USD has
+    [InlineData("&fiat=12.50&currency=XYZ&expires={E}")]      // unknown currency
+    [InlineData("&fiat=12.50&currency=USD&expires=0")]
+    [InlineData("&fiat=12.50&currency=USD&expires=-5")]
+    [InlineData("&fiat=12.50&currency=USD&expires=soon")]
+    [InlineData("&fiat=%ZZ&currency=USD&expires={E}")]        // cannot be unescaped
+    public void A_broken_price_lock_is_dropped_and_the_link_still_reads(string priceLock)
+    {
+        var text = $"digibyte:{Address}?amount=2" + priceLock.Replace("{E}", ExpiresUnix.ToString());
+
+        var link = Read(text);
+        var fromUri = PaymentRequest.FromUri(text);
+
+        Assert.NotNull(link);
+        Assert.Equal(2m, link!.AmountDgb);
+        Assert.Null(link.FiatAmount);
+        Assert.Null(link.FiatCurrency);
+        Assert.Null(link.PriceExpiresAt);
+        Assert.NotNull(fromUri);
+        Assert.Null(fromUri!.FiatAmount);
+        Assert.Null(fromUri.ExpiresAt);
+    }
+
+    [Fact]
+    public void The_price_lock_survives_ToBip21_even_without_the_note()
+    {
+        var link = Read(PaymentLink.Create(Base, CurrencyRequest()))!;
+
+        var again = Read(link.ToBip21(includeNote: false))!;
+
+        Assert.Equal(12.5m, again.FiatAmount);
+        Assert.Equal("USD", again.FiatCurrency);
+        Assert.Equal(Expires, again.PriceExpiresAt);
+    }
 }

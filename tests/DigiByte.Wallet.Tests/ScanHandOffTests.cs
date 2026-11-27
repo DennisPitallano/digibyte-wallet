@@ -111,4 +111,18 @@ public class ScanHandOffTests
 
         Assert.Equal(new HandOffDecision(HandOffOutcome.HandOver, link), ScanHandOff.Decide(link, false, true, App));
     }
+
+    [Fact]
+    public void A_payment_links_price_lock_survives_the_hand_over_without_its_note()
+    {
+        var link = $"{App}pay#digibyte:{Address}?amount=2&label=Coffee&fiat=12.50&currency=EUR&expires=1795000000";
+
+        var decision = ScanHandOff.Decide(link, false, true, App);
+
+        Assert.Equal(HandOffOutcome.HandOver, decision.Outcome);
+        Assert.Contains("fiat=12.50", decision.Value);
+        Assert.Contains("currency=EUR", decision.Value);
+        Assert.Contains("expires=1795000000", decision.Value);
+        Assert.DoesNotContain("Coffee", decision.Value);
+    }
 }

@@ -216,6 +216,98 @@ public class PaymentRequestServiceTests
         Assert.Equal(19, (await requests.GetAllAsync(id)).Count);
     }
 
+    // ── Requests in the person's currency (T044, FR-017, FR-018) ──
+
+    private static readonly PriceQuote Usd = new(0.1m, "USD", DateTime.UtcNow);
+
+    [Fact]
+    public async Task Create_InTheCurrency_FixesTheDgbAmount_AndExpiresInFifteenMinutes()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var before = DateTime.UtcNow;
+
+        var r = await requests.CreateAsync(wallet.ActiveWallet!.Id, new NewRequest(null, "Coffee", null, FiatAmount: 12.50m, Quote: Usd));
+
+        Assert.Equal(125m, r.AmountDgb);
+        Assert.Equal(12.50m, r.FiatAmount);
+        Assert.Equal("USD", r.FiatCurrency);
+        Assert.Equal(0.1m, r.FiatPrice);
+        Assert.NotNull(r.ExpiresAt);
+        Assert.Equal(TimeSpan.FromMinutes(15), r.ExpiresAt!.Value - r.CreatedAt);
+        Assert.True(r.CreatedAt >= before);
+    }
+
+    [Fact]
+    public async Task Create_InTheCurrency_WithoutAPrice_IsRefused()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+
+        await Assert.ThrowsAsync<ArgumentException>(() => requests.CreateAsync(id, new NewRequest(null, null, null, FiatAmount: 5m, Quote: null)));
+        await Assert.ThrowsAsync<ArgumentException>(() => requests.CreateAsync(id, new NewRequest(null, null, null, FiatAmount: 5m, Quote: Usd with { Price = 0 })));
+        Assert.Empty(await requests.GetAllAsync(id));
+    }
+
+    [Fact]
+    public async Task Create_InDgb_HasNoExpiry()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+
+        var r = await requests.CreateAsync(wallet.ActiveWallet!.Id, new NewRequest(5m, null, null));
+
+        Assert.Null(r.ExpiresAt);
+        Assert.Null(r.FiatAmount);
+    }
+
+    [Fact]
+    public async Task Renew_AnExpiredRequest_AsksTheSameCurrencyAmountAtTheNewPrice_OnANewAddress()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        var old = await requests.CreateAsync(id, new NewRequest(null, "Coffee", "Thanks", FiatAmount: 10m, Quote: Usd));
+
+        var renewed = await requests.RenewAsync(id, old.Id, Usd with { Price = 0.2m });
+
+        Assert.NotNull(renewed);
+        Assert.Equal(10m, renewed!.FiatAmount);
+        Assert.Equal(50m, renewed.AmountDgb);
+        Assert.Equal(0.2m, renewed.FiatPrice);
+        Assert.Equal(old.Id, renewed.RenewedFromId);
+        Assert.NotEqual(old.Address, renewed.Address);
+        Assert.Equal("Coffee", renewed.Label);
+        Assert.Equal("Thanks", renewed.Message);
+        Assert.Equal(2, (await requests.GetAllAsync(id)).Count);
+    }
+
+    [Fact]
+    public async Task Renew_APartlyPaidExpiredRequest_AsksOnlyForTheRest()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        var old = await requests.CreateAsync(id, new NewRequest(null, null, null, FiatAmount: 20m, Quote: Usd)); // 200 DGB
+        var half = new RequestPayment { TxId = "t", AmountSatoshis = 100 * 100_000_000L, Confirmed = true, FirstSeenAt = DateTime.UtcNow };
+        await requests.ApplyAsync(id, old.Id, new RequestUpdate(PaymentRequestStatus.PartlyPaidExpired, [half], DateTime.UtcNow, null, null));
+
+        var renewed = await requests.RenewAsync(id, old.Id, Usd with { Price = 0.15m });
+
+        // 100 DGB still missing, now worth 15.00 USD.
+        Assert.Equal(15m, renewed!.FiatAmount);
+        Assert.Equal(100m, renewed.AmountDgb);
+    }
+
+    [Fact]
+    public async Task Renew_IsRefused_ForARequestInDgb_OrWhenTheCurrencyChanged()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        var dgb = await requests.CreateAsync(id, new NewRequest(5m, null, null));
+        var usd = await requests.CreateAsync(id, new NewRequest(null, null, null, FiatAmount: 10m, Quote: Usd));
+
+        Assert.Null(await requests.RenewAsync(id, dgb.Id, Usd));
+        Assert.Null(await requests.RenewAsync(id, usd.Id, new PriceQuote(0.09m, "EUR", DateTime.UtcNow)));
+        Assert.Null(await requests.RenewAsync(id, "missing", Usd));
+    }
+
     internal sealed class InMemorySecureStorage : ISecureStorage
     {
         private readonly Dictionary<string, string> _store = new();

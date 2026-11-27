@@ -511,4 +511,32 @@ public class MoreMenuTests
         Assert.DoesNotContain(MoreMenu.Items, item => tabs.Contains(item.Href));
         Assert.Equal(MoreMenu.Items.Length, MoreMenu.Items.Select(i => i.Href).Distinct().Count());
     }
+
+    // ─── The price lock of a request made in the requester's currency reaches Send (spec 036, FR-027a) ───
+
+    private const string PriceLock = "&fiat=12.50&currency=EUR&expires=1795000000";
+    private const string PriceLockApp = "https://dgbwallet.app/";
+    private static readonly string PriceLockAddress =
+        new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, DigiByteNetwork.Mainnet).ToString();
+
+    [Fact]
+    public void TryPayment_carries_the_price_lock_of_a_bare_request()
+    {
+        Assert.True(ScanRouter.TryPayment($"digibyte:{PriceLockAddress}?amount=2{PriceLock}", PriceLockApp, out var payment));
+
+        Assert.Equal(12.5m, payment.FiatAmount);
+        Assert.Equal("EUR", payment.FiatCurrency);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1795000000).UtcDateTime, payment.PriceExpiresAt);
+    }
+
+    [Fact]
+    public void TryPayment_carries_the_price_lock_of_this_wallets_payment_link()
+    {
+        Assert.True(ScanRouter.TryPayment($"{PriceLockApp}pay#digibyte:{PriceLockAddress}?amount=2{PriceLock}", PriceLockApp, out var payment));
+
+        Assert.Equal(12.5m, payment.FiatAmount);
+        Assert.Equal("EUR", payment.FiatCurrency);
+        Assert.NotNull(payment.PriceExpiresAt);
+        Assert.Null(payment.Label);
+    }
 }

@@ -373,6 +373,13 @@ else
         }
         @if (amountEntry is { Kind: AmountEntryKind.Invalid } invalid) { <InlineError Message="@AmountEntryText.Error(L, invalid, AmountDecimals, AmountMax)" /> }
         @if (amountError != null) { <InlineError Message="@amountError" /> }
+        @if (priceLock is { } held)
+        {
+            @* The requester asked in their currency and held the price until a time (spec 036, FR-027a). Only a
+               note: sending is never blocked by it. *@
+            <p class="text-xs mt-1 @(DateTime.UtcNow >= held.ExpiresAt ? "text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-slate-400")"
+               role="status" data-testid="send-price-lock">@PriceLockText(held)</p>
+        }
         @if (amountWarning != null) { <p class="text-xs text-amber-500 font-medium">@amountWarning</p> }
     </div>
     } @* end single-recipient mode *@
@@ -936,9 +943,25 @@ else
     }
 
     // Checked again here with the same rules as the address query; any note stays off the memo.
+    // A request's price lock, from its link (spec 036, FR-027a): shown next to the amount, never blocking a send.
+    private (decimal Fiat, string Currency, DateTime ExpiresAt)? priceLock;
+
+    private string PriceLockText((decimal Fiat, string Currency, DateTime ExpiresAt) held)
+    {
+        var at = held.ExpiresAt.ToLocalTime().ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+        if (DateTime.UtcNow >= held.ExpiresAt) return L.T("send.price_expired", at);
+        var money = DigiByte.Wallet.Models.FiatCurrencies.SymbolFor(held.Currency)
+            + held.Fiat.ToString("N" + DigiByte.Wallet.Models.FiatCurrencies.DecimalsFor(held.Currency), System.Globalization.CultureInfo.CurrentCulture);
+        return L.T("send.price_held", money, at);
+    }
+
+    private static (decimal, string, DateTime)? PriceLockOf(decimal? fiat, string? currency, DateTime? expires) =>
+        fiat is { } f && currency is { } c && expires is { } e ? (f, c, e) : null;
+
     private bool TryTakeHandoff()
     {
         if (PayHandoff.Take(null, out var returnTo) is not { } link) return false;
+        priceLock = PriceLockOf(link.FiatAmount, link.FiatCurrency, link.PriceExpiresAt);
         // The site that opened the payment link, offered as "Return to {host}" once this payment is sent.
         siteReturn = returnTo;
         if (link.Address.Length <= 128 && DigiByte.Crypto.Addresses.AddressValidator.IsValid(link.Address))
@@ -1047,6 +1070,7 @@ else
 
     private void ClearRecipient()
     {
+        priceLock = null;
         destinationAddress = "";
         recipientName = "";
     }
@@ -1120,6 +1144,7 @@ else
         else
         {
             destinationAddress = scannedAddress;
+            priceLock = PriceLockOf(parsed?.FiatAmount, parsed?.FiatCurrency, parsed?.ExpiresAt);
             if (scannedAmount.HasValue)
             {
                 isAmountInFiat = false; // a link's amount is in DGB

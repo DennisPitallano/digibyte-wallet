@@ -71,6 +71,8 @@ public class PaymentRequest
         if (AmountDgb.HasValue) queryParams.Add("amount=" + AmountDgb.Value.ToString("F8", System.Globalization.CultureInfo.InvariantCulture));
         if (!string.IsNullOrEmpty(Label)) queryParams.Add($"label={Uri.EscapeDataString(Label)}");
         if (!string.IsNullOrEmpty(Message)) queryParams.Add($"message={Uri.EscapeDataString(Message)}");
+        // The price lock of a request made in the person's currency (spec 036, FR-027a); none for a request in DGB.
+        queryParams.AddRange(PriceLockFields.Write(FiatAmount, FiatCurrency, ExpiresAt));
         if (queryParams.Count > 0) uri += "?" + string.Join("&", queryParams);
         return uri;
     }
@@ -94,6 +96,7 @@ public class PaymentRequest
             Address = address
         };
 
+        string? fiat = null, currency = null, expires = null;
         if (!string.IsNullOrEmpty(queryString))
         {
             foreach (var param in queryString.Split('&'))
@@ -101,6 +104,10 @@ public class PaymentRequest
                 var parts = param.Split('=', 2);
                 if (parts.Length != 2) continue;
                 var key = parts[0].ToLower();
+                // The price lock is read as a group below, from the raw values.
+                if (key == PriceLockFields.FiatKey) { fiat = parts[1]; continue; }
+                if (key == PriceLockFields.CurrencyKey) { currency = parts[1]; continue; }
+                if (key == PriceLockFields.ExpiresKey) { expires = parts[1]; continue; }
                 var value = Uri.UnescapeDataString(parts[1]);
                 switch (key)
                 {
@@ -114,6 +121,14 @@ public class PaymentRequest
                     case "message": request.Message = value; break;
                 }
             }
+        }
+
+        // A broken price lock is dropped whole; the rest of the request still reads (contracts/payment-link-fields.md).
+        if (PriceLockFields.TryRead(fiat, currency, expires, out var fiatAmount, out var code, out var expiresAt))
+        {
+            request.FiatAmount = fiatAmount;
+            request.FiatCurrency = code;
+            request.ExpiresAt = expiresAt;
         }
 
         return request;

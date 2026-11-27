@@ -101,6 +101,7 @@ builder.Services.AddScoped<PaymentRequestService>();
 builder.Services.AddScoped<RequestWatcher>();
 builder.Services.AddScoped<RequestAnnouncer>();
 builder.Services.AddScoped<RequestAttentionState>();
+builder.Services.AddScoped<PriceQuoteService>();
 // Multisig follows the network chosen in Settings (mainnet / testnet / regtest), like the rest of the wallet.
 builder.Services.AddScoped<MultisigWalletService>(sp =>
 {

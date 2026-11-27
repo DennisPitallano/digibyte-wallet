@@ -9,6 +9,7 @@
 @inject NavigationManager Nav
 @inject RequestWatcher Watcher
 @inject RequestAnnouncer Announcer
+@inject PriceQuoteService Prices
 @implements IDisposable
 @using DigiByte.Wallet.Services
 
@@ -33,10 +34,25 @@
             <div class="flex flex-col gap-1">
                 <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("payments.amount_label")</label>
                 <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl">
-                    <input type="number" inputmode="decimal" @bind="createAmount" step="0.00000001" min="0" placeholder="0.00"
-                           class="flex-1 px-3 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
-                    <span class="pr-3 text-sm font-bold text-dgb-500">DGB</span>
+                    <input type="number" inputmode="decimal" @bind="createAmount" @bind:event="oninput" step="@(inFiat ? "0.01" : "0.00000001")" min="0" placeholder="0.00"
+                           class="flex-1 px-3 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white outline-none" data-testid="request-amount" />
+                    @* DGB or the person's own currency (FR-016). With no price, only DGB (FR-021). *@
+                    <div class="flex items-center gap-1 pr-2" role="group">
+                        <button type="button" class="px-2 py-1 rounded-lg text-xs font-bold @(inFiat ? "text-slate-400" : "bg-dgb-500 text-white")"
+                                aria-pressed="@(inFiat ? "false" : "true")" data-testid="request-currency-dgb" @onclick="() => inFiat = false">DGB</button>
+                        <button type="button" class="px-2 py-1 rounded-lg text-xs font-bold @(inFiat ? "bg-dgb-500 text-white" : "text-slate-400") disabled:opacity-40"
+                                aria-pressed="@(inFiat ? "true" : "false")" disabled="@(quote is null)" data-testid="request-currency-fiat"
+                                @onclick="() => inFiat = true">@AppState.FiatCurrency</button>
+                    </div>
                 </div>
+                @if (quote is null)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400" data-testid="request-price-unavailable">@L.T("request.price_unavailable")</p>
+                }
+                else if (inFiat && createAmount > 0 && RequestAmounts.ToDgb(createAmount.Value, quote.Price, quote.Currency) is { } equivalent)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400 tabular-nums" data-testid="request-dgb-equivalent">@L.T("request.fiat_amount", equivalent.ToString("#,0.########", System.Globalization.CultureInfo.CurrentCulture) + " DGB")</p>
+                }
             </div>
             <input type="text" @bind="createLabel" placeholder="@L.T("payments.label_placeholder")"
                    class="input" />
@@ -61,9 +77,21 @@
         @* Wide screens lead with the request and its buttons; the QR code follows, smaller (spec 030, FR-025). *@
         <div class="card scale-in p-5 receive-main">
             <div class="receive-main-details w-full flex flex-col items-center gap-4">
+                @if (activeRequest.FiatAmount is { } fiatAsked && activeRequest.FiatCurrency is { } fiatCode)
+                {
+                    <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums" data-testid="request-fiat">@Money(fiatAsked, fiatCode)</p>
+                }
                 @if (activeRequest.AmountDgb.HasValue)
                 {
-                    <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
+                    <p class="@(activeRequest.FiatAmount is null ? "text-lg font-bold text-slate-900 dark:text-white" : "text-sm text-slate-600 dark:text-slate-300") tabular-nums">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
+                }
+                @if (activeRequest.FiatPrice is { } price && activeRequest.FiatCurrency is { } priceCode)
+                {
+                    <p class="text-xs text-slate-400 tabular-nums" data-testid="request-price">@L.T("request.price_used", Money(price, priceCode, 6))</p>
+                }
+                @if (TimeLeft(activeRequest) is { } left)
+                {
+                    <p class="text-xs font-semibold text-dgb-600 dark:text-dgb-300 tabular-nums" role="timer" data-testid="request-countdown">@L.T("request.time_left", left)</p>
                 }
                 @if (!string.IsNullOrEmpty(activeRequest.Label))
                 {
@@ -107,6 +135,21 @@
                         }
                     </div>
                 }
+                @if (!CanShare(activeRequest))
+                {
+                    @* An expired price can't be handed out; renewing asks again at today's price, on a new address (FR-018). *@
+                    @if (activeRequest.FiatAmount is not null)
+                    {
+                        <button class="btn-primary btn-sm w-full" data-testid="request-renew" disabled="@(quote is null || renewing)"
+                                @onclick="RenewAsync">@L.T(activeRequest.Status == PaymentRequestStatus.PartlyPaidExpired ? "request.renew_rest" : "request.renew")</button>
+                        @if (quote is null)
+                        {
+                            <p class="text-xs text-slate-500 dark:text-slate-400 text-center">@L.T("request.price_unavailable")</p>
+                        }
+                    }
+                }
+                else
+                {
                 <p class="font-mono text-xs text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 w-full border border-slate-100 dark:border-dgb-800">
                     @activeRequest.ToUri()
                 </p>
@@ -124,7 +167,10 @@
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                     @L.T("payments.download_qr")
                 </button>
+                }
             </div>
+            @if (CanShare(activeRequest))
+            {
             <div class="receive-main-qr">
                 <div class="qr-frame">
                     <img src="@activeQrUrl" alt="@L.T("payments.qr_alt")" class="w-44 h-44 rounded-lg" />
@@ -136,6 +182,7 @@
                 </div>
                 <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
             </div>
+            }
             <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="CloseRequest">@L.T("more.close")</button>
         </div>
     }
@@ -228,6 +275,10 @@
         Watcher.Changed += OnWatcherChanged;
         Watcher.PaymentArriving += OnPaymentArriving;
         Watcher.RequestPaid += OnRequestPaid;
+        // The person's currency is offered only with a price; it starts where they left it, or in DGB (FR-016a).
+        quote = await Prices.GetAsync();
+        try { inFiat = quote is not null && await JS.InvokeAsync<string?>("localStorage.getItem", CurrencyChoiceKey) == "FIAT"; }
+        catch { inFiat = false; }
         requests = await PaymentService.GetAllAsync(WalletId, await WalletAddressesAsync());
         if (RequestId is { Length: > 0 } wanted && requests.FirstOrDefault(r => r.Id == wanted) is { } named)
         {
@@ -252,7 +303,17 @@
         PaymentRequest req;
         try
         {
-            req = await PaymentService.CreateAsync(WalletId, new NewRequest(createAmount, createLabel, createMessage));
+            if (inFiat)
+            {
+                quote = await Prices.GetAsync(fresh: true);
+                if (quote is null || createAmount is not > 0) { inFiat = quote is not null && inFiat; return; }
+                req = await PaymentService.CreateAsync(WalletId, new NewRequest(null, createLabel, createMessage, FiatAmount: createAmount, Quote: quote));
+            }
+            else
+            {
+                req = await PaymentService.CreateAsync(WalletId, new NewRequest(createAmount, createLabel, createMessage));
+            }
+            _ = RememberCurrencyAsync();
         }
         catch (ReceiveAddressException ex) when (ex.Reason is ReceiveAddressFailure.TooManyUnusedPastLastUsed or ReceiveAddressFailure.TooManyUnusedPastLastPaid)
         {
@@ -286,6 +347,60 @@
         if (!p.Confirmed) note += " · " + L.T("request.status.arriving");
         if (p.Late) note += " · " + L.T(activeRequest?.CancelledAt is not null ? "request.after_cancel_note" : "request.late_note");
         return note;
+    }
+
+    private PriceQuote? quote;
+    private bool inFiat;
+    private bool renewing;
+    private Timer? countdown;
+    private const string CurrencyChoiceKey = "dgb-request-currency";
+
+    // An expired price, partly paid or not, is no longer handed out (FR-018); cancelled is the same (US5).
+    private static bool CanShare(PaymentRequest r) =>
+        r.Status is not (PaymentRequestStatus.Expired or PaymentRequestStatus.PartlyPaidExpired or PaymentRequestStatus.Cancelled);
+
+    // "14:32" until the price lock ends, while the request still waits for money; null otherwise.
+    private static string? TimeLeft(PaymentRequest r)
+    {
+        if (r.ExpiresAt is not { } end || r.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid) return null;
+        var left = end - DateTime.UtcNow;
+        if (left <= TimeSpan.Zero) return null;
+        return $"{(int)left.TotalMinutes}:{left.Seconds:00}";
+    }
+
+    private static string Money(decimal amount, string code, int? decimals = null) =>
+        FiatCurrencies.SymbolFor(code)
+        + amount.ToString("N" + (decimals ?? FiatCurrencies.DecimalsFor(code)), System.Globalization.CultureInfo.CurrentCulture);
+
+    // Ticks once a second while a currency request's countdown is on screen.
+    private void StartCountdown()
+    {
+        countdown ??= new Timer(_ =>
+        {
+            if (activeRequest?.ExpiresAt is { } end && end > DateTime.UtcNow.AddSeconds(-5))
+                _ = InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private async Task RenewAsync()
+    {
+        if (activeRequest is not { } old || renewing) return;
+        renewing = true;
+        try
+        {
+            quote = await Prices.GetAsync(fresh: true);
+            if (quote is null) return;
+            var renewed = await PaymentService.RenewAsync(WalletId, old.Id, quote);
+            if (renewed is null) return;
+            requests = await PaymentService.GetAllAsync(WalletId);
+            ShowRequest(renewed);
+        }
+        catch (ReceiveAddressException ex) when (ex.Reason is ReceiveAddressFailure.TooManyUnusedPastLastUsed or ReceiveAddressFailure.TooManyUnusedPastLastPaid)
+        {
+            limitMessage = L.T("request.limit_reached", WalletService.ReceiveGapLimit, requests.Count(RequestWatcher.IsOpen));
+            showCreate = true;
+        }
+        finally { renewing = false; }
     }
 
     private string? arrivingId;
@@ -337,6 +452,7 @@
 
     public void Dispose()
     {
+        countdown?.Dispose();
         Watcher.Changed -= OnWatcherChanged;
         Watcher.PaymentArriving -= OnPaymentArriving;
         Watcher.RequestPaid -= OnRequestPaid;
@@ -358,9 +474,15 @@
         return set;
     }
 
+    private async Task RememberCurrencyAsync()
+    {
+        try { await JS.InvokeVoidAsync("localStorage.setItem", CurrencyChoiceKey, inFiat ? "FIAT" : "DGB"); } catch { }
+    }
+
     private void ShowRequest(PaymentRequest req)
     {
         activeRequest = req;
+        if (req.ExpiresAt is not null) StartCountdown();
         Watcher.Focus(req.Tracked ? req.Id : null);
         if (req.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid && !req.OpenedSincePaid)
             _ = PaymentService.MarkOpenedAsync(WalletId, req.Id);

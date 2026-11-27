@@ -223,20 +223,20 @@
 
 **Independent Test**: quickstart scenarios 5, 6, 7 and 13 (the price part).
 
-- [ ] T037 [P] [US3] Add the translation keys to `en.json` and `es.json`:
+- [X] T037 [P] [US3] Add the translation keys to `en.json` and `es.json`:
   - `request.fiat_amount`, `request.price_used` ("1 DGB = {0}"), `request.time_left`.
   - `request.renew` ("Renew at today's price"), `request.renew_rest`.
   - `request.price_unavailable`.
   - `send.price_held` ("≈ {0} · Price held until {1}"), `send.price_expired` ("The price for this request expired at {0}. The amount may be out of date.").
   - `pay.price_held`, `pay.price_expired`.
-- [ ] T038 [P] [US3] Write `tests/DigiByte.Wallet.Tests/RequestAmountsTests.cs`:
+- [X] T038 [P] [US3] Write `tests/DigiByte.Wallet.Tests/RequestAmountsTests.cs`:
   - Currency amount ÷ price, rounded half-up to 8 decimals.
   - Decimals for the currency come from `FiatCurrencies.DecimalsFor`.
   - Zero or negative price, or an unknown currency, is rejected.
   - For a partly paid, expired request, "the rest" = the missing DGB × the current price.
   - Expiry = `CreatedAt + 15 min`.
-- [ ] T039 [US3] Implement `src/DigiByte.Wallet/Services/RequestAmounts.cs`. Makes T038 pass.
-- [ ] T040 [P] [US3] Extend `tests/DigiByte.Wallet.Tests/RequestStatusCalculatorTests.cs` with expiry cases:
+- [X] T039 [US3] Implement `src/DigiByte.Wallet/Services/RequestAmounts.cs`. Makes T038 pass.
+- [X] T040 [P] [US3] Extend `tests/DigiByte.Wallet.Tests/RequestStatusCalculatorTests.cs` with expiry cases:
   - Expired with nothing received.
   - PartlyPaidExpired.
   - A payment after expiry is flagged `Late` and can still reach Paid.
@@ -244,26 +244,26 @@
   - Moving the clock backward or forward never turns Paid into Expired.
   - Requests in DGB never expire (FR-019).
   - Fix `RequestStatusCalculator.cs` if any case fails.
-- [ ] T041 [P] [US3] Write the link tests in `tests/DigiByte.Wallet.Tests/PaymentLinkTests.cs` and `PaymentRequestTests.cs` from contracts/payment-link-fields.md "Tests":
+- [X] T041 [P] [US3] Write the link tests in `tests/DigiByte.Wallet.Tests/PaymentLinkTests.cs` and `PaymentRequestTests.cs` from contracts/payment-link-fields.md "Tests":
   - Round trip of `fiat`, `currency`, `expires`.
   - Each key missing, malformed, with an unknown currency, or `expires ≤ 0` → the link stays valid and all three are dropped.
   - A comma decimal is rejected.
   - A DGB request writes none of them.
   - Add `ScanRouterTests.cs` and `ScanHandOffTests.cs` cases showing the three values are carried through.
-- [ ] T042 [US3] Implement the price-lock keys in:
+- [X] T042 [US3] Implement the price-lock keys in:
   - `src/DigiByte.Wallet/Models/PaymentRequest.cs` (`ToUri`/`FromUri`).
   - `src/DigiByte.Wallet/Services/PaymentLink.cs` (`PaymentLinkData` gains `FiatAmount`, `FiatCurrency`, `PriceExpiresAt`; `TryRead` reads the group and drops it on any fault without invalidating the link).
   - `src/DigiByte.Web/Services/ScanRouter.cs`, `src/DigiByte.Web/Services/ScanHandOff.cs` and `src/DigiByte.Web/Services/PaymentHandoff.cs`, so the values reach Send.
   - Makes T041 pass.
-- [ ] T043 [US3] Create `src/DigiByte.Web/Services/PriceQuoteService.cs`. It returns `PriceQuote(Price, Currency, FetchedAt)` or null, never throws, wraps `IBlockchainService.GetDgbPriceAsync(AppState.FiatCurrency)` through `MemoryCacheService` with the pages' key `price:{currency}`, and refetches a quote older than 5 minutes before a request is made. Register it in `Program.cs`.
-- [ ] T044 [US3] Add `NewRequest` with a currency amount and a `PriceQuote` to `PaymentRequestService.CreateAsync`. It sets `AmountDgb` from `RequestAmounts`, plus `FiatAmount`, `FiatCurrency`, `FiatPrice` and `ExpiresAt`. Add `RenewAsync(walletId, requestId, quote)`: a new request for the same currency amount, or for the rest when the old one is PartlyPaidExpired, with `RenewedFromId` set; the old request stays in the list. Write the tests in `PaymentRequestServiceTests.cs` first.
-- [ ] T045 [US3] In `src/DigiByte.Web/Pages/Payments.razor`:
+- [X] T043 [US3] Create `src/DigiByte.Web/Services/PriceQuoteService.cs`. It returns `PriceQuote(Price, Currency, FetchedAt)` or null, never throws, wraps `IBlockchainService.GetDgbPriceAsync(AppState.FiatCurrency)` through `MemoryCacheService` with the pages' key `price:{currency}`, and refetches a quote older than 5 minutes before a request is made. Register it in `Program.cs`.
+- [X] T044 [US3] Add `NewRequest` with a currency amount and a `PriceQuote` to `PaymentRequestService.CreateAsync`. It sets `AmountDgb` from `RequestAmounts`, plus `FiatAmount`, `FiatCurrency`, `FiatPrice` and `ExpiresAt`. Add `RenewAsync(walletId, requestId, quote)`: a new request for the same currency amount, or for the rest when the old one is PartlyPaidExpired, with `RenewedFromId` set; the old request stays in the list. Write the tests in `PaymentRequestServiceTests.cs` first.
+- [X] T045 [US3] In `src/DigiByte.Web/Pages/Payments.razor`:
   - A currency request shows the currency amount, DGB amount, price and a live countdown.
   - Expired and PartlyPaidExpired requests hide the QR code and links and show the renew button (FR-018).
   - With no price, the currency option is disabled with `request.price_unavailable` (FR-021).
   - The watcher's live set includes requests that expired or were cancelled in the last 24 hours (research R3).
-- [ ] T046 [P] [US3] In `src/DigiByte.Web/Pages/Send.razor`, show `send.price_held`, or `send.price_expired` once `now ≥ PriceExpiresAt`, when a handed-off or scanned link carries the price-lock fields (`TryTakeHandoff`, `OnQrScanned`). Never block sending.
-- [ ] T047 [P] [US3] In `src/DigiByte.Web/Pages/Pay.razor`, on the no-wallet card, show `pay.price_held` or `pay.price_expired` from the read link.
+- [X] T046 [P] [US3] In `src/DigiByte.Web/Pages/Send.razor`, show `send.price_held`, or `send.price_expired` once `now ≥ PriceExpiresAt`, when a handed-off or scanned link carries the price-lock fields (`TryTakeHandoff`, `OnQrScanned`). Never block sending.
+- [X] T047 [P] [US3] In `src/DigiByte.Web/Pages/Pay.razor`, on the no-wallet card, show `pay.price_held` or `pay.price_expired` from the read link.
 - [ ] T048 [US3] Run quickstart scenarios 5, 6, 7 and 13, and record the results.
 
 **Checkpoint**: Currency requests work end to end, including on the payer's side.

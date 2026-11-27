@@ -216,4 +216,80 @@ public class RequestStatusCalculatorTests
     {
         Assert.False(Compute(Request(), Tx("a", Coin, 1)).BecameArriving);
     }
+
+    // ── Currency requests: the 15-minute price lock (T040, FR-017 to FR-020) ──
+
+    private static PaymentRequest Locked(decimal amount = 1m) => new()
+    {
+        Id = "r",
+        Address = Addr,
+        AmountDgb = amount,
+        Tracked = true,
+        CreatedAt = T0,
+        ExpiresAt = T0.AddMinutes(15),
+    };
+
+    [Fact]
+    public void AfterTheLock_WithNothingReceived_IsExpired()
+    {
+        var check = RequestStatusCalculator.Compute(Locked(), [], T0.AddMinutes(15));
+
+        Assert.Equal(PaymentRequestStatus.Expired, check.Status);
+    }
+
+    [Fact]
+    public void BeforeTheLockEnds_IsStillWaiting()
+    {
+        Assert.Equal(PaymentRequestStatus.Waiting, RequestStatusCalculator.Compute(Locked(), [], T0.AddMinutes(14.9)).Status);
+    }
+
+    [Fact]
+    public void AfterTheLock_PartlyPaid_IsPartlyPaidExpired()
+    {
+        var check = RequestStatusCalculator.Compute(Locked(), [Tx("a", 50_000_000, 1)], T0.AddMinutes(16));
+
+        Assert.Equal(PaymentRequestStatus.PartlyPaidExpired, check.Status);
+    }
+
+    [Fact]
+    public void APaymentFirstSeenAfterExpiry_IsLate_AndCanStillReachPaid()
+    {
+        var r = Locked();
+        var first = RequestStatusCalculator.Compute(r, [Tx("a", 50_000_000, 1)], T0.AddMinutes(5));
+        r.Payments = first.Payments.ToList();
+
+        var later = RequestStatusCalculator.Compute(r, [Tx("a", 50_000_000, 1), Tx("b", 50_000_000, 1)], T0.AddMinutes(30));
+
+        Assert.Equal(PaymentRequestStatus.Paid, later.Status);
+        Assert.False(later.Payments.Single(p => p.TxId == "a").Late);
+        Assert.True(later.Payments.Single(p => p.TxId == "b").Late);
+    }
+
+    [Fact]
+    public void PaidBeforeExpiry_StaysPaid_AfterTheLockEnds()
+    {
+        var r = Locked();
+        Assert.Equal(PaymentRequestStatus.Paid, RequestStatusCalculator.Compute(r, [Tx("a", Coin, 1)], T0.AddMinutes(5)).Status);
+
+        Assert.Equal(PaymentRequestStatus.Paid, RequestStatusCalculator.Compute(r, [Tx("a", Coin, 1)], T0.AddDays(3)).Status);
+    }
+
+    [Theory]
+    [InlineData(-600)]   // clock moved back ten hours
+    [InlineData(10)]
+    [InlineData(100_000)] // clock moved forward months
+    public void MovingTheClock_NeverTurnsPaidIntoExpired(int minutesFromCreation)
+    {
+        var check = RequestStatusCalculator.Compute(Locked(), [Tx("a", Coin, 1)], T0.AddMinutes(minutesFromCreation));
+
+        Assert.Equal(PaymentRequestStatus.Paid, check.Status);
+    }
+
+    [Fact]
+    public void ARequestInDgb_NeverExpires()
+    {
+        var check = RequestStatusCalculator.Compute(Request(), [], T0.AddYears(2));
+
+        Assert.Equal(PaymentRequestStatus.Waiting, check.Status);
+    }
 }

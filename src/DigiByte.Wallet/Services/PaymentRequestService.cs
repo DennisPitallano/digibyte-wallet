@@ -5,8 +5,10 @@ using DigiByte.Wallet.Storage;
 namespace DigiByte.Wallet.Services;
 
 /// <summary>What the person asked for on the keypad (spec 036).</summary>
-/// <param name="AmountDgb">The amount in DGB; null for any amount.</param>
-public sealed record NewRequest(decimal? AmountDgb, string? Label, string? Message);
+/// <param name="AmountDgb">The amount in DGB; null for any amount. Ignored when <paramref name="FiatAmount"/> is given.</param>
+/// <param name="FiatAmount">The amount in the person's currency (FR-016); needs <paramref name="Quote"/>.</param>
+/// <param name="Quote">The price to fix the DGB amount at, for 15 minutes (FR-017).</param>
+public sealed record NewRequest(decimal? AmountDgb, string? Label, string? Message, decimal? FiatAmount = null, PriceQuote? Quote = null);
 
 /// <summary>What a status check found for one request, to be stored (spec 036).</summary>
 /// <param name="PaidAnnouncedAt">Set when this check announced the paid moment; null leaves the stored value.</param>
@@ -82,6 +84,17 @@ public class PaymentRequestService
         var label = string.IsNullOrWhiteSpace(input.Label) ? null : input.Label.Trim();
         var message = string.IsNullOrWhiteSpace(input.Message) ? null : input.Message.Trim();
         var amount = input.AmountDgb > 0 ? input.AmountDgb : null;
+        var now = DateTime.UtcNow;
+
+        // In the person's currency: the DGB amount is fixed at the quote's price, held for 15 minutes (FR-017).
+        decimal? fiat = null;
+        if (input.FiatAmount is { } typed)
+        {
+            if (input.Quote is not { } quote || RequestAmounts.ToDgb(typed, quote.Price, quote.Currency) is not { } dgb)
+                throw new ArgumentException("A request in your currency needs a price.", nameof(input));
+            amount = dgb;
+            fiat = Math.Round(typed, FiatCurrencies.DecimalsFor(quote.Currency), MidpointRounding.AwayFromZero);
+        }
 
         (int Index, string Address) handed;
         try
@@ -101,6 +114,11 @@ public class PaymentRequestService
             AddressIndex = handed.Index,
             Tracked = true,
             AmountDgb = amount,
+            FiatAmount = fiat,
+            FiatCurrency = fiat is null ? null : input.Quote!.Currency,
+            FiatPrice = fiat is null ? null : input.Quote!.Price,
+            CreatedAt = now,
+            ExpiresAt = fiat is null ? null : RequestAmounts.ExpiresAt(now),
             Label = label,
             Message = message,
             Status = PaymentRequestStatus.Waiting,
@@ -112,6 +130,30 @@ public class PaymentRequestService
             catch (Exception ex) { Console.WriteLine($"[Requests] Could not label the address: {ex.GetType().Name}"); }
         }
         return request;
+    }
+
+    /// <summary>
+    /// "Renew at today's price" (FR-018): a new request, on a new address, for the same amount in the person's
+    /// currency, or for only the part still owed when the old one expired partly paid. The old request stays in the
+    /// list. Null when it can't be renewed: no such request, a request in DGB, or a quote in another currency.
+    /// </summary>
+    public async Task<PaymentRequest?> RenewAsync(string walletId, string requestId, PriceQuote quote)
+    {
+        var old = (await GetAllAsync(walletId)).FirstOrDefault(r => r.Id == requestId);
+        if (old is not { FiatAmount: { } fiat, FiatCurrency: { } currency }) return null;
+        if (!string.Equals(currency, quote.Currency, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var amount = fiat;
+        if (old.Status == PaymentRequestStatus.PartlyPaidExpired)
+        {
+            if (RequestAmounts.MissingDgb(old) is not { } missing
+                || RequestAmounts.RestInCurrency(missing, quote.Price, currency) is not { } rest) return null;
+            amount = rest;
+        }
+
+        var renewed = await CreateAsync(walletId, new NewRequest(null, old.Label, old.Message, FiatAmount: amount, Quote: quote));
+        await MutateAsync(walletId, renewed.Id, r => r.RenewedFromId = old.Id);
+        return renewed;
     }
 
     /// <summary>
