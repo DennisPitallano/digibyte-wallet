@@ -658,6 +658,9 @@ public class PosTillTests : BunitContext
                 else if (request.Method == HttpMethod.Post && path == "/v1/pay/sessions/ses_pos/options/dd")
                 {
                     Interlocked.Increment(ref api.OptionPosts);
+                    // Like the real API: from now on the session read lists the DD option too.
+                    if (api.lastSession is { } last)
+                        api.lastSession = last.Replace($"\"options\":[{DgbOptionJson}]", $"\"options\":[{DgbOptionJson},{DdOptionJson}]");
                     json = DdOptionJson;
                 }
                 else if (request.Method == HttpMethod.Get && path == "/v1/pay/me")
