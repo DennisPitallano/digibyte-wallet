@@ -271,7 +271,9 @@ public static class PosEndpoints
                 .Select(s => new
                 {
                     s.Status,
+                    s.Currency,
                     s.AmountSatoshis,
+                    s.AmountCentsDd,
                     s.ReceivedSatoshis,
                     s.FiatCurrency,
                     s.FiatAmount,
@@ -292,13 +294,18 @@ public static class PosEndpoints
             var pendingCount = rows.Count(r => r.Status == PaySessionStatus.Pending
                 || r.Status == PaySessionStatus.Seen);
 
-            var collectedDgb = collected.Sum(r => r.AmountSatoshis) / 100_000_000m;
+            // DGB and DigiDollar are separate units and never added together (specs/033 FR-009). DD amounts are
+            // the invoiced USD cents, as DGB uses the invoiced satoshis.
+            var collectedDgb = collected.Where(r => r.Currency != "DD").Sum(r => r.AmountSatoshis) / 100_000_000m;
+            var collectedDdCents = collected.Where(r => r.Currency == "DD").Sum(r => r.AmountCentsDd ?? 0);
             // Lost revenue: what the cashier *would* have taken if the customer
             // completed those sessions. Underpaid uses the *invoiced* amount,
             // not the partial received, since that's the figure the cashier
             // entered and is reasoning about.
-            var expiredDgb = expired.Sum(r => r.AmountSatoshis) / 100_000_000m;
-            var underpaidDgb = underpaid.Sum(r => r.AmountSatoshis) / 100_000_000m;
+            var expiredDgb = expired.Where(r => r.Currency != "DD").Sum(r => r.AmountSatoshis) / 100_000_000m;
+            var underpaidDgb = underpaid.Where(r => r.Currency != "DD").Sum(r => r.AmountSatoshis) / 100_000_000m;
+            var expiredDdCents = expired.Where(r => r.Currency == "DD").Sum(r => r.AmountCentsDd ?? 0);
+            var underpaidDdCents = underpaid.Where(r => r.Currency == "DD").Sum(r => r.AmountCentsDd ?? 0);
 
             // Group fiat-quoted sales by currency. Sessions that were DGB-only
             // contribute to collectedDgb but not to any fiat bucket — the UI
@@ -339,6 +346,7 @@ public static class PosEndpoints
                 {
                     collectedCount = collected.Count,
                     collectedDgb,
+                    collectedDdCents,
                     fiat = fiatTotals,
                     tips = tipTotals,
                 },
@@ -352,12 +360,14 @@ public static class PosEndpoints
                     {
                         count = expiredCount,
                         dgb = expiredDgb,
+                        ddCents = expiredDdCents,
                         fiat = expiredFiatTotals,
                     },
                     underpaid = new
                     {
                         count = underpaidCount,
                         dgb = underpaidDgb,
+                        ddCents = underpaidDdCents,
                         fiat = underpaidFiatTotals,
                     },
                 },

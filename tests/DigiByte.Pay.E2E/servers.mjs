@@ -13,6 +13,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..', '..');
 
 export const apiPort = Number(process.env.E2E_API_PORT || 5008);
+// The fake Esplora explorer and price feed (scripts/fake-esplora.mjs), so DigiDollar journeys run without the internet.
+export const nodePort = Number(process.env.E2E_NODE_PORT || 5262);
+export const nodeUrl = `http://localhost:${nodePort}`;
 export const webPort = Number(process.env.E2E_WEB_PORT || 5252);
 export const apiUrl = `http://localhost:${apiPort}`;
 export const webUrl = `http://localhost:${webPort}`;
@@ -48,7 +51,13 @@ export function serverCommands() {
         `--DigiPay:DbPath=${quote(freshDbPath())} ` +
         `--DigiPay:DevSignIn=true ` +
         `--ClientOrigin=${webUrl} ` +
-        `--ClientWebUrl=${webUrl}`;
+        `--ClientWebUrl=${webUrl} ` +
+        // DigiDollar (specs/033, 035): the dev store has DD on with its own testnet DD key; the fake explorer answers.
+        `--DigiPay:DdSurfacesEnabled=true ` +
+        `--DigiPay:DigiDollar:EsploraMainnetUrl=${nodeUrl}/api ` +
+        `--DigiPay:DigiDollar:EsploraTestnetUrl=${nodeUrl}/testnet/api ` +
+        `--DigiPay:Prices:CoinGeckoUrl=${quote(`${nodeUrl}/coingecko?vs_currencies=`)} ` +
+        `--DigiPay:Prices:FxUrl=${nodeUrl}/fx`;
     const web =
         // /api/health, not /v1/pay/dev/status: the dev group shares the 10-per-minute "auth" rate limit
         // with the sign-ins the tests make.
@@ -56,5 +65,6 @@ export function serverCommands() {
         `dotnet run --no-build --no-launch-profile --project ${quote(webProject)} -- ` +
         `--urls ${webUrl} --DigiPay:ApiUrl=${apiUrl}`;
     const env = { ASPNETCORE_ENVIRONMENT: 'Development', DOTNET_NOLOGO: '1', DOTNET_CLI_TELEMETRY_OPTOUT: '1' };
-    return { api, web, env, cwd: repoRoot };
+    const node = `node ${quote(join(here, 'scripts', 'fake-esplora.mjs'))} ${nodePort}`;
+    return { api, web, node, env, cwd: repoRoot };
 }

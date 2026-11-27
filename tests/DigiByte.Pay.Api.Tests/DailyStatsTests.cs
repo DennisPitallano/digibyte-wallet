@@ -207,6 +207,47 @@ public class DailyStatsTests
     }
 
     [Fact]
+    public async Task DigiDollar_revenue_is_counted_in_cents_and_never_added_to_DGB()
+    {
+        using var factory = new PayFactory();
+        var client = factory.CreateClient();
+        var (key, storeId) = await factory.RegisterMerchant(client);
+        var noon = LocalNoon(TimeZoneInfo.Utc, 0);
+        await Seed(factory, storeId, (noon, PaySessionStatus.Confirmed, 200_000_000));
+        await factory.WithDb(async db =>
+        {
+            var store = await db.Stores.FirstAsync(s => s.Id == storeId);
+            foreach (var (status, cents) in new[] { (PaySessionStatus.Confirmed, 1250L), (PaySessionStatus.Confirmed, 400L), (PaySessionStatus.Expired, 999L) })
+            {
+                var n = Interlocked.Increment(ref counter);
+                db.Sessions.Add(new PaySession
+                {
+                    Id = $"ses_statsdd_{n:D6}",
+                    MerchantId = store.MerchantId,
+                    StoreId = storeId,
+                    AddressIndex = 0,
+                    Address = $"DDstats{n}",
+                    AmountSatoshis = 0,
+                    AmountCentsDd = cents,
+                    Currency = "DD",
+                    Status = status,
+                    CreatedAt = noon,
+                    ExpiresAt = noon.AddMinutes(30),
+                });
+            }
+            await db.SaveChangesAsync();
+        });
+
+        var stats = await Json(await Get(client, key, $"/v1/pay/stores/{storeId}/stats/daily?days=7"));
+
+        var totals = stats.GetProperty("totals");
+        Assert.Equal(2m, totals.GetProperty("revenueDgb").GetDecimal());
+        Assert.Equal(1650, totals.GetProperty("revenueDdCents").GetInt64());
+        var today = stats.GetProperty("series").EnumerateArray().Last();
+        Assert.Equal(1650, today.GetProperty("revenueDdCents").GetInt64());
+    }
+
+    [Fact]
     public void A_day_whose_midnight_is_skipped_starts_at_the_first_valid_time()
     {
         // Santiago moves clocks forward at midnight (00:00 -> 01:00) in early September.

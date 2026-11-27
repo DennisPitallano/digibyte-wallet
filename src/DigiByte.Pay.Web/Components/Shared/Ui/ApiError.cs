@@ -11,10 +11,14 @@ public static class ApiError
 {
     public const string Network = "Something went wrong. Check your connection and try again.";
 
+    /// <summary>Shown while the public explorer can't confirm DigiDollar (<c>dd_service_unavailable</c>, specs/035).</summary>
+    public const string DdUnavailable = "DigiDollar is temporarily unavailable. Try again, or take this payment in DGB.";
+
     /// <summary>Reads the response's <c>error</c> field (if any) and returns the plain sentence for it.</summary>
     public static async Task<string> ReadAsync(HttpResponseMessage response)
     {
         string? error = null;
+        string? reason = null;
         try
         {
             var body = await response.Content.ReadAsStringAsync();
@@ -26,21 +30,34 @@ public static class ApiError
                     && e.ValueKind == JsonValueKind.String)
                 {
                     error = e.GetString();
+                    if (doc.RootElement.TryGetProperty("reason", out var r) && r.ValueKind == JsonValueKind.String)
+                        reason = r.GetString();
                 }
             }
         }
         catch (JsonException) { /* not JSON: fall back to the status code */ }
-        return Plain((int)response.StatusCode, error);
+        return Plain((int)response.StatusCode, error, reason);
     }
 
-    /// <summary>The plain sentence for an API status code and its <c>error</c> text.</summary>
-    public static string Plain(int status, string? error)
+    /// <summary>The plain sentence for an API status code, its <c>error</c> text and optional <c>reason</c>.</summary>
+    public static string Plain(int status, string? error, string? reason = null)
     {
         var e = error ?? "";
         bool Has(string part) => e.Contains(part, StringComparison.OrdinalIgnoreCase);
 
         if (e.Length > 0)
         {
+            // The store's DigiDollar key (specs/035 contract S1-S5). Checked first: the generic "xpub" sentence below would match.
+            if (Has("dd_key_invalid"))
+                return reason switch
+                {
+                    "private_key" => "That's a private key. Never share it. Paste the public key from your wallet's DigiDollar key screen.",
+                    "wrong_network" => "That key is for the other network. Use a key from a wallet on this store's network.",
+                    "not_account_key" => "That isn't a DigiDollar account key. Copy it from your wallet's DigiDollar key screen.",
+                    _ => "That isn't a DigiDollar key. Copy it from your wallet's DigiDollar key screen.",
+                };
+            if (Has("first_address_mismatch")) return "The first address changed. Check the key again before saving.";
+            if (Has("dd_key_required")) return "Add your DigiDollar key first. DigiDollar goes straight to the wallet it comes from.";
             if (Has("webhookUrl")) return "That webhook address can't be used. It must be a public https:// address.";
             if (Has("cannot be refunded")) return "This payment can't be refunded in its current state. Refresh to see its latest status.";
             if (Has("cannot be voided")) return "This payment can't be cancelled any more. It may have just been paid. Refresh to see its latest status.";
@@ -60,6 +77,14 @@ public static class ApiError
             if (Has("amount") && Has("> 0")) return "Enter an amount greater than zero.";
             if (Has("defaultCurrency")) return "Choose DGB or one of the listed currencies (such as USD, EUR or PHP), or clear the default.";
             if (Has("unsupported currency")) return "That currency isn't supported.";
+            // DigiDollar (specs/033 contract C1).
+            if (Has("dd_option_unavailable"))
+                return reason switch
+                {
+                    "out_of_range" => "This amount is outside DigiDollar's limits ($1.00 to $100,000.00).",
+                    "dd_service_unavailable" => DdUnavailable,
+                    _ => "DigiDollar isn't available for this payment right now.",
+                };
             if (Has("digidollar_not_enabled")) return "DigiDollar isn't turned on for this store. Turn it on in Settings.";
         }
 

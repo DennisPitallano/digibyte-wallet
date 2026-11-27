@@ -2,9 +2,9 @@
 // Starts both servers on a fresh SQLite database, then runs tests/*.spec.mjs in Chromium.
 // PW_CHANNEL=msedge uses the locally installed Edge instead of Playwright's Chromium download.
 import { defineConfig, devices } from '@playwright/test';
-import { apiUrl, webUrl, serverCommands } from './servers.mjs';
+import { apiUrl, webUrl, nodeUrl, serverCommands } from './servers.mjs';
 
-const { api, web, env, cwd } = serverCommands();
+const { api, web, node, env, cwd } = serverCommands();
 const isCI = !!process.env.CI;
 
 export default defineConfig({
@@ -35,6 +35,17 @@ export default defineConfig({
         },
     ],
     webServer: [
+        {
+            // Fake Esplora explorer + price feed for the DigiDollar journeys (scripts/fake-esplora.mjs).
+            name: 'fake Esplora',
+            command: node,
+            cwd,
+            url: `${nodeUrl}/health`,
+            reuseExistingServer: false,
+            timeout: 30_000,
+            stdout: 'ignore',
+            stderr: 'pipe',
+        },
         {
             name: 'Pay.Api',
             command: api,

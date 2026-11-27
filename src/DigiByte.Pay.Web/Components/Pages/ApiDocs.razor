@@ -122,7 +122,8 @@
                     <Param Name="expiresInSeconds" Type="integer">1 to 86400. Overrides the store's default expiry (30 minutes if unset).</Param>
                     <Param Name="returnUrl" Type="string">Where the checkout sends the buyer after payment confirms (a <em>Return to merchant</em> button and a 5-second redirect). HTTPS, or HTTP on localhost only. Up to 2048 characters.</Param>
                     <Param Name="currency" Type="string">DGB (default) or DD for a DigiDollar session.</Param>
-                    <Param Name="amountCentsDd" Type="integer">DigiDollar amount in US cents, 100 to 10000000. Required when <InlineCode>currency</InlineCode> is DD; <InlineCode>amount</InlineCode> is then ignored. The store must have <InlineCode>digiDollarEnabled</InlineCode>, otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; if the DigiDollar node can't be reached you get <InlineCode>503 digidollar_node_unavailable</InlineCode>.</Param>
+                    <Param Name="buyerChoice" Type="boolean">Optional. Let the buyer pay in DGB or DigiDollar at checkout. Honoured only for a payment priced in a regular currency (<InlineCode>fiatCurrency</InlineCode> and <InlineCode>fiatAmount</InlineCode>, currency DGB) at a store with DigiDollar and buyer choice on, where DigiPay offers DigiDollar beyond the API; otherwise ignored without an error. The response then has <InlineCode>buyerChoice: true</InlineCode> and an <InlineCode>options</InlineCode> list (one per currency: <InlineCode>currency</InlineCode>, <InlineCode>address</InlineCode>, <InlineCode>amountSatoshis</InlineCode>, <InlineCode>amountCentsDd</InlineCode>, <InlineCode>usdRate</InlineCode>, <InlineCode>rateAt</InlineCode>, <InlineCode>uri</InlineCode>). The session's own <InlineCode>currency</InlineCode>, <InlineCode>address</InlineCode> and amounts describe the currency in effect; once funds arrive, <InlineCode>lockedAt</InlineCode> is set and they are the currency actually paid. Funds later sent in the other currency show as <InlineCode>extra: {"{ currency, amount, txid, seenAt }"}</InlineCode> (satoshis for DGB, cents for DD) for you to refund.</Param>
+                    <Param Name="amountCentsDd" Type="integer">DigiDollar amount in US cents, 100 to 10000000. Required when <InlineCode>currency</InlineCode> is DD; <InlineCode>amount</InlineCode> is then ignored. The store must have <InlineCode>digiDollarEnabled</InlineCode> (which needs its DigiDollar key), otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>. The address is the next one from the store's DigiDollar key, so the DD goes straight to the merchant's wallet; making it needs no outside service.</Param>
                 </ParamList>
                 <ParamList Title="Headers">
                     <Param Name="Idempotency-Key" Type="string">Up to 255 characters. Repeat calls with the same key within 24 hours (per account) return the original session instead of a new one. Your order id works well.</Param>
@@ -145,7 +146,7 @@
                     <Param Name="storeId" Type="string">Only this store's sessions.</Param>
                     <Param Name="take" Type="integer">1 to 100, default 25. With <InlineCode>format=csv</InlineCode>: up to 10000.</Param>
                     <Param Name="skip" Type="integer">Default 0.</Param>
-                    <Param Name="format" Type="string"><InlineCode>csv</InlineCode> returns a spreadsheet download (<InlineCode>text/csv</InlineCode>) instead of JSON: id, store, status, address, DGB amounts, fiat, label, memo, confirmations, txid, timestamps and source.</Param>
+                    <Param Name="format" Type="string"><InlineCode>csv</InlineCode> returns a spreadsheet download (<InlineCode>text/csv</InlineCode>) instead of JSON: id, store, status, address, DGB amounts, fiat, label, memo, confirmations, txid, timestamps and source, then <InlineCode>currency</InlineCode>, <InlineCode>amount</InlineCode> and <InlineCode>received</InlineCode> in the session's own currency (DigiDollar in dollars; its DGB columns are 0).</Param>
                 </ParamList>
             </Endpoint>
 
@@ -153,6 +154,20 @@
                 <p class="@Small m-0">
                     Public read of one session, as <InlineCode>{ session: { … }, merchantName }</InlineCode>. No key needed: the id is random and reveals nothing
                     secret. The hosted checkout uses it, and it's the call to make when you want to double-check a webhook.
+                    For a buyer-choice session it also has <InlineCode>ddAvailable</InlineCode> and, when that's false, <InlineCode>ddReason</InlineCode>
+                    (<InlineCode>dd_disabled</InlineCode> or <InlineCode>unavailable</InlineCode>).
+                </p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/sessions/{id}/options/dd" Auth="No auth" Id="session-dd-option">
+                <p class="@Small m-0">
+                    The buyer's switch to DigiDollar on a buyer-choice session (the hosted checkout and POS call it). Returns the session's DD option, making it
+                    the first time: a USD price becomes DD at 1:1, any other currency is converted at DigiPay's USD rate and rounded up to the cent, and the
+                    amount then stays fixed until the session expires. Rate-limited per visitor. <InlineCode>409</InlineCode> with
+                    <InlineCode>dd_option_not_allowed</InlineCode> (<InlineCode>reason</InlineCode>: <InlineCode>no_choice</InlineCode>, <InlineCode>locked</InlineCode>,
+                    <InlineCode>not_pending</InlineCode>, <InlineCode>expired</InlineCode>) or <InlineCode>dd_option_unavailable</InlineCode>
+                    (<InlineCode>dd_disabled</InlineCode>, <InlineCode>no_rate</InlineCode>, <InlineCode>out_of_range</InlineCode> with <InlineCode>minCents</InlineCode> and
+                    <InlineCode>maxCents</InlineCode>, or <InlineCode>dd_service_unavailable</InlineCode> while DigiPay can't reach the public explorer that confirms DigiDollar).
                 </p>
             </Endpoint>
 
@@ -184,7 +199,7 @@
             <p class="@P">A store owns its receive address or xpub, webhook URL and secret, default expiry and sessions. An account can run many: several shops, a tip jar, a testnet store. A store id that belongs to another account answers <InlineCode>404</InlineCode>.</p>
 
             <Endpoint Method="GET" Path="/v1/pay/stores" Auth="API key" Id="list-stores">
-                <p class="@Small m-0">All your stores. Each has <InlineCode>id</InlineCode>, <InlineCode>name</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>receiveMode</InlineCode> (<InlineCode>xpub</InlineCode>, <InlineCode>address</InlineCode> or <InlineCode>unconfigured</InlineCode>), <InlineCode>hasReceive</InlineCode>, <InlineCode>receivePreview</InlineCode>, <InlineCode>webhookUrl</InlineCode>, <InlineCode>hasWebhookSecret</InlineCode>, <InlineCode>defaultSessionExpiryMinutes</InlineCode>, <InlineCode>digiDollarEnabled</InlineCode>, <InlineCode>defaultCurrency</InlineCode> (<InlineCode>DGB</InlineCode>, a fiat code such as <InlineCode>EUR</InlineCode>, or <InlineCode>null</InlineCode> when not set) and <InlineCode>createdAt</InlineCode>.</p>
+                <p class="@Small m-0">All your stores. Each has <InlineCode>id</InlineCode>, <InlineCode>name</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>receiveMode</InlineCode> (<InlineCode>xpub</InlineCode>, <InlineCode>address</InlineCode> or <InlineCode>unconfigured</InlineCode>), <InlineCode>hasReceive</InlineCode>, <InlineCode>receivePreview</InlineCode>, <InlineCode>webhookUrl</InlineCode>, <InlineCode>hasWebhookSecret</InlineCode>, <InlineCode>defaultSessionExpiryMinutes</InlineCode>, <InlineCode>digiDollarEnabled</InlineCode>, <InlineCode>defaultCurrency</InlineCode> (<InlineCode>DGB</InlineCode>, a fiat code such as <InlineCode>EUR</InlineCode>, <InlineCode>DD</InlineCode>, or <InlineCode>null</InlineCode> when not set), <InlineCode>defaultCurrencyEffective</InlineCode> (the same, except a saved <InlineCode>DD</InlineCode> reads as <InlineCode>USD</InlineCode> while the store can't offer DigiDollar), <InlineCode>buyerChoiceEnabled</InlineCode>, <InlineCode>ddDonationAddress</InlineCode> and <InlineCode>createdAt</InlineCode>.</p>
             </Endpoint>
 
             <Endpoint Method="POST" Path="/v1/pay/stores" Auth="API key" Id="create-store">
@@ -211,7 +226,8 @@
                     <Param Name="webhookUrl" Type="string">Public HTTPS URL for webhooks. The first time one is set, a webhook secret is created. An empty string removes the URL and deletes the secret.</Param>
                     <Param Name="defaultSessionExpiryMinutes" Type="integer">1 to 1440.</Param>
                     <Param Name="digiDollarEnabled" Type="boolean">Allow DigiDollar (DD) sessions on this store.</Param>
-                    <Param Name="defaultCurrency" Type="string"><InlineCode>DGB</InlineCode> or one of the DigiByte wallet's ~80 fiat codes (<InlineCode>USD</InlineCode>, <InlineCode>EUR</InlineCode>, <InlineCode>PHP</InlineCode> …), any case; stored upper case. Payment links in the dashboard and newly paired POS tablets start in it. An empty string or <InlineCode>null</InlineCode> clears it; any other value answers <InlineCode>400</InlineCode>.</Param>
+                    <Param Name="buyerChoiceEnabled" Type="boolean">Let buyers choose DGB or DigiDollar on payments priced in a regular currency. On by default; only has an effect while DigiDollar is on.</Param>
+                    <Param Name="defaultCurrency" Type="string"><InlineCode>DGB</InlineCode> or one of the DigiByte wallet's ~80 fiat codes (<InlineCode>USD</InlineCode>, <InlineCode>EUR</InlineCode>, <InlineCode>PHP</InlineCode> …), any case; stored upper case. Payment links in the dashboard and newly paired POS tablets start in it. <InlineCode>DD</InlineCode> (DigiDollar) is accepted only while the store can offer it (DigiDollar on and DigiPay offering it beyond the API), otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; turning DigiDollar off later keeps the saved value, and it acts as <InlineCode>USD</InlineCode> until DigiDollar is back. An empty string or <InlineCode>null</InlineCode> clears it; any other value answers <InlineCode>400</InlineCode>.</Param>
                 </ParamList>
                 <p class="@Small m-0">
                     Returns the store, plus <InlineCode>webhookSecret</InlineCode>. It holds the secret only on the call that created it, and is
@@ -231,6 +247,23 @@
 
             <Endpoint Method="GET" Path="/v1/pay/stores/{id}/donation-address" Auth="API key" Id="donation-address">
                 <p class="@Small m-0">A stable address for <a href="/docs#donation-button" class="text-dgb-500 hover:underline">donation buttons</a>, as <InlineCode>{ address, mode }</InlineCode>. In xpub mode it's derivation index 0, which is then reserved (invoices start at 1). In address mode it's the configured address. <InlineCode>400</InlineCode> if the store has no receive address.</p>
+                <p class="@Small m-0">With <InlineCode>?currency=DD</InlineCode> it returns the store's DigiDollar donation address (<InlineCode>mode: "dd"</InlineCode>): the next address from the store's DigiDollar key, taken on the first call and kept until the key changes. Needs DigiDollar on for the store and offered by DigiPay beyond the API, otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>. DD tips go straight to the merchant's wallet.</p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/stores/{id}/dd-key/preview" Auth="API key" Id="dd-key-preview">
+                <p class="@Small m-0">Checks a pasted DigiDollar account key (<InlineCode>{ key }</InlineCode>, an <InlineCode>xpub</InlineCode>/<InlineCode>tpub</InlineCode> from the DigiByte Wallet's <em>DigiDollar key for DigiPay</em> screen) and returns <InlineCode>{ network, firstAddress, keyFingerprint }</InlineCode> without saving anything. Show <InlineCode>firstAddress</InlineCode> to the merchant to compare with their wallet. <InlineCode>400 dd_key_invalid</InlineCode> with <InlineCode>reason</InlineCode> <InlineCode>malformed</InlineCode>, <InlineCode>private_key</InlineCode> (never echoed back), <InlineCode>wrong_network</InlineCode> or <InlineCode>not_account_key</InlineCode>. Not for POS tablet keys.</p>
+            </Endpoint>
+
+            <Endpoint Method="PUT" Path="/v1/pay/stores/{id}/dd-key" Auth="API key" Id="dd-key-set">
+                <p class="@Small m-0">Sets or replaces the store's DigiDollar key: <InlineCode>{ key, confirmFirstAddress }</InlineCode>, where <InlineCode>confirmFirstAddress</InlineCode> is the first address the merchant checked against their wallet (<InlineCode>409 first_address_mismatch</InlineCode> otherwise). Returns the store, whose <InlineCode>ddKey</InlineCode> is <InlineCode>{ set, network, fingerprint, firstAddress, setAt, unpaidRun, unpaidRunWarning }</InlineCode>; the key itself is never returned. Stores with the same key share one address sequence, so no DD address is given out twice. Open payments keep their addresses.</p>
+            </Endpoint>
+
+            <Endpoint Method="DELETE" Path="/v1/pay/stores/{id}/dd-key" Auth="API key" Id="dd-key-remove">
+                <p class="@Small m-0">Removes the store's DigiDollar key and turns DigiDollar off. Open DD payments are still watched until they finish. Turning DigiDollar back on (<InlineCode>PATCH</InlineCode> with <InlineCode>digiDollarEnabled: true</InlineCode>) needs a key again: <InlineCode>409 dd_key_required</InlineCode>.</p>
+            </Endpoint>
+
+            <Endpoint Method="GET" Path="/v1/pay/public/stores/{id}/donation-options" Auth="No auth" Id="donation-options">
+                <p class="@Small m-0">What a store's tip page can offer, as <InlineCode>{ storeName, network, dgbAddress, ddAddress, ddAvailable, ddReason }</InlineCode>. <InlineCode>dgbAddress</InlineCode> is the store's address in address mode (null for xpub stores, whose buttons carry the address themselves); <InlineCode>ddAddress</InlineCode> is set only while the store has DigiDollar on and DigiPay offers it, so turning DigiDollar off removes it from every button already embedded. <InlineCode>ddAvailable</InlineCode> is false (<InlineCode>ddReason: "dd_service_unavailable"</InlineCode>) while DigiPay can't reach the public explorer that confirms DigiDollar. Read-only and rate-limited; <InlineCode>404</InlineCode> for an unknown store.</p>
             </Endpoint>
 
             <Endpoint Method="GET" Path="/v1/pay/stores/{id}/analytics" Auth="API key" Id="analytics">
@@ -254,7 +287,7 @@
                 </ParamList>
                 <p class="@Small">
                     <InlineCode>totals</InlineCode> counts the window's sessions by creation day: <InlineCode>payments</InlineCode>, <InlineCode>paid</InlineCode> (paid or confirmed), <InlineCode>open</InlineCode> (waiting or detected),
-                    <InlineCode>expired</InlineCode>, <InlineCode>underpaid</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>, and <InlineCode>revenueDgb</InlineCode>, the DGB amount of the paid and confirmed DGB sessions.
+                    <InlineCode>expired</InlineCode>, <InlineCode>underpaid</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>, <InlineCode>revenueDgb</InlineCode>, the DGB amount of the paid and confirmed DGB sessions, and <InlineCode>revenueDdCents</InlineCode>, the same for DigiDollar sessions in USD cents (never added into DGB).
                     <InlineCode>series</InlineCode> has one entry per day, oldest first and including days with nothing, each with <InlineCode>date</InlineCode> (<InlineCode>yyyy-MM-dd</InlineCode>) and the same fields.
                 </p>
                 <p class="@Small m-0">
@@ -282,6 +315,7 @@
                         <tr><td><InlineCode>session.underpaid</InlineCode></td><td>The payment found is less than 99% of the amount.</td></tr>
                         <tr><td><InlineCode>session.expired</InlineCode></td><td>Nothing arrived before <InlineCode>expiresAt</InlineCode>. A payment within the next 3 days still moves the session on and sends <InlineCode>session.paid</InlineCode> or <InlineCode>session.confirmed</InlineCode>.</td></tr>
                         <tr><td><InlineCode>session.refunded</InlineCode></td><td>You recorded a refund (<a href="/docs/api#refund-session" class="text-dgb-500 hover:underline">refund</a>). <InlineCode>refundTxid</InlineCode>, <InlineCode>refundedAt</InlineCode> and <InlineCode>refundNote</InlineCode> are set.</td></tr>
+                        <tr><td><InlineCode>session.extra_payment</InlineCode></td><td>On a buyer-choice session, funds arrived in the currency the buyer didn't pay in. Sent once, with <InlineCode>session.extra</InlineCode>; refund the buyer from your wallet.</td></tr>
                         <tr><td><InlineCode>session.voided</InlineCode></td><td>You cancelled an unpaid session (<a href="/docs/api#void-session" class="text-dgb-500 hover:underline">void</a>).</td></tr>
                         <tr><td><InlineCode>webhook.test</InlineCode></td><td>You asked for a test (<a href="/docs/api#webhook-test" class="text-dgb-500 hover:underline">test</a>). Its session is made up (<InlineCode>ses_test_…</InlineCode>); it is sent once, never retried, and can't be replayed.</td></tr>
                     </tbody>
@@ -513,7 +547,6 @@
                         <tr><td><InlineCode>409</InlineCode></td><td>Wrong state: refunding a session that isn't paid or confirmed, voiding one that isn't pending or seen, or reusing a Digi-ID challenge.</td><td>Read the session's status first.</td></tr>
                         <tr><td><InlineCode>429</InlineCode></td><td>Rate limit reached (see below).</td><td>Wait for the window to reset, then retry with backoff.</td></tr>
                         <tr><td><InlineCode>502</InlineCode></td><td>Public price only: no price source available.</td><td>Retry later.</td></tr>
-                        <tr><td><InlineCode>503</InlineCode></td><td>DigiDollar sessions only: the DigiDollar node is unreachable.</td><td>Retry with backoff.</td></tr>
                     </tbody>
                 </table>
             </div>

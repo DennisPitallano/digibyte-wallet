@@ -944,3 +944,40 @@ End: lifetime over / creator closes / broadcast + 60 s → RoomEnded; proposals 
 /help/multisig → Static: comprehensive multisig guide — visual flows, real-world scenarios (2-of-2 joint, 2-of-3 backup/escrow, 3-of-5 treasury), step-by-step walkthroughs (create, send, import), technical details (BIP67, BIP174, P2SH-P2WSH/P2WSH), wallet type comparison table
 /not-found    → 404 error page
 ```
+
+### DigiPay: buyer pays in DGB or DigiDollar (spec 033)
+
+```
+Merchant prices a payment in a regular currency (payment link, POS sale, or API with buyerChoice: true)
+  → POST /v1/pay/sessions → session (DGB) + DGB option
+Checkout / POS shows a DGB | DigiDollar switch while the payment is unpaid
+  → buyer picks DigiDollar → POST /sessions/{id}/options/dd → DD option (fixed amount, its own DD address)
+  → buyer switches back and forth: same addresses, same amounts
+InvoiceMonitor, every 10 s, for an unlocked session: check every option's address
+  → first funds seen on an option → lock: session takes that option's currency, address and amount (lockedAt)
+  → normal flow: seen → paid → confirmed, webhooks in the currency actually paid
+After the lock (until the 3-day late window ends)
+  → funds on the other option → extra payment on the session → session.extra_payment webhook + audit (once)
+  → merchant refunds the buyer from their own wallet (the extra DD is already there, specs/035)
+DigiDollar off or the explorer unreachable while unpaid → the DD choice disappears and the buyer is moved back to DGB
+```
+
+### DigiPay: DigiDollar on the merchant's own key (spec 035)
+
+```
+Merchant: DigiByte Wallet → Settings → DigiDollar key for DigiPay → copy the key (xpub/tpub at m/86'/coin'/0')
+  → Dashboard → store's DigiDollar card → paste → POST /v1/pay/stores/{id}/dd-key/preview
+      refused: private key (never echoed), wrong network, not an account key, not a key
+      ok: first address shown → merchant checks it against the wallet
+  → PUT /v1/pay/stores/{id}/dd-key { key, confirmFirstAddress } → key saved (audit: fingerprint only)
+  → DigiDollar can now be turned on (409 dd_key_required without a key)
+Every DD address (explicit DD payment, the buyer's DD option, the donation address)
+  → next index of the key's shared sequence (one atomic UPDATE … RETURNING; stores with the same key share it)
+  → derived 0/index Taproot address → recorded in DdAddresses → no outside call
+InvoiceMonitor, every 10 s, for each watched DD address
+  → explorer reported down (cached 30 s) → skip: the payment waits, DGB unaffected
+  → GetHistoryAsync on the public explorer → total received + confirmations of the completing tx
+  → pending → seen → paid (1 conf) → confirmed (6 conf); underpaid stays watched for the 3-day late window
+DD lands in the merchant's own wallet. DigiPay never holds DD or any private key.
+Remove the key → DigiDollar off for the store; open DD payments still complete
+```

@@ -443,6 +443,377 @@ public class DashboardTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r == "GET /v1/pay/public/price?currency=eur"));
     }
 
+    // ----- DigiDollar setting text (specs/033 User Story 5) -----
+
+    [Fact]
+    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_goes_straight_to_the_wallet()
+    {
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-setting-text")));
+        var text = cut.Find("#dd-setting-text").TextContent;
+
+        Assert.Contains("only through the DigiPay API", text);
+        Assert.Contains("goes straight to your wallet", text);
+        Assert.Contains("DigiPay never holds it", text);
+        Assert.Contains("1 DD = $1", text);
+        Assert.DoesNotContain("payout", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("withdrawn", text);
+        Assert.DoesNotContain("POS", text);
+        Assert.DoesNotContain("donation", text);
+        Assert.DoesNotContain("checkout", text);
+    }
+
+    [Fact]
+    public void With_the_DD_surfaces_on_the_setting_lists_every_place_DD_is_offered()
+    {
+        api.DdSurfacesEnabled = true;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.Contains("POS till", cut.Find("#dd-setting-text").TextContent));
+        var text = cut.Find("#dd-setting-text").TextContent;
+
+        foreach (var place in new[] { "POS till", "payment links", "one-off payments", "choice at checkout", "donation page", "the API" })
+            Assert.Contains(place, text);
+        Assert.Contains("goes straight to your wallet", text);
+        Assert.DoesNotContain("payout", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DigiPay holds", text);
+    }
+
+    [Theory]
+    [InlineData(false, true, "DigiDollar is on. Buyers can pay in DD through the DigiPay API")]
+    [InlineData(true, true, "DigiDollar is on. Buyers can pay in DD through the POS till")]
+    [InlineData(false, false, "DigiDollar is off. New payments through the DigiPay API")]
+    public void Turning_DD_on_or_off_names_the_places(bool surfaces, bool turnOn, string expected)
+    {
+        api.DdSurfacesEnabled = surfaces;
+        api.DigiDollarEnabled = !turnOn;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-setting-text")));
+
+        cut.Find("section input[type=checkbox].accent-dgb-500").Change(turnOn);
+
+        cut.WaitForAssertion(() => Assert.Contains(expected, cut.Markup));
+        Assert.Equal(turnOn, api.LastPatch!["digiDollarEnabled"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Without_a_DigiDollar_key_the_toggle_is_off_limits_and_says_why()
+    {
+        // specs/035 FR-004: every DD address comes from the store's own key.
+        api.HasDdKey = false;
+        api.DigiDollarEnabled = false;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-key-card")));
+
+        Assert.True(cut.Find("#dd-enabled").HasAttribute("disabled"));
+        Assert.Contains("Add your DigiDollar key first", cut.Find("[data-dd-needs-key]").TextContent);
+        Assert.NotNull(cut.Find("#dd-key-input"));
+    }
+
+    [Fact]
+    public void With_a_DigiDollar_key_the_card_shows_it_and_the_toggle_works()
+    {
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-dd-key-first]")));
+
+        Assert.Equal("DDfirst1", cut.Find("[data-dd-key-first]").TextContent);
+        Assert.False(cut.Find("#dd-enabled").HasAttribute("disabled"));
+        Assert.Empty(cut.FindAll("[data-dd-needs-key]"));
+    }
+
+    [Fact]
+    public void While_DigiDollar_cant_be_confirmed_the_store_says_confirmations_may_be_delayed()
+    {
+        // specs/035 US4 scenario 3.
+        api.DigiDollarEnabled = true;
+        api.DdDown = true;
+        var cut = RenderSection("settings");
+
+        cut.WaitForAssertion(() => Assert.Contains("confirmations may be delayed", cut.Find("[data-dd-delayed]").TextContent));
+    }
+
+    [Fact]
+    public void The_delay_note_is_hidden_while_DigiDollar_is_available()
+    {
+        api.DigiDollarEnabled = true;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-key-card")));
+
+        Assert.Empty(cut.FindAll("[data-dd-delayed]"));
+    }
+
+    // ----- DigiDollar links and one-off payments (specs/033 US2) -----
+
+    private void AllowDd()
+    {
+        api.DdSurfacesEnabled = true;
+        api.DigiDollarEnabled = true;
+    }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    public void The_link_form_offers_DigiDollar_only_when_the_store_can_take_it(bool surfaces, bool ddOn, bool offered)
+    {
+        api.DdSurfacesEnabled = surfaces;
+        api.DigiDollarEnabled = ddOn;
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
+
+        Assert.Equal(offered, Buttons(cut, "DigiDollar").Any());
+    }
+
+    [Fact]
+    public void A_DigiDollar_link_posts_the_dollars_in_cents_with_no_price_lookup()
+    {
+        AllowDd();
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+
+        cut.Find("#link-amount-dd").Input("40");
+        cut.WaitForAssertion(() => Assert.False(Buttons(cut, "Create payment link").Single().HasAttribute("disabled")));
+        Buttons(cut, "Create payment link").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        var body = api.CreatedSession!;
+        Assert.Equal("DD", body["currency"]!.GetValue<string>());
+        Assert.Equal(4000, body["amountCentsDd"]!.GetValue<long>());
+        Assert.False(body.ContainsKey("amount"));
+        Assert.DoesNotContain(api.Requests, r => r.StartsWith("GET /v1/pay/public/price"));
+    }
+
+    [Fact]
+    public void A_DigiDollar_link_outside_the_limits_cannot_be_created()
+    {
+        AllowDd();
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+
+        cut.Find("#link-amount-dd").Input("0.50");
+
+        Assert.True(Buttons(cut, "Create payment link").Single().HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Switching_a_link_to_DigiDollar_keeps_a_USD_amount_and_clears_any_other()
+    {
+        AllowDd();
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
+        Buttons(cut, "Your currency").First().Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-amount-fiat")));
+        cut.Find("#link-amount-fiat").Input("12.5");
+
+        Buttons(cut, "DigiDollar").Single().Click();
+        Assert.Equal("12.5", cut.Find("#link-amount-dd").GetAttribute("value"));
+
+        Buttons(cut, "DGB").First().Click();
+        cut.Find("#link-amount-dgb").Change("300");
+        Buttons(cut, "DigiDollar").Single().Click();
+        Assert.Equal("0", cut.Find("#link-amount-dd").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_failed_DigiDollar_link_offers_the_same_dollars_in_DGB()
+    {
+        AllowDd();
+        // specs/035: making a DD payment needs no outside service, so it fails only when DD can't be taken (turned off).
+        api.CreateError = (HttpStatusCode.BadRequest, """{"error":"digidollar_not_enabled_for_store"}""");
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+        cut.Find("#link-amount-dd").Input("40");
+        Buttons(cut, "Create payment link").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("DigiDollar isn't turned on for this store", cut.Markup));
+        api.CreateError = null;
+        api.Price = 0.01m;
+        cut.Find("[data-dd-fallback]").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        var body = api.CreatedSession!;
+        Assert.Equal("USD", body["fiatCurrency"]!.GetValue<string>());
+        Assert.Equal(40m, body["fiatAmount"]!.GetValue<decimal>());
+        Assert.Equal(4000m, body["amount"]!.GetValue<decimal>());
+    }
+
+    [Fact]
+    public void A_one_off_payment_can_be_in_DigiDollar()
+    {
+        AllowDd();
+        var cut = RenderSection("new");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+        Assert.Contains("US dollars, paid in DD", cut.Find("label[for=np-amount]").TextContent);
+
+        cut.Find("#np-amount").Change("12.50");
+        Buttons(cut, "Create payment").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        Assert.Equal("DD", api.CreatedSession!["currency"]!.GetValue<string>());
+        Assert.Equal(1250, api.CreatedSession!["amountCentsDd"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public void A_saved_DigiDollar_default_opens_the_link_form_on_USD_while_DD_is_off()
+    {
+        api.DefaultCurrency = "DD";
+        api.DdSurfacesEnabled = true;
+        api.DigiDollarEnabled = false;
+        var cut = RenderSection("links");
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-currency")));
+        Assert.Contains("USD", cut.Find("#link-currency").TextContent);
+        Assert.Empty(Buttons(cut, "DigiDollar"));
+    }
+
+    [Fact]
+    public void A_DigiDollar_default_opens_the_link_form_on_DD_while_DD_is_on()
+    {
+        api.DefaultCurrency = "DD";
+        AllowDd();
+        var cut = RenderSection("links");
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-amount-dd")));
+    }
+
+    // ----- Buyer choice (specs/033 US3) -----
+
+    [Fact]
+    public void Merchants_who_had_DD_on_see_the_buyer_choice_notice_once()
+    {
+        AllowDd();
+        api.DdChoiceNoticePending = true;
+        var cut = RenderSection("overview");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-dd-choice-notice]")));
+
+        Buttons(cut, "Got it").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-dd-choice-notice]")));
+        Assert.True(api.NoticeDismissed);
+    }
+
+    [Fact]
+    public void The_notice_can_turn_buyer_choice_off_for_the_store()
+    {
+        AllowDd();
+        api.DdChoiceNoticePending = true;
+        var cut = RenderSection("overview");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Turn off for Corner Café")));
+
+        Buttons(cut, "Turn off for Corner Café").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.True(api.NoticeDismissed));
+        Assert.False(api.LastPatch!["buyerChoiceEnabled"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void The_notice_waits_for_the_DD_surfaces_switch()
+    {
+        api.DigiDollarEnabled = true;
+        api.DdChoiceNoticePending = true;
+        var cut = RenderSection("overview");
+        cut.WaitForAssertion(() => Assert.Contains("Overview", cut.Markup));
+
+        Assert.Empty(cut.FindAll("[data-dd-choice-notice]"));
+    }
+
+    [Fact]
+    public void The_DigiDollar_setting_has_a_buyer_choice_switch()
+    {
+        AllowDd();
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#buyer-choice")));
+
+        cut.Find("#buyer-choice").Change(false);
+
+        cut.WaitForAssertion(() => Assert.False(api.LastPatch!["buyerChoiceEnabled"]!.GetValue<bool>()));
+    }
+
+    [Fact]
+    public void A_fiat_link_asks_for_buyer_choice()
+    {
+        AllowDd();
+        api.Price = 0.0123m;
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
+        Buttons(cut, "Your currency").First().Click();
+        cut.WaitForAssertion(() => Assert.Contains("1 DGB = $0.0123 USD", cut.Markup));
+        cut.Find("#link-amount-fiat").Input("12.50");
+        cut.WaitForAssertion(() => Assert.False(Buttons(cut, "Create payment link").Single().HasAttribute("disabled")));
+        Buttons(cut, "Create payment link").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        Assert.True(api.CreatedSession!["buyerChoice"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Payments_with_an_extra_payment_are_flagged_for_refund()
+    {
+        api.ExtraOnRows = true;
+        var cut = RenderSection("sessions");
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-extra-flag]")));
+        Assert.Contains("Extra DD received, refund the buyer", cut.Find("[data-extra-flag]").TextContent);
+    }
+
+    // ----- Deleting a store that still holds DD (specs/034 T060) -----
+
+    private static void DeleteOldKiosk(IRenderedComponent<Dashboard> cut)
+    {
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("button").Where(b => b.GetAttribute("aria-label")?.Contains("Old Kiosk") == true || b.TextContent.Trim() == "Delete")));
+        var delete = cut.FindAll("button").Where(b => b.TextContent.Trim() == "Delete").Last();
+        delete.Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Delete store")));
+        Buttons(cut, "Delete store").Single().Click();
+    }
+
+    [Fact]
+    public void Deleting_a_store_just_deletes_it_with_no_DigiDollar_to_pay_out_first()
+    {
+        // specs/035 US5: DigiPay never holds DD, so nothing blocks deleting a store.
+        api.TwoStores = true;
+        var cut = RenderSection("stores");
+
+        DeleteOldKiosk(cut);
+
+        cut.WaitForAssertion(() => Assert.True(api.StoreDeleted));
+        Assert.DoesNotContain("payout", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ----- DigiDollar donations (specs/033 US4) -----
+
+    [Fact]
+    public void The_donation_tab_offers_DigiDollar_only_where_the_store_can_take_it()
+    {
+        var cut = RenderSection("donation");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#don-logo")));
+
+        Assert.Empty(cut.FindAll("#don-accept-dd"));
+    }
+
+    [Fact]
+    public void A_DigiDollar_donation_button_points_at_the_store_and_its_options()
+    {
+        AllowDd();
+        var cut = RenderSection("donation");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#don-accept-dd")));
+
+        cut.Find("#don-accept-dd").Change(true);
+        cut.WaitForAssertion(() => Assert.Equal("DDdonation0001", cut.Find("#don-dd-address").TextContent.Trim()));
+        cut.Find("#don-open-on").Change("DD");
+        cut.Find("#don-dd-amount").Input("5");
+
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("pre"), p => p.TextContent.Contains("data-store=\"sto_1\"")));
+        var widget = cut.FindAll("pre").First(p => p.TextContent.Contains("data-store"));
+        Assert.Contains("data-currency=\"DD\"", widget.TextContent);
+        Assert.Contains("data-dd-amount=\"5.00\"", widget.TextContent);
+        Assert.Contains("Tip in DGB or DD", widget.TextContent);
+        Assert.Contains(cut.FindAll("pre"), p => p.TextContent.Contains("store=sto_1&amp;currency=DD&amp;ddAmount=5.00") || p.TextContent.Contains("store=sto_1&currency=DD&ddAmount=5.00"));
+    }
+
     private sealed class FakePayApi : HttpMessageHandler, IHttpClientFactory
     {
         public List<string> Requests { get; } = [];
@@ -451,6 +822,18 @@ public class DashboardTests : BunitContext
         public bool HasSecret { get; set; }
         public string? SecretOnPatch { get; set; }
         public string? DefaultCurrency { get; set; }
+        public bool DdSurfacesEnabled { get; set; }
+        public bool DigiDollarEnabled { get; set; }
+        public bool DdChoiceNoticePending { get; set; }
+        public bool BuyerChoiceEnabled { get; set; } = true;
+        public bool NoticeDismissed { get; private set; }
+        public bool TwoStores { get; set; }
+        public bool HasDdKey { get; set; } = true;
+        public bool DdDown { get; set; }
+        /// <summary>Gives every listed payment an extra DD payment (specs/033 FR-025).</summary>
+        public bool ExtraOnRows { get; set; }
+        /// <summary>DELETE /v1/pay/stores/sto_2 answers 409 dd_held with these (specs/034 T060); null deletes it.</summary>
+        public bool StoreDeleted { get; private set; }
         public JsonObject? LastPatch { get; private set; }
         public (HttpStatusCode Status, string Body)? PatchError { get; set; }
         public int Total { get; set; } = 3;
@@ -474,7 +857,7 @@ public class DashboardTests : BunitContext
             var q = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
 
             if (method == "GET" && path == "/v1/pay/me/")
-                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = new[] { Store() } });
+                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = !TwoStores ? new[] { Store() } : new[] { Store(), SecondStore() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending, ddUnavailableNetworks = DdDown ? new[] { "mainnet" } : Array.Empty<string>() });
 
             if (method == "GET" && request.RequestUri.AbsolutePath == "/v1/pay/sessions")
             {
@@ -482,7 +865,7 @@ public class DashboardTests : BunitContext
                 var take = int.Parse(q["take"] ?? "25", CultureInfo.InvariantCulture);
                 var skip = int.Parse(q["skip"] ?? "0", CultureInfo.InvariantCulture);
                 var total = status is null ? Total : StatusTotals.GetValueOrDefault(status);
-                var rows = Enumerable.Range(skip, Math.Max(0, Math.Min(take, total - skip))).Select(i => Session($"ses_{i:D4}", status ?? "confirmed"));
+                var rows = Enumerable.Range(skip, Math.Max(0, Math.Min(take, total - skip))).Select(i => ExtraOnRows ? SessionWithExtra($"ses_{i:D4}", status ?? "confirmed") : Session($"ses_{i:D4}", status ?? "confirmed"));
                 return Json(new { total, take, skip, sessions = rows });
             }
 
@@ -498,6 +881,18 @@ public class DashboardTests : BunitContext
                     ? Json(new { currency = q["currency"], dgbPrice = p, fetchedAt = DateTime.UtcNow })
                     : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("""{"error":"price unavailable"}""") };
 
+            if (method == "DELETE" && path.StartsWith("/v1/pay/stores/sto_2", StringComparison.Ordinal))
+            {
+                StoreDeleted = true;
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            if (method == "POST" && path == "/v1/pay/me/notices/dd-choice/dismiss")
+            {
+                NoticeDismissed = true;
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             if (method == "PATCH" && path == "/v1/pay/stores/sto_1")
             {
                 var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!.AsObject();
@@ -508,6 +903,8 @@ public class DashboardTests : BunitContext
                     var c = body["defaultCurrency"]?.GetValue<string>();
                     DefaultCurrency = string.IsNullOrEmpty(c) ? null : c.ToUpperInvariant();
                 }
+                if (body["digiDollarEnabled"] is JsonNode dd) DigiDollarEnabled = dd.GetValue<bool>();
+                if (body["buyerChoiceEnabled"] is JsonNode bce) BuyerChoiceEnabled = bce.GetValue<bool>();
                 string? secret = null;
                 if (body["webhookUrl"] is JsonNode url)
                 {
@@ -524,6 +921,9 @@ public class DashboardTests : BunitContext
 
             if (method == "GET" && path.StartsWith("/v1/pay/stores/sto_1/webhook-deliveries"))
                 return Json(Array.Empty<object>());
+
+            if (method == "GET" && path == "/v1/pay/stores/sto_1/donation-address?currency=DD")
+                return Json(new { address = "DDdonation0001", mode = "dd" });
 
             if (method == "GET" && path == "/v1/pay/stores/sto_1/donation-address")
                 return HasReceive ? Json(new { address = "dgb1qdonation", mode = "address" }) : new HttpResponseMessage(HttpStatusCode.BadRequest);
@@ -563,8 +963,30 @@ public class DashboardTests : BunitContext
             receiveMode = HasReceive ? "address" : "unconfigured", hasReceive = HasReceive,
             receivePreview = HasReceive ? "dgb1qreceive" : null,
             webhookUrl = WebhookUrl, hasWebhookSecret = HasSecret,
-            defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = false,
+            defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = DigiDollarEnabled,
             defaultCurrency = DefaultCurrency,
+            buyerChoiceEnabled = BuyerChoiceEnabled,
+            ddKey = HasDdKey ? new { set = true, network = "mainnet", fingerprint = "a1b2c3d4", firstAddress = "DDfirst1", setAt = DateTime.UtcNow, unpaidRun = 0, unpaidRunWarning = false } : null,
+        };
+
+        private static object SecondStore() => new
+        {
+            id = "sto_2", merchantId = "mer_1", name = "Old Kiosk", network = "mainnet",
+            receiveMode = "address", hasReceive = true, receivePreview = "dgb1qold",
+            webhookUrl = (string?)null, hasWebhookSecret = false,
+            defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = true,
+            defaultCurrency = (string?)null,
+        };
+
+        private static object SessionWithExtra(string id, string status) => new
+        {
+            id, storeId = "sto_1", address = "dgb1qexample", amountSatoshis = 100_000_000L, amount = 1m,
+            fiatCurrency = "USD", fiatAmount = 25m, label = (string?)null, memo = (string?)null,
+            status, createdAt = DateTime.UtcNow, expiresAt = DateTime.UtcNow.AddMinutes(30),
+            seenAt = (DateTime?)null, paidAt = (DateTime?)null, receivedSatoshis = 100_000_000L, confirmations = 6, paidTxid = (string?)null,
+            uri = "digibyte:dgb1qexample?amount=1", checkoutUrl = $"http://pay.test/pay/{id}",
+            currency = "DGB", buyerChoice = true, lockedAt = DateTime.UtcNow,
+            extra = new { currency = "DD", amount = 500L, txid = "ddextra", seenAt = DateTime.UtcNow },
         };
 
         private static object Session(string id, string status) => new

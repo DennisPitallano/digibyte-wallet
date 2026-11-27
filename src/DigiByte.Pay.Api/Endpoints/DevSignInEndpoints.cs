@@ -30,6 +30,15 @@ public static class DevSignInEndpoints
     private const string TestMnemonic =
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
+    // The testnet DigiDollar account key from the same public test mnemonic (specs/035), so the dev store takes DD
+    // straight to that test wallet in local and end-to-end runs. The coin type comes from DigiDollarKeyDerivation's own
+    // testnet default (still "to confirm" there), so this follows it if it changes. Testnet only, keys are public.
+    private static readonly Lazy<DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey> DevDdKey = new(() =>
+        DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey.Parse(
+            new DigiByte.Crypto.KeyGeneration.DigiDollarKeyDerivation(new Mnemonic(TestMnemonic), network: "testnet")
+                .GetAccountExtPubKey().ToString(DigiByteNetwork.Testnet),
+            "testnet").Key!);
+
     private static readonly Lazy<string> DevXpub = new(() =>
         new HdKeyDerivation(new Mnemonic(TestMnemonic), "", DigiByteNetwork.Testnet)
             .GetAccountExtPubKey()
@@ -101,6 +110,10 @@ public static class DevSignInEndpoints
                 Name = "Dev store (testnet)",
                 Network = "testnet",
                 Xpub = DevXpub.Value,
+                DdAccountKey = DevDdKey.Value.Canonical,
+                DdKeyId = DevDdKey.Value.KeyId,
+                DdAccountKeySetAt = DateTime.UtcNow,
+                DigiDollarEnabled = true,
             });
         }
         else if (store.Network is not ("testnet" or "regtest")
@@ -111,6 +124,15 @@ public static class DevSignInEndpoints
             store.Xpub = DevXpub.Value;
             store.ReceiveAddress = null;
         }
+
+        if (store is { DdAccountKey: null })
+        {
+            store.DdAccountKey = DevDdKey.Value.Canonical;
+            store.DdKeyId = DevDdKey.Value.KeyId;
+            store.DdAccountKeySetAt = DateTime.UtcNow;
+        }
+        if (!await db.DdKeySequences.AnyAsync(k => k.Id == DevDdKey.Value.KeyId))
+            db.DdKeySequences.Add(new DdKeySequence { Id = DevDdKey.Value.KeyId, Network = "testnet" });
 
         await db.SaveChangesAsync();
         return merchant;

@@ -31,6 +31,11 @@
                 <section>
                     <p class="section-label">Collected</p>
                     <div class="dp-pos-shift-total tabular-nums">@PosEntry.FormatDgb(totals.CollectedDgb) <span class="dp-pos-unit">DGB</span></div>
+                    @if (totals.CollectedDdCents > 0)
+                    {
+                        @* DigiDollar is its own unit, never added into DGB (specs/033 FR-009). *@
+                        <div class="dp-pos-shift-total tabular-nums" data-dd-total>@PosEntry.FormatDdCents(totals.CollectedDdCents)</div>
+                    }
                     <p class="dp-pos-muted dp-pos-small">across @outcomes.Collected @(outcomes.Collected == 1 ? "sale" : "sales")</p>
                     @if (totals.Fiat is { Count: > 0 })
                     {
@@ -104,6 +109,10 @@
         <div class="dp-pos-missed-bucket @tone">
             <p class="dp-pos-missed-title">@title</p>
             <p class="dp-pos-missed-dgb tabular-nums">@PosEntry.FormatDgb(bucket.Dgb) <span class="dp-pos-muted">DGB</span></p>
+            @if (bucket.DdCents > 0)
+            {
+                <p class="dp-pos-missed-dgb tabular-nums">@PosEntry.FormatDdCents(bucket.DdCents)</p>
+            }
             @if (bucket.Fiat is { Count: > 0 })
             {
                 <div class="dp-pos-chips">

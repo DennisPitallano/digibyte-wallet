@@ -113,6 +113,13 @@
                         <li>Once the payment is detected the QR code is replaced by the confirmation progress (6 blocks, about 90 seconds). When it's confirmed the result screen shows and the till returns to the keypad after 5 seconds. <strong>Charge again</strong> keeps the amount if a sale expired or was underpaid.</li>
                         <li>Need to stop? <strong>Cancel sale</strong> cancels the payment on the server, so it can't be paid afterwards. It asks first if a payment has already been detected, and disappears once the customer has paid.</li>
                     </ol>
+                    <p class="leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+                        <strong>DigiDollar (beta).</strong> Where DigiPay offers DigiDollar on the till and your store has it turned on, <strong>DD</strong> appears in the
+                        currency list. A DD sale is typed in dollars (1 DD = $1, from $1.00 to $100,000.00), with no rate and no conversion, and the customer pays in DD.
+                        Switching to DD keeps an amount typed in USD and clears any other amount rather than converting it. If DigiDollar can't be reached when you
+                        charge, the amount stays and <strong>Charge … in DGB instead</strong> takes the same dollars in DGB in one tap. DD sales show in DD on every
+                        screen and get their own line in the end-of-day totals. The DD customers pay goes straight to your wallet.
+                    </p>
                     <p class="leading-relaxed text-slate-700 dark:text-slate-300">Sales from a tablet are tagged with a <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-[10px] font-bold">POS</span> tag in the dashboard's <em>Payments</em> list.</p>
                 </section>
 

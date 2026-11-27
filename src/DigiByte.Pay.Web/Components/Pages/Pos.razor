@@ -281,6 +281,12 @@
                         </div>
                     }
 
+                    @if (IsDd && TotalDecimal is decimal ddTotal && !PosEntry.DdInRange(ddTotal))
+                    {
+                        <p class="dp-pos-note is-amber" role="status" data-dd-range>
+                            DigiDollar amounts must be from @PosEntry.Money(PosEntry.DdMin, PosEntry.Dd) to @PosEntry.Money(PosEntry.DdMax, PosEntry.Dd).
+                        </p>
+                    }
                     <button type="button" class="dp-pos-charge" @onclick="ChargeAsync" disabled="@(!CanCharge)"
                             aria-busy="@(busy ? "true" : null)">
                         <span class="dp-pos-charge-main tabular-nums">@ChargeLabel</span>
@@ -293,13 +299,24 @@
                     {
                         <p class="dp-pos-error text-center" role="alert">@chargeError</p>
                     }
+                    @if (ddFallbackOffered && IsDd && TotalDecimal is decimal fallbackUsd)
+                    {
+                        @* DD couldn't be charged (turned off, say): the same dollar amount, priced in USD and paid in DGB, in one tap (FR-014). *@
+                        <button type="button" class="btn-secondary w-full" data-dd-fallback @onclick="ChargeInDgbInsteadAsync" disabled="@busy">
+                            Charge @Fiat.Format(fallbackUsd, "USD") in DGB instead
+                        </button>
+                    }
+                    @if (ddNotice != null)
+                    {
+                        <p class="dp-pos-note is-amber text-center" role="status" data-dd-notice>@ddNotice</p>
+                    }
                 </section>
             </main>
         }
         else if (screen == Screen.Waiting && session != null)
         {
             var confirming = CheckoutStates.IsConfirming(session.Status);
-            var hasFiat = session.FiatAmount is decimal && !string.IsNullOrEmpty(session.FiatCurrency);
+            var hasFiat = session.FiatAmount is decimal && !string.IsNullOrEmpty(session.FiatCurrency) && !IsDdSession(session);
             <main id="main" class="dp-pos-main dp-pos-waiting">
 
                 @* Customer-facing: what to pay, the code to scan, how long the price holds. *@
@@ -312,6 +329,14 @@
                             var fiatText = Fiat.Format(session.FiatAmount!.Value, session.FiatCurrency);
                             <div class="dp-pos-amount dp-pos-amount-due tabular-nums @PosEntry.SizeClass(fiatText)">@fiatText</div>
                             <div class="dp-pos-equiv tabular-nums">≈ @PosEntry.FormatDgb(session.AmountSatoshis) <span class="dp-pos-unit">DGB</span></div>
+                        }
+                        else if (IsDdSession(session))
+                        {
+                            @* DigiDollar sale: dollars, 1 DD = $1, no conversion and no price that can drift. *@
+                            var ddText = PosEntry.FormatDd((session.AmountCentsDd ?? 0) / 100m);
+                            <div class="dp-pos-amount dp-pos-amount-due tabular-nums @PosEntry.SizeClass(ddText + " DD")" data-dd-due>
+                                <span class="dp-pos-num">@ddText</span> <span class="dp-pos-unit">DD</span>
+                            </div>
                         }
                         else
                         {
@@ -326,6 +351,20 @@
                         }
                     </div>
 
+                    @if (ShowPosSwitch)
+                    {
+                        @* specs/033 US3: one tap switches the code between DGB and DigiDollar until the customer pays. *@
+                        <div class="segmented w-fit self-center" role="group" aria-label="Customer pays with" data-pay-switch>
+                            <button type="button" class="segmented-item" aria-pressed="@(posView == "DGB" ? "true" : "false")"
+                                    disabled="@posSwitching" @onclick='() => SwitchPosToAsync("DGB")'>DGB</button>
+                            <button type="button" class="segmented-item" aria-pressed="@(posView == "DD" ? "true" : "false")"
+                                    disabled="@posSwitching" @onclick='() => SwitchPosToAsync("DD")'>DigiDollar</button>
+                        </div>
+                    }
+                    @if (posSwitchError != null)
+                    {
+                        <p class="dp-pos-note is-amber text-center" role="status" data-switch-message>@posSwitchError</p>
+                    }
                     <div class="dp-pos-pay">
                         @if (confirming)
                         {
@@ -333,7 +372,7 @@
                                payment is to final instead (same component as the hosted checkout). *@
                             <div class="dp-pos-confirm">
                                 <ConfirmationProgress Status="@session.Status" Confirmations="@session.Confirmations"
-                                                      Txid="@session.PaidTxid" Currency="DGB" />
+                                                      Txid="@session.PaidTxid" Currency="@session.Currency" />
                             </div>
                         }
                         else
@@ -348,7 +387,7 @@
                     @if (!confirming)
                     {
                         <div class="dp-pos-scan">
-                            <p class="dp-pos-scan-hint">Scan with any DigiByte wallet</p>
+                            <p class="dp-pos-scan-hint">@(IsDdSession(session) ? "Scan with a DigiByte wallet that holds DigiDollar" : "Scan with any DigiByte wallet")</p>
                             @* checkout-countdown.js replaces the whole line once the window closes, so it never
                                reads "Expires in expired". *@
                             <p class="dp-pos-countdown" data-digipay-countdown="This price has expired.">
@@ -426,6 +465,10 @@
                                 <div class="dp-pos-equiv tabular-nums">@PosEntry.FormatDgb(received) DGB</div>
                             </div>
                         }
+                        else if (IsDdSession(session))
+                        {
+                            <div class="dp-pos-result-amount tabular-nums" data-dd-result>@PosEntry.FormatDdCents(session.ReceivedSatoshis > 0 ? session.ReceivedSatoshis : session.AmountCentsDd ?? 0)</div>
+                        }
                         else
                         {
                             <div class="dp-pos-result-amount tabular-nums">@PosEntry.FormatDgb(received) <span class="dp-pos-unit">DGB</span></div>
@@ -443,10 +486,10 @@
                     @if (resultStatus == "underpaid")
                     {
                         <dl class="ui-terminal-amounts">
-                            <div><dt>Received</dt><dd class="font-mono tabular-nums">@PosEntry.FormatDgb(session.ReceivedSatoshis) DGB</dd></div>
+                            <div><dt>Received</dt><dd class="font-mono tabular-nums">@SessionAmount(session, session.ReceivedSatoshis)</dd></div>
                             <div>
                                 <dt>Expected</dt>
-                                <dd class="font-mono tabular-nums">@PosEntry.FormatDgb(session.AmountSatoshis) DGB</dd>
+                                <dd class="font-mono tabular-nums">@SessionAmount(session, ExpectedAmount(session))</dd>
                                 @if (hasFiat)
                                 {
                                     <dd class="dp-pos-dd-sub tabular-nums">@Fiat.Format(session.FiatAmount!.Value, session.FiatCurrency)</dd>
@@ -658,16 +701,16 @@
 }
 
 @* Currency picker: DGB and every wallet currency, with the last four used on this tablet as "Recent". *@
-<CurrencyPicker IsOpen="@showCurrencyPicker" Selected="@currency" IncludeDgb="true" Recent="@recentCurrencies"
+<CurrencyPicker IsOpen="@showCurrencyPicker" Selected="@currency" IncludeDgb="true" IncludeDd="@ddAvailable" Recent="@recentCurrencies"
                 Id="pos-currency-dialog" Title="Till currency"
-                Hint="The amount you type is in this currency. Anything other than DGB is converted at the live price when you charge."
+                Hint="@PickerHint"
                 OnSelected="SelectCurrencyAsync" OnClosed="CloseCurrencyPicker" />
 
 @* A switch the typed amount can't survive (too many decimals for the new currency): ask before clearing it. *@
 <ConfirmDialog Open="@(pendingCurrency is not null)" Title="@($"Switch to {pendingCurrency}?")" Danger="false"
                ConfirmLabel="Clear and switch" CancelLabel="@($"Keep {currency}")"
                OnConfirm="ConfirmCurrencySwitchAsync" OnCancel="() => pendingCurrency = null">
-    @amount @currency doesn't fit @pendingCurrency (@(PosEntry.DecimalsFor(pendingCurrency) == 0 ? "no decimals" : $"{PosEntry.DecimalsFor(pendingCurrency)} decimals")). Switching clears the amount.
+    @PendingSwitchText
 </ConfirmDialog>
 
 @* Cancelling a sale whose payment is already on its way needs a second look: the money may still
@@ -796,7 +839,134 @@
         && pinNew.All(char.IsDigit)
         && pinNew == pinConfirm;
 
-    private bool IsFiat => !PosEntry.IsDgb(currency);
+    // A fiat till prices in its currency and charges DGB at the live price; DGB and DD are charged as typed.
+    private bool IsFiat => !PosEntry.IsCoin(currency);
+
+    private bool IsDd => PosEntry.IsDd(currency);
+
+    // specs/033 US1: DD is offered on the till only when the store has DigiDollar on and the server's DD surfaces switch
+    // is on (FR-001, FR-032). Read from GET /v1/pay/me with the tablet key.
+    private bool ddAvailable;
+    private string? ddNotice;
+    // Shown after a failed DD charge: charge the same dollars in DGB in one tap (FR-014).
+    private bool ddFallbackOffered;
+    // Idempotency-Key for the charge being created; reused when the same request is retried after a network error.
+    private string? chargeKey;
+    private string? chargeKeyFor;
+
+    private string PickerHint => ddAvailable
+        ? "The amount you type is in this currency. DGB and DD (1 DD = $1) are charged as typed; anything else is converted to DGB at the live price."
+        : "The amount you type is in this currency. Anything other than DGB is converted at the live price when you charge.";
+
+    private string PendingSwitchText => PosEntry.IsDd(pendingCurrency)
+        ? $"{amount} {currency} isn't converted to DD: only a USD amount carries over. Switching clears the amount."
+        : $"{amount} {currency} doesn't fit {pendingCurrency} ({(PosEntry.DecimalsFor(pendingCurrency) == 0 ? "no decimals" : $"{PosEntry.DecimalsFor(pendingCurrency)} decimals")}). Switching clears the amount.";
+
+    private static bool IsDdSession(CreatedSession s) => PosEntry.IsDd(s.Currency);
+
+    // specs/033 US3: a fiat sale can be paid in DGB or DD. posActual is the payment as the API returned it; session is
+    // what the screen shows, in the currency the customer switched to (posView) until funds lock it.
+    private CreatedSession? posActual;
+    private string posView = PosEntry.Dgb;
+    private bool posSwitching;
+    private string? posSwitchError;
+
+    private bool ShowPosSwitch => ddAvailable && posActual is { BuyerChoice: true, LockedAt: null, Status: "pending" };
+
+    private void AdoptSession(CreatedSession s)
+    {
+        posActual = s;
+        if (s.LockedAt is not null || !s.BuyerChoice) posView = s.Currency;
+        else if (posView != s.Currency && s.Options?.Any(o => o.Currency == posView) != true) posView = s.Currency;
+        ProjectSession();
+    }
+
+    private void ProjectSession()
+    {
+        if (posActual is null) return;
+        var shown = posActual;
+        if (posActual is { BuyerChoice: true, LockedAt: null } && posActual.Options?.FirstOrDefault(o => o.Currency == posView) is { } o)
+            shown = posActual with { Currency = o.Currency, Address = o.Address, AmountSatoshis = o.AmountSatoshis, AmountCentsDd = o.AmountCentsDd, Uri = o.Uri };
+        var uriChanged = session?.Uri != shown.Uri;
+        session = shown;
+        if (uriChanged) qrDataUrl = GenerateQr(shown.Uri);
+    }
+
+    private async Task SwitchPosToAsync(string currency)
+    {
+        if (posActual is null || device is null || currency == posView || posSwitching) return;
+        posSwitchError = null;
+        if (currency == PosEntry.Dd && posActual.Options?.Any(o => o.Currency == PosEntry.Dd) != true)
+        {
+            posSwitching = true;
+            try
+            {
+                var http = HttpFactory.CreateClient("PayApi");
+                using var req = new HttpRequestMessage(HttpMethod.Post, $"/v1/pay/sessions/{Uri.EscapeDataString(posActual.Id)}/options/dd");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
+                using var resp = await http.SendAsync(req, lifetime.Token);
+                if (!resp.IsSuccessStatusCode) { posSwitchError = await ApiError.ReadAsync(resp); return; }
+                var option = await resp.Content.ReadFromJsonAsync<SessionOptionDto>(lifetime.Token);
+                if (option is null) return;
+                posActual = posActual with { Options = [.. posActual.Options ?? [], option] };
+            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex)
+            {
+                Log.LogInformation(ex, "POS could not switch the sale to DD");
+                posSwitchError = "DigiDollar isn't available for this payment right now.";
+                return;
+            }
+            finally { posSwitching = false; }
+        }
+        posView = currency;
+        ProjectSession();
+    }
+
+    private static long ExpectedAmount(CreatedSession s) => IsDdSession(s) ? s.AmountCentsDd ?? 0 : s.AmountSatoshis;
+
+    // A session amount with its unit: DD from cents, DGB from satoshis.
+    private static string SessionAmount(CreatedSession s, long amount) =>
+        IsDdSession(s) ? PosEntry.FormatDdCents(amount) : $"{PosEntry.FormatDgb(amount)} DGB";
+
+    /// <summary>
+    /// Whether this tablet's store takes DD right now (GET /v1/pay/me). A till left on DD falls back to the store's
+    /// default currency, with a note, once DD isn't offered any more (FR-006). A failed lookup changes nothing.
+    /// </summary>
+    private async Task LoadDdAvailabilityAsync()
+    {
+        if (device is null) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            using var req = new HttpRequestMessage(HttpMethod.Get, "/v1/pay/me");
+            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
+            using var resp = await http.SendAsync(req, lifetime.Token);
+            if (!resp.IsSuccessStatusCode) return;
+            var me = await resp.Content.ReadFromJsonAsync<MeResponse>(lifetime.Token);
+            if (me is null) return;
+            var store = me.Stores.FirstOrDefault(s => s.Id == device.StoreId);
+            ddAvailable = me.DdSurfacesEnabled && store is { DigiDollarEnabled: true };
+            if (!ddAvailable && IsDd)
+            {
+                var fallback = PosEntry.NormalizeCurrency(store?.DefaultCurrencyEffective ?? store?.DefaultCurrency);
+                if (fallback is null || PosEntry.IsDd(fallback)) fallback = PosEntry.Dgb;
+                await SwitchCurrencyAsync(fallback, clearAmount: false);
+                ddNotice = $"DigiDollar isn't offered for this store any more, so the till is back on {fallback}.";
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.LogInformation(ex, "POS could not check whether the store takes DigiDollar"); }
+    }
+
+    // After a failed DD charge: the same dollars as a USD-priced sale, paid in DGB at the live price.
+    private async Task ChargeInDgbInsteadAsync()
+    {
+        await SwitchCurrencyAsync("USD", clearAmount: false);
+        await RefreshPriceAsync();
+        await ChargeAsync();
+    }
 
     private int MaxDecimals => PosEntry.DecimalsFor(currency);
 
@@ -839,13 +1009,14 @@
 
     private ReadoutParts Readout()
     {
-        var unit = IsFiat ? "" : "DGB";
+        var unit = IsFiat ? "" : IsDd ? "DD" : "DGB";
         if (tipPercent > 0 && TotalDecimal is decimal total)
             return new(PosEntry.Symbol(currency), PosEntry.Number(total, currency), unit, false);
         return new(PosEntry.Symbol(currency), PosEntry.TypedNumber(amount, currency), unit, amount.Length == 0);
     }
 
-    private bool CanCharge => !busy && HasAmount && (!IsFiat || quote is not null);
+    private bool CanCharge => !busy && HasAmount && (!IsFiat || quote is not null)
+        && (!IsDd || (ddAvailable && TotalDecimal is decimal dd && PosEntry.DdInRange(dd)));
 
     private string ChargeLabel
     {
@@ -904,6 +1075,7 @@
         if (IsFiat) _ = RefreshPriceAsync();
         // No currency picked on this tablet yet: start in the store's default currency.
         if (!currencyChosenHere && device is not null) _ = ApplyStoreDefaultCurrencyAsync();
+        if (device is not null) _ = LoadDdAvailabilityAsync();
         StateHasChanged();
     }
 
@@ -1069,6 +1241,13 @@
         if (PosEntry.NormalizeCurrency(picked) is not { } code) return;
         CloseCurrencyPicker();
         if (code == currency) return;
+        if (PosEntry.IsDd(code))
+        {
+            // Only a USD amount carries over to DD; anything else would need converting, so it is cleared (after asking).
+            if (amount.Length > 0 && PosEntry.CarryToDd(amount, currency).Length == 0) { pendingCurrency = code; return; }
+            await SwitchCurrencyAsync(code, clearAmount: false);
+            return;
+        }
         if (!PosEntry.Fits(amount, PosEntry.DecimalsFor(code))) { pendingCurrency = code; return; }
         await SwitchCurrencyAsync(code, clearAmount: false);
     }
@@ -1091,6 +1270,8 @@
             amount = amount.TrimEnd('.');
         }
         chargeError = null;
+        ddFallbackOffered = false;
+        ddNotice = null;
         quote = null;
         priceFailed = false;
         recentCurrencies = PosEntry.PushRecent(recentCurrencies, code);
@@ -1122,7 +1303,9 @@
                 req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
                 using var resp = await http.SendAsync(req, lifetime.Token);
                 if (!resp.IsSuccessStatusCode) return;
-                code = (await resp.Content.ReadFromJsonAsync<StoreDefaultsDto>(lifetime.Token))?.DefaultCurrency;
+                var defaults = await resp.Content.ReadFromJsonAsync<StoreDefaultsDto>(lifetime.Token);
+                // A saved DD default reads as USD while DD can't be offered (FR-008); the API works that out.
+                code = defaults?.DefaultCurrencyEffective ?? defaults?.DefaultCurrency;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -1264,7 +1447,8 @@
                 key, target.Id, target.Name, me?.DisplayName ?? "", "Manual pairing"));
             screen = Screen.Keypad;
             if (IsFiat) _ = RefreshPriceAsync();
-            if (target.DefaultCurrency is { Length: > 0 } storeDefault) await ApplyStoreDefaultCurrencyAsync(storeDefault);
+            _ = LoadDdAvailabilityAsync();
+            if ((target.DefaultCurrencyEffective ?? target.DefaultCurrency) is { Length: > 0 } storeDefault) await ApplyStoreDefaultCurrencyAsync(storeDefault);
         }
         catch (Exception ex) { pairError = $"Could not verify key: {ex.Message}"; }
         finally { busy = false; }
@@ -1288,11 +1472,22 @@
             // In fiat the cashier typed a fiat amount: convert it to DGB for the on-chain invoice and keep the fiat
             // context on the session so the dashboard, receipt and CSV show both. A quote over a minute old is
             // refreshed first. A stale one (the price feed is down) is still used: the note on screen says so.
-            decimal dgbAmount;
+            decimal dgbAmount = 0m;
+            long? ddCents = null;
             decimal? fiatAmount = null;
             string? fiatCurrency = null;
             decimal? priceSnapshot = null;
-            if (IsFiat)
+            if (IsDd)
+            {
+                // DigiDollar: the typed dollars are the amount, in cents (1 DD = $1). No price, no conversion.
+                if (TotalDecimal is not decimal dollars || !PosEntry.DdInRange(dollars))
+                {
+                    chargeError = $"DigiDollar amounts must be from {PosEntry.Money(PosEntry.DdMin, PosEntry.Dd)} to {PosEntry.Money(PosEntry.DdMax, PosEntry.Dd)}.";
+                    return;
+                }
+                ddCents = (long)(PosEntry.Round(dollars, PosEntry.Dd) * 100m);
+            }
+            else if (IsFiat)
             {
                 if (quote is null || DateTime.UtcNow - quoteLoadedAt > QuoteRefreshEvery)
                 {
@@ -1325,10 +1520,9 @@
                 label = string.IsNullOrEmpty(label) ? tipNote : $"{label} · {tipNote}";
             }
 
-            var http = HttpFactory.CreateClient("PayApi");
-            var req = new HttpRequestMessage(HttpMethod.Post, "/v1/pay/sessions")
-            {
-                Content = JsonContent.Create(new
+            object body = ddCents is long cents
+                ? new { currency = PosEntry.Dd, amountCentsDd = cents, storeId = device.StoreId, label }
+                : new
                 {
                     amount = dgbAmount,
                     storeId = device.StoreId,
@@ -1336,9 +1530,18 @@
                     fiatCurrency,
                     fiatAmount,
                     dgbPriceAtCreation = priceSnapshot,
-                }),
-            };
+                    // specs/033 US3: a fiat sale lets the customer pay in DGB or DD (the API ignores it where DD isn't offered).
+                    buyerChoice = fiatCurrency is null ? (bool?)null : true,
+                };
+            // One key per charge; a retry of the very same request after a network error reuses it, so the API
+            // returns the payment it already made instead of a second one.
+            var signature = System.Text.Json.JsonSerializer.Serialize(body);
+            if (chargeKey is null || chargeKeyFor != signature) { chargeKey = Guid.NewGuid().ToString("N"); chargeKeyFor = signature; }
+
+            var http = HttpFactory.CreateClient("PayApi");
+            var req = new HttpRequestMessage(HttpMethod.Post, "/v1/pay/sessions") { Content = JsonContent.Create(body) };
             req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", device.ApiKey);
+            req.Headers.Add("Idempotency-Key", chargeKey);
             var resp = await http.SendAsync(req);
             apiReachable = true;
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -1348,18 +1551,25 @@
             }
             if (!resp.IsSuccessStatusCode)
             {
-                chargeError = $"Could not create session ({(int)resp.StatusCode}).";
+                chargeError = await ApiError.ReadAsync(resp);
+                chargeKey = null; // the server answered: a new attempt is a new charge
+                // DD couldn't be charged (DD just turned off, say): keep the amount and offer the same dollars in DGB (FR-014).
+                ddFallbackOffered = IsDd;
                 return;
             }
+            chargeKey = null;
+            ddFallbackOffered = false;
             var created = await resp.Content.ReadFromJsonAsync<CreatedSession>();
             if (created is null) { chargeError = "Empty response from server."; return; }
             autoReturnCts?.Cancel();
-            session = created;
+            posView = created.Currency;
+            posSwitchError = null;
+            AdoptSession(created);
             resultStatus = null;
             cancelError = null;
             lastAnnouncedStatus = created.Status;
             lastAnnouncedConfirmations = created.Confirmations;
-            qrDataUrl = GenerateQr(created.Uri);
+            qrDataUrl = GenerateQr(session!.Uri);
             screen = Screen.Waiting;
         }
         catch (HttpRequestException ex)
@@ -1515,7 +1725,13 @@
             var response = await http.GetFromJsonAsync<SessionEnvelope>($"/v1/pay/sessions/{Uri.EscapeDataString(sessionId)}", lifetime.Token);
             if (!apiReachable) await InvokeAsync(() => { apiReachable = true; StateHasChanged(); });
             if (response?.Session is { } s)
+            {
+                // A buyer-choice lock (or a new option) changes what the screen shows: take the whole payment again.
+                if (posActual is not null && posActual.Id == s.Id
+                    && (s.LockedAt != posActual.LockedAt || s.Currency != posActual.Currency || (s.Options?.Count ?? 0) != (posActual.Options?.Count ?? 0)))
+                    await InvokeAsync(() => { AdoptSession(s with { Status = posActual.Status }); StateHasChanged(); });
                 await OnStatusChangedAsync(new StatusUpdate(s.Id, s.Status, s.ReceivedSatoshis, s.Confirmations, s.PaidTxid));
+            }
         }
         catch (HttpRequestException)
         {
@@ -1538,6 +1754,12 @@
 
     private async Task OnStatusChangedAsync(StatusUpdate u)
     {
+        if (posActual is not null && posActual.Id == u.SessionId
+            && ((u.LockedAt is not null && u.LockedAt != posActual.LockedAt) || (u.Currency is { } c && c != posActual.Currency)))
+        {
+            await RefreshSessionAsync(u.SessionId);
+            return;
+        }
         await InvokeAsync(async () =>
         {
             if (session is not null && session.Id == u.SessionId) await ApplyToCurrentAsync(u);
@@ -1556,6 +1778,8 @@
             Confirmations = u.Confirmations,
             PaidTxid = u.Txid ?? session.PaidTxid,
         };
+        if (posActual is not null && posActual.Id == u.SessionId)
+            posActual = posActual with { Status = u.Status, ReceivedSatoshis = u.ReceivedSatoshis, Confirmations = u.Confirmations, PaidTxid = u.Txid ?? posActual.PaidTxid };
 
         if (u.Status != lastAnnouncedStatus)
         {
@@ -1625,6 +1849,7 @@
             if (cut > 0) label = label[..cut];
             if (!label.StartsWith("Tip ", StringComparison.Ordinal)) return label;
         }
+        if (IsDdSession(s)) return $"the {PosEntry.FormatDdCents(s.AmountCentsDd ?? 0)} sale";
         return s.FiatAmount is decimal fa && !string.IsNullOrEmpty(s.FiatCurrency)
             ? $"the {Fiat.FormatWithCode(fa, s.FiatCurrency)} sale"
             : $"the {PosEntry.FormatDgb(s.AmountSatoshis)} DGB sale";
@@ -2052,23 +2277,30 @@
         string ApiKey, string Prefix, string MerchantId, string MerchantName,
         string StoreId, string StoreName, string DeviceLabel);
 
-    public record MeStoreDto(string Id, string Name, string? DefaultCurrency = null);
+    public record MeStoreDto(string Id, string Name, string? DefaultCurrency = null,
+        bool DigiDollarEnabled = false, string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true);
 
     // GET /v1/pay/stores/{id}: only what the till needs from the store.
-    private sealed record StoreDefaultsDto(string Id, string? DefaultCurrency = null);
-    public record MeResponse(string Id, string DisplayName, List<MeStoreDto> Stores);
+    private sealed record StoreDefaultsDto(string Id, string? DefaultCurrency = null,
+        bool DigiDollarEnabled = false, string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true);
+    public record MeResponse(string Id, string DisplayName, List<MeStoreDto> Stores, bool DdSurfacesEnabled = false);
 
     public record CreatedSession(
         string Id, string Address, long AmountSatoshis, decimal Amount,
         string? FiatCurrency, decimal? FiatAmount, string? Label, string? Memo,
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
-        string Uri, string CheckoutUrl);
+        string Uri, string CheckoutUrl,
+        string Currency = "DGB", long? AmountCentsDd = null,
+        bool BuyerChoice = false, DateTime? LockedAt = null, List<SessionOptionDto>? Options = null);
 
-    public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
+    public record SessionOptionDto(string Currency, string Address, long AmountSatoshis, long? AmountCentsDd, decimal? UsdRate, DateTime? RateAt, string Uri);
+
+    public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid,
+        string? Currency = null, DateTime? LockedAt = null, long? AmountCentsDd = null);
 
     // GET /v1/pay/sessions/{id}: the fields the till needs to follow a sale.
-    public record SessionEnvelope(SessionStatusDto Session);
+    public record SessionEnvelope(CreatedSession Session);
     public record SessionStatusDto(string Id, string Status, long ReceivedSatoshis, int Confirmations, string? PaidTxid);
 
     // GET /v1/pay/public/price: the price of 1 DGB in the currency, when it was fetched upstream, and how
@@ -2094,6 +2326,7 @@
     public record ShiftTotals(
         [property: JsonPropertyName("collectedCount")] int CollectedCount,
         [property: JsonPropertyName("collectedDgb")] decimal CollectedDgb,
+        [property: JsonPropertyName("collectedDdCents")] long CollectedDdCents,
         [property: JsonPropertyName("fiat")] Dictionary<string, decimal>? Fiat,
         [property: JsonPropertyName("tips")] Dictionary<string, decimal>? Tips);
 
@@ -2104,6 +2337,7 @@
     public record ShiftMissedBucket(
         [property: JsonPropertyName("count")] int Count,
         [property: JsonPropertyName("dgb")] decimal Dgb,
+        [property: JsonPropertyName("ddCents")] long DdCents,
         [property: JsonPropertyName("fiat")] Dictionary<string, decimal>? Fiat);
 
     public record ShiftOutcomes(

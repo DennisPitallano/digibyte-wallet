@@ -19,4 +19,10 @@ public class PayMerchant
     public required string ApiKeyPrefix { get; set; }
     public required string ApiKeyHash { get; set; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// One-time Dashboard notice that buyers can now pick DGB or DD at checkout (specs/033 FR-030). Set by the
+    /// AddDdEverywhere migration for merchants that already had DigiDollar on; cleared for good when dismissed.
+    /// </summary>
+    public bool DdChoiceNoticePending { get; set; }
 }

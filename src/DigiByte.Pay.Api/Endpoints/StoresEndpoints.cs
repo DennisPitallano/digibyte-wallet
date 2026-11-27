@@ -17,6 +17,13 @@ namespace DigiByte.Pay.Api.Endpoints;
 /// </summary>
 public static class StoresEndpoints
 {
+    // DD keys are checked against the store's network; regtest stores read as testnet (DigiDollar has no regtest keys).
+    private static DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey.ParseResult ParseDdKey(string? text, string network) =>
+        DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey.Parse(text, network == "mainnet" ? "mainnet" : "testnet");
+
+    // The pasted text is never echoed back: it may be a private key (contract S1).
+    private static IResult DdKeyInvalid(string reason) => Results.BadRequest(new { error = "dd_key_invalid", reason });
+
     public static RouteGroupBuilder MapStoresEndpoints(this RouteGroupBuilder group)
     {
         group.MapGet("", async (HttpRequest http, DigiPayDbContext db) =>
@@ -28,7 +35,7 @@ public static class StoresEndpoints
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync();
             // A store-bound POS tablet only sees its own store.
-            return Results.Ok(stores.Where(s => caller.CanUseStore(s.Id)).Select(MerchantMeEndpoints.StoreDto));
+            return Results.Ok(stores.Where(s => caller.CanUseStore(s.Id)).Select(s => MerchantMeEndpoints.StoreDto(s, http)));
         }).AllowPosKey();
 
         group.MapPost("", async (CreateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
@@ -60,7 +67,7 @@ public static class StoresEndpoints
                 summary: $"Created store \"{store.Name}\" ({network})",
                 metadata: new { name = store.Name, network, defaultCurrency });
 
-            return Results.Ok(MerchantMeEndpoints.StoreDto(store));
+            return Results.Ok(MerchantMeEndpoints.StoreDto(store, http));
         });
 
         group.MapGet("/{storeId}", async (string storeId, HttpRequest http, DigiPayDbContext db) =>
@@ -69,12 +76,14 @@ public static class StoresEndpoints
             if (err is not null) return err;
             var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
             if (caller is not null && !caller.CanUseStore(store!.Id)) return ApiCaller.OutsideStore();
-            return Results.Ok(MerchantMeEndpoints.StoreDto(store!));
+            var runs = await MerchantMeEndpoints.DdUnpaidRunsAsync(db, [store!.DdKeyId]);
+            return Results.Ok(MerchantMeEndpoints.StoreDto(store!, http,
+                store.DdKeyId is { } k && runs.TryGetValue(k, out var run) ? run : 0));
         }).AllowPosKey();
 
         group.MapPatch("/{storeId}", async (
             string storeId, UpdateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit,
-            IOptions<OutboundOptions> outbound, IOutboundResolver resolver, CancellationToken ct) =>
+            IOptions<OutboundOptions> outbound, IOutboundResolver resolver, DdSurfacesGate ddGate, CancellationToken ct) =>
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
             if (err is not null) return err;
@@ -160,16 +169,27 @@ public static class StoresEndpoints
             }
             if (body.DigiDollarEnabled is not null)
             {
+                // specs/035 FR-004: every DD address comes from the store's own key, so DD needs one.
+                if (body.DigiDollarEnabled.Value && store!.DdAccountKey is null)
+                    return Results.Conflict(new { error = "dd_key_required" });
                 if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
                 store!.DigiDollarEnabled = body.DigiDollarEnabled.Value;
             }
-            // Absent = leave as is; null or "" = clear; otherwise DGB or a fiat code.
+            if (body.BuyerChoiceEnabled is bool choice && store!.BuyerChoiceEnabled != choice)
+            {
+                // specs/033 FR-029: the store's switch for the buyer's DGB/DD choice at checkout.
+                changed.Add("buyer_choice");
+                store!.BuyerChoiceEnabled = choice;
+            }
+            // Absent = leave as is; null or "" = clear; otherwise DGB, a fiat code, or DD while the store can offer
+            // DigiDollar (specs/033 FR-008). Turning DD off later keeps a saved "DD": readers treat it as USD.
             if (body.DefaultCurrency.ValueKind != JsonValueKind.Undefined)
             {
                 if (body.DefaultCurrency.ValueKind is not (JsonValueKind.Null or JsonValueKind.String))
                     return Results.BadRequest(new { error = "defaultCurrency must be a string or null" });
                 var requested = body.DefaultCurrency.ValueKind == JsonValueKind.String ? body.DefaultCurrency.GetString() : null;
-                if (!TryNormaliseCurrency(requested, out var currency, out var currencyError))
+                if (!TryNormaliseCurrency(requested, out var currency, out var currencyError,
+                        allowDd: store!.DigiDollarEnabled && ddGate.Enabled))
                     return Results.BadRequest(new { error = currencyError });
                 if (store!.DefaultCurrency != currency) changed.Add("defaultCurrency");
                 store!.DefaultCurrency = currency;
@@ -184,7 +204,7 @@ public static class StoresEndpoints
                     metadata: new { fields = changed });
             }
 
-            return Results.Ok(WithSecret(store!, createdSecret));
+            return Results.Ok(WithSecret(store!, createdSecret, http));
         });
 
         // POST /v1/pay/stores/{storeId}/webhook-secret/rotate
@@ -225,10 +245,87 @@ public static class StoresEndpoints
             return Results.Ok(new { ok = true });
         });
 
-        group.MapGet("/{storeId}/donation-address", async (string storeId, HttpRequest http, DigiPayDbContext db) =>
+        // specs/035 contract S1: check a pasted DigiDollar key and show the first address it gives. Stores nothing.
+        group.MapPost("/{storeId}/dd-key/preview", async (string storeId, DdKeyRequest body, HttpRequest http, DigiPayDbContext db) =>
+        {
+            var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
+            if (err is not null) return err;
+            var parsed = ParseDdKey(body.Key, store!.Network);
+            if (!parsed.Ok) return DdKeyInvalid(parsed.Reason!);
+            return Results.Ok(new { network = parsed.Key!.Network, firstAddress = parsed.Key.Address(0), keyFingerprint = parsed.Key.Fingerprint });
+        });
+
+        // specs/035 contract S2: set or replace the key, once the merchant has checked its first address against the wallet.
+        group.MapPut("/{storeId}/dd-key", async (string storeId, DdKeyRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
             if (err is not null) return err;
+            var parsed = ParseDdKey(body.Key, store!.Network);
+            if (!parsed.Ok) return DdKeyInvalid(parsed.Reason!);
+            var key = parsed.Key!;
+            if (!string.Equals(body.ConfirmFirstAddress?.Trim(), key.Address(0), StringComparison.Ordinal))
+                return Results.Conflict(new { error = "first_address_mismatch" });
+
+            var replaced = store.DdAccountKey is not null;
+            if (store.DdKeyId != key.KeyId)
+            {
+                // Stores with the same key share its sequence; putting an old key back continues where it stopped (FR-008).
+                if (!await db.DdKeySequences.AnyAsync(k => k.Id == key.KeyId))
+                    db.DdKeySequences.Add(new DdKeySequence { Id = key.KeyId, Network = key.Network });
+                store.DdDonationAddress = null;
+            }
+            store.DdAccountKey = key.Canonical;
+            store.DdKeyId = key.KeyId;
+            store.DdAccountKeySetAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant!.Id, replaced ? "store.dd_key_replaced" : "store.dd_key_set", "Store", store.Id,
+                summary: $"{(replaced ? "Replaced" : "Set")} the DigiDollar key of store \"{store.Name}\" ({key.Fingerprint})",
+                metadata: new { fingerprint = key.Fingerprint, network = key.Network });
+
+            return Results.Ok(MerchantMeEndpoints.StoreDto(store, http));
+        });
+
+        // specs/035 contract S3: remove the key. DigiDollar turns off; open DD payments are still watched until they finish.
+        group.MapDelete("/{storeId}/dd-key", async (string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
+        {
+            var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
+            if (err is not null) return err;
+            if (store!.DdAccountKey is null) return Results.NoContent();
+            var fingerprint = store.DdKeyId?[..8];
+            store.DdAccountKey = null;
+            store.DdKeyId = null;
+            store.DdAccountKeySetAt = null;
+            store.DigiDollarEnabled = false;
+            store.DdDonationAddress = null;
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant!.Id, "store.dd_key_removed", "Store", store.Id,
+                summary: $"Removed the DigiDollar key of store \"{store.Name}\"; DigiDollar is off",
+                metadata: new { fingerprint });
+            return Results.NoContent();
+        });
+
+        group.MapGet("/{storeId}/donation-address", async (
+            string storeId, string? currency, HttpRequest http, DigiPayDbContext db,
+            DdSurfacesGate ddGate, DdAddressAllocator ddAddresses, CancellationToken ct) =>
+        {
+            var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
+            if (err is not null) return err;
+
+            // specs/033 US4, 035 FR-009: the store's DD donation address takes one index of its key's sequence on first ask
+            // and keeps it, until the key changes.
+            if (string.Equals(currency, "DD", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!store!.DigiDollarEnabled || store.DdAccountKey is null || !ddGate.Enabled)
+                    return Results.BadRequest(new { error = "digidollar_not_enabled_for_store" });
+                if (store.DdDonationAddress is null)
+                {
+                    store.DdDonationAddress = await ddAddresses.AllocateAsync(store, DdAddress.KindDonation, null, ct);
+                    await db.SaveChangesAsync(ct);
+                }
+                return Results.Ok(new { address = store.DdDonationAddress, mode = "dd" });
+            }
 
             if (!string.IsNullOrEmpty(store!.ReceiveAddress))
                 return Results.Ok(new { address = store.ReceiveAddress, mode = "address" });
@@ -485,9 +582,9 @@ public static class StoresEndpoints
             // DailyStats so no provider-specific date SQL is needed (SQLite has no zone support).
             var rows = (await db.Sessions.AsNoTracking()
                     .Where(s => s.StoreId == store.Id && s.CreatedAt >= since && s.CreatedAt < window.ToUtc)
-                    .Select(s => new { s.CreatedAt, s.Status, s.AmountSatoshis, s.Currency })
+                    .Select(s => new { s.CreatedAt, s.Status, s.AmountSatoshis, s.Currency, s.AmountCentsDd })
                     .ToListAsync())
-                .Select(r => new DailyStats.Row(r.CreatedAt, r.Status, r.AmountSatoshis, r.Currency));
+                .Select(r => new DailyStats.Row(r.CreatedAt, r.Status, r.AmountSatoshis, r.Currency, r.AmountCentsDd));
             var (series, current, previous) = DailyStats.Aggregate(rows, window, zone);
             var storeHasPayments = current.Payments > 0
                 || await db.Sessions.AsNoTracking().AnyAsync(s => s.StoreId == store.Id);
@@ -517,6 +614,7 @@ public static class StoresEndpoints
                     d.Totals.Refunded,
                     d.Totals.Voided,
                     d.Totals.RevenueDgb,
+                    d.Totals.RevenueDdCents,
                 }),
             });
         });
@@ -573,12 +671,19 @@ public static class StoresEndpoints
     /// Checks a store default currency: "DGB" or a fiat code the DigiByte wallet offers
     /// (<see cref="DigiByte.Wallet.Models.FiatCurrencies"/>), any case. Null or blank means "not set".
     /// </summary>
-    internal static bool TryNormaliseCurrency(string? value, out string? currency, out string? error)
+    /// <param name="allowDd">True when the store can offer DigiDollar (DD on and the DD surfaces switch on).</param>
+    internal static bool TryNormaliseCurrency(string? value, out string? currency, out string? error, bool allowDd = false)
     {
         currency = null;
         error = null;
         if (string.IsNullOrWhiteSpace(value)) return true;
         var code = value.Trim().ToUpperInvariant();
+        if (code == "DD")
+        {
+            if (!allowDd) { error = "digidollar_not_enabled_for_store"; return false; }
+            currency = code;
+            return true;
+        }
         if (code != "DGB" && DigiByte.Wallet.Models.FiatCurrencies.Find(code) is null)
         {
             error = "defaultCurrency must be DGB or a supported fiat currency code (e.g. USD, EUR, PHP)";
@@ -597,9 +702,9 @@ public static class StoresEndpoints
     }
 
     /// <summary>The store as the API returns it, plus <c>webhookSecret</c>: the new secret, or null.</summary>
-    private static JsonObject WithSecret(PayStore store, string? webhookSecret)
+    private static JsonObject WithSecret(PayStore store, string? webhookSecret, HttpRequest http)
     {
-        var node = JsonSerializer.SerializeToNode(MerchantMeEndpoints.StoreDto(store), JsonSerializerOptions.Web)!.AsObject();
+        var node = JsonSerializer.SerializeToNode(MerchantMeEndpoints.StoreDto(store, http), JsonSerializerOptions.Web)!.AsObject();
         node["webhookSecret"] = webhookSecret;
         return node;
     }
@@ -616,13 +721,17 @@ public static class StoresEndpoints
 }
 
 public record CreateStoreRequest(string Name, string? Network, string? DefaultCurrency = null);
+/// <summary>specs/035: a pasted DigiDollar account key, and (on save) the first address the merchant checked.</summary>
+public record DdKeyRequest(string? Key, string? ConfirmFirstAddress);
+
 public record UpdateStoreRequest(
     string? Name,
     string? Network,
     string? AddressOrXpub,
     string? WebhookUrl,
     int? DefaultSessionExpiryMinutes,
-    bool? DigiDollarEnabled)
+    bool? DigiDollarEnabled,
+    bool? BuyerChoiceEnabled = null)
 {
     /// <summary>"DGB" or a fiat code; null or "" clears it. A JsonElement so an explicit null (clear)
     /// differs from a missing field (keep).</summary>

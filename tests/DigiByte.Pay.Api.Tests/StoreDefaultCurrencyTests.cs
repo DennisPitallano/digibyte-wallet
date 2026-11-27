@@ -54,7 +54,6 @@ public class StoreDefaultCurrencyTests
 
     [Theory]
     [InlineData("XYZ")]
-    [InlineData("DD")]
     [InlineData("US Dollar")]
     public async Task Patch_rejects_an_unknown_currency_with_400(string sent)
     {
@@ -68,6 +67,50 @@ public class StoreDefaultCurrencyTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("defaultCurrency", (await Json(response)).GetProperty("error").GetString());
         Assert.Equal("USD", (await factory.LoadStore(storeId))!.DefaultCurrency);
+    }
+
+    // ----- DigiDollar as the default currency (specs/033 FR-008) -----
+
+    private static PayFactory WithDdSurfaces(bool on) =>
+        PayFactory.Create(settings: new Dictionary<string, string?> { [DigiByte.Pay.Api.Services.DdSurfacesGate.ConfigKey] = on ? "true" : "false" });
+
+    [Theory]
+    [InlineData(false, false)] // neither
+    [InlineData(true, false)]  // switch on, store hasn't turned DD on
+    [InlineData(false, true)]  // store has DD on, switch off (no payouts yet)
+    public async Task DD_is_refused_as_the_default_unless_the_store_can_offer_it(bool surfaces, bool ddOn)
+    {
+        using var factory = WithDdSurfaces(surfaces);
+        var client = factory.CreateClient();
+        var (key, storeId) = await factory.RegisterMerchant(client);
+        await TestDdKeys.GiveKey(client, key, storeId);
+        await Patch(client, key, storeId, new { digiDollarEnabled = ddOn, defaultCurrency = "USD" });
+
+        var response = await Patch(client, key, storeId, new { defaultCurrency = "dd" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("digidollar_not_enabled_for_store", (await Json(response)).GetProperty("error").GetString());
+        Assert.Equal("USD", (await factory.LoadStore(storeId))!.DefaultCurrency);
+    }
+
+    [Fact]
+    public async Task DD_can_be_the_default_while_the_store_can_offer_it_and_reads_as_USD_once_it_cannot()
+    {
+        using var factory = WithDdSurfaces(true);
+        var client = factory.CreateClient();
+        var (key, storeId) = await factory.RegisterMerchant(client);
+        await TestDdKeys.GiveKey(client, key, storeId);
+
+        var set = await Json(await Patch(client, key, storeId, new { digiDollarEnabled = true, defaultCurrency = "dd" }));
+        Assert.Equal("DD", set.GetProperty("defaultCurrency").GetString());
+        Assert.Equal("DD", set.GetProperty("defaultCurrencyEffective").GetString());
+
+        var off = await Json(await Patch(client, key, storeId, new { digiDollarEnabled = false }));
+        Assert.Equal("DD", off.GetProperty("defaultCurrency").GetString()); // kept, so turning DD back on restores it
+        Assert.Equal("USD", off.GetProperty("defaultCurrencyEffective").GetString());
+
+        var on = await Json(await Patch(client, key, storeId, new { digiDollarEnabled = true }));
+        Assert.Equal("DD", on.GetProperty("defaultCurrencyEffective").GetString());
     }
 
     [Fact]

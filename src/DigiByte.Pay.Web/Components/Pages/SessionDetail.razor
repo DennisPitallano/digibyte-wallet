@@ -98,13 +98,13 @@ else
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <div class="@Eyebrow">Amount</div>
-                        <div class="text-2xl font-bold tabular-nums">@Dgb(session.AmountSatoshis) DGB</div>
+                        <div class="text-2xl font-bold tabular-nums">@Amount(ExpectedAmount)</div>
                         @if (session.FiatAmount is decimal fa && !string.IsNullOrEmpty(session.FiatCurrency))
                         {
                             <div class="@Muted">≈ @fa.ToString("0.00", CultureInfo.InvariantCulture) @session.FiatCurrency.ToUpperInvariant() (when the payment was made)</div>
                         }
                         <div class="@Muted mt-1">
-                            Received @Dgb(session.ReceivedSatoshis) DGB
+                            Received @Amount(session.ReceivedSatoshis)
                             @if (session.Confirmations > 0)
                             {
                                 <span> · @(Math.Min(session.Confirmations, ConfirmationsRequired)) of @ConfirmationsRequired confirmations</span>
@@ -112,7 +112,7 @@ else
                         </div>
                         @if (Shortfall > 0)
                         {
-                            <div class="dash-shortfall mt-1">@Dgb(Shortfall) DGB short</div>
+                            <div class="dash-shortfall mt-1">@Amount(Shortfall) short</div>
                         }
                     </div>
                     <div>
@@ -121,6 +121,37 @@ else
                         <CopyButton Value="@(session.Address)" Label="Copy address" Text="Copy" TargetId="pay-address" Class="self-start" />
                     </div>
                 </div>
+                @if (session.BuyerChoice)
+                {
+                    @* specs/033 US3: the currencies the buyer could pay in, which one they used, and anything extra. *@
+                    <div data-buyer-choice>
+                        <div class="@Eyebrow">Buyer's choice</div>
+                        <div class="text-sm">
+                            Offered: @string.Join(" or ", (session.Options ?? []).Select(OptionText))
+                        </div>
+                        <div class="@Muted">
+                            @if (session.LockedAt is { } locked)
+                            {
+                                <text>Paid in @(IsDd ? "DigiDollar" : "DGB"), chosen @locked.ToLocalTime().ToString("g", CultureInfo.CurrentCulture).</text>
+                            }
+                            else
+                            {
+                                <text>The buyer hasn't paid yet.</text>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (session.Extra is { } extra)
+                {
+                    <div class="ui-banner ui-banner-warning" role="status" data-extra-payment>
+                        <Icon Name="alert" Class="" />
+                        <p>
+                            The buyer also sent <strong>@ExtraText(extra)</strong> in the other currency after paying in @(IsDd ? "DigiDollar" : "DGB").
+                            @(extra.Currency == "DD" ? "It went straight to your DigiDollar wallet" : "It went to your DGB address"); refund it to the buyer from your wallet.
+                            @if (!string.IsNullOrEmpty(extra.Txid)) { <span class="@Mono">@extra.Txid</span> }
+                        </p>
+                    </div>
+                }
                 @if (!string.IsNullOrEmpty(session.Label))
                 {
                     <div>
@@ -331,11 +362,11 @@ else
                     <div class="ui-banner ui-banner-warning">
                         <Icon Name="alert" Class="" />
                         <p>
-                            The customer sent @Dgb(session.ReceivedSatoshis) DGB of @Dgb(session.AmountSatoshis) DGB, so
-                            <strong>@Dgb(Shortfall) DGB is missing</strong>. This payment won't complete on its own.
+                            The customer sent @Amount(session.ReceivedSatoshis) of @Amount(ExpectedAmount), so
+                            <strong>@Amount(Shortfall) is missing</strong>. This payment won't complete on its own.
                         </p>
                     </div>
-                    <p class="@Muted m-0">Contact the customer and either create a new payment for the missing @Dgb(Shortfall) DGB, or send what arrived back to them from your wallet. Ask them not to send more to this address.</p>
+                    <p class="@Muted m-0">Contact the customer and either create a new payment for the missing @Amount(Shortfall), or send what arrived back to them from your wallet. Ask them not to send more to this address.</p>
                     <a href="@NewPaymentHref" class="btn-secondary btn-sm self-start">New payment</a>
                 }
                 else if (session.Status is "expired")
@@ -463,7 +494,24 @@ else
 
     private long Shortfall => session is null || session.Status is not "underpaid"
         ? 0
-        : Math.Max(0, session.AmountSatoshis - session.ReceivedSatoshis);
+        : Math.Max(0, ExpectedAmount - session.ReceivedSatoshis);
+
+    // specs/033: DigiDollar sessions carry their amounts in USD cents (AmountCentsDd, ReceivedSatoshis), DGB ones in satoshis.
+    private bool IsDd => session?.Currency == "DD";
+
+    private long ExpectedAmount => session is null ? 0 : IsDd ? session.AmountCentsDd ?? 0 : session.AmountSatoshis;
+
+    private string OptionText(OptionDto o) => o.Currency == "DD"
+        ? $"{((o.AmountCentsDd ?? 0) / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)} DD"
+          + (o.UsdRate is { } r && r != 1m && session?.FiatCurrency is { } fc ? $" (at {r.ToString("0.####", CultureInfo.InvariantCulture)} {fc} per US dollar)" : "")
+        : $"{Dgb(o.AmountSatoshis)} DGB";
+
+    private static string ExtraText(ExtraDto e) => e.Currency == "DD"
+        ? $"{((e.Amount ?? 0) / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)} DD"
+        : $"{Dgb(e.Amount ?? 0)} DGB";
+
+    private string Amount(long amount) =>
+        IsDd ? $"{(amount / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)} DD" : $"{Dgb(amount)} DGB";
 
     /// <summary>Satoshis as DGB with up to 8 decimals, never raw satoshis.</summary>
     private static string Dgb(long sats) => (sats / 100_000_000m).ToString("0.########", CultureInfo.InvariantCulture);
@@ -737,7 +785,11 @@ else
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl, string? Source = null,
         string? RefundTxid = null, DateTime? RefundedAt = null, string? RefundNote = null,
-        string? ReturnUrl = null);
+        string? ReturnUrl = null, string Currency = "DGB", long? AmountCentsDd = null,
+        bool BuyerChoice = false, DateTime? LockedAt = null, List<OptionDto>? Options = null, ExtraDto? Extra = null);
+
+    private record OptionDto(string Currency, string Address, long AmountSatoshis, long? AmountCentsDd, decimal? UsdRate, DateTime? RateAt, string Uri);
+    private record ExtraDto(string Currency, long? Amount, string? Txid, DateTime? SeenAt);
 
     private record WebhookDeliveryDto(string Id, string StoreId, string? SessionId,
         string EventName, string Url, int Attempt, int? StatusCode, string? ErrorMessage,

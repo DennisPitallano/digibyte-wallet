@@ -44,6 +44,9 @@ public sealed class PayFactory : WebApplicationFactory<Program>
 
     public FakeReceiver Receiver { get; } = new();
     public FakeResolver Resolver { get; } = new();
+    public FakeDdExplorer DdExplorer { get; } = new();
+    public FakeChain Chain { get; } = new();
+    public FakeRates Rates { get; } = new();
 
     public PayFactory() : this(false, 1000, "Production", null) { }
 
@@ -77,6 +80,9 @@ public sealed class PayFactory : WebApplicationFactory<Program>
         {
             services.AddSingleton<IOutboundResolver>(Resolver);
             services.AddHttpClient("DigiPayWebhook").ConfigurePrimaryHttpMessageHandler(() => Receiver);
+            services.AddHttpClient(DigiByte.Pay.Api.Services.DdChainProvider.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => DdExplorer);
+            services.AddSingleton<DigiByte.Pay.Api.Services.IChainServiceProvider>(Chain);
+            services.AddHttpClient("DigiPayChain").ConfigurePrimaryHttpMessageHandler(() => Rates);
         });
     }
 

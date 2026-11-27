@@ -1,0 +1,160 @@
+@* The store's DigiDollar key (specs/035 US1): paste the key from the DigiByte Wallet, check the first address it gives
+   against the wallet, save. DigiDollar goes straight to that wallet; DigiPay never holds it. *@
+@inject IHttpClientFactory HttpFactory
+@using System.Net.Http.Json
+@using DigiByte.Pay.Web.Components.Shared.Ui
+
+@{
+    const string Muted = "dp-muted";
+    const string Btn = "btn-primary btn-sm";
+    const string BtnGhost = "btn-secondary btn-sm";
+}
+
+<div class="flex flex-col gap-2" id="dd-key-card" data-dd-key-card>
+    <h3 class="text-sm font-semibold m-0">Your DigiDollar key</h3>
+    @if (DdKey is { Set: true } key && !replacing)
+    {
+        <p class="@Muted m-0">DigiDollar paid to this store goes straight to the wallet with this key. DigiPay never holds it.</p>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm m-0">
+            <dt class="@Muted">Key</dt><dd class="m-0 font-mono" data-dd-key-fingerprint>…@key.Fingerprint</dd>
+            <dt class="@Muted">First address</dt><dd class="m-0 font-mono break-all" data-dd-key-first>@key.FirstAddress</dd>
+        </dl>
+        @if (key.UnpaidRunWarning)
+        {
+            <div class="ui-banner ui-banner-warning" role="status" data-dd-unpaid-run>
+                <p>@key.UnpaidRun DigiDollar addresses in a row have had no payment. Run "Look further for DigiDollar" in your wallet after your next DigiDollar payment, so it finds everything.</p>
+            </div>
+        }
+        <div class="flex gap-2 flex-wrap">
+            <button class="@BtnGhost" @onclick="StartReplace" disabled="@busy">Replace key</button>
+            @if (confirmRemove)
+            {
+                <button class="@Btn" @onclick="RemoveAsync" disabled="@busy" data-dd-key-remove-confirm>Yes, remove it and turn DigiDollar off</button>
+                <button class="@BtnGhost" @onclick="() => confirmRemove = false" disabled="@busy">Keep it</button>
+            }
+            else
+            {
+                <button class="@BtnGhost" @onclick="() => confirmRemove = true" disabled="@busy" data-dd-key-remove>Remove key</button>
+            }
+        </div>
+    }
+    else
+    {
+        <p class="@Muted m-0">
+            In your DigiByte Wallet, open <strong>Settings → DigiDollar key for DigiPay</strong>, copy the key and paste it here.
+            It lets DigiPay make a new DigiDollar address for each payment. It can't spend.
+        </p>
+        <label for="dd-key-input" class="text-sm">DigiDollar key</label>
+        <textarea id="dd-key-input" class="input font-mono text-xs" rows="2" spellcheck="false" autocomplete="off"
+                  @bind="pasted" @bind:event="oninput" placeholder="@(Network == "mainnet" ? "xpub…" : "tpub…")"></textarea>
+        @if (previewAddress is null)
+        {
+            <div class="flex gap-2 flex-wrap">
+                <button class="@Btn" @onclick="PreviewAsync" disabled="@(busy || string.IsNullOrWhiteSpace(pasted))" data-dd-key-check>Check key</button>
+                @if (replacing) { <button class="@BtnGhost" @onclick="CancelReplace" disabled="@busy">Cancel</button> }
+            </div>
+        }
+        else
+        {
+            <div class="flex flex-col gap-2" data-dd-key-preview>
+                <p class="m-0 text-sm">This key's first DigiDollar address is:</p>
+                <p class="m-0 font-mono text-base break-all font-semibold" data-dd-key-preview-address>@previewAddress</p>
+                <p class="@Muted m-0">Check that your wallet's DigiDollar key screen shows the same first address. If it doesn't, don't save: the key is from another wallet or another account.</p>
+                <div class="flex gap-2 flex-wrap">
+                    <button class="@Btn" @onclick="SaveAsync" disabled="@busy" data-dd-key-save>It matches my wallet, save</button>
+                    <button class="@BtnGhost" @onclick="ResetPreview" disabled="@busy">It doesn't match</button>
+                </div>
+            </div>
+        }
+    }
+    @if (error != null) { <p class="field-error" role="alert" data-dd-key-error>@error</p> }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Token { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string StoreId { get; set; } = string.Empty;
+    [Parameter] public string Network { get; set; } = "mainnet";
+    [Parameter] public DdKeyView? DdKey { get; set; }
+    /// <summary>Called after the key is saved, replaced or removed, so the page reloads the store.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    /// <summary>The store DTO's <c>ddKey</c> (contracts/stores-api.md S4). The key itself is never sent to the page.</summary>
+    public sealed record DdKeyView(bool Set, string Network, string Fingerprint, string FirstAddress, DateTime? SetAt,
+        int UnpaidRun = 0, bool UnpaidRunWarning = false);
+
+    private sealed record PreviewDto(string Network, string FirstAddress, string KeyFingerprint);
+
+    private string? pasted;
+    private string? previewAddress;
+    private string? error;
+    private bool busy;
+    private bool replacing;
+    private bool confirmRemove;
+    private string? lastStoreId;
+
+    protected override void OnParametersSet()
+    {
+        if (lastStoreId != StoreId)
+        {
+            lastStoreId = StoreId;
+            pasted = previewAddress = error = null;
+            replacing = confirmRemove = false;
+        }
+    }
+
+    private HttpRequestMessage Authed(HttpMethod method, string path, object? body = null)
+    {
+        var req = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
+        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {Token}");
+        return req;
+    }
+
+    private void StartReplace() { replacing = true; confirmRemove = false; pasted = previewAddress = error = null; }
+    private void CancelReplace() { replacing = false; pasted = previewAddress = error = null; }
+    private void ResetPreview() { previewAddress = null; error = "Don't use this key. Copy it again from the DigiDollar key screen of the wallet you want paid."; }
+
+    private async Task PreviewAsync()
+    {
+        busy = true; error = null;
+        try
+        {
+            using var response = await HttpFactory.CreateClient("PayApi")
+                .SendAsync(Authed(HttpMethod.Post, $"/v1/pay/stores/{StoreId}/dd-key/preview", new { key = pasted }));
+            if (!response.IsSuccessStatusCode) { error = await ApiError.ReadAsync(response); return; }
+            previewAddress = (await response.Content.ReadFromJsonAsync<PreviewDto>())?.FirstAddress;
+        }
+        catch (Exception) { error = ApiError.Network; }
+        finally { busy = false; }
+    }
+
+    private async Task SaveAsync()
+    {
+        busy = true; error = null;
+        try
+        {
+            using var response = await HttpFactory.CreateClient("PayApi")
+                .SendAsync(Authed(HttpMethod.Put, $"/v1/pay/stores/{StoreId}/dd-key", new { key = pasted, confirmFirstAddress = previewAddress }));
+            if (!response.IsSuccessStatusCode) { error = await ApiError.ReadAsync(response); return; }
+            pasted = previewAddress = null;
+            replacing = false;
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception) { error = ApiError.Network; }
+        finally { busy = false; }
+    }
+
+    private async Task RemoveAsync()
+    {
+        busy = true; error = null;
+        try
+        {
+            using var response = await HttpFactory.CreateClient("PayApi")
+                .SendAsync(Authed(HttpMethod.Delete, $"/v1/pay/stores/{StoreId}/dd-key"));
+            if (!response.IsSuccessStatusCode) { error = await ApiError.ReadAsync(response); return; }
+            confirmRemove = false;
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception) { error = ApiError.Network; }
+        finally { busy = false; }
+    }
+}

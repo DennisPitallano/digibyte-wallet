@@ -7,6 +7,7 @@
 @inject LiveAnnouncer Announcer
 @inject NavigationManager Nav
 @inject ILogger<Checkout> Log
+@inject IServiceProvider Services
 @using Microsoft.AspNetCore.SignalR.Client
 @using System.Net.Http.Json
 
@@ -61,6 +62,27 @@
                     <StatusBadge Status="@(reconnecting && !final ? CheckoutStates.Reconnecting : session.Status)" Class="shrink-0" />
                 </header>
 
+                @if (ShowSwitch)
+                {
+                    @* specs/033 US3: the buyer picks DGB or DigiDollar until funds arrive (FR-020). *@
+                    <div class="segmented w-fit self-center" role="group" aria-label="Pay with" data-pay-switch>
+                        <button type="button" class="segmented-item" aria-pressed="@(viewCurrency == "DGB" ? "true" : "false")"
+                                disabled="@switching" @onclick='() => SwitchToAsync("DGB")'>DGB</button>
+                        @if (ddAvailable)
+                        {
+                            <button type="button" class="segmented-item" aria-pressed="@(viewCurrency == "DD" ? "true" : "false")"
+                                    disabled="@switching" @onclick='() => SwitchToAsync("DD")'>DigiDollar</button>
+                        }
+                    </div>
+                }
+                @if (switchMessage != null)
+                {
+                    <div class="ui-banner ui-banner-info w-full" role="status" data-switch-message>
+                        <Icon Name="info" Class="" />
+                        <p>@switchMessage</p>
+                    </div>
+                }
+
                 @if (session.Currency == "DD" && session.AmountCentsDd is { } ddCents)
                 {
                     @* DigiDollar: the amount is already USD ($1 = 1 DD), so no conversion and no drift banner. *@
@@ -71,6 +93,10 @@
                              onerror="this.style.display='none'" />
                         <p class="ui-checkout-big"><span id="checkout-amount">@FormatUsdPlain(ddCents)</span> <span class="ui-checkout-unit">USD</span></p>
                         <p class="ui-checkout-muted">DigiDollar payment</p>
+                        @if (RateLine is { } rateLine)
+                        {
+                            <p class="ui-checkout-muted tabular-nums" data-rate-line>@rateLine</p>
+                        }
                     </div>
                 }
                 else if (session.FiatAmount is { } fiatAmt && !string.IsNullOrWhiteSpace(session.FiatCurrency))
@@ -113,7 +139,7 @@
                 {
                     <TerminalState Status="@session.Status" Txid="@session.PaidTxid" SessionId="@session.Id"
                                    ReturnUrl="@session.ReturnUrl" ReceiptHref="@ReceiptHref"
-                                   ReceivedSatoshis="@session.ReceivedSatoshis" ExpectedSatoshis="@session.AmountSatoshis"
+                                   ReceivedSatoshis="@session.ReceivedSatoshis" ExpectedSatoshis="@(session.Currency == "DD" ? session.AmountCentsDd ?? 0 : session.AmountSatoshis)"
                                    Currency="@session.Currency" />
                 }
                 else if (CheckoutStates.IsConfirming(session.Status))
@@ -184,7 +210,14 @@
     /// <summary>A shop's ?theme=light|dark, carried into the receipt link (contract C3).</summary>
     [SupplyParameterFromQuery(Name = "theme")] public string? Theme { get; set; }
 
+    // What the page shows. For an unlocked buyer-choice payment it is the payment as seen in the currency the buyer
+    // picked (viewCurrency); otherwise the payment as the API returned it (actual).
     private SessionDto? session;
+    private SessionDto? actual;
+    private string? viewCurrency;
+    private bool ddAvailable;
+    private bool switching;
+    private string? switchMessage;
     private string? merchantName;
     private string? qrDataUrl;
     private bool loadFailed;
@@ -201,6 +234,90 @@
     private readonly CancellationTokenSource lifetime = new();
     private Task? pollLoop;
     private static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(10);
+
+    private bool ShowSwitch => actual is { BuyerChoice: true, LockedAt: null, Status: "pending" };
+
+    private OptionDto? OptionFor(string currency) => actual?.Options?.FirstOrDefault(o => o.Currency == currency);
+
+    /// <summary>"₱1,250.00 at ₱58.20 per US dollar" for a DD amount converted from another currency (FR-022).</summary>
+    private string? RateLine =>
+        viewCurrency == "DD" && OptionFor("DD") is { UsdRate: { } rate } && rate != 1m
+        && actual?.FiatAmount is { } fa && actual.FiatCurrency is { } fc
+            ? $"{Fiat.Format(fa, fc)} at {Fiat.Format(rate, fc)} per US dollar"
+            : null;
+
+    /// <summary>Shows the payment in <see cref="viewCurrency"/> while it can still be switched; else as it is.</summary>
+    private void Project()
+    {
+        if (actual is null) return;
+        var shown = actual;
+        if (actual.BuyerChoice && actual.LockedAt is null && viewCurrency is not null && OptionFor(viewCurrency) is { } o)
+            shown = actual with { Currency = o.Currency, Address = o.Address, AmountSatoshis = o.AmountSatoshis, AmountCentsDd = o.AmountCentsDd, Uri = o.Uri };
+        var uriChanged = session?.Uri != shown.Uri;
+        session = shown;
+        if (uriChanged || qrDataUrl is null) qrDataUrl = GenerateQr(shown.Uri);
+    }
+
+    /// <summary>Takes a fresh copy of the payment from the API and follows a lock or a change in DD availability.</summary>
+    private void Adopt(GetSessionResponse response)
+    {
+        actual = response.Session;
+        ddAvailable = response.DdAvailable ?? false;
+        if (actual.LockedAt is not null || !actual.BuyerChoice) viewCurrency = actual.Currency;
+        else if ((viewCurrency ??= actual.Currency) == "DD" && !ddAvailable)
+        {
+            // DigiDollar went away before the buyer paid: back to DGB, with a note (spec edge case).
+            viewCurrency = "DGB";
+            switchMessage = "DigiDollar isn't available for this payment any more, so it's back to DGB.";
+        }
+        Project();
+    }
+
+    /// <summary>The buyer's DGB/DD switch. The first switch to DD asks the API for this payment's DD option.</summary>
+    private async Task SwitchToAsync(string currency)
+    {
+        if (actual is null || currency == viewCurrency || switching) return;
+        switchMessage = null;
+        if (currency == "DD" && OptionFor("DD") is null)
+        {
+            switching = true;
+            try
+            {
+                var http = HttpFactory.CreateClient("PayApi");
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"/v1/pay/sessions/{Uri.EscapeDataString(SessionId)}/options/dd");
+                // The API's per-visitor rate limit counts the shopper, not this server (DigiPay:TrustedClientKey).
+                var key = Services.GetService<IConfiguration>()?["DigiPay:TrustedClientKey"];
+                if (!string.IsNullOrEmpty(key) && visitorAddress is not null)
+                {
+                    request.Headers.TryAddWithoutValidation("X-DigiPay-Client-Address", visitorAddress);
+                    request.Headers.TryAddWithoutValidation("X-DigiPay-Client-Key", key);
+                }
+                using var response = await http.SendAsync(request, lifetime.Token);
+                if (!response.IsSuccessStatusCode)
+                {
+                    switchMessage = await DigiByte.Pay.Web.Components.Shared.Ui.ApiError.ReadAsync(response);
+                    return;
+                }
+                var option = await response.Content.ReadFromJsonAsync<OptionDto>(lifetime.Token);
+                if (option is null) return;
+                actual = actual with { Options = [.. actual.Options ?? [], option] };
+            }
+            catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
+            catch (Exception ex)
+            {
+                Log.LogInformation(ex, "Checkout could not switch {SessionId} to DD", SessionId);
+                switchMessage = "DigiDollar isn't available for this payment right now.";
+                return;
+            }
+            finally { switching = false; }
+        }
+        viewCurrency = currency;
+        Project();
+        priceDriftPct = null;
+        await RefreshPriceDriftAsync();
+    }
+
+    private string? visitorAddress;
 
     private string PageTitleText => merchantName is null ? "Pay · DigiPay" : $"Pay {merchantName} · DigiPay";
 
@@ -244,9 +361,9 @@
                 return;
             }
             loaded = response;
-            session = response.Session;
+            visitorAddress ??= Services.GetService<IHttpContextAccessor>()?.HttpContext is { } context ? Signin.VisitorAddressOf(context) : null;
+            Adopt(response);
             merchantName = response.MerchantName;
-            qrDataUrl = GenerateQr(session.Uri);
             loadFailed = false;
             lastAnnouncedStatus = session.Status; // the first state is visible, not announced
             lastAnnouncedConfirmations = session.Confirmations;
@@ -381,19 +498,33 @@
         {
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.GetFromJsonAsync<GetSessionResponse>($"/v1/pay/sessions/{Uri.EscapeDataString(SessionId)}", lifetime.Token);
-            if (response?.Session is { } fresh) await ApplyAsync(fresh.Status, fresh.ReceivedSatoshis, fresh.Confirmations, fresh.PaidTxid);
+            if (response?.Session is not { } fresh) return;
+            if (actual is not null && (fresh.LockedAt != actual.LockedAt || fresh.Currency != actual.Currency
+                || (response.DdAvailable ?? false) != ddAvailable || (fresh.Options?.Count ?? 0) != (actual.Options?.Count ?? 0)))
+            {
+                // Locked to a currency, or DigiDollar came or went: take the whole payment again.
+                await InvokeAsync(() => { Adopt(response); StateHasChanged(); });
+            }
+            await ApplyAsync(fresh.Status, fresh.ReceivedSatoshis, fresh.Confirmations, fresh.PaidTxid);
         }
         catch { /* still offline: keep the last known state */ }
     }
 
-    private Task OnStatusChanged(StatusUpdate update) =>
-        ApplyAsync(update.Status, update.ReceivedSatoshis, update.Confirmations, update.Txid);
+    private async Task OnStatusChanged(StatusUpdate update)
+    {
+        // A buyer-choice lock changes the currency in effect: re-read the payment so the page shows that currency.
+        if (actual is not null && (update.LockedAt != actual.LockedAt || (update.Currency is { } c && c != actual.Currency)))
+            await RefreshSessionAsync();
+        await ApplyAsync(update.Status, update.ReceivedSatoshis, update.Confirmations, update.Txid);
+    }
 
     private async Task ApplyAsync(string status, long received, int confirmations, string? txid)
     {
         if (session is null) return;
         await InvokeAsync(() =>
         {
+            if (actual is not null)
+                actual = actual with { Status = status, ReceivedSatoshis = received, Confirmations = confirmations, PaidTxid = txid ?? actual.PaidTxid };
             session = session with
             {
                 Status = status,
@@ -455,7 +586,7 @@
         lifetime.Dispose();
     }
 
-    public record GetSessionResponse(SessionDto Session, string? MerchantName);
+    public record GetSessionResponse(SessionDto Session, string? MerchantName, bool? DdAvailable = null, string? DdReason = null);
 
     public record SessionDto(
         string Id, string Address, long AmountSatoshis, decimal Amount,
@@ -468,9 +599,16 @@
         string? ReturnUrl = null,
         // DigiDollar: Currency = "DGB" (default) or "DD"; for DD, AmountCentsDd carries USD cents.
         string Currency = "DGB",
-        long? AmountCentsDd = null);
+        long? AmountCentsDd = null,
+        // specs/033 buyer choice: the currencies it can be paid in, and when funds locked it to one.
+        bool BuyerChoice = false,
+        DateTime? LockedAt = null,
+        List<OptionDto>? Options = null);
 
-    public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid);
+    public record OptionDto(string Currency, string Address, long AmountSatoshis, long? AmountCentsDd, decimal? UsdRate, DateTime? RateAt, string Uri);
+
+    public record StatusUpdate(string SessionId, string Status, long ReceivedSatoshis, int Confirmations, string? Txid,
+        string? Currency = null, DateTime? LockedAt = null, long? AmountCentsDd = null);
 
     public record PriceQuoteDto(
         [property: System.Text.Json.Serialization.JsonPropertyName("dgbPrice")] decimal DgbPrice);

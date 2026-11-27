@@ -250,15 +250,23 @@
     /**
      * Builds a donation button (an <a> to the hosted tip page).
      *
-     * opts.address  (required) DigiByte address to pay.
+     * opts.address  DigiByte address to pay. Required unless opts.store is given.
+     * opts.store    optional store id: the tip page loads the store's donation options and can offer DigiDollar.
+     * opts.currency optional 'DGB' (default) or 'DD': the currency the tip page opens on.
+     * opts.ddAmount optional suggested DigiDollar amount in dollars (a DGB amount is never shown as DD).
      * opts.amount / opts.name / opts.label / opts.theme  optional, passed to the tip page.
      * opts.text     optional button text (default 'Pay with DigiByte').
      * opts.logo     optional image shown before the text: 'dgb' for the DigiByte logo, or an http(s) URL.
      */
     function button(opts) {
-        if (!opts || !opts.address) throw new Error('DigiPay.button requires { address }');
+        if (!opts || (!opts.address && !opts.store)) throw new Error('DigiPay.button requires { address } or { store }');
         requireOrigin();
-        var url = origin + '/pay/button?to=' + encodeURIComponent(opts.address);
+        var params = [];
+        if (opts.address) params.push('to=' + encodeURIComponent(opts.address));
+        if (opts.store) params.push('store=' + encodeURIComponent(opts.store));
+        var url = origin + '/pay/button?' + params.join('&');
+        if (opts.currency && /^(DGB|DD)$/i.test(opts.currency)) url += '&currency=' + opts.currency.toUpperCase();
+        if (opts.ddAmount && Number(opts.ddAmount) > 0) url += '&ddAmount=' + encodeURIComponent(opts.ddAmount);
         if (opts.amount && Number(opts.amount) > 0) url += '&amount=' + encodeURIComponent(opts.amount);
         if (opts.name) url += '&name=' + encodeURIComponent(opts.name);
         if (opts.label) url += '&label=' + encodeURIComponent(opts.label);
@@ -308,6 +316,9 @@
             el.__digipay_bound = true;
             var a = button({
                 address: el.getAttribute('data-address') || el.getAttribute('data-to'),
+                store: el.getAttribute('data-store'),
+                currency: el.getAttribute('data-currency'),
+                ddAmount: el.getAttribute('data-dd-amount'),
                 amount: el.getAttribute('data-amount'),
                 name: el.getAttribute('data-name'),
                 label: el.getAttribute('data-label'),

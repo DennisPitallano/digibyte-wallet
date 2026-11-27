@@ -112,6 +112,59 @@
           }
         },
         {
+          "name": "Create session (buyer choice)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 2500,\n    \"fiatCurrency\": \"USD\",\n    \"fiatAmount\": 25,\n    \"dgbPriceAtCreation\": 0.01,\n    \"label\": \"Order #4244\",\n    \"buyerChoice\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "pay",
+                "sessions"
+              ]
+            },
+            "description": "Fiat-priced session the buyer can pay in DGB or DigiDollar (specs/033). Honoured only where the store offers DigiDollar; otherwise the response has buyerChoice false and no options."
+          }
+        },
+        {
+          "name": "Switch session to DigiDollar",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/sessions/{{sessionId}}/options/dd",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "pay",
+                "sessions",
+                "{{sessionId}}",
+                "options",
+                "dd"
+              ]
+            },
+            "description": "The buyer's switch to DD on a buyer-choice session. Anonymous, rate-limited; returns the DD option, made once."
+          }
+        },
+        {
           "name": "Get session",
           "request": {
             "method": "GET",
@@ -232,6 +285,52 @@
               "path": ["v1", "pay", "stores", "{{lastStoreId}}"]
             },
             "description": "Setting a `webhookUrl` for the first time generates a fresh signing secret — fetch it once via Get store and store it in your secrets manager."
+          }
+        },
+        {
+          "name": "Preview DigiDollar key",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"xpub6...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/dd-key/preview",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "dd-key", "preview"]
+            },
+            "description": "Checks a DigiDollar account key from the DigiByte Wallet (Settings → DigiDollar key for DigiPay) and returns the first address it gives, without saving. Compare that address with the wallet. 400 dd_key_invalid with a reason (malformed, private_key, wrong_network, not_account_key)."
+          }
+        },
+        {
+          "name": "Set DigiDollar key",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"xpub6...\",\n    \"confirmFirstAddress\": \"DD...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/dd-key",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "dd-key"]
+            },
+            "description": "Sets or replaces the store's DigiDollar key. confirmFirstAddress must be the first address from the preview (409 first_address_mismatch otherwise). DigiDollar then goes straight to that wallet; DigiPay never holds it."
+          }
+        },
+        {
+          "name": "Remove DigiDollar key",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/dd-key",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "dd-key"]
+            },
+            "description": "Removes the key and turns DigiDollar off for the store. Open DD payments still complete."
           }
         },
         {

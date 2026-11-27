@@ -299,3 +299,22 @@ minute, 10 rooms per hour; negotiate requests are limited to 30 per minute per c
 
 **Deployment constraint:** rooms live in one API instance's memory. Run a single instance, or route
 `/hubs/multisig-signing` with sticky sessions so every participant of a room reaches the same instance.
+
+## DigiPay DigiDollar on the merchant's own key (specs/035)
+
+DigiPay takes DigiDollar (DD) the way it takes DGB: straight to the merchant's own wallet. It runs no DigiDollar node and never holds DD or a private key.
+
+- A store keeps the merchant's DigiDollar account public key (`xpub`/`tpub` at `m/86'/coin'/0'`, shown in the DigiByte Wallet under **Settings → DigiDollar key for DigiPay**). `DigiDollarAccountKey` in `DigiByte.Crypto` checks it (network, account depth, never a private key) and derives receive address `0/i` as a BIP86 Taproot output, the same address the wallet derives from the seed. Saving the key needs the first address the merchant checked against the wallet.
+- `DdAddressAllocator` gives every DD address (explicit DD payments, the buyer's DD option, the donation address) the next index of the key's shared `DdKeySequences` row, with one atomic `UPDATE … RETURNING`. Stores with the same key share the sequence, and `DdAddresses` (unique key + index) records each address, so none is given out twice.
+- `InvoiceMonitor` reads DD arrivals and confirmations from the public Esplora explorer through the wallet's `EsploraDigiDollarApi` (`IDdChainProvider`, one client per network): the total received on the address, and real confirmations of the transaction that completed the amount. Underpaid DD payments stay watched through the 3-day late window.
+- `DdAvailability` reports DD available while the explorer answers and DigiDollar is active (cached 30 seconds per network). While it can't be reached, DD payments wait and catch up later, the buyer's DD switch isn't offered, and DGB is unaffected. Creating DD addresses never calls the explorer.
+- The wallet's DigiDollar scan can look 500 addresses past the last paid one (`/recovery`, "Look further for DigiDollar"), since DigiPay may give out many unpaid addresses.
+
+## DigiPay buyer's choice of DGB or DigiDollar (specs/033)
+
+A payment priced in a regular currency can be paid in DGB or DD. It stays one `PaySession` with one `PaySessionOption` row per currency; the session's own `Currency`, `Address` and amounts always describe the currency in effect.
+
+- The DGB option is made with the session. The DD option is made the first time the buyer picks DD (`POST /v1/pay/sessions/{id}/options/dd`, anonymous and rate-limited), with an address from the store's DigiDollar key, and priced once: USD at 1:1, other currencies at the USD rate, rounded up to the cent.
+- `InvoiceMonitor` watches every option of an unlocked session (the explorer for both; a DD error never stops DGB). The first funds lock the session to that option by copying it onto the session, so receipts, webhooks, stats and the POS need nothing new.
+- After the lock, and through the 3-day late window, funds on the other option are recorded as an extra payment (`session.extra_payment`), which the merchant refunds from their own wallet.
+- All of it is off until `DIGIPAY_DD_SURFACES` is on. Set it in production once spec 035 is live there.

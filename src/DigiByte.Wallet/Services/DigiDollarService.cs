@@ -15,6 +15,12 @@ public sealed class DigiDollarService : IDigiDollarService
     /// <summary>Standard gap limit for the restore scan (FR-007): stop after this many consecutive unused addresses.</summary>
     public const int GapLimit = 20;
 
+    /// <summary>
+    /// Receive gap for the deeper search on the recovery page (specs/035 W3, FR-023): DigiPay hands out a fresh DD address per
+    /// payment, and many are never paid, so DD can sit far past the normal gap.
+    /// </summary>
+    public const int DeepScanGapLimit = 500;
+
     /// <summary>How long a send may be absent from both the mempool and the chain before it is marked Failed (FR-017).</summary>
     public static readonly TimeSpan PendingSendExpiry = TimeSpan.FromMinutes(30);
 
@@ -158,48 +164,98 @@ public sealed class DigiDollarService : IDigiDollarService
 
     // ------------------------------------------------------------------ restore scan (R12)
 
-    private sealed class ChainScan
+    public async Task<DdScanResult> ScanAsync(
+        IProgress<DdScanProgress>? progress = null, CancellationToken ct = default, int receiveGapLimit = GapLimit)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(receiveGapLimit, 1);
+        ct.ThrowIfCancellationRequested();
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var c = Resolve();
+            if (c is null) return new DdScanResult(DdScanOutcome.NotSupported, 0);
+
+            var state = await LoadStateAsync(c);
+            var known = state.Addresses.Select(a => (a.Chain, a.Index)).ToHashSet();
+            try
+            {
+                var (scanned, active) = await ScanChainsAsync(c, state, progress, receiveGapLimit, ct);
+                await SaveAsync(c, scanned);
+                return new DdScanResult(DdScanOutcome.Finished, active.Count(a => !known.Contains(a)));
+            }
+            catch (DdBackendUnavailableException)
+            {
+                return new DdScanResult(DdScanOutcome.Unavailable, 0);
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>One chain's progress: it is done once <see cref="Gap"/> addresses past the last used one were checked.</summary>
+    private sealed class ChainScan(int gap, int lastActive)
+    {
+        public int Gap { get; } = gap;
         public int Scanned;
-        public int LastActive = -1;
-        public bool Done => Scanned >= LastActive + 1 + GapLimit;
+        public int LastActive = lastActive;
+        public int End => LastActive + 1 + Gap;
+        public bool Done => Scanned >= End;
+
+        /// <summary>Addresses per round: the gap, but never more than one request's worth.</summary>
+        public int Step => Math.Min(Gap, MaxAddressesPerRequest);
     }
 
     private async Task<DigiDollarState> ScanAsync(
-        Ctx c, DigiDollarState state, IProgress<DdScanProgress>? progress, CancellationToken ct)
+        Ctx c, DigiDollarState state, IProgress<DdScanProgress>? progress, CancellationToken ct) =>
+        (await ScanChainsAsync(c, state, progress, GapLimit, ct)).State;
+
+    /// <summary>
+    /// The restore scan. The receive chain goes <paramref name="receiveGap"/> unused addresses past the last used one, counting
+    /// from the highest used receive index any earlier scan found (specs/035 W3); the change chain uses the normal gap.
+    /// </summary>
+    private async Task<(DigiDollarState State, IReadOnlyCollection<(DigiDollarChain Chain, int Index)> Active)> ScanChainsAsync(
+        Ctx c, DigiDollarState state, IProgress<DdScanProgress>? progress, int receiveGap, CancellationToken ct)
     {
         var chains = new Dictionary<DigiDollarChain, ChainScan>
         {
-            [DigiDollarChain.Receive] = new(),
-            [DigiDollarChain.Change] = new(),
+            [DigiDollarChain.Receive] = new(receiveGap, Math.Max(-1, state.Account.HighestUsedReceiveIndex)),
+            [DigiDollarChain.Change] = new(GapLimit, -1),
         };
         var checkedCount = 0;
-        var activeFound = 0;
+        var activeFound = new HashSet<(DigiDollarChain Chain, int Index)>();
 
         while (chains.Values.Any(s => !s.Done))
         {
             ct.ThrowIfCancellationRequested();
 
             var batch = new Dictionary<string, (DigiDollarChain Chain, int Index)>(StringComparer.Ordinal);
+            var batchEnd = new Dictionary<DigiDollarChain, int>();
             foreach (var (chain, scan) in chains.Where(kv => !kv.Value.Done))
-                for (var i = scan.Scanned; i < scan.Scanned + GapLimit; i++)
+            {
+                var end = Math.Min(scan.Scanned + scan.Step, scan.End);
+                for (var i = scan.Scanned; i < end; i++)
                     batch[c.Hd.GetAddress(c.Hd.Derive(chain, i))] = (chain, i);
+                batchEnd[chain] = end;
+            }
 
             var active = await ActiveAddressesAsync(batch.Keys.ToList(), ct);
 
-            foreach (var (chain, scan) in chains.Where(kv => !kv.Value.Done).ToList())
+            foreach (var (chain, end) in batchEnd)
             {
-                var found = batch.Where(b => b.Value.Chain == chain && active.Contains(b.Key)).Select(b => b.Value.Index).ToList();
+                var scan = chains[chain];
+                var found = batch.Where(b => b.Value.Chain == chain && active.Contains(b.Key)).Select(b => b.Value).ToList();
                 if (found.Count > 0)
                 {
-                    scan.LastActive = Math.Max(scan.LastActive, found.Max());
-                    activeFound += found.Count;
+                    scan.LastActive = Math.Max(scan.LastActive, found.Max(f => f.Index));
+                    activeFound.UnionWith(found);
                 }
-                scan.Scanned += GapLimit;
+                scan.Scanned = end;
             }
 
             checkedCount += batch.Count;
-            progress?.Report(new DdScanProgress(checkedCount, activeFound));
+            progress?.Report(new DdScanProgress(checkedCount, activeFound.Count));
         }
 
         // Rebuild the address list: 0..lastActive on each chain, merged with anything the user already generated here.
@@ -209,17 +265,20 @@ public sealed class DigiDollarService : IDigiDollarService
                 if (!known.ContainsKey((chain, i)))
                     known[(chain, i)] = NewAddressRecord(c, chain, i);
 
-        return state with
+        var receiveLast = chains[DigiDollarChain.Receive].LastActive;
+        var scanned = state with
         {
             Account = state.Account with
             {
-                NextReceiveIndex = Math.Max(state.Account.NextReceiveIndex, chains[DigiDollarChain.Receive].LastActive + 1),
+                NextReceiveIndex = Math.Max(state.Account.NextReceiveIndex, receiveLast + 1),
                 NextChangeIndex = Math.Max(state.Account.NextChangeIndex, chains[DigiDollarChain.Change].LastActive + 1),
+                HighestUsedReceiveIndex = Math.Max(state.Account.HighestUsedReceiveIndex, receiveLast),
                 ScanComplete = true,
                 LastScanAt = _now(),
             },
             Addresses = known.Values.OrderBy(a => a.Chain).ThenBy(a => a.Index).ToList(),
         };
+        return (scanned, activeFound);
     }
 
     /// <summary>Which of <paramref name="addresses"/> appear anywhere in their on-chain history (spent or not).</summary>

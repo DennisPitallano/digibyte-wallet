@@ -1,6 +1,8 @@
 @page "/pay/button"
 @using DigiByte.Crypto.Addresses
 @inject NavigationManager Nav
+@inject IServiceProvider Services
+@using System.Net.Http.Json
 
 <PageTitle>@(string.IsNullOrEmpty(Name) ? "Pay with DigiByte · DigiPay" : $"Tip {Name} · DigiPay")</PageTitle>
 
@@ -24,13 +26,42 @@
                     <h1 class="ui-checkout-label">@(string.IsNullOrEmpty(Name) ? "DigiByte" : Name)</h1>
                 </div>
 
-                @if (amount > 0)
+                @if (ddAddress is not null)
+                {
+                    @* specs/033 US4: tip in DGB or DigiDollar. Links, so the page works without a live connection. *@
+                    <div class="segmented w-fit self-center" role="group" aria-label="Tip in" data-tip-switch>
+                        @if (dgbAddress is not null)
+                        {
+                            <a href="@SwitchHref("DGB")" class="segmented-item" aria-pressed="@(viewDd ? "false" : "true")">DGB</a>
+                        }
+                        @if (ddAvailable)
+                        {
+                            <a href="@SwitchHref("DD")" class="segmented-item" aria-pressed="@(viewDd ? "true" : "false")">DigiDollar</a>
+                        }
+                        else
+                        {
+                            <span class="segmented-item" aria-disabled="true" data-dd-unavailable>DigiDollar</span>
+                        }
+                    </div>
+                    @if (!ddAvailable)
+                    {
+                        <p class="ui-checkout-muted text-center" role="status">DigiDollar is temporarily unavailable.</p>
+                    }
+                }
+
+                @if (ShownAmount is { } shownAmount)
                 {
                     <div class="ui-checkout-amount">
-                        <p class="ui-checkout-big"><span id="donate-amount">@AmountText</span> <span class="ui-checkout-unit">DGB</span></p>
+                        <p class="ui-checkout-big"><span id="donate-amount">@shownAmount</span> <span class="ui-checkout-unit">@Unit</span></p>
                     </div>
                 }
 
+                @if (PayAddress is null)
+                {
+                    <p class="ui-checkout-muted text-center">Try again in a moment.</p>
+                }
+                else
+                {
                 <div class="qr-frame">
                     <img src="@qrDataUrl" alt="Scan to pay" width="224" height="224" class="w-56 h-56" />
                     <span class="qr-frame-logo"><img src="/digibyte-logo.svg" alt="" width="32" height="32" class="block w-8 h-8" /></span>
@@ -42,19 +73,20 @@
                 <div class="ui-checkout-copyrow">
                     <div class="min-w-0 flex-1">
                         <p class="section-label">Address</p>
-                        <p id="donate-address" class="ui-checkout-address">@To</p>
+                        <p id="donate-address" class="ui-checkout-address">@PayAddress</p>
                     </div>
-                    <CopyButton Value="@To" Label="Copy address" TargetId="donate-address" SuccessText="Address copied" Variant="icon" />
+                    <CopyButton Value="@PayAddress" Label="Copy address" TargetId="donate-address" SuccessText="Address copied" Variant="icon" />
                 </div>
-                @if (amount > 0)
+                @if (ShownAmount is { } copyAmount)
                 {
                     <div class="ui-checkout-copyrow">
                         <div class="min-w-0 flex-1">
                             <p class="section-label">Amount</p>
-                            <p class="ui-checkout-address">@AmountText DGB</p>
+                            <p class="ui-checkout-address">@copyAmount @Unit</p>
                         </div>
-                        <CopyButton Value="@AmountText" Label="Copy amount" TargetId="donate-amount" SuccessText="Amount copied" Variant="icon" />
+                        <CopyButton Value="@copyAmount" Label="Copy amount" TargetId="donate-amount" SuccessText="Amount copied" Variant="icon" />
                     </div>
+                }
                 }
 
                 @if (!string.IsNullOrEmpty(Label))
@@ -75,18 +107,53 @@
     [Parameter, SupplyParameterFromQuery(Name = "amount")] public string? AmountParam { get; set; }
     [Parameter, SupplyParameterFromQuery] public string? Label { get; set; }
     [Parameter, SupplyParameterFromQuery] public string? Name { get; set; }
+    // specs/033 US4 (contract C4): the store whose donation options to load, the currency to open on, and a suggested DD amount.
+    [Parameter, SupplyParameterFromQuery] public string? Store { get; set; }
+    [Parameter, SupplyParameterFromQuery] public string? Currency { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "ddAmount")] public string? DdAmountParam { get; set; }
 
     private bool isValid;
     private decimal amount;
+    private decimal ddAmount;
+    private string? dgbAddress;
+    private string? ddAddress;
+    private bool ddAvailable;
+    private bool viewDd;
     private string? qrDataUrl;
     private string BipUri = "";
 
-    // Plain decimal for display and the clipboard (no separators), whatever the server culture.
-    private string AmountText => amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture);
+    private string? PayAddress => viewDd ? (ddAvailable ? ddAddress : null) : dgbAddress;
+    private string Unit => viewDd ? "DD" : "DGB";
 
-    protected override void OnInitialized()
+    // Plain decimal for display and the clipboard (no separators), whatever the server culture. A DGB amount is never
+    // shown as DD: on DD only the button's own ddAmount is shown (FR-012).
+    private string? ShownAmount => viewDd
+        ? (ddAmount > 0 ? ddAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : null)
+        : (amount > 0 ? amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) : null);
+
+    private string SwitchHref(string currency) => Nav.GetUriWithQueryParameter("currency", currency);
+
+    protected override async Task OnInitializedAsync()
     {
-        if (string.IsNullOrWhiteSpace(To) || !AddressValidator.IsValid(To)) { isValid = false; return; }
+        if (!string.IsNullOrWhiteSpace(To) && AddressValidator.IsValid(To)) dgbAddress = To;
+
+        if (!string.IsNullOrWhiteSpace(Store))
+        {
+            var options = await LoadOptionsAsync(Store);
+            if (options is not null)
+            {
+                if (dgbAddress is null && !string.IsNullOrWhiteSpace(options.DgbAddress) && AddressValidator.IsValid(options.DgbAddress))
+                    dgbAddress = options.DgbAddress;
+                // Every DigiDollar address is checked for the store's network before it's shown (address-handling rule).
+                if (!string.IsNullOrWhiteSpace(options.DdAddress) && DigiDollarAddressValidator.IsValid(options.DdAddress, options.Network))
+                {
+                    ddAddress = options.DdAddress;
+                    ddAvailable = options.DdAvailable;
+                }
+            }
+        }
+
+        if (dgbAddress is null && ddAddress is null) { isValid = false; return; }
         isValid = true;
 
         if (!string.IsNullOrWhiteSpace(AmountParam)
@@ -95,14 +162,43 @@
         {
             amount = parsed;
         }
+        if (!string.IsNullOrWhiteSpace(DdAmountParam)
+            && decimal.TryParse(DdAmountParam, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var dd)
+            && dd >= 1m && dd <= 100_000m && decimal.Round(dd, 2) == dd)
+        {
+            ddAmount = dd;
+        }
 
+        // Opens on DD when asked and DD can be offered right now, or when DD is all there is. While the explorer can't
+        // confirm DD the page falls back to DGB, which keeps working.
+        viewDd = ddAddress is not null && ddAvailable
+            && (string.Equals(Currency, "DD", StringComparison.OrdinalIgnoreCase) || dgbAddress is null);
+
+        if (PayAddress is null) return;
         BipUri = BuildBip21();
         qrDataUrl = GenerateQr(BipUri);
     }
 
+    private async Task<DonationOptions?> LoadOptionsAsync(string storeId)
+    {
+        try
+        {
+            if (Services.GetService<IHttpClientFactory>() is not { } factory) return null;
+            var http = factory.CreateClient("PayApi");
+            return await http.GetFromJsonAsync<DonationOptions>($"/v1/pay/public/stores/{Uri.EscapeDataString(storeId)}/donation-options");
+        }
+        catch (Exception ex)
+        {
+            Services.GetService<ILogger<Donate>>()?.LogInformation(ex, "Tip page could not load donation options for {StoreId}", storeId);
+            return null;
+        }
+    }
+
+    private sealed record DonationOptions(string? StoreName, string Network, string? DgbAddress, string? DdAddress, bool DdAvailable, string? DdReason);
+
     private string BuildBip21()
     {
-        var sb = new System.Text.StringBuilder("digibyte:").Append(To);
+        var sb = new System.Text.StringBuilder("digibyte:").Append(PayAddress);
         var first = true;
         void Add(string key, string? value)
         {
@@ -110,7 +206,13 @@
             sb.Append(first ? '?' : '&').Append(key).Append('=').Append(Uri.EscapeDataString(value));
             first = false;
         }
-        if (amount > 0)
+        if (viewDd)
+        {
+            // Same form as DigiPay's DD sessions: dollars plus a currency hint.
+            if (ddAmount > 0) Add("amount", ddAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            Add("currency", "USD");
+        }
+        else if (amount > 0)
             Add("amount", amount.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture));
         Add("label", Name);
         Add("message", Label);

@@ -31,8 +31,12 @@ public sealed class DgbPriceService
     public static readonly TimeSpan RatesFreshFor = TimeSpan.FromHours(6);
     public static readonly TimeSpan RatesStaleFor = TimeSpan.FromHours(24);
 
-    private const string CoinGeckoUrl = "https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies=";
-    private const string FxUrl = "https://open.er-api.com/v6/latest/USD";
+    private const string DefaultCoinGeckoUrl = "https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies=";
+    private const string DefaultFxUrl = "https://open.er-api.com/v6/latest/USD";
+
+    // Overridable (DigiPay:Prices:CoinGeckoUrl / FxUrl) so the end-to-end run can use a local stub instead of the internet.
+    private readonly string CoinGeckoUrl;
+    private readonly string FxUrl;
 
     private readonly IHttpClientFactory _http;
     private readonly IMemoryCache _cache;
@@ -40,12 +44,15 @@ public sealed class DgbPriceService
     private readonly ILogger<DgbPriceService> _log;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
 
-    public DgbPriceService(IHttpClientFactory http, IMemoryCache cache, ILogger<DgbPriceService> log, TimeProvider? clock = null)
+    public DgbPriceService(IHttpClientFactory http, IMemoryCache cache, ILogger<DgbPriceService> log, TimeProvider? clock = null,
+        IConfiguration? config = null)
     {
         _http = http;
         _cache = cache;
         _log = log;
         _clock = clock ?? TimeProvider.System;
+        CoinGeckoUrl = config?["DigiPay:Prices:CoinGeckoUrl"] is { Length: > 0 } cg ? cg : DefaultCoinGeckoUrl;
+        FxUrl = config?["DigiPay:Prices:FxUrl"] is { Length: > 0 } fx ? fx : DefaultFxUrl;
     }
 
     /// <summary>True for every currency in the wallet's list.</summary>
@@ -66,7 +73,7 @@ public sealed class DgbPriceService
         }
 
         if (usd is null) return null;
-        var perUsd = await GetUsdRateAsync(currency.Code, ct);
+        var perUsd = await GetUsdRateWithStalenessAsync(currency.Code, ct);
         if (perUsd is null) return null;
         return Quote(currency, usd.Value.Price * perUsd.Value.Rate, usd.Value.At, "coingecko+fx", usd.Value.Stale || perUsd.Value.Stale);
     }
@@ -114,8 +121,21 @@ public sealed class DgbPriceService
         finally { gate.Release(); }
     }
 
+    /// <summary>
+    /// Units of <paramref name="code"/> one US dollar buys, or null when the currency is unsupported or no rate is
+    /// available. USD is exactly 1. Used to price DD (1 DD = 1 USD) from a fiat amount (specs/033 research R3).
+    /// </summary>
+    public async Task<decimal?> GetUsdRateAsync(string? code, CancellationToken ct = default)
+    {
+        var currency = FiatCurrencies.Find(code);
+        if (currency is null) return null;
+        if (currency.Code == "USD") return 1m;
+        var rate = await GetUsdRateWithStalenessAsync(currency.Code, ct);
+        return rate?.Rate;
+    }
+
     // Units of a currency one US dollar buys (open.er-api.com, the same source as the wallet's price proxy /fx).
-    private async Task<(decimal Rate, bool Stale)?> GetUsdRateAsync(string code, CancellationToken ct)
+    private async Task<(decimal Rate, bool Stale)?> GetUsdRateWithStalenessAsync(string code, CancellationToken ct)
     {
         const string fresh = "digipay.fx.fresh";
         const string stale = "digipay.fx.stale";

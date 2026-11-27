@@ -34,6 +34,10 @@ public class CheckoutStatusUpdate
     public long ReceivedSatoshis { get; init; }
     public int Confirmations { get; init; }
     public string? Txid { get; init; }
+    // specs/033 research R11: the currency in effect, so a checkout follows a buyer-choice lock.
+    public string Currency { get; init; } = "DGB";
+    public DateTime? LockedAt { get; init; }
+    public long? AmountCentsDd { get; init; }
 }
 
 public class CheckoutNotifier

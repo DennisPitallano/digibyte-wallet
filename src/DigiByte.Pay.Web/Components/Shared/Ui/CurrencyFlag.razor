@@ -5,6 +5,11 @@
 {
     <img src="/digibyte-logo.svg" alt="" width="24" height="24" class="ui-flag ui-flag-round @Class" />
 }
+else if (string.Equals(Code, "DD", StringComparison.OrdinalIgnoreCase))
+{
+    @* DigiDollar: a USD-pegged coin, so a dollar badge rather than a country flag. *@
+    <span class="ui-flag ui-flag-badge @Class" aria-hidden="true">$</span>
+}
 else if (FiatCurrencies.FlagFor(Code) is { } flag)
 {
     <img src="/images/flags/@(flag).svg" alt="" loading="lazy" width="24" height="18" class="ui-flag @Class" />

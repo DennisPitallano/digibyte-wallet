@@ -1,0 +1,102 @@
+@page "/settings/digidollar-key"
+@inject WalletService WalletService
+@inject ClipboardService Clipboard
+@inject DigiDollarViewModel Dd
+@inject LocalizationService L
+
+@* specs/035 contracts/wallet-dd-key.md W1: the DigiDollar account key a merchant pastes into DigiPay. *@
+<PageTitle>@L.T("dd.key.title") — @L.T("app.name")</PageTitle>
+
+<AuthGuard>
+<div class="flex flex-col gap-5">
+    <PageHeader Title="@L.T("dd.key.title")" BackHref="/settings" />
+
+    @if (loading)
+    {
+        <p class="text-sm text-slate-500 dark:text-slate-400">@L.T("dd.key.loading")</p>
+    }
+    else if (key is null)
+    {
+        <div data-testid="dd-key-unavailable" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-2xl p-4 text-sm text-amber-700 dark:text-amber-300">
+            @L.T("dd.key.unavailable")
+        </div>
+    }
+    else
+    {
+        <div class="slide-up-delay-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-2xl p-4 text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+            <p data-testid="dd-key-explain">@L.T("dd.key.explain")</p>
+        </div>
+
+        <div class="card slide-up-delay-2 p-5 flex flex-col gap-4">
+            <div class="w-full">
+                <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">@L.T("dd.key.label")</p>
+                <p data-testid="dd-key-value" class="font-mono text-xs text-slate-700 dark:text-slate-300 break-all bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800 select-all">
+                    @key
+                </p>
+            </div>
+            <button type="button" data-testid="dd-key-copy" class="btn-primary w-full" @onclick="CopyAsync">
+                @(copyFailed ? L.T("dd.key.copy_failed") : copied ? L.T("dd.key.copied") : L.T("dd.key.copy"))
+            </button>
+            <div class="w-full">
+                <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">@L.T("dd.key.first_address")</p>
+                <p data-testid="dd-key-first-address" class="font-mono text-xs text-slate-700 dark:text-slate-300 break-all bg-slate-50 dark:bg-dgb-950 rounded-xl p-3 border border-slate-100 dark:border-dgb-800 select-all">
+                    @firstAddress
+                </p>
+            </div>
+        </div>
+
+        @if (Dd.Visibility.Visible)
+        {
+            @* FR-023: tell merchants where to look when DD paid through DigiPay seems missing. *@
+            <div class="card slide-up-delay-2 p-4 flex flex-col gap-2">
+                <p class="text-xs text-slate-600 dark:text-slate-300">@L.T("dd.key.missing")</p>
+                <a href="/recovery?search=digidollar" data-testid="dd-key-look-further" class="btn-secondary btn-sm w-full no-underline text-center">
+                    @L.T("dd.key.look_further")
+                </a>
+            </div>
+        }
+    }
+</div>
+</AuthGuard>
+
+@code {
+    [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
+
+    private bool loading = true;
+    private string? key;
+    private string? firstAddress;
+    private bool copied;
+    private bool copyFailed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // AuthGuard handles the unlock redirect; don't derive until a wallet is actually open.
+        if (!WalletService.IsUnlocked) return;
+
+        // Null for watch-only, multisig and private-key wallets: they have no DigiDollar account (W1).
+        var result = await WalletService.GetDigiDollarAccountKeyAsync();
+        if (result is { } found)
+            (key, firstAddress) = found;
+        loading = false;
+    }
+
+    private async Task CopyAsync()
+    {
+        if (key is null) return;
+        copyFailed = false;
+        try
+        {
+            await Clipboard.CopyAsync(key, toast: false);
+            copied = true;
+            StateHasChanged();
+            await Task.Delay(1500);
+            copied = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            copyFailed = true;
+            StateHasChanged();
+        }
+    }
+}

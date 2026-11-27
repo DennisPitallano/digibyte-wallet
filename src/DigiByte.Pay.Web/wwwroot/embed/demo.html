@@ -72,6 +72,8 @@ DigiPay.close();</pre>
     <h2>4. Declarative button</h2>
     <pre>&lt;span data-digipay-button data-address="dgb1..." data-amount="2.5"&gt;Tip&lt;/span&gt;</pre>
     <span data-digipay-button data-address="dgb1q9gmf0pv8jdymcly6lz6fl7lf6mhslsd72e2jq8" data-amount="2.5" data-name="Creator">Tip 2.5 DGB</span>
+    <p>With DigiDollar too: add your store id. The tip page offers DGB and DD while your store accepts DigiDollar.</p>
+    <pre>&lt;span data-digipay-button data-address="dgb1..." data-store="sto_..." data-currency="DD" data-dd-amount="5"&gt;Tip in DGB or DD&lt;/span&gt;</pre>
 
     <!-- Section 5 is a live sandbox. It hits /v1/pay/test/* which is public
          but guarded: /demo-session always mints a fresh ses_demo_* session,

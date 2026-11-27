@@ -280,6 +280,35 @@
                 Using an xpub store? <InlineCode>GET /v1/pay/stores/{id}/donation-address</InlineCode> returns a stable address reserved for donations,
                 and the dashboard's <em>Donation</em> tab builds the snippet for you.
             </p>
+            <p class="@P">
+                Accepting DigiDollar too? Add <InlineCode>store</InlineCode> (your store id) to the link, or <InlineCode>data-store</InlineCode> to the embed: the tip page then
+                offers DGB and DigiDollar, using your store's fixed DD donation address, and drops DigiDollar again if you turn it off. <InlineCode>currency=DD</InlineCode>
+                (<InlineCode>data-currency</InlineCode>) opens it on DigiDollar, and <InlineCode>ddAmount</InlineCode> (<InlineCode>data-dd-amount</InlineCode>) suggests an amount in
+                dollars; a DGB <InlineCode>amount</InlineCode> is never shown as DD. The <em>Donation</em> tab's <em>Accept DigiDollar too</em> option builds this for you.
+            </p>
+            <CodeBlock Lang="html" Label="Copy the DGB and DigiDollar donation button example">@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<span data-digipay-button data-address=\"dgb1q...\" data-store=\"sto_...\" data-currency=\"DD\" data-dd-amount=\"5\">Tip in DGB or DD</span>")</CodeBlock>
+
+            <DocsHeading Id="digidollar">DigiDollar (beta)</DocsHeading>
+            <p class="@P">
+                A store can also accept DigiDollar (DD), the USD-pegged stablecoin: 1 DD = $1. Turn it on in the dashboard's <em>Settings</em> under
+                <em>Accept DigiDollar</em>. For now, DD is offered only through the API: create a session with <InlineCode>"currency": "DD"</InlineCode>
+                and <InlineCode>amountCentsDd</InlineCode> (100 to 10,000,000 cents), and each session gets a fresh <InlineCode>DD…</InlineCode> address.
+                Once DigiPay switches DigiDollar on beyond the API, a store with it on also gets DD on the POS till, in payment links
+                and one-off payments (priced in dollars, with no rate), as its default currency, and in the sales totals and CSV export, always kept apart
+                from DGB. Payments priced in a regular currency (payment links and POS sales, or your own code with <InlineCode>buyerChoice: true</InlineCode>)
+                also let the buyer pick DGB or DD at checkout: whichever they pay in locks the payment, and anything they send in the other currency is
+                flagged for you to refund. The donation page can take DD tips too (see <a href="#donation-button" class="text-dgb-500 hover:underline">Donation button</a>).
+            </p>
+            <p class="@P">
+                DigiDollar goes straight to your own wallet, like DGB. In your DigiByte Wallet, open <em>Settings → DigiDollar key for DigiPay</em>,
+                copy the key and paste it into the store's DigiDollar card in the dashboard. DigiPay shows the first address the key gives: check it matches
+                the one your wallet shows, then save. Every DD payment then gets a new address from that key, and DigiPay never holds DD or any private key.
+                You can use the same key for several stores; they share one address sequence, so no address is used twice. If a buyer sends DD by
+                mistake (an extra payment in the other currency), it's already in your wallet: refund it from there. Because DigiPay gives out a new
+                address for every payment, including ones never paid, use <em>Look further for DigiDollar</em> on your wallet's recovery page if some DD
+                you were paid doesn't show. DigiPay reads DigiDollar payments from the public DigiByte explorer; while it can't be reached, DD payments
+                wait and confirm once it's back, and DGB keeps working.
+            </p>
 
             <DocsHeading Id="sdks">SDKs</DocsHeading>
             <p class="@P">On Node, Python or .NET, the <a href="/sdks" class="text-dgb-500 hover:underline">official SDKs</a> wrap all of the above (sessions, stores, webhook verification, deliveries, CSV export) behind a typed client, and raise one <InlineCode>DigiPayError</InlineCode> type with the HTTP status.</p>
@@ -321,6 +350,7 @@
         new("webhooks", "Webhooks"),
         new("late-payments", "Late payments"),
         new("donation-button", "Donation button"),
+        new("digidollar", "DigiDollar (beta)"),
         new("sdks", "SDKs"),
         new("pos", "Selling in person"),
         new("next", "Next"),

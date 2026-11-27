@@ -180,6 +180,8 @@ builder.Services.AddRateLimiter(options =>
     // 5 merchant registrations per hour per client (specs/008-security-hardening, T030); RateLimits:RegisterPerHour lets tests widen it.
     options.AddPolicy("register",      ctx => PerIp(ctx, ctx.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimits:RegisterPerHour", 5), TimeSpan.FromHours(1)));
     options.AddPolicy("claim",         ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
+    // Anonymous checkout and tip-page calls that may create a DD address or read donation options (specs/033).
+    options.AddPolicy("checkout-option", ctx => PerIp(ctx, 30, TimeSpan.FromMinutes(1)));
     options.AddPolicy("authenticated", ctx => PerToken(ctx, 120, TimeSpan.FromMinutes(1)));
 });
 
@@ -227,24 +229,20 @@ builder.Services.AddHttpClient("DigiPayChain", client =>
 builder.Services.Configure<DigiByte.Server.Shared.OutboundOptions>(builder.Configuration.GetSection(DigiByte.Server.Shared.OutboundOptions.SectionName));
 builder.Services.AddGuardedHttpClient("DigiPayWebhook", DigiByte.Server.Shared.OutboundUrlPolicy.Webhook(builder.Configuration.GetValue<bool>("Outbound:AllowLoopback")));
 
-// DigiDollar NodeApi client. Reads DdNode config from appsettings + env vars.
-// NODEAPI_BASE_URL / NODEAPI_WRITE_KEY override on Railway / containers.
-builder.Services.Configure<DdNodeOptions>(opts =>
-{
-    var section = builder.Configuration.GetSection("DdNode");
-    section.Bind(opts);
-    if (Environment.GetEnvironmentVariable("NODEAPI_BASE_URL") is { Length: > 0 } url)
-        opts.BaseUrl = url;
-    if (Environment.GetEnvironmentVariable("NODEAPI_WRITE_KEY") is { Length: > 0 } key)
-        opts.WriteKey = key;
-});
-builder.Services.AddHttpClient<DigiDollarNodeClient>(client =>
+// DigiDollar on the public explorer (specs/035): DD arrivals, confirmations and health. No node.
+builder.Services.AddHttpClient(DdChainProvider.HttpClientName, client =>
 {
     client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay/0.1");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
+builder.Services.AddSingleton<IDdChainProvider, DdChainProvider>();
 
 builder.Services.AddSingleton<CheckoutNotifier>();
+builder.Services.AddSingleton<DdSurfacesGate>();
+builder.Services.AddSingleton<DdAvailability>();
+builder.Services.AddSingleton<IChainServiceProvider, ChainServiceProvider>();
+builder.Services.AddScoped<SessionOptionService>();
+builder.Services.AddScoped<DdAddressAllocator>();
 builder.Services.AddSingleton<DgbPriceService>();
 builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();
@@ -373,6 +371,76 @@ using (var scope = app.Services.CreateScope())
 
         // ...and before AddStoreDefaultCurrency: the store's default currency (null = not set).
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Stores\" ADD COLUMN \"DefaultCurrency\" VARCHAR(8) NULL"); } catch { }
+
+        // ...and before AddDdEverywhere (specs/033): buyer choice, extra payments, DD donations, the one-time notice.
+        foreach (var col in new[]
+        {
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"BuyerChoice\" INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"LockedAt\" TEXT NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraCurrency\" VARCHAR(8) NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraAmount\" INTEGER NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraTxid\" VARCHAR(128) NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraSeenAt\" TEXT NULL",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"BuyerChoiceEnabled\" INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdDonationAddress\" VARCHAR(120) NULL",
+            "ALTER TABLE \"Merchants\" ADD COLUMN \"DdChoiceNoticePending\" INTEGER NOT NULL DEFAULT 0",
+        })
+        {
+            try { await db.Database.ExecuteSqlRawAsync(col); } catch { }
+        }
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PaySessionOptions" (
+                "SessionId" TEXT NOT NULL,
+                "Currency" TEXT NOT NULL,
+                "Address" TEXT NOT NULL,
+                "AmountSatoshis" INTEGER NOT NULL,
+                "AmountCentsDd" INTEGER NULL,
+                "UsdRate" TEXT NULL,
+                "RateAt" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                CONSTRAINT "PK_PaySessionOptions" PRIMARY KEY ("SessionId", "Currency"),
+                CONSTRAINT "FK_PaySessionOptions_Sessions_SessionId" FOREIGN KEY ("SessionId") REFERENCES "Sessions" ("Id") ON DELETE CASCADE
+            )
+            """);
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_PaySessionOptions_Address\" ON \"PaySessionOptions\" (\"Address\")");
+
+        // ...and before AddDdMerchantKeys (specs/035): the store's DD key and the shared address sequences. A dev DB from
+        // the unreleased spec 034 branch has a DdAddresses table of another shape; drop it (it held nothing real).
+        foreach (var col in new[]
+        {
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdAccountKey\" VARCHAR(200) NULL",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdKeyId\" VARCHAR(64) NULL",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdAccountKeySetAt\" TEXT NULL",
+        })
+        {
+            try { await db.Database.ExecuteSqlRawAsync(col); } catch { }
+        }
+        try { await db.Database.ExecuteSqlRawAsync("SELECT \"DdKeyId\" FROM \"DdAddresses\" LIMIT 0"); }
+        catch { try { await db.Database.ExecuteSqlRawAsync("DROP TABLE \"DdAddresses\""); } catch { } }
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "DdKeySequences" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_DdKeySequences" PRIMARY KEY,
+                "Network" TEXT NOT NULL,
+                "NextIndex" INTEGER NOT NULL,
+                "CreatedAt" TEXT NOT NULL
+            )
+            """);
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "DdAddresses" (
+                "Address" TEXT NOT NULL CONSTRAINT "PK_DdAddresses" PRIMARY KEY,
+                "DdKeyId" TEXT NOT NULL,
+                "Index" INTEGER NOT NULL,
+                "Kind" TEXT NOT NULL,
+                "StoreId" TEXT NOT NULL,
+                "SessionId" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                "FirstPaidAt" TEXT NULL,
+                CONSTRAINT "FK_DdAddresses_DdKeySequences_DdKeyId" FOREIGN KEY ("DdKeyId") REFERENCES "DdKeySequences" ("Id") ON DELETE RESTRICT
+            )
+            """);
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_DdAddresses_DdKeyId_Index\" ON \"DdAddresses\" (\"DdKeyId\", \"Index\")");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_DdAddresses_SessionId\" ON \"DdAddresses\" (\"SessionId\")");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_Stores_DdKeyId\" ON \"Stores\" (\"DdKeyId\")");
     }
 
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.

@@ -20,17 +20,22 @@ public class InvoiceMonitor : BackgroundService
     private const int ConfirmedAt = 6;
 
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IHttpClientFactory _httpFactory;
+    private readonly IChainServiceProvider _chains;
+    private readonly IDdChainProvider _ddChains;
+    private readonly DdAvailability _ddAvailability;
     private readonly ILogger<InvoiceMonitor> _logger;
-    private readonly Dictionary<string, IBlockchainService> _chainByNetwork = new();
 
     public InvoiceMonitor(
         IServiceScopeFactory scopeFactory,
-        IHttpClientFactory httpFactory,
+        IChainServiceProvider chains,
+        IDdChainProvider ddChains,
+        DdAvailability ddAvailability,
         ILogger<InvoiceMonitor> logger)
     {
         _scopeFactory = scopeFactory;
-        _httpFactory = httpFactory;
+        _chains = chains;
+        _ddChains = ddChains;
+        _ddAvailability = ddAvailability;
         _logger = logger;
     }
 
@@ -56,6 +61,9 @@ public class InvoiceMonitor : BackgroundService
     // Merchant's funds will land on-chain regardless; this keeps the session status honest
     // by flipping expired → paid/confirmed when a late tx lands against the invoice address.
     private static readonly TimeSpan LatePaymentGrace = TimeSpan.FromDays(3);
+
+    /// <summary>Runs one polling pass now. The background loop calls the same pass; tests use this to avoid waiting.</summary>
+    public Task RunOnceAsync(CancellationToken ct = default) => TickAsync(ct);
 
     private async Task TickAsync(CancellationToken ct)
     {
@@ -90,7 +98,14 @@ public class InvoiceMonitor : BackgroundService
             && (s.Status == PaySessionStatus.Pending
                 || s.Status == PaySessionStatus.Seen
                 || s.Status == PaySessionStatus.Paid
-                || (s.Status == PaySessionStatus.Expired && s.ExpiresAt > graceCutoff)));
+                || (s.Status == PaySessionStatus.Expired && s.ExpiresAt > graceCutoff)
+                // specs/035 research R5: DD adds up every payment to the address, so an underpaid DD payment stays
+                // watched through the late window and a second part can bring it to paid.
+                || (s.Status == PaySessionStatus.Underpaid && s.Currency == "DD" && s.ExpiresAt > graceCutoff)
+                // A locked buyer-choice payment is watched through the late window for funds sent in the other
+                // currency (specs/033 FR-025), whatever its status, until it is refunded or voided.
+                || (s.BuyerChoice && s.LockedAt != null && s.ExpiresAt > graceCutoff
+                    && s.Status != PaySessionStatus.Refunded && s.Status != PaySessionStatus.Voided)));
     }
 
     private async Task InspectSessionAsync(
@@ -108,18 +123,41 @@ public class InvoiceMonitor : BackgroundService
         var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == session.StoreId, ct);
         if (store is null) return;
 
-        // DigiDollar sessions poll a different backend (the node RPC via
-        // DigiByte.NodeApi) and don't need the DGB explorer chain.
+        // specs/033 buyer choice: until funds arrive the payment can be paid in either currency, so every option is
+        // watched; the first funds lock it to that option (research R4). Once locked, funds on the other option are an
+        // extra payment for the merchant to refund (FR-025).
+        if (session.BuyerChoice)
+        {
+            var options = await db.SessionOptions.AsNoTracking().Where(o => o.SessionId == session.Id).ToListAsync(ct);
+            if (session.LockedAt is null)
+            {
+                if (!await TryLockAsync(session, options, store, scope, notifier, now, ct))
+                {
+                    if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
+                    {
+                        session.Status = PaySessionStatus.Expired;
+                        await PublishAsync(notifier, session, ct);
+                        await webhookDispatcher.DispatchAsync(store, session, "session.expired", ct);
+                    }
+                    return;
+                }
+            }
+            else
+            {
+                await CheckExtraPaymentAsync(session, options, store, scope, webhookDispatcher, auditLogger, now, ct);
+            }
+        }
+
+        // DigiDollar sessions read the public explorer's DigiDollar data (specs/035), not the DGB chain.
         if (session.Currency == "DD")
         {
-            var ddClient = scope.ServiceProvider.GetRequiredService<DigiDollarNodeClient>();
-            await InspectDdSessionAsync(session, store, ddClient, notifier, webhookDispatcher, now, ct);
+            await InspectDdSessionAsync(session, store, db, notifier, webhookDispatcher, auditLogger, now, ct);
             return;
         }
 
         // Poll the chain first. A payment arriving right at the expiry deadline must still
         // be honoured — the wallet has no idea about session state, it just signed and sent.
-        var chain = GetChainService(store.Network);
+        var chain = _chains.For(store.Network);
         // The explorer client throws when it can't answer; this monitor keeps reading that as "nothing seen yet", as it always has,
         // so one unreachable explorer doesn't stop the tick for every other session.
         List<TransactionInfo> txs;
@@ -223,50 +261,151 @@ public class InvoiceMonitor : BackgroundService
             ReceivedSatoshis = session.ReceivedSatoshis,
             Confirmations = session.Confirmations,
             Txid = session.PaidTxid,
+            Currency = session.Currency,
+            LockedAt = session.LockedAt,
+            AmountCentsDd = session.AmountCentsDd,
         }, ct);
 
-    private IBlockchainService GetChainService(string network)
+    /// <summary>
+    /// Funds received on one option of a buyer-choice payment: satoshis for DGB (from the explorer), cents for DD
+    /// (from the public explorer, specs/035), and the first txid when known. A source that can't be read counts as nothing
+    /// received, so a DD outage never stops DGB detection (FR-015).
+    /// </summary>
+    private async Task<(long Amount, string? Txid)> ReceivedOnAsync(PaySessionOption option, PayStore store, IServiceScope scope, CancellationToken ct)
     {
-        if (_chainByNetwork.TryGetValue(network, out var existing)) return existing;
-        var isTestnet = network is "testnet" or "regtest";
-        var http = _httpFactory.CreateClient("DigiPayChain");
-        var svc = new BlockchainApiService(http, isTestnet: isTestnet);
-        _chainByNetwork[network] = svc;
-        return svc;
+        if (option.Currency == "DD")
+        {
+            var dd = await ReadDdAsync(store.Network, option.Address, null, ct);
+            return dd is null ? (0, null) : (dd.Cents, dd.FirstTxid);
+        }
+
+        List<TransactionInfo> txs;
+        try { txs = await _chains.For(store.Network).GetAddressTransactionsAsync(option.Address); }
+        catch (Exception) when (!ct.IsCancellationRequested) { return (0, null); }
+        long sats = 0;
+        string? first = null;
+        foreach (var tx in txs)
+        {
+            var matched = tx.Outputs.Where(o => o.Address == option.Address).Sum(o => o.AmountSatoshis);
+            if (matched <= 0) continue;
+            sats += matched;
+            first ??= tx.TxId;
+        }
+        return (sats, first);
+    }
+
+    /// <summary>Locks an unlocked buyer-choice payment to the first option with funds; DGB wins a tie. False when none has.</summary>
+    private async Task<bool> TryLockAsync(PaySession session, List<PaySessionOption> options, PayStore store, IServiceScope scope,
+        CheckoutNotifier notifier, DateTime now, CancellationToken ct)
+    {
+        foreach (var option in options.OrderBy(o => o.Currency == "DGB" ? 0 : 1))
+        {
+            var (amount, _) = await ReceivedOnAsync(option, store, scope, ct);
+            if (amount <= 0) continue;
+            SessionOptionService.LockTo(session, option, now);
+            _logger.LogInformation("Buyer-choice session {SessionId} locked to {Currency}", session.Id, option.Currency);
+            await PublishAsync(notifier, session, ct);
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
-    /// DigiDollar variant of <see cref="InspectSessionAsync"/>. Polls the
-    /// node's DD balance for the session's address (in USD cents) rather than
-    /// the DGB explorer chain. Confirmations are approximated at balance-level
-    /// initially (confirmed cents ≥ minimum ⇒ 6 confirmations, else 0) —
-    /// good enough for the state machine's coarse thresholds; a later pass
-    /// can wire per-tx confirmation counts through NodeApi for finer control.
+    /// Funds on the option a locked buyer-choice payment didn't lock to: recorded once as an extra payment (webhook and
+    /// audit <c>session.extra_payment</c>), and its amount kept up to date afterwards without another event (FR-025).
+    /// </summary>
+    private async Task CheckExtraPaymentAsync(PaySession session, List<PaySessionOption> options, PayStore store, IServiceScope scope,
+        WebhookDispatcher webhookDispatcher, AuditLogger auditLogger, DateTime now, CancellationToken ct)
+    {
+        foreach (var option in options.Where(o => o.Currency != session.Currency))
+        {
+            var (amount, txid) = await ReceivedOnAsync(option, store, scope, ct);
+            if (amount <= 0) continue;
+            var first = session.ExtraCurrency is null;
+            if (!first && session.ExtraAmount == amount) continue;
+            session.ExtraCurrency = option.Currency;
+            session.ExtraAmount = amount;
+            session.ExtraTxid ??= txid;
+            session.ExtraSeenAt ??= now;
+            if (!first) continue;
+            await webhookDispatcher.DispatchAsync(store, session, "session.extra_payment", ct);
+            await auditLogger.LogAsync(
+                session.MerchantId,
+                action: "session.extra_payment",
+                targetType: "Session",
+                targetId: session.Id,
+                summary: $"Extra {option.Currency} payment on session {session.Id}, paid in {session.Currency}; refund the buyer",
+                metadata: new { currency = option.Currency, amount, txid, lockedTo = session.Currency });
+        }
+    }
+
+    /// <summary>What the explorer shows paid to one DD address (specs/035 research R5).</summary>
+    /// <param name="Cents">Every DD output to the address, over all its transactions: total received, not the balance.</param>
+    /// <param name="FirstTxid">The first transaction paying the address.</param>
+    /// <param name="Confirmations">Confirmations of the transaction that completed the amount due (or of the latest one
+    /// when it isn't complete or no amount is due). 0 while it's in the mempool.</param>
+    internal sealed record DdReceipt(long Cents, string? FirstTxid, int Confirmations);
+
+    /// <summary>Reads one DD address from the explorer; null when the explorer can't be reached (the caller waits).</summary>
+    private async Task<DdReceipt?> ReadDdAsync(string network, string address, long? dueCents, CancellationToken ct)
+    {
+        DigiByte.Wallet.Services.DdHistoryResult history;
+        try { history = await _ddChains.For(network).GetHistoryAsync([address], 100, null, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogDebug(ex, "DigiDollar explorer unavailable for {Address}", address);
+            return null;
+        }
+
+        // Oldest first: confirmed by height, then the mempool.
+        var paying = history.Items
+            .Select(e => (Entry: e, Cents: e.DdOutputs.Where(o => o.Address == address).Sum(o => o.AmountCents)))
+            .Where(x => x.Cents > 0)
+            .OrderBy(x => x.Entry.BlockHeight is null ? 1 : 0).ThenBy(x => x.Entry.BlockHeight)
+            .ToList();
+        if (paying.Count == 0) return new DdReceipt(0, null, 0);
+
+        long total = 0;
+        int? completing = null;
+        foreach (var (entry, cents) in paying)
+        {
+            total += cents;
+            if (completing is null && dueCents is > 0 && total >= dueCents) completing = entry.Confirmations;
+        }
+        return new DdReceipt(total, paying[0].Entry.Txid, completing ?? paying[^1].Entry.Confirmations);
+    }
+
+    /// <summary>
+    /// DigiDollar variant of <see cref="InspectSessionAsync"/> (specs/035): reads the address on the public explorer and
+    /// moves the payment through the same states as DGB. While the explorer can't be reached the payment waits; a
+    /// transaction that disappears entirely leaves the status where it was, as with DGB.
     /// </summary>
     private async Task InspectDdSessionAsync(
         PaySession session,
         PayStore store,
-        DigiDollarNodeClient ddClient,
+        DigiPayDbContext db,
         CheckoutNotifier notifier,
         WebhookDispatcher webhookDispatcher,
+        AuditLogger auditLogger,
         DateTime now,
         CancellationToken ct)
     {
-        DdBalance balance;
-        try
+        var requiredCents = session.AmountCentsDd ?? 0;
+        if (requiredCents <= 0)
         {
-            balance = await ddClient.GetBalanceAsync(session.Address, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "DD balance poll failed for session {SessionId}", session.Id);
-            // Non-fatal — leave the session where it is; next tick will retry.
+            _logger.LogWarning("DD session {SessionId} missing AmountCentsDd", session.Id);
             return;
         }
+        var minimum = (long)Math.Floor(requiredCents * (double)UnderpayTolerance);
 
-        if (balance.TotalCents == 0)
+        // While the explorer is reported down for this network, DD payments wait (FR-014); DGB never asks.
+        if (!await _ddAvailability.IsAvailableAsync(store.Network, ct)) return;
+        var receipt = await ReadDdAsync(store.Network, session.Address, minimum, ct);
+        if (receipt is null) return; // explorer failed mid-tick: wait, never fail
+
+        if (receipt.Cents == 0)
         {
-            // No payment yet. Expire pending sessions past their deadline.
+            // No payment on chain yet. Expire pending sessions past their deadline.
             if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
             {
                 session.Status = PaySessionStatus.Expired;
@@ -276,56 +415,51 @@ public class InvoiceMonitor : BackgroundService
             return;
         }
 
-        var requiredCents = session.AmountCentsDd ?? 0;
-        if (requiredCents <= 0)
-        {
-            _logger.LogWarning("DD session {SessionId} missing AmountCentsDd", session.Id);
-            return;
-        }
-        var minimum = (long)Math.Floor(requiredCents * (double)UnderpayTolerance);
-
-        // ReceivedSatoshis field is repurposed for DD to hold received cents.
-        // Downstream consumers key off session.Currency to interpret the unit.
-        session.ReceivedSatoshis = balance.TotalCents;
+        // ReceivedSatoshis holds received cents for DD; consumers read session.Currency for the unit.
+        session.ReceivedSatoshis = receipt.Cents;
+        session.Confirmations = receipt.Confirmations;
+        session.PaidTxid ??= receipt.FirstTxid;
+        await MarkDdPaidAsync(db, session.Address, now, ct);
 
         var previous = session.Status;
-        if (balance.TotalCents < minimum)
+        if (receipt.Cents < minimum)
         {
             session.Status = PaySessionStatus.Underpaid;
-            session.Confirmations = 0;
         }
-        else if (balance.ConfirmedCents >= minimum)
+        else if (receipt.Confirmations >= ConfirmedAt)
         {
             session.Status = PaySessionStatus.Confirmed;
-            session.Confirmations = ConfirmedAt;
+            session.PaidAt ??= now;
+        }
+        else if (receipt.Confirmations >= 1)
+        {
+            session.Status = PaySessionStatus.Paid;
             session.PaidAt ??= now;
         }
         else
         {
             session.Status = PaySessionStatus.Seen;
-            session.Confirmations = 0;
             session.SeenAt ??= now;
         }
 
-        // Look up the txid on first detection so the checkout page + webhook
-        // payload can link out to the transaction.
-        if (session.PaidTxid is null && session.Status != PaySessionStatus.Underpaid)
-        {
-            try
-            {
-                session.PaidTxid = await ddClient.GetFirstReceiveTxidAsync(session.Address, ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "DD txid lookup failed for session {SessionId} (non-fatal)", session.Id);
-            }
-        }
-
-        if (session.Status != previous)
+        if (session.Status != previous || previous == PaySessionStatus.Paid)
         {
             await PublishAsync(notifier, session, ct);
-            var eventName = "session." + session.Status.ToString().ToLowerInvariant();
-            await webhookDispatcher.DispatchAsync(store, session, eventName, ct);
+            if (session.Status != previous)
+            {
+                await webhookDispatcher.DispatchAsync(store, session, "session." + session.Status.ToString().ToLowerInvariant(), ct);
+                if (previous == PaySessionStatus.Expired && session.Status is PaySessionStatus.Paid or PaySessionStatus.Confirmed)
+                    await auditLogger.LogAsync(session.MerchantId, action: "session.late_reconciled", targetType: "Session",
+                        targetId: session.Id, summary: $"Late DigiDollar payment reconciled on expired session {session.Id}",
+                        metadata: new { receivedCents = receipt.Cents, txid = session.PaidTxid });
+            }
         }
+    }
+
+    /// <summary>Records when DD first arrived on one of DigiPay's DD addresses (research R11).</summary>
+    private static async Task MarkDdPaidAsync(DigiPayDbContext db, string address, DateTime now, CancellationToken ct)
+    {
+        var row = await db.DdAddresses.FirstOrDefaultAsync(a => a.Address == address && a.FirstPaidAt == null, ct);
+        if (row is not null) row.FirstPaidAt = now;
     }
 }
