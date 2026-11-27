@@ -47,14 +47,5 @@ public class WebhookDelivery
     /// </summary>
     public DateTime? NextRetryAt { get; set; }
 
-    /// <summary>
-    /// The exact body sent, for events that aren't about a session (payouts, payout-address changes; specs/034 R9).
-    /// The retrier replays it byte for byte. Null for session events, whose body is rebuilt from the session.
-    /// </summary>
-    public string? PayloadJson { get; init; }
-
-    /// <summary>The payout a payout event is about.</summary>
-    public string? PayoutId { get; init; }
-
     public bool Success => StatusCode is >= 200 and < 300;
 }

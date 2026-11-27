@@ -305,32 +305,11 @@
                         <tr><td><InlineCode>session.refunded</InlineCode></td><td>You recorded a refund (<a href="/docs/api#refund-session" class="text-dgb-500 hover:underline">refund</a>). <InlineCode>refundTxid</InlineCode>, <InlineCode>refundedAt</InlineCode> and <InlineCode>refundNote</InlineCode> are set.</td></tr>
                         <tr><td><InlineCode>session.extra_payment</InlineCode></td><td>On a buyer-choice session, funds arrived in the currency the buyer didn't pay in. Sent once, with <InlineCode>session.extra</InlineCode>; refund the buyer from your wallet.</td></tr>
                         <tr><td><InlineCode>session.voided</InlineCode></td><td>You cancelled an unpaid session (<a href="/docs/api#void-session" class="text-dgb-500 hover:underline">void</a>).</td></tr>
-                        <tr><td><InlineCode>payout.sent</InlineCode></td><td>DigiDollar held for the store was sent to its DD payout address. The body has a <InlineCode>payout</InlineCode> object (amount in cents, destination, txid, and the sessions it covers) instead of a <InlineCode>session</InlineCode>.</td></tr>
-                        <tr><td><InlineCode>payout.confirmed</InlineCode></td><td>That payout has 6 confirmations.</td></tr>
-                        <tr><td><InlineCode>payout.failed</InlineCode></td><td>A payout didn't go through. <InlineCode>failureCode</InlineCode>, <InlineCode>failureReason</InlineCode> and <InlineCode>willRetry</InlineCode> say why and what happens next; the DD is still held for you.</td></tr>
-                        <tr><td><InlineCode>payout_address.change_requested</InlineCode>, <InlineCode>payout_address.change_cancelled</InlineCode>, <InlineCode>payout_address.changed</InlineCode></td><td>The store's DD payout address change was requested (it takes effect after 48 hours), cancelled, or took effect. The body has a <InlineCode>payoutAddress</InlineCode> object with the old and new addresses.</td></tr>
                         <tr><td><InlineCode>webhook.test</InlineCode></td><td>You asked for a test (<a href="/docs/api#webhook-test" class="text-dgb-500 hover:underline">test</a>). Its session is made up (<InlineCode>ses_test_…</InlineCode>); it is sent once, never retried, and can't be replayed.</td></tr>
                     </tbody>
                 </table>
             </div>
             <p class="@Small">New event types may be added. Answer <InlineCode>200</InlineCode> to ones you don't handle; anything else counts as a failed delivery.</p>
-
-            <DocsHeading Id="dd-payouts" Level="3">DigiDollar payouts (beta)</DocsHeading>
-            <p class="@Small">
-                DigiPay holds the DigiDollar (DD) buyers pay a store until it's paid out to the store's DD payout address. Set the
-                address in the Dashboard (DigiDollar payouts): it needs a fresh Digi-ID sign-in, and a change waits 48 hours with payouts
-                held, so a stolen session can't redirect your money. API keys can't set or change it. By default each payment is paid out
-                once it has 6 confirmations; you can choose once a day or a balance threshold instead. DigiPay pays the DGB network fee,
-                so you receive the full DD amount. Payouts start at 1.00 DD.
-            </p>
-            <p class="@Small">
-                Read-only with an API key: <InlineCode>GET /v1/pay/stores/{storeId}/dd-balance</InlineCode> (held DD, why it's held, by
-                source), <InlineCode>GET /v1/pay/stores/{storeId}/payouts</InlineCode> (newest first, <InlineCode>?status=</InlineCode>
-                and <InlineCode>?cursor=</InlineCode>) and <InlineCode>GET /v1/pay/payouts/{payoutId}</InlineCode>. In your own session
-                list, DD rows carry <InlineCode>ddPayout</InlineCode> and <InlineCode>ddExtraRefundCents</InlineCode>. Turning DigiDollar
-                on (<InlineCode>digiDollarEnabled: true</InlineCode>) answers <InlineCode>409 payout_address_required</InlineCode> until the
-                store has a payout address.
-            </p>
 
             <DocsHeading Id="webhook-headers" Level="3">Headers</DocsHeading>
             <ul class="text-sm leading-relaxed text-slate-700 dark:text-slate-300 list-disc pl-5 mb-3 space-y-1">

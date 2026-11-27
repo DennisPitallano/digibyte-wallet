@@ -19,12 +19,12 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 ## Phase 1: Setup
 
-- [ ] T001 Add a "Superseded by spec 035" note at the top of `specs/034-digipay-dd-payouts/spec.md` and `specs/034-digipay-dd-payouts/plan.md`. Mark `specs/034-digipay-dd-payouts/constitution-amendment.md` "Not applied: superseded by spec 035 (DigiPay holds no DigiDollar)".
-- [ ] T002 [P] Add a "Changed by spec 035" note at the top of `specs/033-digipay-dd-everywhere/spec.md`. It should list:
+- [X] T001 Add a "Superseded by spec 035" note at the top of `specs/034-digipay-dd-payouts/spec.md` and `specs/034-digipay-dd-payouts/plan.md`. Mark `specs/034-digipay-dd-payouts/constitution-amendment.md` "Not applied: superseded by spec 035 (DigiPay holds no DigiDollar)".
+- [X] T002 [P] Add a "Changed by spec 035" note at the top of `specs/033-digipay-dd-everywhere/spec.md`. It should list:
   - addresses now come from the store's key
   - availability comes from explorer health
   - turning DD on needs the key, not a payout address
-- [ ] T003 [P] Add the `DigiPay:DigiDollar` settings to `src/DigiByte.Pay.Api/appsettings.json` and remove the `DdNode` section:
+- [X] T003 [P] Add the `DigiPay:DigiDollar` settings to `src/DigiByte.Pay.Api/appsettings.json` and remove the `DdNode` section:
   - `EsploraMainnetUrl` = `https://digiexplorer.info/api`
   - `EsploraTestnetUrl` = `https://digiexplorer.info/testnet/api`
 
@@ -32,12 +32,12 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 ### DD address derivation from a public key (Crypto, test-first)
 
-- [ ] T004 [P] Write failing tests in `tests/DigiByte.Crypto.Tests/DigiDollarAccountKeyTests.cs`:
+- [X] T004 [P] Write failing tests in `tests/DigiByte.Crypto.Tests/DigiDollarAccountKeyTests.cs`:
   - **Matches the seed path**: `DigiDollarAccountKey.Parse(xpub, network).Address(i)` equals `DigiDollarKeyDerivation(seed).GetAddress(Receive, i)` for i = 0, 1 and 19, on mainnet (coin 20) and testnet (coin 1), from the test mnemonic.
   - **Refusals**: `ParseResult` reasons `malformed` (bad checksum, truncated, empty, random text), `private_key` (xprv and tprv), `wrong_network` (tpub on mainnet and xpub on testnet) and `not_account_key` (depth 0 master key and depth 4 or 5 keys).
   - **Fingerprint**: the `KeyId` is SHA-256 of `network + ":" + canonical key`, and is stable.
-- [ ] T005 Add `GetAccountExtPubKey()` to `src/DigiByte.Crypto/KeyGeneration/DigiDollarKeyDerivation.cs`. It returns the neutered `ExtPubKey` at `m/86'/coin'/0'`. Also add a test to `tests/DigiByte.Crypto.Tests/DigiDollarAccountKeyTests.cs` that its `ToString(network)` parses back to the same addresses.
-- [ ] T006 Implement `src/DigiByte.Crypto/KeyGeneration/DigiDollarAccountKey.cs` (research R1 and R2). It must:
+- [X] T005 Add `GetAccountExtPubKey()` to `src/DigiByte.Crypto/KeyGeneration/DigiDollarKeyDerivation.cs`. It returns the neutered `ExtPubKey` at `m/86'/coin'/0'`. Also add a test to `tests/DigiByte.Crypto.Tests/DigiDollarAccountKeyTests.cs` that its `ToString(network)` parses back to the same addresses.
+- [X] T006 Implement `src/DigiByte.Crypto/KeyGeneration/DigiDollarAccountKey.cs` (research R1 and R2). It must:
   - parse strictly by version bytes for the given network, with no fallback
   - reject private extended keys without putting the input in any exception message
   - require depth 3
@@ -48,8 +48,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 ### Explorer client and test fake
 
-- [ ] T007 [P] Create `src/DigiByte.Pay.Api/Services/DdChainProvider.cs` (R7). It holds two `EsploraDigiDollarApi` instances (mainnet with `isTestnet: () => false`, testnet with `() => true`) built from the `DigiPay:DigiDollar` URLs, with env overrides `DIGIPAY_DD_ESPLORA_MAINNET_URL` and `DIGIPAY_DD_ESPLORA_TESTNET_URL`. Provide `For(string network)` and register it in `src/DigiByte.Pay.Api/Program.cs` with the named HttpClient "DigiPayDd".
-- [ ] T008 [P] Create `tests/DigiByte.Pay.Api.Tests/FakeDdExplorer.cs`, an `HttpMessageHandler` serving the Esplora paths `EsploraDigiDollarApi` calls: `/address/{a}/txs`, `/address/{a}/txs/chain/{last}`, `/tx/{id}`, `/tx/{id}/status`, `/blocks/tip/height` and the health paths. It should offer:
+- [X] T007 [P] Create `src/DigiByte.Pay.Api/Services/DdChainProvider.cs` (R7). It holds two `EsploraDigiDollarApi` instances (mainnet with `isTestnet: () => false`, testnet with `() => true`) built from the `DigiPay:DigiDollar` URLs, with env overrides `DIGIPAY_DD_ESPLORA_MAINNET_URL` and `DIGIPAY_DD_ESPLORA_TESTNET_URL`. Provide `For(string network)` and register it in `src/DigiByte.Pay.Api/Program.cs` with the named HttpClient "DigiPayDd".
+- [X] T008 [P] Create `tests/DigiByte.Pay.Api.Tests/FakeDdExplorer.cs`, an `HttpMessageHandler` serving the Esplora paths `EsploraDigiDollarApi` calls: `/address/{a}/txs`, `/address/{a}/txs/chain/{last}`, `/tx/{id}`, `/tx/{id}/status`, `/blocks/tip/height` and the health paths. It should offer:
   - `Pay(address, cents, confirmations)`
   - `Confirm(txid, n)`
   - `Down` (all requests fail)
@@ -57,17 +57,17 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 ### Data model (data-model.md)
 
-- [ ] T009 Update `src/DigiByte.Pay.Api/Data/PayStore.cs`:
+- [X] T009 Update `src/DigiByte.Pay.Api/Data/PayStore.cs`:
   - Add `DdAccountKey` (string?, "≤ 200"), `DdKeyId` (string?, "64 hex") and `DdAccountKeySetAt` (DateTime?).
   - Remove `IDdPayoutOwner`, every `DdPayout*` field and `DdPayoutAddressRequiredExempt`.
-- [ ] T010 [P] Create `src/DigiByte.Pay.Api/Data/DdKeySequence.cs` with `Id` (64 hex, PK), `Network`, `NextIndex` ("only ever increases, starts at 0") and `CreatedAt`.
-- [ ] T011 [P] Reshape `src/DigiByte.Pay.Api/Data/DdAddress.cs` to have:
+- [X] T010 [P] Create `src/DigiByte.Pay.Api/Data/DdKeySequence.cs` with `Id` (64 hex, PK), `Network`, `NextIndex` ("only ever increases, starts at 0") and `CreatedAt`.
+- [X] T011 [P] Reshape `src/DigiByte.Pay.Api/Data/DdAddress.cs` to have:
   - `Address` (PK), `DdKeyId`, `Index`
   - `Kind`: `payment`, `option` or `donation`
   - `StoreId`, `SessionId?`, `CreatedAt`, `FirstPaidAt?`
 
   Remove the ledger links.
-- [ ] T012 Update `src/DigiByte.Pay.Api/Data/DigiPayDbContext.cs`:
+- [X] T012 Update `src/DigiByte.Pay.Api/Data/DigiPayDbContext.cs`:
   - Add the DbSets `DdKeySequences` and `DdAddresses`, with a unique (`DdKeyId`, `Index`) and FK `DdKeyId`.
   - Remove the DbSets and config for `DdLedgerEntry`, `DdPayout`, `DdPayoutItem`, `PayoutAddressChange`, `StepUpGrant`, `MerchantDdSettings` and `OperatorSetting`.
   - Remove `WebhookDelivery.PayoutId` from `src/DigiByte.Pay.Api/Data/WebhookDelivery.cs`.
@@ -76,26 +76,26 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 ### Remove spec 034 and the node client
 
-- [ ] T013 Delete these files:
+- [X] T013 Delete these files:
   - every file in `src/DigiByte.Pay.Api/Services/Payouts/`
   - `src/DigiByte.Pay.Api/Endpoints/PayoutsEndpoints.cs`
 
   Then remove their DI, the operator key, the payouts worker, the SQLite shim, the DdAddress backfill and `MapPayoutsEndpoints` from `src/DigiByte.Pay.Api/Program.cs`.
 
   In `src/DigiByte.Pay.Api/Services/DigiDollarNodeClient.cs`, delete only the spec 034 methods and records (`GetHealthAsync`, `GetWalletBalanceAsync`, `ListReceivesAsync`, `SendAsync`, `ListSendsAsync`, `GetTxStatusAsync`). Keep `GenerateAddressAsync`, `GetBalanceAsync`, `GetFirstReceiveTxidAsync` and `IsHealthyAsync`: they still have callers until T029, T031 and T044, and the client is deleted in T045.
-- [ ] T014 Remove the remaining 034 code:
+- [X] T014 Remove the remaining 034 code:
   - the payout routes (pause, resume, health) from `src/DigiByte.Pay.Api/Endpoints/OperatorEndpoints.cs`
   - `SessionPayoutInfo` use from `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs`
   - `StoreDdRetirement` and the payout-address network check from `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs`
   - the payout fields from `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`
   - the payout events from `src/DigiByte.Pay.Api/Services/WebhookDispatcher.cs`
-- [ ] T015 Delete `src/DigiByte.Pay.Api/Migrations/20261127011500_AddDdPayouts.cs` and its `.Designer.cs`. Add the migration `AddDdMerchantKeys` with `dotnet ef migrations add AddDdMerchantKeys` in `src/DigiByte.Pay.Api/Migrations/` (data-model.md "Migration"). It should:
+- [X] T015 Delete `src/DigiByte.Pay.Api/Migrations/20261127011500_AddDdPayouts.cs` and its `.Designer.cs`. Add the migration `AddDdMerchantKeys` with `dotnet ef migrations add AddDdMerchantKeys` in `src/DigiByte.Pay.Api/Migrations/` (data-model.md "Migration"). It should:
   - add the store columns
   - create `DdKeySequences` and `DdAddresses`
   - set `DigiDollarEnabled = false` and clear `DdDonationAddress` where `DdAccountKey` is null
 
   Update `DigiPayDbContextModelSnapshot.cs` and the SQLite shim in `src/DigiByte.Pay.Api/Program.cs`.
-- [ ] T016 Delete these Pay.Web files:
+- [X] T016 Delete these Pay.Web files:
   - `src/DigiByte.Pay.Web/Components/Shared/DdPayoutsPanel.razor`
   - `src/DigiByte.Pay.Web/Components/Shared/PayoutAlertsBanner.razor`
   - `src/DigiByte.Pay.Web/Components/Pages/Merchant/PayoutAddressRules.cs`
@@ -105,13 +105,15 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - `src/DigiByte.Pay.Web/Components/Pages/SessionDetail.razor`
   - `src/DigiByte.Pay.Web/Components/Pages/Merchant/DashboardSections.cs`
   - `src/DigiByte.Pay.Web/Components/Shared/Ui/ApiError.cs`
-- [ ] T017 Delete these tests:
+- [X] T017 Delete these tests:
   - `tests/DigiByte.Pay.Api.Tests/PayoutAddressTests.cs`, `PayoutHarness.cs`, `PayoutLedgerTests.cs` and `PayoutSendTests.cs`
   - `tests/DigiByte.Pay.Web.Tests/DdPayoutsPanelTests.cs`
 
   Remove payout setup from `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` (`DigiPay:Payouts:WorkerEnabled`), and the payout cases in `tests/DigiByte.Pay.Web.Tests` Dashboard, PosTill and SessionDetail tests.
-- [ ] T018 Replace `FakeDdNode` with `FakeDdExplorer`:
+- [X] T018 Replace `FakeDdNode` with `FakeDdExplorer`:
   - Wire `FakeDdExplorer` (T008) into `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` as the "DigiPayDd" handler, and delete `tests/DigiByte.Pay.Api.Tests/FakeDdNode.cs`.
+  *Done with one change: `FakeDdNode.cs` stays until T032, because the node client is still wired and deleting it now would stop the whole test project compiling. It goes in T032 with its last users.*
+
   The DD routes compile, but DD isn't usable in tests until US2: the node client is still wired, and the fake explorer doesn't serve node paths. The existing DD Pay.Api tests (`BuyerChoiceSessionTests`, `DdOptionEndpointTests`, `InvoiceMonitorBuyerChoiceTests`, `DonationOptionsTests`, `DdSurfacesGateTests`, `SessionsCsvDdTests`, `PosShiftTotalsDdTests`) stay red until T032. Only the Crypto tests and the Pay.Api tests not about DD are expected to pass at this checkpoint.
 
 **Checkpoint**: the solution builds, no spec 034 code is left, the Crypto tests pass, and the Pay.Api tests not about DD pass.

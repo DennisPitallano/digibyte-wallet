@@ -48,7 +48,6 @@ public class DigiDollarWalletScopedAuthTests
         ["GET", "/api/digidollar/transactions"],
         ["POST", "/api/digidollar/send"],
         ["POST", "/api/digidollar/send-many"],
-        ["GET", "/api/digidollar/sends"],
         ["POST", "/api/digidollar/mint"],
         ["POST", "/api/digidollar/redeem"],
         ["GET", "/api/digidollar/positions"],

@@ -25,7 +25,6 @@ public static class WalletScopedRoutes
         "/transactions",
         "/send",
         "/send-many",
-        "/sends",
         "/mint",
         "/redeem",
         "/positions",

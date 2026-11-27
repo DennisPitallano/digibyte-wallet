@@ -1,6 +1,5 @@
 using DigiByte.Pay.Api.Data;
 using DigiByte.Pay.Api.Endpoints;
-using DigiByte.Pay.Api.Services.Payouts;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigiByte.Pay.Api.Services;
@@ -94,7 +93,6 @@ public sealed class SessionOptionService(
         }
         var option = NewDdOption(session, address, cents, rate);
         db.SessionOptions.Add(option);
-        await DdAddressRegistry.RegisterAsync(db, address, session.MerchantId, store.Id, DdAddress.KindPayment, session.Id, store.Network, ct);
         return option;
     }
 
@@ -130,7 +128,6 @@ public sealed class SessionOptionService(
 
         var option = NewDdOption(session, address, cents, rate);
         db.SessionOptions.Add(option);
-        await DdAddressRegistry.RegisterAsync(db, address, session.MerchantId, store.Id, DdAddress.KindPayment, session.Id, store.Network, ct);
         try
         {
             await db.SaveChangesAsync(ct);

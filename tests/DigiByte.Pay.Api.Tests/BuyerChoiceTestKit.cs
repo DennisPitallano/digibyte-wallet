@@ -19,7 +19,6 @@ internal static class BuyerChoiceTestKit
     {
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
-        await factory.GivePayoutAddress(storeId);
         if (ddOn)
             (await client.SendAsync(PayFactory.Authed(HttpMethod.Patch, $"/v1/pay/stores/{storeId}", key, new { digiDollarEnabled = true })))
                 .EnsureSuccessStatusCode();

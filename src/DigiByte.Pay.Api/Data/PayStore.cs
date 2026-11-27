@@ -5,7 +5,7 @@ namespace DigiByte.Pay.Api.Data;
 /// each with its own receive (xpub or address), webhook configuration, and
 /// default session expiry. Sessions belong to exactly one store.
 /// </summary>
-public class PayStore : IDdPayoutOwner
+public class PayStore
 {
     public required string Id { get; init; }
     public required string MerchantId { get; init; }
@@ -26,14 +26,22 @@ public class PayStore : IDdPayoutOwner
     public int? DefaultSessionExpiryMinutes { get; set; }
 
     /// <summary>
-    /// Merchant opt-in for DigiDollar (DD) payments. When true, sessions may
-    /// be created with Currency="DD" and DD payment monitoring is enabled for
-    /// this store. Defaults to false — existing DGB integrations keep working
-    /// unchanged. DD addresses are generated on demand via the node RPC (no
-    /// xpub-based derivation exists for DD), so no per-store address config
-    /// is stored here beyond this flag.
+    /// Merchant opt-in for DigiDollar (DD) payments. When true, sessions may be created with Currency="DD" and DD
+    /// payment monitoring is enabled for this store. It can only be on while <see cref="DdAccountKey"/> is set
+    /// (specs/035 FR-004): every DD address is derived from that key, so DD goes straight to the merchant's wallet.
     /// </summary>
     public bool DigiDollarEnabled { get; set; }
+
+    /// <summary>
+    /// The merchant's DigiDollar account public key (xpub/tpub at m/86'/coin'/0', specs/035), exactly as pasted and
+    /// checked by <see cref="DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey"/>. Never a private key. Max 200 chars.
+    /// </summary>
+    public string? DdAccountKey { get; set; }
+
+    /// <summary>SHA-256 hex of <c>network:key</c> (64 chars): the id of the key's shared <see cref="DdKeySequence"/>.</summary>
+    public string? DdKeyId { get; set; }
+
+    public DateTime? DdAccountKeySetAt { get; set; }
 
     /// <summary>
     /// The currency the dashboard's payment links and a newly paired POS tablet start in:
@@ -49,36 +57,10 @@ public class PayStore : IDdPayoutOwner
     public bool BuyerChoiceEnabled { get; set; } = true;
 
     /// <summary>
-    /// The store's fixed DD donation address (specs/033 FR-011), created on demand. Never rotated, and kept when DD is
-    /// turned off so donations sent later are still credited.
+    /// The store's fixed DD donation address (specs/033 FR-011, 035 FR-009), derived from the next index of its key's
+    /// sequence the first time it's asked for. Cleared when the key is replaced or removed.
     /// </summary>
     public string? DdDonationAddress { get; set; }
-
-    // ---- DD payouts (specs/034 data-model) ----
-
-    public string? OwnerStoreId => Id;
-
-    /// <summary>The store's DD payout address in effect. Valid DD for <see cref="Network"/>, never a DigiPay address.</summary>
-    public string? DdPayoutAddress { get; set; }
-    public DateTime? DdPayoutAddressSetAt { get; set; }
-    /// <summary>confirmed | daily | threshold.</summary>
-    public string DdPayoutSchedule { get; set; } = "confirmed";
-    public TimeOnly? DdPayoutDailyTime { get; set; }
-    /// <summary>IANA zone, from the merchant's browser when they pick "daily"; UTC when not set.</summary>
-    public string? DdPayoutTimeZone { get; set; }
-    /// <summary>At least 100 and at most 10,000,000.</summary>
-    public long? DdPayoutThresholdCents { get; set; }
-    /// <summary>Set after 3 failed payouts in a row (FR-022).</summary>
-    public DateTime? DdPayoutsAutoPausedAt { get; set; }
-    public int DdPayoutConsecutiveFailures { get; set; }
-    /// <summary>Operator pause for this store only (FR-021).</summary>
-    public DateTime? DdPayoutsPausedByOperatorAt { get; set; }
-    /// <summary>Set by "Pay out now" / "Retry now"; cleared when the planner picks it up.</summary>
-    public DateTime? DdPayoutRequestedAt { get; set; }
-    public string? DdPayoutRequestReason { get; set; }
-    public DateTime? DdPayoutLastDailyRunAt { get; set; }
-    /// <summary>Stores that already had DD on when payouts shipped may keep it on without a payout address (FR-031).</summary>
-    public bool DdPayoutAddressRequiredExempt { get; set; }
 
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }

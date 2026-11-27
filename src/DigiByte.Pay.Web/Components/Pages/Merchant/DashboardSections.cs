@@ -35,7 +35,6 @@ public static class DashboardSections
         new("links",     "links",     "Payment links",   "link",      4, false, false, Payments),
         new("pos",       "pos",       "POS tablets",     "zap",       0, false, false, Payments),
         new("donation",  "donation",  "Donation button", "gift",      0, false, false, Payments),
-        new("digidollar", "digidollar", "DigiDollar payouts", "wallet", 0, false, false, Payments),
         new("analytics", "analytics", "Analytics",       "chart",     0, false, false, Insights),
         new("apikeys",   "api-keys",  "API keys",        "key",       0, false, false, Developers),
         new("webhook",   "webhook",   "Webhooks",        "bell",      0, false, false, Developers),

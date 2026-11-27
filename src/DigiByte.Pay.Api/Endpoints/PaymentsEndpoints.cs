@@ -305,10 +305,6 @@ public static class PaymentsEndpoints
                     SessionOptionService.StartOn(session, ddOption);
                 }
             }
-            // Every DD address DigiPay creates is recorded with its owner, so payouts can attribute the DD (specs/034 R4).
-            if (session.Currency == "DD")
-                await DigiByte.Pay.Api.Services.Payouts.DdAddressRegistry.RegisterAsync(db, session.Address, merchant.Id, store.Id,
-                    DigiByte.Pay.Api.Data.DdAddress.KindPayment, session.Id, store.Network);
             // Persist the idempotency mapping in the same SaveChanges so a
             // partial failure can't leave the session without its mapping (or
             // vice-versa). The unique (MerchantId, Key) index guards against
@@ -441,14 +437,12 @@ public static class PaymentsEndpoints
                 .Skip(skip).Take(take).ToListAsync();
 
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
-            // Payout status for DD rows (specs/034 FR-028): merchant-only, so it's added here and not on the public read.
-            var payoutInfo = await DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.LoadAsync(db, rows);
             return Results.Ok(new
             {
                 total,
                 take,
                 skip,
-                sessions = rows.Select(s => DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.Attach(ToDto(s, $"{checkoutBase}/pay/{s.Id}"), s.Id, payoutInfo)),
+                sessions = rows.Select(s => ToDto(s, $"{checkoutBase}/pay/{s.Id}")),
             });
         }).AllowPosKey();
 
@@ -463,22 +457,11 @@ public static class PaymentsEndpoints
             var merchant = await db.Merchants.AsNoTracking().FirstOrDefaultAsync(m => m.Id == session.MerchantId);
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
 
-            // specs/034 T047: the store's own merchant also sees whether the DD was paid out. Never anyone else: this
-            // read is public.
-            async Task<object> ForCaller(object dto)
-            {
-                if (session.Currency != "DD" && !session.BuyerChoice) return dto;
-                var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
-                if (caller is null || caller.Merchant.Id != session.MerchantId) return dto;
-                var info = await DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.LoadAsync(db, [session]);
-                return DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.Attach(dto, session.Id, info);
-            }
-
             if (!session.BuyerChoice)
             {
                 return Results.Ok(new
                 {
-                    Session = await ForCaller(ToDto(session, $"{checkoutBase}/pay/{session.Id}")),
+                    Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}"),
                     MerchantName = merchant?.DisplayName,
                 });
             }
@@ -492,7 +475,7 @@ public static class PaymentsEndpoints
                 : null;
             return Results.Ok(new
             {
-                Session = await ForCaller(ToDto(session, $"{checkoutBase}/pay/{session.Id}", sessionOptions)),
+                Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}", sessionOptions),
                 MerchantName = merchant?.DisplayName,
                 DdAvailable = ddReason is null,
                 DdReason = ddReason,

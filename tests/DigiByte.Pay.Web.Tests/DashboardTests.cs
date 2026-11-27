@@ -446,7 +446,7 @@ public class DashboardTests : BunitContext
     // ----- DigiDollar setting text (specs/033 User Story 5) -----
 
     [Fact]
-    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_is_held_until_paid_out()
+    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_cannot_be_withdrawn_yet()
     {
         var cut = RenderSection("settings");
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-setting-text")));
@@ -454,8 +454,7 @@ public class DashboardTests : BunitContext
 
         Assert.Contains("only through the DigiPay API", text);
         Assert.Contains("DigiPay holds the DD", text);
-        Assert.Contains("paid out to your payout address", text); // specs/034 FR-040
-        Assert.DoesNotContain("can't be withdrawn", text);
+        Assert.Contains("can't be withdrawn yet", text);
         Assert.Contains("1 DD = $1", text);
         Assert.Contains("network fees in DGB", text);
         Assert.DoesNotContain("POS", text);
@@ -724,29 +723,16 @@ public class DashboardTests : BunitContext
     }
 
     [Fact]
-    public void Deleting_a_store_that_holds_DD_offers_a_final_payout()
+    public void Deleting_a_store_just_deletes_it_with_no_DigiDollar_to_pay_out_first()
     {
-        api.DdHeld = (1250, false, true);
+        // specs/035 US5: DigiPay never holds DD, so nothing blocks deleting a store.
+        api.TwoStores = true;
         var cut = RenderSection("stores");
 
         DeleteOldKiosk(cut);
 
-        cut.WaitForAssertion(() => Assert.Contains("Pay out before deleting?", cut.Markup));
-        Assert.Contains("12.50 DD", cut.Markup);
-        Buttons(cut, "Pay out now").Single().Click();
-        cut.WaitForAssertion(() => Assert.True(api.FinalPayoutAsked));
-    }
-
-    [Fact]
-    public void Deleting_a_store_that_holds_DD_without_a_payout_address_explains_what_to_do()
-    {
-        api.DdHeld = (1250, false, false);
-        var cut = RenderSection("stores");
-
-        DeleteOldKiosk(cut);
-
-        cut.WaitForAssertion(() => Assert.Contains("Add a payout address in DigiDollar payouts", cut.Markup));
-        Assert.False(api.FinalPayoutAsked);
+        cut.WaitForAssertion(() => Assert.True(api.StoreDeleted));
+        Assert.DoesNotContain("payout", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
 
     // ----- DigiDollar donations (specs/033 US4) -----
@@ -797,8 +783,7 @@ public class DashboardTests : BunitContext
         /// <summary>Gives every listed payment an extra DD payment (specs/033 FR-025).</summary>
         public bool ExtraOnRows { get; set; }
         /// <summary>DELETE /v1/pay/stores/sto_2 answers 409 dd_held with these (specs/034 T060); null deletes it.</summary>
-        public (long Confirmed, bool InFlight, bool HasAddress)? DdHeld { get; set; }
-        public bool FinalPayoutAsked { get; private set; }
+        public bool StoreDeleted { get; private set; }
         public JsonObject? LastPatch { get; private set; }
         public (HttpStatusCode Status, string Body)? PatchError { get; set; }
         public int Total { get; set; } = 3;
@@ -822,7 +807,7 @@ public class DashboardTests : BunitContext
             var q = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
 
             if (method == "GET" && path == "/v1/pay/me/")
-                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = DdHeld is null && !TwoStores ? new[] { Store() } : new[] { Store(), SecondStore() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending });
+                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = !TwoStores ? new[] { Store() } : new[] { Store(), SecondStore() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending });
 
             if (method == "GET" && request.RequestUri.AbsolutePath == "/v1/pay/sessions")
             {
@@ -848,16 +833,7 @@ public class DashboardTests : BunitContext
 
             if (method == "DELETE" && path.StartsWith("/v1/pay/stores/sto_2", StringComparison.Ordinal))
             {
-                if (path.Contains("finalPayout=true"))
-                {
-                    FinalPayoutAsked = true;
-                    return new HttpResponseMessage(HttpStatusCode.Accepted) { Content = new StringContent("{\"status\":\"payout_queued\",\"confirmedCents\":1250}", Encoding.UTF8, "application/json") };
-                }
-                if (DdHeld is { } h)
-                    return new HttpResponseMessage(HttpStatusCode.Conflict)
-                    {
-                        Content = new StringContent(JsonSerializer.Serialize(new { error = "dd_held", confirmedCents = h.Confirmed, confirmingCents = 0L, payoutInProgress = h.InFlight, hasPayoutAddress = h.HasAddress }), Encoding.UTF8, "application/json"),
-                    };
+                StoreDeleted = true;
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 

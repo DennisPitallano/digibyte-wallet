@@ -150,11 +150,6 @@ public static class MerchantMeEndpoints
             ? "USD" : s.DefaultCurrency,
         s.BuyerChoiceEnabled,
         s.DdDonationAddress,
-        // DD payouts (specs/034 contract C2).
-        DdPayoutAddress = s.DdPayoutAddress,
-        DdPayoutSchedule = s.DdPayoutSchedule,
-        DdPayoutsPaused = s.DdPayoutsAutoPausedAt is not null || s.DdPayoutsPausedByOperatorAt is not null,
-        DdPayoutAddressRequired = s.DdPayoutAddress is null && !s.DdPayoutAddressRequiredExempt,
         s.CreatedAt,
     };
 

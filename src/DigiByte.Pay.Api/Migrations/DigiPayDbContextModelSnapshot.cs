@@ -89,26 +89,28 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DdKeyId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("FirstPaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
-
-                    b.Property<string>("MerchantId")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Network")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("SessionId")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
                     b.Property<string>("StoreId")
+                        .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
@@ -116,182 +118,32 @@ namespace DigiByte.Pay.Api.Migrations
 
                     b.HasIndex("SessionId");
 
-                    b.HasIndex("MerchantId", "StoreId");
+                    b.HasIndex("DdKeyId", "Index")
+                        .IsUnique();
 
                     b.ToTable("DdAddresses", (string)null);
                 });
 
-            modelBuilder.Entity("DigiByte.Pay.Api.Data.DdLedgerEntry", b =>
+            modelBuilder.Entity("DigiByte.Pay.Api.Data.DdKeySequence", b =>
                 {
                     b.Property<string>("Id")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<long>("AmountCents")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("Confirmations")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ConfirmedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("MerchantId")
+                    b.Property<string>("Network")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
-                    b.Property<string>("PayoutId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime?>("ReversedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SessionId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Source")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("StoreId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Txid")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(24)
-                        .HasColumnType("character varying(24)");
+                    b.Property<int>("NextIndex")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PayoutId");
-
-                    b.HasIndex("SessionId");
-
-                    b.HasIndex("MerchantId", "StoreId");
-
-                    b.HasIndex("Txid", "Address", "Source")
-                        .IsUnique()
-                        .HasDatabaseName("UX_DdLedger_Txid_Address_Source")
-                        .HasFilter("\"Type\" = 'credit'");
-
-                    b.ToTable("DdLedgerEntries", (string)null);
-                });
-
-            modelBuilder.Entity("DigiByte.Pay.Api.Data.DdPayout", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<long>("AmountCents")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Confirmations")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ConfirmedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("CoverageWaitSince")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Destination")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTime?>("FailedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FailureCode")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("FailureReason")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<DateTime?>("LastAttemptAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("MerchantId")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime?>("SentAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("StoreId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Trigger")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("Txid")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("WaitReason")
-                        .HasMaxLength(24)
-                        .HasColumnType("character varying(24)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MerchantId", "CreatedAt");
-
-                    b.HasIndex("StoreId", "Status");
-
-                    b.ToTable("DdPayouts", (string)null);
-                });
-
-            modelBuilder.Entity("DigiByte.Pay.Api.Data.DdPayoutItem", b =>
-                {
-                    b.Property<string>("PayoutId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("LedgerEntryId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<long>("AmountCents")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("PayoutId", "LedgerEntryId");
-
-                    b.HasIndex("LedgerEntryId");
-
-                    b.ToTable("DdPayoutItems", (string)null);
+                    b.ToTable("DdKeySequences", (string)null);
                 });
 
             modelBuilder.Entity("DigiByte.Pay.Api.Data.IdempotencyRecord", b =>
@@ -325,63 +177,6 @@ namespace DigiByte.Pay.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("IdempotencyRecords");
-                });
-
-            modelBuilder.Entity("DigiByte.Pay.Api.Data.MerchantDdSettings", b =>
-                {
-                    b.Property<string>("MerchantId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("DdPayoutAddress")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTime?>("DdPayoutAddressSetAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("DdPayoutConsecutiveFailures")
-                        .HasColumnType("integer");
-
-                    b.Property<TimeOnly?>("DdPayoutDailyTime")
-                        .HasColumnType("time without time zone");
-
-                    b.Property<DateTime?>("DdPayoutLastDailyRunAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DdPayoutRequestReason")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<DateTime?>("DdPayoutRequestedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DdPayoutSchedule")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<long?>("DdPayoutThresholdCents")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("DdPayoutTimeZone")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTime?>("DdPayoutsAutoPausedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DdPayoutsPausedByOperatorAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Network")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.HasKey("MerchantId");
-
-                    b.ToTable("MerchantDdSettings", (string)null);
                 });
 
             modelBuilder.Entity("DigiByte.Pay.Api.Data.MerchantSession", b =>
@@ -421,24 +216,6 @@ namespace DigiByte.Pay.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("MerchantSessions");
-                });
-
-            modelBuilder.Entity("DigiByte.Pay.Api.Data.OperatorSetting", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Value")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.HasKey("Key");
-
-                    b.ToTable("OperatorSettings", (string)null);
                 });
 
             modelBuilder.Entity("DigiByte.Pay.Api.Data.PayApiKey", b =>
@@ -780,57 +557,20 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DdAccountKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("DdAccountKeySetAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DdDonationAddress")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<string>("DdPayoutAddress")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<bool>("DdPayoutAddressRequiredExempt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<DateTime?>("DdPayoutAddressSetAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("DdPayoutConsecutiveFailures")
-                        .HasColumnType("integer");
-
-                    b.Property<TimeOnly?>("DdPayoutDailyTime")
-                        .HasColumnType("time without time zone");
-
-                    b.Property<DateTime?>("DdPayoutLastDailyRunAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DdPayoutRequestReason")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<DateTime?>("DdPayoutRequestedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DdPayoutSchedule")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasDefaultValue("confirmed");
-
-                    b.Property<long?>("DdPayoutThresholdCents")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("DdPayoutTimeZone")
+                    b.Property<string>("DdKeyId")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
-
-                    b.Property<DateTime?>("DdPayoutsAutoPausedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DdPayoutsPausedByOperatorAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DefaultCurrency")
                         .HasMaxLength(8)
@@ -876,111 +616,11 @@ namespace DigiByte.Pay.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DdKeyId");
+
                     b.HasIndex("MerchantId");
 
                     b.ToTable("Stores");
-                });
-
-            modelBuilder.Entity("DigiByte.Pay.Api.Data.PayoutAddressChange", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime?>("AcknowledgedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("AppliedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("CancelledAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CancelledBySessionId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime>("EffectiveAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("MerchantId")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("NewAddress")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("OldAddress")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RequestedBySessionId")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("StoreId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MerchantId", "Status");
-
-                    b.HasIndex("StoreId", "Status");
-
-                    b.ToTable("PayoutAddressChanges", (string)null);
-                });
-
-            modelBuilder.Entity("DigiByte.Pay.Api.Data.StepUpGrant", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime?>("ConsumedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DigiIdAddress")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("MerchantId")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Purpose")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("SessionId")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("StepUpGrants", (string)null);
                 });
 
             modelBuilder.Entity("DigiByte.Pay.Api.Data.WebhookDelivery", b =>
@@ -1012,13 +652,6 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<DateTime?>("NextRetryAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("PayloadJson")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PayoutId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
                     b.Property<string>("ResponseSnippet")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
@@ -1047,6 +680,15 @@ namespace DigiByte.Pay.Api.Migrations
                     b.HasIndex("StoreId", "CreatedAt");
 
                     b.ToTable("WebhookDeliveries");
+                });
+
+            modelBuilder.Entity("DigiByte.Pay.Api.Data.DdAddress", b =>
+                {
+                    b.HasOne("DigiByte.Pay.Api.Data.DdKeySequence", null)
+                        .WithMany()
+                        .HasForeignKey("DdKeyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("DigiByte.Pay.Api.Data.PaySessionOption", b =>

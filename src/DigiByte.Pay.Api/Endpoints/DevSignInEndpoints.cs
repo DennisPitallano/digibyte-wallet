@@ -108,17 +108,8 @@ public static class DevSignInEndpoints
                 Name = "Dev store (testnet)",
                 Network = "testnet",
                 Xpub = DevXpub.Value,
-                // Ready for DigiDollar (specs/033, 034): a payout address and DD on. Nothing shows beyond the API until
-                // DIGIPAY_DD_SURFACES is on.
-                DdPayoutAddress = DevDdPayoutAddress.Value,
-                DdPayoutAddressSetAt = DateTime.UtcNow,
                 DigiDollarEnabled = true,
             });
-        }
-        else if (store.DdPayoutAddress is null)
-        {
-            store.DdPayoutAddress = DevDdPayoutAddress.Value;
-            store.DdPayoutAddressSetAt = DateTime.UtcNow;
         }
         else if (store.Network is not ("testnet" or "regtest")
             || (string.IsNullOrEmpty(store.Xpub) && string.IsNullOrEmpty(store.ReceiveAddress)))

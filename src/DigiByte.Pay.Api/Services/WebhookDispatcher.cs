@@ -98,40 +98,6 @@ public class WebhookDispatcher
         return await DispatchInternalAsync(store, session, previous.EventName, attempt: previous.Attempt + 1, ct);
     }
 
-    /// <summary>
-    /// Sends an event that isn't about a session (payouts and payout-address changes; specs/034 research R9). The body
-    /// is <c>{ event, timestamp, &lt;subjectName&gt;: subject }</c>, signed like session events, and stored in
-    /// <see cref="WebhookDelivery.PayloadJson"/> so retries resend it byte for byte.
-    /// </summary>
-    public Task<WebhookDelivery?> DispatchEventAsync(
-        PayStore store,
-        string eventName,
-        string subjectName,
-        object subject,
-        string? payoutId,
-        CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(store.WebhookUrl) || string.IsNullOrWhiteSpace(store.WebhookSecret))
-            return Task.FromResult<WebhookDelivery?>(null);
-        var envelope = new Dictionary<string, object?>
-        {
-            ["event"] = eventName,
-            ["timestamp"] = DateTime.UtcNow,
-            [subjectName] = subject,
-        };
-        var body = JsonSerializer.Serialize(envelope, JsonOptions);
-        return SendAsync(store, eventName, body, sessionId: null, payoutId, payloadJson: body, attempt: 1, ct);
-    }
-
-    /// <summary>Resends a stored non-session event (one with <see cref="WebhookDelivery.PayloadJson"/>).</summary>
-    public Task<WebhookDelivery?> ReplayPayloadAsync(WebhookDelivery previous, PayStore store, CancellationToken ct = default)
-    {
-        if (previous.PayloadJson is null || string.IsNullOrWhiteSpace(store.WebhookUrl) || string.IsNullOrWhiteSpace(store.WebhookSecret))
-            return Task.FromResult<WebhookDelivery?>(null);
-        return SendAsync(store, previous.EventName, previous.PayloadJson, sessionId: null, previous.PayoutId, previous.PayloadJson,
-            previous.Attempt + 1, ct);
-    }
-
     private async Task<WebhookDelivery?> DispatchInternalAsync(
         PayStore store,
         PaySession session,
@@ -193,43 +159,28 @@ public class WebhookDispatcher
         };
 
         var body = JsonSerializer.Serialize(payload, JsonOptions);
-        return await SendAsync(store, eventName, body, session.Id, payoutId: null, payloadJson: null, attempt, ct);
-    }
+        var signature = Sign(body, store.WebhookSecret);
 
-    private async Task<WebhookDelivery?> SendAsync(
-        PayStore store,
-        string eventName,
-        string body,
-        string? sessionId,
-        string? payoutId,
-        string? payloadJson,
-        int attempt,
-        CancellationToken ct)
-    {
-        var signature = Sign(body, store.WebhookSecret!);
-        var subjectId = sessionId ?? payoutId ?? "-";
         var delivery = new WebhookDelivery
         {
             // "wdel_" prefix keeps ids distinguishable in logs/URLs.
             Id = $"wdel_{RandomId(16)}",
             StoreId = store.Id,
-            SessionId = sessionId,
-            PayoutId = payoutId,
-            PayloadJson = payloadJson,
+            SessionId = session.Id,
             EventName = eventName,
-            Url = store.WebhookUrl!,
+            Url = store.WebhookUrl,
             Attempt = attempt,
         };
         _db.WebhookDeliveries.Add(delivery);
 
         // Re-validate at dispatch: the stored URL may predate the policy, or its DNS may have changed. A hostile URL is never called;
         // the delivery records why (visible in the dashboard), the URL and secret stay as they are, and nothing is retried.
-        var refusal = await OutboundUrlGuard.ValidateAsync(store.WebhookUrl!, _policy, _resolver, ct);
+        var refusal = await OutboundUrlGuard.ValidateAsync(store.WebhookUrl, _policy, _resolver, ct);
         if (refusal is not null)
         {
             delivery.ErrorMessage = DestinationNotAllowed;
             _logger.LogWarning("Webhook {Event} for store {StoreId} not sent: stored URL refused ({Reason}) session={SessionId}",
-                eventName, store.Id, refusal.Value.ToText(), subjectId);
+                eventName, store.Id, refusal.Value.ToText(), session.Id);
             await _db.SaveChangesAsync(ct);
             return delivery;
         }
@@ -264,12 +215,12 @@ public class WebhookDispatcher
             if (response.IsSuccessStatusCode)
             {
                 _logger.LogInformation("Webhook {Event} → {Url} [{Status}] session={SessionId} attempt={Attempt}",
-                    eventName, store.WebhookUrl, (int)response.StatusCode, subjectId, attempt);
+                    eventName, store.WebhookUrl, (int)response.StatusCode, session.Id, attempt);
             }
             else
             {
                 _logger.LogWarning("Webhook {Event} → {Url} failed [{Status}] session={SessionId} attempt={Attempt}",
-                    eventName, store.WebhookUrl, (int)response.StatusCode, subjectId, attempt);
+                    eventName, store.WebhookUrl, (int)response.StatusCode, session.Id, attempt);
             }
         }
         catch (Exception ex)
@@ -281,7 +232,7 @@ public class WebhookDispatcher
             var blocked = ex is OutboundBlockedException || ex.InnerException is OutboundBlockedException;
             delivery.ErrorMessage = blocked ? DestinationNotAllowed : (ex.Message.Length > 500 ? ex.Message[..500] : ex.Message);
             _logger.LogWarning(ex, "Webhook {Event} → {Url} threw (session={SessionId}, attempt={Attempt})",
-                eventName, store.WebhookUrl, subjectId, attempt);
+                eventName, store.WebhookUrl, session.Id, attempt);
         }
 
         // Schedule a retry if this attempt failed and the failure mode is one
@@ -293,7 +244,7 @@ public class WebhookDispatcher
         // are explicitly NOT retried — they're a one-shot diagnostic ping for
         // the merchant, and the dummy session isn't persisted so the retrier
         // wouldn't be able to rebuild the payload anyway.
-        var isTestPing = sessionId is not null && sessionId.StartsWith("ses_test_", StringComparison.Ordinal);
+        var isTestPing = session.Id.StartsWith("ses_test_", StringComparison.Ordinal);
         if (!delivery.Success && !isTestPing && delivery.ErrorMessage != DestinationNotAllowed && IsRetryable(delivery.StatusCode, delivery.ErrorMessage))
         {
             var backoffIndex = attempt - 1;

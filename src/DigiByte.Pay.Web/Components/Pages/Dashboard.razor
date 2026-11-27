@@ -56,7 +56,6 @@ else
             else
             {
             <div class="contents">
-            <PayoutAlertsBanner Token="@(token ?? string.Empty)" />
             @if (DdChoiceNoticeShown)
             {
                 @* specs/033 FR-030: once, for merchants who had DigiDollar on when buyer choice arrived. *@
@@ -278,11 +277,6 @@ else
                                         <div class="min-w-0">
                                             <div class="font-bold text-[0.9375rem] tabular-nums flex items-center gap-1.5 flex-wrap">
                                                 @RowAmount(s)
-                                                @if (s.DdPayout is { } paidOut)
-                                                {
-                                                    @* specs/034 T047: where this payment's DD went. The row is already a link (to the payment, which links the payout). *@
-                                                    <span class="ui-badge ui-badge-success" data-dd-paid-out>@(paidOut.Status is "confirmed" or "sent" ? "DD paid out" : $"DD payout {paidOut.Status}")</span>
-                                                }
                                                 @if (s.Extra is { } extra)
                                                 {
                                                     <span class="ui-badge ui-badge-refund" data-extra-flag>Extra @extra.Currency received, refund the buyer</span>
@@ -996,12 +990,6 @@ else
                     }
                 </section>
             }
-            else if (activeTab == "digidollar")
-            {
-                <DdPayoutsPanel Token="@(token ?? string.Empty)" StoreId="@activeStore.Id" StoreName="@activeStore.Name" Network="@activeStore.Network" />
-                @* specs/034 T060: DD from deleted stores, shown only when the account holds some. *@
-                <DdPayoutsPanel Token="@(token ?? string.Empty)" MerchantLevel="true" Network="@activeStore.Network" />
-            }
             else if (activeTab == "audit")
             {
                 <AuditPanel Token="@(token ?? string.Empty)" Clock="@clock" />
@@ -1256,14 +1244,7 @@ else
                         <span class="text-sm">Enable DigiDollar for this store</span>
                     </label>
                     @if (ddMessage != null) { <p class="@Muted m-0">@ddMessage</p> }
-                    @if (ddError != null)
-                    {
-                        <p class="field-error" role="alert">@ddError</p>
-                        @if (ddNeedsPayoutAddress)
-                        {
-                            <button class="@BtnGhost self-start" @onclick='() => SwitchTab("digidollar")'>Add a payout address</button>
-                        }
-                    }
+                    @if (ddError != null) { <p class="field-error" role="alert">@ddError</p> }
                     @if (activeStore.DigiDollarEnabled && DdSurfacesEnabled)
                     {
                         @* specs/033 FR-029. *@
@@ -1273,11 +1254,6 @@ else
                             <span class="text-sm">Let buyers choose DGB or DigiDollar at checkout</span>
                         </label>
                         <p class="@Muted m-0">Applies to payments priced in a regular currency. Payments you create in DGB or in DD stay in that currency.</p>
-                    }
-                    @if (activeStore.DdPayoutAddressRequired && activeStore.DigiDollarEnabled)
-                    {
-                        <p class="m-0" id="dd-payout-prompt">DigiPay is holding this store's DD until you add a payout address.
-                            <a href="/merchant/digidollar">Add one</a></p>
                     }
                 </section>
             }
@@ -2664,9 +2640,6 @@ else
         finally { expiryBusy = false; StateHasChanged(); }
     }
 
-    /// <summary>Set when turning DD on was refused for want of a payout address (specs/034 FR-031).</summary>
-    private bool ddNeedsPayoutAddress;
-
     private async Task SaveDigiDollarEnabledAsync()
     {
         if (activeStore is null) return;
@@ -2675,12 +2648,10 @@ else
         ddBusy = true; ddError = null; ddMessage = null; StateHasChanged();
         try
         {
-            ddNeedsPayoutAddress = false;
             var (ok, error, _) = await PatchStoreAsync(new { digiDollarEnabled = ddEnabledInput });
             if (!ok)
             {
                 ddError = error;
-                ddNeedsPayoutAddress = error == ApiError.PayoutAddressRequired;
                 ddEnabledInput = activeStore.DigiDollarEnabled; // revert
                 return;
             }
@@ -2763,9 +2734,6 @@ else
         {
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/stores/{storeId}"));
-            if (response.StatusCode == System.Net.HttpStatusCode.Conflict
-                && await response.Content.ReadFromJsonAsync<DdHeldDto>() is { Error: "dd_held" } held)
-                return ExplainDdHeld(storeId, held);
             if (!response.IsSuccessStatusCode) return await ApiError.ReadAsync(response);
             await LoadAccountAsync();
             if (activeStoreId == storeId && stores.Count > 0)
@@ -2780,60 +2748,6 @@ else
             return null;
         }
         catch (Exception ex) { return Plain(ex, "delete store"); }
-    }
-
-    // specs/034 T060: a store still holding DigiDollar can't be deleted until it's paid out (FR-015, the dd_held block).
-    private sealed record DdHeldDto(string? Error, long ConfirmedCents, long ConfirmingCents, bool PayoutInProgress, bool HasPayoutAddress);
-
-    private static string DdText(long cents) => $"{(cents / 100m).ToString("#,0.00", System.Globalization.CultureInfo.InvariantCulture)} DD";
-
-    /// <summary>
-    /// Explains why the store can't be deleted yet. When a final payout can go out now, asks to send it instead of
-    /// returning an error (the delete is finished by deleting again once it has gone out).
-    /// </summary>
-    private string? ExplainDdHeld(string storeId, DdHeldDto held)
-    {
-        var name = stores.FirstOrDefault(x => x.Id == storeId)?.Name ?? "This store";
-        if (held.PayoutInProgress)
-            return $"{name} still holds DigiDollar and a payout is on its way. Delete it again once the payout has gone out.";
-        if (!held.HasPayoutAddress)
-            return $"{name} still holds {DdText(held.ConfirmedCents + held.ConfirmingCents)}. Add a payout address in DigiDollar payouts so it can be paid out, then delete the store.";
-        if (held.ConfirmedCents < 100)
-            return $"{name} still holds {DdText(held.ConfirmingCents)} that's confirming. Try again once it's confirmed.";
-        Ask("Pay out before deleting?",
-            $"{name} still holds {DdText(held.ConfirmedCents)} of DigiDollar. DigiPay can send it all to the store's payout address now. "
-            + "Once that payout has gone out, delete the store again to finish. Anything under 1.00 DD left over moves to your account's DD from deleted stores.",
-            "Pay out now",
-            () => FinalPayoutAsync(storeId));
-        return null;
-    }
-
-    private async Task<string?> FinalPayoutAsync(string storeId)
-    {
-        try
-        {
-            var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/stores/{storeId}?finalPayout=true"));
-            if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
-            {
-                Toasts.Success("The final DigiDollar payout is on its way. Delete the store again once it has gone out.");
-                return null;
-            }
-            if (response.IsSuccessStatusCode)
-            {
-                // Nothing was left to pay out, so the store was deleted.
-                await LoadAccountAsync();
-                StateHasChanged();
-                return null;
-            }
-            if (response.StatusCode == System.Net.HttpStatusCode.Conflict
-                && await response.Content.ReadFromJsonAsync<DdHeldDto>() is { Error: "dd_held" } held)
-                return held.PayoutInProgress
-                    ? "A payout is already on its way. Delete the store again once it has gone out."
-                    : $"The payout couldn't be started. {DdText(held.ConfirmedCents)} is still held.";
-            return await ApiError.ReadAsync(response);
-        }
-        catch (Exception ex) { return Plain(ex, "final payout"); }
     }
 
     private async Task LoadApiKeysAsync()
@@ -3112,8 +3026,7 @@ else
         string? WebhookUrl, bool HasWebhookSecret,
         int? DefaultSessionExpiryMinutes, DateTime CreatedAt,
         bool DigiDollarEnabled = false, string? DefaultCurrency = null,
-        string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true, string? DdDonationAddress = null,
-        string? DdPayoutAddress = null, bool DdPayoutAddressRequired = false);
+        string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true, string? DdDonationAddress = null);
 
     /// <summary>What PATCH /stores/{id} returns that the page needs: the secret, the first time one is made.</summary>
     private record StoreUpdateDto(string Id, string? WebhookSecret = null);
@@ -3131,10 +3044,7 @@ else
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl, string? Source = null, string? ReturnUrl = null,
         string Currency = "DGB", long? AmountCentsDd = null,
-        bool BuyerChoice = false, DateTime? LockedAt = null, ExtraDto? Extra = null,
-        PayoutRefDto? DdPayout = null, long DdExtraRefundCents = 0);
-
-    private record PayoutRefDto(string PayoutId, string? Status);
+        bool BuyerChoice = false, DateTime? LockedAt = null, ExtraDto? Extra = null);
 
     private record ExtraDto(string Currency, long? Amount, string? Txid, DateTime? SeenAt);
 

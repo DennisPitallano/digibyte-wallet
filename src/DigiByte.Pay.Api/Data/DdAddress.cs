@@ -1,22 +1,25 @@
 namespace DigiByte.Pay.Api.Data;
 
 /// <summary>
-/// Every DD address DigiPay has created in its node wallet, with its owner (specs/034 data-model). All stores share one
-/// node wallet, so this table is how incoming DD is attributed to a store or merchant.
+/// Every DigiDollar address DigiPay has given out (specs/035 data-model). Each is derived at <see cref="Index"/> from the
+/// key identified by <see cref="DdKeyId"/>. The unique (key, index) and the address key make reuse impossible.
 /// </summary>
 public class DdAddress
 {
     public const string KindPayment = "payment";
+    public const string KindOption = "option";
     public const string KindDonation = "donation";
 
     public required string Address { get; init; }
-    public required string MerchantId { get; init; }
-    /// <summary>Null once the store is deleted (the DD then belongs to the merchant-level balance).</summary>
-    public string? StoreId { get; set; }
-    /// <summary><see cref="KindPayment"/> or <see cref="KindDonation"/>.</summary>
+    public required string DdKeyId { get; init; }
+    /// <summary>Receive index <c>0/Index</c>.</summary>
+    public required int Index { get; init; }
+    /// <summary><see cref="KindPayment"/>, <see cref="KindOption"/> or <see cref="KindDonation"/>.</summary>
     public required string Kind { get; init; }
-    /// <summary>The session the address was created for. Set for payment addresses.</summary>
+    public required string StoreId { get; init; }
+    /// <summary>The session the address was given to (payments and buyer's options).</summary>
     public string? SessionId { get; init; }
-    public required string Network { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    /// <summary>When DD first arrived, set by the monitor. Used for the long-unpaid-run warning (research R11).</summary>
+    public DateTime? FirstPaidAt { get; set; }
 }

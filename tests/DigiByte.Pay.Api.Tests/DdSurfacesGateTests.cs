@@ -75,7 +75,6 @@ public class DdSurfacesGateTests
         factory.DdNode.Addresses.Enqueue("DDexplicit0001");
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
-        await factory.GivePayoutAddress(storeId); // specs/034 FR-031
         (await SetDd(client, key, storeId, true)).EnsureSuccessStatusCode();
 
         var session = await Json(await client.SendAsync(PayFactory.Authed(HttpMethod.Post, "/v1/pay/sessions", key,
@@ -93,7 +92,6 @@ public class DdSurfacesGateTests
         factory.DdNode.Addresses.Enqueue("DDbeforeoff001");
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
-        await factory.GivePayoutAddress(storeId); // specs/034 FR-031
         (await SetDd(client, key, storeId, true)).EnsureSuccessStatusCode();
         var created = await Json(await client.SendAsync(PayFactory.Authed(HttpMethod.Post, "/v1/pay/sessions", key,
             new { storeId, currency = "DD", amountCentsDd = 1250 })));

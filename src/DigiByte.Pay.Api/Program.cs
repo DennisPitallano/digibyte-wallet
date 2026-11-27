@@ -246,6 +246,14 @@ builder.Services.AddHttpClient<DigiDollarNodeClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
+// DigiDollar on the public explorer (specs/035): DD arrivals, confirmations and health. No node.
+builder.Services.AddHttpClient(DdChainProvider.HttpClientName, client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay/0.1");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddSingleton<IDdChainProvider, DdChainProvider>();
+
 builder.Services.AddSingleton<CheckoutNotifier>();
 builder.Services.AddSingleton<DdSurfacesGate>();
 builder.Services.AddSingleton<DdAvailability>();
@@ -257,25 +265,6 @@ builder.Services.AddScoped<WebhookDispatcher>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddHostedService<InvoiceMonitor>();
-
-// DD payouts (specs/034).
-builder.Services.Configure<DigiByte.Pay.Api.Services.Payouts.PayoutOptions>(opts =>
-{
-    builder.Configuration.GetSection("DigiPay:Payouts").Bind(opts);
-    if (Environment.GetEnvironmentVariable("DIGIPAY_PAYOUTS_PAUSED") is { Length: > 0 } paused)
-        opts.Paused = paused.Equals("true", StringComparison.OrdinalIgnoreCase) || paused == "1";
-    opts.OperatorKey = Environment.GetEnvironmentVariable("DIGIPAY_OPERATOR_KEY") is { Length: > 0 } opKey
-        ? opKey : builder.Configuration["DigiPay:OperatorKey"];
-});
-builder.Services.AddSingleton<DigiByte.Pay.Api.Services.Payouts.PayoutAlerts>();
-builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdLedgerService>();
-builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdLedgerScanner>();
-builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdPayoutPlanner>();
-builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdPayoutSender>();
-builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.PayoutAddressService>();
-builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.StepUpService>();
-builder.Services.AddSingleton<DigiByte.Pay.Api.Services.Payouts.DdPayoutWorker>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<DigiByte.Pay.Api.Services.Payouts.DdPayoutWorker>());
 builder.Services.AddHostedService<DemoDataJanitor>();
 builder.Services.AddHostedService<WebhookRetrier>();
 
@@ -430,15 +419,45 @@ using (var scope = app.Services.CreateScope())
             )
             """);
         await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_PaySessionOptions_Address\" ON \"PaySessionOptions\" (\"Address\")");
+
+        // ...and before AddDdMerchantKeys (specs/035): the store's DD key and the shared address sequences. A dev DB from
+        // the unreleased spec 034 branch has a DdAddresses table of another shape; drop it (it held nothing real).
+        foreach (var col in new[]
+        {
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdAccountKey\" VARCHAR(200) NULL",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdKeyId\" VARCHAR(64) NULL",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdAccountKeySetAt\" TEXT NULL",
+        })
+        {
+            try { await db.Database.ExecuteSqlRawAsync(col); } catch { }
+        }
+        try { await db.Database.ExecuteSqlRawAsync("SELECT \"DdKeyId\" FROM \"DdAddresses\" LIMIT 0"); }
+        catch { try { await db.Database.ExecuteSqlRawAsync("DROP TABLE \"DdAddresses\""); } catch { } }
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "DdKeySequences" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_DdKeySequences" PRIMARY KEY,
+                "Network" TEXT NOT NULL,
+                "NextIndex" INTEGER NOT NULL,
+                "CreatedAt" TEXT NOT NULL
+            )
+            """);
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "DdAddresses" (
+                "Address" TEXT NOT NULL CONSTRAINT "PK_DdAddresses" PRIMARY KEY,
+                "DdKeyId" TEXT NOT NULL,
+                "Index" INTEGER NOT NULL,
+                "Kind" TEXT NOT NULL,
+                "StoreId" TEXT NOT NULL,
+                "SessionId" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                "FirstPaidAt" TEXT NULL,
+                CONSTRAINT "FK_DdAddresses_DdKeySequences_DdKeyId" FOREIGN KEY ("DdKeyId") REFERENCES "DdKeySequences" ("Id") ON DELETE RESTRICT
+            )
+            """);
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_DdAddresses_DdKeyId_Index\" ON \"DdAddresses\" (\"DdKeyId\", \"Index\")");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_DdAddresses_SessionId\" ON \"DdAddresses\" (\"SessionId\")");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_Stores_DdKeyId\" ON \"Stores\" (\"DdKeyId\")");
     }
-
-    // ...and before AddDdPayouts (specs/034): the payout tables and store columns.
-    if (!db.Database.IsNpgsql())
-        await DigiByte.Pay.Api.Services.Payouts.DdPayoutsSqliteShim.ApplyAsync(db);
-
-    // Every DD address DigiPay created before payouts existed gets its owner recorded (specs/034 FR-038, research R5).
-    try { await DigiByte.Pay.Api.Services.Payouts.DdAddressRegistry.BackfillAsync(db); }
-    catch (Exception ex) { app.Logger.LogWarning(ex, "DD address backfill failed; it runs again on the next start"); }
 
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.
     // Seed a PayApiKey row for any merchant that doesn't yet have one, so existing
@@ -528,9 +547,6 @@ app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration).WithTags("Sessio
 app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration).ExcludeFromDescription().RequireRateLimiting("auth");
 app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints().ExcludeFromDescription().RequireRateLimiting("authenticated");
 app.MapGroup("/v1/pay/stores").MapStoresEndpoints().WithTags("Stores & webhooks").RequireRateLimiting("authenticated");
-// DD payouts (specs/034): merchant routes are dashboard/API; operator routes are never documented.
-app.MapGroup("/v1/pay").MapPayoutsEndpoints().WithTags("DD payouts").RequireRateLimiting("authenticated");
-app.MapGroup("/v1/pay/operator").MapOperatorEndpoints().ExcludeFromDescription().RequireRateLimiting("auth");
 app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints().ExcludeFromDescription().RequireRateLimiting("authenticated");
 // POS device pairing. /claim is unauthed (it's how a new tablet bootstraps)
 // but rate-limited to blunt brute-force on the 6-char pairing code; the
