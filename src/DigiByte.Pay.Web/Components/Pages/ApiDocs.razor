@@ -122,6 +122,7 @@
                     <Param Name="expiresInSeconds" Type="integer">1 to 86400. Overrides the store's default expiry (30 minutes if unset).</Param>
                     <Param Name="returnUrl" Type="string">Where the checkout sends the buyer after payment confirms (a <em>Return to merchant</em> button and a 5-second redirect). HTTPS, or HTTP on localhost only. Up to 2048 characters.</Param>
                     <Param Name="currency" Type="string">DGB (default) or DD for a DigiDollar session.</Param>
+                    <Param Name="buyerChoice" Type="boolean">Optional. Let the buyer pay in DGB or DigiDollar at checkout. Honoured only for a payment priced in a regular currency (<InlineCode>fiatCurrency</InlineCode> and <InlineCode>fiatAmount</InlineCode>, currency DGB) at a store with DigiDollar and buyer choice on, where DigiPay offers DigiDollar beyond the API; otherwise ignored without an error. The response then has <InlineCode>buyerChoice: true</InlineCode> and an <InlineCode>options</InlineCode> list (one per currency: <InlineCode>currency</InlineCode>, <InlineCode>address</InlineCode>, <InlineCode>amountSatoshis</InlineCode>, <InlineCode>amountCentsDd</InlineCode>, <InlineCode>usdRate</InlineCode>, <InlineCode>rateAt</InlineCode>, <InlineCode>uri</InlineCode>). The session's own <InlineCode>currency</InlineCode>, <InlineCode>address</InlineCode> and amounts describe the currency in effect; once funds arrive, <InlineCode>lockedAt</InlineCode> is set and they are the currency actually paid. Funds later sent in the other currency show as <InlineCode>extra: {"{ currency, amount, txid, seenAt }"}</InlineCode> (satoshis for DGB, cents for DD) for you to refund.</Param>
                     <Param Name="amountCentsDd" Type="integer">DigiDollar amount in US cents, 100 to 10000000. Required when <InlineCode>currency</InlineCode> is DD; <InlineCode>amount</InlineCode> is then ignored. The store must have <InlineCode>digiDollarEnabled</InlineCode>, otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; if the DigiDollar node can't be reached you get <InlineCode>503 digidollar_node_unavailable</InlineCode>.</Param>
                 </ParamList>
                 <ParamList Title="Headers">
@@ -153,6 +154,20 @@
                 <p class="@Small m-0">
                     Public read of one session, as <InlineCode>{ session: { … }, merchantName }</InlineCode>. No key needed: the id is random and reveals nothing
                     secret. The hosted checkout uses it, and it's the call to make when you want to double-check a webhook.
+                    For a buyer-choice session it also has <InlineCode>ddAvailable</InlineCode> and, when that's false, <InlineCode>ddReason</InlineCode>
+                    (<InlineCode>dd_disabled</InlineCode> or <InlineCode>unavailable</InlineCode>).
+                </p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/sessions/{id}/options/dd" Auth="No auth" Id="session-dd-option">
+                <p class="@Small m-0">
+                    The buyer's switch to DigiDollar on a buyer-choice session (the hosted checkout and POS call it). Returns the session's DD option, making it
+                    the first time: a USD price becomes DD at 1:1, any other currency is converted at DigiPay's USD rate and rounded up to the cent, and the
+                    amount then stays fixed until the session expires. Rate-limited per visitor. <InlineCode>409</InlineCode> with
+                    <InlineCode>dd_option_not_allowed</InlineCode> (<InlineCode>reason</InlineCode>: <InlineCode>no_choice</InlineCode>, <InlineCode>locked</InlineCode>,
+                    <InlineCode>not_pending</InlineCode>, <InlineCode>expired</InlineCode>) or <InlineCode>dd_option_unavailable</InlineCode>
+                    (<InlineCode>dd_disabled</InlineCode>, <InlineCode>no_rate</InlineCode>, <InlineCode>out_of_range</InlineCode> with <InlineCode>minCents</InlineCode> and
+                    <InlineCode>maxCents</InlineCode>); <InlineCode>503 digidollar_node_unavailable</InlineCode> when the DigiDollar node can't be reached.
                 </p>
             </Endpoint>
 
@@ -211,6 +226,7 @@
                     <Param Name="webhookUrl" Type="string">Public HTTPS URL for webhooks. The first time one is set, a webhook secret is created. An empty string removes the URL and deletes the secret.</Param>
                     <Param Name="defaultSessionExpiryMinutes" Type="integer">1 to 1440.</Param>
                     <Param Name="digiDollarEnabled" Type="boolean">Allow DigiDollar (DD) sessions on this store.</Param>
+                    <Param Name="buyerChoiceEnabled" Type="boolean">Let buyers choose DGB or DigiDollar on payments priced in a regular currency. On by default; only has an effect while DigiDollar is on.</Param>
                     <Param Name="defaultCurrency" Type="string"><InlineCode>DGB</InlineCode> or one of the DigiByte wallet's ~80 fiat codes (<InlineCode>USD</InlineCode>, <InlineCode>EUR</InlineCode>, <InlineCode>PHP</InlineCode> …), any case; stored upper case. Payment links in the dashboard and newly paired POS tablets start in it. <InlineCode>DD</InlineCode> (DigiDollar) is accepted only while the store can offer it (DigiDollar on and DigiPay offering it beyond the API), otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; turning DigiDollar off later keeps the saved value, and it acts as <InlineCode>USD</InlineCode> until DigiDollar is back. An empty string or <InlineCode>null</InlineCode> clears it; any other value answers <InlineCode>400</InlineCode>.</Param>
                 </ParamList>
                 <p class="@Small m-0">
@@ -282,6 +298,7 @@
                         <tr><td><InlineCode>session.underpaid</InlineCode></td><td>The payment found is less than 99% of the amount.</td></tr>
                         <tr><td><InlineCode>session.expired</InlineCode></td><td>Nothing arrived before <InlineCode>expiresAt</InlineCode>. A payment within the next 3 days still moves the session on and sends <InlineCode>session.paid</InlineCode> or <InlineCode>session.confirmed</InlineCode>.</td></tr>
                         <tr><td><InlineCode>session.refunded</InlineCode></td><td>You recorded a refund (<a href="/docs/api#refund-session" class="text-dgb-500 hover:underline">refund</a>). <InlineCode>refundTxid</InlineCode>, <InlineCode>refundedAt</InlineCode> and <InlineCode>refundNote</InlineCode> are set.</td></tr>
+                        <tr><td><InlineCode>session.extra_payment</InlineCode></td><td>On a buyer-choice session, funds arrived in the currency the buyer didn't pay in. Sent once, with <InlineCode>session.extra</InlineCode>; refund the buyer from your wallet.</td></tr>
                         <tr><td><InlineCode>session.voided</InlineCode></td><td>You cancelled an unpaid session (<a href="/docs/api#void-session" class="text-dgb-500 hover:underline">void</a>).</td></tr>
                         <tr><td><InlineCode>payout.sent</InlineCode></td><td>DigiDollar held for the store was sent to its DD payout address. The body has a <InlineCode>payout</InlineCode> object (amount in cents, destination, txid, and the sessions it covers) instead of a <InlineCode>session</InlineCode>.</td></tr>
                         <tr><td><InlineCode>payout.confirmed</InlineCode></td><td>That payout has 6 confirmations.</td></tr>

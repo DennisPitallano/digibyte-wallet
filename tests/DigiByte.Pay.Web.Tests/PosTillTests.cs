@@ -517,6 +517,44 @@ public class PosTillTests : BunitContext
         cut.WaitForAssertion(() => Assert.Equal("0.00DD", Readout(cut)));
     }
 
+    [Fact]
+    public void A_fiat_sale_lets_the_customer_switch_the_code_between_DGB_and_DD()
+    {
+        AllowDd();
+        api.Price = new("USD", 0.001m, "coingecko");
+        var cut = RenderTill("USD");
+        Type(cut, "25");
+        cut.WaitForAssertion(() => Assert.False(cut.Find("button.dp-pos-charge").HasAttribute("disabled")));
+        cut.Find("button.dp-pos-charge").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-pay-switch]")));
+        using (var body = JsonDocument.Parse(Assert.Single(api.Charges)))
+            Assert.True(body.RootElement.GetProperty("buyerChoice").GetBoolean());
+        Assert.Contains("dgb1qtilladdress", cut.Find(".dp-pos-address").TextContent);
+
+        cut.FindAll("[data-pay-switch] button").Single(b => b.TextContent.Trim() == "DigiDollar").Click();
+        cut.WaitForAssertion(() => Assert.Contains("DDtillchoice001", cut.Find(".dp-pos-address").TextContent));
+        Assert.Contains("25.00", cut.Find("[data-dd-due]").TextContent);
+
+        cut.FindAll("[data-pay-switch] button").Single(b => b.TextContent.Trim() == "DGB").Click();
+        cut.WaitForAssertion(() => Assert.Contains("dgb1qtilladdress", cut.Find(".dp-pos-address").TextContent));
+        cut.FindAll("[data-pay-switch] button").Single(b => b.TextContent.Trim() == "DigiDollar").Click();
+        cut.WaitForAssertion(() => Assert.Contains("DDtillchoice001", cut.Find(".dp-pos-address").TextContent));
+        Assert.Equal(1, api.OptionPosts); // the same DD address both times
+    }
+
+    [Fact]
+    public void A_sale_typed_in_DGB_offers_no_switch()
+    {
+        AllowDd();
+        var cut = RenderTill("DGB");
+        Type(cut, "5");
+        cut.Find("button.dp-pos-charge").Click();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".qr-frame")));
+        Assert.Empty(cut.FindAll("[data-pay-switch]"));
+    }
+
     // A stand-in for the Pay API: price quotes, session creation (echoing the fiat context) and the shift report.
     private sealed class TillApi : IHttpClientFactory
     {
@@ -537,6 +575,7 @@ public class PosTillTests : BunitContext
         /// <summary>POST /v1/pay/sessions with currency DD answers 503 digidollar_node_unavailable.</summary>
         public bool DdNodeDown { get; set; }
         public List<string?> IdempotencyKeys { get; } = new();
+        public int OptionPosts;
 
         private string StoreEffectiveDefault =>
             StoreDefault == "DD" && !(DdSurfaces && DigiDollarEnabled) ? "USD" : StoreDefault ?? "";
@@ -553,6 +592,12 @@ public class PosTillTests : BunitContext
         public HttpClient CreateClient(string name) => new(new Handler(this)) { BaseAddress = new Uri("http://pay-api.test") };
 
         private static string Num(decimal? d) => d is null ? "null" : d.Value.ToString(CultureInfo.InvariantCulture);
+
+        private const string DgbOptionJson = """{"currency":"DGB","address":"dgb1qtilladdress000000000000000000000000","amountSatoshis":2500000000000,"amountCentsDd":null,"usdRate":null,"rateAt":null,"uri":"digibyte:dgb1qtilladdress000000000000000000000000?amount=25000"}""";
+        private const string DdOptionJson = """{"currency":"DD","address":"DDtillchoice001","amountSatoshis":0,"amountCentsDd":2500,"usdRate":1,"rateAt":"2026-11-27T00:00:00Z","uri":"digibyte:DDtillchoice001?amount=25.00&currency=USD"}""";
+
+        private string Session(string? fiatCurrency, decimal? fiatAmount, decimal amount, bool choice) =>
+            Session(fiatCurrency, fiatAmount, amount).TrimEnd().TrimEnd('}') + (choice ? $$""","buyerChoice":true,"lockedAt":null,"options":[{{DgbOptionJson}}]}""" : "}");
 
         private string Session(string? fiatCurrency, decimal? fiatAmount, decimal amount) => $$"""
             {"id":"ses_pos","address":"dgb1qtilladdress000000000000000000000000","amountSatoshis":{{(long)(amount * 100_000_000m)}},"amount":{{Num(amount)}},
@@ -599,12 +644,18 @@ public class PosTillTests : BunitContext
                     }
                     var fc = r.GetProperty("fiatCurrency").ValueKind == JsonValueKind.String ? r.GetProperty("fiatCurrency").GetString() : null;
                     decimal? fa = r.GetProperty("fiatAmount").ValueKind == JsonValueKind.Number ? r.GetProperty("fiatAmount").GetDecimal() : null;
-                    json = api.lastSession = api.Session(fc, fa, r.GetProperty("amount").GetDecimal());
+                    var choice = r.TryGetProperty("buyerChoice", out var bc) && bc.ValueKind == JsonValueKind.True && api.DdSurfaces && api.DigiDollarEnabled;
+                    json = api.lastSession = api.Session(fc, fa, r.GetProperty("amount").GetDecimal(), choice);
                 }
                 else if (request.Method == HttpMethod.Get && path == "/v1/pay/stores/sto_1")
                 {
                     lock (api.StoreReads) api.StoreReads.Add(request.Headers.Authorization?.Parameter ?? "");
                     json = $$"""{"id":"sto_1","name":"Corner Shop","defaultCurrency":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreDefault}\"")}},"defaultCurrencyEffective":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreEffectiveDefault}\"")}},"digiDollarEnabled":{{(api.DigiDollarEnabled ? "true" : "false")}}}""";
+                }
+                else if (request.Method == HttpMethod.Post && path == "/v1/pay/sessions/ses_pos/options/dd")
+                {
+                    Interlocked.Increment(ref api.OptionPosts);
+                    json = DdOptionJson;
                 }
                 else if (request.Method == HttpMethod.Get && path == "/v1/pay/me")
                 {

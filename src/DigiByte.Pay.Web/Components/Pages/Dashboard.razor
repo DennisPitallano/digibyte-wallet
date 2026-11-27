@@ -57,6 +57,23 @@ else
             {
             <div class="contents">
             <PayoutAlertsBanner Token="@(token ?? string.Empty)" />
+            @if (DdChoiceNoticeShown)
+            {
+                @* specs/033 FR-030: once, for merchants who had DigiDollar on when buyer choice arrived. *@
+                <div class="ui-banner ui-banner-info mb-4 flex-col items-stretch" role="status" data-dd-choice-notice>
+                    <div class="flex gap-2">
+                        <Icon Name="info" Class="" />
+                        <p>Buyers can now pay in DGB or DigiDollar on payments priced in a regular currency (payment links and POS sales). They pick at checkout, and you see which currency they paid in.</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        @if (activeStore is { DigiDollarEnabled: true, BuyerChoiceEnabled: true } store)
+                        {
+                            <button class="@BtnGhost" @onclick="TurnOffBuyerChoiceFromNoticeAsync">Turn off for @store.Name</button>
+                        }
+                        <button class="btn-secondary btn-sm" @onclick="DismissDdChoiceNoticeAsync">Got it</button>
+                    </div>
+                </div>
+            }
             @if (activeStore is null)
             {
                 <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Set up your store</h1></div>
@@ -261,6 +278,10 @@ else
                                         <div class="min-w-0">
                                             <div class="font-bold text-[0.9375rem] tabular-nums flex items-center gap-1.5 flex-wrap">
                                                 @RowAmount(s)
+                                                @if (s.Extra is { } extra)
+                                                {
+                                                    <span class="ui-badge ui-badge-refund" data-extra-flag>Extra @extra.Currency received, refund the buyer</span>
+                                                }
                                                 @if (s.FiatAmount is decimal fiat && !string.IsNullOrWhiteSpace(s.FiatCurrency))
                                                 {
                                                     <span class="dash-fiat">@FormatFiat(fiat, s.FiatCurrency)</span>
@@ -1208,6 +1229,16 @@ else
                             <button class="@BtnGhost self-start" @onclick='() => SwitchTab("digidollar")'>Add a payout address</button>
                         }
                     }
+                    @if (activeStore.DigiDollarEnabled && DdSurfacesEnabled)
+                    {
+                        @* specs/033 FR-029. *@
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="buyer-choice" checked="@activeStore.BuyerChoiceEnabled" disabled="@buyerChoiceBusy"
+                                   @onchange="SaveBuyerChoiceAsync" class="w-5 h-5 accent-dgb-500" />
+                            <span class="text-sm">Let buyers choose DGB or DigiDollar at checkout</span>
+                        </label>
+                        <p class="@Muted m-0">Applies to payments priced in a regular currency. Payments you create in DGB or in DD stay in that currency.</p>
+                    }
                     @if (activeStore.DdPayoutAddressRequired && activeStore.DigiDollarEnabled)
                     {
                         <p class="m-0" id="dd-payout-prompt">DigiPay is holding this store's DD until you add a payout address.
@@ -1550,6 +1581,45 @@ else
     /// (specs/033 FR-001, FR-032).
     /// </summary>
     private bool DdOffered => DdSurfacesEnabled && activeStore is { DigiDollarEnabled: true };
+
+    // specs/033 FR-029/FR-030: the store's buyer-choice switch and the one-time notice.
+    private bool buyerChoiceBusy;
+    private bool ddChoiceNoticeDismissed;
+    private bool DdChoiceNoticeShown => DdSurfacesEnabled && account is { DdChoiceNoticePending: true } && !ddChoiceNoticeDismissed;
+
+    private async Task SaveBuyerChoiceAsync(ChangeEventArgs e)
+    {
+        if (activeStore is null) return;
+        var on = e.Value is bool b ? b : string.Equals(e.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        buyerChoiceBusy = true; ddError = null; StateHasChanged();
+        try
+        {
+            var (ok, error, _) = await PatchStoreAsync(new { buyerChoiceEnabled = on });
+            if (!ok) { ddError = error; return; }
+            await RefreshStoreAsync();
+            Toasts.Success(on ? "Buyers can choose DGB or DigiDollar at checkout." : "Buyers pay in the currency each payment was created in.");
+        }
+        catch (Exception ex) { ddError = Plain(ex, "ddError"); }
+        finally { buyerChoiceBusy = false; StateHasChanged(); }
+    }
+
+    private async Task TurnOffBuyerChoiceFromNoticeAsync()
+    {
+        await SaveBuyerChoiceAsync(new ChangeEventArgs { Value = false });
+        await DismissDdChoiceNoticeAsync();
+    }
+
+    private async Task DismissDdChoiceNoticeAsync()
+    {
+        ddChoiceNoticeDismissed = true;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            using var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/me/notices/dd-choice/dismiss"));
+        }
+        catch (Exception ex) { Log.LogInformation(ex, "Dashboard: could not dismiss the DD choice notice"); }
+        StateHasChanged();
+    }
 
     private const decimal DdMin = 1.00m;
     private const decimal DdMax = 100_000.00m;
@@ -2299,6 +2369,8 @@ else
                 label = string.IsNullOrWhiteSpace(linkLabel) ? null : linkLabel.Trim(),
                 memo = string.IsNullOrWhiteSpace(linkMemo) ? null : linkMemo.Trim(),
                 fiatCurrency = linkPriceMode == "fiat" ? linkFiatCurrency : null,
+                // specs/033 US3: a fiat-priced link lets the buyer pay in DGB or DD where the store offers it.
+                buyerChoice = linkPriceMode == "fiat" ? true : (bool?)null,
                 fiatAmount = linkPriceMode == "fiat" ? (decimal?)Fiat.Round(linkAmountFiat, linkFiatCurrency) : null,
                 dgbPriceAtCreation = priceAtCreation,
                 expiresInSeconds = expirySeconds,
@@ -2913,7 +2985,10 @@ else
         DateTime? SeenAt, DateTime? PaidAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl, string? Source = null, string? ReturnUrl = null,
-        string Currency = "DGB", long? AmountCentsDd = null);
+        string Currency = "DGB", long? AmountCentsDd = null,
+        bool BuyerChoice = false, DateTime? LockedAt = null, ExtraDto? Extra = null);
+
+    private record ExtraDto(string Currency, long? Amount, string? Txid, DateTime? SeenAt);
 
     private record CreatedSession(string Id, string? StoreId, string Address, decimal Amount, string Status,
         string Uri, string CheckoutUrl);

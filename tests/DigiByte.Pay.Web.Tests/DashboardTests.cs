@@ -632,6 +632,86 @@ public class DashboardTests : BunitContext
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-amount-dd")));
     }
 
+    // ----- Buyer choice (specs/033 US3) -----
+
+    [Fact]
+    public void Merchants_who_had_DD_on_see_the_buyer_choice_notice_once()
+    {
+        AllowDd();
+        api.DdChoiceNoticePending = true;
+        var cut = RenderSection("overview");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-dd-choice-notice]")));
+
+        Buttons(cut, "Got it").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-dd-choice-notice]")));
+        Assert.True(api.NoticeDismissed);
+    }
+
+    [Fact]
+    public void The_notice_can_turn_buyer_choice_off_for_the_store()
+    {
+        AllowDd();
+        api.DdChoiceNoticePending = true;
+        var cut = RenderSection("overview");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Turn off for Corner Café")));
+
+        Buttons(cut, "Turn off for Corner Café").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.True(api.NoticeDismissed));
+        Assert.False(api.LastPatch!["buyerChoiceEnabled"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void The_notice_waits_for_the_DD_surfaces_switch()
+    {
+        api.DigiDollarEnabled = true;
+        api.DdChoiceNoticePending = true;
+        var cut = RenderSection("overview");
+        cut.WaitForAssertion(() => Assert.Contains("Overview", cut.Markup));
+
+        Assert.Empty(cut.FindAll("[data-dd-choice-notice]"));
+    }
+
+    [Fact]
+    public void The_DigiDollar_setting_has_a_buyer_choice_switch()
+    {
+        AllowDd();
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#buyer-choice")));
+
+        cut.Find("#buyer-choice").Change(false);
+
+        cut.WaitForAssertion(() => Assert.False(api.LastPatch!["buyerChoiceEnabled"]!.GetValue<bool>()));
+    }
+
+    [Fact]
+    public void A_fiat_link_asks_for_buyer_choice()
+    {
+        AllowDd();
+        api.Price = 0.0123m;
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
+        Buttons(cut, "Your currency").First().Click();
+        cut.WaitForAssertion(() => Assert.Contains("1 DGB = $0.0123 USD", cut.Markup));
+        cut.Find("#link-amount-fiat").Input("12.50");
+        cut.WaitForAssertion(() => Assert.False(Buttons(cut, "Create payment link").Single().HasAttribute("disabled")));
+        Buttons(cut, "Create payment link").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        Assert.True(api.CreatedSession!["buyerChoice"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Payments_with_an_extra_payment_are_flagged_for_refund()
+    {
+        api.ExtraOnRows = true;
+        var cut = RenderSection("sessions");
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-extra-flag]")));
+        Assert.Contains("Extra DD received, refund the buyer", cut.Find("[data-extra-flag]").TextContent);
+    }
+
     private sealed class FakePayApi : HttpMessageHandler, IHttpClientFactory
     {
         public List<string> Requests { get; } = [];
@@ -642,6 +722,11 @@ public class DashboardTests : BunitContext
         public string? DefaultCurrency { get; set; }
         public bool DdSurfacesEnabled { get; set; }
         public bool DigiDollarEnabled { get; set; }
+        public bool DdChoiceNoticePending { get; set; }
+        public bool BuyerChoiceEnabled { get; set; } = true;
+        public bool NoticeDismissed { get; private set; }
+        /// <summary>Gives every listed payment an extra DD payment (specs/033 FR-025).</summary>
+        public bool ExtraOnRows { get; set; }
         public JsonObject? LastPatch { get; private set; }
         public (HttpStatusCode Status, string Body)? PatchError { get; set; }
         public int Total { get; set; } = 3;
@@ -665,7 +750,7 @@ public class DashboardTests : BunitContext
             var q = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
 
             if (method == "GET" && path == "/v1/pay/me/")
-                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = new[] { Store() }, ddSurfacesEnabled = DdSurfacesEnabled });
+                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = new[] { Store() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending });
 
             if (method == "GET" && request.RequestUri.AbsolutePath == "/v1/pay/sessions")
             {
@@ -673,7 +758,7 @@ public class DashboardTests : BunitContext
                 var take = int.Parse(q["take"] ?? "25", CultureInfo.InvariantCulture);
                 var skip = int.Parse(q["skip"] ?? "0", CultureInfo.InvariantCulture);
                 var total = status is null ? Total : StatusTotals.GetValueOrDefault(status);
-                var rows = Enumerable.Range(skip, Math.Max(0, Math.Min(take, total - skip))).Select(i => Session($"ses_{i:D4}", status ?? "confirmed"));
+                var rows = Enumerable.Range(skip, Math.Max(0, Math.Min(take, total - skip))).Select(i => ExtraOnRows ? SessionWithExtra($"ses_{i:D4}", status ?? "confirmed") : Session($"ses_{i:D4}", status ?? "confirmed"));
                 return Json(new { total, take, skip, sessions = rows });
             }
 
@@ -689,6 +774,12 @@ public class DashboardTests : BunitContext
                     ? Json(new { currency = q["currency"], dgbPrice = p, fetchedAt = DateTime.UtcNow })
                     : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("""{"error":"price unavailable"}""") };
 
+            if (method == "POST" && path == "/v1/pay/me/notices/dd-choice/dismiss")
+            {
+                NoticeDismissed = true;
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             if (method == "PATCH" && path == "/v1/pay/stores/sto_1")
             {
                 var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!.AsObject();
@@ -700,6 +791,7 @@ public class DashboardTests : BunitContext
                     DefaultCurrency = string.IsNullOrEmpty(c) ? null : c.ToUpperInvariant();
                 }
                 if (body["digiDollarEnabled"] is JsonNode dd) DigiDollarEnabled = dd.GetValue<bool>();
+                if (body["buyerChoiceEnabled"] is JsonNode bce) BuyerChoiceEnabled = bce.GetValue<bool>();
                 string? secret = null;
                 if (body["webhookUrl"] is JsonNode url)
                 {
@@ -757,6 +849,18 @@ public class DashboardTests : BunitContext
             webhookUrl = WebhookUrl, hasWebhookSecret = HasSecret,
             defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = DigiDollarEnabled,
             defaultCurrency = DefaultCurrency,
+            buyerChoiceEnabled = BuyerChoiceEnabled,
+        };
+
+        private static object SessionWithExtra(string id, string status) => new
+        {
+            id, storeId = "sto_1", address = "dgb1qexample", amountSatoshis = 100_000_000L, amount = 1m,
+            fiatCurrency = "USD", fiatAmount = 25m, label = (string?)null, memo = (string?)null,
+            status, createdAt = DateTime.UtcNow, expiresAt = DateTime.UtcNow.AddMinutes(30),
+            seenAt = (DateTime?)null, paidAt = (DateTime?)null, receivedSatoshis = 100_000_000L, confirmations = 6, paidTxid = (string?)null,
+            uri = "digibyte:dgb1qexample?amount=1", checkoutUrl = $"http://pay.test/pay/{id}",
+            currency = "DGB", buyerChoice = true, lockedAt = DateTime.UtcNow,
+            extra = new { currency = "DD", amount = 500L, txid = "ddextra", seenAt = DateTime.UtcNow },
         };
 
         private static object Session(string id, string status) => new

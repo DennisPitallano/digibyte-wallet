@@ -183,7 +183,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
   - Detection keeps running through the 3-day late window.
   - Switching never changes `ExpiresAt`.
 - [X] T039 [P] [US3] Extend `tests/DigiByte.Pay.Api.Tests/WebhookDispatchTests.cs`: the session payload carries `buyerChoice`, `lockedAt` and `extra`, and events after the lock report the paid currency (contract C3).
-- [ ] T040 [P] [US3] Tests in `tests/DigiByte.Pay.Web.Tests/CheckoutRenderTests.cs`:
+- [X] T040 [P] [US3] Tests in `tests/DigiByte.Pay.Web.Tests/CheckoutRenderTests.cs`:
   - The switch shows when `buyerChoice && !lockedAt`.
   - Switching to DD calls the options endpoint and redraws the amount and QR.
   - A converted amount shows the rate line.
@@ -191,7 +191,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
   - `ddAvailable:false` hides DD, including `ddReason:"dd_disabled"` when a DD option already exists.
   - A buyer on DD who hasn't paid moves back to DGB when DD becomes unavailable.
   - Once locked, the locked currency shows with no switch.
-- [ ] T041 [P] [US3] Add a fiat-till charge test to `tests/DigiByte.Pay.Web.Tests/PosTillTests.cs`: it posts `buyerChoice:true`, the charge screen switches DGB/DD, and the same DD address is shown after switching back.
+- [X] T041 [P] [US3] Add a fiat-till charge test to `tests/DigiByte.Pay.Web.Tests/PosTillTests.cs`: it posts `buyerChoice:true`, the charge screen switches DGB/DD, and the same DD address is shown after switching back.
 
 ### Implementation for User Story 3
 
@@ -218,25 +218,25 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 - [X] T048 [P] [US3] Add `Currency`, `LockedAt` and `AmountCentsDd` to `CheckoutStatusUpdate` in `src/DigiByte.Pay.Api/Hubs/CheckoutHub.cs`, and to every place `InvoiceMonitor` publishes it (research R11).
 - [X] T049 [US3] Accept `buyerChoiceEnabled` (bool?, absent = keep, audit key `buyer_choice`) in PATCH in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` (FR-029).
 - [X] T050 [US3] Add `POST /v1/pay/me/notices/dd-choice/dismiss` (`dps_` session only, 204, idempotent) in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. It clears `DdChoiceNoticePending` (FR-030).
-- [ ] T051 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`:
+- [X] T051 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`:
   - The DTO gets `BuyerChoice`, `LockedAt`, `Options`, `Extra` and `DdAvailable`.
   - Show a DGB/DD switch while unlocked. Picking DD calls the options endpoint and renders that option's amount, address and BIP21 QR. Switching back reuses the stored option.
   - Show a rate line for converted amounts.
   - Handle 409 and 503 with the `ApiError` message and stay on DGB.
   - When `ddAvailable` is false on an unlocked session, hide DD whether or not a DD option exists. If the buyer was looking at DD, move them back to DGB with a note. A session already locked to DD is unaffected.
   - Re-read the session when a SignalR `Currency` change arrives, and replace the switch with the locked currency.
-- [ ] T052 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
+- [X] T052 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
   - A fiat-till charge posts `buyerChoice:true`.
   - The charge screen shows a one-tap DGB/DD switch that calls the options endpoint and redraws the QR.
   - The screen follows the lock.
   - `SessionStatusDto` gains `BuyerChoice`, `LockedAt` and `Options`.
-- [ ] T053 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`:
+- [X] T053 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`:
   - Fiat-priced links and one-off payments post `buyerChoice:true`.
   - Add a "Let buyers choose DGB or DD at checkout" toggle under the DigiDollar setting, shown with DD on.
   - Add the one-time notice when `ddChoiceNoticePending && ddSurfacesEnabled`, with "Turn off for {store}" (PATCH `buyerChoiceEnabled:false`) and "Got it" (the dismiss endpoint).
   - Flag payment rows that have an `extra` payment: "Extra DD/DGB received, refund the buyer".
-- [ ] T054 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/SessionDetail.razor` to show the options offered, the locked currency and time, the rate for a converted DD amount, and any extra payment with its txid.
-- [ ] T055 [US3] Docs, in the same PR: `buyerChoice`, `options`/`extra`/`lockedAt`, `ddAvailable`/`ddReason`, `POST /sessions/{id}/options/dd` with its 409/503 errors, `session.extra_payment` and `buyerChoiceEnabled` in `src/DigiByte.Pay.Web/Components/Pages/ApiDocs.razor`; buyer choice in `Docs.razor`; the lock and extra-payment flow in `docs/PROCESS_FLOWS.md`; `docs/ARCHITECTURE.md`; the Postman collections; `CHANGELOG.md`.
+- [X] T054 [US3] Update `src/DigiByte.Pay.Web/Components/Pages/SessionDetail.razor` to show the options offered, the locked currency and time, the rate for a converted DD amount, and any extra payment with its txid.
+- [X] T055 [US3] Docs, in the same PR: `buyerChoice`, `options`/`extra`/`lockedAt`, `ddAvailable`/`ddReason`, `POST /sessions/{id}/options/dd` with its 409/503 errors, `session.extra_payment` and `buyerChoiceEnabled` in `src/DigiByte.Pay.Web/Components/Pages/ApiDocs.razor`; buyer choice in `Docs.razor`; the lock and extra-payment flow in `docs/PROCESS_FLOWS.md`; `docs/ARCHITECTURE.md`; the Postman collections; `CHANGELOG.md`.
 
 **Checkpoint**: One fiat-priced link or POS charge can be paid by a buyer holding only DGB or only DD (SC-007).
 

@@ -944,3 +944,20 @@ End: lifetime over / creator closes / broadcast + 60 s → RoomEnded; proposals 
 /help/multisig → Static: comprehensive multisig guide — visual flows, real-world scenarios (2-of-2 joint, 2-of-3 backup/escrow, 3-of-5 treasury), step-by-step walkthroughs (create, send, import), technical details (BIP67, BIP174, P2SH-P2WSH/P2WSH), wallet type comparison table
 /not-found    → 404 error page
 ```
+
+### DigiPay: buyer pays in DGB or DigiDollar (spec 033)
+
+```
+Merchant prices a payment in a regular currency (payment link, POS sale, or API with buyerChoice: true)
+  → POST /v1/pay/sessions → session (DGB) + DGB option
+Checkout / POS shows a DGB | DigiDollar switch while the payment is unpaid
+  → buyer picks DigiDollar → POST /sessions/{id}/options/dd → DD option (fixed amount, its own DD address)
+  → buyer switches back and forth: same addresses, same amounts
+InvoiceMonitor, every 10 s, for an unlocked session: check every option's address
+  → first funds seen on an option → lock: session takes that option's currency, address and amount (lockedAt)
+  → normal flow: seen → paid → confirmed, webhooks in the currency actually paid
+After the lock (until the 3-day late window ends)
+  → funds on the other option → extra payment on the session → session.extra_payment webhook + audit (once)
+  → merchant refunds the buyer (extra DD is paid out to them by spec 034, labelled for refund)
+DigiDollar off or the node down while unpaid → the DD choice disappears and the buyer is moved back to DGB
+```

@@ -309,3 +309,12 @@ DigiDollar payment addresses come from the DigiDollar node's `digipay-hot` walle
 - The dashboard's **DigiDollar payouts** section and the read-only API show balances, hold reasons and payouts; payout events are signed webhooks stored with their body so retries resend it exactly.
 
 Nothing in this path is used for DGB payments, which keep going straight to the merchant's own address or xpub.
+
+## DigiPay buyer's choice of DGB or DigiDollar (specs/033)
+
+A payment priced in a regular currency can be paid in DGB or DD. It stays one `PaySession` with one `PaySessionOption` row per currency; the session's own `Currency`, `Address` and amounts always describe the currency in effect.
+
+- The DGB option is made with the session. The DD option is made the first time the buyer picks DD (`POST /v1/pay/sessions/{id}/options/dd`, anonymous and rate-limited), registered in `DdAddresses`, and priced once: USD at 1:1, other currencies at the USD rate, rounded up to the cent.
+- `InvoiceMonitor` watches every option of an unlocked session (the explorer for DGB, NodeApi for DD; a DD error never stops DGB). The first funds lock the session to that option by copying it onto the session, so receipts, webhooks, stats and the POS need nothing new.
+- After the lock, and through the 3-day late window, funds on the other option are recorded as an extra payment (`session.extra_payment`); extra DD is credited as `extra_refund` in the payout ledger.
+- All of it is off until `DIGIPAY_DD_SURFACES` is on.

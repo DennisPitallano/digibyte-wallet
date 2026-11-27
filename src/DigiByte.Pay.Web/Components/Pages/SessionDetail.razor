@@ -112,7 +112,7 @@ else
                         </div>
                         @if (Shortfall > 0)
                         {
-                            <div class="dash-shortfall mt-1">@Dgb(Shortfall) DGB short</div>
+                            <div class="dash-shortfall mt-1">@Amount(Shortfall) short</div>
                         }
                     </div>
                     <div>
@@ -121,6 +121,37 @@ else
                         <CopyButton Value="@(session.Address)" Label="Copy address" Text="Copy" TargetId="pay-address" Class="self-start" />
                     </div>
                 </div>
+                @if (session.BuyerChoice)
+                {
+                    @* specs/033 US3: the currencies the buyer could pay in, which one they used, and anything extra. *@
+                    <div data-buyer-choice>
+                        <div class="@Eyebrow">Buyer's choice</div>
+                        <div class="text-sm">
+                            Offered: @string.Join(" or ", (session.Options ?? []).Select(OptionText))
+                        </div>
+                        <div class="@Muted">
+                            @if (session.LockedAt is { } locked)
+                            {
+                                <text>Paid in @(IsDd ? "DigiDollar" : "DGB"), chosen @locked.ToLocalTime().ToString("g", CultureInfo.CurrentCulture).</text>
+                            }
+                            else
+                            {
+                                <text>The buyer hasn't paid yet.</text>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (session.Extra is { } extra)
+                {
+                    <div class="ui-banner ui-banner-warning" role="status" data-extra-payment>
+                        <Icon Name="alert" Class="" />
+                        <p>
+                            The buyer also sent <strong>@ExtraText(extra)</strong> in the other currency after paying in @(IsDd ? "DigiDollar" : "DGB").
+                            @(extra.Currency == "DD" ? "DigiPay pays it out to you with the store's other DD, labelled for refund" : "It went to your DGB address"); refund it to the buyer from your wallet.
+                            @if (!string.IsNullOrEmpty(extra.Txid)) { <span class="@Mono">@extra.Txid</span> }
+                        </p>
+                    </div>
+                }
                 @if (!string.IsNullOrEmpty(session.Label))
                 {
                     <div>
@@ -470,6 +501,15 @@ else
 
     private long ExpectedAmount => session is null ? 0 : IsDd ? session.AmountCentsDd ?? 0 : session.AmountSatoshis;
 
+    private string OptionText(OptionDto o) => o.Currency == "DD"
+        ? $"{((o.AmountCentsDd ?? 0) / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)} DD"
+          + (o.UsdRate is { } r && r != 1m && session?.FiatCurrency is { } fc ? $" (at {r.ToString("0.####", CultureInfo.InvariantCulture)} {fc} per US dollar)" : "")
+        : $"{Dgb(o.AmountSatoshis)} DGB";
+
+    private static string ExtraText(ExtraDto e) => e.Currency == "DD"
+        ? $"{((e.Amount ?? 0) / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)} DD"
+        : $"{Dgb(e.Amount ?? 0)} DGB";
+
     private string Amount(long amount) =>
         IsDd ? $"{(amount / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)} DD" : $"{Dgb(amount)} DGB";
 
@@ -745,7 +785,11 @@ else
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl, string? Source = null,
         string? RefundTxid = null, DateTime? RefundedAt = null, string? RefundNote = null,
-        string? ReturnUrl = null, string Currency = "DGB", long? AmountCentsDd = null);
+        string? ReturnUrl = null, string Currency = "DGB", long? AmountCentsDd = null,
+        bool BuyerChoice = false, DateTime? LockedAt = null, List<OptionDto>? Options = null, ExtraDto? Extra = null);
+
+    private record OptionDto(string Currency, string Address, long AmountSatoshis, long? AmountCentsDd, decimal? UsdRate, DateTime? RateAt, string Uri);
+    private record ExtraDto(string Currency, long? Amount, string? Txid, DateTime? SeenAt);
 
     private record WebhookDeliveryDto(string Id, string StoreId, string? SessionId,
         string EventName, string Url, int Attempt, int? StatusCode, string? ErrorMessage,
