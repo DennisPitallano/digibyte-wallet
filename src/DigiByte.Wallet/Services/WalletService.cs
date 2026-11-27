@@ -775,6 +775,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             try
             {
                 var result = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, addresses, BuildHotHints());
+                ReportTransactions(result.Transactions, addresses);
                 return new WalletBalance
                 {
                     ConfirmedSatoshis = result.ConfirmedSatoshis,
@@ -838,6 +839,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// next change address, each with its legacy-format copy when that is watched. Null when tiering doesn't apply or the wallet
     /// has no HD keys; the sync then reads every address as in 0.7.0.
     /// </summary>
+    private volatile IReadOnlyCollection<string> _extraHotAddresses = [];
+
+    /// <summary>
+    /// Addresses every refresh treats as hot, on top of the wallet's own picks. The payment request watcher sets it to
+    /// the addresses of open requests (spec 036, T017), so a payment to one shows on the next refresh. Replaces the
+    /// previous set. The wallet never reads payment requests itself, so the two services don't depend on each other.
+    /// </summary>
+    public void SetExtraHotAddresses(IReadOnlyCollection<string> addresses) => _extraHotAddresses = addresses.ToArray();
+
     private HotAddressHints? BuildHotHints()
     {
         if (!TieringActive || ActiveSession is not { Hd: { } hd, Info: { } info }) return null;
@@ -854,6 +864,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var handedOut = new List<string>();
         for (var k = 1; k <= HotAddressSelector.HandedOutKept; k++)
             AddReceive(handedOut, info.NextReceivingIndex - k);
+        handedOut.AddRange(_extraHotAddresses);
         var nextChange = new List<string> { hd.DeriveChangeAddress(info.NextChangeIndex, ScriptPubKeyType.Segwit).ToString() };
         if (info.NextChangeIndex < MinScannedChange)
             nextChange.Add(hd.DeriveChangeAddress(info.NextChangeIndex, ScriptPubKeyType.Legacy).ToString());
@@ -1575,6 +1586,47 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// again. Not raised when the search fails.
     /// </summary>
     public event Action<string>? AddressSearchFinished;
+
+    /// <summary>
+    /// Raised after a balance or history read finds transactions it has not reported before, or one that has since
+    /// confirmed, with the wallet's own addresses those transactions touch (spec 036, T016). Payment requests use it to
+    /// notice money reaching a request that is no longer being watched closely (FR-020). Never raised with an empty set.
+    /// </summary>
+    public event Action<IReadOnlyCollection<string>>? TransactionsChanged;
+
+    private readonly object _reportedTxsLock = new();
+    private readonly Dictionary<string, bool> _reportedTxs = new(StringComparer.Ordinal);
+    private string? _reportedTxsWalletId;
+
+    /// <summary>
+    /// Compares <paramref name="txs"/> with what was reported for the active wallet and raises
+    /// <see cref="TransactionsChanged"/> for the new or newly confirmed ones. Never throws.
+    /// </summary>
+    private void ReportTransactions(IEnumerable<TransactionInfo> txs, IEnumerable<string> walletAddresses)
+    {
+        HashSet<string> touched;
+        lock (_reportedTxsLock)
+        {
+            if (_reportedTxsWalletId != _activeWalletId)
+            {
+                _reportedTxs.Clear();
+                _reportedTxsWalletId = _activeWalletId;
+            }
+            var own = walletAddresses.ToHashSet(StringComparer.Ordinal);
+            touched = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var tx in txs)
+            {
+                var confirmed = tx.Confirmations >= 1;
+                if (_reportedTxs.TryGetValue(tx.TxId, out var was) && was == confirmed) continue;
+                _reportedTxs[tx.TxId] = confirmed;
+                foreach (var o in tx.Outputs) if (own.Contains(o.Address)) touched.Add(o.Address);
+                foreach (var i in tx.Inputs) if (own.Contains(i.Address)) touched.Add(i.Address);
+            }
+        }
+        if (touched.Count == 0) return;
+        try { TransactionsChanged?.Invoke(touched); }
+        catch (Exception ex) { Console.WriteLine($"[Wallet] A TransactionsChanged handler failed: {ex.GetType().Name}"); }
+    }
 
     /// <summary>
     /// Whether the active wallet has finished finding which of its addresses have been used. Until then a zero balance or an
@@ -2345,6 +2397,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                         foreach (var tx in txInfos)
                             allTxs.TryAdd(tx.TxId, tx);
                 }
+
+                if (stillActive()) ReportTransactions(allTxs.Values, rawAddresses);
 
                 // Offer what the explorer returned to the gateway record. Runs in the background and never changes this result.
                 _gatewayBootstrap?.Offer(walletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),

@@ -114,7 +114,7 @@
 
 ### The status (tests first)
 
-- [ ] T014 [P] [US1] Write `tests/DigiByte.Wallet.Tests/RequestStatusCalculatorTests.cs` covering every branch of data-model "Status rules":
+- [X] T014 [P] [US1] Write `tests/DigiByte.Wallet.Tests/RequestStatusCalculatorTests.cs` covering every branch of data-model "Status rules":
   - Not tracked.
   - Any-amount: nothing received, pending only, confirmed.
   - Waiting; PaymentArriving when nothing is confirmed and something is pending.
@@ -126,12 +126,12 @@
   - `BecamePaid` is true only on the first transition while `PaidAnnouncedAt` is null.
   - `BecameArriving` is true when confirmed + pending first reaches the amount asked.
   - Only outputs to the request's own address count; other outputs in the same transaction are ignored.
-- [ ] T015 [US1] Implement `src/DigiByte.Wallet/Services/RequestStatusCalculator.cs` (pure, `Compute(request, txsToAddress, nowUtc) → RequestCheck`), including the expiry and cancel branches so later stories need no change here. Makes T014 pass.
-- [ ] T016 [US1] Test first, in `tests/DigiByte.Wallet.Tests/HistorySyncTests.cs`: after a refresh that finds new or changed transactions, `WalletService.TransactionsChanged` fires once with the wallet addresses those transactions touch, and a refresh with no changes does not fire it. Then add the event to `src/DigiByte.Wallet/Services/WalletService.cs`, raised where the history sync's results are applied.
+- [X] T015 [US1] Implement `src/DigiByte.Wallet/Services/RequestStatusCalculator.cs` (pure, `Compute(request, txsToAddress, nowUtc) → RequestCheck`), including the expiry and cancel branches so later stories need no change here. Makes T014 pass.
+- [X] T016 [US1] Test first, in `tests/DigiByte.Wallet.Tests/TransactionsChangedTests.cs` (uses `HistorySyncEnv`): after a refresh that finds new or changed transactions, `WalletService.TransactionsChanged` fires once with the wallet addresses those transactions touch, and a refresh with no changes does not fire it. Then add the event to `src/DigiByte.Wallet/Services/WalletService.cs`, raised where the history sync's results are applied.
 
 ### Watching and showing
 
-- [ ] T017 [US1] Test first: in `tests/DigiByte.Wallet.Tests/TieredRefreshTests.cs`, an address passed to `WalletService.SetExtraHotAddresses` is hot, and clearing the set makes it cold again. Then add `SetExtraHotAddresses(IReadOnlyCollection<string>)` to `src/DigiByte.Wallet/Services/WalletService.cs` and read it in `BuildHotHints`. `WalletService` must not reference `PaymentRequestService` (that would make the two depend on each other, since T018 calls `WalletService`).
+- [X] T017 [US1] Test first: in `tests/DigiByte.Wallet.Tests/TieredRefreshTests.cs`, an address passed to `WalletService.SetExtraHotAddresses` is hot, and clearing the set makes it cold again. Then add `SetExtraHotAddresses(IReadOnlyCollection<string>)` to `src/DigiByte.Wallet/Services/WalletService.cs` and read it in `BuildHotHints`. `WalletService` must not reference `PaymentRequestService` (that would make the two depend on each other, since T018 calls `WalletService`).
 - [ ] T018 [US1] Replace the temporary create path in `src/DigiByte.Wallet/Services/PaymentRequestService.cs` with `CreateAsync(walletId, NewRequest)`. It:
   - Calls `HandOutRequestAddressAsync`, and on `SingleAddress` makes a `Tracked = false` request on the shared address.
   - Sets `Tracked`, `AddressIndex`, `Status = Waiting`.

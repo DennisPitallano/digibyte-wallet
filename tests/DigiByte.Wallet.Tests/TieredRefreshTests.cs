@@ -228,6 +228,30 @@ public class TieredRefreshTests
         Assert.Equal(3_000, balance.ConfirmedSatoshis);
     }
 
+    // ── Open payment requests' addresses are hot (spec 036, T017) ──
+
+    [Fact]
+    public async Task Service_ExtraHotAddress_IsHot_AndClearingItMakesItColdAgain()
+    {
+        var env = TieredEnv();
+        var service = await env.CreateAsync();
+        string request = "";
+        for (var n = 0; n < 6; n++) request = (await service.HandOutRequestAddressAsync()).Address;   // indexes 1..6
+        await service.GetBalanceAsync();
+
+        // Set, then cleared before anything is paid: it is cold again, so a payment waits for the cold check.
+        service.SetExtraHotAddresses([request]);
+        service.SetExtraHotAddresses([]);
+        env.Explorer.Pay(request, 1_000);
+        env.Clock.Advance(HotDue);
+        Assert.Equal(0, (await service.GetBalanceAsync()).ConfirmedSatoshis);
+
+        // Set: it is hot, and the payment shows on the next refresh.
+        service.SetExtraHotAddresses([request]);
+        env.Clock.Advance(HotDue);
+        Assert.Equal(1_000, (await service.GetBalanceAsync()).ConfirmedSatoshis);
+    }
+
     [Fact]
     public async Task PaymentToAColdAddress_ShowsWithinFiveMinutes_AndThenStaysHot()
     {
