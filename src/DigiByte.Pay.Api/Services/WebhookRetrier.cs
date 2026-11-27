@@ -74,6 +74,16 @@ public class WebhookRetrier : BackgroundService
             prev.NextRetryAt = null;
             await db.SaveChangesAsync(ct);
 
+            if (prev.PayloadJson is not null)
+            {
+                // Payout and payout-address events (specs/034): resend the stored body exactly.
+                var eventStore = await db.Stores.FirstOrDefaultAsync(s => s.Id == prev.StoreId, ct);
+                if (eventStore is null) continue;
+                await dispatcher.ReplayPayloadAsync(prev, eventStore, ct);
+                retried++;
+                continue;
+            }
+
             if (prev.SessionId is null)
             {
                 // Synthetic events (webhook.test) have no session to rebuild

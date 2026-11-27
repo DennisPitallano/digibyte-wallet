@@ -83,6 +83,7 @@ public class StoreDefaultCurrencyTests
         using var factory = WithDdSurfaces(surfaces);
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
+        await factory.GivePayoutAddress(storeId); // DD needs a payout address first (spec 034 FR-031)
         await Patch(client, key, storeId, new { digiDollarEnabled = ddOn, defaultCurrency = "USD" });
 
         var response = await Patch(client, key, storeId, new { defaultCurrency = "dd" });
@@ -98,6 +99,7 @@ public class StoreDefaultCurrencyTests
         using var factory = WithDdSurfaces(true);
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
+        await factory.GivePayoutAddress(storeId); // DD needs a payout address first (spec 034 FR-031)
 
         var set = await Json(await Patch(client, key, storeId, new { digiDollarEnabled = true, defaultCurrency = "dd" }));
         Assert.Equal("DD", set.GetProperty("defaultCurrency").GetString());

@@ -19,6 +19,18 @@ public class ChallengeEntry
     public string? MerchantId { get; set; }
     public string? SessionApiKey { get; set; }
     public string? DisplayName { get; set; }
+
+    // ---- Re-sign-in for one purpose (specs/034 research R6) ----
+
+    /// <summary>Set for a step-up challenge (e.g. "payout-address"); null for an ordinary sign-in.</summary>
+    public string? Purpose { get; init; }
+    /// <summary>The merchant and Dashboard session the step-up was started from.</summary>
+    public string? PurposeMerchantId { get; init; }
+    public string? PurposeSessionId { get; init; }
+    /// <summary>The grant minted when the step-up was signed.</summary>
+    public string? StepUpGrantId { get; set; }
+    /// <summary>True once an abandoned step-up has been written to the audit log.</summary>
+    public bool AbandonAudited { get; set; }
 }
 
 /// <summary>
@@ -30,7 +42,10 @@ public class AuthChallengeStore
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromMinutes(5);
     private readonly ConcurrentDictionary<string, ChallengeEntry> _entries = new();
 
-    public ChallengeEntry Create(string uri)
+    public ChallengeEntry Create(string uri) => Create(uri, null, null, null);
+
+    /// <summary>A challenge bound to a purpose, merchant and Dashboard session (step-up re-sign-in).</summary>
+    public ChallengeEntry Create(string uri, string? purpose, string? merchantId, string? sessionId)
     {
         var nonce = ExtractNonce(uri) ?? throw new ArgumentException("uri must contain ?x=nonce", nameof(uri));
         var entry = new ChallengeEntry
@@ -39,6 +54,9 @@ public class AuthChallengeStore
             Uri = uri,
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.Add(DefaultTtl),
+            Purpose = purpose,
+            PurposeMerchantId = merchantId,
+            PurposeSessionId = sessionId,
         };
         _entries[nonce] = entry;
         return entry;
@@ -66,6 +84,9 @@ public class AuthChallengeStore
         var now = DateTime.UtcNow;
         foreach (var kv in _entries)
         {
+            if (kv.Value.Purpose is not null && !kv.Value.AbandonAudited && kv.Value.Status != ChallengeStatus.Signed
+                && now - kv.Value.ExpiresAt < TimeSpan.FromMinutes(15))
+                continue; // the payout worker audits abandoned step-ups first (specs/034 FR-009)
             if (kv.Value.Status == ChallengeStatus.Expired
                 || (kv.Value.Status == ChallengeStatus.Signed && now - kv.Value.CreatedAt > TimeSpan.FromMinutes(10))
                 || now - kv.Value.ExpiresAt > TimeSpan.FromMinutes(15))
@@ -73,6 +94,25 @@ public class AuthChallengeStore
                 _entries.TryRemove(kv.Key, out _);
             }
         }
+    }
+
+    /// <summary>
+    /// Step-up challenges that expired unsigned and haven't been audited yet. Each is returned once (specs/034
+    /// tasks T029: an abandoned re-sign-in is audited as <c>payout.stepup_failed</c>).
+    /// </summary>
+    public IReadOnlyList<ChallengeEntry> TakeAbandonedStepUps()
+    {
+        var now = DateTime.UtcNow;
+        var taken = new List<ChallengeEntry>();
+        foreach (var entry in _entries.Values)
+        {
+            if (entry.Purpose is null || entry.AbandonAudited || entry.Status == ChallengeStatus.Signed) continue;
+            if (entry.Status == ChallengeStatus.Pending && now <= entry.ExpiresAt) continue;
+            entry.Status = ChallengeStatus.Expired;
+            entry.AbandonAudited = true;
+            taken.Add(entry);
+        }
+        return taken;
     }
 
     private static string? ExtractNonce(string uri)

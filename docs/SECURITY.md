@@ -331,6 +331,17 @@ actions (viewing the recovery phrase, changing the credential, signing) still as
 
 ---
 
+### DigiPay: DigiDollar payout addresses (specs/034)
+
+DigiPay holds the DigiDollar buyers pay until it's paid out, so the payout address is the most valuable setting a stolen dashboard session could change. Protections:
+
+- **Re-sign-in**: setting or changing the address needs a Digi-ID signature made for that purpose, by the merchant's own Digi-ID address, from the same dashboard session. It mints a single-use grant valid for 5 minutes; the callback never creates a merchant for this purpose, and the development sign-in paths can't mint grants. API keys (`dgp_`) can't set or change the address.
+- **Delay**: a change takes effect after 48 hours, with payouts held meanwhile (a first address on a store holding nothing applies at once). Any signed-in session can cancel it.
+- **Visibility**: every request, cancellation, application and failed or abandoned re-sign-in is written to the audit log, shown in a banner on every dashboard page until acknowledged, and sent as a signed webhook.
+- **Checks**: the address is validated in the dashboard and again by Pay.Api on save and before every send (DigiDollar format and checksum, the store's network, not a DGB address, not one of DigiPay's own addresses).
+- **Sending**: a payout is saved with its debit before the node is called and carries its id as the transaction comment; a send with no clear answer is reconciled before anything is retried, so DD is never paid twice.
+- **Operator controls** use a separate `X-DigiPay-Operator-Key`, compared in constant time; the endpoints answer 503 when no key is configured.
+
 ## Network Security
 
 ### HTTPS Enforcement

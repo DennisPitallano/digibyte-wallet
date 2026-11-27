@@ -12,6 +12,7 @@ public class SessionsCsvDdTests
         factory.DdNode.Addresses.Enqueue("DDcsv000001");
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
+        await factory.GivePayoutAddress(storeId); // DD needs a payout address first (spec 034 FR-031)
         (await client.SendAsync(PayFactory.Authed(HttpMethod.Patch, $"/v1/pay/stores/{storeId}", key, new { digiDollarEnabled = true })))
             .EnsureSuccessStatusCode();
         (await client.SendAsync(PayFactory.Authed(HttpMethod.Post, "/v1/pay/sessions", key, new { storeId, currency = "DD", amountCentsDd = 1250 })))

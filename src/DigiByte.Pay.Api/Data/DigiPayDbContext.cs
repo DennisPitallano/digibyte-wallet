@@ -16,6 +16,15 @@ public class DigiPayDbContext : DbContext
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<PayPosPairing> PosPairings => Set<PayPosPairing>();
     public DbSet<PaySessionOption> SessionOptions => Set<PaySessionOption>();
+    // DD payouts (specs/034).
+    public DbSet<DdAddress> DdAddresses => Set<DdAddress>();
+    public DbSet<DdLedgerEntry> DdLedgerEntries => Set<DdLedgerEntry>();
+    public DbSet<DdPayout> DdPayouts => Set<DdPayout>();
+    public DbSet<DdPayoutItem> DdPayoutItems => Set<DdPayoutItem>();
+    public DbSet<PayoutAddressChange> PayoutAddressChanges => Set<PayoutAddressChange>();
+    public DbSet<StepUpGrant> StepUpGrants => Set<StepUpGrant>();
+    public DbSet<OperatorSetting> OperatorSettings => Set<OperatorSetting>();
+    public DbSet<MerchantDdSettings> MerchantDdSettings => Set<MerchantDdSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +51,122 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.DefaultCurrency).HasMaxLength(8);
             e.Property(s => s.BuyerChoiceEnabled).HasDefaultValue(true);
             e.Property(s => s.DdDonationAddress).HasMaxLength(120);
+            e.Ignore(s => s.OwnerStoreId);
+            e.Property(s => s.DdPayoutAddress).HasMaxLength(128);
+            e.Property(s => s.DdPayoutSchedule).HasMaxLength(16).IsRequired().HasDefaultValue("confirmed");
+            e.Property(s => s.DdPayoutTimeZone).HasMaxLength(64);
+            e.Property(s => s.DdPayoutRequestReason).HasMaxLength(16);
+            e.Property(s => s.DdPayoutAddressRequiredExempt).HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<DdAddress>(e =>
+        {
+            e.ToTable("DdAddresses");
+            e.HasKey(a => a.Address);
+            e.Property(a => a.Address).HasMaxLength(128);
+            e.Property(a => a.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(a => a.StoreId).HasMaxLength(32);
+            e.Property(a => a.Kind).HasMaxLength(16).IsRequired();
+            e.Property(a => a.SessionId).HasMaxLength(32);
+            e.Property(a => a.Network).HasMaxLength(20).IsRequired();
+            e.HasIndex(a => new { a.MerchantId, a.StoreId });
+            e.HasIndex(a => a.SessionId);
+        });
+
+        modelBuilder.Entity<DdLedgerEntry>(e =>
+        {
+            e.ToTable("DdLedgerEntries");
+            e.HasKey(l => l.Id);
+            e.Property(l => l.Id).HasMaxLength(32);
+            e.Property(l => l.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(l => l.StoreId).HasMaxLength(32);
+            e.Property(l => l.Type).HasMaxLength(24).IsRequired();
+            e.Property(l => l.Source).HasMaxLength(16);
+            e.Property(l => l.Txid).HasMaxLength(80);
+            e.Property(l => l.Address).HasMaxLength(128);
+            e.Property(l => l.SessionId).HasMaxLength(32);
+            e.Property(l => l.PayoutId).HasMaxLength(32);
+            e.HasIndex(l => new { l.MerchantId, l.StoreId });
+            e.HasIndex(l => l.SessionId);
+            e.HasIndex(l => l.PayoutId);
+            // A receive is credited once (research R4).
+            e.HasIndex(l => new { l.Txid, l.Address, l.Source }).IsUnique().HasDatabaseName("UX_DdLedger_Txid_Address_Source")
+                .HasFilter("\"Type\" = 'credit'");
+        });
+
+        modelBuilder.Entity<DdPayout>(e =>
+        {
+            e.ToTable("DdPayouts");
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Id).HasMaxLength(32);
+            e.Property(p => p.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(p => p.StoreId).HasMaxLength(32);
+            e.Property(p => p.Destination).HasMaxLength(128).IsRequired();
+            e.Property(p => p.Status).HasMaxLength(16).IsRequired();
+            e.Property(p => p.WaitReason).HasMaxLength(24);
+            e.Property(p => p.FailureCode).HasMaxLength(40);
+            e.Property(p => p.FailureReason).HasMaxLength(512);
+            e.Property(p => p.Trigger).HasMaxLength(16).IsRequired();
+            e.Property(p => p.Txid).HasMaxLength(80);
+            e.HasIndex(p => new { p.StoreId, p.Status });
+            e.HasIndex(p => new { p.MerchantId, p.CreatedAt });
+        });
+
+        modelBuilder.Entity<DdPayoutItem>(e =>
+        {
+            e.ToTable("DdPayoutItems");
+            e.HasKey(i => new { i.PayoutId, i.LedgerEntryId });
+            e.Property(i => i.PayoutId).HasMaxLength(32);
+            e.Property(i => i.LedgerEntryId).HasMaxLength(32);
+            e.HasIndex(i => i.LedgerEntryId);
+        });
+
+        modelBuilder.Entity<PayoutAddressChange>(e =>
+        {
+            e.ToTable("PayoutAddressChanges");
+            e.HasKey(c => c.Id);
+            e.Property(c => c.Id).HasMaxLength(32);
+            e.Property(c => c.StoreId).HasMaxLength(32);
+            e.Property(c => c.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(c => c.OldAddress).HasMaxLength(128);
+            e.Property(c => c.NewAddress).HasMaxLength(128).IsRequired();
+            e.Property(c => c.Status).HasMaxLength(16).IsRequired();
+            e.Property(c => c.RequestedBySessionId).HasMaxLength(32).IsRequired();
+            e.Property(c => c.CancelledBySessionId).HasMaxLength(32);
+            e.HasIndex(c => new { c.StoreId, c.Status });
+            e.HasIndex(c => new { c.MerchantId, c.Status });
+        });
+
+        modelBuilder.Entity<StepUpGrant>(e =>
+        {
+            e.ToTable("StepUpGrants");
+            e.HasKey(g => g.Id);
+            e.Property(g => g.Id).HasMaxLength(32);
+            e.Property(g => g.MerchantId).HasMaxLength(32).IsRequired();
+            e.Property(g => g.SessionId).HasMaxLength(32).IsRequired();
+            e.Property(g => g.Purpose).HasMaxLength(32).IsRequired();
+            e.Property(g => g.DigiIdAddress).HasMaxLength(80).IsRequired();
+        });
+
+        modelBuilder.Entity<OperatorSetting>(e =>
+        {
+            e.ToTable("OperatorSettings");
+            e.HasKey(o => o.Key);
+            e.Property(o => o.Key).HasMaxLength(64);
+            e.Property(o => o.Value).HasMaxLength(512);
+        });
+
+        modelBuilder.Entity<MerchantDdSettings>(e =>
+        {
+            e.ToTable("MerchantDdSettings");
+            e.HasKey(m => m.MerchantId);
+            e.Ignore(m => m.OwnerStoreId);
+            e.Property(m => m.MerchantId).HasMaxLength(32);
+            e.Property(m => m.Network).HasMaxLength(20).IsRequired();
+            e.Property(m => m.DdPayoutAddress).HasMaxLength(128);
+            e.Property(m => m.DdPayoutSchedule).HasMaxLength(16).IsRequired();
+            e.Property(m => m.DdPayoutTimeZone).HasMaxLength(64);
+            e.Property(m => m.DdPayoutRequestReason).HasMaxLength(16);
         });
 
         modelBuilder.Entity<PaySession>(e =>
@@ -119,6 +244,7 @@ public class DigiPayDbContext : DbContext
             e.Property(d => d.Url).HasMaxLength(500).IsRequired();
             e.Property(d => d.ResponseSnippet).HasMaxLength(2048);
             e.Property(d => d.ErrorMessage).HasMaxLength(500);
+            e.Property(d => d.PayoutId).HasMaxLength(32);
         });
 
         modelBuilder.Entity<AuditEvent>(e =>

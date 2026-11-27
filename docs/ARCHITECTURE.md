@@ -299,3 +299,13 @@ minute, 10 rooms per hour; negotiate requests are limited to 30 per minute per c
 
 **Deployment constraint:** rooms live in one API instance's memory. Run a single instance, or route
 `/hubs/multisig-signing` with sticky sessions so every participant of a room reaches the same instance.
+
+## DigiPay DigiDollar payouts (specs/034)
+
+DigiDollar payment addresses come from the DigiDollar node's `digipay-hot` wallet, which every store shares. `DigiByte.Pay.Api` keeps its own ledger of who owns that DD:
+
+- `DdAddresses` records the owner (store or merchant) of every DD address DigiPay creates.
+- `DdPayoutWorker` (a hosted service, every 30 seconds) reads the wallet's receives through NodeApi and credits `DdLedgerEntries` (payment, overpayment, late, extra refund or donation), applies payout address changes whose 48-hour wait is over, plans payouts per store schedule, checks that the wallet still covers everything DigiPay owes, and sends each payout with `/api/digidollar/send`, reconciling unclear sends through `/api/digidollar/sends` before anything is retried.
+- The dashboard's **DigiDollar payouts** section and the read-only API show balances, hold reasons and payouts; payout events are signed webhooks stored with their body so retries resend it exactly.
+
+Nothing in this path is used for DGB payments, which keep going straight to the merchant's own address or xpub.

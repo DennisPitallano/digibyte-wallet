@@ -41,7 +41,8 @@ public static class AuthEndpoints
         group.MapPost("/callback", async (
             DigiIdCallbackBody body,
             AuthChallengeStore store,
-            DigiPayDbContext db) =>
+            DigiPayDbContext db,
+            DigiByte.Pay.Api.Services.Payouts.StepUpService stepUp) =>
         {
             if (string.IsNullOrWhiteSpace(body.Address)
                 || string.IsNullOrWhiteSpace(body.Uri)
@@ -61,6 +62,11 @@ public static class AuthEndpoints
             // from the dashboard (so the raw secret can be shown to the user once).
             // The legacy ApiKeyPrefix/Hash columns get placeholder values; they're no
             // longer used for authentication (PayApiKeys table is the source of truth).
+            // A re-sign-in for one purpose (specs/034 research R6): it must be signed by the merchant's own Digi-ID
+            // address, never creates a merchant, and mints a single-use grant instead of a session.
+            if (entry.Purpose is not null)
+                return await stepUp.CompleteAsync(entry, body.Address);
+
             var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.DigiIdAddress == body.Address);
             if (merchant is null)
             {
@@ -137,6 +143,11 @@ public static class AuthEndpoints
             {
                 ChallengeStatus.Pending => Results.Accepted(value: new { status = "pending" }),
                 ChallengeStatus.Expired => Results.NotFound(new { status = "expired" }),
+                ChallengeStatus.Signed when entry.Purpose is not null => Results.Ok(new
+                {
+                    status = "signed",
+                    stepUpGrant = entry.StepUpGrantId,
+                }),
                 ChallengeStatus.Signed => Results.Ok(new
                 {
                     status = "signed",

@@ -40,6 +40,10 @@ public static class ApiError
     }
 
     /// <summary>The plain sentence for an API status code, its <c>error</c> text and optional <c>reason</c>.</summary>
+    /// <summary>Shown when DD can't be turned on yet for want of a payout address (specs/034 FR-031).</summary>
+    public const string PayoutAddressRequired =
+        "Add a DigiDollar payout address first. DigiPay holds the DD buyers pay until it's paid out to that address.";
+
     public static string Plain(int status, string? error, string? reason = null)
     {
         var e = error ?? "";
@@ -73,6 +77,10 @@ public static class ApiError
                     ? "This amount is outside DigiDollar's limits ($1.00 to $100,000.00)."
                     : "DigiDollar isn't available for this payment right now.";
             if (Has("digidollar_not_enabled")) return "DigiDollar isn't turned on for this store. Turn it on in Settings.";
+            // DD payouts (specs/034 contract C2).
+            if (Has("payout_address_required")) return PayoutAddressRequired;
+            if (Has("payout_address_network_mismatch")) return "This store's DigiDollar payout address is for its current network. Change the payout address first.";
+            if (Has("dd_held")) return "This store still holds DigiDollar. Pay it out first (DigiDollar payouts), then delete the store.";
         }
 
         return status switch

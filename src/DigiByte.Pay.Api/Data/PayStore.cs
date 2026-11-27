@@ -5,7 +5,7 @@ namespace DigiByte.Pay.Api.Data;
 /// each with its own receive (xpub or address), webhook configuration, and
 /// default session expiry. Sessions belong to exactly one store.
 /// </summary>
-public class PayStore
+public class PayStore : IDdPayoutOwner
 {
     public required string Id { get; init; }
     public required string MerchantId { get; init; }
@@ -53,6 +53,32 @@ public class PayStore
     /// turned off so donations sent later are still credited.
     /// </summary>
     public string? DdDonationAddress { get; set; }
+
+    // ---- DD payouts (specs/034 data-model) ----
+
+    public string? OwnerStoreId => Id;
+
+    /// <summary>The store's DD payout address in effect. Valid DD for <see cref="Network"/>, never a DigiPay address.</summary>
+    public string? DdPayoutAddress { get; set; }
+    public DateTime? DdPayoutAddressSetAt { get; set; }
+    /// <summary>confirmed | daily | threshold.</summary>
+    public string DdPayoutSchedule { get; set; } = "confirmed";
+    public TimeOnly? DdPayoutDailyTime { get; set; }
+    /// <summary>IANA zone, from the merchant's browser when they pick "daily"; UTC when not set.</summary>
+    public string? DdPayoutTimeZone { get; set; }
+    /// <summary>At least 100 and at most 10,000,000.</summary>
+    public long? DdPayoutThresholdCents { get; set; }
+    /// <summary>Set after 3 failed payouts in a row (FR-022).</summary>
+    public DateTime? DdPayoutsAutoPausedAt { get; set; }
+    public int DdPayoutConsecutiveFailures { get; set; }
+    /// <summary>Operator pause for this store only (FR-021).</summary>
+    public DateTime? DdPayoutsPausedByOperatorAt { get; set; }
+    /// <summary>Set by "Pay out now" / "Retry now"; cleared when the planner picks it up.</summary>
+    public DateTime? DdPayoutRequestedAt { get; set; }
+    public string? DdPayoutRequestReason { get; set; }
+    public DateTime? DdPayoutLastDailyRunAt { get; set; }
+    /// <summary>Stores that already had DD on when payouts shipped may keep it on without a payout address (FR-031).</summary>
+    public bool DdPayoutAddressRequiredExempt { get; set; }
 
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }
