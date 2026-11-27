@@ -24,7 +24,7 @@ So DigiPay can take DigiDollar the same way it takes DGB: straight to the mercha
 ### Session 2026-11-27
 
 - Q: Which DigiDollar account should a store's key come from? → A: The wallet's main DD account (`m/86'/20'/0'`), with the same privacy as DGB xpub mode today; no dedicated or per-store DD account.
-- Q: How should the merchant's wallet find DD paid to DigiPay addresses far past its 20-unused-address scan window? → A: The wallet's DD scan gets the same "look deeper" option DGB already has (up to 500 addresses), and the key screen points merchants to it. DigiPay never reuses addresses.
+- Q: How should the merchant's wallet find DD paid to DigiPay addresses far past its 20-unused-address scan window? → A: The wallet gets a deeper DD search of up to 500 addresses on its recovery page, like the DGB receive search there, and the key screen points merchants to it. DigiPay never reuses addresses.
 - Q: Should DigiPay rely on one public explorer for DD, or fall back to a second one when it's down? → A: One configurable explorer per network, with no fallback. When it's down, DD waits and DGB keeps working.
 - Q: What happens when a merchant pastes the same DigiDollar key into two of their stores? → A: Stores with the same DD key draw from one shared address sequence, so no address is ever given out twice. This also covers putting an old key back on a store.
 
@@ -156,7 +156,7 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 - **FR-007**: Every DD address DigiPay gives out MUST be derived from the store's DD key: explicit DD payments, POS and link DD payments, the buyer's DD option, and the store's DD donation address.
 - **FR-008**: Each DD payment and each DD option MUST get a new address index. Indexes MUST never be reused, including across stores that have the same DD key: such stores MUST draw from one shared address sequence for that key.
 - **FR-009**: A store's DD donation address MUST take one index from its key's sequence the first time it's asked for, and keep it, so it's the same every time and never given to a payment or another store.
-- **FR-010**: Creating a DD payment or DD option MUST NOT depend on any outside service.
+- **FR-010**: Creating a DD payment or DD option MUST NOT call any outside service. The buyer's switch to DD is offered only while DigiPay's last check of the explorer found it reachable (Story 4, scenario 1). That check is cached, not made when the option is created.
 
 **Watching**
 
@@ -178,7 +178,7 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 
 - **FR-021**: The DigiByte Wallet MUST let the user show and copy their DigiDollar account key for DigiPay, together with the first DD receive address it gives.
 - **FR-022**: The wallet MUST explain that the key lets a service create receive addresses and see payments to them (including all DD in the wallet's DigiDollar account), and can't spend.
-- **FR-023**: The wallet's DigiDollar scan MUST have the same deeper search DGB already has, reaching 500 addresses past the last paid one, and the key screen MUST tell merchants to use it if DD paid through DigiPay seems missing.
+- **FR-023**: The wallet MUST offer a deeper DigiDollar search on its recovery page, reaching 500 addresses past the last paid one, next to the existing DGB receive search. The key screen MUST tell merchants to use it if DD paid through DigiPay seems missing.
 
 **Docs**
 
@@ -209,5 +209,5 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 - Taking DD without custody needs no change to the DigiDollar protocol, NodeApi or the SPV gateway.
 - Production has never run a DigiDollar node, so no store holds DD with DigiPay today, and nothing needs migrating or paying out.
 - PR #131 (specs 033 and 034, unmerged) is reworked to this design before it's merged. Spec 034's code is removed from it, not merged and then deleted.
-- The wallet's existing deeper address search for DGB (500 addresses) can be applied to the DD receive chain, whose scan today stops at 20 unused addresses.
+- The wallet's DD scan today stops at 20 unused addresses. It can take a larger limit (500) for a deeper search, as the wallet already does for DGB on its recovery page.
 - Payment privacy is the same as DGB today: anyone with the store's key could see its DD payments, so the key is treated as sensitive, though it can't spend.

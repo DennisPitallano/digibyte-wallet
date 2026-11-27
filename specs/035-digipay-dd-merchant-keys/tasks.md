@@ -79,9 +79,10 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 - [ ] T013 Delete these files:
   - every file in `src/DigiByte.Pay.Api/Services/Payouts/`
   - `src/DigiByte.Pay.Api/Endpoints/PayoutsEndpoints.cs`
-  - `src/DigiByte.Pay.Api/Services/DigiDollarNodeClient.cs`
 
-  Then remove their DI, the operator key, the payouts worker, the SQLite shim, the DdAddress backfill and `MapPayoutsEndpoints` from `src/DigiByte.Pay.Api/Program.cs`, and the `NODEAPI_*` handling.
+  Then remove their DI, the operator key, the payouts worker, the SQLite shim, the DdAddress backfill and `MapPayoutsEndpoints` from `src/DigiByte.Pay.Api/Program.cs`.
+
+  In `src/DigiByte.Pay.Api/Services/DigiDollarNodeClient.cs`, delete only the spec 034 methods and records (`GetHealthAsync`, `GetWalletBalanceAsync`, `ListReceivesAsync`, `SendAsync`, `ListSendsAsync`, `GetTxStatusAsync`). Keep `GenerateAddressAsync`, `GetBalanceAsync`, `GetFirstReceiveTxidAsync` and `IsHealthyAsync`: they still have callers until T029, T031 and T044, and the client is deleted in T045.
 - [ ] T014 Remove the remaining 034 code:
   - the payout routes (pause, resume, health) from `src/DigiByte.Pay.Api/Endpoints/OperatorEndpoints.cs`
   - `SessionPayoutInfo` use from `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs`
@@ -113,7 +114,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - Wire `FakeDdExplorer` (T008) into `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` as the "DigiPayDd" handler, and delete `tests/DigiByte.Pay.Api.Tests/FakeDdNode.cs`.
   - In `tests/DigiByte.Pay.Api.Tests/BuyerChoiceTestKit.cs`, add `DdStore(factory)`, which sets a real testnet DD account key (from the test mnemonic at `m/86'/1'/0'`) through the S2 route.
 
-  The solution builds with DD broken (no allocator yet).
+  The DD routes compile, but DD isn't usable in tests until US2: the node client is still wired, and the fake explorer doesn't serve node paths.
 
 **Checkpoint**: the solution builds, no spec 034 code is left, and the Crypto tests pass.
 
@@ -184,6 +185,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - **Late payment**: a payment within 3 days of expiry goes to paid.
   - **First paid**: `DdAddress.FirstPaidAt` is set.
   - **Buyer choice**: a DD arrival locks the payment to DD. DD arriving on a payment locked to DGB raises `session.extra_payment`.
+  - **Key replaced (FR-005)**: a DD payment opened before the store's key is replaced (S2 with a new key) still goes to paid on its original address.
+  - **Key removed (FR-004)**: a DD payment opened before the key is removed (S3) still goes to paid and confirmed, while `digiDollarEnabled` is false.
 - [ ] T031 [US2] Rewrite the DD paths in `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs` to use `DdChainProvider.For(network).GetHistoryAsync` (R5):
   - `InspectDdSessionAsync`
   - `ReceivedOnAsync`
@@ -215,11 +218,10 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 - [ ] T039 [P] [US3] Create `src/DigiByte.Web/Pages/ExportDigiDollarKey.razor` at `/settings/digidollar-key`, mirroring `src/DigiByte.Web/Pages/ExportXpub.razor`. It shows the key with Copy, the first DD address, the W1 text and a link to the deeper scan. It shows the watch-only message when the key is null.
 - [ ] T040 [US3] Link "DigiDollar key for DigiPay" from `src/DigiByte.Web/Pages/Settings.razor`, next to the xpub item.
 - [ ] T041 [US3] Add the "Look further for DigiDollar" card to `src/DigiByte.Web/Pages/Recovery.razor`. It runs the deep scan with progress and the result text (W3), and leaves the DGB receive search unchanged.
-- [ ] T042 [P] [US3] Write bUnit tests for the new page and the Recovery card, matching where the existing `ExportXpub` and `Recovery` page tests live under `tests/`, in `ExportDigiDollarKeyTests.cs`:
-  - the seed wallet shows the key and address
-  - the watch-only wallet shows the message
-  - Copy calls the clipboard
-  - the deep scan card shows its result
+- [ ] T042 [P] [US3] The wallet web app (`DigiByte.Web`) has no bUnit test project, so its pages are covered by the service tests in T035 and T037 and checked by hand. Add the hand checks to [quickstart.md](quickstart.md) "Manual, on testnet":
+  - The seed wallet shows the key and first address, and Copy works.
+  - A watch-only wallet shows the "only available in a wallet restored from its recovery phrase" message.
+  - "Look further for DigiDollar" on `/recovery` shows its progress and result.
 
 **Checkpoint**: merchants can get their key from the wallet, and the wallet finds DD paid to far-off addresses.
 
@@ -238,6 +240,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - After recovery, a DD payment paid during the outage, including one past its expiry within 3 days, goes to paid on the next tick.
 - [ ] T044 [US4] Change `src/DigiByte.Pay.Api/Services/DdAvailability.cs` to use `DdChainProvider.For(network).GetHealthAsync`. DD is available only if `Available && DeploymentActive`. Keep the cache (30 s) and the 3-second timeout, and make it per network. Rename the reason `node_unavailable` to `dd_service_unavailable` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` and `src/DigiByte.Pay.Api/Services/SessionOptionService.cs`.
 - [ ] T045 [US4] In `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs`, skip DD addresses for a network whose `DdAvailability` is false during that tick, with no status change and no error log per address, logging one warning per outage instead. Make sure DGB processing never awaits DD health.
+
+  Then delete `src/DigiByte.Pay.Api/Services/DigiDollarNodeClient.cs`. Its last callers are gone after T029, T031 and T044. Also remove its DI and the `DdNode` options from `src/DigiByte.Pay.Api/Program.cs`, and the `NODEAPI_BASE_URL` / `NODEAPI_WRITE_KEY` handling.
 - [ ] T046 [P] [US4] Update the unavailable copy in `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, `Donate.razor` and `Pos.razor` (and their tests in `tests/DigiByte.Pay.Web.Tests`) to "DigiDollar is temporarily unavailable". Show the merchant-side note "DigiDollar confirmations may be delayed" on the Dashboard DD card when DD is unavailable (US4 scenario 3).
 
 **Checkpoint**: outages are handled as the spec describes.
@@ -272,6 +276,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 - [ ] T053 Compute `unpaidRun` for the key and the `unpaidRunWarning` (> 500) in the store DTO (R11) in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. Show the warning on the DD key card with "Run 'Look further for DigiDollar' in your wallet after your next DigiDollar payment". Test it in `tests/DigiByte.Pay.Api.Tests/DdKeyTests.cs`.
 - [ ] T054 [P] Update `docs/ARCHITECTURE.md` and `docs/PROCESS_FLOWS.md`: the DD flow is the merchant key, then the derived address, then the explorer, with no node, ledger or payouts.
+
+  Also do FR-020: rewrite the class comment in `src/DigiByte.Pay.Api/Services/DdSurfacesGate.cs`, which says the switch waits for spec 034's payouts. The switch now waits only for this feature to be live. Add a deploy note to `docs/ARCHITECTURE.md` (DigiPay section) to set `DIGIPAY_DD_SURFACES=true` in production once spec 035 ships.
 - [ ] T055 [P] Update `CHANGELOG.md`: DigiDollar on your own key, the wallet DigiDollar key screen, the deeper DD scan, and payouts removed (never released).
 - [ ] T056 Run `dotnet build` and `dotnet test` for Crypto, Wallet, Pay.Api and Pay.Web tests, the JS tests and the E2E suite. Fix any failures. Note the known unrelated `DigiByte.Wallet.Tests` explorer/timing flakes in the PR if they recur.
 - [ ] T057 Mark the 033 and 034 tasks made moot by this spec in `specs/033-digipay-dd-everywhere/tasks.md` (T072 testnet now covered by spec 035's quickstart) and `specs/034-digipay-dd-payouts/tasks.md` (superseded).
