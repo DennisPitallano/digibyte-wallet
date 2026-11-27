@@ -4,6 +4,9 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Added
+- **DigiPay pays out DigiDollar to merchants** (specs/034, beta) — Each store can name a DigiDollar payout address in the new **DigiDollar payouts** section of the dashboard, and DigiPay forwards the DD it holds for the store: by default as soon as each payment has 6 confirmations, or once a day, or at a balance threshold. DigiPay pays the DGB network fee, so merchants receive the full amount. Setting or changing the address needs a fresh Digi-ID sign-in, and a change waits 48 hours with payouts held; every change is shown in a banner, written to the audit log and sent as a webhook. DD held before payouts existed, overpayments, late payments, extra payments to refund and donations are all paid out. New webhooks `payout.sent`, `payout.confirmed`, `payout.failed` and `payout_address.*`; new read-only endpoints for the DD balance and payouts; operator pause and health endpoints. Turning DigiDollar on now needs a payout address (stores that already had it on keep working). NodeApi's `/api/digidollar/send` returns `{ txid }` and a new wallet-scoped `/api/digidollar/sends` lists recent sends.
+
 ### Changed
 - **DigiPay's DigiDollar setting says where DD is offered** — The **Accept DigiDollar** setting in the DigiPay dashboard now lists only the places that really take DD (for now, sessions created through the API with `"currency": "DD"`), says plainly that DigiPay holds the DD buyers pay and that it can't be withdrawn yet, and its on and off messages name those places. The docs gain a DigiDollar section. `GET /v1/pay/me` gains `ddSurfacesEnabled` and `ddChoiceNoticePending`, and store objects gain `defaultCurrencyEffective`, `buyerChoiceEnabled` and `ddDonationAddress`, ahead of DD on the POS, payment links, checkout and the donation page (specs/033), which stay off behind `DIGIPAY_DD_SURFACES` until DD payouts are live.
 

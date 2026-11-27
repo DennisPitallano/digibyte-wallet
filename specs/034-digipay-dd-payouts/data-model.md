@@ -184,3 +184,11 @@ The planner, sender and address service treat a `PayStore` and a `MerchantDdSett
 | `payout.sent`, `.confirmed`, `.failed`, `.checking` | `Payout` | Actor `System`, except when started by a manual trigger. |
 | `payout.manual`, `payout.retry` | `Payout` | |
 | `payouts.paused`, `payouts.resumed` | `Store` / `System` | Store auto-pause, or operator pause. |
+
+## Implementation notes (as built)
+
+- **Credit uniqueness**: the unique index is on (`Txid`, `Address`, `Source`) for credits (`UX_DdLedger_Txid_Address_Source`), because one receive can be split into a `payment` and an `overpayment` credit. A receive already credited under any source is never credited again.
+- **Store deletion**: instead of `transfer_out`/`transfer_in` pairs, the store's DD addresses, ledger entries, payouts and pending changes are re-owned to the merchant-level owner (`StoreId = null`), and its `MerchantDdSettings` row is created with the store's payout address. The transfer entry types remain defined for later use.
+- **Absorbed reversal**: the reversed credit gets `ReversedAt` and a positive `reversal_absorbed` entry of the paid-out amount keeps the balance unchanged; liability therefore still includes it and the coverage check alerts until the operator tops up the wallet (FR-023).
+- **Extra fields**: `DdPayout.CoverageWaitSince` (when an insufficient-funds refusal first put it back to waiting); `DdPayout.WaitReason` may also be `change_pending`; `PayStore`/`MerchantDdSettings` carry `DdPayoutRequestReason` (`manual` | `retry`) and `DdPayoutLastDailyRunAt`.
+- **Merchant-level owner**: `MerchantDdSettings` (see above) holds the same payout fields as `PayStore`; both implement `IDdPayoutOwner`.

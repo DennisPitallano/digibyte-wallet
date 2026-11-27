@@ -160,3 +160,11 @@ Returns a `PayoutDto` with `items[]`, each `{ sessionId?, source, amountCents, l
   - Returns 409 `dd_held` with `{ confirmedCents, confirmingCents }` while 100 or more cents are held or a payout is in progress.
   - `?finalPayout=true` queues a `store_delete` payout. Any remainder under 100 cents moves to the merchant-level balance.
 - **`StoreDto`**: adds `ddPayoutAddress`, `ddPayoutPending`, `ddPayoutSchedule` and `ddPayoutsPaused`.
+
+## Implementation notes (as built)
+
+- `DELETE /stores/{id}?finalPayout=true` answers `202 { status: "payout_queued", confirmedCents }` and queues the final payout. Deleting again once it has gone out (held under 100 cents, nothing in flight) completes the deletion and moves any remainder to the merchant-level balance.
+- `PATCH /payout-settings` exists for stores only; the merchant-level balance always pays out as soon as confirmed.
+- The merchant-level routes are `GET /me/dd-balance`, `PUT /me/dd-balance/payout-address`, `DELETE /me/dd-balance/payout-address/pending` and `GET /me/dd-balance/payouts`.
+- `GET /stores/{id}/dd-balance` also returns `autoPaused`, and `schedule` carries `dailyTime`, `timeZone` and `thresholdCents`.
+- The acknowledge route ignores the `{storeId}` segment and matches the change by id and merchant, so the banner can acknowledge merchant-level changes too.
