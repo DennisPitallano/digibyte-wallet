@@ -136,7 +136,7 @@ src/DigiByte.Pay.Api/
 └── Migrations/                                  # AddDdPayouts removed; new AddDdMerchantKeys
 
 src/DigiByte.Pay.Web/
-├── Pages/Merchant/Dashboard.razor               # DD key card with first-address check; payouts UI removed
+├── Components/Pages/Dashboard.razor             # DD key card with first-address check; payouts UI removed
 ├── Pages/Merchant/DigiDollarSettingText.cs      # "straight to your wallet"
 ├── Components/Shared/DdPayoutsPanel.razor       # DELETED
 └── Components/Shared/PayoutAlertsBanner.razor   # DELETED

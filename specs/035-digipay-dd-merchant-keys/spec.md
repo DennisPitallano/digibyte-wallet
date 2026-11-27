@@ -97,7 +97,7 @@ If the public explorer is down or slow, DD payments wait instead of failing, the
 
 **Why this priority**: The explorer replaces the node as the one outside service DD depends on (constitution Principle V).
 
-**Independent Test**: Block the explorer, create and pay a DD payment, see "waiting for the DigiDollar service" and DGB payments still working. Unblock it and see the DD payment move to paid.
+**Independent Test**: Block the explorer, create and pay a DD payment, see "DigiDollar is temporarily unavailable" and DGB payments still working. Unblock it and see the DD payment move to paid.
 
 **Acceptance Scenarios**:
 

@@ -112,11 +112,9 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   Remove payout setup from `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` (`DigiPay:Payouts:WorkerEnabled`), and the payout cases in `tests/DigiByte.Pay.Web.Tests` Dashboard, PosTill and SessionDetail tests.
 - [ ] T018 Replace `FakeDdNode` with `FakeDdExplorer`:
   - Wire `FakeDdExplorer` (T008) into `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` as the "DigiPayDd" handler, and delete `tests/DigiByte.Pay.Api.Tests/FakeDdNode.cs`.
-  - In `tests/DigiByte.Pay.Api.Tests/BuyerChoiceTestKit.cs`, add `DdStore(factory)`, which sets a real testnet DD account key (from the test mnemonic at `m/86'/1'/0'`) through the S2 route.
+  The DD routes compile, but DD isn't usable in tests until US2: the node client is still wired, and the fake explorer doesn't serve node paths. The existing DD Pay.Api tests (`BuyerChoiceSessionTests`, `DdOptionEndpointTests`, `InvoiceMonitorBuyerChoiceTests`, `DonationOptionsTests`, `DdSurfacesGateTests`, `SessionsCsvDdTests`, `PosShiftTotalsDdTests`) stay red until T032. Only the Crypto tests and the Pay.Api tests not about DD are expected to pass at this checkpoint.
 
-  The DD routes compile, but DD isn't usable in tests until US2: the node client is still wired, and the fake explorer doesn't serve node paths.
-
-**Checkpoint**: the solution builds, no spec 034 code is left, and the Crypto tests pass.
+**Checkpoint**: the solution builds, no spec 034 code is left, the Crypto tests pass, and the Pay.Api tests not about DD pass.
 
 ## Phase 3: User Story 1, connect the store's DigiDollar key (P1) 🎯 MVP
 
@@ -139,6 +137,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - PUT creates or reuses the `DdKeySequence` row (`Id = KeyId`) and clears `DdDonationAddress` when the key changes.
   - Audit: `store.dd_key_set`, `store.dd_key_replaced` and `store.dd_key_removed`, with the fingerprint only.
   - Never log the request body.
+  - Then, in `tests/DigiByte.Pay.Api.Tests/BuyerChoiceTestKit.cs`, change `DdStore(factory)` to set a real testnet DD account key (from the test mnemonic at `m/86'/1'/0'`) through this S2 route, instead of seeding a payout address.
 - [ ] T021 [US1] In `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs`, replace the `payout_address_required` check on `digiDollarEnabled: true` with 409 `dd_key_required` (S5).
 - [ ] T022 [US1] Add the `ddKey` object to the store DTO in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs` and the store GET/PATCH responses: `set`, `network`, `fingerprint`, `firstAddress`, `setAt`, `unpaidRun`, `unpaidRunWarning`. For now, `unpaidRun` is 0 and `unpaidRunWarning` is false.
 - [ ] T023 [P] [US1] Write bUnit tests in `tests/DigiByte.Pay.Web.Tests/DdKeyCardTests.cs` for this flow:
@@ -153,7 +152,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - Replace and Remove
   - the toggle gated on the key
 - [ ] T025 [P] [US1] Add `dd_key_invalid` (with each reason), `first_address_mismatch` and `dd_key_required` with plain messages in `src/DigiByte.Pay.Web/Components/Shared/Ui/ApiError.cs`. The `private_key` message: "That's a private key. Never share it. Paste the public key from your wallet's DigiDollar key screen."
-- [ ] T026 [US1] Seed the dev store in `src/DigiByte.Pay.Api/Endpoints/DevSignInEndpoints.cs` with the testnet DD account key from the test mnemonic (`m/86'/1'/0'`) and DD on, with no payout address. Update `tests/DigiByte.Pay.Api.Tests/DevSignInTests.cs`.
+- [ ] T026 [US1] Seed the dev store in `src/DigiByte.Pay.Api/Endpoints/DevSignInEndpoints.cs` with the testnet DD account key from the test mnemonic (`m/86'/1'/0'`) and DD on, with no payout address. Update `tests/DigiByte.Pay.Api.Tests/DevSignInTests.cs`. Derive the seeded key with `DigiDollarKeyDerivation`'s own testnet coin type rather than hard-coding `1`. That coin type is still marked "to confirm" in the code (`DigiDollarKeyDerivation.cs:72-73`), and if it changes, the seed must follow, along with any testnet keys saved before then.
 
 **Checkpoint**: keys can be set, checked and removed, and DD can be turned on only with a key.
 
@@ -186,6 +185,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - **First paid**: `DdAddress.FirstPaidAt` is set.
   - **Buyer choice**: a DD arrival locks the payment to DD. DD arriving on a payment locked to DGB raises `session.extra_payment`.
   - **Key replaced (FR-005)**: a DD payment opened before the store's key is replaced (S2 with a new key) still goes to paid on its original address.
+  - **Reorganised out**: a paid payment whose transaction disappears from the explorer's history goes back to its earlier state, as DGB payments do.
+  - **Overpaid**: more DD than due goes to paid, with the full received amount recorded.
   - **Key removed (FR-004)**: a DD payment opened before the key is removed (S3) still goes to paid and confirmed, while `digiDollarEnabled` is false.
 - [ ] T031 [US2] Rewrite the DD paths in `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs` to use `DdChainProvider.For(network).GetHistoryAsync` (R5):
   - `InspectDdSessionAsync`
@@ -274,7 +275,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 ## Phase 8: Polish and cross-cutting
 
-- [ ] T053 Compute `unpaidRun` for the key and the `unpaidRunWarning` (> 500) in the store DTO (R11) in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. Show the warning on the DD key card with "Run 'Look further for DigiDollar' in your wallet after your next DigiDollar payment". Test it in `tests/DigiByte.Pay.Api.Tests/DdKeyTests.cs`.
+- [ ] T053 (This belongs with US2 but sits here because it needs `FirstPaidAt` from T031. It completes the spec's long-unpaid-run edge case and the `unpaidRun` fields of contract S4.) Compute `unpaidRun` for the key and the `unpaidRunWarning` (> 500) in the store DTO (R11) in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. Show the warning on the DD key card with "Run 'Look further for DigiDollar' in your wallet after your next DigiDollar payment". Test it in `tests/DigiByte.Pay.Api.Tests/DdKeyTests.cs`.
 - [ ] T054 [P] Update `docs/ARCHITECTURE.md` and `docs/PROCESS_FLOWS.md`: the DD flow is the merchant key, then the derived address, then the explorer, with no node, ledger or payouts.
 
   Also do FR-020: rewrite the class comment in `src/DigiByte.Pay.Api/Services/DdSurfacesGate.cs`, which says the switch waits for spec 034's payouts. The switch now waits only for this feature to be live. Add a deploy note to `docs/ARCHITECTURE.md` (DigiPay section) to set `DIGIPAY_DD_SURFACES=true` in production once spec 035 ships.
