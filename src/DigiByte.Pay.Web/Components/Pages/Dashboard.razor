@@ -1239,10 +1239,17 @@ else
                 <section class="@Card mt-4">
                     <h2 class="@H2">Accept DigiDollar (DD) <span class="text-[0.625rem] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 align-middle ml-1">Beta</span></h2>
                     <p id="dd-setting-text" class="@Muted m-0">@Merchant.DigiDollarSettingText.Description(DdSurfacesEnabled)</p>
+                    <DdKeyCard Token="@(token ?? string.Empty)" StoreId="@activeStore.Id" Network="@activeStore.Network"
+                               DdKey="@activeStore.DdKey" OnChanged="OnDdKeyChangedAsync" />
                     <label class="inline-flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" @bind="ddEnabledInput" @bind:after="SaveDigiDollarEnabledAsync" disabled="@ddBusy" class="w-5 h-5 accent-dgb-500" />
+                        <input type="checkbox" id="dd-enabled" @bind="ddEnabledInput" @bind:after="SaveDigiDollarEnabledAsync"
+                               disabled="@(ddBusy || (activeStore.DdKey is null && !activeStore.DigiDollarEnabled))" class="w-5 h-5 accent-dgb-500" />
                         <span class="text-sm">Enable DigiDollar for this store</span>
                     </label>
+                    @if (activeStore.DdKey is null && !activeStore.DigiDollarEnabled)
+                    {
+                        <p class="@Muted m-0" data-dd-needs-key>Add your DigiDollar key first.</p>
+                    }
                     @if (ddMessage != null) { <p class="@Muted m-0">@ddMessage</p> }
                     @if (ddError != null) { <p class="field-error" role="alert">@ddError</p> }
                     @if (activeStore.DigiDollarEnabled && DdSurfacesEnabled)
@@ -2640,6 +2647,14 @@ else
         finally { expiryBusy = false; StateHasChanged(); }
     }
 
+    // specs/035: the key card saved, replaced or removed the store's DigiDollar key; reload so the toggle follows.
+    private async Task OnDdKeyChangedAsync()
+    {
+        await LoadAccountAsync();
+        if (activeStore is not null) ddEnabledInput = activeStore.DigiDollarEnabled;
+        StateHasChanged();
+    }
+
     private async Task SaveDigiDollarEnabledAsync()
     {
         if (activeStore is null) return;
@@ -3026,7 +3041,8 @@ else
         string? WebhookUrl, bool HasWebhookSecret,
         int? DefaultSessionExpiryMinutes, DateTime CreatedAt,
         bool DigiDollarEnabled = false, string? DefaultCurrency = null,
-        string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true, string? DdDonationAddress = null);
+        string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true, string? DdDonationAddress = null,
+        DigiByte.Pay.Web.Components.Shared.DdKeyCard.DdKeyView? DdKey = null);
 
     /// <summary>What PATCH /stores/{id} returns that the page needs: the secret, the first time one is made.</summary>
     private record StoreUpdateDto(string Id, string? WebhookSecret = null);

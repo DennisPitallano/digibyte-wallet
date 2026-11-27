@@ -52,6 +52,9 @@ public class DevSignInTests
         var store = Assert.Single(me.GetProperty("stores").EnumerateArray());
         Assert.Equal("testnet", store.GetProperty("network").GetString());
         Assert.True(store.GetProperty("hasReceive").GetBoolean());
+        // specs/035 T026: DigiDollar on, with the test mnemonic's testnet DD key and no payout address.
+        Assert.True(store.GetProperty("digiDollarEnabled").GetBoolean());
+        Assert.Equal(TestDdKeys.Address(0, "testnet"), store.GetProperty("ddKey").GetProperty("firstAddress").GetString());
 
         var session = await client.SendAsync(PayFactory.Authed(HttpMethod.Post, "/v1/pay/sessions", token, new { amount = 1m }));
         Assert.Equal(HttpStatusCode.OK, session.StatusCode);

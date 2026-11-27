@@ -24,8 +24,14 @@ public class DdSurfacesGateTests
     private static PayFactory WithGate(bool on) =>
         PayFactory.Create(settings: new Dictionary<string, string?> { [DdSurfacesGate.ConfigKey] = on ? "true" : "false" });
 
-    private static Task<HttpResponseMessage> SetDd(HttpClient client, string key, string storeId, bool on) =>
-        client.SendAsync(PayFactory.Authed(HttpMethod.Patch, $"/v1/pay/stores/{storeId}", key, new { digiDollarEnabled = on }));
+    // DigiDollar needs the store's own key first (specs/035 FR-004).
+    private static async Task<HttpResponseMessage> SetDd(HttpClient client, string key, string storeId, bool on)
+    {
+        if (on && (await client.SendAsync(PayFactory.Authed(HttpMethod.Get, $"/v1/pay/stores/{storeId}", key))) is var r
+            && (await r.Content.ReadAsStringAsync()).Contains("\"ddKey\":null"))
+            await TestDdKeys.GiveKey(client, key, storeId);
+        return await client.SendAsync(PayFactory.Authed(HttpMethod.Patch, $"/v1/pay/stores/{storeId}", key, new { digiDollarEnabled = on }));
+    }
 
     [Theory]
     [InlineData(false)]

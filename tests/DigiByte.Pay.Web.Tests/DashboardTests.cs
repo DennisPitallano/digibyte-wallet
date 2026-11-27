@@ -494,6 +494,31 @@ public class DashboardTests : BunitContext
         Assert.Equal(turnOn, api.LastPatch!["digiDollarEnabled"]!.GetValue<bool>());
     }
 
+    [Fact]
+    public void Without_a_DigiDollar_key_the_toggle_is_off_limits_and_says_why()
+    {
+        // specs/035 FR-004: every DD address comes from the store's own key.
+        api.HasDdKey = false;
+        api.DigiDollarEnabled = false;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-key-card")));
+
+        Assert.True(cut.Find("#dd-enabled").HasAttribute("disabled"));
+        Assert.Contains("Add your DigiDollar key first", cut.Find("[data-dd-needs-key]").TextContent);
+        Assert.NotNull(cut.Find("#dd-key-input"));
+    }
+
+    [Fact]
+    public void With_a_DigiDollar_key_the_card_shows_it_and_the_toggle_works()
+    {
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-dd-key-first]")));
+
+        Assert.Equal("DDfirst1", cut.Find("[data-dd-key-first]").TextContent);
+        Assert.False(cut.Find("#dd-enabled").HasAttribute("disabled"));
+        Assert.Empty(cut.FindAll("[data-dd-needs-key]"));
+    }
+
     // ----- DigiDollar links and one-off payments (specs/033 US2) -----
 
     private void AllowDd()
@@ -780,6 +805,7 @@ public class DashboardTests : BunitContext
         public bool BuyerChoiceEnabled { get; set; } = true;
         public bool NoticeDismissed { get; private set; }
         public bool TwoStores { get; set; }
+        public bool HasDdKey { get; set; } = true;
         /// <summary>Gives every listed payment an extra DD payment (specs/033 FR-025).</summary>
         public bool ExtraOnRows { get; set; }
         /// <summary>DELETE /v1/pay/stores/sto_2 answers 409 dd_held with these (specs/034 T060); null deletes it.</summary>
@@ -916,6 +942,7 @@ public class DashboardTests : BunitContext
             defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = DigiDollarEnabled,
             defaultCurrency = DefaultCurrency,
             buyerChoiceEnabled = BuyerChoiceEnabled,
+            ddKey = HasDdKey ? new { set = true, network = "mainnet", fingerprint = "a1b2c3d4", firstAddress = "DDfirst1", setAt = DateTime.UtcNow, unpaidRun = 0, unpaidRunWarning = false } : null,
         };
 
         private static object SecondStore() => new

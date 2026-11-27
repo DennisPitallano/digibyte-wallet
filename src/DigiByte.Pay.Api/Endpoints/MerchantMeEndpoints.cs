@@ -150,8 +150,30 @@ public static class MerchantMeEndpoints
             ? "USD" : s.DefaultCurrency,
         s.BuyerChoiceEnabled,
         s.DdDonationAddress,
+        // specs/035 contract S4: the key itself is never returned, only enough to check it against the wallet.
+        DdKey = DdKeyDto(s),
         s.CreatedAt,
     };
+
+    internal static object? DdKeyDto(PayStore s, int unpaidRun = 0)
+    {
+        if (s.DdAccountKey is null) return null;
+        var parsed = DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey.Parse(s.DdAccountKey, s.Network == "mainnet" ? "mainnet" : "testnet");
+        if (!parsed.Ok) return null;
+        return new
+        {
+            Set = true,
+            Network = parsed.Key!.Network,
+            Fingerprint = parsed.Key.Fingerprint,
+            FirstAddress = parsed.Key.Address(0),
+            SetAt = s.DdAccountKeySetAt,
+            UnpaidRun = unpaidRun,
+            UnpaidRunWarning = unpaidRun > DdUnpaidRunWarningAt,
+        };
+    }
+
+    /// <summary>More DD addresses than this in a row with none paid and the wallet's normal scan may miss later DD (research R11).</summary>
+    internal const int DdUnpaidRunWarningAt = 500;
 
     internal static Task<PayMerchant?> AuthenticateAsync(HttpRequest http, DigiPayDbContext db) =>
         MerchantAuthenticator.AuthenticateAsync(http, db);

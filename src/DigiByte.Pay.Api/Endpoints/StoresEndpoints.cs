@@ -17,6 +17,13 @@ namespace DigiByte.Pay.Api.Endpoints;
 /// </summary>
 public static class StoresEndpoints
 {
+    // DD keys are checked against the store's network; regtest stores read as testnet (DigiDollar has no regtest keys).
+    private static DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey.ParseResult ParseDdKey(string? text, string network) =>
+        DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey.Parse(text, network == "mainnet" ? "mainnet" : "testnet");
+
+    // The pasted text is never echoed back: it may be a private key (contract S1).
+    private static IResult DdKeyInvalid(string reason) => Results.BadRequest(new { error = "dd_key_invalid", reason });
+
     public static RouteGroupBuilder MapStoresEndpoints(this RouteGroupBuilder group)
     {
         group.MapGet("", async (HttpRequest http, DigiPayDbContext db) =>
@@ -160,6 +167,9 @@ public static class StoresEndpoints
             }
             if (body.DigiDollarEnabled is not null)
             {
+                // specs/035 FR-004: every DD address comes from the store's own key, so DD needs one.
+                if (body.DigiDollarEnabled.Value && store!.DdAccountKey is null)
+                    return Results.Conflict(new { error = "dd_key_required" });
                 if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
                 store!.DigiDollarEnabled = body.DigiDollarEnabled.Value;
             }
@@ -231,6 +241,67 @@ public static class StoresEndpoints
                 metadata: new { name = snapshotName, network = snapshotNetwork });
 
             return Results.Ok(new { ok = true });
+        });
+
+        // specs/035 contract S1: check a pasted DigiDollar key and show the first address it gives. Stores nothing.
+        group.MapPost("/{storeId}/dd-key/preview", async (string storeId, DdKeyRequest body, HttpRequest http, DigiPayDbContext db) =>
+        {
+            var (_, store, err) = await LoadOwnedAsync(storeId, http, db);
+            if (err is not null) return err;
+            var parsed = ParseDdKey(body.Key, store!.Network);
+            if (!parsed.Ok) return DdKeyInvalid(parsed.Reason!);
+            return Results.Ok(new { network = parsed.Key!.Network, firstAddress = parsed.Key.Address(0), keyFingerprint = parsed.Key.Fingerprint });
+        });
+
+        // specs/035 contract S2: set or replace the key, once the merchant has checked its first address against the wallet.
+        group.MapPut("/{storeId}/dd-key", async (string storeId, DdKeyRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
+        {
+            var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
+            if (err is not null) return err;
+            var parsed = ParseDdKey(body.Key, store!.Network);
+            if (!parsed.Ok) return DdKeyInvalid(parsed.Reason!);
+            var key = parsed.Key!;
+            if (!string.Equals(body.ConfirmFirstAddress?.Trim(), key.Address(0), StringComparison.Ordinal))
+                return Results.Conflict(new { error = "first_address_mismatch" });
+
+            var replaced = store.DdAccountKey is not null;
+            if (store.DdKeyId != key.KeyId)
+            {
+                // Stores with the same key share its sequence; putting an old key back continues where it stopped (FR-008).
+                if (!await db.DdKeySequences.AnyAsync(k => k.Id == key.KeyId))
+                    db.DdKeySequences.Add(new DdKeySequence { Id = key.KeyId, Network = key.Network });
+                store.DdDonationAddress = null;
+            }
+            store.DdAccountKey = key.Canonical;
+            store.DdKeyId = key.KeyId;
+            store.DdAccountKeySetAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant!.Id, replaced ? "store.dd_key_replaced" : "store.dd_key_set", "Store", store.Id,
+                summary: $"{(replaced ? "Replaced" : "Set")} the DigiDollar key of store \"{store.Name}\" ({key.Fingerprint})",
+                metadata: new { fingerprint = key.Fingerprint, network = key.Network });
+
+            return Results.Ok(MerchantMeEndpoints.StoreDto(store, http));
+        });
+
+        // specs/035 contract S3: remove the key. DigiDollar turns off; open DD payments are still watched until they finish.
+        group.MapDelete("/{storeId}/dd-key", async (string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
+        {
+            var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
+            if (err is not null) return err;
+            if (store!.DdAccountKey is null) return Results.NoContent();
+            var fingerprint = store.DdKeyId?[..8];
+            store.DdAccountKey = null;
+            store.DdKeyId = null;
+            store.DdAccountKeySetAt = null;
+            store.DigiDollarEnabled = false;
+            store.DdDonationAddress = null;
+            await db.SaveChangesAsync();
+
+            await audit.LogAsync(merchant!.Id, "store.dd_key_removed", "Store", store.Id,
+                summary: $"Removed the DigiDollar key of store \"{store.Name}\"; DigiDollar is off",
+                metadata: new { fingerprint });
+            return Results.NoContent();
         });
 
         group.MapGet("/{storeId}/donation-address", async (
@@ -653,6 +724,9 @@ public static class StoresEndpoints
 }
 
 public record CreateStoreRequest(string Name, string? Network, string? DefaultCurrency = null);
+/// <summary>specs/035: a pasted DigiDollar account key, and (on save) the first address the merchant checked.</summary>
+public record DdKeyRequest(string? Key, string? ConfirmFirstAddress);
+
 public record UpdateStoreRequest(
     string? Name,
     string? Network,

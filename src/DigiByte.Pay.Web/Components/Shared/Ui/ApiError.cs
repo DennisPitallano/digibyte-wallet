@@ -47,6 +47,17 @@ public static class ApiError
 
         if (e.Length > 0)
         {
+            // The store's DigiDollar key (specs/035 contract S1-S5). Checked first: the generic "xpub" sentence below would match.
+            if (Has("dd_key_invalid"))
+                return reason switch
+                {
+                    "private_key" => "That's a private key. Never share it. Paste the public key from your wallet's DigiDollar key screen.",
+                    "wrong_network" => "That key is for the other network. Use a key from a wallet on this store's network.",
+                    "not_account_key" => "That isn't a DigiDollar account key. Copy it from your wallet's DigiDollar key screen.",
+                    _ => "That isn't a DigiDollar key. Copy it from your wallet's DigiDollar key screen.",
+                };
+            if (Has("first_address_mismatch")) return "The first address changed. Check the key again before saving.";
+            if (Has("dd_key_required")) return "Add your DigiDollar key first. DigiDollar goes straight to the wallet it comes from.";
             if (Has("webhookUrl")) return "That webhook address can't be used. It must be a public https:// address.";
             if (Has("cannot be refunded")) return "This payment can't be refunded in its current state. Refresh to see its latest status.";
             if (Has("cannot be voided")) return "This payment can't be cancelled any more. It may have just been paid. Refresh to see its latest status.";

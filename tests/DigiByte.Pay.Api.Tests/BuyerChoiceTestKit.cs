@@ -14,11 +14,17 @@ internal static class BuyerChoiceTestKit
     public static PayFactory Factory(bool surfaces = true) =>
         PayFactory.Create(settings: new Dictionary<string, string?> { [DdSurfacesGate.ConfigKey] = surfaces ? "true" : "false" });
 
-    /// <summary>A merchant whose store has a payout address, DigiDollar on and buyer choice on.</summary>
-    public static async Task<(HttpClient Client, string Key, string StoreId)> DdStore(PayFactory factory, bool ddOn = true)
+    /// <summary>
+    /// A merchant whose mainnet store has the test DigiDollar key (<see cref="TestDdKeys"/>), DigiDollar on and buyer choice on.
+    /// Its DD addresses are <c>TestDdKeys.Address(0)</c>, <c>(1)</c>, ... in the order they're given out.
+    /// </summary>
+    public static async Task<(HttpClient Client, string Key, string StoreId)> DdStore(PayFactory factory, bool ddOn = true,
+        string words = TestDdKeys.Words)
     {
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
+        (await client.SendAsync(PayFactory.Authed(HttpMethod.Put, $"/v1/pay/stores/{storeId}/dd-key", key,
+            new { key = TestDdKeys.Key(words: words), confirmFirstAddress = TestDdKeys.Address(0, words: words) }))).EnsureSuccessStatusCode();
         if (ddOn)
             (await client.SendAsync(PayFactory.Authed(HttpMethod.Patch, $"/v1/pay/stores/{storeId}", key, new { digiDollarEnabled = true })))
                 .EnsureSuccessStatusCode();

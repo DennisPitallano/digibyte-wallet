@@ -128,33 +128,33 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 2. Paste a mainnet key, an `xprv` or a depth-0 key, and see each refused with its reason.
 3. Turn DD on with no key and get `dd_key_required`.
 
-- [ ] T019 [P] [US1] Write API tests in `tests/DigiByte.Pay.Api.Tests/DdKeyTests.cs`, against contracts/stores-api.md:
+- [X] T019 [P] [US1] Write API tests in `tests/DigiByte.Pay.Api.Tests/DdKeyTests.cs`, against contracts/stores-api.md:
   - **S1 preview**: valid key, then each `dd_key_invalid` reason. Also assert that the response body and logs never contain the pasted `tprv`.
   - **S2 save**: `first_address_mismatch` (409). Success sets `ddKey.fingerprint`/`firstAddress` and writes the audit event `store.dd_key_set`.
   - **S3 remove**: sets `digiDollarEnabled` false and writes the audit event `store.dd_key_removed`.
   - **S4**: the DTO never contains the raw key.
   - **S5**: `dd_key_required` (409).
   - **Access**: a store-bound POS key gets 403.
-- [ ] T020 [US1] Implement S1, S2 and S3 (`POST …/dd-key/preview`, `PUT …/dd-key`, `DELETE …/dd-key`) in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` using `DigiDollarAccountKey`. Owner-only, and not `AllowPosKey`.
+- [X] T020 [US1] Implement S1, S2 and S3 (`POST …/dd-key/preview`, `PUT …/dd-key`, `DELETE …/dd-key`) in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` using `DigiDollarAccountKey`. Owner-only, and not `AllowPosKey`.
   - PUT creates or reuses the `DdKeySequence` row (`Id = KeyId`) and clears `DdDonationAddress` when the key changes.
   - Audit: `store.dd_key_set`, `store.dd_key_replaced` and `store.dd_key_removed`, with the fingerprint only.
   - Never log the request body.
   - Then, in `tests/DigiByte.Pay.Api.Tests/BuyerChoiceTestKit.cs`, change `DdStore(factory)` to set a real testnet DD account key (from the test mnemonic at `m/86'/1'/0'`) through this S2 route, instead of seeding a payout address.
-- [ ] T021 [US1] In `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs`, replace the `payout_address_required` check on `digiDollarEnabled: true` with 409 `dd_key_required` (S5).
-- [ ] T022 [US1] Add the `ddKey` object to the store DTO in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs` and the store GET/PATCH responses: `set`, `network`, `fingerprint`, `firstAddress`, `setAt`, `unpaidRun`, `unpaidRunWarning`. For now, `unpaidRun` is 0 and `unpaidRunWarning` is false.
-- [ ] T023 [P] [US1] Write bUnit tests in `tests/DigiByte.Pay.Web.Tests/DdKeyCardTests.cs` for this flow:
+- [X] T021 [US1] In `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs`, replace the `payout_address_required` check on `digiDollarEnabled: true` with 409 `dd_key_required` (S5).
+- [X] T022 [US1] Add the `ddKey` object to the store DTO in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs` and the store GET/PATCH responses: `set`, `network`, `fingerprint`, `firstAddress`, `setAt`, `unpaidRun`, `unpaidRunWarning`. For now, `unpaidRun` is 0 and `unpaidRunWarning` is false.
+- [X] T023 [P] [US1] Write bUnit tests in `tests/DigiByte.Pay.Web.Tests/DdKeyCardTests.cs` for this flow:
   1. Paste, preview and show the first address.
   2. "Matches my wallet" confirm, then save.
   3. Each refusal reason shows plain text.
   4. The DD toggle is disabled with "Add your DigiDollar key first" when there's no key.
   5. Remove asks for confirmation.
-- [ ] T024 [US1] Build the DigiDollar key card in `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor` (or a new `src/DigiByte.Pay.Web/Components/Shared/DdKeyCard.razor`). It covers:
+- [X] T024 [US1] Build the DigiDollar key card in `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor` (or a new `src/DigiByte.Pay.Web/Components/Shared/DdKeyCard.razor`). It covers:
   - a paste box, then preview, then the first address shown large with "Open your DigiByte Wallet → Settings → DigiDollar key for DigiPay and check this address matches"
   - Confirm and save, then the fingerprint and first address shown
   - Replace and Remove
   - the toggle gated on the key
-- [ ] T025 [P] [US1] Add `dd_key_invalid` (with each reason), `first_address_mismatch` and `dd_key_required` with plain messages in `src/DigiByte.Pay.Web/Components/Shared/Ui/ApiError.cs`. The `private_key` message: "That's a private key. Never share it. Paste the public key from your wallet's DigiDollar key screen."
-- [ ] T026 [US1] Seed the dev store in `src/DigiByte.Pay.Api/Endpoints/DevSignInEndpoints.cs` with the testnet DD account key from the test mnemonic (`m/86'/1'/0'`) and DD on, with no payout address. Update `tests/DigiByte.Pay.Api.Tests/DevSignInTests.cs`. Derive the seeded key with `DigiDollarKeyDerivation`'s own testnet coin type rather than hard-coding `1`. That coin type is still marked "to confirm" in the code (`DigiDollarKeyDerivation.cs:72-73`), and if it changes, the seed must follow, along with any testnet keys saved before then.
+- [X] T025 [P] [US1] Add `dd_key_invalid` (with each reason), `first_address_mismatch` and `dd_key_required` with plain messages in `src/DigiByte.Pay.Web/Components/Shared/Ui/ApiError.cs`. The `private_key` message: "That's a private key. Never share it. Paste the public key from your wallet's DigiDollar key screen."
+- [X] T026 [US1] Seed the dev store in `src/DigiByte.Pay.Api/Endpoints/DevSignInEndpoints.cs` with the testnet DD account key from the test mnemonic (`m/86'/1'/0'`) and DD on, with no payout address. Update `tests/DigiByte.Pay.Api.Tests/DevSignInTests.cs`. Derive the seeded key with `DigiDollarKeyDerivation`'s own testnet coin type rather than hard-coding `1`. That coin type is still marked "to confirm" in the code (`DigiDollarKeyDerivation.cs:72-73`), and if it changes, the seed must follow, along with any testnet keys saved before then.
 
 **Checkpoint**: keys can be set, checked and removed, and DD can be turned on only with a key.
 
