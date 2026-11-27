@@ -11,10 +11,14 @@ public static class ApiError
 {
     public const string Network = "Something went wrong. Check your connection and try again.";
 
+    /// <summary>Shown when the DigiDollar node can't be reached (<c>digidollar_node_unavailable</c>).</summary>
+    public const string DdUnavailable = "DigiDollar is temporarily unavailable. Try again, or take this payment in DGB.";
+
     /// <summary>Reads the response's <c>error</c> field (if any) and returns the plain sentence for it.</summary>
     public static async Task<string> ReadAsync(HttpResponseMessage response)
     {
         string? error = null;
+        string? reason = null;
         try
         {
             var body = await response.Content.ReadAsStringAsync();
@@ -26,15 +30,17 @@ public static class ApiError
                     && e.ValueKind == JsonValueKind.String)
                 {
                     error = e.GetString();
+                    if (doc.RootElement.TryGetProperty("reason", out var r) && r.ValueKind == JsonValueKind.String)
+                        reason = r.GetString();
                 }
             }
         }
         catch (JsonException) { /* not JSON: fall back to the status code */ }
-        return Plain((int)response.StatusCode, error);
+        return Plain((int)response.StatusCode, error, reason);
     }
 
-    /// <summary>The plain sentence for an API status code and its <c>error</c> text.</summary>
-    public static string Plain(int status, string? error)
+    /// <summary>The plain sentence for an API status code, its <c>error</c> text and optional <c>reason</c>.</summary>
+    public static string Plain(int status, string? error, string? reason = null)
     {
         var e = error ?? "";
         bool Has(string part) => e.Contains(part, StringComparison.OrdinalIgnoreCase);
@@ -60,6 +66,12 @@ public static class ApiError
             if (Has("amount") && Has("> 0")) return "Enter an amount greater than zero.";
             if (Has("defaultCurrency")) return "Choose DGB or one of the listed currencies (such as USD, EUR or PHP), or clear the default.";
             if (Has("unsupported currency")) return "That currency isn't supported.";
+            // DigiDollar (specs/033 contract C1).
+            if (Has("digidollar_node_unavailable")) return DdUnavailable;
+            if (Has("dd_option_unavailable"))
+                return reason == "out_of_range"
+                    ? "This amount is outside DigiDollar's limits ($1.00 to $100,000.00)."
+                    : "DigiDollar isn't available for this payment right now.";
             if (Has("digidollar_not_enabled")) return "DigiDollar isn't turned on for this store. Turn it on in Settings.";
         }
 

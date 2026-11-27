@@ -15,6 +15,7 @@ public class DigiPayDbContext : DbContext
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<PayPosPairing> PosPairings => Set<PayPosPairing>();
+    public DbSet<PaySessionOption> SessionOptions => Set<PaySessionOption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +40,8 @@ public class DigiPayDbContext : DbContext
             e.Property(s => s.Xpub).HasMaxLength(200);
             e.Property(s => s.ReceiveAddress).HasMaxLength(80);
             e.Property(s => s.DefaultCurrency).HasMaxLength(8);
+            e.Property(s => s.BuyerChoiceEnabled).HasDefaultValue(true);
+            e.Property(s => s.DdDonationAddress).HasMaxLength(120);
         });
 
         modelBuilder.Entity<PaySession>(e =>
@@ -63,6 +66,22 @@ public class DigiPayDbContext : DbContext
             // sessions.
             e.Property(s => s.Currency).HasMaxLength(8).IsRequired().HasDefaultValue("DGB");
             e.Property(s => s.Simulated).HasDefaultValue(false);
+            e.Property(s => s.BuyerChoice).HasDefaultValue(false);
+            e.Property(s => s.ExtraCurrency).HasMaxLength(8);
+            e.Property(s => s.ExtraTxid).HasMaxLength(128);
+        });
+
+        // specs/033: one row per currency a buyer-choice session can be paid in.
+        modelBuilder.Entity<PaySessionOption>(e =>
+        {
+            e.ToTable("PaySessionOptions");
+            e.HasKey(o => new { o.SessionId, o.Currency });
+            e.Property(o => o.SessionId).HasMaxLength(32).IsRequired();
+            e.Property(o => o.Currency).HasMaxLength(8).IsRequired();
+            e.Property(o => o.Address).HasMaxLength(120).IsRequired();
+            e.Property(o => o.UsdRate).HasPrecision(28, 10);
+            e.HasIndex(o => o.Address);
+            e.HasOne<PaySession>().WithMany().HasForeignKey(o => o.SessionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<MerchantSession>(e =>

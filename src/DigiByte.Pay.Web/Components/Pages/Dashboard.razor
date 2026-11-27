@@ -1154,7 +1154,7 @@ else
 
                 <section class="@Card mt-4">
                     <h2 class="@H2">Accept DigiDollar (DD) <span class="text-[0.625rem] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 align-middle ml-1">Beta</span></h2>
-                    <p class="@Muted m-0">Accept USD-pegged DigiDollar stablecoin payments alongside DGB. Each session gets a fresh <code class="text-[0.6875rem]">DD…</code> address; buyers pay in DD; the amount is denominated in USD (1&nbsp;DD&nbsp;=&nbsp;$1). Fees are paid in DGB from our house wallet — no fee reserve to manage on your side.</p>
+                    <p id="dd-setting-text" class="@Muted m-0">@Merchant.DigiDollarSettingText.Description(DdSurfacesEnabled)</p>
                     <label class="inline-flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" @bind="ddEnabledInput" @bind:after="SaveDigiDollarEnabledAsync" disabled="@ddBusy" class="w-5 h-5 accent-dgb-500" />
                         <span class="text-sm">Enable DigiDollar for this store</span>
@@ -1445,6 +1445,8 @@ else
 
     private string? token;
     private AccountDto? account;
+    // specs/033 FR-032: the server switch for the new DD surfaces (off until spec 034's payouts are live).
+    private bool DdSurfacesEnabled => account?.DdSurfacesEnabled ?? false;
     private List<StoreDto> stores = new();
     private string activeStoreId = "";
     private StoreDto? activeStore => stores.FirstOrDefault(s => s.Id == activeStoreId);
@@ -2375,8 +2377,8 @@ else
             }
             await RefreshStoreAsync();
             ddMessage = (activeStore?.DigiDollarEnabled ?? false)
-                ? "DigiDollar acceptance enabled for this store."
-                : "DigiDollar acceptance disabled.";
+                ? Merchant.DigiDollarSettingText.EnabledMessage(DdSurfacesEnabled)
+                : Merchant.DigiDollarSettingText.DisabledMessage(DdSurfacesEnabled);
             Toasts.Success(ddMessage!);
         }
         catch (Exception ex)
@@ -2736,13 +2738,15 @@ else
     private record PosPairingDto(string Code, DateTime ExpiresAt, string StoreId, string StoreName, string DeviceLabel, string? Prefix = null);
     private record PosDeviceDto(string Id, string? Label, string Prefix, DateTime CreatedAt, DateTime? LastUsedAt, string? StoreId = null);
 
-    private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, DateTime CreatedAt, List<StoreDto>? Stores);
+    private record AccountDto(string Id, string DisplayName, string? DigiIdAddress, DateTime CreatedAt, List<StoreDto>? Stores,
+        bool DdSurfacesEnabled = false, bool DdChoiceNoticePending = false);
 
     private record StoreDto(string Id, string MerchantId, string Name, string Network,
         string ReceiveMode, bool HasReceive, string? ReceivePreview,
         string? WebhookUrl, bool HasWebhookSecret,
         int? DefaultSessionExpiryMinutes, DateTime CreatedAt,
-        bool DigiDollarEnabled = false, string? DefaultCurrency = null);
+        bool DigiDollarEnabled = false, string? DefaultCurrency = null,
+        string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true, string? DdDonationAddress = null);
 
     /// <summary>What PATCH /stores/{id} returns that the page needs: the secret, the first time one is made.</summary>
     private record StoreUpdateDto(string Id, string? WebhookSecret = null);

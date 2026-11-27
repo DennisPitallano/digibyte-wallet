@@ -180,6 +180,8 @@ builder.Services.AddRateLimiter(options =>
     // 5 merchant registrations per hour per client (specs/008-security-hardening, T030); RateLimits:RegisterPerHour lets tests widen it.
     options.AddPolicy("register",      ctx => PerIp(ctx, ctx.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimits:RegisterPerHour", 5), TimeSpan.FromHours(1)));
     options.AddPolicy("claim",         ctx => PerIp(ctx, 20, TimeSpan.FromMinutes(1)));
+    // Anonymous checkout and tip-page calls that may create a DD address or read donation options (specs/033).
+    options.AddPolicy("checkout-option", ctx => PerIp(ctx, 30, TimeSpan.FromMinutes(1)));
     options.AddPolicy("authenticated", ctx => PerToken(ctx, 120, TimeSpan.FromMinutes(1)));
 });
 
@@ -245,6 +247,8 @@ builder.Services.AddHttpClient<DigiDollarNodeClient>(client =>
 });
 
 builder.Services.AddSingleton<CheckoutNotifier>();
+builder.Services.AddSingleton<DdSurfacesGate>();
+builder.Services.AddSingleton<DdAvailability>();
 builder.Services.AddSingleton<DgbPriceService>();
 builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();
@@ -373,6 +377,38 @@ using (var scope = app.Services.CreateScope())
 
         // ...and before AddStoreDefaultCurrency: the store's default currency (null = not set).
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Stores\" ADD COLUMN \"DefaultCurrency\" VARCHAR(8) NULL"); } catch { }
+
+        // ...and before AddDdEverywhere (specs/033): buyer choice, extra payments, DD donations, the one-time notice.
+        foreach (var col in new[]
+        {
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"BuyerChoice\" INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"LockedAt\" TEXT NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraCurrency\" VARCHAR(8) NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraAmount\" INTEGER NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraTxid\" VARCHAR(128) NULL",
+            "ALTER TABLE \"Sessions\" ADD COLUMN \"ExtraSeenAt\" TEXT NULL",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"BuyerChoiceEnabled\" INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE \"Stores\" ADD COLUMN \"DdDonationAddress\" VARCHAR(120) NULL",
+            "ALTER TABLE \"Merchants\" ADD COLUMN \"DdChoiceNoticePending\" INTEGER NOT NULL DEFAULT 0",
+        })
+        {
+            try { await db.Database.ExecuteSqlRawAsync(col); } catch { }
+        }
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PaySessionOptions" (
+                "SessionId" TEXT NOT NULL,
+                "Currency" TEXT NOT NULL,
+                "Address" TEXT NOT NULL,
+                "AmountSatoshis" INTEGER NOT NULL,
+                "AmountCentsDd" INTEGER NULL,
+                "UsdRate" TEXT NULL,
+                "RateAt" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                CONSTRAINT "PK_PaySessionOptions" PRIMARY KEY ("SessionId", "Currency"),
+                CONSTRAINT "FK_PaySessionOptions_Sessions_SessionId" FOREIGN KEY ("SessionId") REFERENCES "Sessions" ("Id") ON DELETE CASCADE
+            )
+            """);
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_PaySessionOptions_Address\" ON \"PaySessionOptions\" (\"Address\")");
     }
 
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.

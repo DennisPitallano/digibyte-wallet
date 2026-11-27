@@ -22,8 +22,10 @@ public class PaySession
     public required string MerchantId { get; init; }
     public required string StoreId { get; init; }
     public required int AddressIndex { get; init; }
-    public required string Address { get; init; }
-    public required long AmountSatoshis { get; init; }
+    // Address, AmountSatoshis, Currency and AmountCentsDd describe the currency in effect. They are settable so a
+    // buyer-choice session can switch to the option it locks to (specs/033 research R1).
+    public required string Address { get; set; }
+    public required long AmountSatoshis { get; set; }
     public string? FiatCurrency { get; init; }
     public decimal? FiatAmount { get; init; }
     public decimal? DgbPriceAtCreation { get; init; }
@@ -78,14 +80,14 @@ public class PaySession
     /// at 0; DGB sessions do the reverse. Added in migration
     /// AddDigiDollarSupport with a "DGB" default so existing rows stay valid.
     /// </summary>
-    public string Currency { get; init; } = "DGB";
+    public string Currency { get; set; } = "DGB";
 
     /// <summary>
     /// Requested amount in USD cents when <see cref="Currency"/> = "DD".
     /// Null / zero for DGB sessions. Kept separate from AmountSatoshis for
     /// semantic clarity — cents and sats are different units.
     /// </summary>
-    public long? AmountCentsDd { get; init; }
+    public long? AmountCentsDd { get; set; }
 
     /// <summary>
     /// True once the sandbox (POST /v1/pay/test/sessions/{id}/advance) has moved this
@@ -93,4 +95,24 @@ public class PaySession
     /// (which has no such payment) never overwrites the simulated state.
     /// </summary>
     public bool Simulated { get; set; }
+
+    /// <summary>
+    /// True when the buyer may pay in DGB or DD (specs/033 FR-020, research R5). Set at creation only; the
+    /// options live in <see cref="PaySessionOption"/> rows.
+    /// </summary>
+    public bool BuyerChoice { get; init; }
+
+    /// <summary>When funds were first seen on one of a buyer-choice session's options. Null otherwise.</summary>
+    public DateTime? LockedAt { get; set; }
+
+    /// <summary>"DGB" or "DD": currency of funds received on the option the session didn't lock to (FR-025).</summary>
+    public string? ExtraCurrency { get; set; }
+
+    /// <summary>Extra funds received: satoshis for DGB, cents for DD. Cumulative.</summary>
+    public long? ExtraAmount { get; set; }
+
+    /// <summary>First txid seen for the extra funds.</summary>
+    public string? ExtraTxid { get; set; }
+
+    public DateTime? ExtraSeenAt { get; set; }
 }

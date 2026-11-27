@@ -57,6 +57,9 @@ public class InvoiceMonitor : BackgroundService
     // by flipping expired → paid/confirmed when a late tx lands against the invoice address.
     private static readonly TimeSpan LatePaymentGrace = TimeSpan.FromDays(3);
 
+    /// <summary>Runs one polling pass now. The background loop calls the same pass; tests use this to avoid waiting.</summary>
+    public Task RunOnceAsync(CancellationToken ct = default) => TickAsync(ct);
+
     private async Task TickAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();

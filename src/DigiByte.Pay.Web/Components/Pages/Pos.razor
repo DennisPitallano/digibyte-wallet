@@ -2052,11 +2052,13 @@
         string ApiKey, string Prefix, string MerchantId, string MerchantName,
         string StoreId, string StoreName, string DeviceLabel);
 
-    public record MeStoreDto(string Id, string Name, string? DefaultCurrency = null);
+    public record MeStoreDto(string Id, string Name, string? DefaultCurrency = null,
+        bool DigiDollarEnabled = false, string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true);
 
     // GET /v1/pay/stores/{id}: only what the till needs from the store.
-    private sealed record StoreDefaultsDto(string Id, string? DefaultCurrency = null);
-    public record MeResponse(string Id, string DisplayName, List<MeStoreDto> Stores);
+    private sealed record StoreDefaultsDto(string Id, string? DefaultCurrency = null,
+        bool DigiDollarEnabled = false, string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true);
+    public record MeResponse(string Id, string DisplayName, List<MeStoreDto> Stores, bool DdSurfacesEnabled = false);
 
     public record CreatedSession(
         string Id, string Address, long AmountSatoshis, decimal Amount,
