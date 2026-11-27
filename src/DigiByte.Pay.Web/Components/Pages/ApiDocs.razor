@@ -145,7 +145,7 @@
                     <Param Name="storeId" Type="string">Only this store's sessions.</Param>
                     <Param Name="take" Type="integer">1 to 100, default 25. With <InlineCode>format=csv</InlineCode>: up to 10000.</Param>
                     <Param Name="skip" Type="integer">Default 0.</Param>
-                    <Param Name="format" Type="string"><InlineCode>csv</InlineCode> returns a spreadsheet download (<InlineCode>text/csv</InlineCode>) instead of JSON: id, store, status, address, DGB amounts, fiat, label, memo, confirmations, txid, timestamps and source.</Param>
+                    <Param Name="format" Type="string"><InlineCode>csv</InlineCode> returns a spreadsheet download (<InlineCode>text/csv</InlineCode>) instead of JSON: id, store, status, address, DGB amounts, fiat, label, memo, confirmations, txid, timestamps and source, then <InlineCode>currency</InlineCode>, <InlineCode>amount</InlineCode> and <InlineCode>received</InlineCode> in the session's own currency (DigiDollar in dollars; its DGB columns are 0).</Param>
                 </ParamList>
             </Endpoint>
 
@@ -184,7 +184,7 @@
             <p class="@P">A store owns its receive address or xpub, webhook URL and secret, default expiry and sessions. An account can run many: several shops, a tip jar, a testnet store. A store id that belongs to another account answers <InlineCode>404</InlineCode>.</p>
 
             <Endpoint Method="GET" Path="/v1/pay/stores" Auth="API key" Id="list-stores">
-                <p class="@Small m-0">All your stores. Each has <InlineCode>id</InlineCode>, <InlineCode>name</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>receiveMode</InlineCode> (<InlineCode>xpub</InlineCode>, <InlineCode>address</InlineCode> or <InlineCode>unconfigured</InlineCode>), <InlineCode>hasReceive</InlineCode>, <InlineCode>receivePreview</InlineCode>, <InlineCode>webhookUrl</InlineCode>, <InlineCode>hasWebhookSecret</InlineCode>, <InlineCode>defaultSessionExpiryMinutes</InlineCode>, <InlineCode>digiDollarEnabled</InlineCode>, <InlineCode>defaultCurrency</InlineCode> (<InlineCode>DGB</InlineCode>, a fiat code such as <InlineCode>EUR</InlineCode>, or <InlineCode>null</InlineCode> when not set) and <InlineCode>createdAt</InlineCode>.</p>
+                <p class="@Small m-0">All your stores. Each has <InlineCode>id</InlineCode>, <InlineCode>name</InlineCode>, <InlineCode>network</InlineCode>, <InlineCode>receiveMode</InlineCode> (<InlineCode>xpub</InlineCode>, <InlineCode>address</InlineCode> or <InlineCode>unconfigured</InlineCode>), <InlineCode>hasReceive</InlineCode>, <InlineCode>receivePreview</InlineCode>, <InlineCode>webhookUrl</InlineCode>, <InlineCode>hasWebhookSecret</InlineCode>, <InlineCode>defaultSessionExpiryMinutes</InlineCode>, <InlineCode>digiDollarEnabled</InlineCode>, <InlineCode>defaultCurrency</InlineCode> (<InlineCode>DGB</InlineCode>, a fiat code such as <InlineCode>EUR</InlineCode>, <InlineCode>DD</InlineCode>, or <InlineCode>null</InlineCode> when not set), <InlineCode>defaultCurrencyEffective</InlineCode> (the same, except a saved <InlineCode>DD</InlineCode> reads as <InlineCode>USD</InlineCode> while the store can't offer DigiDollar), <InlineCode>buyerChoiceEnabled</InlineCode>, <InlineCode>ddDonationAddress</InlineCode> and <InlineCode>createdAt</InlineCode>.</p>
             </Endpoint>
 
             <Endpoint Method="POST" Path="/v1/pay/stores" Auth="API key" Id="create-store">
@@ -211,7 +211,7 @@
                     <Param Name="webhookUrl" Type="string">Public HTTPS URL for webhooks. The first time one is set, a webhook secret is created. An empty string removes the URL and deletes the secret.</Param>
                     <Param Name="defaultSessionExpiryMinutes" Type="integer">1 to 1440.</Param>
                     <Param Name="digiDollarEnabled" Type="boolean">Allow DigiDollar (DD) sessions on this store.</Param>
-                    <Param Name="defaultCurrency" Type="string"><InlineCode>DGB</InlineCode> or one of the DigiByte wallet's ~80 fiat codes (<InlineCode>USD</InlineCode>, <InlineCode>EUR</InlineCode>, <InlineCode>PHP</InlineCode> …), any case; stored upper case. Payment links in the dashboard and newly paired POS tablets start in it. An empty string or <InlineCode>null</InlineCode> clears it; any other value answers <InlineCode>400</InlineCode>.</Param>
+                    <Param Name="defaultCurrency" Type="string"><InlineCode>DGB</InlineCode> or one of the DigiByte wallet's ~80 fiat codes (<InlineCode>USD</InlineCode>, <InlineCode>EUR</InlineCode>, <InlineCode>PHP</InlineCode> …), any case; stored upper case. Payment links in the dashboard and newly paired POS tablets start in it. <InlineCode>DD</InlineCode> (DigiDollar) is accepted only while the store can offer it (DigiDollar on and DigiPay offering it beyond the API), otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; turning DigiDollar off later keeps the saved value, and it acts as <InlineCode>USD</InlineCode> until DigiDollar is back. An empty string or <InlineCode>null</InlineCode> clears it; any other value answers <InlineCode>400</InlineCode>.</Param>
                 </ParamList>
                 <p class="@Small m-0">
                     Returns the store, plus <InlineCode>webhookSecret</InlineCode>. It holds the secret only on the call that created it, and is
@@ -254,7 +254,7 @@
                 </ParamList>
                 <p class="@Small">
                     <InlineCode>totals</InlineCode> counts the window's sessions by creation day: <InlineCode>payments</InlineCode>, <InlineCode>paid</InlineCode> (paid or confirmed), <InlineCode>open</InlineCode> (waiting or detected),
-                    <InlineCode>expired</InlineCode>, <InlineCode>underpaid</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>, and <InlineCode>revenueDgb</InlineCode>, the DGB amount of the paid and confirmed DGB sessions.
+                    <InlineCode>expired</InlineCode>, <InlineCode>underpaid</InlineCode>, <InlineCode>refunded</InlineCode>, <InlineCode>voided</InlineCode>, <InlineCode>revenueDgb</InlineCode>, the DGB amount of the paid and confirmed DGB sessions, and <InlineCode>revenueDdCents</InlineCode>, the same for DigiDollar sessions in USD cents (never added into DGB).
                     <InlineCode>series</InlineCode> has one entry per day, oldest first and including days with nothing, each with <InlineCode>date</InlineCode> (<InlineCode>yyyy-MM-dd</InlineCode>) and the same fields.
                 </p>
                 <p class="@Small m-0">

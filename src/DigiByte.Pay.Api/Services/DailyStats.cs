@@ -16,7 +16,7 @@ public static class DailyStats
     public sealed record Window(DateOnly From, DateOnly To, DateOnly PreviousFrom, DateTime FromUtc, DateTime ToUtc, DateTime PreviousFromUtc);
 
     /// <summary>One payment, as much as the stats need.</summary>
-    public readonly record struct Row(DateTime CreatedAt, PaySessionStatus Status, long AmountSatoshis, string Currency);
+    public readonly record struct Row(DateTime CreatedAt, PaySessionStatus Status, long AmountSatoshis, string Currency, long? AmountCentsDd = null);
 
     /// <summary>Counts and DGB revenue for one day or a whole period.</summary>
     public sealed class Totals
@@ -32,6 +32,8 @@ public static class DailyStats
         public int Voided { get; set; }
         /// <summary>DGB charged on paid and confirmed DGB payments (refunded ones gave it back).</summary>
         public decimal RevenueDgb { get; set; }
+        /// <summary>USD cents charged on paid and confirmed DigiDollar payments. Never added into DGB (specs/033 FR-009).</summary>
+        public long RevenueDdCents { get; set; }
 
         internal void Add(Row r)
         {
@@ -42,6 +44,8 @@ public static class DailyStats
                     Paid++;
                     if (string.Equals(r.Currency, "DGB", StringComparison.OrdinalIgnoreCase))
                         RevenueDgb += r.AmountSatoshis / 100_000_000m;
+                    else if (string.Equals(r.Currency, "DD", StringComparison.OrdinalIgnoreCase))
+                        RevenueDdCents += r.AmountCentsDd ?? 0;
                     break;
                 case PaySessionStatus.Pending or PaySessionStatus.Seen: Open++; break;
                 case PaySessionStatus.Expired: Expired++; break;

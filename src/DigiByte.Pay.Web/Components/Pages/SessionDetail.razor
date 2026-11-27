@@ -98,13 +98,13 @@ else
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <div class="@Eyebrow">Amount</div>
-                        <div class="text-2xl font-bold tabular-nums">@Dgb(session.AmountSatoshis) DGB</div>
+                        <div class="text-2xl font-bold tabular-nums">@Amount(ExpectedAmount)</div>
                         @if (session.FiatAmount is decimal fa && !string.IsNullOrEmpty(session.FiatCurrency))
                         {
                             <div class="@Muted">≈ @fa.ToString("0.00", CultureInfo.InvariantCulture) @session.FiatCurrency.ToUpperInvariant() (when the payment was made)</div>
                         }
                         <div class="@Muted mt-1">
-                            Received @Dgb(session.ReceivedSatoshis) DGB
+                            Received @Amount(session.ReceivedSatoshis)
                             @if (session.Confirmations > 0)
                             {
                                 <span> · @(Math.Min(session.Confirmations, ConfirmationsRequired)) of @ConfirmationsRequired confirmations</span>
@@ -331,11 +331,11 @@ else
                     <div class="ui-banner ui-banner-warning">
                         <Icon Name="alert" Class="" />
                         <p>
-                            The customer sent @Dgb(session.ReceivedSatoshis) DGB of @Dgb(session.AmountSatoshis) DGB, so
-                            <strong>@Dgb(Shortfall) DGB is missing</strong>. This payment won't complete on its own.
+                            The customer sent @Amount(session.ReceivedSatoshis) of @Amount(ExpectedAmount), so
+                            <strong>@Amount(Shortfall) is missing</strong>. This payment won't complete on its own.
                         </p>
                     </div>
-                    <p class="@Muted m-0">Contact the customer and either create a new payment for the missing @Dgb(Shortfall) DGB, or send what arrived back to them from your wallet. Ask them not to send more to this address.</p>
+                    <p class="@Muted m-0">Contact the customer and either create a new payment for the missing @Amount(Shortfall), or send what arrived back to them from your wallet. Ask them not to send more to this address.</p>
                     <a href="@NewPaymentHref" class="btn-secondary btn-sm self-start">New payment</a>
                 }
                 else if (session.Status is "expired")
@@ -463,7 +463,15 @@ else
 
     private long Shortfall => session is null || session.Status is not "underpaid"
         ? 0
-        : Math.Max(0, session.AmountSatoshis - session.ReceivedSatoshis);
+        : Math.Max(0, ExpectedAmount - session.ReceivedSatoshis);
+
+    // specs/033: DigiDollar sessions carry their amounts in USD cents (AmountCentsDd, ReceivedSatoshis), DGB ones in satoshis.
+    private bool IsDd => session?.Currency == "DD";
+
+    private long ExpectedAmount => session is null ? 0 : IsDd ? session.AmountCentsDd ?? 0 : session.AmountSatoshis;
+
+    private string Amount(long amount) =>
+        IsDd ? $"{(amount / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)} DD" : $"{Dgb(amount)} DGB";
 
     /// <summary>Satoshis as DGB with up to 8 decimals, never raw satoshis.</summary>
     private static string Dgb(long sats) => (sats / 100_000_000m).ToString("0.########", CultureInfo.InvariantCulture);
@@ -737,7 +745,7 @@ else
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl, string? Source = null,
         string? RefundTxid = null, DateTime? RefundedAt = null, string? RefundNote = null,
-        string? ReturnUrl = null);
+        string? ReturnUrl = null, string Currency = "DGB", long? AmountCentsDd = null);
 
     private record WebhookDeliveryDto(string Id, string StoreId, string? SessionId,
         string EventName, string Url, int Attempt, int? StatusCode, string? ErrorMessage,

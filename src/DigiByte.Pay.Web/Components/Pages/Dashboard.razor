@@ -130,9 +130,23 @@ else
                 else
                 {
                     <section class="@Card scale-in-delay-1">
+                        @if (DdOffered)
+                        {
+                            @* specs/033 US2: a one-off payment can be in DigiDollar (1 DD = $1). *@
+                            <div class="segmented w-fit" role="group" aria-label="Payment in">
+                                <button type="button" class="segmented-item" aria-pressed="@(newCurrency == "DGB" ? "true" : "false")"
+                                        @onclick='() => SetNewCurrency("DGB")'>DGB</button>
+                                <button type="button" class="segmented-item" aria-pressed="@(newCurrency == "DD" ? "true" : "false")"
+                                        @onclick='() => SetNewCurrency("DD")'>DigiDollar</button>
+                            </div>
+                        }
                         <div class="field">
-                            <label class="field-label" for="np-amount">Amount (DGB)</label>
-                            <input id="np-amount" @bind="newAmount" type="number" inputmode="decimal" step="0.00000001" min="0" placeholder="0.00" class="input" />
+                            <label class="field-label" for="np-amount">@(newCurrency == "DD" ? "Amount (US dollars, paid in DD)" : "Amount (DGB)")</label>
+                            <input id="np-amount" @bind="newAmount" type="number" inputmode="decimal" step="@(newCurrency == "DD" ? "0.01" : "0.00000001")" min="0" placeholder="0.00" class="input" />
+                            @if (newCurrency == "DD")
+                            {
+                                <p class="field-hint">1 DD = $1. From $1.00 to $100,000.00.</p>
+                            }
                         </div>
                         <div class="field">
                             <label class="field-label" for="np-label">Label <span class="font-normal opacity-70">(optional)</span></label>
@@ -142,7 +156,7 @@ else
                             <label class="field-label" for="np-memo">Memo or invoice number <span class="font-normal opacity-70">(optional)</span></label>
                             <input id="np-memo" @bind="newMemo" class="input" />
                         </div>
-                        <button class="btn-primary w-full" @onclick="CreateSessionAsync" disabled="@(busy || newAmount <= 0)" aria-busy="@(busy ? "true" : null)">
+                        <button class="btn-primary w-full" @onclick="CreateSessionAsync" disabled="@(busy || !NewPaymentValid)" aria-busy="@(busy ? "true" : null)">
                             @(busy ? "Creating…" : "Create payment")
                         </button>
                         @if (createError != null) { <p class="field-error" role="alert">@createError</p> }
@@ -245,7 +259,7 @@ else
                                        class="dash-row-link flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 p-3 border border-slate-200 dark:border-dgb-800 rounded-lg text-inherit hover:bg-slate-50 dark:hover:bg-dgb-800 transition-colors">
                                         <div class="min-w-0">
                                             <div class="font-bold text-[0.9375rem] tabular-nums flex items-center gap-1.5 flex-wrap">
-                                                @s.Amount.ToString("0.########") DGB
+                                                @RowAmount(s)
                                                 @if (s.FiatAmount is decimal fiat && !string.IsNullOrWhiteSpace(s.FiatCurrency))
                                                 {
                                                     <span class="dash-fiat">@FormatFiat(fiat, s.FiatCurrency)</span>
@@ -334,9 +348,23 @@ else
                                     @onclick='() => linkPriceMode = "dgb"'>DGB</button>
                             <button type="button" class="segmented-item" aria-pressed="@(linkPriceMode == "fiat" ? "true" : "false")"
                                     @onclick="UseFiatPriceAsync">Your currency</button>
+                            @if (DdOffered)
+                            {
+                                <button type="button" class="segmented-item" aria-pressed="@(linkPriceMode == "dd" ? "true" : "false")"
+                                        @onclick="UseDdPrice">DigiDollar</button>
+                            }
                         </div>
 
-                        @if (linkPriceMode == "dgb")
+                        @if (linkPriceMode == "dd")
+                        {
+                            @* specs/033 US2: priced and paid in DigiDollar, 1 DD = $1. No price lookup. *@
+                            <div class="field">
+                                <label class="field-label" for="link-amount-dd">Amount (US dollars, paid in DD)</label>
+                                <input id="link-amount-dd" @bind="linkAmountDd" @bind:event="oninput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="@Input" />
+                                <p class="field-hint">1 DD = $1. From $1.00 to $100,000.00. The customer pays in DigiDollar.</p>
+                            </div>
+                        }
+                        else if (linkPriceMode == "dgb")
                         {
                             <div class="field">
                                 <label class="field-label" for="link-amount-dgb">Amount (DGB)</label>
@@ -413,6 +441,13 @@ else
                         </div>
 
                         @if (linkError != null) { <p class="field-error" role="alert">@linkError</p> }
+                        @if (linkDdFailed && linkPriceMode == "dd" && linkAmountDd > 0)
+                        {
+                            @* DigiDollar can't be reached: the same dollars as a USD-priced link, paid in DGB, in one step (FR-014). *@
+                            <button type="button" class="btn-secondary btn-sm self-start" data-dd-fallback @onclick="CreateLinkInDgbInsteadAsync" disabled="@busy">
+                                Create a @Fiat.Format(linkAmountDd, "USD") link in DGB instead
+                            </button>
+                        }
                     </section>
 
                     @if (createdLink is not null)
@@ -1094,7 +1129,7 @@ else
                             }
                             <Icon Name="chevron-down" Class="w-4 h-4" />
                         </button>
-                        <CurrencyPicker Id="store-currency-picker" IsOpen="defaultCurrencyPickerOpen" Selected="@activeStore.DefaultCurrency" IncludeDgb="true"
+                        <CurrencyPicker Id="store-currency-picker" IsOpen="defaultCurrencyPickerOpen" Selected="@activeStore.DefaultCurrency" IncludeDgb="true" IncludeDd="@DdOffered"
                                         Title="Default currency" Hint="Payment links and new POS tablets for this store start in this currency."
                                         OnSelected="SaveDefaultCurrencyAsync" OnClosed="() => defaultCurrencyPickerOpen = false" />
                     </div>
@@ -1475,6 +1510,8 @@ else
     private string? patchError;
 
     private decimal newAmount;
+    // specs/033 US2: "DGB" or "DD" for the one-off payment form.
+    private string newCurrency = "DGB";
     private string newLabel = "";
     private string newMemo = "";
     private CreatedSession? createdSession;
@@ -1484,9 +1521,65 @@ else
     // Links tab — payment-link generator (no-code share-a-checkout-URL).
     // Mirrors CreateSessionAsync but with fiat-priced + custom-expiry support
     // and a richer result UI (QR + share affordances).
-    private string linkPriceMode = "dgb"; // "dgb" or "fiat"
+    private string linkPriceMode = "dgb"; // "dgb", "fiat" or "dd" (DigiDollar, specs/033 US2)
     private decimal linkAmountDgb;
     private decimal linkAmountFiat;
+    private decimal linkAmountDd;
+    // Set when creating a DD link failed (DigiDollar unreachable): offers the same dollars in DGB in one step.
+    private bool linkDdFailed;
+
+    /// <summary>
+    /// The active store can take DigiDollar here: DD on for the store and the server's DD surfaces switch on
+    /// (specs/033 FR-001, FR-032).
+    /// </summary>
+    private bool DdOffered => DdSurfacesEnabled && activeStore is { DigiDollarEnabled: true };
+
+    private const decimal DdMin = 1.00m;
+    private const decimal DdMax = 100_000.00m;
+
+    private static bool DdAmountOk(decimal dollars) =>
+        dollars >= DdMin && dollars <= DdMax && decimal.Round(dollars, 2) == dollars;
+
+    private bool NewPaymentValid => newCurrency == "DD" ? DdOffered && DdAmountOk(newAmount) : newAmount > 0;
+
+    // Switching to DD never converts: a DGB amount is cleared (specs/033 edge case).
+    private void SetNewCurrency(string code)
+    {
+        if (code == newCurrency) return;
+        newCurrency = code;
+        newAmount = 0;
+        createError = null;
+    }
+
+    /// <summary>
+    /// Prices the link in DigiDollar. A USD amount carries over as dollars; any other amount (DGB or another fiat
+    /// currency) is cleared, never converted (specs/033 edge case).
+    /// </summary>
+    private void UseDdPrice()
+    {
+        if (linkPriceMode == "dd") return;
+        linkAmountDd = linkPriceMode == "fiat" && linkFiatCurrency == "USD" && decimal.Round(linkAmountFiat, 2) == linkAmountFiat
+            ? linkAmountFiat
+            : 0m;
+        linkPriceMode = "dd";
+        linkError = null;
+        linkDdFailed = false;
+    }
+
+    /// <summary>After a failed DD link: the same dollars as a USD-priced link, paid in DGB at the live price.</summary>
+    private async Task CreateLinkInDgbInsteadAsync()
+    {
+        linkPriceMode = "fiat";
+        linkFiatCurrency = "USD";
+        linkAmountFiat = linkAmountDd;
+        linkDdFailed = false;
+        await LoadLinkPriceAsync();
+        await CreatePaymentLinkAsync();
+    }
+
+    // A session's amount with its unit: DigiDollar in dollars, DGB as before.
+    private static string RowAmount(SessionRow s) =>
+        s.Currency == "DD" ? $"{(s.AmountCentsDd ?? 0) / 100m:#,0.00} DD" : $"{s.Amount.ToString("0.########")} DGB";
     private bool linkPickerOpen;
     private string? linkPriceSource;
     private string LinkFiatStep => Fiat.Decimals(linkFiatCurrency) == 0 ? "1" : "0." + new string('0', Fiat.Decimals(linkFiatCurrency) - 1) + "1";
@@ -1502,7 +1595,11 @@ else
     private string linkFiatCurrency = "USD";
 
     /// <summary>The active store's default when it is a fiat code (offered first in the link picker).</summary>
-    private string? StoreFiatDefault => activeStore?.DefaultCurrency is { } c && c != "DGB" ? c : null;
+    private string? StoreFiatDefault => StoreDefaultEffective is { } c && c is not ("DGB" or "DD") ? c : null;
+
+    /// <summary>The store's default as the forms use it: a saved "DD" reads as USD while DD can't be offered.</summary>
+    private string? StoreDefaultEffective =>
+        activeStore?.DefaultCurrency == "DD" && !DdOffered ? "USD" : activeStore?.DefaultCurrencyEffective ?? activeStore?.DefaultCurrency;
 
     /// <summary>
     /// Starts the payment-link form from the store's default currency: a fiat code prices the link in
@@ -1510,7 +1607,15 @@ else
     /// </summary>
     private async Task ApplyStoreDefaultToLinkFormAsync()
     {
-        var code = activeStore?.DefaultCurrency;
+        var code = StoreDefaultEffective;
+        newCurrency = code == "DD" ? "DD" : "DGB";
+        if (code == "DD")
+        {
+            linkPriceMode = "dd";
+            linkFiatCurrency = "USD";
+            linkDgbPrice = null;
+            return;
+        }
         if (string.IsNullOrEmpty(code) || code == "DGB")
         {
             linkPriceMode = "dgb";
@@ -1528,8 +1633,11 @@ else
     private bool defaultCurrencyBusy;
     private string? defaultCurrencyError;
 
-    private static string DefaultCurrencyName(string? code) =>
-        code is null ? "not set" : code == "DGB" ? "DigiByte (no conversion)" : Fiat.Name(code);
+    private string DefaultCurrencyName(string? code) =>
+        code is null ? "not set"
+        : code == "DGB" ? "DigiByte (no conversion)"
+        : code == "DD" ? (DdOffered ? "DigiDollar (1 DD = $1)" : "DigiDollar, used as USD while DigiDollar is off")
+        : Fiat.Name(code);
 
     /// <summary>Saves the store's default currency (null clears it) and restarts the link form from it.</summary>
     private async Task SaveDefaultCurrencyAsync(string? code)
@@ -1559,7 +1667,9 @@ else
     /// <summary>Fiat per 1 DGB for <see cref="linkFiatCurrency"/>; null while loading or unavailable.</summary>
     private decimal? linkDgbPrice;
     private bool linkPriceLoading;
-    private bool LinkFormValid => linkPriceMode == "dgb"
+    private bool LinkFormValid => linkPriceMode == "dd"
+        ? DdOffered && DdAmountOk(linkAmountDd)
+        : linkPriceMode == "dgb"
         ? linkAmountDgb > 0
         : linkAmountFiat > 0 && !string.IsNullOrWhiteSpace(linkFiatCurrency) && LinkFiatToDgb is > 0m;
 
@@ -2079,13 +2189,11 @@ else
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var content = JsonContent.Create(new
-            {
-                amount = newAmount,
-                storeId = activeStoreId,
-                label = string.IsNullOrWhiteSpace(newLabel) ? null : newLabel,
-                memo = string.IsNullOrWhiteSpace(newMemo) ? null : newMemo,
-            });
+            var label = string.IsNullOrWhiteSpace(newLabel) ? null : newLabel;
+            var memo = string.IsNullOrWhiteSpace(newMemo) ? null : newMemo;
+            var content = newCurrency == "DD"
+                ? JsonContent.Create(new { currency = "DD", amountCentsDd = (long)(newAmount * 100m), storeId = activeStoreId, label, memo })
+                : JsonContent.Create(new { amount = newAmount, storeId = activeStoreId, label, memo });
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Post, "/v1/pay/sessions", content));
             if (!response.IsSuccessStatusCode) { createError = await ApiError.ReadAsync(response); return; }
             createdSession = await response.Content.ReadFromJsonAsync<CreatedSession>();
@@ -2134,9 +2242,13 @@ else
             var http = HttpFactory.CreateClient("PayApi");
             // A fiat link is charged in DGB at the live price: fiat / (fiat per DGB), rounded to
             // 1 satoshi. The price is sent along so the session records the rate it was made at.
-            decimal amountDgb;
+            decimal amountDgb = 0m;
             decimal? priceAtCreation = null;
-            if (linkPriceMode == "dgb")
+            if (linkPriceMode == "dd")
+            {
+                // DigiDollar: no price, no conversion; the dollars are the amount.
+            }
+            else if (linkPriceMode == "dgb")
             {
                 amountDgb = linkAmountDgb;
             }
@@ -2153,7 +2265,17 @@ else
             var expirySeconds = (linkExpiryMinutes is int m && m > 0)
                 ? Math.Clamp(m, 1, 1440) * 60
                 : (int?)null;
-            var content = JsonContent.Create(new
+            var content = linkPriceMode == "dd"
+                ? JsonContent.Create(new
+                {
+                    currency = "DD",
+                    amountCentsDd = (long)(linkAmountDd * 100m),
+                    storeId = activeStoreId,
+                    label = string.IsNullOrWhiteSpace(linkLabel) ? null : linkLabel.Trim(),
+                    memo = string.IsNullOrWhiteSpace(linkMemo) ? null : linkMemo.Trim(),
+                    expiresInSeconds = expirySeconds,
+                })
+                : JsonContent.Create(new
             {
                 amount = amountDgb,
                 storeId = activeStoreId,
@@ -2168,8 +2290,10 @@ else
             if (!response.IsSuccessStatusCode)
             {
                 linkError = await ApiError.ReadAsync(response);
+                linkDdFailed = linkPriceMode == "dd";
                 return;
             }
+            linkDdFailed = false;
             createdLink = await response.Content.ReadFromJsonAsync<SessionRow>();
             if (createdLink is not null)
                 linkQrDataUrl = GenerateLinkQr(createdLink.CheckoutUrl);
@@ -2186,6 +2310,8 @@ else
         linkError = null;
         linkAmountDgb = 0;
         linkAmountFiat = 0;
+        linkAmountDd = 0;
+        linkDdFailed = false;
         linkLabel = "";
         linkMemo = "";
         linkExpiryMinutes = null;
@@ -2201,6 +2327,7 @@ else
 
     private string FormatLinkAmount(SessionRow s)
     {
+        if (s.Currency == "DD") return RowAmount(s);
         if (s.FiatAmount is decimal f && !string.IsNullOrWhiteSpace(s.FiatCurrency))
             return $"{FormatFiat(f, s.FiatCurrency)} (≈ {s.Amount:0.########} DGB)";
         return $"{s.Amount:0.########} DGB";
@@ -2762,7 +2889,8 @@ else
         string Status, DateTime CreatedAt, DateTime ExpiresAt,
         DateTime? SeenAt, DateTime? PaidAt,
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
-        string Uri, string CheckoutUrl, string? Source = null, string? ReturnUrl = null);
+        string Uri, string CheckoutUrl, string? Source = null, string? ReturnUrl = null,
+        string Currency = "DGB", long? AmountCentsDd = null);
 
     private record CreatedSession(string Id, string? StoreId, string Address, decimal Amount, string Status,
         string Uri, string CheckoutUrl);

@@ -380,6 +380,7 @@ public static class PaymentsEndpoints
                         s.FiatCurrency, s.FiatAmount, s.Label, s.Memo,
                         s.ReceivedSatoshis, s.Confirmations, s.PaidTxid,
                         s.CreatedAt, s.ExpiresAt, s.SeenAt, s.PaidAt, s.Source,
+                        s.Currency, s.AmountCentsDd,
                     })
                     .ToListAsync();
                 var sb = new System.Text.StringBuilder(64 + csvRows.Count * 256);
@@ -388,16 +389,23 @@ public static class PaymentsEndpoints
                     "id", "storeId", "status", "address", "amountDgb", "fiatCurrency",
                     "fiatAmount", "label", "memo", "receivedDgb", "confirmations",
                     "paidTxid", "createdAt", "expiresAt", "seenAt", "paidAt", "source",
+                    // specs/033: the session's own currency and amounts in it (DD in dollars). Appended so existing
+                    // column positions don't move; amountDgb and receivedDgb are 0 for DigiDollar sessions.
+                    "currency", "amount", "received",
                 });
                 foreach (var s in csvRows)
                 {
+                    var isDd = s.Currency == "DD";
                     CsvWriter.WriteRow(sb, new object?[]
                     {
                         s.Id, s.StoreId, s.Status.ToString().ToLowerInvariant(),
                         s.Address, s.AmountSatoshis / 100_000_000m,
                         s.FiatCurrency, s.FiatAmount, s.Label, s.Memo,
-                        s.ReceivedSatoshis / 100_000_000m, s.Confirmations, s.PaidTxid,
+                        isDd ? 0m : s.ReceivedSatoshis / 100_000_000m, s.Confirmations, s.PaidTxid,
                         s.CreatedAt, s.ExpiresAt, s.SeenAt, s.PaidAt, s.Source,
+                        s.Currency,
+                        isDd ? (s.AmountCentsDd ?? 0) / 100m : s.AmountSatoshis / 100_000_000m,
+                        isDd ? s.ReceivedSatoshis / 100m : s.ReceivedSatoshis / 100_000_000m,
                     });
                 }
                 var filename = $"digipay-sessions-{DateTime.UtcNow:yyyyMMdd}.csv";

@@ -122,11 +122,11 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Update `tests/DigiByte.Pay.Api.Tests/StoreDefaultCurrencyTests.cs`:
+- [X] T027 [P] [US2] Update `tests/DigiByte.Pay.Api.Tests/StoreDefaultCurrencyTests.cs`:
   - `defaultCurrency:"DD"` is accepted only when the store has `digiDollarEnabled` and the gate is on, and is otherwise `400 digidollar_not_enabled_for_store`. This replaces the assertion at line 57 that DD is always rejected.
   - `defaultCurrencyEffective` is `"USD"` while DD is off.
-- [ ] T028 [P] [US2] Add DD revenue cases to `tests/DigiByte.Pay.Api.Tests/DailyStatsTests.cs`: DD sessions add to `revenueDdCents` and never to DGB revenue.
-- [ ] T029 [P] [US2] Tests in `tests/DigiByte.Pay.Web.Tests/DashboardTests.cs`:
+- [X] T028 [P] [US2] Add DD revenue cases to `tests/DigiByte.Pay.Api.Tests/DailyStatsTests.cs`: DD sessions add to `revenueDdCents` and never to DGB revenue.
+- [X] T029 [P] [US2] Tests in `tests/DigiByte.Pay.Web.Tests/DashboardTests.cs`:
   - The link form shows a DD price mode only with DD on and the gate on, and posts `currency:"DD"` with `amountCentsDd`.
   - The new-payment form's DGB/DD switch works.
   - A stored DD default opens the link form on USD while DD is off.
@@ -134,20 +134,20 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 ### Implementation for User Story 2
 
-- [ ] T030 [P] [US2] Accept `defaultCurrency:"DD"` in `TryNormaliseCurrency` and the PATCH handler in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs`, but only when `DigiDollarEnabled` and `DdSurfacesGate.Enabled`. Otherwise return `400 digidollar_not_enabled_for_store`. Never clear the stored value when DD is turned off (research R7).
-- [ ] T031 [P] [US2] Add DD revenue in cents per day to `src/DigiByte.Pay.Api/Services/DailyStats.cs` and its endpoint DTO. Show it as its own line in `src/DigiByte.Pay.Web/Components/Shared/SalesOverview.razor`.
-- [ ] T032 [P] [US2] In the CSV export in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs`, write the amount in the session's own unit (DD from cents) and add a `currency` column.
-- [ ] T033 [US2] Update `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`:
+- [X] T030 [P] [US2] Accept `defaultCurrency:"DD"` in `TryNormaliseCurrency` and the PATCH handler in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs`, but only when `DigiDollarEnabled` and `DdSurfacesGate.Enabled`. Otherwise return `400 digidollar_not_enabled_for_store`. Never clear the stored value when DD is turned off (research R7).
+- [X] T031 [P] [US2] Add DD revenue in cents per day to `src/DigiByte.Pay.Api/Services/DailyStats.cs` and its endpoint DTO. Show it as its own line in `src/DigiByte.Pay.Web/Components/Shared/SalesOverview.razor`.
+- [X] T032 [P] [US2] In the CSV export in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs`, write the amount in the session's own unit (DD from cents) and add a `currency` column.
+- [X] T033 [US2] Update `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`:
   - The payment-link price mode gains `"dd"` (a USD amount, 2 decimals, limits 1.00 to 100,000.00, no price lookup). `CreatePaymentLinkAsync` posts `currency:"DD"` and `amountCentsDd` in that mode.
   - The new-payment form gains a DGB/DD switch with the same rules, and `CreateSessionAsync` posts it.
   - Both are shown only with DD on and `ddSurfacesEnabled`.
   - Switching either form to DD keeps a USD amount as is and clears any other amount. It never converts it.
-- [ ] T034 [US2] Update `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`:
+- [X] T034 [US2] Update `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`:
   - The default-currency picker offers DD only with DD on and the gate on.
   - The link form and POS start from `defaultCurrencyEffective`.
   - Payment rows, the session list and `src/DigiByte.Pay.Web/Components/Pages/SessionDetail.razor` show DD amounts in DD.
   - The 503 handling from T025 is reused for the link and new-payment forms.
-- [ ] T035 [US2] Docs, in the same PR: DD links and one-off payments in `src/DigiByte.Pay.Web/Components/Pages/Docs.razor`; `defaultCurrency:"DD"` and the CSV `currency` column in `ApiDocs.razor`; `CHANGELOG.md`.
+- [X] T035 [US2] Docs, in the same PR: DD links and one-off payments in `src/DigiByte.Pay.Web/Components/Pages/Docs.razor`; `defaultCurrency:"DD"` and the CSV `currency` column in `ApiDocs.razor`; `CHANGELOG.md`.
 
 **Checkpoint**: Links, one-off payments and stats handle DD.
 

@@ -74,7 +74,7 @@ public static class StoresEndpoints
 
         group.MapPatch("/{storeId}", async (
             string storeId, UpdateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit,
-            IOptions<OutboundOptions> outbound, IOutboundResolver resolver, CancellationToken ct) =>
+            IOptions<OutboundOptions> outbound, IOutboundResolver resolver, DdSurfacesGate ddGate, CancellationToken ct) =>
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
             if (err is not null) return err;
@@ -163,13 +163,15 @@ public static class StoresEndpoints
                 if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
                 store!.DigiDollarEnabled = body.DigiDollarEnabled.Value;
             }
-            // Absent = leave as is; null or "" = clear; otherwise DGB or a fiat code.
+            // Absent = leave as is; null or "" = clear; otherwise DGB, a fiat code, or DD while the store can offer
+            // DigiDollar (specs/033 FR-008). Turning DD off later keeps a saved "DD": readers treat it as USD.
             if (body.DefaultCurrency.ValueKind != JsonValueKind.Undefined)
             {
                 if (body.DefaultCurrency.ValueKind is not (JsonValueKind.Null or JsonValueKind.String))
                     return Results.BadRequest(new { error = "defaultCurrency must be a string or null" });
                 var requested = body.DefaultCurrency.ValueKind == JsonValueKind.String ? body.DefaultCurrency.GetString() : null;
-                if (!TryNormaliseCurrency(requested, out var currency, out var currencyError))
+                if (!TryNormaliseCurrency(requested, out var currency, out var currencyError,
+                        allowDd: store!.DigiDollarEnabled && ddGate.Enabled))
                     return Results.BadRequest(new { error = currencyError });
                 if (store!.DefaultCurrency != currency) changed.Add("defaultCurrency");
                 store!.DefaultCurrency = currency;
@@ -485,9 +487,9 @@ public static class StoresEndpoints
             // DailyStats so no provider-specific date SQL is needed (SQLite has no zone support).
             var rows = (await db.Sessions.AsNoTracking()
                     .Where(s => s.StoreId == store.Id && s.CreatedAt >= since && s.CreatedAt < window.ToUtc)
-                    .Select(s => new { s.CreatedAt, s.Status, s.AmountSatoshis, s.Currency })
+                    .Select(s => new { s.CreatedAt, s.Status, s.AmountSatoshis, s.Currency, s.AmountCentsDd })
                     .ToListAsync())
-                .Select(r => new DailyStats.Row(r.CreatedAt, r.Status, r.AmountSatoshis, r.Currency));
+                .Select(r => new DailyStats.Row(r.CreatedAt, r.Status, r.AmountSatoshis, r.Currency, r.AmountCentsDd));
             var (series, current, previous) = DailyStats.Aggregate(rows, window, zone);
             var storeHasPayments = current.Payments > 0
                 || await db.Sessions.AsNoTracking().AnyAsync(s => s.StoreId == store.Id);
@@ -517,6 +519,7 @@ public static class StoresEndpoints
                     d.Totals.Refunded,
                     d.Totals.Voided,
                     d.Totals.RevenueDgb,
+                    d.Totals.RevenueDdCents,
                 }),
             });
         });
@@ -573,12 +576,19 @@ public static class StoresEndpoints
     /// Checks a store default currency: "DGB" or a fiat code the DigiByte wallet offers
     /// (<see cref="DigiByte.Wallet.Models.FiatCurrencies"/>), any case. Null or blank means "not set".
     /// </summary>
-    internal static bool TryNormaliseCurrency(string? value, out string? currency, out string? error)
+    /// <param name="allowDd">True when the store can offer DigiDollar (DD on and the DD surfaces switch on).</param>
+    internal static bool TryNormaliseCurrency(string? value, out string? currency, out string? error, bool allowDd = false)
     {
         currency = null;
         error = null;
         if (string.IsNullOrWhiteSpace(value)) return true;
         var code = value.Trim().ToUpperInvariant();
+        if (code == "DD")
+        {
+            if (!allowDd) { error = "digidollar_not_enabled_for_store"; return false; }
+            currency = code;
+            return true;
+        }
         if (code != "DGB" && DigiByte.Wallet.Models.FiatCurrencies.Find(code) is null)
         {
             error = "defaultCurrency must be DGB or a supported fiat currency code (e.g. USD, EUR, PHP)";

@@ -66,6 +66,12 @@
         var prev = data.Previous?.Totals;
         <div class="sales-kpis">
             @Kpi("Revenue", $"{Dgb(t.RevenueDgb)} DGB", FiatLine(t.RevenueDgb), Change(t.RevenueDgb, prev?.RevenueDgb))
+            @if (t.RevenueDdCents > 0 || prev?.RevenueDdCents > 0)
+            {
+                @* DigiDollar is its own line, never added into DGB (specs/033 FR-009). *@
+                @Kpi("DigiDollar revenue", $"{t.RevenueDdCents / 100m:#,0.00} DD", "1 DD = $1",
+                     Change(t.RevenueDdCents / 100m, prev is null ? null : prev.RevenueDdCents / 100m))
+            }
             @Kpi("Payments", Count(t.Payments), null, Change(t.Payments, prev?.Payments))
             @Kpi("Paid", Count(t.Paid), $"{Percent(t.Paid, t.Payments)} of payments", Change(t.Paid, prev?.Paid))
         </div>
@@ -324,9 +330,11 @@
 
     // ----- API shapes -----
 
-    public sealed record TotalsDto(int Payments, int Paid, int Open, int Expired, int Underpaid, int Refunded, int Voided, decimal RevenueDgb);
+    public sealed record TotalsDto(int Payments, int Paid, int Open, int Expired, int Underpaid, int Refunded, int Voided, decimal RevenueDgb,
+        long RevenueDdCents = 0);
     public sealed record PreviousDto(DateOnly From, DateOnly To, TotalsDto Totals);
-    public sealed record DayDto(DateOnly Date, int Payments, int Paid, int Open, int Expired, int Underpaid, int Refunded, int Voided, decimal RevenueDgb);
+    public sealed record DayDto(DateOnly Date, int Payments, int Paid, int Open, int Expired, int Underpaid, int Refunded, int Voided, decimal RevenueDgb,
+        long RevenueDdCents = 0);
     public sealed record StatsDto(string StoreId, int Days, string TimeZone, DateOnly From, DateOnly To,
         bool StoreHasPayments, TotalsDto Totals, PreviousDto? Previous, List<DayDto> Series);
     private sealed record PriceQuote(string Currency, decimal DgbPrice);

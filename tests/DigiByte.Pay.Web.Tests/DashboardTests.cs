@@ -494,6 +494,143 @@ public class DashboardTests : BunitContext
         Assert.Equal(turnOn, api.LastPatch!["digiDollarEnabled"]!.GetValue<bool>());
     }
 
+    // ----- DigiDollar links and one-off payments (specs/033 US2) -----
+
+    private void AllowDd()
+    {
+        api.DdSurfacesEnabled = true;
+        api.DigiDollarEnabled = true;
+    }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    public void The_link_form_offers_DigiDollar_only_when_the_store_can_take_it(bool surfaces, bool ddOn, bool offered)
+    {
+        api.DdSurfacesEnabled = surfaces;
+        api.DigiDollarEnabled = ddOn;
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
+
+        Assert.Equal(offered, Buttons(cut, "DigiDollar").Any());
+    }
+
+    [Fact]
+    public void A_DigiDollar_link_posts_the_dollars_in_cents_with_no_price_lookup()
+    {
+        AllowDd();
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+
+        cut.Find("#link-amount-dd").Input("40");
+        cut.WaitForAssertion(() => Assert.False(Buttons(cut, "Create payment link").Single().HasAttribute("disabled")));
+        Buttons(cut, "Create payment link").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        var body = api.CreatedSession!;
+        Assert.Equal("DD", body["currency"]!.GetValue<string>());
+        Assert.Equal(4000, body["amountCentsDd"]!.GetValue<long>());
+        Assert.False(body.ContainsKey("amount"));
+        Assert.DoesNotContain(api.Requests, r => r.StartsWith("GET /v1/pay/public/price"));
+    }
+
+    [Fact]
+    public void A_DigiDollar_link_outside_the_limits_cannot_be_created()
+    {
+        AllowDd();
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+
+        cut.Find("#link-amount-dd").Input("0.50");
+
+        Assert.True(Buttons(cut, "Create payment link").Single().HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Switching_a_link_to_DigiDollar_keeps_a_USD_amount_and_clears_any_other()
+    {
+        AllowDd();
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Your currency")));
+        Buttons(cut, "Your currency").First().Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-amount-fiat")));
+        cut.Find("#link-amount-fiat").Input("12.5");
+
+        Buttons(cut, "DigiDollar").Single().Click();
+        Assert.Equal("12.5", cut.Find("#link-amount-dd").GetAttribute("value"));
+
+        Buttons(cut, "DGB").First().Click();
+        cut.Find("#link-amount-dgb").Change("300");
+        Buttons(cut, "DigiDollar").Single().Click();
+        Assert.Equal("0", cut.Find("#link-amount-dd").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_failed_DigiDollar_link_offers_the_same_dollars_in_DGB()
+    {
+        AllowDd();
+        api.CreateError = (HttpStatusCode.ServiceUnavailable, """{"error":"digidollar_node_unavailable"}""");
+        var cut = RenderSection("links");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+        cut.Find("#link-amount-dd").Input("40");
+        Buttons(cut, "Create payment link").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("DigiDollar is temporarily unavailable", cut.Markup));
+        api.CreateError = null;
+        api.Price = 0.01m;
+        cut.Find("[data-dd-fallback]").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        var body = api.CreatedSession!;
+        Assert.Equal("USD", body["fiatCurrency"]!.GetValue<string>());
+        Assert.Equal(40m, body["fiatAmount"]!.GetValue<decimal>());
+        Assert.Equal(4000m, body["amount"]!.GetValue<decimal>());
+    }
+
+    [Fact]
+    public void A_one_off_payment_can_be_in_DigiDollar()
+    {
+        AllowDd();
+        var cut = RenderSection("new");
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "DigiDollar")));
+        Buttons(cut, "DigiDollar").Single().Click();
+        Assert.Contains("US dollars, paid in DD", cut.Find("label[for=np-amount]").TextContent);
+
+        cut.Find("#np-amount").Change("12.50");
+        Buttons(cut, "Create payment").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(api.CreatedSession));
+        Assert.Equal("DD", api.CreatedSession!["currency"]!.GetValue<string>());
+        Assert.Equal(1250, api.CreatedSession!["amountCentsDd"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public void A_saved_DigiDollar_default_opens_the_link_form_on_USD_while_DD_is_off()
+    {
+        api.DefaultCurrency = "DD";
+        api.DdSurfacesEnabled = true;
+        api.DigiDollarEnabled = false;
+        var cut = RenderSection("links");
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-currency")));
+        Assert.Contains("USD", cut.Find("#link-currency").TextContent);
+        Assert.Empty(Buttons(cut, "DigiDollar"));
+    }
+
+    [Fact]
+    public void A_DigiDollar_default_opens_the_link_form_on_DD_while_DD_is_on()
+    {
+        api.DefaultCurrency = "DD";
+        AllowDd();
+        var cut = RenderSection("links");
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#link-amount-dd")));
+    }
+
     private sealed class FakePayApi : HttpMessageHandler, IHttpClientFactory
     {
         public List<string> Requests { get; } = [];
