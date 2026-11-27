@@ -158,7 +158,8 @@
 
     private string MerchantDashboardUrl => Config["MerchantDashboardUrl"] ?? "https://pay.dgbwallet.app";
 
-    private List<PaymentRequest> requests = [];
+    private IReadOnlyList<PaymentRequest> requests = [];
+    private string WalletId => WalletService.ActiveWallet?.Id ?? "";
     private bool showCreate;
     private decimal? createAmount;
     private string createLabel = "";
@@ -170,7 +171,7 @@
     protected override async Task OnInitializedAsync()
     {
         AppState.ResetLockTimer();
-        requests = await PaymentService.GetAllAsync();
+        requests = await PaymentService.GetAllAsync(WalletId, await WalletAddressesAsync());
         // With nothing to list, the menu's Request tab opens straight onto the form.
         if (requests.Count == 0) ShowCreateForm();
     }
@@ -184,14 +185,30 @@
     private async Task CreateRequest()
     {
         var address = await WalletService.GetReceivingAddressAsync();
-        var req = await PaymentService.CreateAsync(
+        var req = await PaymentService.CreateUntrackedAsync(
+            WalletId,
             address,
             createAmount > 0 ? createAmount : null,
             string.IsNullOrWhiteSpace(createLabel) ? null : createLabel,
             string.IsNullOrWhiteSpace(createMessage) ? null : createMessage);
         showCreate = false;
-        requests = await PaymentService.GetAllAsync();
+        requests = await PaymentService.GetAllAsync(WalletId);
         ShowRequest(req);
+    }
+
+    // The wallet's receive addresses handed out so far, so requests saved before spec 036 can find their wallet.
+    private async Task<IReadOnlySet<string>> WalletAddressesAsync()
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        try
+        {
+            set.Add(await WalletService.GetReceivingAddressAsync());
+            var shown = WalletService.ActiveWallet?.NextReceivingIndex ?? 0;
+            foreach (var (_, address) in await WalletService.GetReceivingAddressesAsync(shown + 1))
+                set.Add(address);
+        }
+        catch (InvalidOperationException) { /* locked: nothing to match yet */ }
+        return set;
     }
 
     private void ShowRequest(PaymentRequest req)

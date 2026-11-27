@@ -32,9 +32,9 @@
 
 **Purpose**: The branch, a known-good baseline, and the wording later phases use.
 
-- [ ] T001 Create branch `feature/paid-aware-requests` from `main` and commit `specs/036-paid-aware-requests/`. Do not commit `.claude/settings.local.json`, `.claude/launch.json`, `.claude/scheduled_tasks.lock`, `digipay-verify.db*` or `docs/media/x-multisig-signing.html`.
-- [ ] T002 Run `dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName!~LiveExplorerBenchmarks"` and record the pass count as the baseline. It must be all-pass before any change.
-- [ ] T003 [P] Add the US1 and US5 translation keys to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`:
+- [X] T001 Create branch `feature/paid-aware-requests` from `main` and commit `specs/036-paid-aware-requests/`. Do not commit `.claude/settings.local.json`, `.claude/launch.json`, `.claude/scheduled_tasks.lock`, `digipay-verify.db*` or `docs/media/x-multisig-signing.html`.
+- [X] T002 Run `dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName!~LiveExplorerBenchmarks"` and record the pass count as the baseline. It must be all-pass before any change.
+- [X] T003 [P] Add the US1 and US5 translation keys to `src/DigiByte.Web/wwwroot/locales/en.json` and `es.json`:
   - `request.status.*`: `waiting`, `arriving`, `partly_paid`, `paid`, `overpaid`, `expired`, `partly_paid_expired`, `cancelled`, `not_tracked`.
   - `request.arriving_note` ("+{0} DGB arriving"), `request.received_of` ("{0} of {1} DGB received"), `request.any_amount_received`, `request.stale` ("Not up to date").
   - `request.not_tracked_hint`, `request.single_key_hint`.
@@ -52,12 +52,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 [P] Write `tests/DigiByte.Wallet.Tests/RequestModelJsonTests.cs`:
+- [X] T004 [P] Write `tests/DigiByte.Wallet.Tests/RequestModelJsonTests.cs`:
   - Legacy JSON (only `Id`, `Address`, `AmountDgb`, `Label`, `Message`, `CreatedAt`, `ExpiresAt`, `Status:"Pending"`) deserializes with `Tracked == false`, empty `Payments` and `OpenedSincePaid == false`.
   - A request with every new field round-trips unchanged.
   - The `PaymentRequestStatus` values `Waiting`, `PaymentArriving`, `PartlyPaid`, `Paid`, `Overpaid`, `Expired`, `PartlyPaidExpired`, `Cancelled`, `NotTracked` serialize by name.
-  - The stored value `"Pending"` reads as `PaymentRequestStatus.Waiting`. A legacy record has `Tracked == false`, so `RequestStatusCalculator` (T014) gives it `NotTracked`; this test asserts only the raw value that is read.
-- [ ] T005 Extend `src/DigiByte.Wallet/Models/PaymentRequest.cs` and add `src/DigiByte.Wallet/Models/RequestPayment.cs`, exactly as data-model.md "PaymentRequest (changed)" and "RequestPayment (new)" describe:
+  - The stored value for the old `Pending` status (the number `0`, since the wallet wrote enums as numbers) reads as `PaymentRequestStatus.Waiting`. A legacy record has `Tracked == false`, so `RequestStatusCalculator` (T014) gives it `NotTracked`; this test asserts only the raw value that is read.
+- [X] T005 Extend `src/DigiByte.Wallet/Models/PaymentRequest.cs` and add `src/DigiByte.Wallet/Models/RequestPayment.cs`, exactly as data-model.md "PaymentRequest (changed)" and "RequestPayment (new)" describe:
   - `AddressIndex int?`; `Tracked bool` ("Defaults to false when the field is missing in stored JSON").
   - `FiatAmount decimal?`, `FiatCurrency string?` ("ISO code from FiatCurrencies"), `FiatPrice decimal?`.
   - `CancelledAt DateTime?`, `RenewedFromId string?`.
@@ -65,18 +65,18 @@
   - The enum values listed in T004, keeping `Pending` for JSON reading only.
   - `RequestPayment(TxId, AmountSatoshis long, Confirmed bool, FirstSeenAt DateTime UTC, Late bool)`.
   - Makes T004 pass.
-- [ ] T006 [P] Write `tests/DigiByte.Wallet.Tests/RequestMigrationTests.cs` for a pure `RequestMigration.Split(legacy, walletAddresses)`:
+- [X] T006 [P] Write `tests/DigiByte.Wallet.Tests/RequestMigrationTests.cs` for a pure `RequestMigration.Split(legacy, walletAddresses)`:
   - Legacy requests whose `Address` is in the wallet's known receive addresses move out with `Tracked = false` and `Status = NotTracked`. The rest stay.
   - An empty legacy list returns nothing to move.
   - Running it twice moves nothing the second time.
   - Unreadable legacy JSON is left untouched and moves nothing (negative path).
-- [ ] T007 Implement `src/DigiByte.Wallet/Services/RequestMigration.cs` (data-model "Migration", steps 1 to 4). Makes T006 pass.
-- [ ] T008 Write `tests/DigiByte.Wallet.Tests/PaymentRequestServiceTests.cs` (storage only, using an in-memory `ISecureStorage`):
+- [X] T007 Implement `src/DigiByte.Wallet/Services/RequestMigration.cs` (data-model "Migration", steps 1 to 4). Makes T006 pass.
+- [X] T008 Write `tests/DigiByte.Wallet.Tests/PaymentRequestServiceTests.cs` (storage only, using an in-memory `ISecureStorage`):
   - `GetAllAsync(walletId)` reads `payment_requests:{walletId}`, and runs the migration once per wallet, removing the legacy key `payment_requests` when nothing is left in it.
   - Two wallets' lists are kept apart.
   - `ApplyAsync` stores the computed status, payments, `LastCheckedAt`, `PaidAnnouncedAt` and `LockNotifiedAt`, and never clears a `PaidAnnouncedAt` or `LockNotifiedAt` already stored.
   - `MarkOpenedAsync` sets `OpenedSincePaid = true`.
-- [ ] T009 Rework `src/DigiByte.Wallet/Services/PaymentRequestService.cs` to per-wallet storage, with `GetAllAsync(walletId)`, `ApplyAsync`, `MarkOpenedAsync` and a per-wallet cache, as in contracts/request-watcher.md "PaymentRequestService". Keep a temporary `CreateAsync(walletId, address, amountDgb, label, message)` that creates `Tracked = false` requests so `Payments.razor` keeps working until T018. Update `src/DigiByte.Web/Pages/Payments.razor` to pass the active wallet id. Makes T008 pass.
+- [X] T009 Rework `src/DigiByte.Wallet/Services/PaymentRequestService.cs` to per-wallet storage, with `GetAllAsync(walletId)`, `ApplyAsync`, `MarkOpenedAsync` and a per-wallet cache, as in contracts/request-watcher.md "PaymentRequestService". Keep a temporary `CreateAsync(walletId, address, amountDgb, label, message)` that creates `Tracked = false` requests so `Payments.razor` keeps working until T018. Update `src/DigiByte.Web/Pages/Payments.razor` to pass the active wallet id. Makes T008 pass.
 
 **Checkpoint**: Requests are stored per wallet, and old requests read as "Not tracked". The page behaves as today.
 
