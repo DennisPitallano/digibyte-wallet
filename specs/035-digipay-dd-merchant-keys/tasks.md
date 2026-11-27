@@ -285,7 +285,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
   Also do FR-020: rewrite the class comment in `src/DigiByte.Pay.Api/Services/DdSurfacesGate.cs`, which says the switch waits for spec 034's payouts. The switch now waits only for this feature to be live. Add a deploy note to `docs/ARCHITECTURE.md` (DigiPay section) to set `DIGIPAY_DD_SURFACES=true` in production once spec 035 ships.
 - [X] T055 [P] Update `CHANGELOG.md`: DigiDollar on your own key, the wallet DigiDollar key screen, the deeper DD scan, and payouts removed (never released).
-- [ ] T056 Run `dotnet build` and `dotnet test` for Crypto, Wallet, Pay.Api and Pay.Web tests, the JS tests and the E2E suite. Fix any failures. Note the known unrelated `DigiByte.Wallet.Tests` explorer/timing flakes in the PR if they recur.
+- [X] T056 Run `dotnet build` and `dotnet test` for Crypto, Wallet, Pay.Api and Pay.Web tests, the JS tests and the E2E suite. Fix any failures. Note the known unrelated `DigiByte.Wallet.Tests` explorer/timing flakes in the PR if they recur.
 - [X] T057 Mark the 033 and 034 tasks made moot by this spec in `specs/033-digipay-dd-everywhere/tasks.md` (T072 testnet now covered by spec 035's quickstart) and `specs/034-digipay-dd-payouts/tasks.md` (superseded).
 - [ ] T058 Testnet walk-through of [quickstart.md](quickstart.md) steps 1–9 (needs a testnet DD wallet and a running deployment, so it's done outside this session).
 
