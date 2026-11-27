@@ -441,3 +441,23 @@ Run on 2026-11-28 in the browser preview with the same test wallet. Payments cam
 - Scenario 9 (system notifications, hidden tab, details setting): **not run**. It needs notification permission granted in a real browser and the tab in the background.
 - Still to do for T036: scenario 9, and scenarios 2 and 8 with real testnet payments (including "Payment arriving" before the first confirmation and vibration on a phone).
 
+
+### 2026-11-28: US3, asking in your own currency (T037 to T047)
+
+- After T047: 3,811 tests passing, none failing.
+- Departures from the task text:
+  - The price-lock reading and writing live in one pure class, `Models/PriceLockFields.cs`, used by both `PaymentRequest` and `PaymentLink`; `PriceQuote` is a model in `DigiByte.Wallet` so `NewRequest` can carry it.
+  - `PaymentLinkData` gains the three fields as optional parameters, so existing callers are unchanged; `ToBip21` always keeps the price lock (it is not a note).
+  - `ScanRouter` also reads the price lock of a bare `digibyte:` request, not only of this wallet's pay link.
+  - `RenewAsync` returns null (the button stays disabled) when the request is in DGB, or the quote is in a different currency from the request's.
+  - `request.fiat_amount` and `request.price_used` read the same in both languages, so they are on `LocaleParityTests.SameInBoth`.
+  - Until the keypad arrives (US4) the currency choice is a DGB / currency switch on the existing form; it remembers the choice in `dgb-request-currency`.
+
+### T048 (quickstart scenarios 5, 6, 7, 13): partly run, not ticked
+
+Run on 2026-11-28 in the browser preview:
+
+- Scenario 13, price part: **passed**. Locally no price can be fetched (the price source is blocked by CORS like the explorer), so the currency button is disabled with "Your currency isn't available right now…", and DGB requests still work (FR-021).
+- Scenario 7 (the payer's side): **passed** for Send. A pay link with `fiat=12.50&currency=USD&expires=…` handed over to Send with the amount filled in and "≈ $12.50 · Price held until 5:06 AM"; with an expiry in the past, "The price for this request expired at 4:51 AM. The amount may be out of date.", and Send was not blocked. Pay's no-wallet card was not checked (it needs a device with no wallet).
+- Scenarios 5 and 6 (making a currency request, countdown, expiry, renew): **not run in the browser**, because there is no price locally. Covered by `PaymentRequestServiceTests` (create, renew, rest after a partial payment, refusals), `RequestAmountsTests` and the expiry cases in `RequestStatusCalculatorTests`.
+- Still to do for T048: scenarios 5 and 6 with a reachable price source, and Pay's no-wallet card.
