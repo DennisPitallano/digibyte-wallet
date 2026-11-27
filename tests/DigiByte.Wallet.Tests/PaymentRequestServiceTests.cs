@@ -308,6 +308,84 @@ public class PaymentRequestServiceTests
         Assert.Null(await requests.RenewAsync(id, "missing", Usd));
     }
 
+    // ── Cancel and remove (T055, FR-020, FR-025, FR-026) ──
+
+    [Fact]
+    public async Task Cancel_SetsCancelledAt_AndShowsCancelled()
+    {
+        var (env, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        var r = await requests.CreateAsync(id, new NewRequest(1m, null, null));
+
+        var before = DateTime.UtcNow;
+        await requests.CancelAsync(id, r.Id);
+
+        var back = Assert.Single(await new PaymentRequestService(env.Storage).GetAllAsync(id));
+        Assert.NotNull(back.CancelledAt);
+        Assert.True(back.CancelledAt >= before);
+        Assert.Equal(PaymentRequestStatus.Cancelled, back.Status);
+    }
+
+    [Fact]
+    public async Task Cancel_APaidRequest_ChangesNothing()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        var r = await requests.CreateAsync(id, new NewRequest(1m, null, null));
+        await requests.ApplyAsync(id, r.Id, new RequestUpdate(PaymentRequestStatus.Paid, [], DateTime.UtcNow, null, null));
+
+        await requests.CancelAsync(id, r.Id);
+
+        var back = Assert.Single(await requests.GetAllAsync(id));
+        Assert.Null(back.CancelledAt);
+        Assert.Equal(PaymentRequestStatus.Paid, back.Status);
+    }
+
+    [Fact]
+    public async Task Remove_TakesItOffTheList_ButKeepsTheLabel_AndTheAddressStaysChecked()
+    {
+        var (env, wallet, requests, labels) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        var r = await requests.CreateAsync(id, new NewRequest(1m, "Rent", null));
+
+        await requests.RemoveAsync(id, r.Id);
+
+        Assert.Empty(await requests.GetAllAsync(id));
+        Assert.Equal("Rent", await labels.GetLabelAsync(id, r.Address));
+        // Money sent to it later still counts, after a reload (FR-002, SC-005).
+        var reloaded = await env.ReloadAsync(id);
+        env.Chain.Credit(r.Address, ChangeAddressTests.OneDgb);
+        Assert.Equal(ChangeAddressTests.OneDgb, (await reloaded.GetBalanceAsync()).ConfirmedSatoshis);
+    }
+
+    [Fact]
+    public async Task Cancelling_DoesNotFreeAnAddress()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        var made = new List<PaymentRequest>();
+        for (var n = 0; n < 19; n++) made.Add(await requests.CreateAsync(id, new NewRequest(1m, null, null)));
+        await Assert.ThrowsAsync<ReceiveAddressException>(() => requests.CreateAsync(id, new NewRequest(1m, null, null)));
+
+        foreach (var r in made.Take(5)) await requests.CancelAsync(id, r.Id);
+        await requests.RemoveAsync(id, made[6].Id);
+
+        var ex = await Assert.ThrowsAsync<ReceiveAddressException>(() => requests.CreateAsync(id, new NewRequest(1m, null, null)));
+        Assert.Equal(ReceiveAddressFailure.TooManyUnusedPastLastUsed, ex.Reason);
+    }
+
+    [Fact]
+    public async Task CancelAndRemove_AnUnknownRequest_DoNothing()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+
+        await requests.CancelAsync(id, "missing");
+        await requests.RemoveAsync(id, "missing");
+
+        Assert.Empty(await requests.GetAllAsync(id));
+    }
+
     internal sealed class InMemorySecureStorage : ISecureStorage
     {
         private readonly Dictionary<string, string> _store = new();

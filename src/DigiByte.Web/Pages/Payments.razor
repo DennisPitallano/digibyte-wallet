@@ -29,6 +29,10 @@
     {
         <RequestKeypad @ref="keypad" Quote="quote" FiatCurrency="@AppState.FiatCurrency" @bind-InFiat="inFiat"
                        Busy="creating" Error="@limitMessage" OnRequest="CreateFromKeypad" OnShowList="ShowList" />
+        @if (limitReached)
+        {
+            <button type="button" class="btn-secondary btn-sm self-center" data-testid="request-limit-open-list" @onclick="ShowOpenRequests">@L.T("request.limit_open_list")</button>
+        }
     }
 
     @* Active request detail *@
@@ -143,6 +147,28 @@
                 <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
             </div>
             }
+            <div class="w-full flex flex-col gap-2" data-testid="request-actions">
+                @if (confirming is null)
+                {
+                    <div class="flex gap-2">
+                        @if (CanCancel(activeRequest))
+                        {
+                            <button type="button" class="btn-ghost btn-sm flex-1" data-testid="request-cancel" @onclick="@(() => confirming = "cancel")">@L.T("request.cancel")</button>
+                        }
+                        <button type="button" class="btn-ghost btn-sm flex-1" data-testid="request-remove" @onclick="@(() => confirming = "remove")">@L.T("request.remove")</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="rounded-xl border border-slate-200 dark:border-dgb-800 p-3 flex flex-col gap-2" role="alertdialog" aria-live="polite" data-testid="request-confirm">
+                        <p class="text-sm text-slate-700 dark:text-slate-200">@L.T(confirming == "cancel" ? "request.cancel_confirm" : "request.remove_confirm")</p>
+                        <div class="flex gap-2">
+                            <button type="button" class="btn-secondary btn-sm flex-1" data-testid="request-confirm-keep" @onclick="@(() => confirming = null)">@L.T("request.keep")</button>
+                            <button type="button" class="btn-primary btn-sm flex-1" data-testid="request-confirm-yes" @onclick="ConfirmAsync">@L.T(confirming == "cancel" ? "request.cancel_yes" : "request.remove_yes")</button>
+                        </div>
+                    </div>
+                }
+            </div>
             <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="CloseRequest">@L.T("more.close")</button>
         </div>
     }
@@ -167,8 +193,20 @@
     }
     else
     {
+        <div class="flex flex-wrap gap-2" role="group" aria-label="@L.T("request.filter.label")" data-testid="request-filters">
+            @foreach (var f in Filters)
+            {
+                var filter = f;
+                <button type="button" class="px-3 py-1.5 rounded-full text-xs font-semibold @(listFilter == filter ? "bg-dgb-500 text-white" : "bg-slate-100 text-slate-600 dark:bg-dgb-900 dark:text-slate-300")"
+                        aria-pressed="@(listFilter == filter ? "true" : "false")" data-filter="@filter" @onclick="() => listFilter = filter">@FilterLabel(filter)</button>
+            }
+        </div>
+        @if (!Filtered.Any())
+        {
+            <p class="text-sm text-slate-500 dark:text-slate-400 text-center py-6" data-testid="request-filter-empty">@L.T("request.filter.empty")</p>
+        }
         <div class="flex flex-col gap-1.5" data-testid="request-list">
-            @foreach (var req in requests)
+            @foreach (var req in Filtered)
             {
                 var r = req;
                 <button class="card card-interactive slide-up flex items-center gap-3 p-3 text-left w-full"
@@ -222,7 +260,60 @@
     private IReadOnlyList<PaymentRequest> requests = [];
     private string WalletId => WalletService.ActiveWallet?.Id ?? "";
     private bool showList;
+    private string listFilter = "all";
+    private string? confirming;
+
+    private static readonly string[] Filters = ["open", "paid", "expired", "all"];
+
+    private string FilterLabel(string filter) => filter switch
+    {
+        "open" => L.T("request.filter.open"),
+        "paid" => L.T("request.filter.paid"),
+        "expired" => L.T("request.filter.expired"),
+        _ => L.T("request.filter.all"),
+    };
+
+    // data-model "Filters": Not tracked requests appear only under All.
+    private IEnumerable<PaymentRequest> Filtered => requests.Where(r => listFilter switch
+    {
+        "open" => r.Status is PaymentRequestStatus.Waiting or PaymentRequestStatus.PaymentArriving or PaymentRequestStatus.PartlyPaid,
+        "paid" => r.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid,
+        "expired" => r.Status is PaymentRequestStatus.Expired or PaymentRequestStatus.PartlyPaidExpired or PaymentRequestStatus.Cancelled,
+        _ => true,
+    });
+
+    // Only an open, tracked request can be cancelled (FR-025).
+    private static bool CanCancel(PaymentRequest r) =>
+        r.Tracked && r.Status is PaymentRequestStatus.Waiting or PaymentRequestStatus.PaymentArriving or PaymentRequestStatus.PartlyPaid;
+
+    private async Task ConfirmAsync()
+    {
+        if (activeRequest is not { } r || confirming is not { } what) return;
+        confirming = null;
+        if (what == "cancel")
+        {
+            await PaymentService.CancelAsync(WalletId, r.Id);
+            requests = await PaymentService.GetAllAsync(WalletId);
+            activeRequest = requests.FirstOrDefault(x => x.Id == r.Id);
+        }
+        else
+        {
+            await PaymentService.RemoveAsync(WalletId, r.Id);
+            requests = await PaymentService.GetAllAsync(WalletId);
+            activeRequest = null;
+            showList = true;
+            Watcher.Focus(null);
+        }
+    }
+
+    // The limit message's way to the open requests (FR-005).
+    private void ShowOpenRequests()
+    {
+        listFilter = "open";
+        ShowList();
+    }
     private bool creating;
+    private bool limitReached;
     private RequestKeypad? keypad;
     private PaymentRequest? activeRequest;
 
@@ -274,6 +365,7 @@
         if (creating) return;
         creating = true;
         limitMessage = null;
+        limitReached = false;
         PaymentRequest req;
         try
         {
@@ -295,6 +387,7 @@
         {
             // FR-005: how many addresses are waiting, and how many of them are open requests. Cancelling frees none.
             limitMessage = L.T("request.limit_reached", WalletService.ReceiveGapLimit, requests.Count(RequestWatcher.IsOpen));
+            limitReached = true;
             return;
         }
         catch (ReceiveAddressException ex)
@@ -460,6 +553,7 @@
 
     private void ShowRequest(PaymentRequest req)
     {
+        confirming = null;
         activeRequest = req;
         if (req.ExpiresAt is not null) StartCountdown();
         Watcher.Focus(req.Tracked ? req.Id : null);

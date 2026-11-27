@@ -207,6 +207,34 @@ public class PaymentRequestService
         Changed?.Invoke(walletId);
     }
 
+    /// <summary>
+    /// The person no longer wants the request paid (FR-025). Only an open request can be cancelled: one that is
+    /// waiting, has money arriving, or is partly paid. Its address stays watched, so money sent later still reaches the
+    /// wallet and shows on the request as arriving after cancelling (FR-002, FR-020). Cancelling does not free the
+    /// address: spec 027's count of unused addresses is unchanged (FR-005).
+    /// </summary>
+    public async Task CancelAsync(string walletId, string requestId)
+    {
+        if (await MutateAsync(walletId, requestId, r =>
+            {
+                if (r.CancelledAt is not null
+                    || r.Status is not (PaymentRequestStatus.Waiting or PaymentRequestStatus.PaymentArriving or PaymentRequestStatus.PartlyPaid))
+                    return;
+                r.CancelledAt = DateTime.UtcNow;
+                r.Status = PaymentRequestStatus.Cancelled;
+            }))
+            Changed?.Invoke(walletId);
+    }
+
+    /// <summary>
+    /// Takes the request off the list (FR-026). The balance and Activity are untouched: its address stays watched by
+    /// the wallet, and its label stays on the address, so payments keep showing it.
+    /// </summary>
+    public async Task RemoveAsync(string walletId, string requestId)
+    {
+        if (await RemoveFromListAsync(walletId, requestId)) Changed?.Invoke(walletId);
+    }
+
     /// <summary>The person opened the request; it no longer counts on the Request tab (FR-014a).</summary>
     public async Task MarkOpenedAsync(string walletId, string requestId)
     {

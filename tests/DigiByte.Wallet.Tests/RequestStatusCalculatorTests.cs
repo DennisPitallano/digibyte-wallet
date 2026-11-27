@@ -292,4 +292,34 @@ public class RequestStatusCalculatorTests
 
         Assert.Equal(PaymentRequestStatus.Waiting, check.Status);
     }
+
+    // ── Cancelled (T055, FR-020) ──
+
+    [Fact]
+    public void ACancelledRequest_ThatLaterReceivesMoney_ShowsItLate_AndReachesPaid()
+    {
+        var r = Request();
+        r.CancelledAt = T0.AddMinutes(2);
+
+        var partial = RequestStatusCalculator.Compute(r, [Tx("a", 40_000_000, 1)], T0.AddMinutes(5));
+        Assert.Equal(PaymentRequestStatus.Cancelled, partial.Status);
+        Assert.True(Assert.Single(partial.Payments).Late);
+        r.Payments = partial.Payments.ToList();
+
+        var full = RequestStatusCalculator.Compute(r, [Tx("a", 40_000_000, 1), Tx("b", 60_000_000, 1)], T0.AddMinutes(9));
+        Assert.Equal(PaymentRequestStatus.Paid, full.Status);
+        Assert.All(full.Payments, p => Assert.True(p.Late));
+    }
+
+    [Fact]
+    public void ACancelledRequest_WithNothingReceived_IsCancelled_AndPendingShowsAsANote()
+    {
+        var r = Request();
+        r.CancelledAt = T0;
+
+        Assert.Equal(PaymentRequestStatus.Cancelled, RequestStatusCalculator.Compute(r, [], T0.AddMinutes(1)).Status);
+        var pending = RequestStatusCalculator.Compute(r, [Tx("a", Coin, 0)], T0.AddMinutes(1));
+        Assert.Equal(PaymentRequestStatus.Cancelled, pending.Status);
+        Assert.Equal(Coin, pending.ArrivingSatoshis);
+    }
 }

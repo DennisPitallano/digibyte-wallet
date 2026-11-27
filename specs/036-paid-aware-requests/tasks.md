@@ -300,13 +300,13 @@
 
 **Independent Test**: quickstart scenario 12, and US5 acceptance scenarios 1 to 4.
 
-- [ ] T055 [P] [US5] Add tests to `PaymentRequestServiceTests.cs`:
+- [X] T055 [P] [US5] Add tests to `PaymentRequestServiceTests.cs`:
   - `CancelAsync` sets `CancelledAt`.
   - `RemoveAsync` removes the request from the list but leaves its address label, and the address stays in `ReceiveScanSet.Indexes` after a reload (FR-002, FR-026, SC-005).
   - Cancelling a request does not change `CanHandOutNew` (FR-005).
   - Add a test to `RequestStatusCalculatorTests.cs`: a cancelled request that later receives money shows the late payment and reaches Paid when the total is met (FR-020).
-- [ ] T056 [US5] Implement `CancelAsync` and `RemoveAsync` in `src/DigiByte.Wallet/Services/PaymentRequestService.cs`. Makes T055 pass.
-- [ ] T057 [US5] In `src/DigiByte.Web/Pages/Payments.razor`:
+- [X] T056 [US5] Implement `CancelAsync` and `RemoveAsync` in `src/DigiByte.Wallet/Services/PaymentRequestService.cs`. Makes T055 pass.
+- [X] T057 [US5] In `src/DigiByte.Web/Pages/Payments.razor`:
   - Filter chips (data-model "Filters"): Open = Waiting, PaymentArriving, PartlyPaid; Paid = Paid, Overpaid; Expired = Expired, PartlyPaidExpired, Cancelled; All includes NotTracked.
   - Cancel with confirmation; a cancelled request hides its QR code and links (FR-025).
   - Remove with confirmation, using `request.remove_confirm`.
