@@ -164,7 +164,7 @@
 
 **Independent Test**: quickstart scenarios 2, 8, 9 and 10.
 
-- [ ] T023 [P] [US2] Add the translation keys to `en.json` and `es.json`:
+- [X] T023 [P] [US2] Add the translation keys to `en.json` and `es.json`:
   - `request.arriving_title`.
   - `request.paid_title`, `request.paid_done`, `request.paid_toast` ("{0} paid · {1} DGB").
   - `request.paid_away.one`, `request.paid_away.other` ("{0} requests paid since you were last here").
@@ -172,7 +172,7 @@
   - `request.lock_notice`.
   - `settings.request_notify_details`, `settings.request_notify_details_hint`.
   - `nav.request.count` (aria).
-- [ ] T024 [P] [US2] Write `tests/DigiByte.Wallet.Tests/RequestAnnouncementRuleTests.cs` for a pure `RequestAnnouncementRule.Decide(request, ViewState { RequestOnScreen, Visible, Locked }, firstCheckSinceStart)` returning `Overlay`, `Toast`, `SystemNotification`, `LockedNotification`, `LockNotice`, `AwaySummary` or `None`. Cases:
+- [X] T024 [P] [US2] Write `tests/DigiByte.Wallet.Tests/RequestAnnouncementRuleTests.cs` for a pure `RequestAnnouncementRule.Decide(request, ViewState { RequestOnScreen, Visible, Locked }, firstCheckSinceStart)` returning `Overlay`, `Toast`, `SystemNotification`, `LockedNotification`, `LockNotice`, `AwaySummary` or `None`. Cases:
   - `PaidAnnouncedAt` already set → None; not Paid or Overpaid → None.
   - Request on screen and unlocked → Overlay.
   - Visible on another screen and unlocked → Toast.
@@ -184,33 +184,33 @@
   - Precedence: locked beats everything (LockedNotification or LockNotice); then AwaySummary; then Overlay, Toast, SystemNotification.
   - Sequence cases: first check while locked and visible → LockNotice, not announced; then unlock → AwaySummary, which sets `PaidAnnouncedAt`. Locked and hidden → LockedNotification once; the next checks while still locked → LockNotice; then unlock → AwaySummary.
   - Every combination returns exactly one value.
-- [ ] T025 [US2] Implement `src/DigiByte.Wallet/Services/RequestAnnouncementRule.cs`. Makes T024 pass.
-- [ ] T026 [US2] Extend `src/DigiByte.Web/Services/RequestWatcher.cs` with the events `PaymentArriving`, `RequestPaid` and `PaidWhileAway`, and `PaidUnopened` (contracts/request-watcher.md).
+- [X] T025 [US2] Implement `src/DigiByte.Wallet/Services/RequestAnnouncementRule.cs`. Makes T024 pass.
+- [X] T026 [US2] Extend `src/DigiByte.Web/Services/RequestWatcher.cs` with the events `PaymentArriving`, `RequestPaid` and `PaidWhileAway`, and `PaidUnopened` (contracts/request-watcher.md).
   - `RequestPaid` fires once per request: set `PaidAnnouncedAt` in the same save as the status.
   - The first completed check after an app start, an unlock or a wallet switch collects requests that became Paid or Overpaid without an announcement into one `PaidWhileAway(count)`, and does not raise `RequestPaid` for them (FR-014a).
   - Each paid request is announced in exactly one of the ways in contracts/request-watcher.md, chosen by `RequestAnnouncementRule.Decide` (T025); the watcher has no routing logic of its own.
   - Just before announcing, re-read the request from storage and do nothing if `PaidAnnouncedAt` is already set, or, for a `LockedNotification`, if `LockNotifiedAt` is already set (another tab got there first). Set the field in the same save as the status, before raising the event.
-- [ ] T027 [P] [US2] Create `src/DigiByte.Web/Components/Shared/RequestPaidOverlay.razor` on the `modal-overlay` + `celebrate-card` pattern (see `FirstReceiveCelebration.razor`).
+- [X] T027 [P] [US2] Create `src/DigiByte.Web/Components/Shared/RequestPaidOverlay.razor` on the `modal-overlay` + `celebrate-card` pattern (see `FirstReceiveCelebration.razor`).
   - Shows the amount received and the label, and calls `domHelpers.haptic` (pattern `[15,40,25]`).
   - Closes only when the person taps Done, never on a timer (FR-011).
   - Respects hide-amounts mode like `FirstReceiveCelebration`.
-- [ ] T028 [US2] In `src/DigiByte.Web/Pages/Payments.razor`:
+- [X] T028 [US2] In `src/DigiByte.Web/Pages/Payments.razor`:
   - Show "Payment arriving" on `PaymentArriving` for the request on screen, with no vibration.
   - Show `RequestPaidOverlay` on `RequestPaid` for the request on screen.
   - Partial payments only update the pill (FR-015).
-- [ ] T029 [P] [US2] Add an optional tap action to `src/DigiByte.Web/Services/NotificationService.cs` (`Show(..., Action? onTap = null)`) and handle it in `src/DigiByte.Web/Components/Shared/ToastContainer.razor`. Existing callers are unchanged.
-- [ ] T030 [P] [US2] Create `src/DigiByte.Web/wwwroot/js/request-notify.js` with `permission()`, `ask()` and `show(title, body)`. It uses `navigator.serviceWorker.ready` → `registration.showNotification` when available, else `new Notification`, and does nothing where unsupported. No push subscription. Reference it in `src/DigiByte.Web/wwwroot/index.html` the way `dom-helpers.js` is.
-- [ ] T031 [US2] Create `src/DigiByte.Web/Services/RequestAnnouncer.cs` (app-wide). It subscribes to `RequestWatcher` and acts on the way `RequestAnnouncementRule.Decide` chose, with no routing logic of its own. The toast and the system notification follow hide-amounts mode, as the overlay does.
+- [X] T029 [P] [US2] Add an optional tap action to `src/DigiByte.Web/Services/NotificationService.cs` (`Show(..., Action? onTap = null)`) and handle it in `src/DigiByte.Web/Components/Shared/ToastContainer.razor`. Existing callers are unchanged.
+- [X] T030 [P] [US2] Create `src/DigiByte.Web/wwwroot/js/request-notify.js` with `permission()`, `ask()` and `show(title, body)`. It uses `navigator.serviceWorker.ready` → `registration.showNotification` when available, else `new Notification`, and does nothing where unsupported. No push subscription. Reference it in `src/DigiByte.Web/wwwroot/index.html` the way `dom-helpers.js` is.
+- [X] T031 [US2] Create `src/DigiByte.Web/Services/RequestAnnouncer.cs` (app-wide). It subscribes to `RequestWatcher` and acts on the way `RequestAnnouncementRule.Decide` chose, with no routing logic of its own. The toast and the system notification follow hide-amounts mode, as the overlay does.
   - The request is on screen and unlocked → leave it to the page.
   - Another wallet screen is visible and unlocked → a toast with a tap action that opens the request (FR-012).
   - The wallet is hidden (unlocked → SystemNotification; locked → LockedNotification, which also sets `LockNotifiedAt` and leaves `PaidAnnouncedAt` null) → `request-notify.show` with `body_plain`, or `body_details` (label and amount, never the address) when localStorage `dgb-request-notify-details` is `"true"` (FR-013).
   - The lock screen is showing → leave it to Unlock; do not set `PaidAnnouncedAt`, so the summary still appears after unlocking (FR-014a).
   - `PaidWhileAway` → one sticky toast that opens the list.
   - Ask for notification permission once, after the first request is created, and set `dgb-request-notify-asked`.
-- [ ] T032 [P] [US2] Add the "Show amount and label in notifications" switch to `src/DigiByte.Web/Pages/Settings.razor`, stored in localStorage as `dgb-request-notify-details` (default off).
-- [ ] T033 [P] [US2] In `src/DigiByte.Web/Pages/Unlock.razor`, add a "Request paid" notice card using the existing notice-card pattern (lines 56-73), fed by `RequestWatcher.PaidUnopened` (requests that are Paid or Overpaid and not yet opened since, whether announced or not). Show details only when the setting is on. Never show the full-screen card here (FR-014b).
-- [ ] T034 [P] [US2] Create `src/DigiByte.Web/Services/RequestAttentionState.cs` (a count with a `Changed` event, like `MultisigAttentionState`). Show its count on the personal Request tab in `src/DigiByte.Web/Layout/NavMenu.razor` with `nav-badge-count` and `CountBadge.Text`, and include the count in the tab's aria label.
-- [ ] T035 [US2] Add `Payments.razor`, `Unlock.razor`, `RequestPaidOverlay.razor` and `Settings.razor` to `LocaleFilesTests.InScopeFiles` in `tests/DigiByte.Wallet.Tests/LocaleFilesTests.cs`, if they aren't there, and make the locale tests pass.
+- [X] T032 [P] [US2] Add the "Show amount and label in notifications" switch to `src/DigiByte.Web/Pages/Settings.razor`, stored in localStorage as `dgb-request-notify-details` (default off).
+- [X] T033 [P] [US2] In `src/DigiByte.Web/Pages/Unlock.razor`, add a "Request paid" notice card using the existing notice-card pattern (lines 56-73), fed by `RequestWatcher.PaidUnopened` (requests that are Paid or Overpaid and not yet opened since, whether announced or not). Show details only when the setting is on. Never show the full-screen card here (FR-014b).
+- [X] T034 [P] [US2] Create `src/DigiByte.Web/Services/RequestAttentionState.cs` (a count with a `Changed` event, like `MultisigAttentionState`). Show its count on the personal Request tab in `src/DigiByte.Web/Layout/NavMenu.razor` with `nav-badge-count` and `CountBadge.Text`, and include the count in the tab's aria label.
+- [X] T035 [US2] Add `Payments.razor`, `Unlock.razor`, `RequestPaidOverlay.razor` and `Settings.razor` to `LocaleFilesTests.InScopeFiles` in `tests/DigiByte.Wallet.Tests/LocaleFilesTests.cs`, if they aren't there, and make the locale tests pass.
 - [ ] T036 [US2] Run quickstart scenarios 2, 8, 9 and 10, and record the results.
 
 **Checkpoint**: US1 and US2 work. Paying a request shows up right away, wherever the person is.

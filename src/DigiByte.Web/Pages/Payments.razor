@@ -8,6 +8,7 @@
 @inject LocalizationService L
 @inject NavigationManager Nav
 @inject RequestWatcher Watcher
+@inject RequestAnnouncer Announcer
 @implements IDisposable
 @using DigiByte.Wallet.Services
 
@@ -69,6 +70,15 @@
                     <p class="text-sm text-slate-500 dark:text-slate-400">@activeRequest.Label</p>
                 }
                 <RequestStatusPill Request="activeRequest" />
+                @if (arrivingId == activeRequest.Id && activeRequest.Status is not (PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid))
+                {
+                    @* FR-010: shown on screen only, clearly not final, with no vibration and no notification. *@
+                    <div class="w-full rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-center"
+                         role="status" aria-live="polite" data-testid="request-arriving">
+                        <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">@L.T("request.arriving_title")</p>
+                        <p class="text-xs text-amber-700/80 dark:text-amber-300/80">@L.T("request.arriving_hint")</p>
+                    </div>
+                }
                 @if (activeRequest.Tracked && activeRequest.Payments.Count > 0)
                 {
                     <p class="text-sm text-slate-600 dark:text-slate-300 tabular-nums" data-testid="request-received">@ReceivedText(activeRequest)</p>
@@ -129,6 +139,8 @@
             <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="CloseRequest">@L.T("more.close")</button>
         </div>
     }
+
+    <RequestPaidOverlay Request="paidOverlay" OnDone="ClosePaidOverlay" />
 
     @* Request History *@
     @if (requests.Count == 0 && activeRequest == null)
@@ -192,6 +204,9 @@
 @code {
     [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
+    /// <summary>A request to open straight away, from a "… paid" message's tap (spec 036, FR-012).</summary>
+    [SupplyParameterFromQuery(Name = "request")] public string? RequestId { get; set; }
+
     private string MerchantDashboardUrl => Config["MerchantDashboardUrl"] ?? "https://pay.dgbwallet.app";
 
     private IReadOnlyList<PaymentRequest> requests = [];
@@ -211,7 +226,14 @@
         if (!WalletService.IsUnlocked) return;
         AppState.ResetLockTimer();
         Watcher.Changed += OnWatcherChanged;
+        Watcher.PaymentArriving += OnPaymentArriving;
+        Watcher.RequestPaid += OnRequestPaid;
         requests = await PaymentService.GetAllAsync(WalletId, await WalletAddressesAsync());
+        if (RequestId is { Length: > 0 } wanted && requests.FirstOrDefault(r => r.Id == wanted) is { } named)
+        {
+            ShowRequest(named);
+            return;
+        }
         // With nothing to list, the menu's Request tab opens straight onto the form.
         if (requests.Count == 0) ShowCreateForm();
     }
@@ -246,6 +268,7 @@
         showCreate = false;
         requests = await PaymentService.GetAllAsync(WalletId);
         ShowRequest(req);
+        _ = Announcer.AfterRequestCreatedAsync();
     }
 
     // A private-key wallet has one address, so every request shares it (FR-006).
@@ -264,6 +287,31 @@
         if (p.Late) note += " · " + L.T(activeRequest?.CancelledAt is not null ? "request.after_cancel_note" : "request.late_note");
         return note;
     }
+
+    private string? arrivingId;
+    private PaymentRequest? paidOverlay;
+
+    // FR-010: the money seen first reached the amount asked, unconfirmed.
+    private void OnPaymentArriving(PaymentRequest r)
+    {
+        if (activeRequest?.Id != r.Id) return;
+        arrivingId = r.Id;
+        activeRequest = r;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    // FR-011: the request on screen is paid. Other ways (toast, notification, lock screen) are the announcer's.
+    private void OnRequestPaid(PaymentRequest r, RequestAnnouncement way)
+    {
+        if (way != RequestAnnouncement.Overlay || activeRequest?.Id != r.Id) return;
+        arrivingId = null;
+        activeRequest = r;
+        paidOverlay = r;
+        _ = PaymentService.MarkOpenedAsync(WalletId, r.Id);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void ClosePaidOverlay() => paidOverlay = null;
 
     private void CloseRequest()
     {
@@ -290,6 +338,8 @@
     public void Dispose()
     {
         Watcher.Changed -= OnWatcherChanged;
+        Watcher.PaymentArriving -= OnPaymentArriving;
+        Watcher.RequestPaid -= OnRequestPaid;
         Watcher.Focus(null);
     }
 

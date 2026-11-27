@@ -12,6 +12,7 @@
 @inject ProposalHandoff Handoff
 @inject PaymentHandoff PayHandoff
 @inject MultisigAttentionState Attention
+@inject RequestAttentionState RequestAttention
 @implements IDisposable
 
 @* The floating menu (variant C in docs/UI_STYLE.md): Wallet, Activity, a raised Scan button, Request, More.
@@ -84,8 +85,16 @@
     }
     else
     {
-        <a class="nav-float-tab" href="payments" aria-label="@T("nav.request.aria", "Request a payment")" aria-current="@Current(RequestIndex)">
-            <span class="nav-float-icon">@Icon("pay", ActiveIndex == RequestIndex)</span>
+        var paidUnopened = RequestAttention.Count;
+        <a class="nav-float-tab" href="payments" aria-label="@RequestLabel(paidUnopened)" aria-current="@Current(RequestIndex)">
+            <span class="nav-float-icon">
+                @Icon("pay", ActiveIndex == RequestIndex)
+                @if (paidUnopened > 0)
+                {
+                    @* Paid requests not opened yet (spec 036, FR-014a). *@
+                    <span class="nav-badge-count" aria-hidden="true" data-testid="nav-request-count">@CountBadge.Text(paidUnopened)</span>
+                }
+            </span>
             <span>@T("nav.request", "Request")</span>
         </a>
     }
@@ -227,6 +236,16 @@
         }
     }
 
+    private string RequestLabel(int paidUnopened)
+    {
+        var label = T("nav.request.aria", "Request a payment");
+        if (paidUnopened <= 0) return label;
+        var count = paidUnopened == 1
+            ? T("nav.request.count.one", "1 paid request to look at")
+            : string.Format(T("nav.request.count.other", "{0} paid requests to look at"), CountBadge.Text(paidUnopened));
+        return $"{label}. {count}";
+    }
+
     private string PendingLabel(int needsYou)
     {
         var label = T("nav.pending.aria", "Pending payments of this shared wallet");
@@ -307,6 +326,7 @@
         Nav.LocationChanged += OnLocationChanged;
         FirstReceive.Changed += OnFirstReceiveChanged;
         Attention.Changed += OnAttentionChanged;
+        RequestAttention.Changed += OnAttentionChanged;
         Shell.SwitcherRequested += OnSwitcherRequested;
         lastWalletId = ActiveWallet.WalletId;
         ReadPointerNow();
@@ -578,6 +598,7 @@
         Nav.LocationChanged -= OnLocationChanged;
         FirstReceive.Changed -= OnFirstReceiveChanged;
         Attention.Changed -= OnAttentionChanged;
+        RequestAttention.Changed -= OnAttentionChanged;
         Shell.SwitcherRequested -= OnSwitcherRequested;
         FirstReceive.ShellDialogOpen = false;
     }

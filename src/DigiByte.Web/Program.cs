@@ -99,6 +99,8 @@ builder.Services.AddScoped<DigiByte.Wallet.Services.Export.TransactionExportServ
 builder.Services.AddScoped<IRequestAddressSource>(sp => sp.GetRequiredService<WalletService>());
 builder.Services.AddScoped<PaymentRequestService>();
 builder.Services.AddScoped<RequestWatcher>();
+builder.Services.AddScoped<RequestAnnouncer>();
+builder.Services.AddScoped<RequestAttentionState>();
 // Multisig follows the network chosen in Settings (mainnet / testnet / regtest), like the rest of the wallet.
 builder.Services.AddScoped<MultisigWalletService>(sp =>
 {
@@ -380,6 +382,7 @@ if (spvGatewayOn)
     host.Services.GetRequiredKeyedService<NodeSourceMonitorLoop>("gateway").Start();
 
 // Watch payment requests for the whole app, from load, so a request paid while locked is noticed (spec 036).
+host.Services.GetRequiredService<RequestAnnouncer>().Start();
 await host.Services.GetRequiredService<RequestWatcher>().StartAsync();
 
 await host.RunAsync();

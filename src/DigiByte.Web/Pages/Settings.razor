@@ -471,6 +471,28 @@
             </button>
         </div>
 
+        @* Payment requests: the amount and label in "request paid" notifications. Off unless turned on here; the
+           address is never shown (spec 036, FR-013). *@
+        <div class="card slide-up flex items-center justify-between p-4 card-hover">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                    </svg>
+                </div>
+                <div>
+                    <p id="request-notify-label" class="text-sm font-semibold text-slate-900 dark:text-white">@L.T("settings.request_notify_details")</p>
+                    <p id="request-notify-hint" class="text-xs text-slate-500 dark:text-slate-400">@L.T("settings.request_notify_details_hint")</p>
+                </div>
+            </div>
+            <button type="button" role="switch" aria-checked="@(requestNotifyDetails ? "true" : "false")" aria-labelledby="request-notify-label" aria-describedby="request-notify-hint"
+                    data-testid="request-notify-details-switch"
+                    class="relative shrink-0 w-12 h-7 rounded-full transition-colors duration-200 @(requestNotifyDetails ? "bg-dgb-500" : "bg-slate-300 dark:bg-dgb-700")"
+                    @onclick="ToggleRequestNotifyDetailsAsync">
+                <span class="absolute top-1 left-1 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200 @(requestNotifyDetails ? "translate-x-5" : "translate-x-0")"></span>
+            </button>
+        </div>
+
         @if (installMode != InstallMode.Hidden)
         {
             <h3 class="section-label px-1 mt-4">@L.T("settings.section.app")</h3>
@@ -906,9 +928,19 @@
         try { await Theme.InitializeAsync(); } catch { }
         try { walletCount = (await WalletService.GetAllWalletsAsync()).Count; } catch { walletCount = 1; }
         soundsOn = await Sounds.IsEnabledAsync();
+        try { requestNotifyDetails = await JS.InvokeAsync<string?>("localStorage.getItem", RequestAnnouncer.DetailsKey) == "true"; }
+        catch { requestNotifyDetails = false; }
     }
 
     private bool soundsOn;
+    private bool requestNotifyDetails;
+
+    private async Task ToggleRequestNotifyDetailsAsync()
+    {
+        requestNotifyDetails = !requestNotifyDetails;
+        try { await JS.InvokeVoidAsync("localStorage.setItem", RequestAnnouncer.DetailsKey, requestNotifyDetails ? "true" : "false"); }
+        catch { /* not saved: the switch shows the change for this visit only */ }
+    }
 
     private async Task ToggleSoundsAsync()
     {

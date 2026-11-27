@@ -29,7 +29,7 @@ public class LocaleParityTests
     ];
 
     // Words that are the same in both languages on purpose.
-    private static readonly HashSet<string> SameInBoth = ["credential.word_pin", "more.item.identity.label"];
+    private static readonly HashSet<string> SameInBoth = ["credential.word_pin", "more.item.identity.label", "request.notify.title"];
 
     private static string LocalesDirectory()
     {

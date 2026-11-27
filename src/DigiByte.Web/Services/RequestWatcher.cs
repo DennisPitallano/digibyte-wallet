@@ -30,7 +30,11 @@ public sealed class RequestWatcher : IAsyncDisposable
     private readonly WalletService _wallet;
     private readonly IBlockchainService _chain;
     private readonly IJSRuntime _js;
+    private readonly AppState _app;
     private readonly SemaphoreSlim _checking = new(1, 1);
+    private IReadOnlyList<PaymentRequest> _last = [];
+    private bool _firstCheckSinceStart = true;
+    private bool _wasUnlocked;
     private readonly HashSet<string> _pendingAddresses = new(StringComparer.Ordinal);
 
     private Timer? _timer;
@@ -41,13 +45,30 @@ public sealed class RequestWatcher : IAsyncDisposable
     private TimeSpan _backoff = TimeSpan.Zero;
     private DateTime _retryAfter = DateTime.MinValue;
 
-    public RequestWatcher(PaymentRequestService requests, WalletService wallet, IBlockchainService chain, IJSRuntime js)
+    public RequestWatcher(PaymentRequestService requests, WalletService wallet, IBlockchainService chain, IJSRuntime js, AppState app)
     {
         _requests = requests;
         _wallet = wallet;
         _chain = chain;
         _js = js;
+        _app = app;
         _wallet.TransactionsChanged += OnTransactionsChanged;
+        _requests.Changed += OnRequestsSaved;
+    }
+
+    // Any saved change (a check, an open, a new request) keeps the paid-unopened list and its readers in step.
+    private async void OnRequestsSaved(string walletId)
+    {
+        if (walletId != _walletId) return;
+        try
+        {
+            _last = await _requests.GetAllAsync(walletId);
+            Changed?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Requests] Could not reload requests: {ex.GetType().Name}");
+        }
     }
 
     /// <summary>Statuses or the watched wallet changed: lists, the tab count and the lock screen re-render.</summary>
@@ -55,6 +76,31 @@ public sealed class RequestWatcher : IAsyncDisposable
 
     /// <summary>The wallet whose requests are watched; null until one is known.</summary>
     public string? WalletId => _walletId;
+
+    /// <summary>
+    /// The money seen at the request on screen first reached the amount asked, unconfirmed (FR-010): show
+    /// "Payment arriving", without vibrating or notifying.
+    /// </summary>
+    public event Action<PaymentRequest>? PaymentArriving;
+
+    /// <summary>
+    /// A request was found paid and is to be announced the way given (spec 036, contracts/request-watcher.md). Raised
+    /// once per request for the unlocked ways, after <see cref="PaymentRequest.PaidAnnouncedAt"/> is saved; for
+    /// <see cref="RequestAnnouncement.LockedNotification"/>, once, after <see cref="PaymentRequest.LockNotifiedAt"/>
+    /// is saved. Never raised for the lock-screen notice, which reads <see cref="PaidUnopened"/>.
+    /// </summary>
+    public event Action<PaymentRequest, RequestAnnouncement>? RequestPaid;
+
+    /// <summary>The first check after an app start, unlock or wallet switch found this many requests paid meanwhile (FR-014a).</summary>
+    public event Action<int>? PaidWhileAway;
+
+    /// <summary>
+    /// Requests paid or overpaid that the person has not opened since, announced or not: the Request tab count and the
+    /// lock-screen notice (FR-014a, FR-014b).
+    /// </summary>
+    public IReadOnlyList<PaymentRequest> PaidUnopened => _last
+        .Where(r => r.Tracked && r.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid && !r.OpenedSincePaid)
+        .ToList();
 
     /// <summary>
     /// Starts watching, at app load: for the wallet last watched on this device until a wallet is unlocked, so a request
@@ -89,6 +135,14 @@ public sealed class RequestWatcher : IAsyncDisposable
         try
         {
             SyncWallet();
+            var unlocked = _app.IsWalletUnlocked;
+            if (unlocked && !_wasUnlocked)
+            {
+                // Just unlocked: the next check gives the "paid since you were last here" summary (FR-014a).
+                _firstCheckSinceStart = true;
+                _lastSweep = DateTime.MinValue;
+            }
+            _wasUnlocked = unlocked;
             if (_walletId is null) return;
             var now = DateTime.UtcNow;
             if (now < _retryAfter) return;
@@ -113,6 +167,7 @@ public sealed class RequestWatcher : IAsyncDisposable
         if (active is null || active == _walletId) return;
         _walletId = active;
         _lastSweep = DateTime.MinValue;
+        _firstCheckSinceStart = true;
         _ = RememberWalletAsync(active);
         Changed?.Invoke();
     }
@@ -129,7 +184,7 @@ public sealed class RequestWatcher : IAsyncDisposable
         _lastFocusCheck = DateTime.UtcNow;
         var request = (await _requests.GetAllAsync(walletId)).FirstOrDefault(r => r.Id == id);
         if (request is null) return;
-        if (await CheckAsync(walletId, [request])) Changed?.Invoke();
+        if (await CheckAsync(walletId, [request], sweep: false)) Changed?.Invoke();
     }
 
     private async Task SweepAsync()
@@ -138,6 +193,7 @@ public sealed class RequestWatcher : IAsyncDisposable
         _lastSweep = DateTime.UtcNow;
         var now = DateTime.UtcNow;
         var all = await _requests.GetAllAsync(walletId);
+        _last = all;
 
         string[] named;
         lock (_pendingAddresses)
@@ -145,20 +201,34 @@ public sealed class RequestWatcher : IAsyncDisposable
             named = [.. _pendingAddresses];
             _pendingAddresses.Clear();
         }
-        var toCheck = all.Where(r => r.Tracked && (IsLive(r, now) || named.Contains(r.Address))).ToList();
+        // Paid but not yet announced (seen while locked, say) stays in the sweep until it is, so the summary follows an unlock.
+        var toCheck = all.Where(r => r.Tracked && (IsLive(r, now) || named.Contains(r.Address) || IsPaidUnannounced(r))).ToList();
 
         _wallet.SetExtraHotAddresses(all.Where(IsOpen).Select(r => r.Address).ToArray());
-        if (toCheck.Count == 0) return;
-        if (await CheckAsync(walletId, toCheck)) Changed?.Invoke();
+        if (toCheck.Count == 0)
+        {
+            if (_app.IsWalletUnlocked) _firstCheckSinceStart = false;
+            return;
+        }
+        if (await CheckAsync(walletId, toCheck, sweep: true)) Changed?.Invoke();
     }
+
+    private static bool IsPaidUnannounced(PaymentRequest r) =>
+        r.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid && r.PaidAnnouncedAt is null;
 
     /// <summary>
     /// Checks the requests and stores what it finds. A failed lookup keeps the stored status and leaves
     /// <see cref="PaymentRequest.LastCheckedAt"/> alone, so the screen shows it as not up to date (SC-007).
     /// </summary>
-    private async Task<bool> CheckAsync(string walletId, IReadOnlyList<PaymentRequest> requests)
+    private async Task<bool> CheckAsync(string walletId, IReadOnlyList<PaymentRequest> requests, bool sweep)
     {
         await _checking.WaitAsync();
+        var announce = new List<(PaymentRequest Request, RequestAnnouncement Way)>();
+        var arriving = new List<PaymentRequest>();
+        var away = 0;
+        var completed = false;
+        var view = new RequestViewState(false, !await IsHiddenAsync(), !_app.IsWalletUnlocked);
+        var first = _firstCheckSinceStart;
         try
         {
             var changed = false;
@@ -178,15 +248,75 @@ public sealed class RequestWatcher : IAsyncDisposable
                 }
                 _backoff = TimeSpan.Zero;
 
-                var check = RequestStatusCalculator.Compute(request, txs, DateTime.UtcNow);
+                var now = DateTime.UtcNow;
+                var check = RequestStatusCalculator.Compute(request, txs, now);
                 if (check.Status != request.Status || !SamePayments(check.Payments, request.Payments)) changed = true;
-                await _requests.ApplyAsync(walletId, request.Id,
-                    new RequestUpdate(check.Status, check.Payments, DateTime.UtcNow, PaidAnnouncedAt: null, LockNotifiedAt: null));
+
+                // Decide on the request as it now stands; the rule is the only place that routes (T025).
+                var computed = Copy(request, check);
+                var way = RequestAnnouncementRule.Decide(computed, view with { RequestOnScreen = request.Id == _focusId }, first);
+                if (way != RequestAnnouncement.None)
+                {
+                    // Another tab may have announced it already: re-read storage first (spec 036 C2).
+                    var fresh = await _requests.ReadFreshAsync(walletId, request.Id);
+                    if ((RequestAnnouncementRule.MarksAnnounced(way) && fresh?.PaidAnnouncedAt is not null)
+                        || (way == RequestAnnouncement.LockedNotification && fresh?.LockNotifiedAt is not null))
+                        way = RequestAnnouncement.None;
+                }
+
+                await _requests.ApplyAsync(walletId, request.Id, new RequestUpdate(check.Status, check.Payments, now,
+                    PaidAnnouncedAt: RequestAnnouncementRule.MarksAnnounced(way) ? now : null,
+                    LockNotifiedAt: way == RequestAnnouncement.LockedNotification ? now : null));
+
+                if (check.BecameArriving && request.Id == _focusId) arriving.Add(computed);
+                if (way == RequestAnnouncement.AwaySummary) away++;
+                else if (way is not (RequestAnnouncement.None or RequestAnnouncement.LockNotice)) announce.Add((computed, way));
             }
-            return changed;
+            completed = true;
+            if (sweep) _last = await _requests.GetAllAsync(walletId);
+            return changed || announce.Count > 0 || away > 0;
         }
-        finally { _checking.Release(); }
+        finally
+        {
+            // The summary is due once per start, unlock or switch, and only a check made while unlocked uses it up.
+            if (completed && first && !view.Locked) _firstCheckSinceStart = false;
+            _checking.Release();
+            foreach (var r in arriving) Raise(() => PaymentArriving?.Invoke(r));
+            foreach (var (r, way) in announce) Raise(() => RequestPaid?.Invoke(r, way));
+            if (away > 0) Raise(() => PaidWhileAway?.Invoke(away));
+        }
     }
+
+    private static void Raise(Action raise)
+    {
+        try { raise(); }
+        catch (Exception ex) { Console.WriteLine($"[Requests] A request event handler failed: {ex.GetType().Name}"); }
+    }
+
+    // The request with this check's result, for deciding and for handlers; the stored copy is updated by ApplyAsync.
+    private static PaymentRequest Copy(PaymentRequest r, RequestCheck check) => new()
+    {
+        Id = r.Id,
+        Address = r.Address,
+        AddressIndex = r.AddressIndex,
+        Tracked = r.Tracked,
+        AmountDgb = r.AmountDgb,
+        FiatAmount = r.FiatAmount,
+        FiatCurrency = r.FiatCurrency,
+        FiatPrice = r.FiatPrice,
+        Label = r.Label,
+        Message = r.Message,
+        CreatedAt = r.CreatedAt,
+        ExpiresAt = r.ExpiresAt,
+        CancelledAt = r.CancelledAt,
+        RenewedFromId = r.RenewedFromId,
+        Payments = check.Payments.ToList(),
+        Status = check.Status,
+        PaidAnnouncedAt = r.PaidAnnouncedAt,
+        LockNotifiedAt = r.LockNotifiedAt,
+        OpenedSincePaid = r.OpenedSincePaid,
+        LastCheckedAt = r.LastCheckedAt,
+    };
 
     private static bool SamePayments(IReadOnlyList<RequestPayment> a, IReadOnlyList<RequestPayment> b) =>
         a.Count == b.Count && a.All(p => b.Any(q => q.TxId == p.TxId && q.Confirmed == p.Confirmed && q.AmountSatoshis == p.AmountSatoshis));
@@ -232,6 +362,7 @@ public sealed class RequestWatcher : IAsyncDisposable
     public ValueTask DisposeAsync()
     {
         _wallet.TransactionsChanged -= OnTransactionsChanged;
+        _requests.Changed -= OnRequestsSaved;
         _timer?.Dispose();
         _timer = null;
         return ValueTask.CompletedTask;
