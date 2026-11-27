@@ -7,6 +7,10 @@
 @inject IConfiguration Config
 @inject LocalizationService L
 @inject NavigationManager Nav
+@inject RequestWatcher Watcher
+@inject RequestAnnouncer Announcer
+@inject PriceQuoteService Prices
+@implements IDisposable
 @using DigiByte.Wallet.Services
 
 <PageTitle>@L.T("payments.page_title")</PageTitle>
@@ -14,57 +18,166 @@
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
         <h2 class="page-title">@L.T("request.title")</h2>
-        <button class="icon-btn icon-btn-primary"
-                aria-label="@L.T("payments.new")" @onclick="ShowCreateForm">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-        </button>
+        @if (!OnKeypad)
+        {
+            <button class="btn-secondary btn-sm" data-testid="request-back-to-keypad" @onclick="ShowKeypad">@L.T("request.keypad.back_to_keypad")</button>
+        }
     </div>
 
-    @* Create Payment Request *@
-    @if (showCreate)
+    @* The Request tab opens on the keypad (spec 036, US4, FR-022). *@
+    @if (OnKeypad)
     {
-        <div class="card scale-in p-4 flex flex-col gap-3">
-            <h3 class="block-title block-title-sm">@L.T("payments.new")</h3>
-            <div class="flex flex-col gap-1">
-                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("payments.amount_label")</label>
-                <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl">
-                    <input type="number" inputmode="decimal" @bind="createAmount" step="0.00000001" min="0" placeholder="0.00"
-                           class="flex-1 px-3 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white outline-none" />
-                    <span class="pr-3 text-sm font-bold text-dgb-500">DGB</span>
-                </div>
-            </div>
-            <input type="text" @bind="createLabel" placeholder="@L.T("payments.label_placeholder")"
-                   class="input" />
-            <input type="text" @bind="createMessage" placeholder="@L.T("payments.message_placeholder")"
-                   class="input" />
-            <div class="flex gap-2">
-                <button class="btn-secondary btn-sm flex-1"
-                        @onclick="() => showCreate = false">@L.T("common.cancel")</button>
-                <button class="btn-primary btn-sm flex-1"
-                        @onclick="CreateRequest">@L.T("payments.create")</button>
-            </div>
-        </div>
+        <RequestKeypad @ref="keypad" Quote="quote" FiatCurrency="@AppState.FiatCurrency" @bind-InFiat="inFiat"
+                       Busy="creating" Error="@limitMessage" OnRequest="CreateFromKeypad" OnShowList="ShowList" />
+        @if (limitReached)
+        {
+            <button type="button" class="btn-secondary btn-sm self-center" data-testid="request-limit-open-list" @onclick="ShowOpenRequests">@L.T("request.limit_open_list")</button>
+        }
     }
 
-    @* Active request detail *@
-    @if (activeRequest != null)
+    @* Active request detail: a receipt (spec 036). The paper carries the request; the actions sit below it. *@
+    @if (activeRequest is { } rq)
     {
-        @* Wide screens lead with the request and its buttons; the QR code follows, smaller (spec 030, FR-025). *@
-        <div class="card scale-in p-5 receive-main">
-            <div class="receive-main-details w-full flex flex-col items-center gap-4">
-                @if (activeRequest.AmountDgb.HasValue)
+        <div class="receipt-wrap" data-testid="request-receipt">
+            <article class="receipt" aria-label="@L.T("request.receipt.title")">
+                <header class="receipt-head">
+                    <div class="receipt-brand"><DigiLogo Size="18" /> @L.T("request.receipt.title")</div>
+                    <p class="receipt-meta">@L.T("request.receipt.ref") @ShortRef(rq) · @rq.CreatedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)</p>
+                </header>
+
+                <div class="receipt-amount">
+                    @if (rq.FiatAmount is { } fiatAsked && rq.FiatCurrency is { } fiatCode)
+                    {
+                        <p class="receipt-amount-main" data-testid="request-fiat">@Money(fiatAsked, fiatCode)</p>
+                        @if (rq.AmountDgb is { } dgbFixed)
+                        {
+                            <p class="receipt-amount-sub">@L.T("request.fiat_amount", Dgb(dgbFixed) + " DGB")</p>
+                        }
+                    }
+                    else if (rq.AmountDgb is { } dgbAsked)
+                    {
+                        <p class="receipt-amount-main">@Dgb(dgbAsked)<span class="receipt-amount-unit">DGB</span></p>
+                    }
+                    else
+                    {
+                        <p class="receipt-amount-main text-slate-400">@L.T("request.receipt.any")</p>
+                    }
+                    @* The stamp shows the status to the eye; the pill reads it out, with any arriving or stale note. *@
+                    <span class="receipt-stamp @StampClass(rq)" aria-hidden="true" data-testid="request-stamp">@StatusLabel(rq)</span>
+                    <div class="flex justify-center mt-2"><RequestStatusPill Request="rq" ShowStatus="false" /></div>
+                </div>
+
+                @if (arrivingId == rq.Id && rq.Status is not (PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid))
                 {
-                    <p class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">@activeRequest.AmountDgb.Value.ToString("N8") DGB</p>
+                    @* FR-010: shown on screen only, clearly not final, with no vibration and no notification. *@
+                    <div class="mt-3 rounded-lg bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-center"
+                         role="status" aria-live="polite" data-testid="request-arriving">
+                        <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">@L.T("request.arriving_title")</p>
+                        <p class="text-xs text-amber-700/80 dark:text-amber-300/80">@L.T("request.arriving_hint")</p>
+                    </div>
                 }
-                @if (!string.IsNullOrEmpty(activeRequest.Label))
+
+                @if (!string.IsNullOrEmpty(rq.Message))
                 {
-                    <p class="text-sm text-slate-500 dark:text-slate-400">@activeRequest.Label</p>
+                    <p class="receipt-note mt-3"><span class="sr-only">@L.T("request.message_label"): </span>“@rq.Message”</p>
                 }
-                <p class="font-mono text-xs text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 w-full border border-slate-100 dark:border-dgb-800">
-                    @activeRequest.ToUri()
-                </p>
+
+                <hr class="receipt-rule" />
+                <dl class="receipt-rows">
+                    @if (!string.IsNullOrEmpty(rq.Label))
+                    {
+                        <div class="receipt-row"><dt>@L.T("request.receipt.label")</dt><span class="receipt-dots"></span><dd>@rq.Label</dd></div>
+                    }
+                    <div class="receipt-row"><dt>@L.T("request.receipt.created")</dt><span class="receipt-dots"></span><dd>@rq.CreatedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)</dd></div>
+                    @if (rq.FiatPrice is { } price && rq.FiatCurrency is { } priceCode)
+                    {
+                        <div class="receipt-row" data-testid="request-price"><dt>@L.T("request.receipt.rate")</dt><span class="receipt-dots"></span><dd>@L.T("request.price_used", Money(price, priceCode, 6))</dd></div>
+                    }
+                    @if (rq.ExpiresAt is { } expires)
+                    {
+                        <div class="receipt-row"><dt>@L.T("request.receipt.expires")</dt><span class="receipt-dots"></span><dd>@expires.ToLocalTime().ToString("t", System.Globalization.CultureInfo.CurrentCulture)</dd></div>
+                    }
+                    @if (TimeLeft(rq) is { } left)
+                    {
+                        <div class="receipt-row"><dt></dt><span class="receipt-dots invisible"></span><dd class="font-bold text-dgb-600 dark:text-dgb-300" role="timer" data-testid="request-countdown">@L.T("request.time_left", left)</dd></div>
+                    }
+                    <div class="receipt-row"><dt>@L.T("request.receipt.to")</dt><span class="receipt-dots"></span><dd title="@rq.Address">@ShortAddress(rq.Address)</dd></div>
+                </dl>
+
+                @if (rq.Payments.Count > 0)
+                {
+                    <hr class="receipt-rule" />
+                    <dl class="receipt-rows" data-testid="request-payments">
+                        <div class="receipt-row"><dt>@L.T("request.payments_title")</dt></div>
+                        @foreach (var p in rq.Payments.OrderBy(p => p.FirstSeenAt))
+                        {
+                            <div class="receipt-row">
+                                <dt class="normal-case tracking-normal">@p.FirstSeenAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)</dt>
+                                <span class="receipt-dots"></span>
+                                <dd>@RequestStatusPill.Dgb(p.AmountSatoshis) DGB@(PaymentNote(p))</dd>
+                            </div>
+                        }
+                    </dl>
+                }
+
+                @if (rq.Tracked)
+                {
+                    <hr class="receipt-rule" />
+                    <dl class="receipt-rows" data-testid="request-received">
+                        @if (rq.AmountDgb is { } askedDgb)
+                        {
+                            <div class="receipt-row"><dt>@L.T("request.receipt.requested")</dt><span class="receipt-dots"></span><dd>@Dgb(askedDgb) DGB</dd></div>
+                        }
+                        <div class="receipt-row"><dt>@L.T("request.receipt.received")</dt><span class="receipt-dots"></span><dd>@RequestStatusPill.Dgb(ConfirmedSatoshis(rq)) DGB</dd></div>
+                        @if (Balance(rq) is { } balance)
+                        {
+                            <div class="receipt-row receipt-total"><dt>@L.T(balance.Owed ? "request.receipt.still_owed" : "request.receipt.extra")</dt><span class="receipt-dots"></span><dd>@RequestStatusPill.Dgb(balance.Satoshis) DGB</dd></div>
+                        }
+                    </dl>
+                }
+                else
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400 text-center mt-3">@L.T(IsSingleKey ? "request.single_key_hint" : "request.not_tracked_hint")</p>
+                }
+
+                @if (CanShare(rq))
+                {
+                    @* The stub: tear here, scan to pay. *@
+                    <div class="receipt-tear" aria-hidden="true"></div>
+                    <div class="receipt-stub">
+                        <div class="qr-frame">
+                            <img src="@activeQrUrl" alt="@L.T("payments.qr_alt")" class="w-44 h-44 rounded-lg" />
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="bg-white rounded-full p-1.5 shadow-md">
+                                    <DigiLogo Size="28" />
+                                </div>
+                            </div>
+                        </div>
+                        <p class="receipt-stub-caption">@L.T("request.receipt.scan")</p>
+                        <p class="receipt-uri">@rq.ToUri()</p>
+                        <div class="receipt-barcode" aria-hidden="true"></div>
+                    </div>
+                }
+                else if (rq.FiatAmount is not null)
+                {
+                    @* An expired price can't be handed out; renewing asks again at today's price, on a new address (FR-018). *@
+                    <div class="receipt-tear" aria-hidden="true"></div>
+                    <div class="flex flex-col gap-2">
+                        <button class="btn-primary btn-sm w-full" data-testid="request-renew" disabled="@(quote is null || renewing)"
+                                @onclick="RenewAsync">@L.T(rq.Status == PaymentRequestStatus.PartlyPaidExpired ? "request.renew_rest" : "request.renew")</button>
+                        @if (quote is null)
+                        {
+                            <p class="text-xs text-slate-500 dark:text-slate-400 text-center">@L.T("request.price_unavailable")</p>
+                        }
+                    </div>
+                }
+            </article>
+        </div>
+
+        @* What you can do with the receipt. *@
+        <div class="w-full max-w-[26rem] mx-auto flex flex-col gap-2" data-testid="request-actions">
+            @if (CanShare(rq))
+            {
                 @* The web payment link first: it works when clicked in a chat or an email (spec 030, FR-019). *@
                 <div class="flex flex-wrap gap-2 w-full">
                     <button class="btn-primary btn-sm flex-1" data-testid="payments-copy-pay-link"
@@ -72,31 +185,49 @@
                     <button class="btn-secondary btn-sm flex-1"
                             @onclick="ShareUri">@L.T("receive.share")</button>
                 </div>
-                <button class="btn-ghost btn-sm w-full"
-                        @onclick="CopyUri">@(copied ? L.T("receive.copied") : L.T("payments.copy_uri"))</button>
-                <button class="flex items-center justify-center gap-1.5 w-full py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-dgb-500 transition-colors"
-                        @onclick="DownloadQr">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                    @L.T("payments.download_qr")
-                </button>
-            </div>
-            <div class="receive-main-qr">
-                <div class="qr-frame">
-                    <img src="@activeQrUrl" alt="@L.T("payments.qr_alt")" class="w-44 h-44 rounded-lg" />
-                    <div class="absolute inset-0 flex items-center justify-center">
-                        <div class="bg-white rounded-full p-1.5 shadow-md">
-                            <DigiLogo Size="28" />
-                        </div>
+                <div class="flex gap-2">
+                    <button class="btn-ghost btn-sm flex-1"
+                            @onclick="CopyUri">@(copied ? L.T("receive.copied") : L.T("payments.copy_uri"))</button>
+                    <button class="btn-ghost btn-sm flex-1 inline-flex items-center justify-center gap-1.5" @onclick="DownloadQr">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        @L.T("payments.download_qr")
+                    </button>
+                </div>
+            }
+            @if (confirming is null)
+            {
+                <div class="flex gap-2">
+                    @if (CanCancel(rq))
+                    {
+                        <button type="button" class="btn-ghost btn-sm flex-1" data-testid="request-cancel" @onclick="@(() => confirming = "cancel")">@L.T("request.cancel")</button>
+                    }
+                    <button type="button" class="btn-ghost btn-sm flex-1" data-testid="request-remove" @onclick="@(() => confirming = "remove")">@L.T("request.remove")</button>
+                </div>
+            }
+            else
+            {
+                <div class="rounded-xl border border-slate-200 dark:border-dgb-800 p-3 flex flex-col gap-2" role="alertdialog" aria-live="polite" data-testid="request-confirm">
+                    <p class="text-sm text-slate-700 dark:text-slate-200">@L.T(confirming == "cancel" ? "request.cancel_confirm" : "request.remove_confirm")</p>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn-secondary btn-sm flex-1" data-testid="request-confirm-keep" @onclick="@(() => confirming = null)">@L.T("request.keep")</button>
+                        <button type="button" class="btn-primary btn-sm flex-1" data-testid="request-confirm-yes" @onclick="ConfirmAsync">@L.T(confirming == "cancel" ? "request.cancel_yes" : "request.remove_yes")</button>
                     </div>
                 </div>
-                <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
-            </div>
-            <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="() => activeRequest = null">@L.T("more.close")</button>
+            }
+            <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="CloseRequest">@L.T("more.close")</button>
         </div>
     }
 
+    <RequestPaidOverlay Request="paidOverlay" OnDone="ClosePaidOverlay" />
+
     @* Request History *@
-    @if (requests.Count == 0 && activeRequest == null)
+    @if (!showList || activeRequest != null)
+    {
+    }
+    else if (!loaded)
+    {
+    }
+    else if (requests.Count == 0)
     {
         <div class="scale-in-delay-1 bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200 dark:border-dgb-800 p-8 text-center card-hover">
             <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
@@ -108,10 +239,22 @@
             <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">@L.T("payments.empty_hint")</p>
         </div>
     }
-    else if (activeRequest == null)
+    else
     {
-        <div class="flex flex-col gap-1.5">
-            @foreach (var req in requests)
+        <div class="flex flex-wrap gap-2" role="group" aria-label="@L.T("request.filter.label")" data-testid="request-filters">
+            @foreach (var f in Filters)
+            {
+                var filter = f;
+                <button type="button" class="px-3 py-1.5 rounded-full text-xs font-semibold @(listFilter == filter ? "bg-dgb-500 text-white" : "bg-slate-100 text-slate-600 dark:bg-dgb-900 dark:text-slate-300")"
+                        aria-pressed="@(listFilter == filter ? "true" : "false")" data-filter="@filter" @onclick="() => listFilter = filter">@FilterLabel(filter)</button>
+            }
+        </div>
+        @if (!Filtered.Any())
+        {
+            <p class="text-sm text-slate-500 dark:text-slate-400 text-center py-6" data-testid="request-filter-empty">@L.T("request.filter.empty")</p>
+        }
+        <div class="flex flex-col gap-1.5" data-testid="request-list">
+            @foreach (var req in Filtered)
             {
                 var r = req;
                 <button class="card card-interactive slide-up flex items-center gap-3 p-3 text-left w-full"
@@ -128,6 +271,7 @@
                         <p class="text-xs text-slate-400 dark:text-slate-500">
                             @(r.AmountDgb.HasValue ? $"{r.AmountDgb.Value:N4} DGB" : L.T("payments.any_amount")) &middot; @r.CreatedAt.ToString(L.T("history.format.month_day"), System.Globalization.CultureInfo.CurrentCulture)
                         </p>
+                        <div class="mt-1"><RequestStatusPill Request="r" /></div>
                     </div>
                     <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -156,47 +300,353 @@
 @code {
     [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
 
+    /// <summary>A request to open straight away, from a "… paid" message's tap (spec 036, FR-012).</summary>
+    [SupplyParameterFromQuery(Name = "request")] public string? RequestId { get; set; }
+
     private string MerchantDashboardUrl => Config["MerchantDashboardUrl"] ?? "https://pay.dgbwallet.app";
 
-    private List<PaymentRequest> requests = [];
-    private bool showCreate;
-    private decimal? createAmount;
-    private string createLabel = "";
-    private string createMessage = "";
+    private IReadOnlyList<PaymentRequest> requests = [];
+    private string WalletId => WalletService.ActiveWallet?.Id ?? "";
+    private bool showList;
+    private bool loaded;
+    private string listFilter = "all";
+    private string? confirming;
+
+    private static readonly string[] Filters = ["open", "paid", "expired", "all"];
+
+    private string FilterLabel(string filter) => filter switch
+    {
+        "open" => L.T("request.filter.open"),
+        "paid" => L.T("request.filter.paid"),
+        "expired" => L.T("request.filter.expired"),
+        _ => L.T("request.filter.all"),
+    };
+
+    // data-model "Filters": Not tracked requests appear only under All.
+    private IEnumerable<PaymentRequest> Filtered => requests.Where(r => listFilter switch
+    {
+        "open" => r.Status is PaymentRequestStatus.Waiting or PaymentRequestStatus.PaymentArriving or PaymentRequestStatus.PartlyPaid,
+        "paid" => r.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid,
+        "expired" => r.Status is PaymentRequestStatus.Expired or PaymentRequestStatus.PartlyPaidExpired or PaymentRequestStatus.Cancelled,
+        _ => true,
+    });
+
+    // Only an open, tracked request can be cancelled (FR-025).
+    private static bool CanCancel(PaymentRequest r) =>
+        r.Tracked && r.Status is PaymentRequestStatus.Waiting or PaymentRequestStatus.PaymentArriving or PaymentRequestStatus.PartlyPaid;
+
+    private async Task ConfirmAsync()
+    {
+        if (activeRequest is not { } r || confirming is not { } what) return;
+        confirming = null;
+        if (what == "cancel")
+        {
+            await PaymentService.CancelAsync(WalletId, r.Id);
+            requests = await PaymentService.GetAllAsync(WalletId);
+            activeRequest = requests.FirstOrDefault(x => x.Id == r.Id);
+        }
+        else
+        {
+            await PaymentService.RemoveAsync(WalletId, r.Id);
+            requests = await PaymentService.GetAllAsync(WalletId);
+            activeRequest = null;
+            showList = true;
+            Watcher.Focus(null);
+        }
+    }
+
+    // The limit message's way to the open requests (FR-005).
+    private void ShowOpenRequests()
+    {
+        listFilter = "open";
+        ShowList();
+    }
+    private bool creating;
+    private bool limitReached;
+    private RequestKeypad? keypad;
     private PaymentRequest? activeRequest;
+
+    // The keypad is the first screen; the list and a request's detail replace it until "New request".
+    private bool OnKeypad => activeRequest is null && !showList;
     private string? activeQrUrl;
     private bool copied;
 
     protected override async Task OnInitializedAsync()
     {
+        // Opened while locked (a reload, a link): <AuthGuard> sends the person to unlock. Handing out an address now
+        // would throw and show the error page instead.
+        if (!WalletService.IsUnlocked) return;
         AppState.ResetLockTimer();
-        requests = await PaymentService.GetAllAsync();
-        // With nothing to list, the menu's Request tab opens straight onto the form.
-        if (requests.Count == 0) ShowCreateForm();
+        Watcher.Changed += OnWatcherChanged;
+        Watcher.PaymentArriving += OnPaymentArriving;
+        Watcher.RequestPaid += OnRequestPaid;
+        // The list first: it is on the device. The price can take a while (or never come), so it loads after,
+        // and the person's currency switch turns on when it arrives (FR-021).
+        requests = await PaymentService.GetAllAsync(WalletId, await WalletAddressesAsync());
+        loaded = true;
+        if (RequestId is { Length: > 0 } wanted && requests.FirstOrDefault(r => r.Id == wanted) is { } named)
+            ShowRequest(named);
+        _ = LoadPriceAsync();
     }
 
-    private void ShowCreateForm()
+    // The person's currency is offered only with a price; it starts where they left it, or in DGB (FR-016a).
+    private async Task LoadPriceAsync()
     {
-        createAmount = null; createLabel = ""; createMessage = "";
-        showCreate = true;
+        quote = await Prices.GetAsync();
+        try { inFiat = quote is not null && await JS.InvokeAsync<string?>("localStorage.getItem", CurrencyChoiceKey) == "FIAT"; }
+        catch { inFiat = false; }
+        await InvokeAsync(StateHasChanged);
     }
 
-    private async Task CreateRequest()
+    private void ShowKeypad()
     {
-        var address = await WalletService.GetReceivingAddressAsync();
-        var req = await PaymentService.CreateAsync(
-            address,
-            createAmount > 0 ? createAmount : null,
-            string.IsNullOrWhiteSpace(createLabel) ? null : createLabel,
-            string.IsNullOrWhiteSpace(createMessage) ? null : createMessage);
-        showCreate = false;
-        requests = await PaymentService.GetAllAsync();
+        activeRequest = null;
+        showList = false;
+        limitMessage = null;
+        Watcher.Focus(null);
+    }
+
+    private void ShowList()
+    {
+        activeRequest = null;
+        showList = true;
+        Watcher.Focus(null);
+    }
+
+    private string? limitMessage;
+
+    private async Task CreateFromKeypad((decimal? Amount, bool InFiat, string? Label, string? Message) input)
+    {
+        if (creating) return;
+        creating = true;
+        limitMessage = null;
+        limitReached = false;
+        PaymentRequest req;
+        try
+        {
+            if (input.InFiat && input.Amount is { } fiat)
+            {
+                // A request in the person's currency locks a fresh price (FR-017).
+                quote = await Prices.GetAsync(fresh: true);
+                if (quote is null) { inFiat = false; return; }
+                req = await PaymentService.CreateAsync(WalletId, new NewRequest(null, input.Label, input.Message, FiatAmount: fiat, Quote: quote));
+            }
+            else
+            {
+                // No amount means any amount, in DGB.
+                req = await PaymentService.CreateAsync(WalletId, new NewRequest(input.InFiat ? null : input.Amount, input.Label, input.Message));
+            }
+            _ = RememberCurrencyAsync();
+        }
+        catch (ReceiveAddressException ex) when (ex.Reason is ReceiveAddressFailure.TooManyUnusedPastLastUsed or ReceiveAddressFailure.TooManyUnusedPastLastPaid)
+        {
+            // FR-005: how many addresses are waiting, and how many of them are open requests. Cancelling frees none.
+            limitMessage = L.T("request.limit_reached", WalletService.ReceiveGapLimit, requests.Count(RequestWatcher.IsOpen));
+            limitReached = true;
+            return;
+        }
+        catch (ReceiveAddressException ex)
+        {
+            limitMessage = ex.Message;
+            return;
+        }
+        finally { creating = false; }
+        keypad?.Reset();
+        showList = false;
+        requests = await PaymentService.GetAllAsync(WalletId);
         ShowRequest(req);
+        _ = Announcer.AfterRequestCreatedAsync();
+    }
+
+    // A private-key wallet has one address, so every request shares it (FR-006).
+    private bool IsSingleKey => WalletService.ActiveWallet?.WalletType == "privatekey";
+
+    // ── Receipt helpers ──
+    private static string Dgb(decimal dgb) => dgb.ToString("#,0.########", System.Globalization.CultureInfo.CurrentCulture);
+
+    private static string ShortRef(PaymentRequest r) => r.Id.Length >= 8 ? r.Id[..8].ToUpperInvariant() : r.Id.ToUpperInvariant();
+
+    private static string ShortAddress(string address) => address.Length > 20 ? $"{address[..10]}…{address[^6..]}" : address;
+
+    private string StatusLabel(PaymentRequest r) => L.T(r.Status switch
+    {
+        PaymentRequestStatus.Waiting => "request.status.waiting",
+        PaymentRequestStatus.PaymentArriving => "request.status.arriving",
+        PaymentRequestStatus.PartlyPaid => "request.status.partly_paid",
+        PaymentRequestStatus.Paid => "request.status.paid",
+        PaymentRequestStatus.Overpaid => "request.status.overpaid",
+        PaymentRequestStatus.Expired => "request.status.expired",
+        PaymentRequestStatus.PartlyPaidExpired => "request.status.partly_paid_expired",
+        PaymentRequestStatus.Cancelled => "request.status.cancelled",
+        _ => "request.status.not_tracked",
+    });
+
+    private static string StampClass(PaymentRequest r) => r.Status switch
+    {
+        PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid => "is-paid",
+        PaymentRequestStatus.PaymentArriving or PaymentRequestStatus.PartlyPaid => "is-partial",
+        PaymentRequestStatus.Waiting => "is-waiting",
+        PaymentRequestStatus.NotTracked => "is-untracked",
+        _ => "is-closed",
+    };
+
+    // What is still owed, or the extra received; null when nothing was asked or it is exactly paid.
+    private static (bool Owed, long Satoshis)? Balance(PaymentRequest r)
+    {
+        if (r.AmountDgb is not { } asked) return null;
+        var diff = (long)Math.Round(asked * 100_000_000m, MidpointRounding.AwayFromZero) - ConfirmedSatoshis(r);
+        return diff == 0 ? null : (diff > 0, Math.Abs(diff));
+    }
+
+    private static long ConfirmedSatoshis(PaymentRequest r) => r.Payments.Where(p => p.Confirmed).Sum(p => p.AmountSatoshis);
+
+    private string PaymentNote(RequestPayment p)
+    {
+        var note = "";
+        if (!p.Confirmed) note += " · " + L.T("request.status.arriving");
+        if (p.Late) note += " · " + L.T(activeRequest?.CancelledAt is not null ? "request.after_cancel_note" : "request.late_note");
+        return note;
+    }
+
+    private PriceQuote? quote;
+    private bool inFiat;
+    private bool renewing;
+    private Timer? countdown;
+    private const string CurrencyChoiceKey = "dgb-request-currency";
+
+    // An expired price, partly paid or not, is no longer handed out (FR-018); cancelled is the same (US5).
+    private static bool CanShare(PaymentRequest r) =>
+        r.Status is not (PaymentRequestStatus.Expired or PaymentRequestStatus.PartlyPaidExpired or PaymentRequestStatus.Cancelled);
+
+    // "14:32" until the price lock ends, while the request still waits for money; null otherwise.
+    private static string? TimeLeft(PaymentRequest r)
+    {
+        if (r.ExpiresAt is not { } end || r.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid) return null;
+        var left = end - DateTime.UtcNow;
+        if (left <= TimeSpan.Zero) return null;
+        return $"{(int)left.TotalMinutes}:{left.Seconds:00}";
+    }
+
+    private static string Money(decimal amount, string code, int? decimals = null) =>
+        FiatCurrencies.SymbolFor(code)
+        + amount.ToString("N" + (decimals ?? FiatCurrencies.DecimalsFor(code)), System.Globalization.CultureInfo.CurrentCulture);
+
+    // Ticks once a second while a currency request's countdown is on screen.
+    private void StartCountdown()
+    {
+        countdown ??= new Timer(_ =>
+        {
+            if (activeRequest?.ExpiresAt is { } end && end > DateTime.UtcNow.AddSeconds(-5))
+                _ = InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private async Task RenewAsync()
+    {
+        if (activeRequest is not { } old || renewing) return;
+        renewing = true;
+        try
+        {
+            quote = await Prices.GetAsync(fresh: true);
+            if (quote is null) return;
+            var renewed = await PaymentService.RenewAsync(WalletId, old.Id, quote);
+            if (renewed is null) return;
+            requests = await PaymentService.GetAllAsync(WalletId);
+            ShowRequest(renewed);
+        }
+        catch (ReceiveAddressException ex) when (ex.Reason is ReceiveAddressFailure.TooManyUnusedPastLastUsed or ReceiveAddressFailure.TooManyUnusedPastLastPaid)
+        {
+            limitMessage = L.T("request.limit_reached", WalletService.ReceiveGapLimit, requests.Count(RequestWatcher.IsOpen));
+            activeRequest = null;
+            showList = false;
+        }
+        finally { renewing = false; }
+    }
+
+    private string? arrivingId;
+    private PaymentRequest? paidOverlay;
+
+    // FR-010: the money seen first reached the amount asked, unconfirmed.
+    private void OnPaymentArriving(PaymentRequest r)
+    {
+        if (activeRequest?.Id != r.Id) return;
+        arrivingId = r.Id;
+        activeRequest = r;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    // FR-011: the request on screen is paid. Other ways (toast, notification, lock screen) are the announcer's.
+    private void OnRequestPaid(PaymentRequest r, RequestAnnouncement way)
+    {
+        if (way != RequestAnnouncement.Overlay || activeRequest?.Id != r.Id) return;
+        arrivingId = null;
+        activeRequest = r;
+        paidOverlay = r;
+        _ = PaymentService.MarkOpenedAsync(WalletId, r.Id);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void ClosePaidOverlay() => paidOverlay = null;
+
+    private void CloseRequest()
+    {
+        activeRequest = null;
+        Watcher.Focus(null);
+    }
+
+    // The watcher found new statuses: show them, keeping the open request in step.
+    private async void OnWatcherChanged()
+    {
+        try
+        {
+            requests = await PaymentService.GetAllAsync(WalletId);
+            if (activeRequest is { } open)
+                activeRequest = requests.FirstOrDefault(r => r.Id == open.Id) ?? open;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Requests] Could not refresh the list: {ex.GetType().Name}");
+        }
+    }
+
+    public void Dispose()
+    {
+        countdown?.Dispose();
+        Watcher.Changed -= OnWatcherChanged;
+        Watcher.PaymentArriving -= OnPaymentArriving;
+        Watcher.RequestPaid -= OnRequestPaid;
+        Watcher.Focus(null);
+    }
+
+    // The wallet's receive addresses handed out so far, so requests saved before spec 036 can find their wallet.
+    private async Task<IReadOnlySet<string>> WalletAddressesAsync()
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        try
+        {
+            set.Add(await WalletService.GetReceivingAddressAsync());
+            var shown = WalletService.ActiveWallet?.NextReceivingIndex ?? 0;
+            foreach (var (_, address) in await WalletService.GetReceivingAddressesAsync(shown + 1))
+                set.Add(address);
+        }
+        catch (InvalidOperationException) { /* locked: nothing to match yet */ }
+        return set;
+    }
+
+    private async Task RememberCurrencyAsync()
+    {
+        try { await JS.InvokeVoidAsync("localStorage.setItem", CurrencyChoiceKey, inFiat ? "FIAT" : "DGB"); } catch { }
     }
 
     private void ShowRequest(PaymentRequest req)
     {
+        confirming = null;
         activeRequest = req;
+        if (req.ExpiresAt is not null) StartCountdown();
+        Watcher.Focus(req.Tracked ? req.Id : null);
+        if (req.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid && !req.OpenedSincePaid)
+            _ = PaymentService.MarkOpenedAsync(WalletId, req.Id);
         GenerateQr(req.ToUri());
     }
 

@@ -1370,3 +1370,99 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
     .receive-main-qr .qr-frame > img { width: 9rem; height: 9rem; }
     .receive-qr-caption { display: block; }
 }
+
+/* ── A payment request as a receipt (spec 036) ──────────────────────────────────────────────────────────────────────
+   Paper with zig-zag top and bottom edges (a CSS mask, so it works on any page colour), a status stamp, itemised lines,
+   a dashed tear line and the QR code on the stub below it. The shadow sits on the wrapper: a mask would clip it. */
+.receipt-wrap { width: 100%; max-width: 26rem; margin: 0 auto; filter:
+    /* A 1px border that follows the scallops: a CSS border would be cut away with them. */
+    drop-shadow(1px 0 0 #e7e2d6) drop-shadow(-1px 0 0 #e7e2d6) drop-shadow(0 1px 0 #e7e2d6) drop-shadow(0 -1px 0 #e7e2d6)
+    drop-shadow(0 2px 4px rgb(15 23 42 / 0.03)); }
+.dark .receipt-wrap { filter: drop-shadow(0 10px 20px rgb(0 0 0 / 0.32)); }
+
+/* Scalloped top and bottom edges in both themes: half-circle bites cut with a mask, so it works on any page colour.
+   No border (the mask would cut it); the paper stands off the page by its shadow. */
+.receipt {
+    --zz: 9px;
+    position: relative;
+    background: #fffdf7;
+    color: #1e293b;
+    padding: calc(var(--zz) + 1.25rem) 1.25rem calc(var(--zz) + 1.25rem);
+    -webkit-mask:
+        radial-gradient(var(--zz) at 50% 0, #0000 98%, #000) top / calc(2 * var(--zz)) 51% repeat-x,
+        radial-gradient(var(--zz) at 50% 100%, #0000 98%, #000) bottom / calc(2 * var(--zz)) 51% repeat-x;
+            mask:
+        radial-gradient(var(--zz) at 50% 0, #0000 98%, #000) top / calc(2 * var(--zz)) 51% repeat-x,
+        radial-gradient(var(--zz) at 50% 100%, #0000 98%, #000) bottom / calc(2 * var(--zz)) 51% repeat-x;
+}
+.dark .receipt { background: #0b1f3f; color: #e2e8f0; }
+
+.receipt-head { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
+.receipt-brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.7rem; color: #64748b; }
+.dark .receipt-brand { color: #94a3b8; }
+.receipt-meta { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.7rem; color: #64748b; }
+.dark .receipt-meta { color: #94a3b8; }
+
+.receipt-amount { margin-top: 0.75rem; text-align: center; }
+.receipt-amount-main { font-size: 2rem; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; word-break: break-all; }
+.receipt-amount-unit { font-size: 1rem; font-weight: 700; color: #0066ff; margin-left: 0.25rem; }
+.dark .receipt-amount-unit { color: #60a5fa; }
+.receipt-amount-sub { margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; font-variant-numeric: tabular-nums; }
+.dark .receipt-amount-sub { color: #94a3b8; }
+
+.receipt-rule { border: 0; border-top: 1.5px dashed rgb(100 116 139 / 0.45); margin: 1rem 0; }
+.receipt-rows { display: flex; flex-direction: column; gap: 0.45rem; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.75rem; }
+.receipt-row { display: flex; align-items: baseline; gap: 0.5rem; }
+.receipt-row > dt { color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.65rem; flex-shrink: 0; }
+.dark .receipt-row > dt { color: #94a3b8; }
+.receipt-row::after { content: none; }
+.receipt-row > .receipt-dots { flex: 1; border-bottom: 1.5px dotted rgb(100 116 139 / 0.4); transform: translateY(-0.2rem); min-width: 1rem; }
+.receipt-row > dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.receipt-total { font-size: 0.85rem; font-weight: 800; }
+.receipt-total > dt { font-size: 0.72rem; color: inherit; }
+.receipt-note { font-size: 0.8rem; line-height: 1.45; text-align: center; font-style: italic; color: #475569; }
+.dark .receipt-note { color: #cbd5e1; }
+
+/* The status stamp: tilted, inked in the status colour. */
+.receipt-stamp {
+    display: inline-block; margin-top: 0.6rem;
+    transform: rotate(-6deg);
+    border: 2.5px solid currentColor; border-radius: 0.4rem;
+    padding: 0.15rem 0.5rem;
+    font-weight: 900; font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+    opacity: 0.88; mix-blend-mode: multiply; pointer-events: none;
+}
+.dark .receipt-stamp { mix-blend-mode: normal; }
+.receipt-stamp.is-paid { color: #059669; }
+.receipt-stamp.is-partial { color: #d97706; }
+.receipt-stamp.is-waiting { color: #0066ff; }
+.receipt-stamp.is-closed { color: #dc2626; }
+.receipt-stamp.is-untracked { color: #64748b; }
+.dark .receipt-stamp.is-paid { color: #34d399; }
+.dark .receipt-stamp.is-partial { color: #fbbf24; }
+.dark .receipt-stamp.is-waiting { color: #60a5fa; }
+.dark .receipt-stamp.is-closed { color: #f87171; }
+.dark .receipt-stamp.is-untracked { color: #94a3b8; }
+
+/* The tear line between the receipt and its stub, with a pair of punched notches. */
+.receipt-tear { position: relative; margin: 1.25rem -1.25rem; border-top: 2px dashed rgb(100 116 139 / 0.5); }
+.receipt-tear::before, .receipt-tear::after {
+    content: ""; position: absolute; top: -0.55rem; width: 1.1rem; height: 1.1rem; border-radius: 9999px;
+    background: var(--receipt-page, #f8fafc);
+}
+.dark .receipt-tear::before, .dark .receipt-tear::after { background: var(--receipt-page-dark, #001529); }
+.receipt-tear::before { left: -0.55rem; }
+.receipt-tear::after { right: -0.55rem; }
+.receipt-stub { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.receipt-stub .qr-frame { background: #fff; }
+.receipt-stub-caption { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
+.dark .receipt-stub-caption { color: #94a3b8; }
+.receipt-barcode { width: 70%; height: 1.75rem; opacity: 0.55;
+    background: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 4px, currentColor 4px 5px, transparent 5px 8px, currentColor 8px 11px, transparent 11px 12px); }
+.receipt-uri { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.65rem; color: #64748b; word-break: break-all; text-align: center; }
+.dark .receipt-uri { color: #94a3b8; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .receipt-wrap { animation: receipt-print 420ms cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes receipt-print { from { opacity: 0; transform: translateY(-14px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+}

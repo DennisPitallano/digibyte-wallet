@@ -67,6 +67,8 @@ In the sweep the two steps are in two methods: `PlanDigiIdSweepAsync` takes `fir
 
 No other code may assign `NextReceivingIndex`. A writer that moved it past the base run without recording the entries would turn the base run into every address up to it and leave the hand-out limit permanently closed (review finding).
 
+**Added by spec 036 (payment requests).** A third field, `HandedOutTop`, records the highest receive index ever handed out, to Receive or to a payment request. Only the two hand-out methods raise it: `GenerateNewReceivingAddressAsync` and `HandOutRequestAddressAsync`, which records a request's address by the rules above (a watched entry when not contiguous, the floor raised) but never assigns `NextReceivingIndex`. `NextReceivingIndex` still has exactly the two writers above. The set reads it as `NextNewIndex = max(shown + 1, Anchor, HandedOutTop + 1)`, and `BaseCount` counts `HandedOutTop + 1` when it is not a watched entry, so Receive and requests never share an index and share the budget of 20 unused addresses. See [specs/036-paid-aware-requests/data-model.md](../036-paid-aware-requests/data-model.md).
+
 **Why the base run cannot shrink or explode**
 
 - It cannot shrink: `UsedReceivingCount` and `ReceiveBaseFloor` only rise, and the `NextReceivingIndex + 1` term is replaced by the floor at the moment the address on show leaves the base run (analysis finding G1).

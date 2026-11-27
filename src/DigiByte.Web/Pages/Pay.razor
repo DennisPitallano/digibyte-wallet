@@ -59,6 +59,13 @@ else if (state == State.ReadOnly && link is not null)
                 </div>
             }
 
+            @* The requester asked in their currency and held the price until a time (spec 036, FR-027a). *@
+            @if (link.FiatAmount is { } fiat && link.FiatCurrency is { } code && link.PriceExpiresAt is { } expires)
+            {
+                <p class="text-xs @(DateTime.UtcNow >= expires ? "text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-slate-400")"
+                   role="status" data-testid="pay-price-lock">@PriceLockText(fiat, code, expires)</p>
+            }
+
             <div class="flex flex-col gap-2">
                 <p class="font-mono text-sm text-slate-700 dark:text-slate-200 break-all bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 border border-slate-100 dark:border-dgb-800" data-testid="pay-address">@link.Address</p>
                 <button type="button" class="btn-primary btn-sm" @onclick="CopyAddressAsync">
@@ -97,6 +104,15 @@ else if (state == State.ReadOnly && link is not null)
 
     private State state = State.Reading;
     private PaymentLinkData? link;
+
+    private string PriceLockText(decimal fiat, string code, DateTime expires)
+    {
+        var at = expires.ToLocalTime().ToString("t", L.CurrentCulture);
+        if (DateTime.UtcNow >= expires) return L.T("pay.price_expired", at);
+        var money = DigiByte.Wallet.Models.FiatCurrencies.SymbolFor(code)
+            + fiat.ToString("N" + DigiByte.Wallet.Models.FiatCurrencies.DecimalsFor(code), L.CurrentCulture);
+        return L.T("pay.price_held", money, at);
+    }
     private string? qrDataUrl;
     private bool isTestnet;
     private bool wrongNetwork;

@@ -349,4 +349,81 @@ public class ReceiveScanSetTests
         Assert.Equal([P(3000)], ReceiveScanSet.Normalize(20, [P(3000), U(3000)]));
         Assert.Equal([P(3000)], ReceiveScanSet.Normalize(20, [U(3000), P(3000)]));
     }
+
+    // ── The highest address handed out to a request or to Receive (spec 036, data-model "ReceiveScanSet rules") ──
+
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(5, 3, 0)]
+    [InlineData(30, 25, 20)]
+    public void HandedOutTopNull_IsExactlyTodaysSet(int next, int used, int floor)
+    {
+        var today = ReceiveScanSet.From(next, used, floor, [U(3000), P(3005)]);
+        var withNull = ReceiveScanSet.From(next, used, floor, [U(3000), P(3005)], handedOutTop: null);
+
+        Assert.Equal(today.NextNewIndex, withNull.NextNewIndex);
+        Assert.Equal(today.BaseCount, withNull.BaseCount);
+        Assert.Equal(today.Indexes, withNull.Indexes);
+        Assert.Equal(today.CanHandOutNew, withNull.CanHandOutNew);
+    }
+
+    [Fact]
+    public void NextNewIndex_SkipsEverythingHandedOut()
+    {
+        // Receive shows 2; requests were given 3 and 4: the next hand-out, to either, is 5.
+        var set = ReceiveScanSet.From(2, 0, 0, [], handedOutTop: 4);
+
+        Assert.Equal(5, set.NextNewIndex);
+    }
+
+    [Fact]
+    public void NextNewIndex_IsTheMaximumOfAllThree()
+    {
+        // The anchor (one past the highest paid) is past both the address on show and the top.
+        var set = ReceiveScanSet.From(2, 0, 0, [P(3000)], handedOutTop: 4);
+
+        Assert.Equal(3001, set.NextNewIndex);
+    }
+
+    [Fact]
+    public void AContiguousTop_ExtendsTheBaseRun()
+    {
+        // Indexes 0..24 were all handed out in order: the base run covers them all.
+        var set = ReceiveScanSet.From(3, 0, 0, [], handedOutTop: 24);
+
+        Assert.Equal(25, set.BaseCount);
+        Assert.True(set.Contains(24));
+    }
+
+    [Fact]
+    public void AWatchedTop_DoesNotExtendTheBaseRun()
+    {
+        // A request was given 3010, past a far-off paid find: it is a watched entry, so it does not make 0..3010 a base run.
+        var set = ReceiveScanSet.From(3, 0, 20, [P(3000), U(3010)], handedOutTop: 3010);
+
+        Assert.Equal(20, set.BaseCount);
+        Assert.True(set.Contains(3010));
+        Assert.Equal(3011, set.NextNewIndex);
+    }
+
+    [Fact]
+    public void ATopBelowTheAddressOnShow_IsIgnored()
+    {
+        // A stale top never pulls the next index back below the address on show.
+        var set = ReceiveScanSet.From(10, 0, 0, [], handedOutTop: 4);
+
+        Assert.Equal(11, set.NextNewIndex);
+        Assert.Equal(20, set.BaseCount);
+    }
+
+    [Fact]
+    public void RequestsAndReceive_ShareTheBudgetOfTwentyUnpaid()
+    {
+        // Nothing used: indexes 0..19 are the twenty that may be out unpaid. With 19 handed out the next (20) is refused.
+        Assert.True(ReceiveScanSet.From(0, 0, 0, [], handedOutTop: 18).CanHandOutNew);
+        var full = ReceiveScanSet.From(0, 0, 0, [], handedOutTop: 19);
+
+        Assert.Equal(20, full.NextNewIndex);
+        Assert.False(full.CanHandOutNew);
+    }
 }

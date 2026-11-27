@@ -1,0 +1,140 @@
+@* The Request tab's first screen (spec 036, US4, FR-022 to FR-024): a large amount, a DGB / own-currency switch, a
+   digit grid, one button that makes the request, an optional note, and the list one tap away. The rules for each key
+   are RequestKeypadEntry's. *@
+@using DigiByte.Wallet.Models
+@using DigiByte.Wallet.Services
+@inject LocalizationService L
+
+<div class="card scale-in p-4 flex flex-col gap-4" data-testid="request-keypad">
+    <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-dgb-900 p-1" role="group" aria-label="@L.T("request.keypad.currency_switch")">
+            <button type="button" class="px-3 py-1.5 rounded-lg text-xs font-bold @(InFiat ? "text-slate-500 dark:text-slate-400" : "bg-dgb-500 text-white")"
+                    aria-pressed="@(InFiat ? "false" : "true")" data-testid="request-currency-dgb" @onclick="() => SetCurrency(false)">DGB</button>
+            <button type="button" class="px-3 py-1.5 rounded-lg text-xs font-bold @(InFiat ? "bg-dgb-500 text-white" : "text-slate-500 dark:text-slate-400") disabled:opacity-40"
+                    aria-pressed="@(InFiat ? "true" : "false")" disabled="@(Quote is null)" data-testid="request-currency-fiat"
+                    @onclick="() => SetCurrency(true)">@FiatCurrency</button>
+        </div>
+        <button type="button" class="btn-ghost btn-sm" data-testid="request-show-list" @onclick="OnShowList">@L.T("request.keypad.list")</button>
+    </div>
+
+    @* The amount as typed, in the chosen currency; its DGB equivalent while typing in the person's currency. *@
+    <div class="text-center" aria-live="polite">
+        <p class="text-4xl font-bold tabular-nums text-slate-900 dark:text-white break-all" data-testid="request-keypad-amount">
+            @if (typed.Length == 0)
+            {
+                <span class="text-slate-300 dark:text-slate-600">@L.T("request.keypad.any_amount")</span>
+            }
+            else if (InFiat)
+            {
+                @(FiatCurrencies.SymbolFor(FiatCurrency) + typed)
+            }
+            else
+            {
+                @typed<span class="text-lg font-semibold text-dgb-500"> DGB</span>
+            }
+        </p>
+        @if (InFiat && Quote is { } q && RequestKeypadEntry.Parse(typed) is { } fiat && RequestAmounts.ToDgb(fiat, q.Price, q.Currency) is { } dgb)
+        {
+            <p class="text-sm text-slate-500 dark:text-slate-400 tabular-nums mt-1" data-testid="request-dgb-equivalent">@L.T("request.fiat_amount", dgb.ToString("#,0.########", System.Globalization.CultureInfo.CurrentCulture) + " DGB")</p>
+        }
+        @if (Quote is null)
+        {
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" data-testid="request-price-unavailable">@L.T("request.price_unavailable")</p>
+        }
+    </div>
+
+    <div class="grid grid-cols-3 gap-2" data-testid="request-keypad-keys">
+        @foreach (var key in Keys)
+        {
+            var k = key;
+            <button type="button" class="h-14 rounded-2xl bg-slate-100 dark:bg-dgb-900 text-2xl font-semibold text-slate-900 dark:text-white active:scale-95 transition-transform disabled:opacity-30"
+                    aria-label="@KeyLabel(k)" disabled="@(k == "." && Decimals == 0)" data-key="@k" @onclick="() => Press(k)">
+                @if (k == "back")
+                {
+                    <svg class="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z" />
+                    </svg>
+                }
+                else
+                {
+                    @k
+                }
+            </button>
+        }
+    </div>
+
+    @* The note is optional and folded away (FR-023). *@
+    <button type="button" class="text-sm font-medium text-dgb-500 hover:text-dgb-600 self-start" aria-expanded="@(showNote ? "true" : "false")"
+            data-testid="request-add-note" @onclick="() => showNote = !showNote">@L.T(showNote ? "request.keypad.hide_note" : "request.keypad.add_note")</button>
+    @if (showNote)
+    {
+        <input type="text" @bind="label" placeholder="@L.T("payments.label_placeholder")" class="input" data-testid="request-label" />
+        <input type="text" @bind="message" placeholder="@L.T("payments.message_placeholder")" class="input" data-testid="request-message" />
+    }
+
+    @if (Error is not null)
+    {
+        <p class="text-xs text-amber-700 dark:text-amber-300" role="alert" data-testid="request-limit">@Error</p>
+    }
+
+    <button type="button" class="btn-primary w-full" disabled="@Busy" data-testid="request-make" @onclick="RequestAsync">@L.T("request.keypad.request")</button>
+</div>
+
+@code {
+    private static readonly string[] Keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"];
+
+    /// <summary>The price, when one is available; without it only DGB can be used (FR-021).</summary>
+    [Parameter] public PriceQuote? Quote { get; set; }
+
+    /// <summary>The person's currency, from Settings.</summary>
+    [Parameter] public string FiatCurrency { get; set; } = "USD";
+
+    /// <summary>Typing in the person's currency rather than DGB (FR-016a: the page remembers it).</summary>
+    [Parameter] public bool InFiat { get; set; }
+    [Parameter] public EventCallback<bool> InFiatChanged { get; set; }
+
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+
+    /// <summary>The amount (null for any amount), whether it is in the person's currency, the label and the message.</summary>
+    [Parameter] public EventCallback<(decimal? Amount, bool InFiat, string? Label, string? Message)> OnRequest { get; set; }
+    [Parameter] public EventCallback OnShowList { get; set; }
+
+    private string typed = "";
+    private bool showNote;
+    private string label = "";
+    private string message = "";
+
+    private int Decimals => RequestKeypadEntry.DecimalsFor(InFiat ? FiatCurrency : RequestKeypadEntry.Dgb);
+
+    private void Press(string key) => typed = RequestKeypadEntry.Press(typed, key, Decimals);
+
+    private async Task SetCurrency(bool fiat)
+    {
+        if (fiat && Quote is null) return;
+        // The typed digits are kept when they still fit the new currency's decimals; otherwise the amount starts over.
+        if (!RequestKeypadEntry.Fits(typed, RequestKeypadEntry.DecimalsFor(fiat ? FiatCurrency : RequestKeypadEntry.Dgb))) typed = "";
+        await InFiatChanged.InvokeAsync(fiat);
+    }
+
+    private async Task RequestAsync()
+    {
+        await OnRequest.InvokeAsync((RequestKeypadEntry.Parse(typed), InFiat, label, message));
+    }
+
+    /// <summary>Clears the amount and note after a request was made.</summary>
+    public void Reset()
+    {
+        typed = "";
+        label = "";
+        message = "";
+        showNote = false;
+        StateHasChanged();
+    }
+
+    private string KeyLabel(string key) => key switch
+    {
+        "back" => L.T("request.keypad.backspace"),
+        _ => key,
+    };
+}

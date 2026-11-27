@@ -6,8 +6,15 @@ using NBitcoin;
 namespace DigiByte.Wallet.Services;
 
 /// <summary>A payment read from a payment link or a <c>digibyte:</c> request, after every check passed.</summary>
-public sealed record PaymentLinkData(string Address, decimal? AmountDgb, string? Label, string? Message)
+/// <param name="FiatAmount">With <paramref name="FiatCurrency"/> and <paramref name="PriceExpiresAt"/>: the price lock of a
+/// request made in the requester's currency (spec 036, FR-027a). All three or none.</param>
+public sealed record PaymentLinkData(string Address, decimal? AmountDgb, string? Label, string? Message,
+    decimal? FiatAmount = null, string? FiatCurrency = null, DateTime? PriceExpiresAt = null)
 {
+    /// <summary>A copy carrying <paramref name="other"/>'s price lock.</summary>
+    public PaymentLinkData WithPriceLockOf(PaymentLinkData? other) => other is null ? this
+        : this with { FiatAmount = other.FiatAmount, FiatCurrency = other.FiatCurrency, PriceExpiresAt = other.PriceExpiresAt };
+
     /// <summary>
     /// The same <c>digibyte:</c> request text <see cref="PaymentRequest.ToUri"/> makes. With
     /// <paramref name="includeNote"/> false the label and message are left out, so a note never reaches a screen
@@ -20,6 +27,10 @@ public sealed record PaymentLinkData(string Address, decimal? AmountDgb, string?
         AmountDgb = AmountDgb,
         Label = includeNote ? Label : null,
         Message = includeNote ? Message : null,
+        // The price lock is not a note: it always goes along, so Send can say when the price expires.
+        FiatAmount = FiatAmount,
+        FiatCurrency = FiatCurrency,
+        ExpiresAt = PriceExpiresAt,
     }.ToUri();
 }
 
@@ -69,10 +80,20 @@ public static class PaymentLink
 
         decimal? amount = null;
         string? label = null, message = null;
+        string? fiat = null, currency = null, expires = null;
         foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = pair.Split('=', 2);
             var key = parts[0].ToLowerInvariant();
+            // The price lock is read as a group below: a fault in it drops it, never the link (spec 036, FR-027a).
+            if (PriceLockFields.IsKey(key))
+            {
+                var raw = parts.Length == 2 ? parts[1] : "";
+                if (key == PriceLockFields.FiatKey) fiat = raw;
+                else if (key == PriceLockFields.CurrencyKey) currency = raw;
+                else expires = raw;
+                continue;
+            }
             var value = parts.Length == 2 ? Unescape(parts[1]) : "";
             if (value is null) return false;
             switch (key)
@@ -90,7 +111,9 @@ public static class PaymentLink
             }
         }
 
-        data = new PaymentLinkData(address, amount, label, message);
+        data = PriceLockFields.TryRead(fiat, currency, expires, out var fiatAmount, out var code, out var expiresAt)
+            ? new PaymentLinkData(address, amount, label, message, fiatAmount, code, expiresAt)
+            : new PaymentLinkData(address, amount, label, message);
         return true;
     }
 

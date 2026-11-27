@@ -8,7 +8,7 @@ using NBitcoin;
 
 namespace DigiByte.Wallet.Services;
 
-public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider, IGatewayWalletScopeProvider
+public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider, IGatewayWalletScopeProvider, IRequestAddressSource
 {
     private readonly IKeyStore _keyStore;
     private readonly WalletKeyStore _walletStore;
@@ -775,6 +775,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             try
             {
                 var result = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, addresses, BuildHotHints());
+                ReportTransactions(result.Transactions, addresses);
                 return new WalletBalance
                 {
                     ConfirmedSatoshis = result.ConfirmedSatoshis,
@@ -838,6 +839,15 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// next change address, each with its legacy-format copy when that is watched. Null when tiering doesn't apply or the wallet
     /// has no HD keys; the sync then reads every address as in 0.7.0.
     /// </summary>
+    private volatile IReadOnlyCollection<string> _extraHotAddresses = [];
+
+    /// <summary>
+    /// Addresses every refresh treats as hot, on top of the wallet's own picks. The payment request watcher sets it to
+    /// the addresses of open requests (spec 036, T017), so a payment to one shows on the next refresh. Replaces the
+    /// previous set. The wallet never reads payment requests itself, so the two services don't depend on each other.
+    /// </summary>
+    public void SetExtraHotAddresses(IReadOnlyCollection<string> addresses) => _extraHotAddresses = addresses.ToArray();
+
     private HotAddressHints? BuildHotHints()
     {
         if (!TieringActive || ActiveSession is not { Hd: { } hd, Info: { } info }) return null;
@@ -854,6 +864,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         var handedOut = new List<string>();
         for (var k = 1; k <= HotAddressSelector.HandedOutKept; k++)
             AddReceive(handedOut, info.NextReceivingIndex - k);
+        handedOut.AddRange(_extraHotAddresses);
         var nextChange = new List<string> { hd.DeriveChangeAddress(info.NextChangeIndex, ScriptPubKeyType.Segwit).ToString() };
         if (info.NextChangeIndex < MinScannedChange)
             nextChange.Add(hd.DeriveChangeAddress(info.NextChangeIndex, ScriptPubKeyType.Legacy).ToString());
@@ -1107,7 +1118,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     /// chain has shown as used, the watched indexes beyond it, and the tail after the highest paid one (spec 027).
     /// </summary>
     private static ReceiveScanSet ScanSetOf(WalletInfo info) =>
-        ReceiveScanSet.From(info.NextReceivingIndex, info.UsedReceivingCount, info.ReceiveBaseFloor, info.WatchedReceiveIndexes);
+        ReceiveScanSet.From(info.NextReceivingIndex, info.UsedReceivingCount, info.ReceiveBaseFloor, info.WatchedReceiveIndexes,
+            info.HandedOutTop);
 
     /// <summary>
     /// Moves to a new receive address, saved before it is returned so that it stays scanned after a reload. Skips addresses
@@ -1144,7 +1156,9 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 throw TooManyUnused(set);
 
             index = set.NextNewIndex;
+            var previousTop = info.HandedOutTop;
             var undo = MoveAddressOnShow(info, index, index);
+            info.HandedOutTop = Math.Max(info.HandedOutTop ?? index, index);
             try
             {
                 await PersistAddressIndexesAsync(info);
@@ -1153,6 +1167,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             {
                 // Nothing has been shown yet, so fail: an address lost on reload could be paid and then never scanned.
                 undo();
+                info.HandedOutTop = previousTop;
                 throw new ReceiveAddressException(ReceiveAddressFailure.SaveFailed,
                     "Could not save the new address. Your current address is still good to use.", ex);
             }
@@ -1160,6 +1175,87 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         finally { session.AddressOnShowGate.Release(); }
 
         return (index, session.Hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString());
+    }
+
+    /// <summary>
+    /// Hands out a new receive address for a payment request without changing the address Receive shows (spec 036,
+    /// FR-001, FR-003). Same rules as <see cref="GenerateNewReceivingAddressAsync"/>: saved before it is returned, and
+    /// refused with <see cref="ReceiveAddressException"/> once <see cref="ReceiveGapLimit"/> unused addresses are out,
+    /// counting Receive's and requests' together (FR-005), or when the wallet has a single address.
+    /// </summary>
+    public async Task<(int Index, string Address)> HandOutRequestAddressAsync()
+    {
+        EnsureUnlocked();
+        var session = ActiveSession!;
+        if (session.Hd is null)
+            throw new ReceiveAddressException(ReceiveAddressFailure.SingleAddress, "This wallet has a single address.");
+        var info = session.Info;
+
+        await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
+        if (!ScanSetOf(info).CanHandOutNew)
+        {
+            // Addresses handed out in this session may have been paid since the last lookup.
+            session.AddressDiscovery = null;
+            session.AddressDiscoveryRetryAfter = default;
+            await WaitForAddressDiscoveryAsync(AddressDiscoverySendWait);
+            if (!ScanSetOf(info).CanHandOutNew)
+                throw TooManyUnused(ScanSetOf(info));
+        }
+
+        int index;
+        await session.AddressOnShowGate.WaitAsync();
+        try
+        {
+            var set = ScanSetOf(info);
+            if (!set.CanHandOutNew)
+                throw TooManyUnused(set);
+
+            index = set.NextNewIndex;
+            var undo = RecordHandOut(info, index);
+            try
+            {
+                await PersistAddressIndexesAsync(info);
+            }
+            catch (Exception ex)
+            {
+                undo();
+                throw new ReceiveAddressException(ReceiveAddressFailure.SaveFailed,
+                    "Could not save the new address. Your current address is still good to use.", ex);
+            }
+        }
+        finally { session.AddressOnShowGate.Release(); }
+
+        return (index, session.Hd.DeriveReceivingAddress(index, ScriptPubKeyType.Segwit).ToString());
+    }
+
+    /// <summary>
+    /// Records a request's address as handed out (spec 036, data-model "Recording a request hand-out"). Follows the rules
+    /// of <see cref="MoveAddressOnShow"/> for the watched list and the floor, but never assigns
+    /// <see cref="WalletInfo.NextReceivingIndex"/>: only <see cref="WalletInfo.HandedOutTop"/> moves. Nothing is saved
+    /// here. Returns what undoes exactly these changes.
+    /// </summary>
+    private static Action RecordHandOut(WalletInfo info, int index)
+    {
+        var previousTop = info.HandedOutTop;
+        var previousFloor = info.ReceiveBaseFloor;
+        var baseCount = ScanSetOf(info).BaseCount;
+        var added = false;
+
+        if (index > baseCount && info.WatchedReceiveIndexes.All(w => w.Index != index))
+        {
+            info.ReceiveBaseFloor = Math.Max(info.ReceiveBaseFloor, baseCount);
+            info.WatchedReceiveIndexes.Add(new WatchedReceiveIndex(index, false));
+            info.WatchedReceiveIndexes.Sort((a, b) => a.Index.CompareTo(b.Index));
+            added = true;
+        }
+        info.HandedOutTop = index;
+
+        return () =>
+        {
+            info.HandedOutTop = previousTop;
+            info.ReceiveBaseFloor = previousFloor;
+            if (added) info.WatchedReceiveIndexes.RemoveAll(w => !w.Paid && w.Index == index);
+        };
     }
 
     /// <summary>
@@ -1492,6 +1588,47 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     public event Action<string>? AddressSearchFinished;
 
     /// <summary>
+    /// Raised after a balance or history read finds transactions it has not reported before, or one that has since
+    /// confirmed, with the wallet's own addresses those transactions touch (spec 036, T016). Payment requests use it to
+    /// notice money reaching a request that is no longer being watched closely (FR-020). Never raised with an empty set.
+    /// </summary>
+    public event Action<IReadOnlyCollection<string>>? TransactionsChanged;
+
+    private readonly object _reportedTxsLock = new();
+    private readonly Dictionary<string, bool> _reportedTxs = new(StringComparer.Ordinal);
+    private string? _reportedTxsWalletId;
+
+    /// <summary>
+    /// Compares <paramref name="txs"/> with what was reported for the active wallet and raises
+    /// <see cref="TransactionsChanged"/> for the new or newly confirmed ones. Never throws.
+    /// </summary>
+    private void ReportTransactions(IEnumerable<TransactionInfo> txs, IEnumerable<string> walletAddresses)
+    {
+        HashSet<string> touched;
+        lock (_reportedTxsLock)
+        {
+            if (_reportedTxsWalletId != _activeWalletId)
+            {
+                _reportedTxs.Clear();
+                _reportedTxsWalletId = _activeWalletId;
+            }
+            var own = walletAddresses.ToHashSet(StringComparer.Ordinal);
+            touched = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var tx in txs)
+            {
+                var confirmed = tx.Confirmations >= 1;
+                if (_reportedTxs.TryGetValue(tx.TxId, out var was) && was == confirmed) continue;
+                _reportedTxs[tx.TxId] = confirmed;
+                foreach (var o in tx.Outputs) if (own.Contains(o.Address)) touched.Add(o.Address);
+                foreach (var i in tx.Inputs) if (own.Contains(i.Address)) touched.Add(i.Address);
+            }
+        }
+        if (touched.Count == 0) return;
+        try { TransactionsChanged?.Invoke(touched); }
+        catch (Exception ex) { Console.WriteLine($"[Wallet] A TransactionsChanged handler failed: {ex.GetType().Name}"); }
+    }
+
+    /// <summary>
     /// Whether the active wallet has finished finding which of its addresses have been used. Until then a zero balance or an
     /// empty history does not prove the wallet is empty: on a restored wallet the funds may be on addresses the search has
     /// not reached yet.
@@ -1754,6 +1891,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         stored.NextReceivingIndex = info.NextReceivingIndex;
         stored.UsedReceivingCount = info.UsedReceivingCount;
         stored.ReceiveBaseFloor = info.ReceiveBaseFloor;
+        stored.HandedOutTop = info.HandedOutTop;
         stored.ReceiveSearchedTo = info.ReceiveSearchedTo;
         stored.ReceiveSearchNoticeShown = info.ReceiveSearchNoticeShown;
         info.WatchedReceiveIndexes = ReceiveScanSet.Normalize(ScanSetOf(info).BaseCount, info.WatchedReceiveIndexes);
@@ -2259,6 +2397,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                         foreach (var tx in txInfos)
                             allTxs.TryAdd(tx.TxId, tx);
                 }
+
+                if (stillActive()) ReportTransactions(allTxs.Values, rawAddresses);
 
                 // Offer what the explorer returned to the gateway record. Runs in the background and never changes this result.
                 _gatewayBootstrap?.Offer(walletId ?? string.Empty, rawAddresses, tipBeforeSnapshot, allTxs.Values.ToList(),

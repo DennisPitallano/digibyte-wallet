@@ -28,6 +28,13 @@ public class WalletInfo
     /// </summary>
     public List<DigiByte.Wallet.Services.WatchedReceiveIndex> WatchedReceiveIndexes { get; set; } = [];
 
+    /// <summary>
+    /// The highest receive index ever handed out, to Receive or to a payment request (spec 036). Null means it equals
+    /// <see cref="NextReceivingIndex"/>, which is true for every wallet before spec 036. Never lowered; only the two
+    /// hand-out methods raise it.
+    /// </summary>
+    public int? HandedOutTop { get; set; }
+
     /// <summary>The largest count, from the first address, that a finished wider search has covered (spec 027). Only ever rises.</summary>
     public int ReceiveSearchedTo { get; set; }
 

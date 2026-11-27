@@ -10,7 +10,8 @@ public class NotificationService
     public IReadOnlyList<ToastNotification> Active => _active;
     public event Action? OnChange;
 
-    public void Show(string message, ToastType type = ToastType.Info, int durationMs = 3000)
+    /// <param name="onTap">Optional: tapping the message does this and dismisses it (spec 036, FR-012).</param>
+    public void Show(string message, ToastType type = ToastType.Info, int durationMs = 3000, Action? onTap = null)
     {
         // The same message is never stacked: a repeat while it is still on screen is dropped.
         if (_active.Any(t => t.Message == message && t.Type == type)) return;
@@ -22,6 +23,7 @@ public class NotificationService
             Type = type,
             CreatedAt = DateTime.Now,
             DurationMs = durationMs,
+            OnTap = onTap,
         };
 
         _active.Add(toast);
@@ -62,6 +64,9 @@ public class ToastNotification
     public required ToastType Type { get; init; }
     public required DateTime CreatedAt { get; init; }
     public int DurationMs { get; init; } = 3000;
+
+    /// <summary>What tapping the message does, if anything.</summary>
+    public Action? OnTap { get; init; }
 }
 
 public enum ToastType

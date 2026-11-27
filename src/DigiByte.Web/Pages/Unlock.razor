@@ -6,6 +6,9 @@
 @inject BiometricService Biometric
 @inject LocalizationService L
 @inject CommonPasswordList CommonList
+@inject RequestWatcher RequestWatcher
+@inject Microsoft.JSInterop.IJSRuntime RequestJs
+@implements IDisposable
 @using DigiByte.Wallet.Storage
 
 <PageTitle>@L.T("unlock.page_title")</PageTitle>
@@ -51,6 +54,23 @@
     @if (pin.Length == 0 && !showForgotPin && !isUnlocking)
     {
         <BakuMessage MessageId="unlock.greeting" Compact="true" Class="w-full max-w-[320px]" />
+    }
+
+    @* A payment request was paid while the wallet was locked (spec 036, FR-014b). Only that it was paid, unless the
+       person turned on details in Settings; never the address, and never the full-screen card here. *@
+    @if (RequestWatcher.PaidUnopened is { Count: > 0 } paidRequests)
+    {
+        <div class="w-full max-w-[320px] rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center"
+             role="status" aria-live="polite" data-testid="request-lock-notice">
+            <p class="text-sm font-bold text-slate-900 dark:text-white">@L.T("request.lock_notice")</p>
+            @if (requestDetails)
+            {
+                @foreach (var r in paidRequests.Take(3))
+                {
+                    <p class="text-xs text-slate-600 dark:text-slate-300 mt-1">@L.T("request.lock_notice_details", r.Label ?? L.T("payments.default_label"), PaidDgb(r))</p>
+                }
+            }
+        </div>
     }
 
     @if (deferredNote is not null)
@@ -336,8 +356,21 @@
     private byte[]? lastDecryptedSeed;
     private bool biometricChecked;
 
+    private bool requestDetails;
+
+    private void OnRequestsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private static string PaidDgb(DigiByte.Wallet.Models.PaymentRequest r) =>
+        (r.Payments.Where(p => p.Confirmed).Sum(p => p.AmountSatoshis) / 100_000_000m)
+            .ToString("#,0.########", System.Globalization.CultureInfo.CurrentCulture);
+
+    public void Dispose() => RequestWatcher.Changed -= OnRequestsChanged;
+
     protected override async Task OnInitializedAsync()
     {
+        RequestWatcher.Changed += OnRequestsChanged;
+        try { requestDetails = await RequestJs.InvokeAsync<string?>("localStorage.getItem", RequestAnnouncer.DetailsKey) == "true"; }
+        catch { requestDetails = false; }
         pinThrottle.Localize = L.T;
         // Reset biometric check so it runs fresh each navigation
         biometricChecked = false;
