@@ -132,12 +132,12 @@
 ### Watching and showing
 
 - [X] T017 [US1] Test first: in `tests/DigiByte.Wallet.Tests/TieredRefreshTests.cs`, an address passed to `WalletService.SetExtraHotAddresses` is hot, and clearing the set makes it cold again. Then add `SetExtraHotAddresses(IReadOnlyCollection<string>)` to `src/DigiByte.Wallet/Services/WalletService.cs` and read it in `BuildHotHints`. `WalletService` must not reference `PaymentRequestService` (that would make the two depend on each other, since T018 calls `WalletService`).
-- [ ] T018 [US1] Replace the temporary create path in `src/DigiByte.Wallet/Services/PaymentRequestService.cs` with `CreateAsync(walletId, NewRequest)`. It:
+- [X] T018 [US1] Replace the temporary create path in `src/DigiByte.Wallet/Services/PaymentRequestService.cs` with `CreateAsync(walletId, NewRequest)`. It:
   - Calls `HandOutRequestAddressAsync`, and on `SingleAddress` makes a `Tracked = false` request on the shared address.
   - Sets `Tracked`, `AddressIndex`, `Status = Waiting`.
   - Writes the label through `AddressLabelService.SetLabelAsync(walletId, address, label)` (research R9, FR-008).
   - Add the tests for this method to `PaymentRequestServiceTests.cs` first: tracked create, single-key create, label written, and the limit refusal passed through unchanged.
-- [ ] T019 [US1] Create `src/DigiByte.Web/Services/RequestWatcher.cs` (app-wide; register in `src/DigiByte.Web/Program.cs` next to the other app-wide services). Start it at app load for the last active wallet, since requests and their addresses are readable while locked (research R3), and switch it on unlock or a wallet switch.
+- [X] T019 [US1] Create `src/DigiByte.Web/Services/RequestWatcher.cs` (app-wide; register in `src/DigiByte.Web/Program.cs` next to the other app-wide services). Start it at app load for the last active wallet, since requests and their addresses are readable while locked (research R3), and switch it on unlock or a wallet switch.
   - It checks live requests of the active wallet by stored address through `IBlockchainService.GetAddressTransactionsAsync`, runs `RequestStatusCalculator`, saves through `ApplyAsync`, and raises `Changed`.
   - Pace: 3 s for the `Focus(requestId)` request, 30 s visible, 60 s hidden, with `RefreshPacer` backoff on errors. It keeps running while the tab is hidden.
   - It never calls a method that needs the wallet unlocked.
@@ -145,8 +145,8 @@
   - It subscribes to `WalletService.TransactionsChanged` (T016) and re-checks any request, whatever its state, whose address is in the set. It also checks a request once whenever `Focus(id)` is called for it.
   - It calls `WalletService.SetExtraHotAddresses` with the addresses of open requests whenever its live set changes (T017).
   - It switches its set on a wallet switch.
-- [ ] T020 [US1] Create `src/DigiByte.Web/Components/Shared/RequestStatusPill.razor`: the status label, the "+{0} DGB arriving" note, and "Not up to date" when `LastCheckedAt` is more than 2 minutes old while online.
-- [ ] T021 [US1] Rework the list and detail parts of `src/DigiByte.Web/Pages/Payments.razor`:
+- [X] T020 [US1] Create `src/DigiByte.Web/Components/Shared/RequestStatusPill.razor`: the status label, the "+{0} DGB arriving" note, and "Not up to date" when `LastCheckedAt` is more than 2 minutes old while online.
+- [X] T021 [US1] Rework the list and detail parts of `src/DigiByte.Web/Pages/Payments.razor`:
   - **Create**: use `CreateAsync`. On the limit refusal, show `request.limit_reached` with the wallet's unused-address count from the refusal and the number of open requests from `PaymentRequestService`, and a link to the Open list (FR-005).
   - **List rows**: label, amount, date and the pill.
   - **Detail**: status, "{received} of {asked}", each payment with its time and late note, and the message (FR-007).
@@ -396,3 +396,28 @@ US2 (the paid moment) → US3 (own currency) → US4 (keypad) → US5 (tidy list
 | SC-003 | T054 |
 | SC-006 | T062 |
 | SC-007 | T019, T020, T048 |
+
+## Implementation record
+
+### 2026-11-28: MVP (Phases 1 to 3, T001 to T021)
+
+- Baseline before any change: 3,662 tests passing. After T021: 3,738 passing, none failing.
+- Commits on `feature/paid-aware-requests`: spec docs, then T001–T009, T010–T013, T014–T017, T018–T021.
+- Small departures from the task text:
+  - `RequestPayment` lives in `Models/PaymentRequest.cs`, not its own file.
+  - The old status was stored as the number `0`, not the string `"Pending"` (the wallet wrote enums as numbers); `Waiting` is `0` so old requests read as `Waiting` and show as Not tracked.
+  - `ApplyAsync` takes a `RequestUpdate` record rather than the calculator's `RequestCheck`, so storage does not depend on the calculator.
+  - The temporary create path from T009 stays as `CreateUntrackedAsync`; single-key wallets use it (FR-006).
+  - The T016 tests are in `TransactionsChangedTests.cs` (they use `HistorySyncEnv`).
+  - `IRequestAddressSource` (implemented by `WalletService`) is what `PaymentRequestService` depends on, so the two services never reference each other.
+- Found while checking in the browser: `/payments` opened while locked (a reload) showed its form and crashed on Create. It now returns early like Receive does, and `AuthGuard` sends the person to unlock.
+
+### T022 (quickstart scenarios 1, 3, 4, 14): partly run, not ticked
+
+Run on 2026-11-28 in the browser preview (`digibyte-web-clean`, Development, testnet), with a new test wallet:
+
+- Scenario 1 (own address, Receive unchanged): **passed**. Receive kept `dgbt1qtvru…mu0yl3`; the request got `dgbt1qgzuz…`. The detail view showed the status pill, the message and the payments list; the list row showed the pill.
+- Scenarios 3 and 4 (partial, full and over payment): **not run with real payments**. Locally the testnet explorer is blocked by CORS, so the Development build falls back to `MockBlockchainService`, which returns the same two demo payments (500 and 750.5 DGB) for every address. The watcher picked those up within seconds and showed "Overpaid" with "1,250.5 of 2.5 DGB received", which is correct for that data, but it proves only the plumbing. The status rules themselves are covered by `RequestStatusCalculatorTests` (19 cases).
+- Scenario 14 (old requests show Not tracked): covered by `RequestMigrationTests` and `PaymentRequestServiceTests`; not run in the browser (needs a device with pre-update requests).
+- To finish T022: run scenarios 1, 3 and 4 against a reachable testnet explorer (a deployed build, or a local one that isn't blocked by CORS) with a funded second wallet.
+

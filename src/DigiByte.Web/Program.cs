@@ -96,7 +96,9 @@ builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ContactService>();
 // CSV export of transaction history (spec 031): built on the device from the complete history.
 builder.Services.AddScoped<DigiByte.Wallet.Services.Export.TransactionExportService>();
+builder.Services.AddScoped<IRequestAddressSource>(sp => sp.GetRequiredService<WalletService>());
 builder.Services.AddScoped<PaymentRequestService>();
+builder.Services.AddScoped<RequestWatcher>();
 // Multisig follows the network chosen in Settings (mainnet / testnet / regtest), like the rest of the wallet.
 builder.Services.AddScoped<MultisigWalletService>(sp =>
 {
@@ -376,5 +378,8 @@ host.Services.GetRequiredService<NodeSourceMonitorLoop>().Start();
 // The gateway readiness checks, likewise (does nothing unless SpvGateway:Enabled is true and an address is set).
 if (spvGatewayOn)
     host.Services.GetRequiredKeyedService<NodeSourceMonitorLoop>("gateway").Start();
+
+// Watch payment requests for the whole app, from load, so a request paid while locked is noticed (spec 036).
+await host.Services.GetRequiredService<RequestWatcher>().StartAsync();
 
 await host.RunAsync();

@@ -8,7 +8,7 @@ using NBitcoin;
 
 namespace DigiByte.Wallet.Services;
 
-public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider, IGatewayWalletScopeProvider
+public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, IPsbtKeyProvider, IGatewayWalletScopeProvider, IRequestAddressSource
 {
     private readonly IKeyStore _keyStore;
     private readonly WalletKeyStore _walletStore;

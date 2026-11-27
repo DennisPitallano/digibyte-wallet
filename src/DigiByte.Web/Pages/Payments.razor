@@ -7,6 +7,8 @@
 @inject IConfiguration Config
 @inject LocalizationService L
 @inject NavigationManager Nav
+@inject RequestWatcher Watcher
+@implements IDisposable
 @using DigiByte.Wallet.Services
 
 <PageTitle>@L.T("payments.page_title")</PageTitle>
@@ -39,6 +41,10 @@
                    class="input" />
             <input type="text" @bind="createMessage" placeholder="@L.T("payments.message_placeholder")"
                    class="input" />
+            @if (limitMessage is not null)
+            {
+                <p class="text-xs text-amber-700 dark:text-amber-300" role="alert" data-testid="request-limit">@limitMessage</p>
+            }
             <div class="flex gap-2">
                 <button class="btn-secondary btn-sm flex-1"
                         @onclick="() => showCreate = false">@L.T("common.cancel")</button>
@@ -61,6 +67,35 @@
                 @if (!string.IsNullOrEmpty(activeRequest.Label))
                 {
                     <p class="text-sm text-slate-500 dark:text-slate-400">@activeRequest.Label</p>
+                }
+                <RequestStatusPill Request="activeRequest" />
+                @if (activeRequest.Tracked && activeRequest.Payments.Count > 0)
+                {
+                    <p class="text-sm text-slate-600 dark:text-slate-300 tabular-nums" data-testid="request-received">@ReceivedText(activeRequest)</p>
+                }
+                @if (!string.IsNullOrEmpty(activeRequest.Message))
+                {
+                    <div class="w-full text-sm text-slate-600 dark:text-slate-300">
+                        <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">@L.T("request.message_label")</span>
+                        @activeRequest.Message
+                    </div>
+                }
+                @if (!activeRequest.Tracked)
+                {
+                    <p class="text-xs text-slate-500 dark:text-slate-400 text-center">@L.T(IsSingleKey ? "request.single_key_hint" : "request.not_tracked_hint")</p>
+                }
+                @if (activeRequest.Payments.Count > 0)
+                {
+                    <div class="w-full flex flex-col gap-1" data-testid="request-payments">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">@L.T("request.payments_title")</span>
+                        @foreach (var p in activeRequest.Payments.OrderBy(p => p.FirstSeenAt))
+                        {
+                            <div class="flex justify-between gap-2 text-xs text-slate-600 dark:text-slate-300 tabular-nums">
+                                <span>@p.FirstSeenAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)</span>
+                                <span class="text-right">@RequestStatusPill.Dgb(p.AmountSatoshis) DGB@(PaymentNote(p))</span>
+                            </div>
+                        }
+                    </div>
                 }
                 <p class="font-mono text-xs text-slate-400 break-all text-center bg-slate-50 dark:bg-dgb-950 rounded-xl px-3 py-2 w-full border border-slate-100 dark:border-dgb-800">
                     @activeRequest.ToUri()
@@ -91,7 +126,7 @@
                 </div>
                 <p class="receive-qr-caption">@L.T("receive.qr_for_phone")</p>
             </div>
-            <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="() => activeRequest = null">@L.T("more.close")</button>
+            <button class="text-sm text-slate-400 hover:text-slate-600 font-medium" @onclick="CloseRequest">@L.T("more.close")</button>
         </div>
     }
 
@@ -128,6 +163,7 @@
                         <p class="text-xs text-slate-400 dark:text-slate-500">
                             @(r.AmountDgb.HasValue ? $"{r.AmountDgb.Value:N4} DGB" : L.T("payments.any_amount")) &middot; @r.CreatedAt.ToString(L.T("history.format.month_day"), System.Globalization.CultureInfo.CurrentCulture)
                         </p>
+                        <div class="mt-1"><RequestStatusPill Request="r" /></div>
                     </div>
                     <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -170,7 +206,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Opened while locked (a reload, a link): <AuthGuard> sends the person to unlock. Handing out an address now
+        // would throw and show the error page instead.
+        if (!WalletService.IsUnlocked) return;
         AppState.ResetLockTimer();
+        Watcher.Changed += OnWatcherChanged;
         requests = await PaymentService.GetAllAsync(WalletId, await WalletAddressesAsync());
         // With nothing to list, the menu's Request tab opens straight onto the form.
         if (requests.Count == 0) ShowCreateForm();
@@ -182,18 +222,75 @@
         showCreate = true;
     }
 
+    private string? limitMessage;
+
     private async Task CreateRequest()
     {
-        var address = await WalletService.GetReceivingAddressAsync();
-        var req = await PaymentService.CreateUntrackedAsync(
-            WalletId,
-            address,
-            createAmount > 0 ? createAmount : null,
-            string.IsNullOrWhiteSpace(createLabel) ? null : createLabel,
-            string.IsNullOrWhiteSpace(createMessage) ? null : createMessage);
+        limitMessage = null;
+        PaymentRequest req;
+        try
+        {
+            req = await PaymentService.CreateAsync(WalletId, new NewRequest(createAmount, createLabel, createMessage));
+        }
+        catch (ReceiveAddressException ex) when (ex.Reason is ReceiveAddressFailure.TooManyUnusedPastLastUsed or ReceiveAddressFailure.TooManyUnusedPastLastPaid)
+        {
+            // FR-005: how many addresses are waiting, and how many of them are open requests. Cancelling frees none.
+            limitMessage = L.T("request.limit_reached", WalletService.ReceiveGapLimit, requests.Count(RequestWatcher.IsOpen));
+            return;
+        }
+        catch (ReceiveAddressException ex)
+        {
+            limitMessage = ex.Message;
+            return;
+        }
         showCreate = false;
         requests = await PaymentService.GetAllAsync(WalletId);
         ShowRequest(req);
+    }
+
+    // A private-key wallet has one address, so every request shares it (FR-006).
+    private bool IsSingleKey => WalletService.ActiveWallet?.WalletType == "privatekey";
+
+    private static long ConfirmedSatoshis(PaymentRequest r) => r.Payments.Where(p => p.Confirmed).Sum(p => p.AmountSatoshis);
+
+    private string ReceivedText(PaymentRequest r) => r.AmountDgb is { } asked
+        ? L.T("request.received_of", RequestStatusPill.Dgb(ConfirmedSatoshis(r)), asked.ToString("#,0.########", System.Globalization.CultureInfo.CurrentCulture))
+        : L.T("request.any_amount_received", RequestStatusPill.Dgb(ConfirmedSatoshis(r)));
+
+    private string PaymentNote(RequestPayment p)
+    {
+        var note = "";
+        if (!p.Confirmed) note += " · " + L.T("request.status.arriving");
+        if (p.Late) note += " · " + L.T(activeRequest?.CancelledAt is not null ? "request.after_cancel_note" : "request.late_note");
+        return note;
+    }
+
+    private void CloseRequest()
+    {
+        activeRequest = null;
+        Watcher.Focus(null);
+    }
+
+    // The watcher found new statuses: show them, keeping the open request in step.
+    private async void OnWatcherChanged()
+    {
+        try
+        {
+            requests = await PaymentService.GetAllAsync(WalletId);
+            if (activeRequest is { } open)
+                activeRequest = requests.FirstOrDefault(r => r.Id == open.Id) ?? open;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Requests] Could not refresh the list: {ex.GetType().Name}");
+        }
+    }
+
+    public void Dispose()
+    {
+        Watcher.Changed -= OnWatcherChanged;
+        Watcher.Focus(null);
     }
 
     // The wallet's receive addresses handed out so far, so requests saved before spec 036 can find their wallet.
@@ -214,6 +311,9 @@
     private void ShowRequest(PaymentRequest req)
     {
         activeRequest = req;
+        Watcher.Focus(req.Tracked ? req.Id : null);
+        if (req.Status is PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid && !req.OpenedSincePaid)
+            _ = PaymentService.MarkOpenedAsync(WalletId, req.Id);
         GenerateQr(req.ToUri());
     }
 

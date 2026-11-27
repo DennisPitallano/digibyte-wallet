@@ -1,0 +1,53 @@
+@using DigiByte.Wallet.Models
+@using DigiByte.Web.Services
+@inject LocalizationService L
+
+@* A payment request's status (spec 036, FR-004): the status, a "+… arriving" note for unconfirmed money next to
+   another status, and "Not up to date" when the last check is old (SC-007). *@
+<span class="inline-flex flex-wrap items-center gap-1.5 text-xs font-semibold" data-testid="request-status">
+    <span class="px-2 py-0.5 rounded-full @PillClass">@StatusText</span>
+    @if (ArrivingSatoshis > 0)
+    {
+        <span class="text-amber-600 dark:text-amber-400 font-medium">@L.T("request.arriving_note", Dgb(ArrivingSatoshis))</span>
+    }
+    @if (Stale)
+    {
+        <span class="text-slate-400 dark:text-slate-500 font-medium">@L.T("request.stale")</span>
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public PaymentRequest Request { get; set; } = default!;
+
+    private bool Stale => RequestWatcher.IsStale(Request, DateTime.UtcNow) && Request.Status != PaymentRequestStatus.NotTracked;
+
+    // Unconfirmed money shown next to a status other than "Payment arriving" (data-model "ArrivingNote").
+    private long ArrivingSatoshis => Request.Status == PaymentRequestStatus.PaymentArriving
+        ? 0
+        : Request.Payments.Where(p => !p.Confirmed).Sum(p => p.AmountSatoshis);
+
+    private string StatusText => L.T(Request.Status switch
+    {
+        PaymentRequestStatus.Waiting => "request.status.waiting",
+        PaymentRequestStatus.PaymentArriving => "request.status.arriving",
+        PaymentRequestStatus.PartlyPaid => "request.status.partly_paid",
+        PaymentRequestStatus.Paid => "request.status.paid",
+        PaymentRequestStatus.Overpaid => "request.status.overpaid",
+        PaymentRequestStatus.Expired => "request.status.expired",
+        PaymentRequestStatus.PartlyPaidExpired => "request.status.partly_paid_expired",
+        PaymentRequestStatus.Cancelled => "request.status.cancelled",
+        _ => "request.status.not_tracked",
+    });
+
+    private string PillClass => Request.Status switch
+    {
+        PaymentRequestStatus.Paid or PaymentRequestStatus.Overpaid => "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        PaymentRequestStatus.PaymentArriving or PaymentRequestStatus.PartlyPaid => "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+        PaymentRequestStatus.Waiting => "bg-dgb-50 text-dgb-600 dark:bg-dgb-800 dark:text-dgb-200",
+        _ => "bg-slate-100 text-slate-500 dark:bg-dgb-900 dark:text-slate-400",
+    };
+
+    /// <summary>Satoshis as a DGB amount in the reader's language, without trailing zeros.</summary>
+    public static string Dgb(long satoshis) =>
+        (satoshis / 100_000_000m).ToString("#,0.########", System.Globalization.CultureInfo.CurrentCulture);
+}

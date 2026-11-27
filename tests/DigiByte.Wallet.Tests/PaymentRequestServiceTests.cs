@@ -146,6 +146,76 @@ public class PaymentRequestServiceTests
         Assert.True(Assert.Single(await new PaymentRequestService(storage).GetAllAsync("A")).OpenedSincePaid);
     }
 
+    // ── Making a request (T018) ──
+
+    private static async Task<(ChangeAddressTests.Env Env, WalletService Wallet, PaymentRequestService Requests, AddressLabelService Labels)> RealWalletAsync()
+    {
+        var env = new ChangeAddressTests.Env();
+        var wallet = env.NewService();
+        await wallet.CreateWalletAsync("Test", env.Words, ChangeAddressTests.Pin);
+        await wallet.GetBalanceAsync();
+        var labels = new AddressLabelService(env.Storage);
+        return (env, wallet, new PaymentRequestService(env.Storage, wallet, labels), labels);
+    }
+
+    [Fact]
+    public async Task Create_GivesTheRequestItsOwnTrackedAddress()
+    {
+        var (env, wallet, requests, _) = await RealWalletAsync();
+        var shown = await wallet.GetReceivingAddressAsync();
+
+        var r = await requests.CreateAsync(wallet.ActiveWallet!.Id, new NewRequest(2.5m, "Lunch", "Thanks"));
+
+        Assert.True(r.Tracked);
+        Assert.NotNull(r.AddressIndex);
+        Assert.Equal(env.ReceiveAddress(r.AddressIndex!.Value), r.Address);
+        Assert.NotEqual(shown, r.Address);
+        Assert.Equal(PaymentRequestStatus.Waiting, r.Status);
+        Assert.Equal(2.5m, r.AmountDgb);
+        Assert.Equal("Thanks", r.Message);
+        Assert.Equal(r.Id, Assert.Single(await requests.GetAllAsync(wallet.ActiveWallet.Id)).Id);
+    }
+
+    [Fact]
+    public async Task Create_WritesTheLabelAsTheAddressLabel()
+    {
+        var (_, wallet, requests, labels) = await RealWalletAsync();
+
+        var r = await requests.CreateAsync(wallet.ActiveWallet!.Id, new NewRequest(null, "  Rent  ", null));
+
+        Assert.Equal("Rent", r.Label);
+        Assert.Equal("Rent", await labels.GetLabelAsync(wallet.ActiveWallet.Id, r.Address));
+        Assert.Null(r.AmountDgb);
+    }
+
+    [Fact]
+    public async Task Create_OnASingleAddressWallet_MakesAnUntrackedRequestOnItsAddress()
+    {
+        var env = new ChangeAddressTests.Env();
+        var wallet = env.NewService();
+        await wallet.CreateWalletFromWifAsync("Paper", new NBitcoin.Key().GetWif(ChangeAddressTests.Network).ToString(), ChangeAddressTests.Pin);
+        var requests = new PaymentRequestService(env.Storage, wallet, new AddressLabelService(env.Storage));
+
+        var r = await requests.CreateAsync(wallet.ActiveWallet!.Id, new NewRequest(1m, null, null));
+
+        Assert.False(r.Tracked);
+        Assert.Equal(PaymentRequestStatus.NotTracked, r.Status);
+        Assert.Equal(await wallet.GetReceivingAddressAsync(), r.Address);
+    }
+
+    [Fact]
+    public async Task Create_AtTheLimit_PassesTheRefusalOn_AndStoresNothing()
+    {
+        var (_, wallet, requests, _) = await RealWalletAsync();
+        var id = wallet.ActiveWallet!.Id;
+        for (var n = 0; n < 19; n++) await requests.CreateAsync(id, new NewRequest(1m, null, null));
+
+        var ex = await Assert.ThrowsAsync<ReceiveAddressException>(() => requests.CreateAsync(id, new NewRequest(1m, null, null)));
+
+        Assert.Equal(ReceiveAddressFailure.TooManyUnusedPastLastUsed, ex.Reason);
+        Assert.Equal(19, (await requests.GetAllAsync(id)).Count);
+    }
+
     internal sealed class InMemorySecureStorage : ISecureStorage
     {
         private readonly Dictionary<string, string> _store = new();

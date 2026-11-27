@@ -4,6 +4,10 @@ using DigiByte.Wallet.Storage;
 
 namespace DigiByte.Wallet.Services;
 
+/// <summary>What the person asked for on the keypad (spec 036).</summary>
+/// <param name="AmountDgb">The amount in DGB; null for any amount.</param>
+public sealed record NewRequest(decimal? AmountDgb, string? Label, string? Message);
+
 /// <summary>What a status check found for one request, to be stored (spec 036).</summary>
 /// <param name="PaidAnnouncedAt">Set when this check announced the paid moment; null leaves the stored value.</param>
 /// <param name="LockNotifiedAt">Set when this check sent the locked notification; null leaves the stored value.</param>
@@ -33,12 +37,16 @@ public class PaymentRequestService
     public const string LegacyKey = "payment_requests";
 
     private readonly ISecureStorage _storage;
+    private readonly IRequestAddressSource? _addresses;
+    private readonly AddressLabelService? _labels;
     private readonly Dictionary<string, List<PaymentRequest>> _cache = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public PaymentRequestService(ISecureStorage storage)
+    public PaymentRequestService(ISecureStorage storage, IRequestAddressSource? addresses = null, AddressLabelService? labels = null)
     {
         _storage = storage;
+        _addresses = addresses;
+        _labels = labels;
     }
 
     /// <summary>Raised after any request of any wallet is saved, with the wallet id.</summary>
@@ -60,6 +68,50 @@ public class PaymentRequestService
             return list.ToList();
         }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Makes a request with an address of its own, so the wallet can tell its payments apart (FR-001). A single-key
+    /// wallet has one address, so its requests share it and are not tracked (FR-006). When the wallet already has 20
+    /// unused addresses out, the <see cref="ReceiveAddressException"/> is passed on unchanged and nothing is stored (FR-005).
+    /// The label is also written as the address's label, so Activity, details and export show it (FR-008).
+    /// </summary>
+    public async Task<PaymentRequest> CreateAsync(string walletId, NewRequest input)
+    {
+        if (_addresses is null) throw new InvalidOperationException("No address source.");
+        var label = string.IsNullOrWhiteSpace(input.Label) ? null : input.Label.Trim();
+        var message = string.IsNullOrWhiteSpace(input.Message) ? null : input.Message.Trim();
+        var amount = input.AmountDgb > 0 ? input.AmountDgb : null;
+
+        (int Index, string Address) handed;
+        try
+        {
+            handed = await _addresses.HandOutRequestAddressAsync();
+        }
+        catch (ReceiveAddressException ex) when (ex.Reason == ReceiveAddressFailure.SingleAddress)
+        {
+            var shared = await _addresses.GetReceivingAddressAsync();
+            return await CreateUntrackedAsync(walletId, shared, amount, label, message);
+        }
+
+        var request = new PaymentRequest
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Address = handed.Address,
+            AddressIndex = handed.Index,
+            Tracked = true,
+            AmountDgb = amount,
+            Label = label,
+            Message = message,
+            Status = PaymentRequestStatus.Waiting,
+        };
+        await AddAsync(walletId, request);
+        if (label is not null && _labels is not null)
+        {
+            try { await _labels.SetLabelAsync(walletId, request.Address, label); }
+            catch (Exception ex) { Console.WriteLine($"[Requests] Could not label the address: {ex.GetType().Name}"); }
+        }
+        return request;
     }
 
     /// <summary>
