@@ -221,8 +221,8 @@
                 <CodeBlock Lang="json" Label="Copy the update-store body">@("{\n  \"name\": \"Main Shop\",\n  \"network\": \"mainnet\",\n  \"addressOrXpub\": \"xpub6...\",\n  \"webhookUrl\": \"https://shop.example/digipay/webhook\",\n  \"defaultSessionExpiryMinutes\": 45,\n  \"digiDollarEnabled\": false,\n  \"defaultCurrency\": \"EUR\"\n}")</CodeBlock>
                 <ParamList>
                     <Param Name="name" Type="string">1 to 120 characters.</Param>
-                    <Param Name="network" Type="string">mainnet, testnet or regtest.</Param>
-                    <Param Name="addressOrXpub" Type="string">A DigiByte address or a BIP84 account xpub, checked against the store's network. An empty string clears it. Setting a new xpub restarts address derivation.</Param>
+                    <Param Name="network" Type="string">mainnet, testnet or regtest. Refused with <InlineCode>409 network_change_strands_keys</InlineCode> while the store keeps a key for its current network: <InlineCode>reason: "receive"</InlineCode> (send a new <InlineCode>addressOrXpub</InlineCode> in the same request) or <InlineCode>"dd_key"</InlineCode> (remove the DigiDollar key first).</Param>
+                    <Param Name="addressOrXpub" Type="string">A DigiByte address or a BIP84 account xpub for the store's network (<InlineCode>400</InlineCode> with <InlineCode>reason: "wrong_network"</InlineCode> otherwise). An empty string clears it. Setting a new xpub restarts address derivation.</Param>
                     <Param Name="webhookUrl" Type="string">Public HTTPS URL for webhooks. The first time one is set, a webhook secret is created. An empty string removes the URL and deletes the secret.</Param>
                     <Param Name="defaultSessionExpiryMinutes" Type="integer">1 to 1440.</Param>
                     <Param Name="digiDollarEnabled" Type="boolean">Allow DigiDollar (DD) sessions on this store.</Param>

@@ -105,7 +105,19 @@ public static class StoresEndpoints
                 var net = body.Network.ToLowerInvariant();
                 if (net is not ("mainnet" or "testnet" or "regtest"))
                     return Results.BadRequest(new { error = "network must be mainnet | testnet | regtest" });
-                if (store!.Network != net) changed.Add("network");
+                if (store!.Network != net)
+                {
+                    // A store must not keep keys for the network it's leaving. The receive key may be replaced in the same
+                    // request (addressOrXpub is checked against the new network below); the DigiDollar key has its own route.
+                    var savedReceive = !string.IsNullOrEmpty(store.Xpub) ? store.Xpub : store.ReceiveAddress;
+                    if (body.AddressOrXpub is null && !string.IsNullOrEmpty(savedReceive)
+                        && MerchantAddressService.Classify(savedReceive, net, out _, out _) is null)
+                        return Results.Conflict(new { error = "network_change_strands_keys", reason = "receive" });
+                    if (store.DdAccountKey is not null
+                        && !DigiByte.Crypto.KeyGeneration.DigiDollarAccountKey.Parse(store.DdAccountKey, net == "mainnet" ? "mainnet" : "testnet").Ok)
+                        return Results.Conflict(new { error = "network_change_strands_keys", reason = "dd_key" });
+                    changed.Add("network");
+                }
                 store!.Network = net;
             }
             if (body.AddressOrXpub is not null)

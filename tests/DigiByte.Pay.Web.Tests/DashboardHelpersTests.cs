@@ -21,6 +21,14 @@ public class DashboardHelpersTests
     public void Api_errors_map_to_plain_sentences(int status, string? error, string expected) =>
         Assert.Equal(expected, ApiError.Plain(status, error));
 
+    // Network-change and address-network refusals (follow-up to PR #132).
+    [Theory]
+    [InlineData(409, "network_change_strands_keys", "receive", "Enter one for the new network at the same time.")]
+    [InlineData(409, "network_change_strands_keys", "dd_key", "Remove the DigiDollar key first, then change the network.")]
+    [InlineData(400, "The address is for a different network than this store.", "wrong_network", "That address is for the other network.")]
+    public void Network_mismatch_errors_map_to_plain_sentences(int status, string error, string reason, string expected) =>
+        Assert.Contains(expected, ApiError.Plain(status, error, reason));
+
     // A store's DGB xpub refused by the strict check: the API's `reason` picks the sentence.
     [Theory]
     [InlineData("private_key", "That's a private key. Never share it. Paste the account xpub (public key) from your wallet.")]
