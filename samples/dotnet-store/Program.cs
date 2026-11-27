@@ -114,6 +114,10 @@ app.MapPost("/digipay-webhook", async (HttpRequest req, ConcurrentDictionary<str
         return Results.StatusCode(ex.Status > 0 ? ex.Status : 400);
     }
 
+    // Payout and payout-address events (DigiDollar payouts) carry no session: ack them so DigiPay doesn't retry.
+    if (!evt.Event.StartsWith("session.", StringComparison.Ordinal) || evt.Session is null)
+        return Results.Ok();
+
     if (!orders.TryGetValue(evt.Session.Id, out var order))
     {
         // Webhook for an order we don't know — ack to stop retries, log for debugging.

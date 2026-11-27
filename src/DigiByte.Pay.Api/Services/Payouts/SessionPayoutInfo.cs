@@ -12,7 +12,8 @@ namespace DigiByte.Pay.Api.Services.Payouts;
 /// </summary>
 public static class SessionPayoutInfo
 {
-    public sealed record Info(string? PayoutId, string? Status, long ExtraRefundCents);
+    /// <param name="ReversalAbsorbed">A credit for the session was reversed after it was paid out; DigiPay absorbed it (FR-023).</param>
+    public sealed record Info(string? PayoutId, string? Status, long ExtraRefundCents, bool ReversalAbsorbed = false);
 
     public static async Task<IReadOnlyDictionary<string, Info>> LoadAsync(DigiPayDbContext db, IEnumerable<PaySession> sessions, CancellationToken ct = default)
     {
@@ -21,7 +22,7 @@ public static class SessionPayoutInfo
 
         var credits = await db.DdLedgerEntries.AsNoTracking()
             .Where(e => e.Type == DdLedgerEntry.TypeCredit && e.SessionId != null && ids.Contains(e.SessionId))
-            .Select(e => new { e.Id, e.SessionId, e.Source, e.AmountCents })
+            .Select(e => new { e.Id, e.SessionId, e.Source, e.AmountCents, e.ReversedAt })
             .ToListAsync(ct);
         var creditIds = credits.Select(c => c.Id).ToList();
         var payouts = await (from i in db.DdPayoutItems.AsNoTracking()
@@ -33,7 +34,7 @@ public static class SessionPayoutInfo
         {
             var latest = payouts.Where(p => g.Any(c => c.Id == p.LedgerEntryId)).OrderByDescending(p => p.CreatedAt).FirstOrDefault();
             var extra = g.Where(c => c.Source == DdLedgerEntry.SourceExtraRefund).Sum(c => c.AmountCents);
-            return new Info(latest?.Id, latest?.Status, extra);
+            return new Info(latest?.Id, latest?.Status, extra, g.Any(c => c.ReversedAt != null) && latest is not null);
         });
     }
 
@@ -45,11 +46,13 @@ public static class SessionPayoutInfo
         {
             node["ddPayout"] = i.PayoutId is null ? null : new JsonObject { ["payoutId"] = i.PayoutId, ["status"] = i.Status };
             node["ddExtraRefundCents"] = i.ExtraRefundCents;
+            node["ddReversalAbsorbed"] = i.ReversalAbsorbed;
         }
         else
         {
             node["ddPayout"] = null;
             node["ddExtraRefundCents"] = 0;
+            node["ddReversalAbsorbed"] = false;
         }
         return node;
     }

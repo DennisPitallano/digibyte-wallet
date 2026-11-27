@@ -278,6 +278,11 @@ else
                                         <div class="min-w-0">
                                             <div class="font-bold text-[0.9375rem] tabular-nums flex items-center gap-1.5 flex-wrap">
                                                 @RowAmount(s)
+                                                @if (s.DdPayout is { } paidOut)
+                                                {
+                                                    @* specs/034 T047: where this payment's DD went. The row is already a link (to the payment, which links the payout). *@
+                                                    <span class="ui-badge ui-badge-success" data-dd-paid-out>@(paidOut.Status is "confirmed" or "sent" ? "DD paid out" : $"DD payout {paidOut.Status}")</span>
+                                                }
                                                 @if (s.Extra is { } extra)
                                                 {
                                                     <span class="ui-badge ui-badge-refund" data-extra-flag>Extra @extra.Currency received, refund the buyer</span>
@@ -994,6 +999,8 @@ else
             else if (activeTab == "digidollar")
             {
                 <DdPayoutsPanel Token="@(token ?? string.Empty)" StoreId="@activeStore.Id" StoreName="@activeStore.Name" Network="@activeStore.Network" />
+                @* specs/034 T060: DD from deleted stores, shown only when the account holds some. *@
+                <DdPayoutsPanel Token="@(token ?? string.Empty)" MerchantLevel="true" Network="@activeStore.Network" />
             }
             else if (activeTab == "audit")
             {
@@ -1406,6 +1413,8 @@ else
             confirmError = error;
             return;
         }
+        // An action may open a follow-up question (a store that still holds DD); keep that one open.
+        if (!ReferenceEquals(pendingConfirm, job)) return;
         pendingConfirm = null;
         if (job.SuccessText is not null) Toasts.Success(job.SuccessText);
     }
@@ -2754,6 +2763,9 @@ else
         {
             var http = HttpFactory.CreateClient("PayApi");
             var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/stores/{storeId}"));
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict
+                && await response.Content.ReadFromJsonAsync<DdHeldDto>() is { Error: "dd_held" } held)
+                return ExplainDdHeld(storeId, held);
             if (!response.IsSuccessStatusCode) return await ApiError.ReadAsync(response);
             await LoadAccountAsync();
             if (activeStoreId == storeId && stores.Count > 0)
@@ -2768,6 +2780,60 @@ else
             return null;
         }
         catch (Exception ex) { return Plain(ex, "delete store"); }
+    }
+
+    // specs/034 T060: a store still holding DigiDollar can't be deleted until it's paid out (FR-015, the dd_held block).
+    private sealed record DdHeldDto(string? Error, long ConfirmedCents, long ConfirmingCents, bool PayoutInProgress, bool HasPayoutAddress);
+
+    private static string DdText(long cents) => $"{(cents / 100m).ToString("#,0.00", System.Globalization.CultureInfo.InvariantCulture)} DD";
+
+    /// <summary>
+    /// Explains why the store can't be deleted yet. When a final payout can go out now, asks to send it instead of
+    /// returning an error (the delete is finished by deleting again once it has gone out).
+    /// </summary>
+    private string? ExplainDdHeld(string storeId, DdHeldDto held)
+    {
+        var name = stores.FirstOrDefault(x => x.Id == storeId)?.Name ?? "This store";
+        if (held.PayoutInProgress)
+            return $"{name} still holds DigiDollar and a payout is on its way. Delete it again once the payout has gone out.";
+        if (!held.HasPayoutAddress)
+            return $"{name} still holds {DdText(held.ConfirmedCents + held.ConfirmingCents)}. Add a payout address in DigiDollar payouts so it can be paid out, then delete the store.";
+        if (held.ConfirmedCents < 100)
+            return $"{name} still holds {DdText(held.ConfirmingCents)} that's confirming. Try again once it's confirmed.";
+        Ask("Pay out before deleting?",
+            $"{name} still holds {DdText(held.ConfirmedCents)} of DigiDollar. DigiPay can send it all to the store's payout address now. "
+            + "Once that payout has gone out, delete the store again to finish. Anything under 1.00 DD left over moves to your account's DD from deleted stores.",
+            "Pay out now",
+            () => FinalPayoutAsync(storeId));
+        return null;
+    }
+
+    private async Task<string?> FinalPayoutAsync(string storeId)
+    {
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(AuthedRequest(HttpMethod.Delete, $"/v1/pay/stores/{storeId}?finalPayout=true"));
+            if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                Toasts.Success("The final DigiDollar payout is on its way. Delete the store again once it has gone out.");
+                return null;
+            }
+            if (response.IsSuccessStatusCode)
+            {
+                // Nothing was left to pay out, so the store was deleted.
+                await LoadAccountAsync();
+                StateHasChanged();
+                return null;
+            }
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict
+                && await response.Content.ReadFromJsonAsync<DdHeldDto>() is { Error: "dd_held" } held)
+                return held.PayoutInProgress
+                    ? "A payout is already on its way. Delete the store again once it has gone out."
+                    : $"The payout couldn't be started. {DdText(held.ConfirmedCents)} is still held.";
+            return await ApiError.ReadAsync(response);
+        }
+        catch (Exception ex) { return Plain(ex, "final payout"); }
     }
 
     private async Task LoadApiKeysAsync()
@@ -3065,7 +3131,10 @@ else
         long ReceivedSatoshis, int Confirmations, string? PaidTxid,
         string Uri, string CheckoutUrl, string? Source = null, string? ReturnUrl = null,
         string Currency = "DGB", long? AmountCentsDd = null,
-        bool BuyerChoice = false, DateTime? LockedAt = null, ExtraDto? Extra = null);
+        bool BuyerChoice = false, DateTime? LockedAt = null, ExtraDto? Extra = null,
+        PayoutRefDto? DdPayout = null, long DdExtraRefundCents = 0);
+
+    private record PayoutRefDto(string PayoutId, string? Status);
 
     private record ExtraDto(string Currency, long? Amount, string? Txid, DateTime? SeenAt);
 

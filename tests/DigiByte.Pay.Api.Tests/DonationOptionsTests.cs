@@ -108,6 +108,24 @@ public class DonationOptionsTests
     }
 
     [Fact]
+    public async Task Only_the_owner_sees_DD_payout_details_on_the_session_read()
+    {
+        using var factory = Factory();
+        var (client, key, storeId) = await DdStore(factory);
+        var session = await Json(await Create(client, key, new { storeId, currency = "DD", amountCentsDd = 1250 }));
+        var id = session.GetProperty("id").GetString()!;
+
+        var anonymous = (await Json(await client.GetAsync($"/v1/pay/sessions/{id}"))).GetProperty("session");
+        var owner = (await Json(await client.SendAsync(PayFactory.Authed(HttpMethod.Get, $"/v1/pay/sessions/{id}", key)))).GetProperty("session");
+
+        Assert.False(anonymous.TryGetProperty("ddPayout", out _)); // public read: nothing about payouts
+        Assert.True(owner.TryGetProperty("ddPayout", out var payout));
+        Assert.Equal(JsonValueKind.Null, payout.ValueKind);
+        Assert.Equal(0, owner.GetProperty("ddExtraRefundCents").GetInt64());
+        Assert.False(owner.GetProperty("ddReversalAbsorbed").GetBoolean());
+    }
+
+    [Fact]
     public async Task Donation_options_never_create_an_address_and_404_an_unknown_store()
     {
         using var factory = Factory();

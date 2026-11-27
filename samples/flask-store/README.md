@@ -42,6 +42,13 @@ status flip to `paid` then `confirmed` once the chain catches up.
 - `app.py` — the entire app, ~140 lines, comments explain each step
 - `requirements.txt` — only two dependencies: `flask` and `digipay`
 
+## Other webhook events
+
+Stores that use DigiDollar also receive `session.extra_payment` (a buyer paid in both currencies; refund the extra) and,
+with DigiDollar payouts, `payout.sent`, `payout.confirmed`, `payout.failed` and the `payout_address.*` events. Payout
+events carry a `payout` or `payoutAddress` object instead of `session`, so the handler acknowledges any event it doesn't
+handle with `200` before reading `session`; otherwise DigiPay would keep retrying it.
+
 ## Production-ready hardening (left out for clarity)
 
 - Replace the in-memory `orders` dict with a real DB and per-customer auth

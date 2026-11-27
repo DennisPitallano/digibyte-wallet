@@ -15,6 +15,24 @@
     const string Input = "input";
 }
 
+@if (MerchantLevel && (balance is null || IsEmpty) && error is null)
+{
+    @* No DD from deleted stores (or still loading): nothing to show. *@
+}
+else
+{
+@if (MerchantLevel)
+{
+<div class="flex items-baseline justify-between gap-2 flex-wrap mt-8 mb-1" id="dd-merchant-level">
+    <h2 class="page-title">DD from deleted stores</h2>
+</div>
+<p class="@Muted mb-4">
+    DigiDollar that belonged to stores you've deleted. DigiPay holds it for your account and pays it out, as soon as it's
+    confirmed, to the payout address you set here.
+</p>
+}
+else
+{
 <div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
     <h1 class="page-title">DigiDollar payouts <span class="text-[0.625rem] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 align-middle ml-1">Beta</span></h1>
     <button type="button" class="@BtnGhost" @onclick="LoadAsync" disabled="@loading"><Icon Name="refresh" Class="w-4 h-4" /><span>Refresh</span></button>
@@ -23,6 +41,7 @@
     DigiPay holds the DigiDollar (DD) buyers pay <strong>@StoreName</strong> until it's paid out to your payout address.
     DigiPay pays the network fee in DGB, so you receive the full DD amount.
 </p>
+}
 
 @if (error is not null)
 {
@@ -55,10 +74,13 @@ else
         <p class="@Muted m-0 text-[0.6875rem]">
             Last checked @(balance.LastCheckedAt?.ToLocalTime().ToString("g") ?? "never")@(balance.Stale ? " — this may be out of date while the DigiDollar service is unavailable." : ".")
         </p>
+        @if (!MerchantLevel)
+        {
         <div class="flex gap-2 flex-wrap">
             <button class="@Btn" @onclick='() => RequestPayoutAsync("manual")' disabled="@busy">Pay out now</button>
             @if (balance.AutoPaused) { <button class="@BtnGhost" @onclick='() => RequestPayoutAsync("retry")' disabled="@busy">Retry now</button> }
         </div>
+        }
         @if (payoutMessage is not null) { <p class="@Muted m-0" role="status">@payoutMessage</p> }
     </section>
 
@@ -118,6 +140,8 @@ else
         @if (addressError is not null) { <p class="field-error m-0" role="alert">@addressError</p> }
     </section>
 
+    @if (!MerchantLevel)
+    {
     <section class="@Card mt-4" id="dd-schedule">
         <h2 class="text-base font-bold m-0">When payouts go out</h2>
         <label class="inline-flex items-center gap-2"><input type="radio" name="dd-schedule" checked="@(scheduleInput == "confirmed")" @onchange='() => scheduleInput = "confirmed"' /> As soon as each payment is confirmed (recommended)</label>
@@ -129,6 +153,7 @@ else
         <button class="@BtnGhost self-start" @onclick="SaveScheduleAsync" disabled="@busy">Save</button>
         @if (scheduleMessage is not null) { <p class="@Muted m-0" role="status">@scheduleMessage</p> }
     </section>
+    }
 
     <section class="@Card mt-4 p-0 overflow-hidden" id="dd-payouts">
         <div class="flex items-center justify-between gap-2 px-5 pt-5">
@@ -175,10 +200,23 @@ else
         }
     </section>
 }
+}
 
 @code {
     [Parameter, EditorRequired] public string Token { get; set; } = string.Empty;
-    [Parameter, EditorRequired] public string StoreId { get; set; } = string.Empty;
+    [Parameter] public string StoreId { get; set; } = string.Empty;
+    /// <summary>
+    /// specs/034 T060: the merchant-level balance (DD from deleted stores, FR-039) instead of one store's. Shown only when
+    /// it isn't empty; no schedule or "Pay out now" (it pays out as soon as confirmed).
+    /// </summary>
+    [Parameter] public bool MerchantLevel { get; set; }
+
+    private string BalancePath => MerchantLevel ? "/v1/pay/me/dd-balance" : $"/v1/pay/stores/{StoreId}/dd-balance";
+    private string PayoutsPath => MerchantLevel ? "/v1/pay/me/dd-balance/payouts" : $"/v1/pay/stores/{StoreId}/payouts";
+    private string AddressPath => MerchantLevel ? "/v1/pay/me/dd-balance/payout-address" : $"/v1/pay/stores/{StoreId}/payout-address";
+
+    private bool IsEmpty => balance is { ConfirmedCents: 0, ConfirmingCents: 0 } && (payouts is null || payouts.Count == 0)
+        && balance.PayoutAddress is null && balance.PendingChange is null;
     [Parameter] public string StoreName { get; set; } = string.Empty;
     [Parameter] public string Network { get; set; } = "mainnet";
 
@@ -201,8 +239,9 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        if (loadedFor == StoreId) return;
-        loadedFor = StoreId;
+        var key = MerchantLevel ? "merchant" : StoreId;
+        if (loadedFor == key) return;
+        loadedFor = key;
         await LoadAsync();
     }
 
@@ -215,12 +254,12 @@ else
 
     private async Task LoadAsync()
     {
-        if (string.IsNullOrEmpty(Token) || string.IsNullOrEmpty(StoreId)) return;
+        if (string.IsNullOrEmpty(Token) || (!MerchantLevel && string.IsNullOrEmpty(StoreId))) return;
         loading = true; error = null;
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            var response = await http.SendAsync(Authed(HttpMethod.Get, $"/v1/pay/stores/{StoreId}/dd-balance"));
+            var response = await http.SendAsync(Authed(HttpMethod.Get, BalancePath));
             if (!response.IsSuccessStatusCode) { error = await ApiError.ReadAsync(response); return; }
             balance = await response.Content.ReadFromJsonAsync<BalanceDto>(Json);
             if (balance?.Schedule is { } s)
@@ -243,7 +282,7 @@ else
     {
         var http = HttpFactory.CreateClient("PayApi");
         var q = string.IsNullOrEmpty(statusFilter) ? "" : $"?status={statusFilter}";
-        var response = await http.SendAsync(Authed(HttpMethod.Get, $"/v1/pay/stores/{StoreId}/payouts{q}"));
+        var response = await http.SendAsync(Authed(HttpMethod.Get, $"{PayoutsPath}{q}"));
         if (response.IsSuccessStatusCode)
             payouts = (await response.Content.ReadFromJsonAsync<PayoutPage>(Json))?.Items ?? [];
     }
@@ -298,7 +337,7 @@ else
     {
         stepUpNonce = null;
         var http = HttpFactory.CreateClient("PayApi");
-        var response = await http.SendAsync(Authed(HttpMethod.Put, $"/v1/pay/stores/{StoreId}/payout-address", new { address = addressInput.Trim(), stepUpGrant = grant }));
+        var response = await http.SendAsync(Authed(HttpMethod.Put, AddressPath, new { address = addressInput.Trim(), stepUpGrant = grant }));
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync();
@@ -325,7 +364,7 @@ else
         try
         {
             var http = HttpFactory.CreateClient("PayApi");
-            await http.SendAsync(Authed(HttpMethod.Delete, $"/v1/pay/stores/{StoreId}/payout-address/pending"));
+            await http.SendAsync(Authed(HttpMethod.Delete, $"{AddressPath}/pending"));
             await LoadAsync();
         }
         finally { busy = false; }

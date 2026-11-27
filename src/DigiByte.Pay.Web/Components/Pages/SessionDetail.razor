@@ -141,6 +141,24 @@ else
                         </div>
                     </div>
                 }
+                @if (session.DdPayout is { } paidOut)
+                {
+                    @* specs/034 T047. *@
+                    <div class="text-sm" data-dd-paid-out>
+                        DigiDollar @(paidOut.Status is "confirmed" or "sent" ? "paid out" : $"payout {paidOut.Status}") to your payout address.
+                        <a href="@($"/merchant/digidollar#payout-{paidOut.PayoutId}")" class="text-dgb-500 hover:underline">See the payout</a>
+                    </div>
+                }
+                @if (session.DdExtraRefundCents > 0)
+                {
+                    <div class="text-sm" data-dd-extra-refund>
+                        @(((session.DdExtraRefundCents) / 100m).ToString("#,0.00", CultureInfo.InvariantCulture)) DD of this was an extra payment: refund the buyer from your wallet once it's paid out to you.
+                    </div>
+                }
+                @if (session.DdReversalAbsorbed)
+                {
+                    <p class="@Muted m-0" data-dd-reversal>A DigiDollar payment for this was reversed after it had been paid out to you. DigiPay covered the difference; nothing is taken from your balance.</p>
+                }
                 @if (session.Extra is { } extra)
                 {
                     <div class="ui-banner ui-banner-warning" role="status" data-extra-payment>
@@ -786,7 +804,10 @@ else
         string Uri, string CheckoutUrl, string? Source = null,
         string? RefundTxid = null, DateTime? RefundedAt = null, string? RefundNote = null,
         string? ReturnUrl = null, string Currency = "DGB", long? AmountCentsDd = null,
-        bool BuyerChoice = false, DateTime? LockedAt = null, List<OptionDto>? Options = null, ExtraDto? Extra = null);
+        bool BuyerChoice = false, DateTime? LockedAt = null, List<OptionDto>? Options = null, ExtraDto? Extra = null,
+        PayoutRefDto? DdPayout = null, long DdExtraRefundCents = 0, bool DdReversalAbsorbed = false);
+
+    private record PayoutRefDto(string PayoutId, string? Status);
 
     private record OptionDto(string Currency, string Address, long AmountSatoshis, long? AmountCentsDd, decimal? UsdRate, DateTime? RateAt, string Uri);
     private record ExtraDto(string Currency, long? Amount, string? Txid, DateTime? SeenAt);

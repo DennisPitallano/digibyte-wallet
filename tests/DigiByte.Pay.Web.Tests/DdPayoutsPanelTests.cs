@@ -122,6 +122,35 @@ public class DdPayoutsPanelTests : BunitContext
         Assert.Contains("DigiPay's own", PayoutAddressRules.Reason("digipay_address"));
     }
 
+    // ----- DD from deleted stores (specs/034 T060) -----
+
+    private IRenderedComponent<DdPayoutsPanel> RenderMerchantPanel() =>
+        Render<DdPayoutsPanel>(p => p.Add(x => x.Token, "dps_test").Add(x => x.MerchantLevel, true).Add(x => x.Network, "mainnet"));
+
+    [Fact]
+    public void The_merchant_level_panel_stays_hidden_while_no_DD_from_deleted_stores_is_held()
+    {
+        var cut = RenderMerchantPanel();
+        cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r == "GET /v1/pay/me/dd-balance"));
+
+        Assert.Empty(cut.FindAll("#dd-merchant-level"));
+        Assert.DoesNotContain(api.Requests, r => r.Contains("/stores/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_merchant_level_panel_shows_DD_from_deleted_stores_with_its_own_payout_address_and_no_schedule()
+    {
+        api.MerchantCents = 4250;
+        var cut = RenderMerchantPanel();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-merchant-level")));
+        Assert.Contains("42.50 DD", cut.Find("#dd-confirmed").TextContent);
+        Assert.NotNull(cut.Find("#dd-address-input"));
+        Assert.Empty(cut.FindAll("#dd-schedule"));
+        Assert.DoesNotContain(cut.FindAll("button"), b => b.TextContent.Contains("Pay out now"));
+        Assert.Contains(api.Requests, r => r.StartsWith("GET /v1/pay/me/dd-balance/payouts", StringComparison.Ordinal));
+    }
+
     private sealed class FakeApi : HttpMessageHandler, IHttpClientFactory
     {
         public List<string> Requests { get; } = [];
@@ -130,6 +159,8 @@ public class DdPayoutsPanelTests : BunitContext
         public bool Pending { get; set; }
         public bool Failed { get; set; }
         public bool Alert { get; set; }
+        /// <summary>DD from deleted stores on GET /v1/pay/me/dd-balance (specs/034 T060).</summary>
+        public long MerchantCents { get; set; }
 
         public HttpClient CreateClient(string name) => new(this, disposeHandler: false) { BaseAddress = new Uri("http://pay-api.test") };
 
@@ -156,6 +187,16 @@ public class DdPayoutsPanelTests : BunitContext
                         ? new object[] { new { id = "dpo_1", amountCents = 500L, destination = "DDdest000000000000", status = "failed", failureReason = "The DigiDollar network refused the payout.", willRetry = true, createdAt = DateTime.UtcNow, items = Array.Empty<object>() } }
                         : [],
                 });
+            if (method == "GET" && path == "/v1/pay/me/dd-balance")
+                return Json(new
+                {
+                    confirmedCents = MerchantCents, confirmingCents = 0L,
+                    bySource = new { payment = MerchantCents, overpayment = 0L, late = 0L, extraRefund = 0L, donation = 0L },
+                    lastCheckedAt = DateTime.UtcNow, stale = false, payoutAddress = (string?)null, pendingChange = (object?)null,
+                    schedule = (object?)null, autoPaused = false, holdReason = MerchantCents > 0 ? "no_address" : null, nextPayoutAt = (DateTime?)null,
+                });
+            if (method == "GET" && path.StartsWith("/v1/pay/me/dd-balance/payouts", StringComparison.Ordinal))
+                return Json(new { items = Array.Empty<object>() });
             if (method == "GET" && path == "/v1/pay/payouts/step-up/challenge")
                 return Json(new { nonce = "n1", uri = "digiid://pay.test/v1/pay/auth/callback?x=n1", expiresAt = DateTime.UtcNow.AddMinutes(5) });
             if (method == "GET" && path.StartsWith("/v1/pay/auth/poll/", StringComparison.Ordinal))

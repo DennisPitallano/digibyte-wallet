@@ -17,6 +17,8 @@ public class SessionDetailTests : BunitContext
     private long received = 100_000_000;
     private HttpStatusCode voidStatus = HttpStatusCode.OK;
     private bool twoStores;
+    // specs/034 T047: a DigiDollar payment with its payout details, as the owner's session read returns them.
+    private bool ddPaidOut;
 
     private IRenderedComponent<SessionDetail> RenderPage(string? back = null)
     {
@@ -149,6 +151,22 @@ public class SessionDetailTests : BunitContext
         Assert.DoesNotContain("cannot be voided", cut.Markup);
     }
 
+    [Fact]
+    public void A_paid_out_DigiDollar_payment_links_its_payout_and_flags_the_extra_payment()
+    {
+        ddPaidOut = true;
+        status = "confirmed";
+        received = 1550;
+        var cut = RenderPage();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-dd-paid-out]")));
+        Assert.Contains("paid out", cut.Find("[data-dd-paid-out]").TextContent);
+        Assert.Equal("/merchant/digidollar#payout-dpo_9", cut.Find("[data-dd-paid-out] a").GetAttribute("href"));
+        Assert.Contains("3.00 DD of this was an extra payment", cut.Find("[data-dd-extra-refund]").TextContent);
+        Assert.NotNull(cut.Find("[data-dd-reversal]"));
+        Assert.Contains("12.50 DD", cut.Markup);
+    }
+
     private sealed class Stub(SessionDetailTests t) : HttpMessageHandler, IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(this, disposeHandler: false) { BaseAddress = new Uri("http://pay-api.test") };
@@ -164,7 +182,7 @@ public class SessionDetailTests : BunitContext
                      "createdAt":"2026-11-25T10:00:00Z","expiresAt":"2026-11-25T10:30:00Z","seenAt":"2026-11-25T10:01:00Z",
                      "paidAt":"2026-11-25T10:02:00Z","receivedSatoshis":{{t.received}},"confirmations":{{(t.status == "confirmed" ? 6 : 1)}},
                      "paidTxid":{{(t.txid is null ? "null" : $"\"{t.txid}\"")}},"uri":"digibyte:dgb1qexample?amount=2",
-                     "checkoutUrl":"http://pay.test/pay/ses_abc"},"merchantName":"Test Shop"}
+                     "checkoutUrl":"http://pay.test/pay/ses_abc"{{(t.ddPaidOut ? ",\"currency\":\"DD\",\"amountCentsDd\":1250,\"ddPayout\":{\"payoutId\":\"dpo_9\",\"status\":\"confirmed\"},\"ddExtraRefundCents\":300,\"ddReversalAbsorbed\":true" : "")}}},"merchantName":"Test Shop"}
                     """));
             if (method == "GET" && path == "/v1/pay/me/")
                 return Task.FromResult(Json($$"""

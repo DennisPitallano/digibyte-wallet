@@ -712,6 +712,43 @@ public class DashboardTests : BunitContext
         Assert.Contains("Extra DD received, refund the buyer", cut.Find("[data-extra-flag]").TextContent);
     }
 
+    // ----- Deleting a store that still holds DD (specs/034 T060) -----
+
+    private static void DeleteOldKiosk(IRenderedComponent<Dashboard> cut)
+    {
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("button").Where(b => b.GetAttribute("aria-label")?.Contains("Old Kiosk") == true || b.TextContent.Trim() == "Delete")));
+        var delete = cut.FindAll("button").Where(b => b.TextContent.Trim() == "Delete").Last();
+        delete.Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(Buttons(cut, "Delete store")));
+        Buttons(cut, "Delete store").Single().Click();
+    }
+
+    [Fact]
+    public void Deleting_a_store_that_holds_DD_offers_a_final_payout()
+    {
+        api.DdHeld = (1250, false, true);
+        var cut = RenderSection("stores");
+
+        DeleteOldKiosk(cut);
+
+        cut.WaitForAssertion(() => Assert.Contains("Pay out before deleting?", cut.Markup));
+        Assert.Contains("12.50 DD", cut.Markup);
+        Buttons(cut, "Pay out now").Single().Click();
+        cut.WaitForAssertion(() => Assert.True(api.FinalPayoutAsked));
+    }
+
+    [Fact]
+    public void Deleting_a_store_that_holds_DD_without_a_payout_address_explains_what_to_do()
+    {
+        api.DdHeld = (1250, false, false);
+        var cut = RenderSection("stores");
+
+        DeleteOldKiosk(cut);
+
+        cut.WaitForAssertion(() => Assert.Contains("Add a payout address in DigiDollar payouts", cut.Markup));
+        Assert.False(api.FinalPayoutAsked);
+    }
+
     // ----- DigiDollar donations (specs/033 US4) -----
 
     [Fact]
@@ -756,8 +793,12 @@ public class DashboardTests : BunitContext
         public bool DdChoiceNoticePending { get; set; }
         public bool BuyerChoiceEnabled { get; set; } = true;
         public bool NoticeDismissed { get; private set; }
+        public bool TwoStores { get; set; }
         /// <summary>Gives every listed payment an extra DD payment (specs/033 FR-025).</summary>
         public bool ExtraOnRows { get; set; }
+        /// <summary>DELETE /v1/pay/stores/sto_2 answers 409 dd_held with these (specs/034 T060); null deletes it.</summary>
+        public (long Confirmed, bool InFlight, bool HasAddress)? DdHeld { get; set; }
+        public bool FinalPayoutAsked { get; private set; }
         public JsonObject? LastPatch { get; private set; }
         public (HttpStatusCode Status, string Body)? PatchError { get; set; }
         public int Total { get; set; } = 3;
@@ -781,7 +822,7 @@ public class DashboardTests : BunitContext
             var q = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
 
             if (method == "GET" && path == "/v1/pay/me/")
-                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = new[] { Store() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending });
+                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = DdHeld is null && !TwoStores ? new[] { Store() } : new[] { Store(), SecondStore() }, ddSurfacesEnabled = DdSurfacesEnabled, ddChoiceNoticePending = DdChoiceNoticePending });
 
             if (method == "GET" && request.RequestUri.AbsolutePath == "/v1/pay/sessions")
             {
@@ -804,6 +845,21 @@ public class DashboardTests : BunitContext
                 return Price is decimal p
                     ? Json(new { currency = q["currency"], dgbPrice = p, fetchedAt = DateTime.UtcNow })
                     : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("""{"error":"price unavailable"}""") };
+
+            if (method == "DELETE" && path.StartsWith("/v1/pay/stores/sto_2", StringComparison.Ordinal))
+            {
+                if (path.Contains("finalPayout=true"))
+                {
+                    FinalPayoutAsked = true;
+                    return new HttpResponseMessage(HttpStatusCode.Accepted) { Content = new StringContent("{\"status\":\"payout_queued\",\"confirmedCents\":1250}", Encoding.UTF8, "application/json") };
+                }
+                if (DdHeld is { } h)
+                    return new HttpResponseMessage(HttpStatusCode.Conflict)
+                    {
+                        Content = new StringContent(JsonSerializer.Serialize(new { error = "dd_held", confirmedCents = h.Confirmed, confirmingCents = 0L, payoutInProgress = h.InFlight, hasPayoutAddress = h.HasAddress }), Encoding.UTF8, "application/json"),
+                    };
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
 
             if (method == "POST" && path == "/v1/pay/me/notices/dd-choice/dismiss")
             {
@@ -884,6 +940,15 @@ public class DashboardTests : BunitContext
             defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = DigiDollarEnabled,
             defaultCurrency = DefaultCurrency,
             buyerChoiceEnabled = BuyerChoiceEnabled,
+        };
+
+        private static object SecondStore() => new
+        {
+            id = "sto_2", merchantId = "mer_1", name = "Old Kiosk", network = "mainnet",
+            receiveMode = "address", hasReceive = true, receivePreview = "dgb1qold",
+            webhookUrl = (string?)null, hasWebhookSecret = false,
+            defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = true,
+            defaultCurrency = (string?)null,
         };
 
         private static object SessionWithExtra(string id, string status) => new

@@ -124,6 +124,10 @@ def webhook():
         # 401 on bad signature, 400 on malformed body. No detail to attackers.
         abort(err.status)
 
+    # Payout and payout-address events (DigiDollar payouts) carry no session: ack them so DigiPay doesn't retry.
+    if not str(event.get("event", "")).startswith("session.") or not event.get("session"):
+        return "", 200
+
     sid = event["session"]["id"]
     order = orders.get(sid)
     if not order:

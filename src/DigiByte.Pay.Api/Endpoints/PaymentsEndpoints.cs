@@ -455,18 +455,30 @@ public static class PaymentsEndpoints
         // GET /v1/pay/sessions/{id} — public read of session status.
         // Safe to expose without auth because id is random and contains no secret.
         // Used by the hosted checkout page for initial load.
-        group.MapGet("/sessions/{id}", async (string id, DigiPayDbContext db, SessionOptionService optionService, DdAvailability availability) =>
+        group.MapGet("/sessions/{id}", async (string id, HttpRequest http, DigiPayDbContext db, SessionOptionService optionService, DdAvailability availability) =>
         {
             var session = await db.Sessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
             if (session is null) return Results.NotFound();
 
             var merchant = await db.Merchants.AsNoTracking().FirstOrDefaultAsync(m => m.Id == session.MerchantId);
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
+
+            // specs/034 T047: the store's own merchant also sees whether the DD was paid out. Never anyone else: this
+            // read is public.
+            async Task<object> ForCaller(object dto)
+            {
+                if (session.Currency != "DD" && !session.BuyerChoice) return dto;
+                var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
+                if (caller is null || caller.Merchant.Id != session.MerchantId) return dto;
+                var info = await DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.LoadAsync(db, [session]);
+                return DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.Attach(dto, session.Id, info);
+            }
+
             if (!session.BuyerChoice)
             {
                 return Results.Ok(new
                 {
-                    Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}"),
+                    Session = await ForCaller(ToDto(session, $"{checkoutBase}/pay/{session.Id}")),
                     MerchantName = merchant?.DisplayName,
                 });
             }
@@ -480,7 +492,7 @@ public static class PaymentsEndpoints
                 : null;
             return Results.Ok(new
             {
-                Session = ToDto(session, $"{checkoutBase}/pay/{session.Id}", sessionOptions),
+                Session = await ForCaller(ToDto(session, $"{checkoutBase}/pay/{session.Id}", sessionOptions)),
                 MerchantName = merchant?.DisplayName,
                 DdAvailable = ddReason is null,
                 DdReason = ddReason,

@@ -288,6 +288,68 @@
           }
         },
         {
+          "name": "Get DD balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{storeId}}/dd-balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "pay",
+                "stores",
+                "{{storeId}}",
+                "dd-balance"
+              ]
+            },
+            "description": "DigiDollar held for the store (specs/034): confirmed and confirming cents, by source, hold reason, payout address and schedule. Read-only with an API key."
+          }
+        },
+        {
+          "name": "List DD payouts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{storeId}}/payouts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "pay",
+                "stores",
+                "{{storeId}}",
+                "payouts"
+              ]
+            },
+            "description": "The store's DigiDollar payouts, newest first. Filter with ?status=sent|confirmed|failed|waiting|checking; page with ?cursor=."
+          }
+        },
+        {
+          "name": "Get DD payout",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/payouts/{{payoutId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "pay",
+                "payouts",
+                "{{payoutId}}"
+              ]
+            },
+            "description": "One DigiDollar payout with its items (which sessions and sources it paid out)."
+          }
+        },
+        {
           "name": "Send test webhook",
           "request": {
             "method": "POST",

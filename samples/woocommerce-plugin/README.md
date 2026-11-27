@@ -190,6 +190,12 @@ re-run this before opening a PR.
 - `tests/verify.php` — offline smoke test.
 - `tests/webhook-fixtures/` — captured webhook bodies + signatures.
 
+## Other webhook events
+
+Stores that use DigiDollar also receive `session.extra_payment` and, with DigiDollar payouts, `payout.*` and
+`payout_address.*` events. The receiver acknowledges any event without a `session` with `200` and leaves the order
+alone, so these never trigger retries.
+
 ## Production-ready hardening (left out for clarity)
 
 - An admin meta-box on the order screen showing the live DigiPay session
