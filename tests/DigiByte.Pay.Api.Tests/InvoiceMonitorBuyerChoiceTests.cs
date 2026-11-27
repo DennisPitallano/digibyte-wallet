@@ -170,4 +170,43 @@ public class InvoiceMonitorBuyerChoiceTests
         Assert.Null(s.LockedAt);
         Assert.Single(Events(hooks, "session.expired"));
     }
+
+    /// <summary>
+    /// Two monitor passes that overlap (a second instance, or a manual pass beside the background loop) both load the
+    /// session as pending; only the one that claims the change may send <c>session.expired</c>. Before the claim, this
+    /// sent the webhook twice (CI run 46073908239).
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Overlapping_passes_send_session_expired_once(bool buyerChoice)
+    {
+        using var factory = Factory();
+        var hooks = new List<string>();
+        factory.Receiver.Respond = req =>
+        {
+            lock (hooks) hooks.Add(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+        };
+        var (client, key, storeId) = await DdStore(factory);
+        await factory.SetStoreWebhook(storeId, "https://hooks.example/digipay");
+        var created = await Create(client, key, new { storeId, amount = 2500m, fiatCurrency = "USD", fiatAmount = 25m, dgbPriceAtCreation = 0.01m, buyerChoice });
+        Assert.True(created.IsSuccessStatusCode, await created.Content.ReadAsStringAsync());
+        var id = (await Json(created)).GetProperty("id").GetString()!;
+        await factory.WithDb(async db =>
+        {
+            var s = await db.Sessions.FirstAsync(x => x.Id == id);
+            s.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync();
+        });
+
+        // Release the passes together on thread-pool threads so they really overlap.
+        var start = new TaskCompletionSource();
+        var passes = Enumerable.Range(0, 4).Select(_ => Task.Run(async () => { await start.Task; await Tick(factory); })).ToList();
+        start.SetResult();
+        await Task.WhenAll(passes);
+
+        Assert.Equal(PaySessionStatus.Expired, (await Load(factory, id)).Status);
+        Assert.Single(Events(hooks, "session.expired"));
+    }
 }

@@ -66,6 +66,9 @@ public sealed class PayFactory : WebApplicationFactory<Program>
             ["DigiPay:ConnectionString"] = "",
             ["Outbound:AllowLoopback"] = allowLoopback ? "true" : "false",
             ["RateLimits:RegisterPerHour"] = registerPerHour.ToString(),
+            // Tests run monitor passes themselves (InvoiceMonitor.RunOnceAsync). Left on, the 10 s background loop would
+            // start a pass of its own about 2 s after the host starts and race the pass the test runs.
+            [DigiByte.Pay.Api.Services.InvoiceMonitor.BackgroundLoopConfigKey] = "false",
         };
         if (settings is not null)
             foreach (var (key, value) in settings) _settings[key] = value;
