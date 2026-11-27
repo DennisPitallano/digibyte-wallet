@@ -964,6 +964,24 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
     }
 
     /// <summary>
+    /// The DigiDollar account public key (<c>xpub</c>/<c>tpub</c> at <c>m/86'/coin'/0'</c>) for DigiPay, with the first DD
+    /// receive address (<c>0/0</c>) it gives, so the merchant can compare it with DigiPay's (specs/035, contracts/wallet-dd-key.md W2).
+    /// It comes from the same derivation the wallet scans DD with. Null for wallets that have no DigiDollar account: watch-only,
+    /// multisig and private-key wallets, and networks without DigiDollar. It can't spend.
+    /// </summary>
+    public Task<(string Key, string FirstAddress)?> GetDigiDollarAccountKeyAsync()
+    {
+        EnsureUnlocked();
+        if (GetDigiDollarSession()?.Derivation is not { } dd)
+            return Task.FromResult<(string Key, string FirstAddress)?>(null);
+
+        var network = dd.Network == "mainnet" ? DigiByteNetwork.Mainnet : DigiByteNetwork.Testnet;
+        var key = dd.GetAccountExtPubKey().ToString(network);
+        var firstAddress = dd.GetAddress(dd.Derive(DigiDollarChain.Receive, 0));
+        return Task.FromResult<(string Key, string FirstAddress)?>((key, firstAddress));
+    }
+
+    /// <summary>
     /// Get all addresses for this wallet. For WIF wallets, returns both Legacy and SegWit.
     /// Results are cached per wallet — HD derivation (elliptic curve math) is only done once.
     /// </summary>
