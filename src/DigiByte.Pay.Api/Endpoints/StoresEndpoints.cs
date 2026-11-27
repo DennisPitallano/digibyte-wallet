@@ -28,7 +28,7 @@ public static class StoresEndpoints
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync();
             // A store-bound POS tablet only sees its own store.
-            return Results.Ok(stores.Where(s => caller.CanUseStore(s.Id)).Select(MerchantMeEndpoints.StoreDto));
+            return Results.Ok(stores.Where(s => caller.CanUseStore(s.Id)).Select(s => MerchantMeEndpoints.StoreDto(s, http)));
         }).AllowPosKey();
 
         group.MapPost("", async (CreateStoreRequest body, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
@@ -60,7 +60,7 @@ public static class StoresEndpoints
                 summary: $"Created store \"{store.Name}\" ({network})",
                 metadata: new { name = store.Name, network, defaultCurrency });
 
-            return Results.Ok(MerchantMeEndpoints.StoreDto(store));
+            return Results.Ok(MerchantMeEndpoints.StoreDto(store, http));
         });
 
         group.MapGet("/{storeId}", async (string storeId, HttpRequest http, DigiPayDbContext db) =>
@@ -69,7 +69,7 @@ public static class StoresEndpoints
             if (err is not null) return err;
             var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
             if (caller is not null && !caller.CanUseStore(store!.Id)) return ApiCaller.OutsideStore();
-            return Results.Ok(MerchantMeEndpoints.StoreDto(store!));
+            return Results.Ok(MerchantMeEndpoints.StoreDto(store!, http));
         }).AllowPosKey();
 
         group.MapPatch("/{storeId}", async (
@@ -184,7 +184,7 @@ public static class StoresEndpoints
                     metadata: new { fields = changed });
             }
 
-            return Results.Ok(WithSecret(store!, createdSecret));
+            return Results.Ok(WithSecret(store!, createdSecret, http));
         });
 
         // POST /v1/pay/stores/{storeId}/webhook-secret/rotate
@@ -597,9 +597,9 @@ public static class StoresEndpoints
     }
 
     /// <summary>The store as the API returns it, plus <c>webhookSecret</c>: the new secret, or null.</summary>
-    private static JsonObject WithSecret(PayStore store, string? webhookSecret)
+    private static JsonObject WithSecret(PayStore store, string? webhookSecret, HttpRequest http)
     {
-        var node = JsonSerializer.SerializeToNode(MerchantMeEndpoints.StoreDto(store), JsonSerializerOptions.Web)!.AsObject();
+        var node = JsonSerializer.SerializeToNode(MerchantMeEndpoints.StoreDto(store, http), JsonSerializerOptions.Web)!.AsObject();
         node["webhookSecret"] = webhookSecret;
         return node;
     }

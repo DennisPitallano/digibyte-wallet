@@ -1,5 +1,6 @@
 using DigiByte.Pay.Api.Auth;
 using DigiByte.Pay.Api.Data;
+using DigiByte.Pay.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigiByte.Pay.Api.Endpoints;
@@ -12,7 +13,7 @@ public static class MerchantMeEndpoints
 {
     public static RouteGroupBuilder MapMerchantMeEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("", async (HttpRequest http, DigiPayDbContext db) =>
+        group.MapGet("", async (HttpRequest http, DigiPayDbContext db, DdSurfacesGate ddGate) =>
         {
             var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
             if (caller is null) return Results.Unauthorized();
@@ -27,8 +28,12 @@ public static class MerchantMeEndpoints
                 merchant.DisplayName,
                 merchant.DigiIdAddress,
                 merchant.CreatedAt,
+                // specs/033: whether the DD surfaces are switched on server-wide (FR-032), and the one-time
+                // buyer-choice notice (FR-030), which only shows once they are.
+                DdSurfacesEnabled = ddGate.Enabled,
+                merchant.DdChoiceNoticePending,
                 // A store-bound POS tablet only sees its own store.
-                Stores = stores.Where(s => caller.CanUseStore(s.Id)).Select(StoreDto),
+                Stores = stores.Where(s => caller.CanUseStore(s.Id)).Select(s => StoreDto(s, http)),
             });
         }).AllowPosKey();
 
@@ -98,7 +103,14 @@ public static class MerchantMeEndpoints
         return group;
     }
 
-    internal static object StoreDto(PayStore s) => new
+    /// <summary>The store as the API returns it. <paramref name="http"/> supplies the DD surfaces switch.</summary>
+    internal static object StoreDto(PayStore s, HttpRequest http)
+    {
+        var ddSurfaces = http.HttpContext.RequestServices.GetRequiredService<DdSurfacesGate>().Enabled;
+        return StoreDto(s, ddSurfaces);
+    }
+
+    internal static object StoreDto(PayStore s, bool ddSurfacesEnabled) => new
     {
         s.Id,
         s.MerchantId,
@@ -116,6 +128,12 @@ public static class MerchantMeEndpoints
         s.DefaultSessionExpiryMinutes,
         s.DigiDollarEnabled,
         s.DefaultCurrency,
+        // A saved "DD" default acts as USD while DD can't be offered (specs/033 FR-008). The stored value is kept so
+        // turning DD back on restores it.
+        DefaultCurrencyEffective = s.DefaultCurrency == "DD" && !(s.DigiDollarEnabled && ddSurfacesEnabled)
+            ? "USD" : s.DefaultCurrency,
+        s.BuyerChoiceEnabled,
+        s.DdDonationAddress,
         s.CreatedAt,
     };
 

@@ -37,7 +37,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 - [ ] T001 Rebase `feature/digipay-dd-everywhere` onto `main` once spec 034 is merged. Confirm `src/DigiByte.Pay.Api/Data/DdAddress.cs` and `tests/DigiByte.Pay.Api.Tests` `FakeDdNode` exist. If 034 isn't merged yet, stop after Phase 2 and US5.
 - [ ] T002 [P] Extend the fake explorer used by `tests/DigiByte.Pay.Api.Tests/PayTestHost.cs` (`FakeReceiver`) so a test can script transactions per address and trigger one `InvoiceMonitor` tick on demand (needed by T036 and T037).
-- [ ] T003 [P] Extend `FakeDdNode` in `tests/DigiByte.Pay.Api.Tests` with scriptable `address/new` results (a sequence of addresses, or failure), per-address `balance` responses, and a `health` toggle.
+- [X] T003 [P] Extend `FakeDdNode` in `tests/DigiByte.Pay.Api.Tests` with scriptable `address/new` results (a sequence of addresses, or failure), per-address `balance` responses, and a `health` toggle.
 
 ---
 
@@ -47,24 +47,24 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 **⚠️ No user story work starts until this phase is done.**
 
-- [ ] T004 Add `DdSurfacesGate` in `src/DigiByte.Pay.Api/Services/DdSurfacesGate.cs`. It reads config `DigiPay:DdSurfacesEnabled` (env `DIGIPAY_DD_SURFACES`), default `false`, and exposes `bool Enabled`. Register it as a singleton in `src/DigiByte.Pay.Api/Program.cs` (research R8).
-- [ ] T005 Add `DdAvailability` in `src/DigiByte.Pay.Api/Services/DdAvailability.cs`. It wraps `DigiDollarNodeClient.IsHealthyAsync()` with a 30-second `IMemoryCache` entry and a 3-second timeout, and returns false on any exception. Register it as a singleton in `src/DigiByte.Pay.Api/Program.cs` (research R10).
-- [ ] T006 Add rate-limit policy `checkout-option` (`PerIp(ctx, 30, TimeSpan.FromMinutes(1))`) next to the existing policies in `src/DigiByte.Pay.Api/Program.cs`.
-- [ ] T007 Schema in `src/DigiByte.Pay.Api/Data/`:
+- [X] T004 Add `DdSurfacesGate` in `src/DigiByte.Pay.Api/Services/DdSurfacesGate.cs`. It reads config `DigiPay:DdSurfacesEnabled` (env `DIGIPAY_DD_SURFACES`), default `false`, and exposes `bool Enabled`. Register it as a singleton in `src/DigiByte.Pay.Api/Program.cs` (research R8).
+- [X] T005 Add `DdAvailability` in `src/DigiByte.Pay.Api/Services/DdAvailability.cs`. It wraps `DigiDollarNodeClient.IsHealthyAsync()` with a 30-second `IMemoryCache` entry and a 3-second timeout, and returns false on any exception. Register it as a singleton in `src/DigiByte.Pay.Api/Program.cs` (research R10).
+- [X] T006 Add rate-limit policy `checkout-option` (`PerIp(ctx, 30, TimeSpan.FromMinutes(1))`) next to the existing policies in `src/DigiByte.Pay.Api/Program.cs`.
+- [X] T007 Schema in `src/DigiByte.Pay.Api/Data/`:
   - New `PaySessionOption.cs` with `SessionId`, `Currency` (`"DGB"` or `"DD"`), `Address`, `AmountSatoshis` ("0 for DD"), `AmountCentsDd` ("DD only. 100 to 10,000,000"), `UsdRate` ("units of FiatCurrency per 1 USD; 1 for USD"), `RateAt` and `CreatedAt`.
   - `PaySession`: change `Currency` and `AmountSatoshis` from `init` to `set`, and add `BuyerChoice` (bool, default false), `LockedAt`, `ExtraCurrency`, `ExtraAmount`, `ExtraTxid` and `ExtraSeenAt`.
   - `PayStore`: add `BuyerChoiceEnabled` (bool, default true) and `DdDonationAddress` (`string?`).
   - `PayMerchant`: add `DdChoiceNoticePending` (bool, default false).
-- [ ] T008 Configure `PaySessionOptions` in `src/DigiByte.Pay.Api/Data/DigiPayDbContext.cs`: FK to `PaySession` with cascade delete, and a **unique index (`SessionId`, `Currency`)**.
-- [ ] T009 Add the EF migration `src/DigiByte.Pay.Api/Migrations/<timestamp>_AddDdEverywhere.cs` for T007 and T008. Its data step sets `DdChoiceNoticePending = true` for every merchant with any store where `DigiDollarEnabled = true` (research R12).
-- [ ] T010 Add the matching SQLite column and table shims for T007 in `src/DigiByte.Pay.Api/Program.cs`, following the existing DD-column shims.
-- [ ] T011 Make `GetUsdRateAsync(code)` public on `src/DigiByte.Pay.Api/Services/DgbPriceService.cs`, returning `null` when no rate is available. USD returns exactly 1 (research R3).
-- [ ] T012 [P] Add error messages to `src/DigiByte.Pay.Web/Components/Shared/Ui/ApiError.cs` (contract C1):
+- [X] T008 Configure `PaySessionOptions` in `src/DigiByte.Pay.Api/Data/DigiPayDbContext.cs`: FK to `PaySession` with cascade delete, and a **unique index (`SessionId`, `Currency`)**.
+- [X] T009 Add the EF migration `src/DigiByte.Pay.Api/Migrations/<timestamp>_AddDdEverywhere.cs` for T007 and T008. Its data step sets `DdChoiceNoticePending = true` for every merchant with any store where `DigiDollarEnabled = true` (research R12).
+- [X] T010 Add the matching SQLite column and table shims for T007 in `src/DigiByte.Pay.Api/Program.cs`, following the existing DD-column shims.
+- [X] T011 Make `GetUsdRateAsync(code)` public on `src/DigiByte.Pay.Api/Services/DgbPriceService.cs`, returning `null` when no rate is available. USD returns exactly 1 (research R3).
+- [X] T012 [P] Add error messages to `src/DigiByte.Pay.Web/Components/Shared/Ui/ApiError.cs` (contract C1):
   - `digidollar_node_unavailable` → "DigiDollar is temporarily unavailable. Try again, or take this payment in DGB."
   - `dd_option_unavailable` with `no_rate` → "DigiDollar isn't available for this payment right now."
   - `dd_option_unavailable` with `out_of_range` → "This amount is outside DigiDollar's limits ($1.00 to $100,000.00)."
-- [ ] T013 Expose `ddSurfacesEnabled` (from T004) and `ddChoiceNoticePending` on `GET /v1/pay/me` in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. Store DTOs also get `buyerChoiceEnabled`, `ddDonationAddress` and `defaultCurrencyEffective` (`"USD"` when the stored default is `"DD"` but DD is off). Add the matching fields to the Dashboard's store and me DTOs in `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`, and to the POS's DTOs in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor` (contract C2).
-- [ ] T014 [P] Test `tests/DigiByte.Pay.Api.Tests/DdSurfacesGateTests.cs`: with the gate off, `/v1/pay/me` reports `ddSurfacesEnabled:false`, and explicit API `currency:"DD"` sessions still work as today (SC-004). A DD session created while DD is on still reaches Confirmed after the merchant turns DD off (FR-002).
+- [X] T013 Expose `ddSurfacesEnabled` (from T004) and `ddChoiceNoticePending` on `GET /v1/pay/me` in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. Store DTOs also get `buyerChoiceEnabled`, `ddDonationAddress` and `defaultCurrencyEffective` (`"USD"` when the stored default is `"DD"` but DD is off). Add the matching fields to the Dashboard's store and me DTOs in `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`, and to the POS's DTOs in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor` (contract C2).
+- [X] T014 [P] Test `tests/DigiByte.Pay.Api.Tests/DdSurfacesGateTests.cs`: with the gate off, `/v1/pay/me` reports `ddSurfacesEnabled:false`, and explicit API `currency:"DD"` sessions still work as today (SC-004). A DD session created while DD is on still reaches Confirmed after the merchant turns DD off (FR-002).
 
 **Checkpoint**: The schema and shared services are in place. With the gate off, nothing changes for anyone.
 
@@ -248,13 +248,13 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 **Independent Test**: Quickstart steps 1 and 2. Every place the text lists offers DD, and no other place does (SC-006).
 
-- [ ] T056 [P] [US5] Test in `tests/DigiByte.Pay.Web.Tests/DashboardTests.cs`:
+- [X] T056 [P] [US5] Test in `tests/DigiByte.Pay.Web.Tests/DashboardTests.cs`:
   - With `ddSurfacesEnabled:false`, the setting text lists the API only and says DigiPay holds the DD and it can't be withdrawn yet.
   - With it on, it lists the POS till, payment links and one-off payments, buyer choice at checkout, the donation page and the API, and says 1 DD = 1 USD and that DigiPay pays network fees.
   - On and off messages name the places.
-- [ ] T057 [US5] Rewrite the DigiDollar setting text at around lines 1155-1163 of `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`, driven by `ddSurfacesEnabled` (FR-017, FR-031). It always says plainly that DigiPay holds the DD buyers pay until it's paid out (and, before payouts, that it can't be withdrawn yet). Once spec 034 is merged, follow 034 FR-040 for the post-payout wording.
-- [ ] T058 [US5] Make the messages in `SaveDigiDollarEnabledAsync` (`src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`, around lines 2377-2379) name where DD is now offered or no longer offered (FR-018).
-- [ ] T059 [US5] Docs, in the same PR: the DigiDollar setting section of `src/DigiByte.Pay.Web/Components/Pages/Docs.razor` (where DD is offered, that DigiPay holds the DD until it's paid out) and `CHANGELOG.md`.
+- [X] T057 [US5] Rewrite the DigiDollar setting text at around lines 1155-1163 of `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`, driven by `ddSurfacesEnabled` (FR-017, FR-031). It always says plainly that DigiPay holds the DD buyers pay until it's paid out (and, before payouts, that it can't be withdrawn yet). Once spec 034 is merged, follow 034 FR-040 for the post-payout wording.
+- [X] T058 [US5] Make the messages in `SaveDigiDollarEnabledAsync` (`src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor`, around lines 2377-2379) name where DD is now offered or no longer offered (FR-018).
+- [X] T059 [US5] Docs, in the same PR: the DigiDollar setting section of `src/DigiByte.Pay.Web/Components/Pages/Docs.razor` (where DD is offered, that DigiPay holds the DD until it's paid out) and `CHANGELOG.md`.
 
 **Checkpoint**: The setting text matches what DD actually does, gate on or off.
 

@@ -66,7 +66,7 @@ public sealed class DgbPriceService
         }
 
         if (usd is null) return null;
-        var perUsd = await GetUsdRateAsync(currency.Code, ct);
+        var perUsd = await GetUsdRateWithStalenessAsync(currency.Code, ct);
         if (perUsd is null) return null;
         return Quote(currency, usd.Value.Price * perUsd.Value.Rate, usd.Value.At, "coingecko+fx", usd.Value.Stale || perUsd.Value.Stale);
     }
@@ -114,8 +114,21 @@ public sealed class DgbPriceService
         finally { gate.Release(); }
     }
 
+    /// <summary>
+    /// Units of <paramref name="code"/> one US dollar buys, or null when the currency is unsupported or no rate is
+    /// available. USD is exactly 1. Used to price DD (1 DD = 1 USD) from a fiat amount (specs/033 research R3).
+    /// </summary>
+    public async Task<decimal?> GetUsdRateAsync(string? code, CancellationToken ct = default)
+    {
+        var currency = FiatCurrencies.Find(code);
+        if (currency is null) return null;
+        if (currency.Code == "USD") return 1m;
+        var rate = await GetUsdRateWithStalenessAsync(currency.Code, ct);
+        return rate?.Rate;
+    }
+
     // Units of a currency one US dollar buys (open.er-api.com, the same source as the wallet's price proxy /fx).
-    private async Task<(decimal Rate, bool Stale)?> GetUsdRateAsync(string code, CancellationToken ct)
+    private async Task<(decimal Rate, bool Stale)?> GetUsdRateWithStalenessAsync(string code, CancellationToken ct)
     {
         const string fresh = "digipay.fx.fresh";
         const string stale = "digipay.fx.stale";

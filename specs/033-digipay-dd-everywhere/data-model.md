@@ -9,9 +9,9 @@ All entities live in `src/DigiByte.Pay.Api/Data/`. Production uses an EF Core mi
 | Field | Change | Rules |
 |---|---|---|
 | `Currency` | `init` → `set` | The currency **in effect**. It changes once, when a buyer-choice session locks (R1). Still `"DGB"` or `"DD"`. |
-| `Address` | (already settable) | The address in effect. It switches to the locked option's address at lock. |
+| `Address` | `init` → `set` | The address in effect. It switches to the locked option's address at lock. |
 | `AmountSatoshis` | `init` → `set` | Set to 0 when the session locks to DD. |
-| `AmountCentsDd` | (already `long?`) | Set from the DD option when it locks to DD. |
+| `AmountCentsDd` | `init` → `set` | Set from the DD option when it locks to DD. |
 | `AddressIndex` | unchanged | Keeps the DGB option's xpub index. Address allocation stays monotonic. |
 | `BuyerChoice` | **new** bool, default false | True only when every condition in R5 held at creation. Never changes afterwards. |
 | `LockedAt` | **new** `DateTime?` | Set when funds are first seen on any option of a buyer-choice session. Null for sessions without buyer choice. |

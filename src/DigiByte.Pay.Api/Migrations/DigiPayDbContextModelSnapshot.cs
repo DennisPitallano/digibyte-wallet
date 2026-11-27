@@ -224,6 +224,9 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("DdChoiceNoticePending")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("DigiIdAddress")
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
@@ -319,6 +322,11 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<long>("AmountSatoshis")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("BuyerChoice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("Confirmations")
                         .HasColumnType("integer");
 
@@ -338,6 +346,20 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<long?>("ExtraAmount")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ExtraCurrency")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<DateTime?>("ExtraSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExtraTxid")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<decimal?>("FiatAmount")
                         .HasColumnType("numeric");
 
@@ -348,6 +370,9 @@ namespace DigiByte.Pay.Api.Migrations
                     b.Property<string>("Label")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Memo")
                         .HasMaxLength(200)
@@ -415,13 +440,60 @@ namespace DigiByte.Pay.Api.Migrations
                     b.ToTable("Sessions");
                 });
 
+            modelBuilder.Entity("DigiByte.Pay.Api.Data.PaySessionOption", b =>
+                {
+                    b.Property<string>("SessionId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<long?>("AmountCentsDd")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("AmountSatoshis")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("RateAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("UsdRate")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("numeric(28,10)");
+
+                    b.HasKey("SessionId", "Currency");
+
+                    b.HasIndex("Address");
+
+                    b.ToTable("PaySessionOptions", (string)null);
+                });
+
             modelBuilder.Entity("DigiByte.Pay.Api.Data.PayStore", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<bool>("BuyerChoiceEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DdDonationAddress")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("DefaultCurrency")
                         .HasMaxLength(8)
@@ -529,6 +601,15 @@ namespace DigiByte.Pay.Api.Migrations
                     b.HasIndex("StoreId", "CreatedAt");
 
                     b.ToTable("WebhookDeliveries");
+                });
+
+            modelBuilder.Entity("DigiByte.Pay.Api.Data.PaySessionOption", b =>
+                {
+                    b.HasOne("DigiByte.Pay.Api.Data.PaySession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

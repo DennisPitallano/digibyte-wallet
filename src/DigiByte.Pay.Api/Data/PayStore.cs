@@ -42,5 +42,17 @@ public class PayStore
     /// </summary>
     public string? DefaultCurrency { get; set; }
 
+    /// <summary>
+    /// Whether fiat-priced payments let the buyer pick DGB or DD at checkout (specs/033 FR-029). On by default; it
+    /// only has an effect while <see cref="DigiDollarEnabled"/> is on.
+    /// </summary>
+    public bool BuyerChoiceEnabled { get; set; } = true;
+
+    /// <summary>
+    /// The store's fixed DD donation address (specs/033 FR-011), created on demand. Never rotated, and kept when DD is
+    /// turned off so donations sent later are still credited.
+    /// </summary>
+    public string? DdDonationAddress { get; set; }
+
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }

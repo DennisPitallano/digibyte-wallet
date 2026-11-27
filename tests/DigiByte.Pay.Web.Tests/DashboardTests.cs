@@ -443,6 +443,57 @@ public class DashboardTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains(api.Requests, r => r == "GET /v1/pay/public/price?currency=eur"));
     }
 
+    // ----- DigiDollar setting text (specs/033 User Story 5) -----
+
+    [Fact]
+    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_cannot_be_withdrawn_yet()
+    {
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-setting-text")));
+        var text = cut.Find("#dd-setting-text").TextContent;
+
+        Assert.Contains("only through the DigiPay API", text);
+        Assert.Contains("DigiPay holds the DD", text);
+        Assert.Contains("can't be withdrawn yet", text);
+        Assert.Contains("1 DD = $1", text);
+        Assert.Contains("network fees in DGB", text);
+        Assert.DoesNotContain("POS", text);
+        Assert.DoesNotContain("donation", text);
+        Assert.DoesNotContain("checkout", text);
+    }
+
+    [Fact]
+    public void With_the_DD_surfaces_on_the_setting_lists_every_place_DD_is_offered()
+    {
+        api.DdSurfacesEnabled = true;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.Contains("POS till", cut.Find("#dd-setting-text").TextContent));
+        var text = cut.Find("#dd-setting-text").TextContent;
+
+        foreach (var place in new[] { "POS till", "payment links", "one-off payments", "choice at checkout", "donation page", "the API" })
+            Assert.Contains(place, text);
+        Assert.Contains("DigiPay holds the DD", text);
+        Assert.Contains("paid out to your payout address", text);
+        Assert.DoesNotContain("can't be withdrawn", text);
+    }
+
+    [Theory]
+    [InlineData(false, true, "DigiDollar is on. Buyers can pay in DD through the DigiPay API")]
+    [InlineData(true, true, "DigiDollar is on. Buyers can pay in DD through the POS till")]
+    [InlineData(false, false, "DigiDollar is off. New payments through the DigiPay API")]
+    public void Turning_DD_on_or_off_names_the_places(bool surfaces, bool turnOn, string expected)
+    {
+        api.DdSurfacesEnabled = surfaces;
+        api.DigiDollarEnabled = !turnOn;
+        var cut = RenderSection("settings");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-setting-text")));
+
+        cut.Find("section input[type=checkbox].accent-dgb-500").Change(turnOn);
+
+        cut.WaitForAssertion(() => Assert.Contains(expected, cut.Markup));
+        Assert.Equal(turnOn, api.LastPatch!["digiDollarEnabled"]!.GetValue<bool>());
+    }
+
     private sealed class FakePayApi : HttpMessageHandler, IHttpClientFactory
     {
         public List<string> Requests { get; } = [];
@@ -451,6 +502,8 @@ public class DashboardTests : BunitContext
         public bool HasSecret { get; set; }
         public string? SecretOnPatch { get; set; }
         public string? DefaultCurrency { get; set; }
+        public bool DdSurfacesEnabled { get; set; }
+        public bool DigiDollarEnabled { get; set; }
         public JsonObject? LastPatch { get; private set; }
         public (HttpStatusCode Status, string Body)? PatchError { get; set; }
         public int Total { get; set; } = 3;
@@ -474,7 +527,7 @@ public class DashboardTests : BunitContext
             var q = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
 
             if (method == "GET" && path == "/v1/pay/me/")
-                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = new[] { Store() } });
+                return Json(new { id = "mer_1", displayName = "Test Shop", digiIdAddress = (string?)null, createdAt = DateTime.UtcNow, stores = new[] { Store() }, ddSurfacesEnabled = DdSurfacesEnabled });
 
             if (method == "GET" && request.RequestUri.AbsolutePath == "/v1/pay/sessions")
             {
@@ -508,6 +561,7 @@ public class DashboardTests : BunitContext
                     var c = body["defaultCurrency"]?.GetValue<string>();
                     DefaultCurrency = string.IsNullOrEmpty(c) ? null : c.ToUpperInvariant();
                 }
+                if (body["digiDollarEnabled"] is JsonNode dd) DigiDollarEnabled = dd.GetValue<bool>();
                 string? secret = null;
                 if (body["webhookUrl"] is JsonNode url)
                 {
@@ -563,7 +617,7 @@ public class DashboardTests : BunitContext
             receiveMode = HasReceive ? "address" : "unconfigured", hasReceive = HasReceive,
             receivePreview = HasReceive ? "dgb1qreceive" : null,
             webhookUrl = WebhookUrl, hasWebhookSecret = HasSecret,
-            defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = false,
+            defaultSessionExpiryMinutes = (int?)null, createdAt = DateTime.UtcNow, digiDollarEnabled = DigiDollarEnabled,
             defaultCurrency = DefaultCurrency,
         };
 

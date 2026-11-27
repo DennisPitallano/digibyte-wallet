@@ -4,6 +4,9 @@ All notable changes to the DigiByte Wallet project.
 
 ## [Unreleased]
 
+### Changed
+- **DigiPay's DigiDollar setting says where DD is offered** — The **Accept DigiDollar** setting in the DigiPay dashboard now lists only the places that really take DD (for now, sessions created through the API with `"currency": "DD"`), says plainly that DigiPay holds the DD buyers pay and that it can't be withdrawn yet, and its on and off messages name those places. The docs gain a DigiDollar section. `GET /v1/pay/me` gains `ddSurfacesEnabled` and `ddChoiceNoticePending`, and store objects gain `defaultCurrencyEffective`, `buyerChoiceEnabled` and `ddDonationAddress`, ahead of DD on the POS, payment links, checkout and the donation page (specs/033), which stay off behind `DIGIPAY_DD_SURFACES` until DD payouts are live.
+
 ## [0.10.0] - 2026-11-27
 
 The wallet now speaks Spanish, works properly on a computer, and can hand your history to a spreadsheet. **Paste / Scan** opens a paste panel on a desktop (copied codes, screenshots, dropped pictures, another tab's QR code), **payment links** open Send for wallet users and a payment page for everyone else, **Export CSV** saves DGB and DigiDollar history with daily fiat values, and a shared wallet can pay **2 to 20 recipients** in one proposal. A deeper address search finds payments sent far beyond the usual 20-address gap. DigiPay was rebuilt on the wallet's own styles, with a clearer checkout, a redesigned POS, a bookmarkable dashboard with sales charts, and every wallet currency.
