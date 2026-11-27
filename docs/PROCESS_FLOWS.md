@@ -16,6 +16,16 @@
 3. Choose **Legacy** (D...) or **SegWit** (dgb1...) format
 4. Wait for the sender to send — it confirms in ~15 seconds
 
+### Requesting a Payment
+1. Tap **Request** in the menu. A keypad opens: type the amount, in DGB or in your own currency (tap the switch), or type nothing for "any amount". **Add a note** adds a label and a message
+2. Tap **Request**. The request gets an address of its own (your Receive address doesn't change) and shows its QR code and links: **Copy payment link**, **Share**, **Copy digibyte: link**, **Download QR**
+3. Show the QR code or send the link. The request shows where it stands: **Waiting**, **Payment arriving** (seen on the network, not yet confirmed), **Partly paid**, **Paid** or **Overpaid**
+4. When it's paid while you're looking at it, a full-screen **Paid!** card appears and the phone vibrates. Elsewhere in the wallet you get a message you can tap; with the wallet in the background, a notification (if you allowed them). If the wallet locked meanwhile, the lock screen says **Request paid**, and after unlocking you get one "paid since you were last here" message. The **Request** tab shows a count of paid requests you haven't opened
+5. In your own currency, the DGB amount is fixed at today's price for 15 minutes, with a countdown. After that the request expires and **Renew at today's price** makes a new one (for only what's still owed, if part was paid). The link tells the payer until when the price holds
+6. **Your requests** lists them all with filters (Open, Paid, Expired, All). Open one to **Cancel request** (money sent later still reaches you) or **Remove** it from the list (money already received stays in your wallet and Activity)
+
+Notifications never show the address. The amount and label appear in them only if you turn on **Settings → Show amount and label in notifications**.
+
 ### Sending DigiByte
 1. Tap **"Send"** → enter the recipient's address (or paste or scan a code, or pick a contact). On a computer, **Paste / Scan** in the menu takes a copied address, a payment link, a screenshot of a QR code, or a QR code shown in another tab
 2. Enter the amount (tap the currency badge to switch between USD and DGB)
@@ -427,6 +437,44 @@ After a wider search has found addresses far along (spec 027):
   → GenerateNewAddress() hands out the index after the highest found one, and records it as a watched address
   → "Your addresses" lists WalletService.GetListedReceiveIndexes(): the run from the first address plus the watched
     addresses up to the one on show, not every index in between. Paging is by position in that list
+```
+
+### Request a payment (`/payments`, spec 036)
+```
+OnInitializedAsync():
+  → locked? return (AuthGuard sends to /unlock)
+  → PaymentRequestService.GetAllAsync(walletId, wallet addresses)   per wallet: payment_requests:{walletId}
+      first load moves this wallet's old device-wide requests (payment_requests) over, as Not tracked
+  → PriceQuoteService.GetAsync() in the background (price + fetched-at; null = currency option off)
+
+Keypad (RequestKeypad, rules in RequestKeypadEntry) → Request:
+  → in DGB:       PaymentRequestService.CreateAsync(walletId, NewRequest(amount, label, message))
+  → in currency:  PriceQuoteService.GetAsync(fresh) → NewRequest(FiatAmount, Quote)
+                  AmountDgb = RequestAmounts.ToDgb(fiat, price)   ExpiresAt = CreatedAt + 15 min
+  CreateAsync → IRequestAddressSource.HandOutRequestAddressAsync()   (WalletService)
+      same gate, discovery wait and 20-unused limit as Receive's new address; never moves NextReceivingIndex,
+      raises WalletInfo.HandedOutTop; ReceiveScanSet.NextNewIndex = max(shown+1, Anchor, HandedOutTop+1)
+      single-key wallet → CreateUntrackedAsync on its one address (Not tracked)
+      label → AddressLabelService (Activity, details and CSV show it)
+
+RequestWatcher (app-wide, started at app load for the last watched wallet; no unlock needed):
+  → every 3 s the request on screen, every 30 s (60 s hidden) the live ones, and any request whose address
+    WalletService.TransactionsChanged names
+  → IBlockchainService.GetAddressTransactionsAsync(address)   only the address is sent
+  → RequestStatusCalculator.Compute(request, txs, now)   recomputed from scratch: a dropped tx stops counting
+  → RequestAnnouncementRule.Decide(request, view, firstCheckSinceStart)
+      locked: LockNotice / LockedNotification (once, LockNotifiedAt) — not the announcement
+      first check after start, unlock or switch: AwaySummary
+      else Overlay (request on screen) / Toast / SystemNotification (hidden)
+    PaidAnnouncedAt is re-read from storage before announcing, so one tab announces
+  → PaymentRequestService.ApplyAsync; WalletService.SetExtraHotAddresses(open requests' addresses)
+
+RequestAnnouncer: toast with a tap action, request-notify.js (Notification API; no push), summary toast
+RequestAttentionState: the Request tab count (paid, not opened)
+Unlock: "Request paid" notice from RequestWatcher.PaidUnopened
+
+Links: a currency request's digibyte: link adds fiat, currency and expires (PriceLockFields), read as a group;
+       ScanRouter / ScanHandOff / PaymentHandoff carry them; Send and /pay show "Price held until …"
 ```
 
 ### Recovery — Missing Payments (`/recovery`, spec 027)

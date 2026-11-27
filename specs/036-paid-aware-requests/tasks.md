@@ -317,11 +317,11 @@
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T059 [P] Add a "Request a payment" flow to `docs/PROCESS_FLOWS.md` covering: own address per request, status, the paid moment, the price lock, and watching while locked.
-- [ ] T060 [P] Add a note to `specs/027-deep-receive-search/data-model.md` under "Moving the address on show": `HandedOutTop` is a third field, raised by Receive and request hand-outs, and `NextReceivingIndex` still has only its two writers. Link to `specs/036-paid-aware-requests/data-model.md`.
-- [ ] T061 Run the full suite (`dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName!~LiveExplorerBenchmarks"`) and `dotnet build DigiByte.slnx`. It must be all-pass, at or above the T002 baseline.
+- [X] T059 [P] Add a "Request a payment" flow to `docs/PROCESS_FLOWS.md` covering: own address per request, status, the paid moment, the price lock, and watching while locked.
+- [X] T060 [P] Add a note to `specs/027-deep-receive-search/data-model.md` under "Moving the address on show": `HandedOutTop` is a third field, raised by Receive and request hand-outs, and `NextReceivingIndex` still has only its two writers. Link to `specs/036-paid-aware-requests/data-model.md`.
+- [X] T061 Run the full suite (`dotnet test tests/DigiByte.Wallet.Tests --filter "FullyQualifiedName!~LiveExplorerBenchmarks"`) and `dotnet build DigiByte.slnx`. It must be all-pass, at or above the T002 baseline.
 - [ ] T062 Run quickstart scenarios 15 (Spanish), 16 (network traffic: no request detail sent to a project server, SC-006) and 18 (multisig Pending tab unchanged), and record the results.
-- [ ] T063 Update `CHANGELOG.md` under the next version with the Request tab changes.
+- [X] T063 Update `CHANGELOG.md` under the next version with the Request tab changes.
 
 ---
 
@@ -503,4 +503,19 @@ Run on 2026-11-28 in the browser preview, test wallet, demo data (every request 
 - A paid request does not offer Cancel: **passed**.
 - Cancel, a payment after cancelling, and the 20-address limit (scenario 11): **not run in the browser**, because the demo data pays every request at once, so none stays open. Covered by `PaymentRequestServiceTests` (cancel, cancel of a paid request, the limit not lifting after cancel and remove, the address still counted after remove and reload) and `RequestStatusCalculatorTests` (late money after cancelling reaching Paid).
 - Still to do for T058: scenarios 11 and 12 with real testnet payments.
+
+### 2026-11-28: Polish (T059 to T063)
+
+- T059: "Requesting a Payment" (for users) and "Request a payment (`/payments`, spec 036)" (for developers) added to `docs/PROCESS_FLOWS.md`.
+- T060: the `HandedOutTop` note added to `specs/027-deep-receive-search/data-model.md` under "Moving the address on show".
+- T061: `dotnet build DigiByte.slnx` succeeds with 0 errors; the full suite passes, 3,833 tests (baseline 3,662).
+- T063: four "Added" entries and one "Fixed" entry under `[Unreleased]` in `CHANGELOG.md`.
+- Found during T062: a paid request no longer being checked showed "Not up to date" under its status. The note now shows only for requests the watcher still checks.
+
+### T062 (quickstart scenarios 15, 16, 18): partly run, not ticked
+
+- Scenario 15 (Spanish): **passed**. Keypad, note fields, filters, request detail, payments list and the Request tab's label all read in Spanish ("Cualquier importe", "Añadir una nota", "Abiertos / Pagados / Vencidos / Todos", "Pagado de más", "Pagos recibidos", "Quitar", "Solicitar un pago"); the locale tests check every new key exists in both languages with matching placeholders.
+- Scenario 16 (SC-006, nothing about a request sent to a project server): **passed** in the preview. The only calls to a project server were the price service's `/api/price/coin` and `/api/price/simple?currency=usd`; no URL carried a label, message, amount or `fiat=`. Explorer lookups carry only an address (by design in `RequestWatcher`).
+- Scenario 18 (a shared wallet's Pending tab unchanged): **checked in the code only**. The test wallet has no shared wallet; the diff of `NavMenu.razor` changes only the personal Request tab, not the shared branch.
+- Still to do for T062: scenario 18 with a shared wallet.
 

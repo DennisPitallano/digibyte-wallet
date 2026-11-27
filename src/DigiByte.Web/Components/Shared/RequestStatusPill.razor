@@ -19,7 +19,8 @@
 @code {
     [Parameter, EditorRequired] public PaymentRequest Request { get; set; } = default!;
 
-    private bool Stale => RequestWatcher.IsStale(Request, DateTime.UtcNow) && Request.Status != PaymentRequestStatus.NotTracked;
+    // Only a request the watcher still checks can be out of date; a paid or long-closed one is settled (SC-007).
+    private bool Stale => RequestWatcher.IsLive(Request, DateTime.UtcNow) && RequestWatcher.IsStale(Request, DateTime.UtcNow);
 
     // Unconfirmed money shown next to a status other than "Payment arriving" (data-model "ArrivingNote").
     private long ArrivingSatoshis => Request.Status == PaymentRequestStatus.PaymentArriving
