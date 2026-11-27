@@ -46,6 +46,8 @@ public static class DigiDollarEndpoints
         group.MapGet("/transactions", ListTransactions).WithName("ListDdTransactions").RequireCors("DdWalletScoped");
         group.MapPost("/send", SendDigiDollar).WithName("SendDigiDollar").RequireCors("DdWalletScoped");
         group.MapPost("/send-many", SendManyDigiDollar).WithName("SendManyDigiDollar").RequireCors("DdWalletScoped");
+        // Recent sends with their comment, so DigiPay can tell whether a payout reached the network (specs/034 R3).
+        group.MapGet("/sends", ListSends).WithName("ListDdSends").RequireCors("DdWalletScoped");
 
         // Mint / Redeem (wallet, Phase 5)
         group.MapPost("/mint", MintDigiDollar).WithName("MintDigiDollar").RequireCors("DdWalletScoped");
@@ -288,8 +290,69 @@ public static class DigiDollarEndpoints
         // Pass integer cents so digibyted interprets as USD cents (not decimal dollars).
         var result = await rpc.CallWalletAsync<JsonElement>(config.WalletName,
             "senddigidollar", req.Address, req.AmountCents, req.Comment ?? "");
-        return Results.Ok(result);
+
+        // Return a stable { txid } shape whatever the RPC gives back (specs/034 contract C4). Anything else is a 502 so the
+        // caller treats the send as "checking" rather than guessing.
+        var txid = ParseSendTxid(result);
+        return txid is null
+            ? Results.Json(new { error = "send_result_unparsed", raw = result.GetRawText() }, statusCode: StatusCodes.Status502BadGateway)
+            : Results.Ok(new { txid });
     }
+
+    /// <summary>
+    /// The txid from a <c>senddigidollar</c> result: a bare 64-hex string, or an object with a <c>txid</c> property.
+    /// Null for anything else.
+    /// </summary>
+    public static string? ParseSendTxid(JsonElement result)
+    {
+        var candidate = result.ValueKind switch
+        {
+            JsonValueKind.String => result.GetString(),
+            JsonValueKind.Object when result.TryGetProperty("txid", out var t) && t.ValueKind == JsonValueKind.String => t.GetString(),
+            _ => null,
+        };
+        return candidate is { Length: 64 } && candidate.All(Uri.IsHexDigit) ? candidate.ToLowerInvariant() : null;
+    }
+
+    private static async Task<IResult> ListSends(DigiByteRpcClient rpc, DigiDollarConfig config, long since = 0, int count = 50)
+    {
+        if (RequireEnabled(config) is { } gate) return gate;
+        count = Math.Clamp(count, 1, 200);
+        var txs = await rpc.CallWalletAsync<JsonElement>(config.WalletName, "listdigidollartxs", count, 0, "", "send");
+        return Results.Ok(new { items = MapSends(txs, since) });
+    }
+
+    /// <summary>
+    /// Maps <c>listdigidollartxs</c> send entries to <c>{ txid, address, amountCents, comment, time, confirmations }</c>,
+    /// newest first, dropping entries older than <paramref name="since"/> (unix seconds). Accepts a bare array or one
+    /// wrapped in <c>{ "transactions": [...] }</c>. Amounts are reported as positive cents.
+    /// </summary>
+    public static IReadOnlyList<DdSendItem> MapSends(JsonElement txs, long since)
+    {
+        var array = txs.ValueKind == JsonValueKind.Array ? txs
+            : txs.ValueKind == JsonValueKind.Object && txs.TryGetProperty("transactions", out var wrapped) && wrapped.ValueKind == JsonValueKind.Array ? wrapped
+            : default;
+        var items = new List<DdSendItem>();
+        if (array.ValueKind != JsonValueKind.Array) return items;
+        foreach (var tx in array.EnumerateArray())
+        {
+            if (tx.ValueKind != JsonValueKind.Object) continue;
+            var txid = Str(tx, "txid");
+            if (txid is null) continue;
+            var time = Long(tx, "time") ?? Long(tx, "blocktime") ?? 0;
+            if (time < since) continue;
+            var cents = Long(tx, "amount_cents") ?? Long(tx, "amountCents") ?? Long(tx, "amount") ?? 0;
+            items.Add(new DdSendItem(txid, Str(tx, "address"), Math.Abs(cents), Str(tx, "comment"), time, (int)(Long(tx, "confirmations") ?? 0)));
+        }
+        return items.OrderByDescending(i => i.Time).ToList();
+
+        static string? Str(JsonElement e, string name) =>
+            e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String && v.GetString() is { Length: > 0 } s ? s : null;
+        static long? Long(JsonElement e, string name) =>
+            e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : null;
+    }
+
+    public sealed record DdSendItem(string Txid, string? Address, long AmountCents, string? Comment, long Time, int Confirmations);
 
     private static async Task<IResult> SendManyDigiDollar(DigiByteRpcClient rpc, DigiDollarConfig config, SendManyDdRequest req)
     {

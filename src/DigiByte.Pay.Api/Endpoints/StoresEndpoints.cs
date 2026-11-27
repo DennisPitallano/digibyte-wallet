@@ -96,6 +96,9 @@ public static class StoresEndpoints
                 var net = body.Network.ToLowerInvariant();
                 if (net is not ("mainnet" or "testnet" or "regtest"))
                     return Results.BadRequest(new { error = "network must be mainnet | testnet | regtest" });
+                if (store!.DdPayoutAddress is not null && store.Network != net
+                    && DigiByte.Pay.Api.Services.Payouts.PayoutAddressService.ValidateFormat(store.DdPayoutAddress, net) is not null)
+                    return Results.Conflict(new { error = "payout_address_network_mismatch" });
                 if (store!.Network != net) changed.Add("network");
                 store!.Network = net;
             }
@@ -158,6 +161,13 @@ public static class StoresEndpoints
                 if (store!.DefaultSessionExpiryMinutes != mins) changed.Add("expiry");
                 store!.DefaultSessionExpiryMinutes = mins;
             }
+            if (body.DigiDollarEnabled is true && !store!.DigiDollarEnabled && store.DdPayoutAddress is null
+                && !store.DdPayoutAddressRequiredExempt
+                && !await db.PayoutAddressChanges.AnyAsync(c => c.StoreId == store.Id && c.Status == PayoutAddressChange.StatusPending))
+            {
+                // specs/034 FR-031: DigiPay holds DD until it's paid out, so a store needs somewhere to send it first.
+                return Results.Conflict(new { error = "payout_address_required" });
+            }
             if (body.DigiDollarEnabled is not null)
             {
                 if (store!.DigiDollarEnabled != body.DigiDollarEnabled.Value) changed.Add("digidollar");
@@ -206,15 +216,21 @@ public static class StoresEndpoints
             return Results.Ok(new { webhookSecret = store.WebhookSecret });
         });
 
-        group.MapDelete("/{storeId}", async (string storeId, HttpRequest http, DigiPayDbContext db, AuditLogger audit) =>
+        group.MapDelete("/{storeId}", async (string storeId, bool? finalPayout, HttpRequest http, DigiPayDbContext db, AuditLogger audit,
+            DigiByte.Pay.Api.Services.Payouts.DdLedgerService ledger) =>
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
             if (err is not null) return err;
             // Guardrail: don't orphan the account — force at least one store to remain.
             var count = await db.Stores.CountAsync(s => s.MerchantId == merchant!.Id);
             if (count <= 1) return Results.BadRequest(new { error = "cannot delete your only store" });
+
+            // specs/034 FR-015 / edge case "Store deleted while holding DD".
+            var dd = await DigiByte.Pay.Api.Services.Payouts.StoreDdRetirement.CheckAsync(db, ledger, store!, finalPayout == true);
+            if (dd is not null) return dd;
             var snapshotName = store!.Name;
             var snapshotNetwork = store.Network;
+            await DigiByte.Pay.Api.Services.Payouts.StoreDdRetirement.MoveToMerchantAsync(db, store!);
             db.Stores.Remove(store!);
             await db.SaveChangesAsync();
 

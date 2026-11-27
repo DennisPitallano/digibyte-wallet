@@ -64,6 +64,8 @@ public sealed class PayFactory : WebApplicationFactory<Program>
             ["DigiPay:ConnectionString"] = "",
             ["Outbound:AllowLoopback"] = allowLoopback ? "true" : "false",
             ["RateLimits:RegisterPerHour"] = registerPerHour.ToString(),
+            // Tests drive the DD payout worker by hand (specs/034).
+            ["DigiPay:Payouts:WorkerEnabled"] = "false",
         };
         if (settings is not null)
             foreach (var (key, value) in settings) _settings[key] = value;
@@ -141,6 +143,79 @@ public sealed class PayFactory : WebApplicationFactory<Program>
         using var scope = Services.CreateScope();
         await work(scope.ServiceProvider.GetRequiredService<DigiPayDbContext>());
     }
+
+    // ---- DD payouts (specs/034) ----
+
+    /// <summary>A valid DigiDollar address for <paramref name="network"/>, different on every call.</summary>
+    public static string NewDdAddress(string network = "mainnet") =>
+        DigiByte.Crypto.Addresses.DigiDollarAddressValidator.Encode(new Key().PubKey.TaprootInternalKey.ToBytes(), network);
+
+    /// <summary>Gives a store a payout address directly, so it may turn DigiDollar on (FR-031).</summary>
+    public async Task<string> GivePayoutAddress(string storeId, string? address = null)
+    {
+        string? set = null;
+        await WithDb(async db =>
+        {
+            var store = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(db.Stores, s => s.Id == storeId);
+            store.DdPayoutAddress = set = address ?? NewDdAddress(store.Network);
+            store.DdPayoutAddressSetAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        });
+        return set!;
+    }
+
+    /// <summary>A Dashboard session token (<c>dps_</c>) for the merchant behind <paramref name="apiKey"/>, and its session id.</summary>
+    public async Task<(string Token, string SessionId)> CreateSessionToken(string apiKey)
+    {
+        string token = "", sessionId = "";
+        await WithDb(async db =>
+        {
+            var prefix = apiKey[..apiKey.LastIndexOf('_')];
+            var key = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(db.ApiKeys, k => k.Prefix == prefix);
+            var (sPrefix, secret, hash) = DigiByte.Pay.Api.Auth.MerchantAuthenticator.GenerateSessionToken();
+            var session = new MerchantSession
+            {
+                Id = $"sess_{Guid.NewGuid():N}"[..21],
+                MerchantId = key.MerchantId,
+                TokenPrefix = sPrefix,
+                TokenHash = hash,
+                ExpiresAt = DateTime.UtcNow.AddDays(1),
+            };
+            db.MerchantSessions.Add(session);
+            var merchant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(db.Merchants, m => m.Id == key.MerchantId);
+            merchant.DigiIdAddress ??= NewAddress();
+            await db.SaveChangesAsync();
+            token = $"{sPrefix}_{secret}";
+            sessionId = session.Id;
+        });
+        return (token, sessionId);
+    }
+
+    /// <summary>Inserts a valid step-up grant for the merchant and Dashboard session, as a signed Digi-ID re-sign-in would.</summary>
+    public async Task<string> GrantStepUp(string sessionId)
+    {
+        var id = $"sug_{Guid.NewGuid():N}"[..20];
+        await WithDb(async db =>
+        {
+            var session = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(db.MerchantSessions, s => s.Id == sessionId);
+            var merchant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(db.Merchants, m => m.Id == session.MerchantId);
+            db.StepUpGrants.Add(new StepUpGrant
+            {
+                Id = id,
+                MerchantId = merchant.Id,
+                SessionId = sessionId,
+                Purpose = StepUpGrant.PurposePayoutAddress,
+                DigiIdAddress = merchant.DigiIdAddress!,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(5),
+            });
+            await db.SaveChangesAsync();
+        });
+        return id;
+    }
+
+    /// <summary>Runs one DD payout worker cycle.</summary>
+    public Task RunPayoutCycleAsync() =>
+        Services.GetRequiredService<DigiByte.Pay.Api.Services.Payouts.DdPayoutWorker>().RunOnceAsync();
 
     public async Task<List<WebhookDelivery>> LoadDeliveries(string storeId)
     {

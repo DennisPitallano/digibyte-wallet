@@ -287,6 +287,10 @@ public static class PaymentsEndpoints
             };
 
             db.Sessions.Add(session);
+            // Every DD address DigiPay creates is recorded with its owner, so payouts can attribute the DD (specs/034 R4).
+            if (session.Currency == "DD")
+                await DigiByte.Pay.Api.Services.Payouts.DdAddressRegistry.RegisterAsync(db, session.Address, merchant.Id, store.Id,
+                    DigiByte.Pay.Api.Data.DdAddress.KindPayment, session.Id, store.Network);
             // Persist the idempotency mapping in the same SaveChanges so a
             // partial failure can't leave the session without its mapping (or
             // vice-versa). The unique (MerchantId, Key) index guards against
@@ -411,12 +415,14 @@ public static class PaymentsEndpoints
                 .Skip(skip).Take(take).ToListAsync();
 
             var checkoutBase = (config["ClientWebUrl"] ?? "https://dgbwallet.app").TrimEnd('/');
+            // Payout status for DD rows (specs/034 FR-028): merchant-only, so it's added here and not on the public read.
+            var payoutInfo = await DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.LoadAsync(db, rows);
             return Results.Ok(new
             {
                 total,
                 take,
                 skip,
-                sessions = rows.Select(s => ToDto(s, $"{checkoutBase}/pay/{s.Id}")),
+                sessions = rows.Select(s => DigiByte.Pay.Api.Services.Payouts.SessionPayoutInfo.Attach(ToDto(s, $"{checkoutBase}/pay/{s.Id}"), s.Id, payoutInfo)),
             });
         }).AllowPosKey();
 

@@ -255,6 +255,25 @@ builder.Services.AddScoped<WebhookDispatcher>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddHostedService<InvoiceMonitor>();
+
+// DD payouts (specs/034).
+builder.Services.Configure<DigiByte.Pay.Api.Services.Payouts.PayoutOptions>(opts =>
+{
+    builder.Configuration.GetSection("DigiPay:Payouts").Bind(opts);
+    if (Environment.GetEnvironmentVariable("DIGIPAY_PAYOUTS_PAUSED") is { Length: > 0 } paused)
+        opts.Paused = paused.Equals("true", StringComparison.OrdinalIgnoreCase) || paused == "1";
+    opts.OperatorKey = Environment.GetEnvironmentVariable("DIGIPAY_OPERATOR_KEY") is { Length: > 0 } opKey
+        ? opKey : builder.Configuration["DigiPay:OperatorKey"];
+});
+builder.Services.AddSingleton<DigiByte.Pay.Api.Services.Payouts.PayoutAlerts>();
+builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdLedgerService>();
+builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdLedgerScanner>();
+builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdPayoutPlanner>();
+builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.DdPayoutSender>();
+builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.PayoutAddressService>();
+builder.Services.AddScoped<DigiByte.Pay.Api.Services.Payouts.StepUpService>();
+builder.Services.AddSingleton<DigiByte.Pay.Api.Services.Payouts.DdPayoutWorker>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DigiByte.Pay.Api.Services.Payouts.DdPayoutWorker>());
 builder.Services.AddHostedService<DemoDataJanitor>();
 builder.Services.AddHostedService<WebhookRetrier>();
 
@@ -411,6 +430,14 @@ using (var scope = app.Services.CreateScope())
         await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_PaySessionOptions_Address\" ON \"PaySessionOptions\" (\"Address\")");
     }
 
+    // ...and before AddDdPayouts (specs/034): the payout tables and store columns.
+    if (!db.Database.IsNpgsql())
+        await DigiByte.Pay.Api.Services.Payouts.DdPayoutsSqliteShim.ApplyAsync(db);
+
+    // Every DD address DigiPay created before payouts existed gets its owner recorded (specs/034 FR-038, research R5).
+    try { await DigiByte.Pay.Api.Services.Payouts.DdAddressRegistry.BackfillAsync(db); }
+    catch (Exception ex) { app.Logger.LogWarning(ex, "DD address backfill failed; it runs again on the next start"); }
+
     // Backfill: legacy merchants had their API key on PayMerchant.ApiKeyPrefix/Hash.
     // Seed a PayApiKey row for any merchant that doesn't yet have one, so existing
     // SDK integrations keep working after the auth lookup moved to PayApiKeys.
@@ -499,6 +526,9 @@ app.MapGroup("/v1/pay").MapPaymentsEndpoints(app.Configuration).WithTags("Sessio
 app.MapGroup("/v1/pay/auth").MapAuthEndpoints(app.Configuration).ExcludeFromDescription().RequireRateLimiting("auth");
 app.MapGroup("/v1/pay/me").MapMerchantMeEndpoints().ExcludeFromDescription().RequireRateLimiting("authenticated");
 app.MapGroup("/v1/pay/stores").MapStoresEndpoints().WithTags("Stores & webhooks").RequireRateLimiting("authenticated");
+// DD payouts (specs/034): merchant routes are dashboard/API; operator routes are never documented.
+app.MapGroup("/v1/pay").MapPayoutsEndpoints().WithTags("DD payouts").RequireRateLimiting("authenticated");
+app.MapGroup("/v1/pay/operator").MapOperatorEndpoints().ExcludeFromDescription().RequireRateLimiting("auth");
 app.MapGroup("/v1/pay/api-keys").MapApiKeysEndpoints().ExcludeFromDescription().RequireRateLimiting("authenticated");
 // POS device pairing. /claim is unauthed (it's how a new tablet bootstraps)
 // but rate-limited to blunt brute-force on the 6-char pairing code; the
