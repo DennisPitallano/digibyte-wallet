@@ -1,6 +1,7 @@
 // Journey (specs/033 T070): a POS sale priced in USD lets the customer switch the code between DGB and DigiDollar.
-// The dev store is seeded with DigiDollar on and a payout address; scripts/fake-nodeapi.mjs plays the DigiDollar node
-// and the price feeds, and the run has DIGIPAY_DD_SURFACES on (servers.mjs).
+// The dev store is seeded with DigiDollar on and its own testnet DigiDollar key (specs/035), so DD addresses are derived
+// from that key; scripts/fake-esplora.mjs plays the public explorer and the price feeds, and the run has the DD surfaces
+// switch on (servers.mjs).
 import { test, expect } from '@playwright/test';
 import { apiContext, devSignin, bearer } from './helpers.mjs';
 
@@ -53,6 +54,8 @@ test('pos: a USD sale can be paid in DGB or DigiDollar, with one DD address and 
     await toggle.getByRole('button', { name: 'DigiDollar' }).click();
     await expect(address).toHaveText(/^TD/, { timeout: 2_000 });
     expect(Date.now() - started).toBeLessThan(2_000);
+    // A real Base58Check DD address derived from the store's key, not a placeholder.
+    await expect(address).toHaveText(/^TD[1-9A-HJ-NP-Za-km-z]{30,60}$/);
     await expect(page.locator('[data-dd-due]')).toContainText('25.00');
     const ddAddress = (await address.textContent()).trim();
 

@@ -13,7 +13,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..', '..');
 
 export const apiPort = Number(process.env.E2E_API_PORT || 5008);
-// The fake NodeApi and price feed (scripts/fake-nodeapi.mjs), so DigiDollar journeys run without a node or the internet.
+// The fake Esplora explorer and price feed (scripts/fake-esplora.mjs), so DigiDollar journeys run without the internet.
 export const nodePort = Number(process.env.E2E_NODE_PORT || 5262);
 export const nodeUrl = `http://localhost:${nodePort}`;
 export const webPort = Number(process.env.E2E_WEB_PORT || 5252);
@@ -52,9 +52,10 @@ export function serverCommands() {
         `--DigiPay:DevSignIn=true ` +
         `--ClientOrigin=${webUrl} ` +
         `--ClientWebUrl=${webUrl} ` +
-        // DigiDollar (specs/033, 034): the dev store has DD on and a payout address; the fake node answers for it.
+        // DigiDollar (specs/033, 035): the dev store has DD on with its own testnet DD key; the fake explorer answers.
         `--DigiPay:DdSurfacesEnabled=true ` +
-        `--DdNode:BaseUrl=${nodeUrl} ` +
+        `--DigiPay:DigiDollar:EsploraMainnetUrl=${nodeUrl}/api ` +
+        `--DigiPay:DigiDollar:EsploraTestnetUrl=${nodeUrl}/testnet/api ` +
         `--DigiPay:Prices:CoinGeckoUrl=${quote(`${nodeUrl}/coingecko?vs_currencies=`)} ` +
         `--DigiPay:Prices:FxUrl=${nodeUrl}/fx`;
     const web =
@@ -64,6 +65,6 @@ export function serverCommands() {
         `dotnet run --no-build --no-launch-profile --project ${quote(webProject)} -- ` +
         `--urls ${webUrl} --DigiPay:ApiUrl=${apiUrl}`;
     const env = { ASPNETCORE_ENVIRONMENT: 'Development', DOTNET_NOLOGO: '1', DOTNET_CLI_TELEMETRY_OPTOUT: '1' };
-    const node = `node ${quote(join(here, 'scripts', 'fake-nodeapi.mjs'))} ${nodePort}`;
+    const node = `node ${quote(join(here, 'scripts', 'fake-esplora.mjs'))} ${nodePort}`;
     return { api, web, node, env, cwd: repoRoot };
 }

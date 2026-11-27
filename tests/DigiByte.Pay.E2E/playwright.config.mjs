@@ -36,8 +36,8 @@ export default defineConfig({
     ],
     webServer: [
         {
-            // Fake NodeApi + price feed for the DigiDollar journeys (scripts/fake-nodeapi.mjs).
-            name: 'fake NodeApi',
+            // Fake Esplora explorer + price feed for the DigiDollar journeys (scripts/fake-esplora.mjs).
+            name: 'fake Esplora',
             command: node,
             cwd,
             url: `${nodeUrl}/health`,

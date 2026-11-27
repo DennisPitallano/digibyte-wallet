@@ -202,8 +202,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 - [X] T032 [US2] Update the existing DD tests to the allocator and explorer fakes:
   - `tests/DigiByte.Pay.Api.Tests/DdOptionEndpointTests.cs`: replace the `DdNode.Addresses` and `address/new` asserts with derived-address asserts, and replace `A_down_node_is_503_and_makes_no_option` with the `dd_service_unavailable` case (C1).
   - `BuyerChoiceSessionTests.cs`, `InvoiceMonitorBuyerChoiceTests.cs`, `DonationOptionsTests.cs`, `DdSurfacesGateTests.cs`, `SessionsCsvDdTests.cs` and `PosShiftTotalsDdTests.cs`.
-- [ ] T033 [P] [US2] Replace `tests/DigiByte.Pay.E2E/scripts/fake-nodeapi.mjs` with `tests/DigiByte.Pay.E2E/scripts/fake-esplora.mjs`. It serves the T008 paths, plus `/coingecko` and `/fx`. Point `tests/DigiByte.Pay.E2E/servers.mjs` and `playwright.config.mjs` at it, passing `--DigiPay:DigiDollar:EsploraTestnetUrl`.
-- [ ] T034 [US2] Update `tests/DigiByte.Pay.E2E/tests/pos-dd.spec.mjs` so the DD address shown matches `/^TD1/` and is a valid DD address, and update its header comment (no payout address). Run it with `PW_CHANNEL=msedge`.
+- [X] T033 [P] [US2] Replace `tests/DigiByte.Pay.E2E/scripts/fake-nodeapi.mjs` with `tests/DigiByte.Pay.E2E/scripts/fake-esplora.mjs`. It serves the T008 paths, plus `/coingecko` and `/fx`. Point `tests/DigiByte.Pay.E2E/servers.mjs` and `playwright.config.mjs` at it, passing `--DigiPay:DigiDollar:EsploraTestnetUrl`.
+- [X] T034 [US2] Update `tests/DigiByte.Pay.E2E/tests/pos-dd.spec.mjs` so the DD address shown matches `/^TD1/` and is a valid DD address, and update its header comment (no payout address). Run it with `PW_CHANNEL=msedge`.
 
 **Checkpoint**: DigiDollar works end to end on the merchant's key.
 
