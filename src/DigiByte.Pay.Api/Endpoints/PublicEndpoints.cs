@@ -22,6 +22,28 @@ public static class PublicEndpoints
 
     public static RouteGroupBuilder MapPublicEndpoints(this RouteGroupBuilder group)
     {
+        // GET /v1/pay/public/stores/{id}/donation-options — what a store's tip page can offer (specs/033 US4,
+        // contract C2). Read-only: it never derives or creates an address. The DD address appears only while the
+        // store has DigiDollar on and DigiPay offers it, so turning DD off removes it from every embedded button.
+        group.MapGet("/stores/{id}/donation-options", async (string id, DigiPayDbContext db, DdSurfacesGate ddGate, DdAvailability availability) =>
+        {
+            var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+            if (store is null) return Results.NotFound(new { error = "not_found" });
+            var ddAddress = store.DigiDollarEnabled && ddGate.Enabled ? store.DdDonationAddress : null;
+            var ddAvailable = ddAddress is not null && await availability.IsAvailableAsync();
+            return Results.Ok(new
+            {
+                storeName = store.Name,
+                network = store.Network,
+                // Address-mode stores donate to their address; an xpub store's DGB donation address stays in the
+                // button's own `to` parameter, as before.
+                dgbAddress = string.IsNullOrEmpty(store.ReceiveAddress) ? null : store.ReceiveAddress,
+                ddAddress,
+                ddAvailable,
+                ddReason = ddAddress is null ? null : ddAvailable ? null : "unavailable",
+            });
+        }).RequireRateLimiting("checkout-option");
+
         // GET /v1/pay/public/stats — numbers for the landing-page counters.
         // Kept intentionally coarse: merchants / stores / sessions / paid /
         // totalSatoshis, no breakdown by merchant, no time-windowed slicing

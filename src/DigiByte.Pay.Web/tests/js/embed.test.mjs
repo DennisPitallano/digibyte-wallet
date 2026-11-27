@@ -45,6 +45,7 @@ function load({ reducedMotion = false } = {}) {
         body: makeEl('body'),
         head: makeEl('head'),
         createElement: makeEl,
+        createTextNode: text => ({ nodeType: 3, textContent: String(text) }),
         getElementById: id => byId[id] || null,
         getElementsByTagName: () => [],
         querySelectorAll: () => [],
@@ -169,4 +170,31 @@ test('Escape pressed inside the checkout frame closes the modal', () => {
     w.api.checkout({ sessionId: 'ses_abc' });
     w.send({ type: 'digipay-checkout-escape' });
     assert.equal(w.modal(), null);
+});
+
+// specs/033 US4: a donation button can point the tip page at a store, so it can offer DigiDollar.
+test('button() takes a store instead of an address, plus the opening currency and a DD amount', () => {
+    const w = load();
+    const a = w.api.button({ store: 'sto_1', currency: 'dd', ddAmount: '5.00', name: 'Shop' });
+    const url = new URL(a.href);
+    assert.equal(url.pathname, '/pay/button');
+    assert.equal(url.searchParams.get('store'), 'sto_1');
+    assert.equal(url.searchParams.get('to'), null);
+    assert.equal(url.searchParams.get('currency'), 'DD');
+    assert.equal(url.searchParams.get('ddAmount'), '5.00');
+    assert.equal(url.searchParams.get('name'), 'Shop');
+});
+
+test('button() keeps the DGB address alongside a store, and ignores an unknown currency', () => {
+    const w = load();
+    const a = w.api.button({ address: 'dgb1qabc', store: 'sto_1', currency: 'EUR' });
+    const url = new URL(a.href);
+    assert.equal(url.searchParams.get('to'), 'dgb1qabc');
+    assert.equal(url.searchParams.get('store'), 'sto_1');
+    assert.equal(url.searchParams.get('currency'), null);
+});
+
+test('button() still needs an address or a store', () => {
+    const w = load();
+    assert.throws(() => w.api.button({ name: 'Shop' }), /address.*store/);
 });

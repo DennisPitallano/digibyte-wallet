@@ -268,39 +268,39 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 ### Tests for User Story 4
 
-- [ ] T060 [P] [US4] Test `tests/DigiByte.Pay.Api.Tests/DonationOptionsTests.cs`:
+- [X] T060 [P] [US4] Test `tests/DigiByte.Pay.Api.Tests/DonationOptionsTests.cs`:
   - `GET /stores/{id}/donation-address?currency=DD` creates `DdDonationAddress` once (with a `DdAddress` row, `Kind = donation`), returns the same address after that, and gives 400 with DD off or the gate off, and 503 when the node fails.
   - `GET /public/stores/{id}/donation-options` returns `ddAddress` only with DD on, the gate on and the address existing, returns `ddAvailable:false` when the node is down, gives 404 for an unknown store, and never derives a DGB address.
-- [ ] T061 [P] [US4] Test `tests/DigiByte.Pay.Web.Tests/DonateTests.cs` (new):
+- [X] T061 [P] [US4] Test `tests/DigiByte.Pay.Web.Tests/DonateTests.cs` (new):
   - Without `store`, the page behaves as today.
   - With `store`, the switch shows only when `ddAddress` is present, and `currency=DD` opens on DD with `ddAmount`.
   - A DGB `amount` is never shown as DD.
   - The DD tab is disabled when `ddAvailable` is false.
   - An invalid DD address is not rendered: wrong network, a DGB address, or truncated (address-handling rule).
-- [ ] T062 [P] [US4] Add cases to `src/DigiByte.Pay.Web/tests/js/embed.test.mjs`: `DigiPay.button({store, currency, ddAmount})` and `data-store`, `data-currency` and `data-dd-amount` build the right `/pay/button` URL, and `address` is optional when `store` is given.
+- [X] T062 [P] [US4] Add cases to `src/DigiByte.Pay.Web/tests/js/embed.test.mjs`: `DigiPay.button({store, currency, ddAmount})` and `data-store`, `data-currency` and `data-dd-amount` build the right `/pay/button` URL, and `address` is optional when `store` is given.
 
 ### Implementation for User Story 4
 
-- [ ] T063 [US4] Extend `GET /v1/pay/stores/{id}/donation-address` in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` with `currency=DD`:
+- [X] T063 [US4] Extend `GET /v1/pay/stores/{id}/donation-address` in `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` with `currency=DD`:
   - Gate on, DD on.
   - Create `DdDonationAddress` on first call through `GenerateAddressAsync`, and insert a `DdAddress` with `Kind = donation`.
   - Return `{address, mode:"dd"}`, or 503 on node failure.
   - The address is never rotated or cleared (data-model).
-- [ ] T064 [US4] Add anonymous `GET /v1/pay/public/stores/{id}/donation-options` in `src/DigiByte.Pay.Api/Endpoints/PublicEndpoints.cs` with `.RequireRateLimiting("checkout-option")`. It returns `{storeName, network, dgbAddress, ddAddress, ddAvailable, ddReason}` as in contract C2 and never writes anything. Like T045, it counts through `TrustedClient.AddressOf`, so the tip page's calls from Pay.Web must forward the buyer's address with the trusted-client headers.
-- [ ] T065 [US4] Update `src/DigiByte.Pay.Web/Components/Pages/Donate.razor`:
+- [X] T064 [US4] Add anonymous `GET /v1/pay/public/stores/{id}/donation-options` in `src/DigiByte.Pay.Api/Endpoints/PublicEndpoints.cs` with `.RequireRateLimiting("checkout-option")`. It returns `{storeName, network, dgbAddress, ddAddress, ddAvailable, ddReason}` as in contract C2 and never writes anything. Like T045, it counts through `TrustedClient.AddressOf`, so the tip page's calls from Pay.Web must forward the buyer's address with the trusted-client headers.
+- [X] T065 [US4] Update `src/DigiByte.Pay.Web/Components/Pages/Donate.razor`:
   - New query parameters `store`, `currency` and `ddAmount`. When `store` is set, load donation-options.
   - A DGB/DD switch.
   - Validate the DD address with `DigiDollarAddressValidator.IsValid(address, network)` before rendering, and fall back to DGB if it fails.
   - The DD QR is `digibyte:{dd}?amount={usd}&currency=USD`.
   - Unit labels per currency.
   - The DD tab is disabled with "DigiDollar is temporarily unavailable" when `ddAvailable` is false (contract C4).
-- [ ] T066 [P] [US4] Add `store`, `currency` and `ddAmount` options, and `data-store`, `data-currency` and `data-dd-amount` auto-mount attributes, to `button()` in `src/DigiByte.Pay.Web/wwwroot/embed/digipay.js`. Make `address` optional when `store` is given.
-- [ ] T067 [US4] Update the donation tab in `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor` (around lines 492-560). With DD on and the gate on, add:
+- [X] T066 [P] [US4] Add `store`, `currency` and `ddAmount` options, and `data-store`, `data-currency` and `data-dd-amount` auto-mount attributes, to `button()` in `src/DigiByte.Pay.Web/wwwroot/embed/digipay.js`. Make `address` optional when `store` is given.
+- [X] T067 [US4] Update the donation tab in `src/DigiByte.Pay.Web/Components/Pages/Dashboard.razor` (around lines 492-560). With DD on and the gate on, add:
   - an "Accept DD" option, which calls `donation-address?currency=DD`
   - an opening-currency choice
   - a suggested DD amount
   - snippet and URL output that include `store`, `currency` and `ddAmount`, with the label "Tip in DGB or DD"
-- [ ] T068 [US4] Docs, in the same PR: the donation endpoints in `src/DigiByte.Pay.Web/Components/Pages/ApiDocs.razor`; DD on the tip page in `Docs.razor`; the new `button()` options in the digipay.js README and `src/DigiByte.Pay.Web/wwwroot/embed/demo.html`; `CHANGELOG.md`.
+- [X] T068 [US4] Docs, in the same PR: the donation endpoints in `src/DigiByte.Pay.Web/Components/Pages/ApiDocs.razor`; DD on the tip page in `Docs.razor`; the new `button()` options in the digipay.js README and `src/DigiByte.Pay.Web/wwwroot/embed/demo.html`; `CHANGELOG.md`.
 
   None of this appears otherwise (FR-012, FR-013).
 

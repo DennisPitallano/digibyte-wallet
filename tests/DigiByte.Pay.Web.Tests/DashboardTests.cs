@@ -712,6 +712,37 @@ public class DashboardTests : BunitContext
         Assert.Contains("Extra DD received, refund the buyer", cut.Find("[data-extra-flag]").TextContent);
     }
 
+    // ----- DigiDollar donations (specs/033 US4) -----
+
+    [Fact]
+    public void The_donation_tab_offers_DigiDollar_only_where_the_store_can_take_it()
+    {
+        var cut = RenderSection("donation");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#don-logo")));
+
+        Assert.Empty(cut.FindAll("#don-accept-dd"));
+    }
+
+    [Fact]
+    public void A_DigiDollar_donation_button_points_at_the_store_and_its_options()
+    {
+        AllowDd();
+        var cut = RenderSection("donation");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#don-accept-dd")));
+
+        cut.Find("#don-accept-dd").Change(true);
+        cut.WaitForAssertion(() => Assert.Equal("DDdonation0001", cut.Find("#don-dd-address").TextContent.Trim()));
+        cut.Find("#don-open-on").Change("DD");
+        cut.Find("#don-dd-amount").Input("5");
+
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("pre"), p => p.TextContent.Contains("data-store=\"sto_1\"")));
+        var widget = cut.FindAll("pre").First(p => p.TextContent.Contains("data-store"));
+        Assert.Contains("data-currency=\"DD\"", widget.TextContent);
+        Assert.Contains("data-dd-amount=\"5.00\"", widget.TextContent);
+        Assert.Contains("Tip in DGB or DD", widget.TextContent);
+        Assert.Contains(cut.FindAll("pre"), p => p.TextContent.Contains("store=sto_1&amp;currency=DD&amp;ddAmount=5.00") || p.TextContent.Contains("store=sto_1&currency=DD&ddAmount=5.00"));
+    }
+
     private sealed class FakePayApi : HttpMessageHandler, IHttpClientFactory
     {
         public List<string> Requests { get; } = [];
@@ -808,6 +839,9 @@ public class DashboardTests : BunitContext
 
             if (method == "GET" && path.StartsWith("/v1/pay/stores/sto_1/webhook-deliveries"))
                 return Json(Array.Empty<object>());
+
+            if (method == "GET" && path == "/v1/pay/stores/sto_1/donation-address?currency=DD")
+                return Json(new { address = "DDdonation0001", mode = "dd" });
 
             if (method == "GET" && path == "/v1/pay/stores/sto_1/donation-address")
                 return HasReceive ? Json(new { address = "dgb1qdonation", mode = "address" }) : new HttpResponseMessage(HttpStatusCode.BadRequest);

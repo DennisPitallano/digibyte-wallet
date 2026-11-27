@@ -249,10 +249,33 @@ public static class StoresEndpoints
             return Results.Ok(new { ok = true });
         });
 
-        group.MapGet("/{storeId}/donation-address", async (string storeId, HttpRequest http, DigiPayDbContext db) =>
+        group.MapGet("/{storeId}/donation-address", async (
+            string storeId, string? currency, HttpRequest http, DigiPayDbContext db,
+            DdSurfacesGate ddGate, DigiDollarNodeClient ddNode, CancellationToken ct) =>
         {
             var (merchant, store, err) = await LoadOwnedAsync(storeId, http, db, tracked: true);
             if (err is not null) return err;
+
+            // specs/033 US4: the store's fixed DD donation address, made on first ask and never rotated (FR-011).
+            if (string.Equals(currency, "DD", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!store!.DigiDollarEnabled || !ddGate.Enabled)
+                    return Results.BadRequest(new { error = "digidollar_not_enabled_for_store" });
+                if (store.DdDonationAddress is null)
+                {
+                    string ddAddress;
+                    try { ddAddress = await ddNode.GenerateAddressAsync(ct); }
+                    catch (Exception ex) when (!ct.IsCancellationRequested)
+                    {
+                        return Results.Json(new { error = "digidollar_node_unavailable", detail = ex.Message }, statusCode: 503);
+                    }
+                    store.DdDonationAddress = ddAddress;
+                    await DigiByte.Pay.Api.Services.Payouts.DdAddressRegistry.RegisterAsync(db, ddAddress, store.MerchantId, store.Id,
+                        DdAddress.KindDonation, null, store.Network, ct);
+                    await db.SaveChangesAsync(ct);
+                }
+                return Results.Ok(new { address = store.DdDonationAddress, mode = "dd" });
+            }
 
             if (!string.IsNullOrEmpty(store!.ReceiveAddress))
                 return Results.Ok(new { address = store.ReceiveAddress, mode = "address" });

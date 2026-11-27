@@ -280,6 +280,13 @@
                 Using an xpub store? <InlineCode>GET /v1/pay/stores/{id}/donation-address</InlineCode> returns a stable address reserved for donations,
                 and the dashboard's <em>Donation</em> tab builds the snippet for you.
             </p>
+            <p class="@P">
+                Accepting DigiDollar too? Add <InlineCode>store</InlineCode> (your store id) to the link, or <InlineCode>data-store</InlineCode> to the embed: the tip page then
+                offers DGB and DigiDollar, using your store's fixed DD donation address, and drops DigiDollar again if you turn it off. <InlineCode>currency=DD</InlineCode>
+                (<InlineCode>data-currency</InlineCode>) opens it on DigiDollar, and <InlineCode>ddAmount</InlineCode> (<InlineCode>data-dd-amount</InlineCode>) suggests an amount in
+                dollars; a DGB <InlineCode>amount</InlineCode> is never shown as DD. The <em>Donation</em> tab's <em>Accept DigiDollar too</em> option builds this for you.
+            </p>
+            <CodeBlock Lang="html" Label="Copy the DGB and DigiDollar donation button example">@("<script src=\"https://pay.dgbwallet.app/embed/digipay.js\"></script>\n<span data-digipay-button data-address=\"dgb1q...\" data-store=\"sto_...\" data-currency=\"DD\" data-dd-amount=\"5\">Tip in DGB or DD</span>")</CodeBlock>
 
             <DocsHeading Id="digidollar">DigiDollar (beta)</DocsHeading>
             <p class="@P">

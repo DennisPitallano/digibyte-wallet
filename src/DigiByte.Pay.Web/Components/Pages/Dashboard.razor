@@ -583,6 +583,34 @@ else
                         <h2 class="@H2">Configure</h2>
                         <div class="@Eyebrow">Donation address <span class="@Muted">(from this store)</span></div>
                         <div class="font-mono text-[0.6875rem] px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg break-all">@donationAddress</div>
+                        @if (DdOffered)
+                        {
+                            @* specs/033 US4: the tip page can also take DigiDollar, from the store's fixed DD donation address. *@
+                            <label class="inline-flex items-center gap-2 cursor-pointer mt-2">
+                                <input type="checkbox" id="don-accept-dd" checked="@donAcceptDd" disabled="@donDdBusy" @onchange="ToggleDonationDdAsync" class="w-5 h-5 accent-dgb-500" />
+                                <span class="text-sm">Accept DigiDollar too</span>
+                            </label>
+                            @if (donDdError != null) { <p class="field-error" role="alert">@donDdError</p> }
+                            @if (donAcceptDd && ddDonationAddress is not null)
+                            {
+                                <div class="@Eyebrow mt-2">DigiDollar donation address</div>
+                                <div id="don-dd-address" class="font-mono text-[0.6875rem] px-3 py-2 bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-lg break-all">@ddDonationAddress</div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                                    <div class="field">
+                                        <label class="field-label" for="don-open-on">Tip page opens on</label>
+                                        <select id="don-open-on" @bind="donOpenOn" class="@Input">
+                                            <option value="DGB">DGB</option>
+                                            <option value="DD">DigiDollar</option>
+                                        </select>
+                                    </div>
+                                    <div class="field">
+                                        <label class="field-label" for="don-dd-amount">DigiDollar amount <span class="font-normal opacity-70">(US dollars, optional)</span></label>
+                                        <input id="don-dd-amount" @bind="donDdAmount" @bind:event="oninput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="@Input" />
+                                    </div>
+                                </div>
+                                <p class="@Muted m-0">The button opens your tip page, which offers DGB and DigiDollar and drops DigiDollar if you turn it off later. DigiPay holds DD tips until they're paid out to you.</p>
+                            }
+                        }
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                             <div class="field">
                                 <label class="field-label" for="don-amount">Amount <span class="font-normal opacity-70">(DGB, optional)</span></label>
@@ -1772,6 +1800,40 @@ else
     private string donName = "";
     private string donLabel = "";
     private string donButtonText = "Tip DGB";
+    // specs/033 US4: DigiDollar on the tip page.
+    private bool donAcceptDd;
+    private bool donDdBusy;
+    private string? donDdError;
+    private string? ddDonationAddress;
+    private string donOpenOn = "DGB";
+    private decimal donDdAmount;
+
+    /// <summary>DD is included in the button: offered for the store, switched on here, and its address known.</summary>
+    private bool DonationIncludesDd => DdOffered && donAcceptDd && ddDonationAddress is not null;
+
+    private async Task ToggleDonationDdAsync(ChangeEventArgs e)
+    {
+        var on = e.Value is bool b ? b : string.Equals(e.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        donDdError = null;
+        if (!on) { donAcceptDd = false; return; }
+        donDdBusy = true; StateHasChanged();
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            using var response = await http.SendAsync(AuthedRequest(HttpMethod.Get, $"/v1/pay/stores/{activeStoreId}/donation-address?currency=DD"));
+            if (!response.IsSuccessStatusCode) { donDdError = await ApiError.ReadAsync(response); donAcceptDd = false; return; }
+            ddDonationAddress = (await response.Content.ReadFromJsonAsync<DonationAddressDto>())?.Address;
+            donAcceptDd = ddDonationAddress is not null;
+        }
+        catch (Exception ex) { donDdError = Plain(ex, "donDdError"); donAcceptDd = false; }
+        finally { donDdBusy = false; StateHasChanged(); }
+    }
+
+    // A DD amount is used only when it's 1.00 to 100,000.00 with at most 2 decimals.
+    private string? DonationDdAmountText =>
+        donDdAmount >= 1m && donDdAmount <= 100_000m && decimal.Round(donDdAmount, 2) == donDdAmount
+            ? donDdAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+            : null;
     /// <summary>Button logo: "none", "dgb" (DigiPay-hosted DigiByte logo) or "custom" (donLogoUrl).</summary>
     private string donLogo = "none";
     private string donLogoUrl = "";
@@ -1928,6 +1990,9 @@ else
     {
         // Reset store-scoped state, reload everything for the new active store.
         donationAddress = null;
+        donAcceptDd = false;
+        ddDonationAddress = null;
+        donDdError = null;
         donationLoadFailed = false;
         sessions = null;
         sessionsTotal = 0;
@@ -2126,7 +2191,9 @@ else
     private string WebBase => Nav.BaseUri.TrimEnd('/');
 
     private string DonationButtonLabel =>
-        string.IsNullOrWhiteSpace(donButtonText) ? "Tip DGB" : donButtonText;
+        string.IsNullOrWhiteSpace(donButtonText) || (DonationIncludesDd && donButtonText == "Tip DGB")
+            ? (DonationIncludesDd ? "Tip in DGB or DD" : "Tip DGB")
+            : donButtonText;
 
     /// <summary>URL to the DigiPay-hosted /pay/button page with address + optional params.</summary>
     private string DonationHostedUrl
@@ -2142,6 +2209,12 @@ else
                 sb.Append("&name=").Append(Uri.EscapeDataString(donName));
             if (!string.IsNullOrWhiteSpace(donLabel))
                 sb.Append("&label=").Append(Uri.EscapeDataString(donLabel));
+            if (DonationIncludesDd && activeStore is not null)
+            {
+                sb.Append("&store=").Append(Uri.EscapeDataString(activeStore.Id));
+                if (donOpenOn == "DD") sb.Append("&currency=DD");
+                if (DonationDdAmountText is { } dd) sb.Append("&ddAmount=").Append(dd);
+            }
             return sb.ToString();
         }
     }
@@ -2220,6 +2293,12 @@ else
             var logo = donLogo == "dgb" ? "dgb" : donLogo == "custom" ? DonationCustomLogoUrl : null;
             if (logo is not null)
                 attrs.Append(" data-logo=\"").Append(System.Net.WebUtility.HtmlEncode(logo)).Append('"');
+            if (DonationIncludesDd && activeStore is not null)
+            {
+                attrs.Append(" data-store=\"").Append(System.Net.WebUtility.HtmlEncode(activeStore.Id)).Append('"');
+                if (donOpenOn == "DD") attrs.Append(" data-currency=\"DD\"");
+                if (DonationDdAmountText is { } dd) attrs.Append(" data-dd-amount=\"").Append(dd).Append('"');
+            }
             return
                 $"<script src=\"{WebBase}/embed/digipay.js?v=0.2\"></script>\n" +
                 $"<div data-digipay-button{attrs}>{System.Net.WebUtility.HtmlEncode(DonationButtonLabel)}</div>";
