@@ -523,7 +523,7 @@ public static class PaymentsEndpoints
                 }),
                 _ => Results.Json(new { error = "digidollar_node_unavailable" }, statusCode: 503),
             };
-        }).RequireRateLimiting("checkout-option").AllowAnonymous();
+        }).RequireRateLimiting("checkout-option").AllowAnonymous().AllowPosKey(); // the POS charge screen calls it with its tablet key
 
         // POST /v1/pay/sessions/{id}/refund — record an off-platform refund.
         //

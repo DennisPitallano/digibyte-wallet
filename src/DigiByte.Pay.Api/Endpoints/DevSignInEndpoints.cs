@@ -30,6 +30,13 @@ public static class DevSignInEndpoints
     private const string TestMnemonic =
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
+    // A testnet DigiDollar payout address from the same public test mnemonic, so the dev store can turn DigiDollar on
+    // without a Digi-ID re-sign-in (spec 034 FR-031) in local and end-to-end runs. Testnet only, keys are public.
+    private static readonly Lazy<string> DevDdPayoutAddress = new(() =>
+        DigiByte.Crypto.Addresses.DigiDollarAddressValidator.Encode(
+            new Mnemonic(TestMnemonic).DeriveExtKey().Derive(new KeyPath("m/86'/1'/0'/0/0")).PrivateKey.PubKey.TaprootInternalKey.ToBytes(),
+            "testnet"));
+
     private static readonly Lazy<string> DevXpub = new(() =>
         new HdKeyDerivation(new Mnemonic(TestMnemonic), "", DigiByteNetwork.Testnet)
             .GetAccountExtPubKey()
@@ -101,7 +108,17 @@ public static class DevSignInEndpoints
                 Name = "Dev store (testnet)",
                 Network = "testnet",
                 Xpub = DevXpub.Value,
+                // Ready for DigiDollar (specs/033, 034): a payout address and DD on. Nothing shows beyond the API until
+                // DIGIPAY_DD_SURFACES is on.
+                DdPayoutAddress = DevDdPayoutAddress.Value,
+                DdPayoutAddressSetAt = DateTime.UtcNow,
+                DigiDollarEnabled = true,
             });
+        }
+        else if (store.DdPayoutAddress is null)
+        {
+            store.DdPayoutAddress = DevDdPayoutAddress.Value;
+            store.DdPayoutAddressSetAt = DateTime.UtcNow;
         }
         else if (store.Network is not ("testnet" or "regtest")
             || (string.IsNullOrEmpty(store.Xpub) && string.IsNullOrEmpty(store.ReceiveAddress)))

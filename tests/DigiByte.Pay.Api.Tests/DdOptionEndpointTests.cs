@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Net;
 using DigiByte.Pay.Api.Data;
 using Microsoft.EntityFrameworkCore;
@@ -65,6 +66,24 @@ public class DdOptionEndpointTests
         foreach (var r in responses) addresses.Add(Address(await Json(r)));
         Assert.Single(addresses);
         await factory.WithDb(async db => Assert.Equal(1, await db.SessionOptions.CountAsync(o => o.SessionId == id && o.Currency == "DD")));
+    }
+
+    [Fact]
+    public async Task A_store_bound_POS_tablet_can_switch_its_own_sale_to_DD()
+    {
+        // Regression (found by the end-to-end run): the POS sends its tablet key, and store-bound keys are refused on
+        // endpoints not marked AllowPosKey.
+        using var factory = Factory();
+        var (client, key, storeId) = await DdStore(factory);
+        var pairing = await client.SendAsync(PayFactory.Authed(HttpMethod.Post, "/v1/pay/pos/pairings", key, new { storeId, deviceLabel = "Till" }));
+        var code = (await Json(pairing)).GetProperty("code").GetString();
+        var tabletKey = (await Json(await client.PostAsJsonAsync("/v1/pay/pos/claim", new { code }))).GetProperty("apiKey").GetString()!;
+        var sale = await Json(await Create(client, tabletKey, new { storeId, amount = 2500m, fiatCurrency = "USD", fiatAmount = 25m, buyerChoice = true }));
+        Assert.True(sale.GetProperty("buyerChoice").GetBoolean());
+
+        var response = await client.SendAsync(PayFactory.Authed(HttpMethod.Post, $"/v1/pay/sessions/{sale.GetProperty("id").GetString()}/options/dd", tabletKey));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]

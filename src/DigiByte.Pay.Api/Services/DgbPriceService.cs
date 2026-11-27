@@ -31,8 +31,12 @@ public sealed class DgbPriceService
     public static readonly TimeSpan RatesFreshFor = TimeSpan.FromHours(6);
     public static readonly TimeSpan RatesStaleFor = TimeSpan.FromHours(24);
 
-    private const string CoinGeckoUrl = "https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies=";
-    private const string FxUrl = "https://open.er-api.com/v6/latest/USD";
+    private const string DefaultCoinGeckoUrl = "https://api.coingecko.com/api/v3/simple/price?ids=digibyte&vs_currencies=";
+    private const string DefaultFxUrl = "https://open.er-api.com/v6/latest/USD";
+
+    // Overridable (DigiPay:Prices:CoinGeckoUrl / FxUrl) so the end-to-end run can use a local stub instead of the internet.
+    private readonly string CoinGeckoUrl;
+    private readonly string FxUrl;
 
     private readonly IHttpClientFactory _http;
     private readonly IMemoryCache _cache;
@@ -40,12 +44,15 @@ public sealed class DgbPriceService
     private readonly ILogger<DgbPriceService> _log;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
 
-    public DgbPriceService(IHttpClientFactory http, IMemoryCache cache, ILogger<DgbPriceService> log, TimeProvider? clock = null)
+    public DgbPriceService(IHttpClientFactory http, IMemoryCache cache, ILogger<DgbPriceService> log, TimeProvider? clock = null,
+        IConfiguration? config = null)
     {
         _http = http;
         _cache = cache;
         _log = log;
         _clock = clock ?? TimeProvider.System;
+        CoinGeckoUrl = config?["DigiPay:Prices:CoinGeckoUrl"] is { Length: > 0 } cg ? cg : DefaultCoinGeckoUrl;
+        FxUrl = config?["DigiPay:Prices:FxUrl"] is { Length: > 0 } fx ? fx : DefaultFxUrl;
     }
 
     /// <summary>True for every currency in the wallet's list.</summary>
