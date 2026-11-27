@@ -373,6 +373,9 @@ public class PosTillTests : BunitContext
 
     // ----- DigiDollar on the till (specs/033 US1) ------------------------------------------
 
+    // Waits that include a call to the fake API and a re-render: generous, because CI runners are slower than a laptop.
+    private static readonly TimeSpan Slow = TimeSpan.FromSeconds(10);
+
     private static void OpenPicker(IRenderedComponent<Pos> cut)
     {
         cut.Find("button.dp-pos-currency").Click();
@@ -527,19 +530,19 @@ public class PosTillTests : BunitContext
         cut.WaitForAssertion(() => Assert.False(cut.Find("button.dp-pos-charge").HasAttribute("disabled")));
         cut.Find("button.dp-pos-charge").Click();
 
-        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-pay-switch]")));
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-pay-switch]")), Slow);
         using (var body = JsonDocument.Parse(Assert.Single(api.Charges)))
             Assert.True(body.RootElement.GetProperty("buyerChoice").GetBoolean());
         Assert.Contains("dgb1qtilladdress", cut.Find(".dp-pos-address").TextContent);
 
         cut.FindAll("[data-pay-switch] button").Single(b => b.TextContent.Trim() == "DigiDollar").Click();
-        cut.WaitForAssertion(() => Assert.Contains("DDtillchoice001", cut.Find(".dp-pos-address").TextContent));
+        cut.WaitForAssertion(() => Assert.Contains("DDtillchoice001", cut.Find(".dp-pos-address").TextContent), Slow);
         Assert.Contains("25.00", cut.Find("[data-dd-due]").TextContent);
 
         cut.FindAll("[data-pay-switch] button").Single(b => b.TextContent.Trim() == "DGB").Click();
-        cut.WaitForAssertion(() => Assert.Contains("dgb1qtilladdress", cut.Find(".dp-pos-address").TextContent));
+        cut.WaitForAssertion(() => Assert.Contains("dgb1qtilladdress", cut.Find(".dp-pos-address").TextContent), Slow);
         cut.FindAll("[data-pay-switch] button").Single(b => b.TextContent.Trim() == "DigiDollar").Click();
-        cut.WaitForAssertion(() => Assert.Contains("DDtillchoice001", cut.Find(".dp-pos-address").TextContent));
+        cut.WaitForAssertion(() => Assert.Contains("DDtillchoice001", cut.Find(".dp-pos-address").TextContent), Slow);
         Assert.Equal(1, api.OptionPosts); // the same DD address both times
     }
 
