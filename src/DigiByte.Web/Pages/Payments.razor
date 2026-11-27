@@ -179,6 +179,9 @@
     @if (!showList || activeRequest != null)
     {
     }
+    else if (!loaded)
+    {
+    }
     else if (requests.Count == 0)
     {
         <div class="scale-in-delay-1 bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200 dark:border-dgb-800 p-8 text-center card-hover">
@@ -260,6 +263,7 @@
     private IReadOnlyList<PaymentRequest> requests = [];
     private string WalletId => WalletService.ActiveWallet?.Id ?? "";
     private bool showList;
+    private bool loaded;
     private string listFilter = "all";
     private string? confirming;
 
@@ -331,16 +335,22 @@
         Watcher.Changed += OnWatcherChanged;
         Watcher.PaymentArriving += OnPaymentArriving;
         Watcher.RequestPaid += OnRequestPaid;
-        // The person's currency is offered only with a price; it starts where they left it, or in DGB (FR-016a).
+        // The list first: it is on the device. The price can take a while (or never come), so it loads after,
+        // and the person's currency switch turns on when it arrives (FR-021).
+        requests = await PaymentService.GetAllAsync(WalletId, await WalletAddressesAsync());
+        loaded = true;
+        if (RequestId is { Length: > 0 } wanted && requests.FirstOrDefault(r => r.Id == wanted) is { } named)
+            ShowRequest(named);
+        _ = LoadPriceAsync();
+    }
+
+    // The person's currency is offered only with a price; it starts where they left it, or in DGB (FR-016a).
+    private async Task LoadPriceAsync()
+    {
         quote = await Prices.GetAsync();
         try { inFiat = quote is not null && await JS.InvokeAsync<string?>("localStorage.getItem", CurrencyChoiceKey) == "FIAT"; }
         catch { inFiat = false; }
-        requests = await PaymentService.GetAllAsync(WalletId, await WalletAddressesAsync());
-        if (RequestId is { Length: > 0 } wanted && requests.FirstOrDefault(r => r.Id == wanted) is { } named)
-        {
-            ShowRequest(named);
-            return;
-        }
+        await InvokeAsync(StateHasChanged);
     }
 
     private void ShowKeypad()

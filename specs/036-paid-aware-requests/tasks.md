@@ -484,3 +484,23 @@ Run on 2026-11-28 in the browser preview, test wallet, no price available locall
   - The next request took about 1 s.
   - With a reachable explorer the search starts at unlock and is normally done before the person taps Request. But on a slow network the very first request after unlocking can take as long as the search, up to 20 s. **Needs checking on a real network.** If it is slow there, the follow-up is to start the search when the Request tab opens, or to show progress while waiting; the wait itself protects against reusing an address and should stay.
 
+### 2026-11-28: US5, keeping the list tidy (T055 to T057)
+
+- After T057: 3,833 tests passing, none failing.
+- Departures from the task text:
+  - Extra keys `request.cancel_yes`, `request.remove_yes`, `request.keep`, `request.filter.empty`, `request.filter.label` for the confirm step and the filter row.
+  - Only an open request (waiting, money arriving, partly paid) can be cancelled; cancelling a paid one does nothing.
+  - The list's default filter is All, so Not tracked requests are visible without a tap.
+  - The limit message on the keypad has a "See open requests" button that opens the list on the Open filter.
+- Found in the browser: the Request page waited for the price before reading the list, so with a slow or missing price the list said "No payment requests yet" for several seconds. The list now loads first, and the price arrives in the background.
+
+### T058 (quickstart scenarios 11 and 12): partly run, not ticked
+
+Run on 2026-11-28 in the browser preview, test wallet, demo data (every request reads as paid within seconds):
+
+- Filters: **passed**. With 5 paid requests, All 5, Paid 5, Open 0, Expired 0; the list opened in about 120 ms.
+- Remove: **passed**. The confirmation says money already sent stays in the wallet and Activity; "Keep it" leaves the request; "Yes, remove it" takes it off the list and out of storage (5 → 4).
+- A paid request does not offer Cancel: **passed**.
+- Cancel, a payment after cancelling, and the 20-address limit (scenario 11): **not run in the browser**, because the demo data pays every request at once, so none stays open. Covered by `PaymentRequestServiceTests` (cancel, cancel of a paid request, the limit not lifting after cancel and remove, the address still counted after remove and reload) and `RequestStatusCalculatorTests` (late money after cancelling reaching Paid).
+- Still to do for T058: scenarios 11 and 12 with real testnet payments.
+
