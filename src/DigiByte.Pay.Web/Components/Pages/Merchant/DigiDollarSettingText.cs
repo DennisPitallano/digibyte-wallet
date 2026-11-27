@@ -1,10 +1,10 @@
 namespace DigiByte.Pay.Web.Components.Pages.Merchant;
 
 /// <summary>
-/// The words around the store's DigiDollar setting (specs/033 User Story 5). They list only the places that really
-/// offer DD (FR-017), always say that DigiPay holds the DD buyers pay (FR-031), and the on/off messages name the
-/// places (FR-018). <c>ddSurfacesEnabled</c> is the server switch from <c>/v1/pay/me</c>: off, only the API offers DD
-/// and payouts don't exist yet; on, every surface of spec 033 does and payouts are live (spec 034).
+/// The words around the store's DigiDollar setting (specs/033 User Story 5, specs/035 FR-019). They list only the places
+/// that really offer DD (FR-017), say DD goes straight to the merchant's own wallet, like DGB, and the on/off messages
+/// name the places (FR-018). <c>ddSurfacesEnabled</c> is the server switch from <c>/v1/pay/me</c>: off, only the API
+/// offers DD; on, every surface of spec 033 does.
 /// </summary>
 public static class DigiDollarSettingText
 {
@@ -15,10 +15,14 @@ public static class DigiDollarSettingText
 
     public static string Description(bool ddSurfacesEnabled) => ddSurfacesEnabled
         ? $"Accept USD-pegged DigiDollar alongside DGB. 1 DD = $1. Buyers can pay in DD through {Places(true)}. "
-          + "DigiPay holds the DD buyers pay until it's paid out to your payout address. DigiPay pays the network fees in DGB."
+          + NoCustody
         : $"Accept USD-pegged DigiDollar alongside DGB. 1 DD = $1. For now, DD is offered only through {Places(false)}. "
-          + "DigiPay holds the DD buyers pay, and it can't be withdrawn yet: payouts to merchants aren't available. "
-          + "DigiPay pays the network fees in DGB.";
+          + NoCustody;
+
+    /// <summary>specs/035: DD is paid to addresses from the merchant's own key, so DigiPay never holds it.</summary>
+    public const string NoCustody =
+        "DigiDollar goes straight to your wallet, like DGB: each payment gets a new address from your DigiDollar key, "
+        + "and DigiPay never holds it. Add the key from your DigiByte Wallet below.";
 
     public static string EnabledMessage(bool ddSurfacesEnabled) =>
         $"DigiDollar is on. Buyers can pay in DD through {Places(ddSurfacesEnabled)}.";

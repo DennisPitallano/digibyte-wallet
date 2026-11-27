@@ -129,9 +129,6 @@ app.post(
             return res.status(status).end();
         }
 
-        // Payout and payout-address events (DigiDollar payouts) carry no session: ack them so DigiPay doesn't retry.
-        if (!event.event.startsWith('session.') || !event.session) return res.status(200).end();
-
         const order = orders.get(event.session.id);
         if (!order) {
             // Webhook for an order we don't know — ack to stop retries, log for debugging.

@@ -123,7 +123,7 @@
                     <Param Name="returnUrl" Type="string">Where the checkout sends the buyer after payment confirms (a <em>Return to merchant</em> button and a 5-second redirect). HTTPS, or HTTP on localhost only. Up to 2048 characters.</Param>
                     <Param Name="currency" Type="string">DGB (default) or DD for a DigiDollar session.</Param>
                     <Param Name="buyerChoice" Type="boolean">Optional. Let the buyer pay in DGB or DigiDollar at checkout. Honoured only for a payment priced in a regular currency (<InlineCode>fiatCurrency</InlineCode> and <InlineCode>fiatAmount</InlineCode>, currency DGB) at a store with DigiDollar and buyer choice on, where DigiPay offers DigiDollar beyond the API; otherwise ignored without an error. The response then has <InlineCode>buyerChoice: true</InlineCode> and an <InlineCode>options</InlineCode> list (one per currency: <InlineCode>currency</InlineCode>, <InlineCode>address</InlineCode>, <InlineCode>amountSatoshis</InlineCode>, <InlineCode>amountCentsDd</InlineCode>, <InlineCode>usdRate</InlineCode>, <InlineCode>rateAt</InlineCode>, <InlineCode>uri</InlineCode>). The session's own <InlineCode>currency</InlineCode>, <InlineCode>address</InlineCode> and amounts describe the currency in effect; once funds arrive, <InlineCode>lockedAt</InlineCode> is set and they are the currency actually paid. Funds later sent in the other currency show as <InlineCode>extra: {"{ currency, amount, txid, seenAt }"}</InlineCode> (satoshis for DGB, cents for DD) for you to refund.</Param>
-                    <Param Name="amountCentsDd" Type="integer">DigiDollar amount in US cents, 100 to 10000000. Required when <InlineCode>currency</InlineCode> is DD; <InlineCode>amount</InlineCode> is then ignored. The store must have <InlineCode>digiDollarEnabled</InlineCode>, otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; if the DigiDollar node can't be reached you get <InlineCode>503 digidollar_node_unavailable</InlineCode>.</Param>
+                    <Param Name="amountCentsDd" Type="integer">DigiDollar amount in US cents, 100 to 10000000. Required when <InlineCode>currency</InlineCode> is DD; <InlineCode>amount</InlineCode> is then ignored. The store must have <InlineCode>digiDollarEnabled</InlineCode> (which needs its DigiDollar key), otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>. The address is the next one from the store's DigiDollar key, so the DD goes straight to the merchant's wallet; making it needs no outside service.</Param>
                 </ParamList>
                 <ParamList Title="Headers">
                     <Param Name="Idempotency-Key" Type="string">Up to 255 characters. Repeat calls with the same key within 24 hours (per account) return the original session instead of a new one. Your order id works well.</Param>
@@ -167,7 +167,7 @@
                     <InlineCode>dd_option_not_allowed</InlineCode> (<InlineCode>reason</InlineCode>: <InlineCode>no_choice</InlineCode>, <InlineCode>locked</InlineCode>,
                     <InlineCode>not_pending</InlineCode>, <InlineCode>expired</InlineCode>) or <InlineCode>dd_option_unavailable</InlineCode>
                     (<InlineCode>dd_disabled</InlineCode>, <InlineCode>no_rate</InlineCode>, <InlineCode>out_of_range</InlineCode> with <InlineCode>minCents</InlineCode> and
-                    <InlineCode>maxCents</InlineCode>); <InlineCode>503 digidollar_node_unavailable</InlineCode> when the DigiDollar node can't be reached.
+                    <InlineCode>maxCents</InlineCode>, or <InlineCode>dd_service_unavailable</InlineCode> while DigiPay can't reach the public explorer that confirms DigiDollar).
                 </p>
             </Endpoint>
 
@@ -247,11 +247,23 @@
 
             <Endpoint Method="GET" Path="/v1/pay/stores/{id}/donation-address" Auth="API key" Id="donation-address">
                 <p class="@Small m-0">A stable address for <a href="/docs#donation-button" class="text-dgb-500 hover:underline">donation buttons</a>, as <InlineCode>{ address, mode }</InlineCode>. In xpub mode it's derivation index 0, which is then reserved (invoices start at 1). In address mode it's the configured address. <InlineCode>400</InlineCode> if the store has no receive address.</p>
-                <p class="@Small m-0">With <InlineCode>?currency=DD</InlineCode> it returns the store's DigiDollar donation address (<InlineCode>mode: "dd"</InlineCode>), made on the first call and never changed, so DD tips sent later are still credited. Needs DigiDollar on for the store and offered by DigiPay beyond the API, otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>; <InlineCode>503 digidollar_node_unavailable</InlineCode> if the address can't be made right now. DigiPay holds DD tips until they're paid out to the store's payout address.</p>
+                <p class="@Small m-0">With <InlineCode>?currency=DD</InlineCode> it returns the store's DigiDollar donation address (<InlineCode>mode: "dd"</InlineCode>): the next address from the store's DigiDollar key, taken on the first call and kept until the key changes. Needs DigiDollar on for the store and offered by DigiPay beyond the API, otherwise <InlineCode>400 digidollar_not_enabled_for_store</InlineCode>. DD tips go straight to the merchant's wallet.</p>
+            </Endpoint>
+
+            <Endpoint Method="POST" Path="/v1/pay/stores/{id}/dd-key/preview" Auth="API key" Id="dd-key-preview">
+                <p class="@Small m-0">Checks a pasted DigiDollar account key (<InlineCode>{ key }</InlineCode>, an <InlineCode>xpub</InlineCode>/<InlineCode>tpub</InlineCode> from the DigiByte Wallet's <em>DigiDollar key for DigiPay</em> screen) and returns <InlineCode>{ network, firstAddress, keyFingerprint }</InlineCode> without saving anything. Show <InlineCode>firstAddress</InlineCode> to the merchant to compare with their wallet. <InlineCode>400 dd_key_invalid</InlineCode> with <InlineCode>reason</InlineCode> <InlineCode>malformed</InlineCode>, <InlineCode>private_key</InlineCode> (never echoed back), <InlineCode>wrong_network</InlineCode> or <InlineCode>not_account_key</InlineCode>. Not for POS tablet keys.</p>
+            </Endpoint>
+
+            <Endpoint Method="PUT" Path="/v1/pay/stores/{id}/dd-key" Auth="API key" Id="dd-key-set">
+                <p class="@Small m-0">Sets or replaces the store's DigiDollar key: <InlineCode>{ key, confirmFirstAddress }</InlineCode>, where <InlineCode>confirmFirstAddress</InlineCode> is the first address the merchant checked against their wallet (<InlineCode>409 first_address_mismatch</InlineCode> otherwise). Returns the store, whose <InlineCode>ddKey</InlineCode> is <InlineCode>{ set, network, fingerprint, firstAddress, setAt, unpaidRun, unpaidRunWarning }</InlineCode>; the key itself is never returned. Stores with the same key share one address sequence, so no DD address is given out twice. Open payments keep their addresses.</p>
+            </Endpoint>
+
+            <Endpoint Method="DELETE" Path="/v1/pay/stores/{id}/dd-key" Auth="API key" Id="dd-key-remove">
+                <p class="@Small m-0">Removes the store's DigiDollar key and turns DigiDollar off. Open DD payments are still watched until they finish. Turning DigiDollar back on (<InlineCode>PATCH</InlineCode> with <InlineCode>digiDollarEnabled: true</InlineCode>) needs a key again: <InlineCode>409 dd_key_required</InlineCode>.</p>
             </Endpoint>
 
             <Endpoint Method="GET" Path="/v1/pay/public/stores/{id}/donation-options" Auth="No auth" Id="donation-options">
-                <p class="@Small m-0">What a store's tip page can offer, as <InlineCode>{ storeName, network, dgbAddress, ddAddress, ddAvailable, ddReason }</InlineCode>. <InlineCode>dgbAddress</InlineCode> is the store's address in address mode (null for xpub stores, whose buttons carry the address themselves); <InlineCode>ddAddress</InlineCode> is set only while the store has DigiDollar on and DigiPay offers it, so turning DigiDollar off removes it from every button already embedded. <InlineCode>ddAvailable</InlineCode> is false (<InlineCode>ddReason: "unavailable"</InlineCode>) while the DigiDollar node can't be reached. Read-only and rate-limited; <InlineCode>404</InlineCode> for an unknown store.</p>
+                <p class="@Small m-0">What a store's tip page can offer, as <InlineCode>{ storeName, network, dgbAddress, ddAddress, ddAvailable, ddReason }</InlineCode>. <InlineCode>dgbAddress</InlineCode> is the store's address in address mode (null for xpub stores, whose buttons carry the address themselves); <InlineCode>ddAddress</InlineCode> is set only while the store has DigiDollar on and DigiPay offers it, so turning DigiDollar off removes it from every button already embedded. <InlineCode>ddAvailable</InlineCode> is false (<InlineCode>ddReason: "dd_service_unavailable"</InlineCode>) while DigiPay can't reach the public explorer that confirms DigiDollar. Read-only and rate-limited; <InlineCode>404</InlineCode> for an unknown store.</p>
             </Endpoint>
 
             <Endpoint Method="GET" Path="/v1/pay/stores/{id}/analytics" Auth="API key" Id="analytics">
@@ -535,7 +547,6 @@
                         <tr><td><InlineCode>409</InlineCode></td><td>Wrong state: refunding a session that isn't paid or confirmed, voiding one that isn't pending or seen, or reusing a Digi-ID challenge.</td><td>Read the session's status first.</td></tr>
                         <tr><td><InlineCode>429</InlineCode></td><td>Rate limit reached (see below).</td><td>Wait for the window to reset, then retry with backoff.</td></tr>
                         <tr><td><InlineCode>502</InlineCode></td><td>Public price only: no price source available.</td><td>Retry later.</td></tr>
-                        <tr><td><InlineCode>503</InlineCode></td><td>DigiDollar sessions only: the DigiDollar node is unreachable.</td><td>Retry with backoff.</td></tr>
                     </tbody>
                 </table>
             </div>

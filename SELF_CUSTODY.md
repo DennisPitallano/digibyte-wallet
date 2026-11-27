@@ -146,9 +146,3 @@ We **don't** promise:
 
 [ws]: https://walletscrutiny.com
 [wsse-22]: docs/walletscrutiny-self-eval.md#22-third-party-scripts---gap-to-fix-x
-
-## DigiPay and DigiDollar (merchants)
-
-This document is about the DigiByte wallet, where you alone hold your keys. DigiPay, the merchant payment service in this repository, works the same way for **DGB**: payments go straight to the merchant's own address or xpub.
-
-**DigiDollar on DigiPay is the exception.** There is no way yet to derive a DigiDollar address from a merchant's key, so DD payments land in a wallet DigiPay runs, and DigiPay pays the DD out to each merchant's own DigiDollar payout address (specs/034). By default that happens as soon as each payment has 6 confirmations. DigiPay shows each store exactly how much it holds and why, never uses one merchant's DD for another, and absorbs any loss from a payment undone after it was paid out. This custody covers DigiPay merchants' DigiDollar only; it never touches wallet users' keys.

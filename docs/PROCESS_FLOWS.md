@@ -958,6 +958,26 @@ InvoiceMonitor, every 10 s, for an unlocked session: check every option's addres
   → normal flow: seen → paid → confirmed, webhooks in the currency actually paid
 After the lock (until the 3-day late window ends)
   → funds on the other option → extra payment on the session → session.extra_payment webhook + audit (once)
-  → merchant refunds the buyer (extra DD is paid out to them by spec 034, labelled for refund)
-DigiDollar off or the node down while unpaid → the DD choice disappears and the buyer is moved back to DGB
+  → merchant refunds the buyer from their own wallet (the extra DD is already there, specs/035)
+DigiDollar off or the explorer unreachable while unpaid → the DD choice disappears and the buyer is moved back to DGB
+```
+
+### DigiPay: DigiDollar on the merchant's own key (spec 035)
+
+```
+Merchant: DigiByte Wallet → Settings → DigiDollar key for DigiPay → copy the key (xpub/tpub at m/86'/coin'/0')
+  → Dashboard → store's DigiDollar card → paste → POST /v1/pay/stores/{id}/dd-key/preview
+      refused: private key (never echoed), wrong network, not an account key, not a key
+      ok: first address shown → merchant checks it against the wallet
+  → PUT /v1/pay/stores/{id}/dd-key { key, confirmFirstAddress } → key saved (audit: fingerprint only)
+  → DigiDollar can now be turned on (409 dd_key_required without a key)
+Every DD address (explicit DD payment, the buyer's DD option, the donation address)
+  → next index of the key's shared sequence (one atomic UPDATE … RETURNING; stores with the same key share it)
+  → derived 0/index Taproot address → recorded in DdAddresses → no outside call
+InvoiceMonitor, every 10 s, for each watched DD address
+  → explorer reported down (cached 30 s) → skip: the payment waits, DGB unaffected
+  → GetHistoryAsync on the public explorer → total received + confirmations of the completing tx
+  → pending → seen → paid (1 conf) → confirmed (6 conf); underpaid stays watched for the 3-day late window
+DD lands in the merchant's own wallet. DigiPay never holds DD or any private key.
+Remove the key → DigiDollar off for the store; open DD payments still complete
 ```

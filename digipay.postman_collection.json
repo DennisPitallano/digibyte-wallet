@@ -288,65 +288,49 @@
           }
         },
         {
-          "name": "Get DD balance",
+          "name": "Preview DigiDollar key",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/pay/stores/{{storeId}}/dd-balance",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "pay",
-                "stores",
-                "{{storeId}}",
-                "dd-balance"
-              ]
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"xpub6...\"\n}"
             },
-            "description": "DigiDollar held for the store (specs/034): confirmed and confirming cents, by source, hold reason, payout address and schedule. Read-only with an API key."
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/dd-key/preview",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "dd-key", "preview"]
+            },
+            "description": "Checks a DigiDollar account key from the DigiByte Wallet (Settings → DigiDollar key for DigiPay) and returns the first address it gives, without saving. Compare that address with the wallet. 400 dd_key_invalid with a reason (malformed, private_key, wrong_network, not_account_key)."
           }
         },
         {
-          "name": "List DD payouts",
+          "name": "Set DigiDollar key",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/pay/stores/{{storeId}}/payouts",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "pay",
-                "stores",
-                "{{storeId}}",
-                "payouts"
-              ]
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"key\": \"xpub6...\",\n    \"confirmFirstAddress\": \"DD...\"\n}"
             },
-            "description": "The store's DigiDollar payouts, newest first. Filter with ?status=sent|confirmed|failed|waiting|checking; page with ?cursor=."
+            "url": {
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/dd-key",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "dd-key"]
+            },
+            "description": "Sets or replaces the store's DigiDollar key. confirmFirstAddress must be the first address from the preview (409 first_address_mismatch otherwise). DigiDollar then goes straight to that wallet; DigiPay never holds it."
           }
         },
         {
-          "name": "Get DD payout",
+          "name": "Remove DigiDollar key",
           "request": {
-            "method": "GET",
-            "header": [],
+            "method": "DELETE",
             "url": {
-              "raw": "{{baseUrl}}/v1/pay/payouts/{{payoutId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "pay",
-                "payouts",
-                "{{payoutId}}"
-              ]
+              "raw": "{{baseUrl}}/v1/pay/stores/{{lastStoreId}}/dd-key",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "pay", "stores", "{{lastStoreId}}", "dd-key"]
             },
-            "description": "One DigiDollar payout with its items (which sessions and sources it paid out)."
+            "description": "Removes the key and turns DigiDollar off for the store. Open DD payments still complete."
           }
         },
         {

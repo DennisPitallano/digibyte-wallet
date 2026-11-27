@@ -300,9 +300,14 @@
                 flagged for you to refund. The donation page can take DD tips too (see <a href="#donation-button" class="text-dgb-500 hover:underline">Donation button</a>).
             </p>
             <p class="@P">
-                Unlike DGB, which goes straight to your own address, DD payments go to addresses DigiPay controls: DigiPay holds the DD buyers pay
-                until it's paid out to the payout address you set in the dashboard's <em>DigiDollar payouts</em> section (a store needs one before DigiDollar can be
-                turned on). DigiPay pays the DD network fees in DGB.
+                DigiDollar goes straight to your own wallet, like DGB. In your DigiByte Wallet, open <em>Settings → DigiDollar key for DigiPay</em>,
+                copy the key and paste it into the store's DigiDollar card in the dashboard. DigiPay shows the first address the key gives: check it matches
+                the one your wallet shows, then save. Every DD payment then gets a new address from that key, and DigiPay never holds DD or any private key.
+                You can use the same key for several stores; they share one address sequence, so no address is used twice. If a buyer sends DD by
+                mistake (an extra payment in the other currency), it's already in your wallet: refund it from there. Because DigiPay gives out a new
+                address for every payment, including ones never paid, use <em>Look further for DigiDollar</em> on your wallet's recovery page if some DD
+                you were paid doesn't show. DigiPay reads DigiDollar payments from the public DigiByte explorer; while it can't be reached, DD payments
+                wait and confirm once it's back, and DGB keeps working.
             </p>
 
             <DocsHeading Id="sdks">SDKs</DocsHeading>

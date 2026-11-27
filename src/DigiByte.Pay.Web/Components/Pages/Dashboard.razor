@@ -607,7 +607,7 @@ else
                                         <input id="don-dd-amount" @bind="donDdAmount" @bind:event="oninput" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="@Input" />
                                     </div>
                                 </div>
-                                <p class="@Muted m-0">The button opens your tip page, which offers DGB and DigiDollar and drops DigiDollar if you turn it off later. DigiPay holds DD tips until they're paid out to you.</p>
+                                <p class="@Muted m-0">The button opens your tip page, which offers DGB and DigiDollar and drops DigiDollar if you turn it off later. DD tips go straight to your wallet.</p>
                             }
                         }
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
@@ -1401,7 +1401,7 @@ else
             confirmError = error;
             return;
         }
-        // An action may open a follow-up question (a store that still holds DD); keep that one open.
+        // An action may open a follow-up question; keep that one open.
         if (!ReferenceEquals(pendingConfirm, job)) return;
         pendingConfirm = null;
         if (job.SuccessText is not null) Toasts.Success(job.SuccessText);
@@ -1553,7 +1553,7 @@ else
 
     private string? token;
     private AccountDto? account;
-    // specs/033 FR-032: the server switch for the new DD surfaces (off until spec 034's payouts are live).
+    // specs/033 FR-032: the server switch for the new DD surfaces (on in production once spec 035 is live).
     private bool DdSurfacesEnabled => account?.DdSurfacesEnabled ?? false;
     private List<StoreDto> stores = new();
     private string activeStoreId = "";

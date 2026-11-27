@@ -258,33 +258,33 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 **Independent test**: searching the code and docs for payout and custody text finds nothing about DD (SC-006). A store with DD on deletes normally.
 
-- [ ] T047 [P] [US5] Write tests in `tests/DigiByte.Pay.Api.Tests/NoCustodyTests.cs`:
+- [X] T047 [P] [US5] Write tests in `tests/DigiByte.Pay.Api.Tests/NoCustodyTests.cs`:
   - Deleting a store with DD on returns 204 (no `dd_held`).
   - `/v1/pay/payouts`, `/v1/pay/stores/{id}/payout-address` and `/v1/pay/operator/payouts/pause` return 404.
   - The webhook event list has no `payout.*` events.
-- [ ] T048 [P] [US5] Rewrite `src/DigiByte.Pay.Web/Components/Pages/Merchant/DigiDollarSettingText.cs` (and its tests) to say:
+- [X] T048 [P] [US5] Rewrite `src/DigiByte.Pay.Web/Components/Pages/Merchant/DigiDollarSettingText.cs` (and its tests) to say:
   - DD goes straight to your wallet, like DGB
   - you need your DigiDollar key
   - no node and no payouts
-- [ ] T049 [P] [US5] Update the in-app docs in these files:
+- [X] T049 [P] [US5] Update the in-app docs in these files:
   - `src/DigiByte.Pay.Web/Components/Pages/Docs.razor`: a "Taking DigiDollar" section covering the key, the first-address check, shared keys, the deeper scan and refunds from your own wallet.
   - `ApiDocs.razor`: the dd-key routes and errors, with the payout routes and events removed.
   - `Features.razor` and `Home.razor`: "non-custodial" now includes DD.
-- [ ] T050 [P] [US5] Revert spec 034's custody wording, where it was added, in `SELF_CUSTODY.md`, `docs/SECURITY.md` and `docs/RAILWAY_NODE.md`. In `docs/RAILWAY_NODE.md`, say that DigiPay no longer needs NodeApi for DD.
-- [ ] T051 [P] [US5] Update the webhook samples (express, flask and dotnet handlers and their READMEs under `samples/`) and both Postman collections:
+- [X] T050 [P] [US5] Revert spec 034's custody wording, where it was added, in `SELF_CUSTODY.md`, `docs/SECURITY.md` and `docs/RAILWAY_NODE.md`. In `docs/RAILWAY_NODE.md`, say that DigiPay no longer needs NodeApi for DD.
+- [X] T051 [P] [US5] Update the webhook samples (express, flask and dotnet handlers and their READMEs under `samples/`) and both Postman collections:
   - remove payout and operator requests and events
   - add the dd-key preview, set and remove requests
-- [ ] T052 [US5] Search `src/`, `docs/`, `samples/` and `README.md` for these terms and fix any DD custody text left:
+- [X] T052 [US5] Search `src/`, `docs/`, `samples/` and `README.md` for these terms and fix any DD custody text left:
   - "payout", "pays out", "holds your DigiDollar"
   - "DigiPay holds", "operator key", "step-up", "DdNode", "NODEAPI_"
 
 ## Phase 8: Polish and cross-cutting
 
 - [ ] T053 (This belongs with US2 but sits here because it needs `FirstPaidAt` from T031. It completes the spec's long-unpaid-run edge case and the `unpaidRun` fields of contract S4.) Compute `unpaidRun` for the key and the `unpaidRunWarning` (> 500) in the store DTO (R11) in `src/DigiByte.Pay.Api/Endpoints/MerchantMeEndpoints.cs`. Show the warning on the DD key card with "Run 'Look further for DigiDollar' in your wallet after your next DigiDollar payment". Test it in `tests/DigiByte.Pay.Api.Tests/DdKeyTests.cs`.
-- [ ] T054 [P] Update `docs/ARCHITECTURE.md` and `docs/PROCESS_FLOWS.md`: the DD flow is the merchant key, then the derived address, then the explorer, with no node, ledger or payouts.
+- [X] T054 [P] Update `docs/ARCHITECTURE.md` and `docs/PROCESS_FLOWS.md`: the DD flow is the merchant key, then the derived address, then the explorer, with no node, ledger or payouts.
 
   Also do FR-020: rewrite the class comment in `src/DigiByte.Pay.Api/Services/DdSurfacesGate.cs`, which says the switch waits for spec 034's payouts. The switch now waits only for this feature to be live. Add a deploy note to `docs/ARCHITECTURE.md` (DigiPay section) to set `DIGIPAY_DD_SURFACES=true` in production once spec 035 ships.
-- [ ] T055 [P] Update `CHANGELOG.md`: DigiDollar on your own key, the wallet DigiDollar key screen, the deeper DD scan, and payouts removed (never released).
+- [X] T055 [P] Update `CHANGELOG.md`: DigiDollar on your own key, the wallet DigiDollar key screen, the deeper DD scan, and payouts removed (never released).
 - [ ] T056 Run `dotnet build` and `dotnet test` for Crypto, Wallet, Pay.Api and Pay.Web tests, the JS tests and the E2E suite. Fix any failures. Note the known unrelated `DigiByte.Wallet.Tests` explorer/timing flakes in the PR if they recur.
 - [ ] T057 Mark the 033 and 034 tasks made moot by this spec in `specs/033-digipay-dd-everywhere/tasks.md` (T072 testnet now covered by spec 035's quickstart) and `specs/034-digipay-dd-payouts/tasks.md` (superseded).
 - [ ] T058 Testnet walk-through of [quickstart.md](quickstart.md) steps 1–9 (needs a testnet DD wallet and a running deployment, so it's done outside this session).

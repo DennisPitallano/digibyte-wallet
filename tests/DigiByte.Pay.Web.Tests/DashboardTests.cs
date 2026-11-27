@@ -446,17 +446,18 @@ public class DashboardTests : BunitContext
     // ----- DigiDollar setting text (specs/033 User Story 5) -----
 
     [Fact]
-    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_cannot_be_withdrawn_yet()
+    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_goes_straight_to_the_wallet()
     {
         var cut = RenderSection("settings");
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-setting-text")));
         var text = cut.Find("#dd-setting-text").TextContent;
 
         Assert.Contains("only through the DigiPay API", text);
-        Assert.Contains("DigiPay holds the DD", text);
-        Assert.Contains("can't be withdrawn yet", text);
+        Assert.Contains("goes straight to your wallet", text);
+        Assert.Contains("DigiPay never holds it", text);
         Assert.Contains("1 DD = $1", text);
-        Assert.Contains("network fees in DGB", text);
+        Assert.DoesNotContain("payout", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("withdrawn", text);
         Assert.DoesNotContain("POS", text);
         Assert.DoesNotContain("donation", text);
         Assert.DoesNotContain("checkout", text);
@@ -472,9 +473,9 @@ public class DashboardTests : BunitContext
 
         foreach (var place in new[] { "POS till", "payment links", "one-off payments", "choice at checkout", "donation page", "the API" })
             Assert.Contains(place, text);
-        Assert.Contains("DigiPay holds the DD", text);
-        Assert.Contains("paid out to your payout address", text);
-        Assert.DoesNotContain("can't be withdrawn", text);
+        Assert.Contains("goes straight to your wallet", text);
+        Assert.DoesNotContain("payout", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DigiPay holds", text);
     }
 
     [Theory]

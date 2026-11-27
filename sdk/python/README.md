@@ -135,7 +135,3 @@ For staging or self-hosted, pass an alternate `base_url`.
 ## License
 
 MIT — see the repo root [`LICENSE`](../../LICENSE).
-
-## DigiDollar payout events
-
-Stores using DigiDollar payouts (beta) also receive `payout.sent`, `payout.confirmed`, `payout.failed`, `payout_address.change_requested`, `payout_address.change_cancelled` and `payout_address.changed`. They're signed the same way, but carry a `payout` or `payoutAddress` object instead of `session`. Verify the signature as usual and answer `200` to events you don't handle. See the DigiPay API docs (Webhooks, DigiDollar payouts).

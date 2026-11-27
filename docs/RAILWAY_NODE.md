@@ -111,16 +111,6 @@ Rehearsal timings (fill in after the rehearsal on a throwaway copy): operator ef
 
 If the node is unreachable the wallet already falls back to public explorers in a clearly labelled degraded mode.
 
-## DigiDollar payouts (specs/034)
-
-DigiPay keeps the DigiDollar buyers pay in the node's `digipay-hot` wallet and forwards it to each merchant's payout address. For that the DigiPay node needs:
-
-- `DIGIDOLLAR_WALLET=digipay-hot`, loaded and unlocked. Without it the DD routes are read-only and DigiPay's payout worker stays idle (it logs one warning).
-- A funded DGB fee reserve in that wallet (at least `DigiDollar:MinDgbFeeReserveDgb`, default 100 DGB). Payouts wait with "delayed by DigiPay" while `/api/digidollar/health` reports `reserve_healthy: false`.
-- `NODEAPI_WRITE_KEY` set here and the same value in Pay.Api's `NODEAPI_WRITE_KEY`. `/send` and the new `/sends` are wallet-scoped.
-
-On Pay.Api set `DIGIPAY_OPERATOR_KEY` (operator pause, resume and `GET /v1/pay/operator/payouts/health`), and add Railway alert rules for log entries with event `DdPayoutAlert` (`coverage_short`, `reversal_absorbed`, `fee_reserve_low`, `node_unavailable_6h`, `checking_stuck`, `store_auto_paused`, `unattributed_receive`). `DIGIPAY_PAYOUTS_PAUSED=true` pauses all payouts at deploy time. Before turning payouts on, check that the health endpoint reports `coverageOk: true`.
-
 ## Operator-only routes
 
 Outside Development, node control, key, wallet, mining, PSBT, descriptor, `tx/create`, `tx/fund`, block invalidate/reconsider, and costly or peer-revealing routes need the `X-NodeApi-Key` header and answer 503 when no key is configured. The full table of what is open and what is gated, and why, is in `specs/004-railway-digibyte-node/research.md` (section R6a).

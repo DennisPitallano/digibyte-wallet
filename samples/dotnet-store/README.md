@@ -43,13 +43,6 @@ status flip to `paid` then `confirmed` once the chain catches up.
   `ProjectReference`. For an external project, swap that for
   `<PackageReference Include="DigiPay" Version="0.1.*" />`.
 
-## Other webhook events
-
-Stores that use DigiDollar also receive `session.extra_payment` (a buyer paid in both currencies; refund the extra) and,
-with DigiDollar payouts, `payout.sent`, `payout.confirmed`, `payout.failed` and the `payout_address.*` events. Payout
-events carry a `payout` or `payoutAddress` object instead of `session`, so the handler acknowledges any event it doesn't
-handle with `200` before reading `session`; otherwise DigiPay would keep retrying it.
-
 ## Production-ready hardening (left out for clarity)
 
 - Replace the `ConcurrentDictionary<string, Order>` with a real DB
