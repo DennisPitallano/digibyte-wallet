@@ -34,10 +34,11 @@
 - The derivation path (`m/86'/20'/0'`) and the explorer (digiexplorer.info) appear only under Assumptions, as the user named them. Requirements speak of "the store's DD key" and "the public explorer".
 - Decisions taken as defaults instead of clarification markers:
   - The key is the wallet's existing DigiDollar account, not a new account dedicated to DigiPay.
-  - The donation address uses one reserved index.
+  - Each store's donation address keeps the first index it's given.
   - The wrong-account case is caught by the first-address check, since an account key doesn't record its path.
   - DD payments created while the explorer is down are still created.
 - Clarified 2026-11-27:
   - The key comes from the wallet's main DD account.
   - The wallet gets a deeper DD scan (500 addresses).
   - DigiPay uses one explorer per network, with no fallback.
+  - Stores that share a DD key share one address sequence.

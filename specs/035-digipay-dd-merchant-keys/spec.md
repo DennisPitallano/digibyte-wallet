@@ -26,6 +26,7 @@ So DigiPay can take DigiDollar the same way it takes DGB: straight to the mercha
 - Q: Which DigiDollar account should a store's key come from? → A: The wallet's main DD account (`m/86'/20'/0'`), with the same privacy as DGB xpub mode today; no dedicated or per-store DD account.
 - Q: How should the merchant's wallet find DD paid to DigiPay addresses far past its 20-unused-address scan window? → A: The wallet's DD scan gets the same "look deeper" option DGB already has (up to 500 addresses), and the key screen points merchants to it. DigiPay never reuses addresses.
 - Q: Should DigiPay rely on one public explorer for DD, or fall back to a second one when it's down? → A: One configurable explorer per network, with no fallback. When it's down, DD waits and DGB keeps working.
+- Q: What happens when a merchant pastes the same DigiDollar key into two of their stores? → A: Stores with the same DD key draw from one shared address sequence, so no address is ever given out twice. This also covers putting an old key back on a store.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -129,7 +130,8 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 - **A key from the other network**: refused (Story 1, scenario 4).
 - **A private key pasted by mistake**: refused, never stored or logged, and the merchant is told never to share it.
 - **Replacing the key while payments are open**: open payments keep their addresses and are still watched, so they still complete.
-- **Address reuse**: each payment gets a new index, and indexes are never reused, even for payments that expired unpaid. The donation address has its own reserved index.
+- **Address reuse**: each payment gets a new index, and indexes are never reused, even for payments that expired unpaid. Each store's donation address takes its own index from the same sequence.
+- **One key on several stores**: a merchant with several stores usually pastes the same key into each. Those stores draw from one shared address sequence, so their addresses never collide. The same applies when a store's old key is put back, so its earlier addresses aren't given out again.
 - **The explorer disagrees with itself, or a payment is reorganised out**: the payment status follows what the explorer shows now, as DGB payments follow their explorer today.
 - **Underpaid or overpaid DD**: handled as today for DD payments, in DD.
 - **DD addresses the wallet hasn't looked at**: DigiPay may give out many addresses that are never paid. The wallet's deeper DD scan finds DD on any of them up to 500 addresses past the last paid one (Story 3, scenario 4). If a store gives out more than 500 DD addresses in a row with none paid, the Dashboard warns the merchant to run the deeper scan after the next payment arrives.
@@ -152,8 +154,8 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 **Addresses**
 
 - **FR-007**: Every DD address DigiPay gives out MUST be derived from the store's DD key: explicit DD payments, POS and link DD payments, the buyer's DD option, and the store's DD donation address.
-- **FR-008**: Each DD payment and each DD option MUST get a new address index. Indexes MUST never be reused.
-- **FR-009**: The DD donation address MUST use one index reserved for it, so it's the same every time and never given to a payment.
+- **FR-008**: Each DD payment and each DD option MUST get a new address index. Indexes MUST never be reused, including across stores that have the same DD key: such stores MUST draw from one shared address sequence for that key.
+- **FR-009**: A store's DD donation address MUST take one index from its key's sequence the first time it's asked for, and keep it, so it's the same every time and never given to a payment or another store.
 - **FR-010**: Creating a DD payment or DD option MUST NOT depend on any outside service.
 
 **Watching**
@@ -184,8 +186,9 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 
 ### Key Entities
 
-- **Store DD key**: the store's DigiDollar account public key, its network, when it was set, and the next unused address index.
-- **DD address** (on a payment, a buyer's DD option or the store's donation address): the address and the index it was derived at. The donation address has a fixed reserved index.
+- **Store DD key**: the store's DigiDollar account public key, its network, and when it was set.
+- **DD key sequence**: one per distinct DD key across DigiPay: the next unused address index for that key, shared by every store that has it.
+- **DD address** (on a payment, a buyer's DD option or the store's donation address): the address and the index it was derived at. A store's donation address keeps the index it was first given.
 - **Removed**: spec 034's DD ledger entries, payouts, payout items, payout address changes, step-up grants, merchant-level DD settings and operator settings.
 
 ## Success Criteria *(mandatory)*
